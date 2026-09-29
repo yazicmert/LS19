@@ -1,4 +1,4 @@
-// ROCSIM görüntüleyici: tek sahne, gerçek ölçek (1 birim = 1 km), kamera merkezli çizim + logaritmik derinlik.
+// LS19 görüntüleyici: tek sahne, gerçek ölçek (1 birim = 1 km), kamera merkezli çizim + logaritmik derinlik.
 // Dünya, Ay, Güneş, yıldızlar ve araç gerçek konum/yönelimlerinde; her kare fizikten gelen durumla güncellenir.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -467,7 +467,7 @@ export class World {
     }
     if (c.mode === 'FOCUS' && c.focus) {                    // seçilen gezegen ya da uydu etrafında
       const tp = this.focusPos(t) || [0, 0, 0];
-      const B = c.focus.kind === 'planet' ? [[1, 0, 0], cross([0, -0.3977771559, 0.9174820621], [1, 0, 0]), [0, -0.3977771559, 0.9174820621]] : [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+      const B = c.focus.kind === 'planet' || c.focus.kind === 'ast' ? [[1, 0, 0], cross([0, -0.3977771559, 0.9174820621], [1, 0, 0]), [0, -0.3977771559, 0.9174820621]] : [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
       return { eye: add(tp, scale(fromBasis(B, sph(c.az, c.el)), c.dist)), target: tp, up: B[2] };
     }
     if (c.mode === 'SOLAR') {                               // Güneş merkezli, ekliptiğe yakın bakış
@@ -661,7 +661,7 @@ export class World {
     this.moonAxis.visible = this.moonMer.visible = showM;
     if (showM) { setLine(this.moonAxis, [add(rm, scale(Mp[2], -1.35 * E.R_M)), add(rm, scale(Mp[2], 1.35 * E.R_M))]); setLine(this.moonMer, [add(rm, scale(Mm[0], E.R_M)), add(rm, scale(Mm[0], 1.35 * E.R_M))]); }
     // Güneş sistemi
-    const focusPl = mode === 'FOCUS' && this.cam.focus && this.cam.focus.kind === 'planet';
+    const focusPl = mode === 'FOCUS' && this.cam.focus && (this.cam.focus.kind === 'planet' || this.cam.focus.kind === 'ast');
     const solar = (mode === 'SOLAR' || focusPl) && this.live;
     for (const pl of this.planets) {
       pl.m.visible = pl.o.visible = !!solar; if (pl.mesh) pl.mesh.visible = !!solar; if (pl.ring) pl.ring.visible = !!solar;

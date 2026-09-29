@@ -3,7 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ROCSIM Canlı Görev</title>
+<title>LS19 · Look Star 19 — Canlı Uzay Simülasyonu</title>
+<meta name="description" content="LS19 (Look Star 19): Dünya'dan Ay'a canlı görev simülasyonu, gerçek zamanlı N-cisim efemerisi, canlı uydular ve asteroitler, asteroit saptırma fizik motoru.">
+<meta name="theme-color" content="#05070b">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:title" content="LS19 · Look Star 19">
+<meta property="og:description" content="Dünya'dan Ay'a canlı görev, canlı uydular ve asteroitler, asteroit saptırma fizik motoru — tarayıcıda, gerçek zamanlı.">
+<meta property="og:image" content="og-image.png">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="css/style.css">
 <script type="importmap">
 { "imports": { "three": "./lib/three.module.js", "three/addons/": "./lib/addons/" } }
@@ -44,6 +56,8 @@
       <button class="tab" data-tab="yorunge">Yörünge</button>
       <button class="tab" data-tab="efemeris">Efemeris</button>
       <button class="tab" data-tab="uydular">Uydular</button>
+      <button class="tab" data-tab="asteroit">Asteroit</button>
+      <button class="tab" data-tab="saptirma">Saptırma</button>
     </nav>
     <div id="tab-gorev" class="tabpage">
       <details id="cfgBox" class="cfg" open>
@@ -127,7 +141,62 @@
       <h3>Ay çevresindeki uydular</h3>
       <label class="chk"><input id="chkMoonSats" type="checkbox" checked> Canlı göster (JPL Horizons)</label>
       <table id="moonSatTable" class="tbl"><tbody></tbody></table>
-      <p class="note">Veriler site açılınca yerel sunucu (sunucu.py) üzerinden internetten alınır ve önbelleğe yazılır; internet yoksa son kopya kullanılır. Dünya uyduları yörünge öğelerinin çağından ±30 gün içinde gösterilir (daha eski ya da ileri tarihler için geçerli veri yok). Ay uyduları yalnız Horizons'ta efemerisi bulunan tarihlerde görünür.</p>
+      <div id="updStatus2" class="dinfo small"></div>
+      <p class="note">Veriler yerel sunucu (sunucu.py) ya da bulut işlevleri (Vercel) üzerinden internetten alınır; 10 dakikada bir yeni sürüm denetlenir, değişen veri kendiliğinden yüklenir (CelesTrak aynı veriyi en sık 2 saatte bir verir). Dünya uyduları yörünge öğelerinin çağından ±30 gün içinde gösterilir (daha eski ya da ileri tarihler için geçerli veri yok). Ay uyduları yalnız Horizons'ta efemerisi bulunan tarihlerde görünür.</p>
+    </div>
+    <div id="tab-asteroit" class="tabpage" hidden>
+      <h3>Asteroitler</h3>
+      <label class="chk"><input id="chkAst" type="checkbox" checked> Canlı göster (JPL Small-Body Database)</label>
+      <div id="astStatus" class="dinfo"></div>
+      <ul id="astGroups" class="sgroups"></ul>
+      <div class="daterow"><input id="astSearch" type="search" placeholder="Asteroit ara (ad, numara ya da tanım)" aria-label="Asteroit ara"></div>
+      <ul id="astResults" class="sresults"></ul>
+      <div id="astSel" class="dinfo"></div>
+      <div id="updStatus" class="dinfo small"></div>
+      <p class="note">Dünya'ya yakın tüm asteroitler (~42.500) ile büyük ana kuşak asteroitleri (H &lt; 13,5) ve Jüpiter Truvalıları. Konumlar JPL'in oskülatör öğelerinden Kepler çözümüyle hesaplanır. Güneş sistemi kamerasında hepsi, diğer kameralarda yalnız Dünya'nın 0,05 AB (≈19 Ay uzaklığı) yakınındakiler görünür. Bir asteroide tıkla: bilgi kartı; kartta yörünge, kamerayla izleme ve saptırma analizi.</p>
+    </div>
+    <div id="tab-saptirma" class="tabpage" hidden>
+      <h3>Saptırma laboratuvarı</h3>
+      <div class="daterow"><input id="dfSearch" type="search" placeholder="Hedef (ör. Apophis, Bennu, 2024 YR4)" aria-label="Hedef asteroit"></div>
+      <ul id="dfResults" class="sresults"></ul>
+      <div id="dfTarget" class="dinfo"></div>
+      <div class="frow3">
+        <label>Başlangıç<span><input id="dfStart" type="date" min="1850-01-01" max="2149-01-01"></span></label>
+        <label>Tarama<span><input id="dfYears" type="number" min="1" max="120" value="50"> yıl</span></label>
+        <span class="bcell"><button id="dfScan" class="sm">Tara</button></span>
+      </div>
+      <div id="dfScanStatus" class="k small"></div>
+      <table id="dfCas" class="tbl cas"><thead><tr><th></th><th>Yakın geçiş (TDB)</th><th class="num">Mesafe</th><th class="num">v∞</th></tr></thead><tbody></tbody></table>
+      <div class="fttl">Hedefin kütlesi</div>
+      <div class="frow3">
+        <label>Çap<span><input id="dfD" type="number" step="any" min="0.001"> km</span></label>
+        <label>Yoğunluk<span><input id="dfRho" type="number" step="50" min="300" max="8000"> kg/m³</span></label>
+        <span></span>
+      </div>
+      <div id="dfM" class="k small"></div>
+      <div class="fttl">İtki</div>
+      <div class="frow"><label for="dfMethod">Yöntem</label>
+        <select id="dfMethod"><option value="kinetic">Kinetik çarpıcı (DART gibi)</option><option value="thrust">Sürekli kuvvet (N × süre)</option></select></div>
+      <div class="frow3" id="dfKin">
+        <label>Araç<span><input id="dfMass" type="number" value="580" min="1" step="10"> kg</span></label>
+        <label>Çarpma hızı<span><input id="dfU" type="number" value="6.1" min="0.1" step="0.1"> km/s</span></label>
+        <label>β<span><input id="dfBeta" type="number" value="3.6" min="1" max="10" step="0.1"></span></label>
+      </div>
+      <div class="frow3" id="dfThr" hidden>
+        <label>Kuvvet<span><input id="dfF" type="number" value="1" min="0.001" step="any"> N</span></label>
+        <label>Süre<span><input id="dfDays" type="number" value="365" min="1" step="1"> gün</span></label>
+        <span></span>
+      </div>
+      <div class="frow"><label for="dfApply">İtki tarihi</label><input id="dfApply" type="date" min="1850-01-01" max="2149-01-01"></div>
+      <div class="frow"><label for="dfDir">Yön</label>
+        <select id="dfDir"><option value="along">Yörünge boyunca (ileri)</option><option value="anti">Yörünge boyunca (geri)</option><option value="best">En etkili yön (STM ile)</option><option value="radial">Radyal (Güneş'ten dışa)</option><option value="normal">Yörünge normali</option></select></div>
+      <label class="chk"><input id="dfHypo" type="checkbox"> Çarpma rotasındaymış gibi değerlendir (B = 0)</label>
+      <div class="daterow"><button id="dfRun" class="primary sm">Hesapla</button><button id="df3d" class="sm" disabled>3B'de göster</button><span id="dfStatus" class="k small"></span></div>
+      <div id="dfOut" class="dfout"></div>
+      <canvas id="dfBplane" class="chart sq"></canvas>
+      <canvas id="dfSweep" class="chart"></canvas>
+      <p class="note">Fizik motoru: asteroit, Güneş + 8 gezegen + Ay + Plüton çekimi (konumlar JPL DE440'tan) ve Güneş'in genel görelilik düzeltmesiyle DOPRI5 ile tümlenir. Yakın geçiş, Dünya'ya uzaklığın yerel en küçüğü olarak ikiye bölmeyle bulunur. Kaçırma, B-düzleminde (Öpik–Valsecchi ξ, ζ) ölçülür: Dünya'yı ıskalamak için kayma, çekim odaklamasıyla büyüyen yakalama yarıçapını (bE) aşmalıdır. İtkinin etkisi hem durum geçiş matrisiyle (doğrusal) hem tam tümlemeyle hesaplanır. Kinetik çarpıcı: Δv = β·m·U / (M + m). Yarkovsky etkisi ve öteki asteroitlerin çekimi modelde yok.</p>
+      <p id="dfDart" class="note"></p>
     </div>
     <div id="tab-yorunge" class="tabpage" hidden>
       <h3>Anlık yörünge elemanları</h3>
@@ -177,9 +246,10 @@
       <button data-cam="SOLAR">Güneş sistemi</button>
     </div>
     <button id="btnRestart" title="Görevi baştan başlat">Baştan</button>
+    <button id="btnPanel" title="Paneli aç/kapa">Panel</button>
   </footer>
 
-  <div id="loading"><div class="lbox"><div class="ltitle">ROCSIM</div><div id="loadMsg">Dokular yükleniyor…</div><div class="track"><div id="loadBar" class="fill"></div></div><button id="loadBack" hidden>Varsayılan tarihe dön</button></div></div>
+  <div id="loading"><div class="lbox"><div class="ltitle">LS19 <span class="lsub">Look Star 19</span></div><div id="loadMsg">Dokular yükleniyor…</div><div class="track"><div id="loadBar" class="fill"></div></div><button id="loadBack" hidden>Varsayılan tarihe dön</button></div></div>
 </div>
 <script type="module" src="js/app.js"></script>
 </body>

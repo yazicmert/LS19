@@ -1,4 +1,4 @@
-// ROCSIM canlı görev — ana iş parçacığı: yükleme, fizik worker'ı, kamera/klavye, HUD
+// LS19 (Look Star 19) — ana iş parçacığı: yükleme, fizik worker'ı, kamera/klavye, HUD
 import * as E from './engine.js';
 import { World } from './scene.js';
 import { UI } from './ui.js';
@@ -6,9 +6,12 @@ import { makeLive } from './live.js';
 import * as EO from './earth.js';
 import { designMissionAsync, PROFILES, normalizeConfig } from './design.js';
 import { SatLayer } from './satlayer.js';
+import { AsteroidLayer } from './asteroids.js';
+import { AstUI } from './astui.js';
+import { Updater } from './updater.js';
 
 const DEFAULT_DATE = '2026-10-13';
-let K = null, DESIGN = null, START_MS = 0, sats = null;
+let K = null, DESIGN = null, START_MS = 0, sats = null, asts = null, astui = null, updater = null;
 
 const $ = (s) => document.querySelector(s);
 const canvas = $('#view');
@@ -32,9 +35,14 @@ async function boot() {
   $('#loadMsg').textContent = 'JPL efemeris çekirdekleri yükleniyor…';
   await kp;
   const q = new URLSearchParams(location.search);
-  // canlı uydular (yerel sunucu vekili üzerinden)
+  // canlı uydular ve asteroitler (yerel sunucu ya da bulut vekili üzerinden); 10 dakikada bir sürüm denetimi
   sats = new SatLayer(world.scene, $('#labels'), K.eo); ui.bindSats(sats);
-  if (q.get('sats') !== '0') sats.load();
+  asts = new AsteroidLayer(world.scene, $('#labels'));
+  astui = new AstUI({ world, asts, ui, getT: () => (latest ? latest.t : 0), focusOn, setCam });
+  const jobs = {};
+  if (q.get('sats') !== '0') jobs.gp = (v) => sats.load(v);
+  if (q.get('ast') !== '0') Object.assign(jobs, { neo: (v) => asts.load('neo', v), mb: (v) => asts.load('mb', v), sentry: (v) => asts.loadSentry(v) });
+  updater = new Updater(jobs); updater.onChange = () => astui.renderUpdater(updater); updater.start();
   const pk = (q.get('profile') || '').toUpperCase(); if (PROFILES[pk]) ui.setConfig(PROFILES[pk].cfg);
   startDesign(q.get('date') || DEFAULT_DATE);
 }
@@ -147,11 +155,15 @@ worker.onmessage = (e) => {
   }
 };
 
+let lastUpd = 0;
 function frame(now) {
   const dt = Math.min(0.1, (now - lastFrame) / 1000); lastFrame = now;
   if (latest) {
     world.update(latest, { dtReal: dt, stage: latest.stage, local: latest.local, drAxis: latest.drAxis });
-    if (sats && world.eye) sats.update(latest.t, world.eye, world.camera, canvas, world.cam.mode !== 'SOLAR', world.cam.mode !== 'SOLAR');
+    const f = world.cam.focus, full = world.cam.mode === 'SOLAR' || (world.cam.mode === 'FOCUS' && f && (f.kind === 'planet' || f.kind === 'ast'));
+    if (sats && world.eye) sats.update(latest.t, world.eye, world.camera, canvas, !full, !full);
+    if (asts && world.eye) { asts.update(latest.t, world.eye, world.camera, canvas, full); astui.update(world.eye); }
+    if (updater && now - (lastUpd || 0) > 5000) { lastUpd = now; astui.renderUpdater(updater); }
     ui.hud(latest, now);
   }
   if (!designing) world.render();                               // tasarım sırasında katman her şeyi örtüyor: işlemci tasarıma kalsın
@@ -201,7 +213,7 @@ function focusOn(focus, dist) {
 document.querySelectorAll('[data-cam]').forEach((b) => b.addEventListener('click', () => setCam(b.dataset.cam)));
 // fare: sürükle döndür, tekerlek yakınlaştır
 let drag = null, press = null;
-canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY }; press = { x: e.clientX, y: e.clientY, t: performance.now() }; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointerdown', (e) => { $('#hoverTip').hidden = true; drag = { x: e.clientX, y: e.clientY }; press = { x: e.clientX, y: e.clientY, t: performance.now() }; canvas.setPointerCapture(e.pointerId); });
 canvas.addEventListener('pointerup', (e) => {
   drag = null;
   // sürüklemeden kısa tıklama: gezegen / uydu seçimi
@@ -213,6 +225,7 @@ function pickAt(e) {
   const cands = [];
   const pp = world.pickPlanet(mx, my); if (pp) cands.push({ ...pp, d2: pp.d * pp.d });
   if (sats && world.eye) { const sp = sats.pick(mx, my, world.camera, world.eye, canvas, latest.t); if (sp) cands.push(sp); }
+  if (asts && world.eye) { const ap = asts.pick(mx, my, world.camera, world.eye, canvas, latest.t); if (ap) cands.push(ap); }
   cands.sort((a, b) => a.d2 - b.d2);
   return cands[0] ? { ...cands[0], mx, my } : null;
 }
@@ -223,7 +236,7 @@ function hover(e) {
   const c = latest && !designing ? pickAt(e) : null;
   canvas.style.cursor = c ? 'pointer' : '';
   if (!c) { tip.hidden = true; return; }
-  tip.textContent = c.kind === 'sat' ? sats.names[c.i] : c.kind === 'msat' ? c.m.name : c.i === 3 ? 'Dünya–Ay' : world.planetName(c.i);
+  tip.textContent = c.kind === 'sat' ? sats.names[c.i] : c.kind === 'msat' ? c.m.name : c.kind === 'ast' ? asts.label(c.i) : c.i === 3 ? 'Dünya–Ay' : world.planetName(c.i);
   tip.hidden = false; tip.style.transform = `translate(${c.mx + 12}px, ${c.my - 22}px)`;
 }
 function handleClick(e) {
@@ -240,6 +253,11 @@ function handleClick(e) {
     ui.showPick({ kind: 'sat', refresh: (tt) => sats.satDetails(c.i, tt),
       actions: [{ label: 'Yörüngesini göster', fn: () => sats.select(c.i) },
         { label: 'Kamerayla izle', fn: () => { sats.select(c.i); focusOn({ kind: 'sat', fn: (tt) => sats.selPos(tt) }, 40); } }] }, mx, my, t);
+  } else if (c.kind === 'ast') {
+    const i = c.i; asts.fetchDetail(i);
+    ui.showPick({ kind: 'ast', refresh: (tt) => asts.details(i, tt), card: (d) => astui.card(d),
+      actions: [{ label: 'Yörüngesini göster', fn: () => asts.select(i) }, { label: 'Kamerayla izle', fn: () => astui.follow(i) },
+        { label: 'Saptırma analizi', fn: () => { ui.hidePick(); astui.openLab(i); } }] }, mx, my, t);
   } else if (c.kind === 'msat') {
     const m = c.m;
     ui.showPick({ kind: 'msat', refresh: (tt) => sats.moonSatDetails(m, tt),
@@ -257,7 +275,7 @@ canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
   if (world.cam.mode === 'SITE') { world.cam.userFov = true; world.camera.fov = Math.max(5, Math.min(70, world.camera.fov * Math.exp(e.deltaY * 0.001))); world.camera.updateProjectionMatrix(); return; }
   const f = world.cam.focus;
-  const minD = world.cam.mode === 'FOCUS' ? (f && f.kind === 'planet' ? world.planetInfo(f.i, latest ? latest.t : 0).R * 1.15 : 0.004)
+  const minD = world.cam.mode === 'FOCUS' ? (f && f.kind === 'planet' ? world.planetInfo(f.i, latest ? latest.t : 0).R * 1.15 : f && f.kind === 'ast' ? Math.max(0.004, f.R * 1.3) : 0.004)
     : { VEHICLE: 0.012, EARTH: E.R_E * 1.05, MOON: E.R_M * 1.03, SYSTEM: 50000, EMB: 9000, SOLAR: 2e6 }[world.cam.mode] || 0.01;
   const maxD = world.cam.mode === 'SOLAR' || world.cam.mode === 'FOCUS' ? 1e10 : 3e6;
   world.cam.dist = Math.max(minD, Math.min(maxD, world.cam.dist * Math.exp(e.deltaY * 0.0012)));
@@ -321,6 +339,8 @@ function applyUrlParams() {
   if (q.get('play') === '1' && !q.get('seek')) setPlay(true);
   if (q.get('tab')) ui.setTab(q.get('tab'));
 }
-window.ROCSIM = { world, ui, send, setCam, setPlay, get sats() { return sats; } };
+$('#btnPanel').onclick = () => $('#panel').classList.toggle('open');
+window.LS19 = { world, ui, send, setCam, setPlay, focusOn, get sats() { return sats; }, get asts() { return asts; }, get astui() { return astui; }, get updater() { return updater; } };
+window.ROCSIM = window.LS19;
 
-boot().catch((err) => { $('#loadMsg').textContent = 'Hata: ' + err.message + ' — siteyi yerel sunucuyla açın (baslat.command).'; console.error(err); });
+boot().catch((err) => { $('#loadMsg').textContent = 'Hata: ' + err.message + ' — siteyi yerel sunucuyla (baslat.command) ya da bulutta açın.'; console.error(err); });

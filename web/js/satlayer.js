@@ -1,5 +1,5 @@
 // Canlı uydular: Dünya çevresi (CelesTrak aktif uydular, SGP4, ayrı iş parçacığı) ve Ay çevresi (JPL Horizons vektörleri).
-// Veriler yerel sunucunun vekilinden (sunucu.py) gelir; tarayıcı CelesTrak/Horizons'a doğrudan erişemez (CORS).
+// Veriler yerel sunucunun (sunucu.py) ya da bulut işlevlerinin (api/, Vercel) vekilinden gelir; tarayıcı CelesTrak/Horizons'a doğrudan erişemez (CORS).
 import * as THREE from 'three';
 import * as E from './engine.js';
 import * as S from '../lib/satellite.esm.js';
@@ -76,17 +76,18 @@ export class SatLayer {
   mkLabel(cls) { const d = document.createElement('div'); d.className = cls; d.style.display = 'none'; this.labelsEl.appendChild(d); return d; }
 
   // ---------------------------------------------------------------- Dünya uyduları
-  async load() {
-    this.info = { status: 'CelesTrak verisi alınıyor…' }; this.changed();
+  async load(v) {
+    if (!this.n) { this.info = { status: 'CelesTrak verisi alınıyor…' }; this.changed(); }
     try {
-      const r = await fetch('api/gp?group=active');
+      const r = await fetch('api/gp?group=active' + (v != null ? '&v=' + v : ''));
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).hata || ('HTTP ' + r.status));
       const omm = await r.json();
-      this.src = { kaynak: decodeURIComponent(r.headers.get('X-Rocsim-Kaynak') || ''), yas: +(r.headers.get('X-Rocsim-Yas') || 0) };
+      this.src = { kaynak: decodeURIComponent(r.headers.get('X-LS19-Kaynak') || ''), yas: +(r.headers.get('X-LS19-Yas') || 0), t: Date.now() };
+      if (this.sel >= 0) this.select(-1);
       this.omm = omm;
       this.worker.postMessage({ cmd: 'load', omm, eo: this.eo });
     } catch (err) {
-      this.info = { status: 'Uydu verisi alınamadı: ' + err.message + ' — siteyi baslat.command (sunucu.py) ile açın.' }; this.changed();
+      this.info = { status: 'Uydu verisi alınamadı: ' + err.message + ' — siteyi baslat.command (sunucu.py) ile ya da bulutta (Vercel) açın.' }; this.changed();
     }
   }
   onMsg(d) {

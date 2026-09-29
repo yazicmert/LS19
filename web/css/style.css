@@ -51,8 +51,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 .status { margin-top: 8px; min-height: 16px; font-size: 13px; color: var(--warn); }
 
 #panel { position: absolute; top: 14px; right: 14px; bottom: 76px; width: 356px; display: flex; flex-direction: column; background: rgba(12, 15, 21, 0.82); border: 1px solid var(--line); border-radius: var(--radius); backdrop-filter: blur(6px); }
-.tabs { display: flex; gap: 4px; padding: 8px; border-bottom: 1px solid var(--line); }
-.tab { flex: 1; padding: 6px 2px; font-size: 12px; min-width: 0; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px; border-bottom: 1px solid var(--line); }
+.tab { flex: 1 0 22%; padding: 5px 2px; font-size: 12px; min-width: 0; }
 .tabpage { padding: 4px 12px 12px; overflow-y: auto; flex: 1; }
 .tabpage h3 { font-size: 13px; color: var(--text-secondary); font-weight: 600; margin: 12px 0 6px; }
 .plan, .log { list-style: none; margin: 0; padding: 0; }
@@ -130,7 +130,7 @@ input[type=search] { flex: 1; font: inherit; font-size: 13px; color: var(--text-
 #ephtable td:first-child { color: var(--text-secondary); font-size: 12.5px; }
 #loadBack { margin-top: 12px; }
 
-#pick { position: absolute; z-index: 4; width: 290px; padding: 10px 12px 10px; background: rgba(12, 15, 21, 0.9); border: 1px solid var(--line); border-radius: var(--radius); backdrop-filter: blur(6px); font-size: 12.5px; }
+#pick { position: absolute; z-index: 4; width: 300px; max-height: calc(100% - 100px); overflow-y: auto; padding: 10px 12px 10px; background: rgba(12, 15, 21, 0.9); border: 1px solid var(--line); border-radius: var(--radius); backdrop-filter: blur(6px); font-size: 12.5px; }
 #pick .ph { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 #pick .pt { font-size: 14px; font-weight: 600; color: var(--text-primary); }
 #pick .ps { color: var(--text-muted); font-size: 11.5px; margin: 2px 0 6px; }
@@ -146,6 +146,26 @@ input[type=search] { flex: 1; font: inherit; font-size: 13px; color: var(--text-
 .ltitle { font-size: 22px; font-weight: 700; letter-spacing: 0.08em; margin-bottom: 10px; }
 #loadMsg { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
 
+/* asteroitler ve saptırma */
+.lbl-ast { color: #ffb36b; font-size: 11.5px; } .lbl-astbig { color: #b9c7e3; font-size: 11px; }
+.lbl-df { color: #d8dde6; font-size: 11px; } .lbl-df2 { color: #ff8a3d; font-size: 11px; }
+.dinfo.small, .small { font-size: 11.5px; color: var(--text-muted); }
+.lsub { display: block; font-size: 12px; font-weight: 500; letter-spacing: 0.3em; color: var(--text-muted); margin-top: 2px; }
+.tbl.cas tr { cursor: pointer; } .tbl.cas tr.on td { color: var(--text-primary); background: rgba(57, 135, 229, 0.12); }
+.tbl.cas td { font-size: 12px; } .tbl.cas input { margin: 0; }
+.bcell { display: flex; align-items: flex-end; justify-content: flex-end; }
+.dfout .tbl td { font-size: 12px; } .dfout .tbl td.num { white-space: normal; }
+.dfout tr.hl td { color: var(--text-primary); font-weight: 600; } .dfout tr.good td.num { color: var(--good); } .dfout tr.bad td.num { color: var(--bad); }
+.chart.sq { aspect-ratio: 1 / 1; height: auto; }
+#dfSweep { height: 190px; }
+#btnPanel { display: none; }
+[hidden] { display: none !important; }
+#tab-saptirma select, #tab-saptirma input:not([type=checkbox]):not([type=radio]):not([type=search]) { font: inherit; font-size: 12.5px; color: var(--text-primary); background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; color-scheme: dark; min-width: 0; }
+#tab-saptirma .frow3 label span input { width: 100%; }
+#tab-saptirma .frow3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#tab-saptirma .frow input[type=date] { flex: 1; }
+#dfM { display: block; margin: 2px 0 4px; }
+
 @media (max-width: 1520px) {
   .cams > .k { display: none; }
   #controls { gap: 8px; }
@@ -156,6 +176,8 @@ input[type=search] { flex: 1; font: inherit; font-size: 13px; color: var(--text-
 }
 @media (max-width: 760px) {
   #panel { display: none; }
+  #panel.open { display: flex; left: 8px; right: 8px; width: auto; top: 8px; bottom: 120px; z-index: 4; }
+  #btnPanel { display: inline-block; }
   #hud { width: calc(100% - 28px); }
   .cams { margin-left: 0; }
 }

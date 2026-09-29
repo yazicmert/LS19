@@ -1,0 +1,13 @@
+# Vercel'e yalnız site (web/) ve veri vekili (api/) gider
+*.blend
+*.blend1
+kernels/
+pylib/
+scripts/
+renders/
+docs/
+web/test/
+web/data/cache/
+web/baslat.command
+web/sunucu.py
+**/__pycache__/

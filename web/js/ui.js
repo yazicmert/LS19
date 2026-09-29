@@ -1,4 +1,4 @@
-// ROCSIM arayüzü: HUD, görev paneli (olaylar, Δv bütçesi, grafikler, yörünge elemanları)
+// LS19 arayüzü: HUD, görev paneli (olaylar, Δv bütçesi, grafikler, yörünge elemanları)
 import * as E from './engine.js';
 import * as EO from './earth.js';
 import { R_SITE } from './mission.js';
@@ -291,7 +291,9 @@ export class UI {
     if (!d) { ttl.append(mk('div', 'pt', 'Veri yok'), mk('div', 'ps', 'Bu an için durum hesaplanamadı')); head.append(ttl, x); el.appendChild(head); return; }
     const rows = [];
     const km = (v) => (Math.abs(v) >= 10000 ? fmt(v, 0) : fmt(v, 1)) + ' km';
-    if (P.kind === 'sat') {
+    if (P.card) {
+      const c = P.card(d); ttl.append(mk('div', 'pt', c.title), mk('div', 'ps', c.sub)); rows.push(...c.rows);
+    } else if (P.kind === 'sat') {
       ttl.append(mk('div', 'pt', d.name), mk('div', 'ps', `NORAD ${d.norad} · COSPAR ${d.cospar}${d.launchYear ? ` · fırlatma ${d.launchYear}` : ''}`));
       rows.push(['Grup', d.group], ['Yörünge türü', d.orbitType]);
       if (d.alt != null) rows.push(['İrtifa', km(d.alt)], ['Hız', fmt(d.speed, 3) + ' km/s'],

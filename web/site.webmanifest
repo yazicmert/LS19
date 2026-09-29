@@ -1,0 +1,15 @@
+{
+  "name": "LS19 · Look Star 19",
+  "short_name": "LS19",
+  "description": "Dünya'dan Ay'a canlı görev, canlı uydular ve asteroitler, asteroit saptırma fizik motoru.",
+  "lang": "tr",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#05070b",
+  "theme_color": "#05070b",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

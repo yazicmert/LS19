@@ -1,4 +1,4 @@
-// ROCSIM görevi — rocsim_mission.py'nin canlı (adım adım) JavaScript karşılığı.
+// LS19 görevi — rocsim_mission.py'nin canlı (adım adım) JavaScript karşılığı.
 // Otopilot bir üreteç (generator): her fizik adımında yield eder, ekran saatini (P.tLimit) aşmaz.
 // Otopilot kapatılınca üreteç bekler, araç elle uçurulur; açılınca kaldığı yerden devam eder
 // (rota düzeltmeleri o anki duruma göre yeniden hedefler).

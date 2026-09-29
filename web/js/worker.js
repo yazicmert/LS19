@@ -1,4 +1,4 @@
-// ROCSIM fizik iş parçacığı (Web Worker): görev + motor burada koşar, ana iş parçacığı yalnız çizer.
+// LS19 fizik iş parçacığı (Web Worker): görev + motor burada koşar, ana iş parçacığı yalnız çizer.
 import * as E from './engine.js';
 import * as EO from './earth.js';
 import { Mission, R_SITE, STAGES } from './mission.js';

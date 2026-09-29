@@ -1,4 +1,4 @@
-// ROCSIM fizik motoru — rocsim_mission_engine.py'nin birebir JavaScript karşılığı
+// LS19 fizik motoru — rocsim_mission_engine.py'nin birebir JavaScript karşılığı
 // Birimler: km, s, kg. Zaman: TDB saniye (JD0 = 2026-10-01 00:00 TDB'den). Çerçeve: ICRF.
 // Kuvvetler: merkez cisim (Dünya/Ay, etki küresiyle geçiş) + Dünya J2 (presesyonlu kutup)
 //            + Ay J2/C22 (PA çerçevesi) + Ay/Dünya/Güneş üçüncü cisim (DE440) + sonlu itki.
