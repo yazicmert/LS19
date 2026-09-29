@@ -50,6 +50,27 @@ const FS = `
     gl_FragColor = vec4(vCol * (1.25 - 1.6 * d), 1.0 - smoothstep(0.14, 0.25, d));
   }`;
 
+// CelesTrak'tan doğrudan (kullanıcının tarayıcısından). CelesTrak kuralı: aynı veri 2 saatten sık indirilmez ->
+// yanıt tarayıcının Cache Storage'ında 2 saat saklanır; ağ hatasında eski kopya kullanılır.
+const GP_URL = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json';
+async function celestrakDirect() {
+  let cache = null, hit = null;
+  try { cache = await caches.open('ls19-celestrak'); hit = await cache.match(GP_URL); } catch (e) { cache = null; }
+  const tHit = hit ? +hit.headers.get('X-LS19-T') : 0;
+  if (hit && Date.now() - tHit < 2 * 3600e3) return { omm: await hit.json(), kaynak: 'CelesTrak (tarayıcı önbelleği)', yas: (Date.now() - tHit) / 1000 };
+  try {
+    const r = await fetch(GP_URL);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const txt = await r.text(), omm = JSON.parse(txt);
+    if (!Array.isArray(omm) || !omm.length) throw new Error('beklenmeyen yanıt');
+    if (cache) try { await cache.put(GP_URL, new Response(txt, { headers: { 'Content-Type': 'application/json', 'X-LS19-T': String(Date.now()) } })); } catch (e) { /* önbellek isteğe bağlı */ }
+    return { omm, kaynak: 'CelesTrak (doğrudan)', yas: 0 };
+  } catch (e) {
+    if (hit) return { omm: await hit.json(), kaynak: 'CelesTrak (eski tarayıcı önbelleği)', yas: (Date.now() - tHit) / 1000 };
+    throw e;
+  }
+}
+
 export class SatLayer {
   constructor(scene, labelsEl, eoData) {
     this.scene = scene; this.labelsEl = labelsEl; this.eo = eoData;
@@ -78,17 +99,24 @@ export class SatLayer {
   // ---------------------------------------------------------------- Dünya uyduları
   async load(v) {
     if (!this.n) { this.info = { status: 'CelesTrak verisi alınıyor…' }; this.changed(); }
-    try {
+    let omm = null, src = null, err1 = null;
+    try {                                                       // 1) sunucu vekili (yerel sunucu.py ya da bulut api/)
       const r = await fetch('api/gp?group=active' + (v != null ? '&v=' + v : ''));
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).hata || ('HTTP ' + r.status));
-      const omm = await r.json();
-      this.src = { kaynak: decodeURIComponent(r.headers.get('X-LS19-Kaynak') || ''), yas: +(r.headers.get('X-LS19-Yas') || 0), t: Date.now() };
-      if (this.sel >= 0) this.select(-1);
-      this.omm = omm;
-      this.worker.postMessage({ cmd: 'load', omm, eo: this.eo });
-    } catch (err) {
-      this.info = { status: 'Uydu verisi alınamadı: ' + err.message + ' — siteyi baslat.command (sunucu.py) ile ya da bulutta (Vercel) açın.' }; this.changed();
+      omm = await r.json();
+      src = { kaynak: decodeURIComponent(r.headers.get('X-LS19-Kaynak') || 'CelesTrak'), yas: +(r.headers.get('X-LS19-Yas') || 0) };
+    } catch (e) { err1 = e; }
+    if (!omm) {                                                 // 2) tarayıcıdan doğrudan CelesTrak (CORS açık; bazı bulut IP'leri engelli)
+      try { const d = await celestrakDirect(); omm = d.omm; src = { kaynak: d.kaynak, yas: d.yas }; }
+      catch (e2) {
+        this.info = { status: 'Uydu verisi alınamadı: ' + (err1 ? err1.message : '') + ' / doğrudan: ' + e2.message }; this.changed();
+        return;
+      }
     }
+    src.t = Date.now(); this.src = src;
+    if (this.sel >= 0) this.select(-1);
+    this.omm = omm;
+    this.worker.postMessage({ cmd: 'load', omm, eo: this.eo });
   }
   onMsg(d) {
     if (d.type === 'loaded') {

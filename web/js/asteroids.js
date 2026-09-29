@@ -163,6 +163,12 @@ export class AsteroidLayer {
       this.geo.attributes.position.array.set(d.pos); this.geo.attributes.position.needsUpdate = true;
       this.geo.attributes.vel.array.set(d.vel); this.geo.attributes.vel.needsUpdate = true;
       this.etProp = d.et; this.pending = false;
+      // Dünya'nın 0,05 AB yakınındaki asteroit sayısı (Güneş sistemi dışındaki kameralarda yalnız bunlar görünür)
+      const s = this.sunGeoAt ? this.sunGeoAt(d.et) : null;
+      if (s) { let n = 0, L2 = (0.05 * AU) ** 2; const P = d.pos || this.geo.attributes.position.array;
+        const A = this.geo.attributes.position.array;
+        for (let i = 0; i < this.n; i++) { const x = A[3 * i] + s[0], y = A[3 * i + 1] + s[1], z = A[3 * i + 2] + s[2]; if (x * x + y * y + z * z < L2) n++; }
+        if (n !== this.nearCount) { this.nearCount = n; this.changed(); } }
     }
   }
   setMask(i, on) { this.mask[i] = on ? 1 : 0; this.mat.uniforms.mask.value = this.mask.slice(); }
@@ -258,6 +264,7 @@ export class AsteroidLayer {
     const vis = this.enabled && this.n > 0;
     this.points.visible = vis && this.etProp !== null;
     const et = etOfT(t), s = E.sunPos(t);
+    this.sunGeoAt = () => s;
     if (vis) {
       const now = performance.now();
       if (!this.pending && (this.etProp === null || (Math.abs(et - this.etProp) > 30 && now - this.lastReq > 150) || Math.abs(et - this.etProp) > 86400)) {
