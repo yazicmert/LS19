@@ -1,0 +1,9 @@
+# Blender dosyaları (GitHub 100 MB sınırını aşar)
+*.blend
+*.blend1
+# canlı veri önbelleği (sunucu.py yeniden indirir)
+web/data/cache/
+__pycache__/
+*.pyc
+.DS_Store
+node_modules/

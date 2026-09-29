@@ -1,0 +1,57 @@
+# ROCSIM — Canlı Görev (yerel web sitesi)
+
+Dünya park yörüngesinden Apollo 11 iniş bölgesine kadar tüm görev tarayıcıda, gerçek zamanlı çalışan fizik motoruyla uçar.
+Güneş sistemi de canlı hesaplanır: Dünya ve Ay kendi eksenleri etrafında döner, ortak kütle merkezleri etrafında dolanır.
+Görev modülerdir: Dünya park yörüngesi ve Ay'daki bekleme yörüngesi (alçak dairesel LLO ya da halo/NRHO) seçilebilir,
+tasarım her seçim için en az Δv'li yörüngeyi kurar. Dünya ve Ay çevresindeki gerçek uydular canlı gösterilir.
+
+## Açma
+- `baslat.command` dosyasına çift tıkla (ilk seferde macOS "tanımlanmamış geliştirici" uyarısı verirse: sağ tık → Aç).
+  Bu, `sunucu.py`'yi başlatır: sitenin dosyaları + canlı uydu verisi (CelesTrak, JPL Horizons) için yerel vekil ve önbellek.
+- Ya da Terminal'de bu klasörde: `python3 sunucu.py` ve tarayıcıda `http://localhost:8765`.
+- Dosyayı doğrudan (file://) açmak çalışmaz. Eski `python3 -m http.server` da site için yeterlidir ama uydular gelmez.
+- En hızlı çalışma için Safari ya da Chrome önerilir.
+- Adres parametreleri: `?date=1969-07-16`, `?profile=NRHO` (APOLLO, APOLLO11, NRHO, L2, L1), `?sats=0` (uyduları kapat).
+
+## Görev yapılandırması (Görev sekmesi)
+- Profil: Apollo hızlı (LLO 2 tur) · Apollo 11 gibi (LLO 13 tur, park eğimi 32,5°) · Artemis NRHO 9:2 · L2 halo · L1 halo · Özel.
+- Dünya park yörüngesi: irtifa (160–1000 km), eğim (28,6–90°), tur.
+- Ay bekleme yörüngesi: LLO (irtifa, tur) ya da halo (NRHO 9:2, L2 güney Az 13.000 km, L1 kuzey Az 10.000 km; en az tur);
+  halo seçilince iniş, halo'dan LLO'ya iki yakışlı transferle yapılır (ayrılış anı, LLO düzlemi ve varış noktası en az Δv için aranır).
+- Tarih seç, **Tasarla**. Varsayılan tarihte (13 Ekim 2026) tüm hazır profiller önceden hesaplanmıştır (anında açılır);
+  başka tarihlerde Apollo birkaç saniye, halo profilleri 20–50 saniye sürer.
+- Δv sekmesi: manevra bazında nominal/gerçekleşen Δv ve **profil karşılaştırması** (satıra tıkla: o profil yüklenir;
+  "Bu tarih için hesapla" seçili tarihte tüm profilleri tasarlar).
+- Araç boyutlandırma: iniş aracı ve TLI kademesinin yakıtı profilin Δv bütçesinden hesaplanır.
+
+## Uydular (Uydular sekmesi)
+- Dünya: CelesTrak "aktif uydular" (≈16.600), SGP4 ile ayrı iş parçacığında; gruplar (istasyonlar, Starlink, OneWeb, seyrüsefer, GEO, diğer)
+  açılıp kapanabilir; ad ya da NORAD no ile ara, seçilen uydunun yörüngesi çizilir. Veri 2 saatte bir yenilenir.
+  Uydu noktaları kameraya yaklaştıkça büyür (yakın plan görünümde kaybolmaz).
+  Yörünge öğeleri çağından ±30 gün dışında (ör. 1969) gösterilmez.
+- Ay: LRO, Danuri (KPLO), Chandrayaan-2, ARTEMIS P1/P2, CAPSTONE — JPL Horizons vektörleri, yalnız verisi bulunan tarihlerde.
+- Veriler `data/cache/` altında önbelleğe alınır; internet yoksa son kopya kullanılır.
+
+## Kontroller
+- **Boşluk**: başlat/duraklat · **. ,**: zaman hızı ×2 / ÷2 · "Otomatik hız" olaylara yaklaşırken yavaşlatır
+- **G**: otopilot aç/kapa · **P**: 2 m/s rastgele bozulma (rota düzeltmeleri telafi eder)
+- **1–8**: kamera (Otomatik, Araç, Dünya, Ay, Dünya–Ay, İniş yeri, Kütle merkezi, Güneş sistemi) · fare sürükle: döndür, tekerlek: yakınlaştır
+- Otopilot kapalıyken: **W/S** ileri/geri, **A/D** normal/anti-normal, **Q/E** radyal dış/iç, **R** yüzeye göre geri, **H** sabit tut,
+  **Shift/Ctrl** itki ±%10, **Z** tam itki, **X** kes, **B** kademe ayır
+- Görev çizelgesindeki bir olaya tıkla: görev o ana kadar hızlıca (ekransız) koşulur ve oradan devam eder.
+- **Fareyle üzerine gel**: uydu ya da gezegenin adı · **tıkla**: bilgi kartı · **Esc**: kartı kapat
+  - Uydu kartı: grup, yörünge türü, irtifa, hız, yer izi, aydınlanma, periyot, eğim, perije/apoje, dış merkezlik, öğelerin yaşı;
+    **Yörüngesini göster** ve **Kamerayla izle** (kamera uyduya kilitlenir; birkaç km'ye inince temsili 3B uydu modeli görünür).
+  - Gezegen kartı: yarıçap, Güneş'e ve Dünya'ya uzaklık (ışık süresi), yörünge hızı, periyodu, yarı büyük eksen ve e; **Yakınlaş** kamerayı gezegene götürür (gerçek boyutlu küre, Jüpiter bantları, Satürn halkası).
+  - Güneş sistemi görünümünde Dünya–Ay'a tıklamak Dünya–Ay kamerasına geçer.
+
+## İçerik
+- `js/cr3bp.js` — Dünya–Ay CR3BP: Richardson başlangıcı, diferansiyel düzeltme, halo/NRHO aileleri
+- `js/halo.js` — halo yörüngesini tarihe taşıma (nabız atan dönen çerçeve) ve Dünya+Ay+Güneş+Ay J2/C22 modelinde çoklu atış
+- `js/design.js` — modüler görev tasarımı (Apollo/LLO ve halo profilleri, TLI, KSC fazlaması, araç boyutlandırma)
+- `js/mission.js` — otopilot (TLI, MCC, LOI ya da NRI + istasyon tutma + ayrılış + LLO girişi, DOI, PDI güdümü)
+- `js/ephem.js`, `js/earth.js`, `js/jplkernel.js` — canlı N-cisim efemerisi, Dünya yönelimi, JPL çekirdek okuyucu
+- `js/engine.js` — fizik motoru · `js/worker.js` fizik iş parçacığı · `js/nominal.js` nominal Δv koşusu
+- `js/sats.js`, `js/satlayer.js`, `lib/satellite.esm.js` (satellite.js, MIT) — canlı uydular
+- `js/scene.js` Three.js görüntü · `js/ui.js` HUD ve paneller · `js/terrain.js` iniş bölgesi arazisi
+- `sunucu.py` — yerel sunucu + veri vekili · `data/designs_default.json` — varsayılan tarihin hazır tasarımları

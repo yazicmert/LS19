@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ROCSIM Canlı Görev</title>
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">
+{ "imports": { "three": "./lib/three.module.js", "three/addons/": "./lib/addons/" } }
+</script>
+</head>
+<body>
+<div id="app">
+  <canvas id="view"></canvas>
+  <div id="labels"></div>
+  <div id="pick" class="pick" hidden role="dialog" aria-label="Seçilen cisim"></div>
+  <div id="hoverTip" class="hovertip" hidden></div>
+
+  <section id="hud" aria-label="Uçuş verileri">
+    <div class="hud-top">
+      <div><span class="k">UTC</span> <span id="utc" class="v">—</span></div>
+      <div><span class="k">Görev süresi</span> <span id="met" class="v">—</span></div>
+    </div>
+    <div id="phase" class="phase">Yükleniyor…</div>
+    <div class="big">
+      <div><span class="k">İrtifa <em id="altRef"></em></span><span id="alt" class="bv">—</span></div>
+      <div><span class="k">Hız <em id="spdRef"></em></span><span id="spd" class="bv">—</span></div>
+    </div>
+    <div id="vv" class="sub">—</div>
+    <div class="grid2">
+      <div><span class="k">Kütle</span> <span id="mass" class="v">—</span></div>
+      <div><span class="k">Kullanılan Δv</span> <span id="dvu" class="v">—</span></div>
+    </div>
+    <div class="bar"><span class="k"><span id="propName">Yakıt</span> yakıtı</span><span id="propVal" class="v">—</span><div class="track"><div id="propBar" class="fill"></div></div></div>
+    <div class="bar"><span class="k">İtki</span><span id="thrVal" class="v">—</span><div class="track"><div id="thrBar" class="fill thr"></div></div></div>
+    <div id="status" class="status" role="status" aria-live="polite"></div>
+  </section>
+
+  <aside id="panel" aria-label="Görev paneli">
+    <nav class="tabs">
+      <button class="tab on" data-tab="gorev">Görev</button>
+      <button class="tab" data-tab="dv">Δv</button>
+      <button class="tab" data-tab="grafik">Grafik</button>
+      <button class="tab" data-tab="yorunge">Yörünge</button>
+      <button class="tab" data-tab="efemeris">Efemeris</button>
+      <button class="tab" data-tab="uydular">Uydular</button>
+    </nav>
+    <div id="tab-gorev" class="tabpage">
+      <details id="cfgBox" class="cfg" open>
+        <summary>Görev yapılandırması</summary>
+        <div class="frow"><label for="cfgProfile">Profil</label>
+          <select id="cfgProfile">
+            <option value="APOLLO">Apollo, hızlı (LLO 110 km, 2 tur)</option>
+            <option value="APOLLO11">Apollo 11 gibi (LLO 110 km, 13 tur)</option>
+            <option value="NRHO">Artemis: NRHO 9:2 bekleme + LLO</option>
+            <option value="L2">L2 halo bekleme + LLO</option>
+            <option value="L1">L1 halo bekleme + LLO</option>
+            <option value="CUSTOM">Özel</option>
+          </select></div>
+        <div class="fttl">Dünya park yörüngesi</div>
+        <div class="frow3">
+          <label>İrtifa<span><input id="cfgEh" type="number" min="160" max="1000" step="5"> km</span></label>
+          <label>Eğim<span><input id="cfgEi" type="number" min="28.6" max="90" step="0.1"> °</span></label>
+          <label>Tur<span><input id="cfgEr" type="number" min="0.5" max="15.5" step="1"></span></label>
+        </div>
+        <div class="fttl">Ay bekleme yörüngesi</div>
+        <div class="frow"><label for="cfgMt">Tür</label>
+          <select id="cfgMt"><option value="LLO">Alçak dairesel yörünge (LLO)</option><option value="HALO">Halo / NRHO (sonra LLO)</option></select></div>
+        <div class="frow" id="rowHalo"><label for="cfgHp">Halo</label>
+          <select id="cfgHp"><option value="NRHO92">NRHO 9:2 (L2 güney, Gateway)</option><option value="L2S13">L2 güney halo (Az 13.000 km)</option><option value="L1N10">L1 kuzey halo (Az 10.000 km)</option></select>
+          <label class="inl">Tur <input id="cfgHr" type="number" min="1" max="6" step="1"></label></div>
+        <div class="frow3">
+          <label>LLO irtifa<span><input id="cfgLh" type="number" min="30" max="500" step="5"> km</span></label>
+          <label>LLO tur<span><input id="cfgLr" type="number" min="1" max="40" step="1"></span></label>
+          <span></span>
+        </div>
+      </details>
+      <h3>Görev tarihi</h3>
+      <div class="daterow">
+        <input id="dateInput" type="date" min="1850-01-01" max="2149-12-01" aria-label="En erken fırlatma günü (UTC)">
+        <button id="btnDesign" class="primary sm">Tasarla</button>
+      </div>
+      <div class="daterow presets">
+        <button data-date="today">Bugün</button>
+        <button data-date="1969-07-16">Apollo 11 (1969)</button>
+        <button data-date="2026-10-13">Ekim 2026</button>
+      </div>
+      <div id="designInfo" class="dinfo"></div>
+      <details class="dlog"><summary>Tasarım günlüğü</summary><ul id="designLog"></ul></details>
+      <h3>Görev çizelgesi</h3>
+      <ul id="plan" class="plan"></ul>
+      <h3>Olay günlüğü</h3>
+      <ul id="log" class="log"></ul>
+    </div>
+    <div id="tab-dv" class="tabpage" hidden>
+      <h3>Δv bütçesi (m/s)</h3>
+      <table id="dvtable" class="tbl">
+        <thead><tr><th>Manevra</th><th class="num">Nominal</th><th class="num">Gerçekleşen</th><th class="num">Fark</th></tr></thead>
+        <tbody></tbody>
+        <tfoot><tr><td>Toplam nominal</td><td id="dvNom" class="num"></td><td></td><td></td></tr></tfoot>
+      </table>
+      <p class="note">Nominal: otopilotun bozulmasız uçuşu. Bozulma ya da elle yakış eklersen rota düzeltmeleri bunları telafi eder, fark burada görünür.</p>
+      <p class="note">Apollo 11 (planlanan, Press Kit): LOI 891 + 48, DOI 22.6, MCC-2 6.4 m/s.</p>
+      <h3>Profil karşılaştırması</h3>
+      <table id="cmptable" class="tbl cmp"><thead><tr><th>Profil</th><th class="num">Ay Δv</th><th class="num">Toplam</th><th class="num">Görev</th></tr></thead><tbody></tbody></table>
+      <div class="daterow"><button id="btnCompare" class="sm">Bu tarih için hesapla</button><span id="cmpStatus" class="k"></span></div>
+      <p class="note">Aynı iniş yeri için her profilin en az Δv'li tasarımı. "Ay Δv": Ay'a varıştan inişe kadar (iniş aracının taşıdığı). Satıra tıkla: o profil yüklenir.</p>
+    </div>
+    <div id="tab-grafik" class="tabpage" hidden>
+      <canvas id="chartAlt" class="chart"></canvas>
+      <canvas id="chartSpd" class="chart"></canvas>
+      <p class="note">İrtifa logaritmik ölçekte. Ay'ın etki küresinde değerler Ay'a (inişte iniş yerine) göre.</p>
+    </div>
+    <div id="tab-efemeris" class="tabpage" hidden>
+      <h3>Canlı efemeris</h3>
+      <table id="ephtable" class="tbl"><tbody></tbody></table>
+      <p class="note">Güneş, sekiz gezegen, Plüton, Dünya ve Ay burada kütle çekimiyle birlikte entegre ediliyor; JPL DE440 yalnız başlangıç durumunu veriyor. Dünya ile Ay ortak kütle merkezleri etrafında bu kuvvetlerle dönüyor. Ay'ın dönüşü Dünya ve Güneş torklarından Euler denklemleriyle hesaplanıyor; Dünya'nın yönelimi IAU 2006/2000A modeliyle. "DE440 farkı" satırları hesaplanan değerin resmi efemeristen ne kadar saptığını gösterir.</p>
+    </div>
+    <div id="tab-uydular" class="tabpage" hidden>
+      <h3>Dünya çevresindeki uydular</h3>
+      <label class="chk"><input id="chkSats" type="checkbox" checked> Canlı göster (CelesTrak, SGP4)</label>
+      <div id="satStatus" class="dinfo"></div>
+      <ul id="satGroups" class="sgroups"></ul>
+      <div class="daterow"><input id="satSearch" type="search" placeholder="Uydu ara (ad ya da NORAD no)" aria-label="Uydu ara"></div>
+      <ul id="satResults" class="sresults"></ul>
+      <div id="satSel" class="dinfo"></div>
+      <h3>Ay çevresindeki uydular</h3>
+      <label class="chk"><input id="chkMoonSats" type="checkbox" checked> Canlı göster (JPL Horizons)</label>
+      <table id="moonSatTable" class="tbl"><tbody></tbody></table>
+      <p class="note">Veriler site açılınca yerel sunucu (sunucu.py) üzerinden internetten alınır ve önbelleğe yazılır; internet yoksa son kopya kullanılır. Dünya uyduları yörünge öğelerinin çağından ±30 gün içinde gösterilir (daha eski ya da ileri tarihler için geçerli veri yok). Ay uyduları yalnız Horizons'ta efemerisi bulunan tarihlerde görünür.</p>
+    </div>
+    <div id="tab-yorunge" class="tabpage" hidden>
+      <h3>Anlık yörünge elemanları</h3>
+      <table id="orbtable" class="tbl"><tbody></tbody></table>
+      <p class="note">Anlık (oskülatör) konik: o andaki konum ve hızdan, yalnız merkez cismin çekimiyle. Mavi elips, turuncu hiperbol, mor Ay merkezli.</p>
+    </div>
+  </aside>
+
+  <section id="manual" hidden aria-label="Elle kontrol">
+    <div class="mrow">
+      <span class="k">İtki</span>
+      <input id="thrSlider" type="range" min="0" max="100" value="0" aria-label="İtki yüzdesi">
+      <span id="thrSet" class="v">%0</span>
+    </div>
+    <div class="mrow modes">
+      <button data-mode="PRO" class="on">İleri <kbd>W</kbd></button>
+      <button data-mode="RETRO">Geri <kbd>S</kbd></button>
+      <button data-mode="NML">Normal <kbd>A</kbd></button>
+      <button data-mode="ANML">Anti-normal <kbd>D</kbd></button>
+      <button data-mode="RADOUT">Radyal dış <kbd>Q</kbd></button>
+      <button data-mode="RADIN">Radyal iç <kbd>E</kbd></button>
+      <button data-mode="SRFRETRO">Yüzeye göre geri <kbd>R</kbd></button>
+      <button data-mode="HOLD">Sabit tut <kbd>H</kbd></button>
+    </div>
+    <div class="mrow hint"><kbd>Shift</kbd>/<kbd>Ctrl</kbd> itki ±, <kbd>Z</kbd> tam, <kbd>X</kbd> kes, <kbd>B</kbd> kademe ayır</div>
+  </section>
+
+  <footer id="controls">
+    <button id="btnPlay" class="primary" title="Oynat / duraklat (Boşluk)">▶ Başlat</button>
+    <div class="grp">
+      <button id="btnSlow" title="Zaman hızı ÷2 (,)">−</button>
+      <span id="warpVal" class="warp">×1</span>
+      <button id="btnFast" title="Zaman hızı ×2 (.)">+</button>
+      <label class="chk"><input id="chkAutoWarp" type="checkbox" checked> Otomatik hız</label>
+    </div>
+    <label class="chk sw"><input id="chkAuto" type="checkbox" checked> Otopilot <kbd>G</kbd></label>
+    <button id="btnPerturb" title="Rastgele 2 m/s hız bozulması (P)">Bozulma ekle</button>
+    <div class="grp cams">
+      <span class="k">Kamera</span>
+      <button data-cam="AUTO" class="on">Otomatik</button>
+      <button data-cam="VEHICLE">Araç</button>
+      <button data-cam="EARTH">Dünya</button>
+      <button data-cam="MOON">Ay</button>
+      <button data-cam="SYSTEM">Dünya–Ay</button>
+      <button data-cam="SITE">İniş yeri</button>
+      <button data-cam="EMB" title="Dünya–Ay ortak kütle merkezi">Kütle merkezi</button>
+      <button data-cam="SOLAR">Güneş sistemi</button>
+    </div>
+    <button id="btnRestart" title="Görevi baştan başlat">Baştan</button>
+  </footer>
+
+  <div id="loading"><div class="lbox"><div class="ltitle">ROCSIM</div><div id="loadMsg">Dokular yükleniyor…</div><div class="track"><div id="loadBar" class="fill"></div></div><button id="loadBack" hidden>Varsayılan tarihe dön</button></div></div>
+</div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

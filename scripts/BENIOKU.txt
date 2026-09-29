@@ -1,0 +1,8 @@
+ROCSIM - Adım 5: Dünya park yörüngesinden Apollo 11 bölgesine fiziksel görev
+Bu klasördeki betikler ROCSIM.blend içindeki metin bloklarının kopyasıdır.
+  rocsim_mission_engine.py : fizik motoru (DE440 efemeris, Dünya J2 + presesyon/GMST, Ay J2+C22, Güneş/Ay/Dünya 3. cisim, DOPRI5, sonlu itki)
+  rocsim_mission.py        : görev (KSC fırlatma fazlaması, park, TLI, MCC-1/2, LOI, DOI, PDI 3B güdüm, temas)
+  rocsim_gorev_app.py      : Blender sahneleri (ROCSIM_Dunya, ROCSIM_Yorunge, ROCSIM) + ROCSIM_Film kurgusu
+Efemeris tablosu: ../kernels/rocsim_eph_2026Q4.json (de440s.bsp + moon_pa_de440_200625.bpc'den üretildi)
+Blender'da yeniden pişirmek için (Scripting > Python konsolu):
+  import rocsim_gorev_app as A; A.bake_all()
