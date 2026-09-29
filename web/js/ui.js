@@ -52,7 +52,14 @@ export class UI {
     this.events = []; this.plan = []; this.t0 = 0; this.tLaunch = 0;
     this.series = { t: [], alt: [], spd: [] }; this.lastSample = -Infinity;
     this.lastHud = 0; this.lastEph = 0; this.tab = 'gorev'; this.nominal = null; this.live = null; this.design = null;
+    this.skyTab = 'takip';
     document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => this.setTab(b.dataset.tab)));
+    // sekmeler arasında ok tuşlarıyla gezinme (erişilebilirlik)
+    document.querySelectorAll('.tabs').forEach((nav) => nav.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      const bs = [...nav.querySelectorAll('.tab')], i = bs.indexOf(document.activeElement); if (i < 0) return;
+      const n = bs[(i + (e.key === 'ArrowRight' ? 1 : bs.length - 1)) % bs.length]; n.focus(); this.setTab(n.dataset.tab); e.preventDefault();
+    }));
     this.charts = [new LineChart($('#chartAlt'), 'İrtifa', 'km', true), new LineChart($('#chartSpd'), 'Hız', 'km/s', false)];
     // görev tarihi: seçilen günden itibaren ilk uygun pencere için tarayıcıda yeniden tasarım
     const go = (d) => {
@@ -150,12 +157,17 @@ export class UI {
     if (D.STAGES) line([[`Araç: ${fmt(D.STAGES.reduce((s, q) => s + q.dry + q.prop, 0), 0)} kg · TLI kademesi yakıtı ${fmt(D.STAGES[0].prop, 0)} kg · iniş aracı yakıtı ${fmt(D.STAGES[1].prop, 0)} kg`]]);
   }
   setNominal(dv) { this.nominal = dv; this.renderDv(); }
+  isSkyTab(t) { const pg = document.getElementById('tab-' + t); return !!(pg && pg.closest('#skyPanel')); }
+  // sekme yalnız kendi panelinde değişir (Ay Görevi paneli ve Canlı Gökyüzü paneli bağımsız)
   setTab(t) {
-    this.tab = t;
-    document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('on', b.dataset.tab === t));
-    document.querySelectorAll('.tabpage').forEach((p) => (p.hidden = p.id !== 'tab-' + t));
+    const pg = document.getElementById('tab-' + t); if (!pg) return;
+    const panel = pg.closest('aside');
+    if (panel.id === 'skyPanel') this.skyTab = t; else this.tab = t;
+    panel.querySelectorAll('.tab').forEach((b) => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; });
+    panel.querySelectorAll('.tabpage').forEach((p) => (p.hidden = p.id !== 'tab-' + t));
     if (t === 'grafik') this.charts.forEach((c) => c.draw());
   }
+  pickTick(t, now) { if (this.pick && now - (this.lastPick || 0) > 500) { this.lastPick = now; this.renderPick(t); } }
   reset(plan, t0, tLaunch) {
     this.plan = plan; this.t0 = t0; this.tLaunch = tLaunch; this.events = [];
     this.series = { t: [], alt: [], spd: [] }; this.lastSample = -Infinity;
@@ -265,7 +277,6 @@ export class UI {
     // yörünge sekmesi
     if (this.tab === 'yorunge') this.orbitTab(s);
     if (this.tab === 'efemeris' && now - this.lastEph > 250) { this.lastEph = now; this.ephTab(t); }
-    if (this.tab === 'uydular' && now - this.lastEph > 400) { this.lastEph = now; this.satTab(t); }
     if (this.pick && now - (this.lastPick || 0) > 500) { this.lastPick = now; this.renderPick(t); }
     if (this.tab === 'grafik') this.charts.forEach((c, i) => { c.set(this.series.t, i === 0 ? this.series.alt : this.series.spd); c.draw(); });
   }
@@ -301,7 +312,10 @@ export class UI {
         ['Aydınlanma', d.sunlit ? 'Güneş ışığında' : "Dünya'nın gölgesinde"]);
       rows.push(['Periyot', d.periodMin > 180 ? fmt(d.periodMin / 60, 2) + ' sa' : fmt(d.periodMin, 1) + ' dk'], ['Eğim', fmt(d.inc, 2) + '°'],
         ['Perije / apoje', `${fmt(d.perigee, 0)} / ${fmt(d.apogee, 0)} km`], ['Dış merkezlik', fmt(d.ecc, 5)],
-        ['Öğelerin yaşı', `${fmt(d.epochAgeDays, 1)} gün (CelesTrak)`]);
+        ['Öğelerin yaşı', `${fmt(d.epochAgeDays, 1)} gün`], ['Yörünge verisi', d.source || 'CelesTrak GP']);
+      if (d.obsEl != null) rows.push([`${d.obsName}'dan`, d.obsEl > 0 ? `gökte ${fmt(d.obsEl, 1)}° · az ${fmt(d.obsAz, 0)}° · ${fmt(d.obsRange, 0)} km` : 'ufkun altında']);
+      if (d.nextPass) { const p = d.nextPass, tt = new Date(p.rise.ms);
+        rows.push(['Sonraki geçiş', `${tt.toLocaleString('tr-TR', { weekday: 'short', hour: '2-digit', minute: '2-digit' })} · en yüksek ${fmt(p.max.el, 0)}°${p.visible ? ' · görünür' : ''}`]); }
     } else if (P.kind === 'msat') {
       ttl.append(mk('div', 'pt', d.name), mk('div', 'ps', 'Ay yörüngesinde · JPL Horizons'));
       rows.push(["İrtifa (Ay'a göre)", km(d.alt)], ['Hız', fmt(d.speed, 3) + ' km/s'],

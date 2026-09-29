@@ -5,6 +5,26 @@
 import { gzipSync } from 'node:zlib';
 
 export const PERIODS = { gp: 7200, neo: 86400, mb: 86400, sentry: 86400 };
+// CelesTrak bazı bulut IP'lerini (Vercel dahil) engelliyor. Yedek: GitHub Actions'ın 2 saatte bir CelesTrak'tan çekip
+// deponun "data" dalına yazdığı kopya (.github/workflows/celestrak-data.yml). LS19_DATA_RAW ile değiştirilebilir.
+export const DATA_RAW = process.env.LS19_DATA_RAW || 'https://raw.githubusercontent.com/yazicmert/LS19/data/';
+export const SUP_FILES = new Set(['iss', 'starlink', 'oneweb', 'planet', 'gps', 'glonass', 'intelsat', 'ses', 'kuiper', 'ast', 'cpf']);
+// önce CelesTrak, olmazsa GitHub kopyası; { txt, kaynak, yas }
+export async function celestrakOrMirror(url, mirrorFile) {
+  try {
+    const txt = await getText(url, { tries: 1, timeoutMs: 15000 });
+    const arr = JSON.parse(txt);
+    if (Array.isArray(arr) && arr.length) return { txt, kaynak: 'CelesTrak', yas: 0 };
+    throw new Error('beklenmeyen yanıt');
+  } catch (e1) {
+    const txt = await getText(DATA_RAW + mirrorFile, { tries: 2, timeoutMs: 30000 });
+    const arr = JSON.parse(txt);
+    if (!Array.isArray(arr) || !arr.length) throw new Error('kopya boş (' + String(e1.message || e1).slice(0, 60) + ')');
+    let yas = 0;
+    try { const m = JSON.parse(await getText(DATA_RAW + 'meta.json', { tries: 1, timeoutMs: 8000 })); yas = Math.max(0, Math.round((Date.now() - m.t) / 1000)); } catch (e) { /* üst bilgi isteğe bağlı */ }
+    return { txt, kaynak: 'CelesTrak (GitHub kopyası)', yas };
+  }
+}
 export const CHECK_S = 600;
 const UA = { 'User-Agent': 'LS19/1.1 (Look Star 19 egitim simulasyonu)' };
 

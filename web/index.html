@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LS19 · Look Star 19 — Canlı Uzay Simülasyonu</title>
-<meta name="description" content="LS19 (Look Star 19): Dünya'dan Ay'a canlı görev simülasyonu, gerçek zamanlı N-cisim efemerisi, canlı uydular ve asteroitler, asteroit saptırma fizik motoru.">
+<meta name="description" content="LS19 (Look Star 19): Dünya'dan Ay'a görev simülasyonu ve canlı gökyüzü — gerçek zamanlı uydu takibi, geçiş tahmini, asteroitler ve asteroit saptırma fizik motoru.">
 <meta name="theme-color" content="#05070b">
 <meta name="color-scheme" content="dark">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -16,19 +16,31 @@
 <meta property="og:description" content="Dünya'dan Ay'a canlı görev, canlı uydular ve asteroitler, asteroit saptırma fizik motoru — tarayıcıda, gerçek zamanlı.">
 <meta property="og:image" content="og-image.png">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/style.css">
 <script type="importmap">
 { "imports": { "three": "./lib/three.module.js", "three/addons/": "./lib/addons/" } }
 </script>
 </head>
-<body>
+<body data-mode="mission">
 <div id="app">
   <canvas id="view"></canvas>
   <div id="labels"></div>
   <div id="pick" class="pick" hidden role="dialog" aria-label="Seçilen cisim"></div>
   <div id="hoverTip" class="hovertip" hidden></div>
+  <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
 
-  <section id="hud" aria-label="Uçuş verileri">
+  <header id="modebar" aria-label="LS19">
+    <span class="brand"><img src="favicon.svg" alt="" width="22" height="22"><b>LS19</b></span>
+    <div class="seg" role="tablist" aria-label="Çalışma alanı (M)">
+      <button role="tab" data-workspace="mission" class="on" aria-selected="true"><i data-icon="rocket"></i><span>Ay Görevi</span></button>
+      <button role="tab" data-workspace="sky" aria-selected="false"><i data-icon="satellite"></i><span>Canlı Gökyüzü</span></button>
+    </div>
+  </header>
+
+  <section id="hud" class="card" data-for="mission" aria-label="Uçuş verileri">
     <div class="hud-top">
       <div><span class="k">UTC</span> <span id="utc" class="v">—</span></div>
       <div><span class="k">Görev süresi</span> <span id="met" class="v">—</span></div>
@@ -48,16 +60,13 @@
     <div id="status" class="status" role="status" aria-live="polite"></div>
   </section>
 
-  <aside id="panel" aria-label="Görev paneli">
-    <nav class="tabs">
-      <button class="tab on" data-tab="gorev">Görev</button>
-      <button class="tab" data-tab="dv">Δv</button>
-      <button class="tab" data-tab="grafik">Grafik</button>
-      <button class="tab" data-tab="yorunge">Yörünge</button>
-      <button class="tab" data-tab="efemeris">Efemeris</button>
-      <button class="tab" data-tab="uydular">Uydular</button>
-      <button class="tab" data-tab="asteroit">Asteroit</button>
-      <button class="tab" data-tab="saptirma">Saptırma</button>
+  <aside id="panel" class="panel" data-for="mission" aria-label="Ay görevi paneli">
+    <nav class="tabs" role="tablist" aria-label="Ay görevi sekmeleri">
+      <button class="tab on" role="tab" aria-selected="true" data-tab="gorev">Görev</button>
+      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="dv">Δv</button>
+      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="grafik">Grafik</button>
+      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="yorunge">Yörünge</button>
+      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="efemeris">Efemeris</button>
     </nav>
     <div id="tab-gorev" class="tabpage">
       <details id="cfgBox" class="cfg" open>
@@ -130,7 +139,101 @@
       <table id="ephtable" class="tbl"><tbody></tbody></table>
       <p class="note">Güneş, sekiz gezegen, Plüton, Dünya ve Ay burada kütle çekimiyle birlikte entegre ediliyor; JPL DE440 yalnız başlangıç durumunu veriyor. Dünya ile Ay ortak kütle merkezleri etrafında bu kuvvetlerle dönüyor. Ay'ın dönüşü Dünya ve Güneş torklarından Euler denklemleriyle hesaplanıyor; Dünya'nın yönelimi IAU 2006/2000A modeliyle. "DE440 farkı" satırları hesaplanan değerin resmi efemeristen ne kadar saptığını gösterir.</p>
     </div>
-    <div id="tab-uydular" class="tabpage" hidden>
+    <div id="tab-yorunge" class="tabpage" hidden>
+      <h3>Anlık yörünge elemanları</h3>
+      <table id="orbtable" class="tbl"><tbody></tbody></table>
+      <p class="note">Anlık (oskülatör) konik: o andaki konum ve hızdan, yalnız merkez cismin çekimiyle. Mavi elips, turuncu hiperbol, mor Ay merkezli.</p>
+    </div>
+  </aside>
+
+  <section id="manual" data-for="mission" hidden aria-label="Elle kontrol">
+    <div class="mrow">
+      <span class="k">İtki</span>
+      <input id="thrSlider" type="range" min="0" max="100" value="0" aria-label="İtki yüzdesi">
+      <span id="thrSet" class="v">%0</span>
+    </div>
+    <div class="mrow modes">
+      <button data-mode="PRO" class="on">İleri <kbd>W</kbd></button>
+      <button data-mode="RETRO">Geri <kbd>S</kbd></button>
+      <button data-mode="NML">Normal <kbd>A</kbd></button>
+      <button data-mode="ANML">Anti-normal <kbd>D</kbd></button>
+      <button data-mode="RADOUT">Radyal dış <kbd>Q</kbd></button>
+      <button data-mode="RADIN">Radyal iç <kbd>E</kbd></button>
+      <button data-mode="SRFRETRO">Yüzeye göre geri <kbd>R</kbd></button>
+      <button data-mode="HOLD">Sabit tut <kbd>H</kbd></button>
+    </div>
+    <div class="mrow hint"><kbd>Shift</kbd>/<kbd>Ctrl</kbd> itki ±, <kbd>Z</kbd> tam, <kbd>X</kbd> kes, <kbd>B</kbd> kademe ayır</div>
+  </section>
+
+  <footer id="controls" class="dock" data-for="mission" aria-label="Görev denetimleri">
+    <button id="btnPlay" class="primary" title="Oynat / duraklat (Boşluk)"><i data-icon="play"></i><span>Başlat</span></button>
+    <div class="grp">
+      <button id="btnSlow" title="Zaman hızı ÷2 (,)">−</button>
+      <span id="warpVal" class="warp">×1</span>
+      <button id="btnFast" title="Zaman hızı ×2 (.)">+</button>
+      <label class="chk"><input id="chkAutoWarp" type="checkbox" checked> Otomatik hız</label>
+    </div>
+    <label class="chk sw"><input id="chkAuto" type="checkbox" checked> Otopilot <kbd>G</kbd></label>
+    <button id="btnPerturb" title="Rastgele 2 m/s hız bozulması (P)"><i data-icon="shake"></i><span>Bozulma ekle</span></button>
+    <div class="grp cams">
+      <span class="k">Kamera</span>
+      <button data-cam="AUTO" class="on">Otomatik</button>
+      <button data-cam="VEHICLE">Araç</button>
+      <button data-cam="EARTH">Dünya</button>
+      <button data-cam="MOON">Ay</button>
+      <button data-cam="SYSTEM">Dünya–Ay</button>
+      <button data-cam="SITE">İniş yeri</button>
+      <button data-cam="EMB" title="Dünya–Ay ortak kütle merkezi">Kütle merkezi</button>
+      <button data-cam="SOLAR">Güneş sistemi</button>
+    </div>
+    <button id="btnRestart" title="Görevi baştan başlat"><i data-icon="restart"></i><span>Baştan</span></button>
+    <button id="btnPanel" title="Paneli aç/kapa"><i data-icon="panel"></i><span>Panel</span></button>
+  </footer>
+
+
+  <section id="skyHud" class="card" data-for="sky" aria-label="Canlı gökyüzü saati">
+    <div class="hud-top"><span id="liveBadge" class="live"><i class="pulse" aria-hidden="true"></i><span>CANLI</span></span><span id="skyOffset" class="k"></span></div>
+    <div id="skyLocal" class="clockbig">—</div>
+    <div id="skyDate" class="sub"></div>
+    <div id="skyUtc" class="sub mono"></div>
+    <div class="kv"><span class="k">Gözlemci</span><span id="skyObs"></span></div>
+    <div class="kv"><span class="k">Gökyüzü</span><span id="skySun"></span></div>
+    <div id="skyNext" class="nextpass"></div>
+    <div id="skyCounts" class="k small"></div>
+  </section>
+
+  <aside id="skyPanel" class="panel" data-for="sky" aria-label="Canlı gökyüzü paneli">
+    <nav class="tabs" role="tablist" aria-label="Canlı gökyüzü sekmeleri">
+      <button class="tab on" role="tab" data-tab="takip" aria-selected="true">Takip</button>
+      <button class="tab" role="tab" data-tab="uydular" aria-selected="false" tabindex="-1">Uydular</button>
+      <button class="tab" role="tab" data-tab="asteroit" aria-selected="false" tabindex="-1">Asteroitler</button>
+      <button class="tab" role="tab" data-tab="saptirma" aria-selected="false" tabindex="-1">Saptırma</button>
+    </nav>
+    <div id="tab-takip" class="tabpage" role="tabpanel">
+      <h3><i data-icon="pin"></i> Gözlemci</h3>
+      <div id="obsInfo" class="dinfo"></div>
+      <div class="daterow">
+        <select id="obsCity" aria-label="Gözlemci konumu"></select>
+        <button id="obsGeo" class="sm" title="Tarayıcının konum iznini ister"><i data-icon="target"></i><span>Konumumu kullan</span></button>
+      </div>
+      <div class="frow3" id="obsCustom" hidden>
+        <label>Enlem<span><input id="obsLat" type="number" step="0.0001" min="-90" max="90"> °</span></label>
+        <label>Boylam<span><input id="obsLon" type="number" step="0.0001" min="-180" max="180"> °</span></label>
+        <label>Yükseklik<span><input id="obsH" type="number" step="1" min="-400" max="9000"> m</span></label>
+      </div>
+      <h3><i data-icon="satellite"></i> Takip listesi</h3>
+      <ul id="watchList" class="watch" aria-live="polite"></ul>
+      <div class="daterow"><input id="watchAdd" type="search" placeholder="Uydu ekle (ad ya da NORAD no)" aria-label="Takip listesine uydu ekle"></div>
+      <ul id="watchResults" class="sresults"></ul>
+      <h3><i data-icon="clock"></i> Yaklaşan geçişler <span class="k">· 3 gün, en yüksek ≥ 10°</span></h3>
+      <label class="chk"><input id="passVisOnly" type="checkbox" checked> Yalnız çıplak gözle görünenler</label>
+      <label class="chk"><input id="passNotify" type="checkbox"> <i data-icon="bell"></i> Görünür geçişten 5 dk önce bildir</label>
+      <table id="passTable" class="tbl passes"><thead><tr><th>Uydu</th><th>Doğuş</th><th class="num">En yüksek</th><th>Yön</th><th></th></tr></thead><tbody></tbody></table>
+      <div id="passDetail" class="dinfo"></div>
+      <canvas id="passSky" class="chart sq" role="img" aria-label="Geçişin gökyüzündeki yolu"></canvas>
+      <p class="note">Konumlar CelesTrak yörünge verisinden SGP4 ile hesaplanır; ISS, Starlink, OneWeb, GPS gibi uydularda operatörlerin kendi verisi (Supplemental GP) kullanılır. Geçiş zamanları bağımsız bir kütüphaneyle (Skyfield) 1 saniye içinde uyumludur. "Görünür": uydu Güneş ışığında, gökyüzü karanlık (Güneş ufkun 6° altında). Bildirimler sayfa açıkken çalışır.</p>
+    </div>
+    <div id="tab-uydular" class="tabpage" role="tabpanel" hidden>
       <h3>Dünya çevresindeki uydular</h3>
       <label class="chk"><input id="chkSats" type="checkbox" checked> Canlı göster (CelesTrak, SGP4)</label>
       <div id="satStatus" class="dinfo"></div>
@@ -144,7 +247,7 @@
       <div id="updStatus2" class="dinfo small"></div>
       <p class="note">Veriler yerel sunucu (sunucu.py) ya da bulut işlevleri (Vercel) üzerinden internetten alınır; 10 dakikada bir yeni sürüm denetlenir, değişen veri kendiliğinden yüklenir (CelesTrak aynı veriyi en sık 2 saatte bir verir). Dünya uyduları yörünge öğelerinin çağından ±30 gün içinde gösterilir (daha eski ya da ileri tarihler için geçerli veri yok). Ay uyduları yalnız Horizons'ta efemerisi bulunan tarihlerde görünür.</p>
     </div>
-    <div id="tab-asteroit" class="tabpage" hidden>
+    <div id="tab-asteroit" class="tabpage" role="tabpanel" hidden>
       <h3>Asteroitler</h3>
       <label class="chk"><input id="chkAst" type="checkbox" checked> Canlı göster (JPL Small-Body Database)</label>
       <div id="astStatus" class="dinfo"></div>
@@ -155,7 +258,7 @@
       <div id="updStatus" class="dinfo small"></div>
       <p class="note">Dünya'ya yakın tüm asteroitler (~42.500) ile büyük ana kuşak asteroitleri (H &lt; 13,5) ve Jüpiter Truvalıları. Konumlar JPL'in oskülatör öğelerinden Kepler çözümüyle hesaplanır. Güneş sistemi kamerasında hepsi, diğer kameralarda yalnız Dünya'nın 0,05 AB (≈19 Ay uzaklığı) yakınındakiler görünür. Bir asteroide tıkla: bilgi kartı; kartta yörünge, kamerayla izleme ve saptırma analizi.</p>
     </div>
-    <div id="tab-saptirma" class="tabpage" hidden>
+    <div id="tab-saptirma" class="tabpage" role="tabpanel" hidden>
       <h3>Saptırma laboratuvarı</h3>
       <div class="daterow"><input id="dfSearch" type="search" placeholder="Hedef (ör. Apophis, Bennu, 2024 YR4)" aria-label="Hedef asteroit"></div>
       <ul id="dfResults" class="sresults"></ul>
@@ -198,55 +301,24 @@
       <p class="note">Fizik motoru: asteroit, Güneş + 8 gezegen + Ay + Plüton çekimi (konumlar JPL DE440'tan) ve Güneş'in genel görelilik düzeltmesiyle DOPRI5 ile tümlenir. Yakın geçiş, Dünya'ya uzaklığın yerel en küçüğü olarak ikiye bölmeyle bulunur. Kaçırma, B-düzleminde (Öpik–Valsecchi ξ, ζ) ölçülür: Dünya'yı ıskalamak için kayma, çekim odaklamasıyla büyüyen yakalama yarıçapını (bE) aşmalıdır. İtkinin etkisi hem durum geçiş matrisiyle (doğrusal) hem tam tümlemeyle hesaplanır. Kinetik çarpıcı: Δv = β·m·U / (M + m). Yarkovsky etkisi ve öteki asteroitlerin çekimi modelde yok.</p>
       <p id="dfDart" class="note"></p>
     </div>
-    <div id="tab-yorunge" class="tabpage" hidden>
-      <h3>Anlık yörünge elemanları</h3>
-      <table id="orbtable" class="tbl"><tbody></tbody></table>
-      <p class="note">Anlık (oskülatör) konik: o andaki konum ve hızdan, yalnız merkez cismin çekimiyle. Mavi elips, turuncu hiperbol, mor Ay merkezli.</p>
-    </div>
   </aside>
 
-  <section id="manual" hidden aria-label="Elle kontrol">
-    <div class="mrow">
-      <span class="k">İtki</span>
-      <input id="thrSlider" type="range" min="0" max="100" value="0" aria-label="İtki yüzdesi">
-      <span id="thrSet" class="v">%0</span>
+  <footer id="skyControls" class="dock" data-for="sky" aria-label="Zaman ve kamera">
+    <button id="skyNow" class="primary" title="Gerçek zamana dön (N)"><i data-icon="now"></i><span>Şimdi</span></button>
+    <button id="skyPause" title="Saati duraklat (Boşluk)" aria-pressed="false"><i data-icon="pause"></i><span>Duraklat</span></button>
+    <div class="grp seg" role="group" aria-label="Zaman hızı (, .)">
+      <button data-rate="1" class="on">×1</button><button data-rate="10">×10</button><button data-rate="60">×60</button><button data-rate="600">×600</button><button data-rate="3600">×3600</button>
     </div>
-    <div class="mrow modes">
-      <button data-mode="PRO" class="on">İleri <kbd>W</kbd></button>
-      <button data-mode="RETRO">Geri <kbd>S</kbd></button>
-      <button data-mode="NML">Normal <kbd>A</kbd></button>
-      <button data-mode="ANML">Anti-normal <kbd>D</kbd></button>
-      <button data-mode="RADOUT">Radyal dış <kbd>Q</kbd></button>
-      <button data-mode="RADIN">Radyal iç <kbd>E</kbd></button>
-      <button data-mode="SRFRETRO">Yüzeye göre geri <kbd>R</kbd></button>
-      <button data-mode="HOLD">Sabit tut <kbd>H</kbd></button>
-    </div>
-    <div class="mrow hint"><kbd>Shift</kbd>/<kbd>Ctrl</kbd> itki ±, <kbd>Z</kbd> tam, <kbd>X</kbd> kes, <kbd>B</kbd> kademe ayır</div>
-  </section>
-
-  <footer id="controls">
-    <button id="btnPlay" class="primary" title="Oynat / duraklat (Boşluk)">▶ Başlat</button>
-    <div class="grp">
-      <button id="btnSlow" title="Zaman hızı ÷2 (,)">−</button>
-      <span id="warpVal" class="warp">×1</span>
-      <button id="btnFast" title="Zaman hızı ×2 (.)">+</button>
-      <label class="chk"><input id="chkAutoWarp" type="checkbox" checked> Otomatik hız</label>
-    </div>
-    <label class="chk sw"><input id="chkAuto" type="checkbox" checked> Otopilot <kbd>G</kbd></label>
-    <button id="btnPerturb" title="Rastgele 2 m/s hız bozulması (P)">Bozulma ekle</button>
-    <div class="grp cams">
+    <div class="grp"><button id="skyBack" title="1 saat geri"><i data-icon="back"></i><span>1 sa</span></button><button id="skyFwd" title="1 saat ileri"><span>1 sa</span><i data-icon="fwd"></i></button></div>
+    <div class="grp cams" role="group" aria-label="Kamera">
       <span class="k">Kamera</span>
-      <button data-cam="AUTO" class="on">Otomatik</button>
-      <button data-cam="VEHICLE">Araç</button>
-      <button data-cam="EARTH">Dünya</button>
-      <button data-cam="MOON">Ay</button>
-      <button data-cam="SYSTEM">Dünya–Ay</button>
-      <button data-cam="SITE">İniş yeri</button>
-      <button data-cam="EMB" title="Dünya–Ay ortak kütle merkezi">Kütle merkezi</button>
-      <button data-cam="SOLAR">Güneş sistemi</button>
+      <button data-skycam="EARTH" title="1"><i data-icon="globe"></i><span>Dünya</span></button>
+      <button data-skycam="OBS" title="2: gözlemcinin konumundan gökyüzü"><i data-icon="telescope"></i><span>Gözlemci</span></button>
+      <button data-skycam="SYSTEM" title="3"><i data-icon="orbit"></i><span>Dünya–Ay</span></button>
+      <button data-skycam="MOON" title="4"><i data-icon="moon"></i><span>Ay</span></button>
+      <button data-skycam="SOLAR" title="5"><i data-icon="sun"></i><span>Güneş sistemi</span></button>
     </div>
-    <button id="btnRestart" title="Görevi baştan başlat">Baştan</button>
-    <button id="btnPanel" title="Paneli aç/kapa">Panel</button>
+    <button id="btnSkyPanel" title="Paneli aç/kapa"><i data-icon="panel"></i><span>Panel</span></button>
   </footer>
 
   <div id="loading"><div class="lbox"><div class="ltitle">LS19 <span class="lsub">Look Star 19</span></div><div id="loadMsg">Dokular yükleniyor…</div><div class="track"><div id="loadBar" class="fill"></div></div><button id="loadBack" hidden>Varsayılan tarihe dön</button></div></div>

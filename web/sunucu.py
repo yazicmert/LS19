@@ -6,6 +6,7 @@
 #   /api/asteroids?set=neo|mb     JPL SBDB: Dünya'ya yakın asteroitler / büyük ana kuşak + Jüpiter Truvalıları (sütunlu, sıkıştırılmış)
 #   /api/sbdb?des=99942           JPL SBDB tek cisim: tam duyarlıklı öğeler, fiziksel özellikler, keşif, Dünya yakın geçişleri, Sentry
 #   /api/sentry                   JPL Sentry çarpma riski listesi (özet)
+#   /api/supgp?file=iss           CelesTrak Supplemental GP (operatör verisi: ISS, Starlink, OneWeb, GPS…) — 2 sa önbellek
 #   /api/surum                    kaynak sürümleri: tarayıcı 10 dakikada bir sorar, değişen katmanı yeniden yükler
 #   /api/durum                    sunucu ve önbellek bilgisi
 # Arka planda 10 dakikada bir denetim: süresi dolan kaynak (CelesTrak 2 sa, SBDB/Sentry 24 sa) önceden yenilenir.
@@ -94,6 +95,21 @@ def fetch_gp(group):
 
 def celestrak(group, force=False):
     return cached(f'gp_{group}.json', SOURCES['gp'][1], lambda: fetch_gp(group), force=force)
+
+
+SUP_FILES = {'iss', 'starlink', 'oneweb', 'planet', 'gps', 'glonass', 'intelsat', 'ses', 'kuiper', 'ast', 'cpf'}
+
+
+def fetch_supgp(f):
+    raw = http_get(f'https://celestrak.org/NORAD/elements/supplemental/sup-gp.php?FILE={urllib.parse.quote(f)}&FORMAT=json', 120)
+    arr = json.loads(raw)
+    if not isinstance(arr, list) or not arr:
+        raise ValueError('beklenmeyen yanıt')
+    return raw
+
+
+def supgp(f):
+    return cached(f'sup_{f}.json', SOURCES['gp'][1], lambda: fetch_supgp(f))
 
 
 # ---------------------------------------------------------------- JPL SBDB (asteroitler)
@@ -288,6 +304,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     return self.send_json(400, {'hata': 'bilinmeyen küme'})
                 data, info = asteroids(which)
                 return self.send_json(200, data, {'X-LS19-Kaynak': urllib.parse.quote(info['kaynak']), 'X-LS19-Yas': str(info['yas_s'])})
+            if u.path == '/api/supgp':
+                f = q.get('file', '')
+                if f not in SUP_FILES:
+                    return self.send_json(400, {'hata': 'bilinmeyen dosya'})
+                data, info = supgp(f)
+                return self.send_json(200, data, {'X-LS19-Kaynak': urllib.parse.quote('CelesTrak SupGP · ' + info['kaynak']), 'X-LS19-Yas': str(info['yas_s'])})
             if u.path == '/api/sentry':
                 return self.send_json(200, sentry()[0])
             if u.path == '/api/sbdb':

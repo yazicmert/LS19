@@ -4,11 +4,56 @@
   "installCommand": "",
   "buildCommand": "node -e \"console.log('LS19: statik site web/ klasorunden, veri vekili api/ islevlerinden')\"",
   "outputDirectory": "web",
-  "functions": { "api/*.js": { "maxDuration": 60 } },
+  "functions": {
+    "api/*.js": {
+      "maxDuration": 60
+    }
+  },
   "headers": [
-    { "source": "/data/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=604800, stale-while-revalidate=2592000" }] },
-    { "source": "/textures/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=2592000, immutable" }] },
-    { "source": "/models/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=2592000, immutable" }] },
-    { "source": "/(.*)", "headers": [{ "key": "X-Content-Type-Options", "value": "nosniff" }, { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }] }
-  ]
+    {
+      "source": "/data/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=604800, stale-while-revalidate=2592000"
+        }
+      ]
+    },
+    {
+      "source": "/textures/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=2592000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/models/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=2592000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
+    }
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "data": false
+    }
+  }
 }

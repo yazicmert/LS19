@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import * as E from './engine.js';
 import * as S from '../lib/satellite.esm.js';
+import { DATA_RAW, SUP_FILES } from './config.js';
 
 export const SAT_GROUPS = [
   { name: 'Uzay istasyonları', color: 0xff5a5a, size: 5.0 },
@@ -22,8 +23,8 @@ const VS = `
   #include <common>
   #include <logdepthbuf_pars_vertex>
   attribute vec3 vel; attribute float grp;
-  uniform vec3 eye; uniform float dt, mu, px, mask[6]; uniform float sizes[6]; uniform vec3 colors[6];
-  varying vec3 vCol; varying float vOn;
+  uniform vec3 eye, sunDir; uniform float dt, mu, px, obsView, mask[6]; uniform float sizes[6]; uniform vec3 colors[6];
+  varying vec3 vCol; varying float vOn; varying float vLit;
   void main() {
     int g = int(grp + 0.5);
     float on = 0.0; vec3 col = vec3(1.0); float sz = 2.0;
@@ -34,7 +35,9 @@ const VS = `
     gl_Position = projectionMatrix * mv;
     // yakındaki uydular daha büyük: uzaktan kabuk gibi, yakından tek tek seçilebilir noktalar
     float d = length(mv.xyz);
-    gl_PointSize = sz * px * clamp(pow(18000.0 / max(d, 1.0), 0.65), 1.0, 7.0);
+    // yerden bakışta yıldız gibi sabit boy; Dünya'nın gölgesindekiler soluk (gözle görülmez)
+    gl_PointSize = obsView > 0.5 ? max(1.6, sz * 0.75) * px : sz * px * clamp(pow(18000.0 / max(d, 1.0), 0.65), 1.0, 7.0);
+    float a = dot(p, sunDir); vLit = (a < 0.0 && length(p - a * sunDir) < 6378.0) ? 0.22 : 1.0; if (obsView < 0.5) vLit = 1.0;
     vCol = col; vOn = (on > 0.5 && r == r) ? 1.0 : 0.0;
     if (vOn < 0.5) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
     #include <logdepthbuf_vertex>
@@ -42,17 +45,24 @@ const VS = `
 const FS = `
   #include <common>
   #include <logdepthbuf_pars_fragment>
-  varying vec3 vCol; varying float vOn;
+  varying vec3 vCol; varying float vOn; varying float vLit;
   void main() {
     #include <logdepthbuf_fragment>
     vec2 c = gl_PointCoord - 0.5; float d = dot(c, c);
     if (d > 0.25 || vOn < 0.5) discard;
-    gl_FragColor = vec4(vCol * (1.25 - 1.6 * d), 1.0 - smoothstep(0.14, 0.25, d));
+    gl_FragColor = vec4(vCol * (1.25 - 1.6 * d) * vLit, (1.0 - smoothstep(0.14, 0.25, d)) * (0.35 + 0.65 * vLit));
   }`;
 
 // CelesTrak'tan doğrudan (kullanıcının tarayıcısından). CelesTrak kuralı: aynı veri 2 saatten sık indirilmez ->
 // yanıt tarayıcının Cache Storage'ında 2 saat saklanır; ağ hatasında eski kopya kullanılır.
 const GP_URL = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json';
+async function fetchOmm(url, kaynak = null) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).hata || ('HTTP ' + r.status));
+  const omm = await r.json();
+  if (!Array.isArray(omm) || !omm.length) throw new Error('boş yanıt');
+  return { omm, kaynak: kaynak || decodeURIComponent(r.headers.get('X-LS19-Kaynak') || 'CelesTrak'), yas: +(r.headers.get('X-LS19-Yas') || 0) };
+}
 async function celestrakDirect() {
   let cache = null, hit = null;
   try { cache = await caches.open('ls19-celestrak'); hit = await cache.match(GP_URL); } catch (e) { cache = null; }
@@ -79,7 +89,7 @@ export class SatLayer {
     this.worker = new Worker(new URL('./sats.js', import.meta.url), { type: 'module' });
     this.worker.onmessage = (e) => this.onMsg(e.data);
     this.mat = new THREE.ShaderMaterial({
-      uniforms: { eye: { value: new THREE.Vector3() }, dt: { value: 0 }, mu: { value: E.MU_E }, px: { value: window.devicePixelRatio || 1 },
+      uniforms: { eye: { value: new THREE.Vector3() }, sunDir: { value: new THREE.Vector3(1, 0, 0) }, obsView: { value: 0 }, dt: { value: 0 }, mu: { value: E.MU_E }, px: { value: window.devicePixelRatio || 1 },
         mask: { value: this.mask.slice() }, sizes: { value: SAT_GROUPS.map((g) => g.size) }, colors: { value: SAT_GROUPS.map((g) => new THREE.Color(g.color)) } },
       vertexShader: VS, fragmentShader: FS, transparent: true, depthWrite: false });
     this.geo = new THREE.BufferGeometry();
@@ -99,25 +109,60 @@ export class SatLayer {
   // ---------------------------------------------------------------- Dünya uyduları
   async load(v) {
     if (!this.n) { this.info = { status: 'CelesTrak verisi alınıyor…' }; this.changed(); }
-    let omm = null, src = null, err1 = null;
-    try {                                                       // 1) sunucu vekili (yerel sunucu.py ya da bulut api/)
-      const r = await fetch('api/gp?group=active' + (v != null ? '&v=' + v : ''));
-      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).hata || ('HTTP ' + r.status));
-      omm = await r.json();
-      src = { kaynak: decodeURIComponent(r.headers.get('X-LS19-Kaynak') || 'CelesTrak'), yas: +(r.headers.get('X-LS19-Yas') || 0) };
-    } catch (e) { err1 = e; }
-    if (!omm) {                                                 // 2) tarayıcıdan doğrudan CelesTrak (CORS açık; bazı bulut IP'leri engelli)
-      try { const d = await celestrakDirect(); omm = d.omm; src = { kaynak: d.kaynak, yas: d.yas }; }
-      catch (e2) {
-        this.info = { status: 'Uydu verisi alınamadı: ' + (err1 ? err1.message : '') + ' / doğrudan: ' + e2.message }; this.changed();
-        return;
-      }
-    }
-    src.t = Date.now(); this.src = src;
-    if (this.sel >= 0) this.select(-1);
-    this.omm = omm;
-    this.worker.postMessage({ cmd: 'load', omm, eo: this.eo });
+    const errs = [];
+    let d = null;
+    // 1) sunucu vekili (yerel sunucu.py ya da bulut api/) · 2) GitHub kopyası · 3) tarayıcıdan doğrudan CelesTrak
+    try { d = await fetchOmm('api/gp?group=active' + (v != null ? '&v=' + v : '')); } catch (e) { errs.push('vekil: ' + e.message); }
+    if (!d) try { d = await fetchOmm(DATA_RAW + 'gp_active.json?v=' + (v ?? ''), 'CelesTrak (GitHub kopyası)'); } catch (e) { errs.push('kopya: ' + e.message); }
+    if (!d) try { d = await celestrakDirect(); } catch (e) { errs.push('doğrudan: ' + e.message); }
+    if (!d) { this.info = { status: 'Uydu verisi alınamadı (' + errs.join(' · ') + ')' }; this.changed(); return; }
+    this.src = { kaynak: d.kaynak, yas: d.yas, t: Date.now() };
+    this.gp = d.omm; this.sup = null;
+    this.apply(this.gp);
+    this.loadSup(v);                                              // operatör verisi arkadan gelir
   }
+  // CelesTrak Supplemental GP: operatörlerin kendi yörünge çözümleri (ISS, Starlink, OneWeb, GPS…), GP'den daha doğru
+  async loadSup(v) {
+    const got = {}, stats = {};
+    await Promise.all(SUP_FILES.map(async (f) => {
+      let d = null;
+      try { d = await fetchOmm(`api/supgp?file=${f}` + (v != null ? '&v=' + v : '')); } catch (e) { /* kopyaya düş */ }
+      if (!d) try { d = await fetchOmm(`${DATA_RAW}sup_${f}.json?v=${v ?? ''}`, 'SupGP (GitHub kopyası)'); } catch (e) { stats[f] = 0; return; }
+      got[f] = d.omm; stats[f] = d.omm.length;
+    }));
+    if (!Object.keys(got).length) { this.supInfo = { n: 0, files: stats }; this.changed(); return; }
+    // her NORAD için şimdiye en yakın (tercihen geçmişteki) çağlı kayıt
+    const now = Date.now(), best = new Map();
+    for (const [f, arr] of Object.entries(got)) for (const o of arr) {
+      const id = +o.NORAD_CAT_ID, ep = Date.parse(o.EPOCH + 'Z'); if (!id || !Number.isFinite(ep)) continue;
+      const score = ep <= now + 3600e3 ? now - ep : 1e15 + ep - now, cur = best.get(id);
+      if (!cur || score < cur.score) best.set(id, { o, f, score });
+    }
+    let n = 0;
+    const merged = this.gp.map((o) => {
+      const b = best.get(+o.NORAD_CAT_ID); if (!b) return o;
+      n++; return { ...b.o, OBJECT_NAME: o.OBJECT_NAME, OBJECT_ID: o.OBJECT_ID || b.o.OBJECT_ID, _sup: { file: b.f, src: b.o.DATA_SOURCE || '', rms: b.o.RMS != null ? +b.o.RMS : null } };
+    });
+    this.sup = got; this.supInfo = { n, files: stats };
+    const sel = this.sel >= 0 ? this.ids[this.sel] : null;
+    this.apply(merged, sel);
+  }
+  apply(omm, keepId = null) {
+    this.omm = omm; this.byId = new Map(omm.map((o) => [+o.NORAD_CAT_ID, o])); this.recCache = new Map();
+    this.pendingSel = keepId; if (this.sel >= 0 && keepId == null) this.select(-1);
+    this.worker.postMessage({ cmd: 'load', omm, eo: this.eo });
+    if (this.onData) this.onData();
+  }
+  // NORAD -> satrec (önbellekli, ana iş parçacığında: takip, geçiş tahmini, yer izi)
+  satrec(id) {
+    id = +id; if (!this.byId) return null;
+    let r = this.recCache.get(id); if (r !== undefined) return r;
+    const o = this.byId.get(id); r = null;
+    try { r = o ? S.json2satrec(o) : null; if (r && r.error) r = null; } catch (e) { r = null; }
+    this.recCache.set(id, r); return r;
+  }
+  recordOf(id) { return this.byId ? this.byId.get(+id) || null : null; }
+  indexOf(id) { if (!this.ids) return -1; if (!this.idIndex || this.idIndex.n !== this.n) { this.idIndex = new Map(this.ids.map((x, i) => [+x, i])); this.idIndex.n = this.n; } const i = this.idIndex.get(+id); return i == null ? -1 : i; }
   onMsg(d) {
     if (d.type === 'loaded') {
       this.n = d.n; this.groups = d.groups; this.names = d.names; this.ids = d.ids; this.epochMs = d.epochMs;
@@ -127,7 +172,9 @@ export class SatLayer {
       this.geo.setAttribute('grp', new THREE.BufferAttribute(Float32Array.from(d.groups), 1));
       this.geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e6);     // NaN (çökmüş) kayıtlar sıralamayı bozmasın
       this.info = { status: 'hazır' }; this.tProp = null; this.changed();
-      this.satrecs = null;                                        // seçim için ana iş parçacığında tembel kurulur
+      this.satrecs = null; this.idIndex = null;
+      if (this.pendingSel != null) { const i = this.indexOf(this.pendingSel); this.pendingSel = null; if (i >= 0) this.select(i); }
+      if (this.onData) this.onData();
     } else if (d.type === 'pos' && d.id === this.reqId) {
       this.geo.attributes.position.array.set(d.pos); this.geo.attributes.position.needsUpdate = true;
       this.geo.attributes.vel.array.set(d.vel); this.geo.attributes.vel.needsUpdate = true;
@@ -190,8 +237,8 @@ export class SatLayer {
   select(i) {
     this.sel = i; this.selLine.visible = false;
     if (i < 0 || !this.omm) { this.selLabel.style.display = 'none'; this.changed(); return; }
-    const o = this.omm.find((x) => x.NORAD_CAT_ID === this.ids[i]);
-    this.selRec = o ? S.json2satrec(o) : null; this.selOmm = o; this.selOrbitT = null;
+    const o = this.recordOf(this.ids[i]);
+    this.selRec = this.satrec(this.ids[i]); this.selOmm = o; this.selOrbitT = null;
     this.selLabel.textContent = this.names[i]; this.changed();
   }
   selInfo(t) {
@@ -243,12 +290,14 @@ export class SatLayer {
   }
   // tıklanan uydunun ayrıntıları (SGP4, o anki durum + ortalama öğeler)
   satDetails(i, t) {
-    const o = this.omm && this.omm.find((x) => x.NORAD_CAT_ID === this.ids[i]); if (!o) return null;
-    const sr = S.json2satrec(o), pv = S.propagate(sr, new Date(E.utcMsFromT(t)));
+    const o = this.recordOf(this.ids[i]); if (!o) return null;
+    const sr = this.satrec(this.ids[i]); if (!sr) return null;
+    const pv = S.propagate(sr, new Date(E.utcMsFromT(t)));
     const n = (+o.MEAN_MOTION) * 2 * Math.PI / 86400, a = Math.cbrt(E.MU_E / (n * n)), ecc = +o.ECCENTRICITY;
     const out = { name: o.OBJECT_NAME, norad: o.NORAD_CAT_ID, cospar: o.OBJECT_ID, group: SAT_GROUPS[this.groups[i]].name,
       periodMin: 1440 / o.MEAN_MOTION, inc: +o.INCLINATION, ecc, perigee: a * (1 - ecc) - E.R_E, apogee: a * (1 + ecc) - E.R_E,
-      epochAgeDays: (E.utcMsFromT(t) - Date.parse(o.EPOCH + 'Z')) / 86400000, launchYear: (o.OBJECT_ID || '').slice(0, 4) };
+      epochAgeDays: (E.utcMsFromT(t) - Date.parse(o.EPOCH + 'Z')) / 86400000, launchYear: (o.OBJECT_ID || '').slice(0, 4),
+      source: o._sup ? `CelesTrak SupGP (${o._sup.src || o._sup.file}${o._sup.rms != null ? `, RMS ${o._sup.rms} km` : ''})` : 'CelesTrak GP' };
     if (pv && pv.position) {
       const M = E.precession(t), p = E.mtv(M, [pv.position.x, pv.position.y, pv.position.z]);
       const r = Math.hypot(...p), itrf = E.mv(E.earthIcrfToItrf(t), p);
@@ -278,7 +327,8 @@ export class SatLayer {
         this.pending = true; this.lastReq = now; this.reqId++;
         this.worker.postMessage({ cmd: 'prop', id: this.reqId, t, utcMs: E.utcMsFromT(t), jdTT: E.jdTdb(t) });
       }
-      if (this.tProp !== null) { this.mat.uniforms.dt.value = t - this.tProp; this.mat.uniforms.eye.value.set(eye[0], eye[1], eye[2]); }
+      if (this.tProp !== null) { this.mat.uniforms.dt.value = t - this.tProp; this.mat.uniforms.eye.value.set(eye[0], eye[1], eye[2]);
+        const sd = E.unit(E.sunPos(t)); this.mat.uniforms.sunDir.value.set(sd[0], sd[1], sd[2]); this.mat.uniforms.obsView.value = this.obsView ? 1 : 0; }
       else this.points.visible = false;
     }
     // seçili uydu
@@ -290,7 +340,7 @@ export class SatLayer {
     if (this.sel >= 0 && this.selRec && vis) {
       const p = this.selPos(t);
       if (p) {
-        place(this.selLabel, p);
+        if (this.suppressLabel && this.suppressLabel(+this.ids[this.sel])) this.selLabel.style.display = 'none'; else place(this.selLabel, p);
         if (this.selOrbitT === null || Math.abs(t - this.selOrbitT) > 60) {
           this.selOrbitT = t; const per = 1440 / this.selOmm.MEAN_MOTION * 60, a = this.selLine.geometry.attributes.position.array;
           this.selOrbitPts = []; for (let k = 0; k <= 360; k++) { const q = this.selPos(t + (k / 360 - 0.5) * per); if (q) this.selOrbitPts.push(q); }

@@ -10,6 +10,7 @@ globalThis.fetch = async (url) => {
   if (u.includes('sbdb_query') && u.includes('sb-group=neo')) body = file('sb_neo.json');
   else if (u.includes('sbdb_query')) body = file('sb_mb.json');
   else if (u.includes('sentry.api')) body = file('sentry.json');
+  else if (u.includes('sup-gp.php')) body = file('sup_iss.json');
   else if (u.includes('sbdb.api')) body = file('sbdb_99942.json');
   else if (u.includes('celestrak')) body = file('gp_active.json');
   else return new Response('yok', { status: 404 });
@@ -18,7 +19,7 @@ globalThis.fetch = async (url) => {
 const call = async (mod, q = '') => {
   const m = await import(`../../api/${mod}.js`), r = await m.GET(new Request('https://ls19.example/api/' + mod + q));
   const buf = Buffer.from(await r.arrayBuffer()), txt = r.headers.get('content-encoding') === 'gzip' ? gunzipSync(buf).toString() : buf.toString();
-  return { status: r.status, cc: r.headers.get('cache-control'), size: buf.length, raw: txt.length, j: JSON.parse(txt) };
+  return { status: r.status, cc: r.headers.get('cache-control'), hk: r.headers.get('x-ls19-kaynak'), size: buf.length, raw: txt.length, j: JSON.parse(txt) };
 };
 let ok = true;
 const check = (c, m) => { console.log((c ? '  ✓ ' : '  ✗ ') + m); ok = ok && c; };
@@ -33,6 +34,16 @@ const sb = await call('sbdb', '?des=99942'); check(sb.status === 200 && sb.j.orb
 const sbBad = await call('sbdb', '?des=' + encodeURIComponent('<script>')); check(sbBad.status === 400, 'geçersiz tanım 400');
 const gp = await call('gp', '?group=active'); check(gp.status === 200 && Array.isArray(gp.j) && gp.j.length > 0 && gp.size < 4.5e6, `gp: ${gp.j.length} uydu, gzip ${(gp.size / 1e6).toFixed(2)} MB`);
 check(/s-maxage=7200/.test(gp.cc), 'CelesTrak için 2 sa önbellek');
+const sg = await call('supgp', '?file=iss'); check(sg.status === 200 && Array.isArray(sg.j) && sg.j[0].DATA_SOURCE, `supgp iss: ${sg.j.length} kayıt`);
+const sgb = await call('supgp', '?file=../etc'); check(sgb.status === 400, 'geçersiz SupGP dosyası 400');
+// CelesTrak engellerse GitHub kopyasına düşme
+const realFetch = globalThis.fetch;
+globalThis.fetch = async (url) => { const u = String(url); if (u.includes('celestrak')) return new Response('Forbidden', { status: 403 });
+  if (u.includes('raw.githubusercontent.com') && u.endsWith('gp_active.json')) return new Response(file('gp_active.json'));
+  if (u.includes('raw.githubusercontent.com') && u.endsWith('meta.json')) return new Response(JSON.stringify({ t: Date.now() - 3600e3 }));
+  return realFetch(url); };
+const gm = await call('gp', '?group=active&v=x'); check(gm.status === 200 && Array.isArray(gm.j) && /GitHub/.test(decodeURIComponent(gm.hk || '')), 'CelesTrak 403 → GitHub kopyası');
+globalThis.fetch = realFetch;
 const sv = await call('surum'); check(sv.j.mod === 'bulut' && sv.j.kaynaklar.gp.surum === Math.floor(Date.now() / 7.2e6), 'surum kovaları');
 // yerel sunucuyla aynı biçim
 const py = execFileSync('python3', ['-c', `import json,sys; sys.path.insert(0,'.'); import sunucu as S; print(json.dumps(S.compact_sbdb([json.load(open('${dir}sb_neo.json'))]), separators=(',',':')))`], { cwd: new URL('..', import.meta.url).pathname, maxBuffer: 1e9 }).toString();

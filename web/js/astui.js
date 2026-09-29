@@ -312,10 +312,11 @@ export class AstUI {
     this.paths = { N: r.pathN, D: r.pathD };
     const cdist = r.after ? Math.min(r.ca.dist, r.after.dist) : r.ca.dist;
     this.setCam('EARTH'); Object.assign(this.world.cam, { dist: Math.max(4 * cdist, 50000), el: 0.5 });
+    this.ui.setTab('saptirma');
   }
   hide3d() { this.paths = null; }
   update(eye) {
-    const P = this.paths, vis = !!P && this.world.cam.mode !== 'SOLAR';
+    const P = this.paths, vis = !!eye && !!P && this.world.cam.mode !== 'SOLAR' && this.world.cam.mode !== 'OBS';
     this.pathN.visible = this.pathD.visible = vis;
     if (!vis) { this.lblN.style.display = this.lblD.style.display = 'none'; return; }
     for (const [l, arr, lbl] of [[this.pathN, P.N, this.lblN], [this.pathD, P.D, this.lblD]]) {

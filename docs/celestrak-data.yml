@@ -1,0 +1,56 @@
+# Etkinleştirmek için bu dosyayı .github/workflows/celestrak-data.yml konumuna taşıyın.
+# CelesTrak verisinin 2 saatlik kopyası -> "data" dalı (geçmişsiz, her seferinde üzerine yazılır).
+# Neden: CelesTrak, Vercel gibi bulut sağlayıcıların IP'lerini engelleyebiliyor ve Supplemental GP'de CORS yok.
+# Site önce CelesTrak'ı dener; olmazsa bu kopyayı kullanır. CelesTrak kuralına uyulur: her dosya en sık 2 saatte bir.
+name: CelesTrak verisi (2 saatte bir)
+on:
+  schedule:
+    - cron: '17 */2 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: celestrak-data
+  cancel-in-progress: false
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Önceki kopyayı al
+        run: |
+          git clone -q --depth 1 -b data "https://github.com/${{ github.repository }}.git" out || mkdir -p out
+          rm -rf out/.git
+      - name: CelesTrak'tan indir
+        run: |
+          UA="LS19/1.1 (+https://github.com/${{ github.repository }})"
+          get() {
+            if curl -fsS --retry 2 --retry-delay 5 --max-time 180 -A "$UA" -o /tmp/f.json "$1" \
+               && python3 -c "import json; d=json.load(open('/tmp/f.json')); assert isinstance(d, list) and d"; then
+              python3 -c "import json; json.dump(json.load(open('/tmp/f.json')), open('out/$2', 'w'), separators=(',', ':'))"
+              echo "ok $2"
+            else
+              echo "::warning::$2 alınamadı (önceki kopya korunuyor)"
+            fi
+            sleep 3
+          }
+          get "https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json" gp_active.json
+          for f in iss starlink oneweb planet gps glonass intelsat ses kuiper ast cpf; do
+            get "https://celestrak.org/NORAD/elements/supplemental/sup-gp.php?FILE=$f&FORMAT=json" "sup_$f.json"
+          done
+          python3 - <<'PY'
+          import json, os, time
+          files = {f: os.path.getsize('out/' + f) for f in sorted(os.listdir('out')) if f.endswith('.json') and f != 'meta.json'}
+          json.dump({'t': int(time.time() * 1000), 'kaynak': 'CelesTrak', 'dosyalar': files}, open('out/meta.json', 'w'))
+          print(files)
+          PY
+      - name: data dalına yaz
+        run: |
+          cd out
+          test -s gp_active.json || { echo "::error::gp_active.json yok"; exit 1; }
+          git init -q -b data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "CelesTrak verisi $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" data

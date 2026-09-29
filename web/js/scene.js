@@ -119,7 +119,7 @@ void main() {
 const FS_EARTH = /* glsl */`
 #include <common>
 #include <logdepthbuf_pars_fragment>
-uniform sampler2D dayMap, nightMap, cloudMap, specMap, normalMap; uniform vec3 sunDir; uniform float sunI;
+uniform sampler2D dayMap, nightMap, cloudMap, specMap, normalMap; uniform vec3 sunDir; uniform float sunI; uniform float obsMode;
 varying vec3 vN; varying vec3 vE; varying vec3 vPos; varying vec2 vUv; varying vec3 vLocal;
 void main() {
   #include <logdepthbuf_fragment>
@@ -141,6 +141,10 @@ void main() {
   col += night * vec3(1.0, 0.78, 0.5) * (1.0 - smoothstep(-0.12, 0.05, ndl)) * (1.0 - cloud * 0.85) * 0.9 / sunI;
   float mu = max(dot(N, V), 0.0);
   col = mix(col, vec3(0.32, 0.55, 1.0) * max(ndl + 0.15, 0.0) * 0.7, pow(1.0 - mu, 3.0) * 0.45);
+  // yerdeki gözlemci: yakın zemin doku çözünürlüğünün altında; sade, aydınlanmaya göre koyulaşan zemin (şehir ışığı pikseli büyümesin)
+  if (obsMode > 0.5) { float nearG = 1.0 - smoothstep(60.0, 500.0, length(vPos));
+    vec3 g = vec3(0.018, 0.02, 0.024) + day * 0.35 * max(ndl, 0.0) * sunCol + vec3(0.25, 0.32, 0.45) * 0.05 * smoothstep(-0.2, 0.1, ndl);
+    col = mix(col, g, nearG); }
   gl_FragColor = vec4(col * sunI, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -274,7 +278,7 @@ export class World {
     const eu = { dayMap: { value: A.day || flat([40, 80, 160, 255]) }, nightMap: { value: A.night || flat([0, 0, 0, 255]) },
       cloudMap: { value: A.clouds || flat([0, 0, 0, 255]) }, specMap: { value: A.spec || flat([0, 0, 0, 255]) },
       normalMap: { value: A.enorm || flat([128, 128, 255, 255]) }, sunDir: { value: new THREE.Vector3(1, 0, 0) }, sunI: { value: EARTH_I },
-      heightMap: { value: flat([0, 0, 0, 255]) }, hSize: { value: new THREE.Vector2(1, 1) }, radius: { value: E.R_E }, useHeight: { value: 0 } };
+      heightMap: { value: flat([0, 0, 0, 255]) }, hSize: { value: new THREE.Vector2(1, 1) }, radius: { value: E.R_E }, useHeight: { value: 0 }, obsMode: { value: 0 } };
     this.earth = new THREE.Mesh(sphereGeometry(E.R_E, 1024, 512), new THREE.ShaderMaterial({ uniforms: eu, vertexShader: VS_BODY, fragmentShader: FS_EARTH }));
     this.earth.frustumCulled = false; S.add(this.earth);
     this.atm = new THREE.Mesh(sphereGeometry(E.R_E * 1.0125, 256, 128), new THREE.ShaderMaterial({
@@ -470,6 +474,15 @@ export class World {
       const B = c.focus.kind === 'planet' || c.focus.kind === 'ast' ? [[1, 0, 0], cross([0, -0.3977771559, 0.9174820621], [1, 0, 0]), [0, -0.3977771559, 0.9174820621]] : [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
       return { eye: add(tp, scale(fromBasis(B, sph(c.az, c.el)), c.dist)), target: tp, up: B[2] };
     }
+    if (c.mode === 'OBS' && this.obsPose) {                 // yerdeki gözlemci: gökyüzüne bakış (az kuzeyden, el ufuktan)
+      const o = this.obsPose(t), up = o.up, east = o.east, north = cross(up, east);
+      let dir;
+      if (c.lookFn) { const q = c.lookFn(t); if (q) { dir = unit(sub(q, o.eye)); const e = Math.asin(Math.max(-1, Math.min(1, dot(dir, up))));
+        c.el = e; c.az = Math.atan2(dot(dir, east), dot(dir, north)); } }
+      if (!dir) dir = add(add(scale(north, Math.cos(c.el) * Math.cos(c.az)), scale(east, Math.cos(c.el) * Math.sin(c.az))), scale(up, Math.sin(c.el)));
+      if (!c.userFov && Math.abs(this.camera.fov - 70) > 0.05) { this.camera.fov = 70; this.camera.updateProjectionMatrix(); }
+      return { eye: o.eye, target: add(o.eye, dir), up };
+    }
     if (c.mode === 'SOLAR') {                               // Güneş merkezli, ekliptiğe yakın bakış
       const sun = E.sunPos(t), ecl = [0, -0.3977771559, 0.9174820621];
       const xx = [1, 0, 0], y = cross(ecl, xx);
@@ -494,7 +507,7 @@ export class World {
   }
 
   autoCamera(x, info) {
-    if (this.cam.mode !== 'SITE' && this.camera.fov !== 50) { this.camera.fov = 50; this.camera.updateProjectionMatrix(); }
+    if (this.cam.mode !== 'SITE' && this.cam.mode !== 'OBS' && this.camera.fov !== 50) { this.camera.fov = 50; this.camera.updateProjectionMatrix(); }
     if (!this.cam.auto) return;
     const ph = x.phase, burning = x.thr > 0, rE = norm(x.r), rs = norm(sub(x.r, info.rm));
     let key, set;
@@ -524,6 +537,8 @@ export class World {
   // ---------------------------------------------------------------- kare güncelle
   update(x, extra) {
     if (!this.ready || !x) return;
+    if (this.skyMode) this.setSkyMode(false);
+    this.earthU.obsMode.value = 0;
     const t = x.t, rm = E.moonPos(t), sun = E.sunPos(t);
     const central = norm(sub(x.r, rm)) < E.MOON_ZONE ? 'M' : 'E';
     const Mme = E.moonIcrfToMe(t), Mitrf = E.earthIcrfToItrf(t);
@@ -622,6 +637,60 @@ export class World {
     this.central = central; this.info = info;
   }
 
+  // ---------------------------------------------------------------- Canlı Gökyüzü: araçsız, gerçek saatle çizim
+  setSkyMode(on) {
+    this.skyMode = on;
+    for (const o of [this.vehicle, this.vehMarker, this.stageMarker, this.siteMarker, this.osc, this.trailLineE, this.trailLineM, this.stageOsc, this.haloPath, ...this.lMarkers]) o.visible = !on && o !== this.haloPath;
+    if (on) { this.spent.visible = false; for (const k of ['veh', 'stage', 'site', 'lp', 'lp2']) if (this.labels[k]) this.labels[k].style.display = 'none'; }
+    if (this.skyDome) this.skyDome.visible = false;
+  }
+  updateSky(t, extra = {}) {
+    if (!this.ready) return;
+    if (!this.skyMode) this.setSkyMode(true);
+    const rm = E.moonPos(t), sun = E.sunPos(t), Mme = E.moonIcrfToMe(t), Mitrf = E.earthIcrfToItrf(t);
+    const info = { rm, central: 'E', vehPos: [0, 0, 0] };
+    if (this.cam.mode !== 'OBS' && this.cam.mode !== 'SITE' && this.camera.fov !== 50 && !this.cam.userFov) { this.camera.fov = 50; this.camera.updateProjectionMatrix(); }
+    const pose = this.cameraPose({ t, r: [0, 0, E.R_E * 3], v: [1, 0, 0] }, info), eye = pose.eye;
+    this.eye = eye;
+    const rel = (p, v = new THREE.Vector3()) => v.set(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]);
+    const tg = rel(pose.target), up = new THREE.Vector3(...pose.up);
+    const m = new THREE.Matrix4().lookAt(new THREE.Vector3(0, 0, 0), tg, up);
+    this.camera.position.set(0, 0, 0); this.camera.quaternion.setFromRotationMatrix(m); this.camera.updateMatrixWorld(true);
+    const sd = new THREE.Vector3(...unit(sub(sun, eye)));
+    this.earthU.sunDir.value.copy(unit3(sun)); this.moonU.sunDir.value.copy(unit3(sub(sun, rm))); this.moonU.earthDir.value.copy(unit3(scale(rm, -1)));
+    this.sunSprite.position.copy(sd.clone().multiplyScalar(5e6));
+    rel([0, 0, 0], this.earth.position); this.earth.quaternion.copy(m3ToQuat(E.mT(Mitrf))); this.atm.position.copy(this.earth.position);
+    rel(rm, this.moon.position); this.moon.quaternion.copy(m3ToQuat(E.mT(Mme)));
+    if (this.terrain) { rel(add(rm, mtv(Mme, this.terrainSite)), this.terrain.position); this.terrain.quaternion.copy(this.moon.quaternion); }
+    this.sunLight.intensity = Math.PI * SUN_I; this.sunLight.castShadow = false; this.ambient.intensity = 0.02; this.eclipse = 1;
+    this.sunLight.target.position.set(0, 0, 0); this.sunLight.position.copy(sd);
+    // Ay'ın yolu (±4 gün)
+    if (!this.moonPathT || Math.abs(t - this.moonPathT) > 3600) { this.moonPathT = t; this.moonPathPts = []; for (let i = 0; i < 600; i++) this.moonPathPts.push(E.moonPos(t - 4 * 86400 + (i * 8 * 86400) / 599)); }
+    const ma = this.moonPath.geometry.attributes.position.array;
+    this.moonPathPts.forEach((p, i) => { ma[i * 3] = p[0] - eye[0]; ma[i * 3 + 1] = p[1] - eye[1]; ma[i * 3 + 2] = p[2] - eye[2]; });
+    this.moonPath.geometry.setDrawRange(0, 600); this.moonPath.geometry.attributes.position.needsUpdate = true;
+    this.moonPath.visible = ['EARTH', 'MOON', 'FOCUS'].includes(this.cam.mode) && norm(eye) > 60000;
+    // yerden bakış: gündüz gökyüzü (Güneş'in gözlemciye göre yüksekliğine göre)
+    const obs = this.cam.mode === 'OBS' && this.obsPose;
+    this.earthU.obsMode.value = obs ? 1 : 0;
+    if (obs) {
+      if (!this.skyDome) { this.skyDome = new THREE.Mesh(new THREE.SphereGeometry(9e6, 32, 16), new THREE.MeshBasicMaterial({ color: 0x3b6fb0, side: THREE.BackSide, transparent: true, opacity: 0, depthWrite: false, depthTest: false, toneMapped: false }));
+        this.skyDome.renderOrder = -9.5; this.skyDome.frustumCulled = false; this.scene.add(this.skyDome); }
+      const o = this.obsPose(t), se = Math.asin(Math.max(-1, Math.min(1, dot(unit(sub(sun, o.eye)), o.up)))) * 180 / Math.PI;
+      const k = Math.max(0, Math.min(1, (se + 8) / 14));
+      this.skyDome.visible = k > 0; this.skyDome.material.opacity = 0.82 * k;
+      this.skyDome.material.color.setRGB(0.08 + 0.15 * k, 0.16 + 0.27 * k, 0.32 + 0.37 * k);
+      this.skyDome.position.set(0, 0, 0);
+      this.stars.material.color.setScalar(0.55 * (1 - k));
+    } else { if (this.skyDome) this.skyDome.visible = false; this.stars.material.color.setScalar(0.55); }
+    const solarV = this.cam.mode === 'SOLAR' || obs;
+    this.placeLabel('earth', [0, 0, E.R_E * 1.08], norm(eye) > 30000 && !solarV, 0);
+    const moonUp = !obs || dot(unit(sub(rm, eye)), this.obsPose(t).up) > 0;
+    this.placeLabel('moon', add(rm, [0, 0, E.R_M * 1.12]), ((norm(sub(rm, eye)) > 9000 && !this.full) || obs) && moonUp, 0);
+    this.updateCelestial(t, rm, eye);
+    this.central = 'E'; this.info = info;
+  }
+
   // ---------------------------------------------------------------- kütle merkezi, dönüş eksenleri, Güneş sistemi
   updateCelestial(t, rm, eye) {
     const mode = this.cam.mode, setLine = (l, pts) => {
@@ -643,17 +712,17 @@ export class World {
     }
     this.placeLabel('emb', emb, embMode, 10);
     // halo yolu: Ay'a göre (Ay'la birlikte taşınır) ve L1/L2
-    const showHalo = !!this.haloPts && mode !== 'SOLAR' && norm(sub(rm, eye)) > 12000;
+    const showHalo = !this.skyMode && !!this.haloPts && mode !== 'SOLAR' && norm(sub(rm, eye)) > 12000;
     this.haloPath.visible = showHalo;
     if (showHalo) setLine(this.haloPath, this.haloPts.map((q) => add(rm, q)));
-    const showL = (embMode || !!this.haloPts) && mode !== 'SOLAR' && norm(sub(rm, eye)) > 30000;
+    const showL = !this.skyMode && (embMode || !!this.haloPts) && mode !== 'SOLAR' && norm(sub(rm, eye)) > 30000;
     const lpos = [CR.xL(1), CR.xL(2)].map((xl) => scale(rm, (xl + CR.MU) / 1));
     this.lMarkers.forEach((m, i) => { m.visible = showL; m.position.set(lpos[i][0] - eye[0], lpos[i][1] - eye[1], lpos[i][2] - eye[2]); });
     this.placeLabel('lp', lpos[0], showL, 8); this.placeLabel('lp2', lpos[1], showL, 8);
     // dönüş eksenleri (+ başlangıç meridyeni işareti)
     const far = (c, R) => norm(sub(c, eye)) > 6 * R;
-    const showE = mode === 'EARTH' || embMode || (far([0, 0, 0], E.R_E) && mode !== 'SOLAR');
-    const showM = mode === 'MOON' || embMode || (far(rm, E.R_M) && mode !== 'SOLAR');
+    const showE = mode !== 'OBS' && (mode === 'EARTH' || embMode || (far([0, 0, 0], E.R_E) && mode !== 'SOLAR'));
+    const showM = mode !== 'OBS' && (mode === 'MOON' || embMode || (far(rm, E.R_M) && mode !== 'SOLAR'));
     const Mi = E.earthIcrfToItrf(t), pole = Mi[2], mer = Mi[0];
     this.earthAxis.visible = this.earthMer.visible = showE;
     if (showE) { setLine(this.earthAxis, [scale(pole, -1.35 * E.R_E), scale(pole, 1.35 * E.R_E)]); setLine(this.earthMer, [scale(mer, 1.0 * E.R_E), scale(mer, 1.3 * E.R_E)]); }
@@ -662,15 +731,19 @@ export class World {
     if (showM) { setLine(this.moonAxis, [add(rm, scale(Mp[2], -1.35 * E.R_M)), add(rm, scale(Mp[2], 1.35 * E.R_M))]); setLine(this.moonMer, [add(rm, scale(Mm[0], E.R_M)), add(rm, scale(Mm[0], 1.35 * E.R_M))]); }
     // Güneş sistemi
     const focusPl = mode === 'FOCUS' && this.cam.focus && (this.cam.focus.kind === 'planet' || this.cam.focus.kind === 'ast');
-    const solar = (mode === 'SOLAR' || focusPl) && this.live;
+    this.full = mode === 'SOLAR' || focusPl;
+    const obsV = mode === 'OBS';
+    const solar = (mode === 'SOLAR' || focusPl || obsV) && this.live;
     for (const pl of this.planets) {
-      pl.m.visible = pl.o.visible = !!solar; if (pl.mesh) pl.mesh.visible = !!solar; if (pl.ring) pl.ring.visible = !!solar;
-      if (!solar) { pl.d.style.display = 'none'; pl.scr = null; }
+      const on = !!solar && !(obsV && pl.i === 3);
+      pl.m.visible = on; pl.o.visible = on && !obsV; if (pl.mesh) pl.mesh.visible = on; if (pl.ring) pl.ring.visible = on;
+      if (!on) { pl.d.style.display = 'none'; pl.scr = null; }
     }
     if (solar) {
       const L = this.live.L, et = etOf(t), eS = L.body(3, et), sS = L.body(0, et);
       if (!this.plT || Math.abs(t - this.plT) > 2 * 86400) { this.plT = t; this.plOrb = {}; }
       for (const pl of this.planets) {
+        if (obsV && pl.i === 3) continue;
         const [p, v] = L.body(pl.i, et), geo = sub(p, eS[0]);
         pl.m.position.set(geo[0] - eye[0], geo[1] - eye[1], geo[2] - eye[2]);
         pl.geo = geo;
@@ -679,13 +752,15 @@ export class World {
         pl.appR = appR; pl.m.visible = appR < 5;                       // yakından işaret yerine küre
         if (pl.mesh) { pl.mesh.position.copy(pl.m.position); pl.mesh.material.uniforms.sunDir.value.copy(unit3(sub(sS[0], p))); }
         if (pl.ring) pl.ring.position.copy(pl.m.position);
-        if (!this.plOrb[pl.i]) {
+        if (!this.plOrb[pl.i] && !obsV) {
           const rh = sub(p, sS[0]), vh = sub(v, sS[1]), mu = BODIES[0].gm + BODIES[pl.i].gm;
           const el = E.elements(rh, vh, mu); this.plOrb[pl.i] = conicPoints(el, rh, mu, 1e11, 361).map((q) => add(q, sub(sS[0], eS[0])));
         }
-        setLine(pl.o, this.plOrb[pl.i].map((q) => q));
+        if (!obsV) setLine(pl.o, this.plOrb[pl.i].map((q) => q));
         const d = pl.d, e = this.eye, vv = new THREE.Vector3(geo[0] - e[0], geo[1] - e[1], geo[2] - e[2]).project(this.camera);
-        if (vv.z > 1 || Math.abs(vv.x) > 1.1 || Math.abs(vv.y) > 1.1) { d.style.display = 'none'; pl.scr = null; }
+        const below = obsV && this.obsPose && dot(unit(sub(geo, e)), this.obsPose(t).up) < -0.01;      // gözlemcide ufkun altı
+        if (below) { pl.m.visible = false; if (pl.mesh) pl.mesh.visible = false; if (pl.ring) pl.ring.visible = false; }
+        if (below || vv.z > 1 || Math.abs(vv.x) > 1.1 || Math.abs(vv.y) > 1.1) { d.style.display = 'none'; pl.scr = null; }
         else { const sx = ((vv.x + 1) / 2) * this.canvas.clientWidth, sy = ((1 - vv.y) / 2) * this.canvas.clientHeight;
           pl.scr = [sx, sy]; d.style.display = 'block'; d.style.transform = `translate(${sx}px, ${sy - 10 - Math.min(pl.appR || 0, 400)}px) translate(-50%, -100%)`; }
       }

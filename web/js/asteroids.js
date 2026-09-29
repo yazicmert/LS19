@@ -258,6 +258,10 @@ export class AsteroidLayer {
     return best;
   }
 
+  hideAll() {
+    this.points.visible = false; this.selLine.visible = false; this.selRing.visible = false; this.rock.visible = false;
+    this.selLabel.style.display = 'none'; for (const b of this.bigLabels) b.el.style.display = 'none';
+  }
   // ---------------------------------------------------------------- her kare
   // full: Güneş sistemi görünümü (hepsi); değilse yalnız Dünya'nın 0,05 AB yakınındakiler
   update(t, eye, camera, canvas, full) {

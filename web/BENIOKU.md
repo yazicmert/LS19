@@ -15,6 +15,21 @@ saptırma laboratuvarı bir asteroide uygulanan itkinin Dünya yakın geçişini
 - Adres parametreleri: `?date=1969-07-16`, `?profile=NRHO` (APOLLO, APOLLO11, NRHO, L2, L1), `?sats=0` (uyduları kapat), `?ast=0` (asteroitleri kapat), `?tab=saptirma`.
 - Bulutta (Vercel) aynı site `api/` işlevleriyle çalışır; kurulum için depo kökündeki README'ye bakın.
 
+## İki çalışma alanı
+- Üstteki anahtar (ya da **M**): **Ay Görevi** — değiştirilebilir, koşturulabilir fizik motoru ve görev saati;
+  **Canlı Gökyüzü** — gerçek saat, uydular, asteroitler, saptırma laboratuvarı. İkisi ayrı saat, efemeris ve kamerayla çalışır;
+  görev arka planda sürer, uydu ve asteroitler görev alanında çizilmez.
+
+## Canlı Gökyüzü
+- Saat: **Şimdi** (N) gerçek zamana döner, **Boşluk** duraklatır, **, .** hızı değiştirir (×1–×3600), ±1 saat düğmeleri.
+- Kamera (1–5): Dünya, **Gözlemci** (bulunduğun yerden gökyüzü; sürükle: bak, tekerlek: yakınlaştır), Dünya–Ay, Ay, Güneş sistemi.
+- **Takip** sekmesi: gözlemci (şehir ya da "Konumumu kullan"), takip listesi (tarayıcıda saklanır; ISS, Tiangong, Hubble varsayılan),
+  her uydu için irtifa, hız, yer izi noktası, Güneş/gölge, gökteki yeri; **İzle** (kamera), **Gökte** (gözlemci kamerası), **Yer izi**
+  (yer izi + kapsama dairesi), **Kaldır**. Uydu kartında **Takibe al**.
+- Yaklaşan geçişler (3 gün, en yüksek ≥ 10°): doğuş, en yüksek, yön, çıplak gözle görünürlük; satıra tıkla → ayrıntı ve gökyüzü çizimi,
+  **Geçişe git ve gökte izle**. "Görünür geçişten 5 dk önce bildir" tarayıcı bildirimi ister (sayfa açıkken çalışır).
+- ISS, Starlink, OneWeb, GPS, GLONASS, Planet, Intelsat, SES, Kuiper için operatör verisi (CelesTrak Supplemental GP) kullanılır.
+
 ## Görev yapılandırması (Görev sekmesi)
 - Profil: Apollo hızlı (LLO 2 tur) · Apollo 11 gibi (LLO 13 tur, park eğimi 32,5°) · Artemis NRHO 9:2 · L2 halo · L1 halo · Özel.
 - Dünya park yörüngesi: irtifa (160–1000 km), eğim (28,6–90°), tur.
@@ -59,7 +74,7 @@ saptırma laboratuvarı bir asteroide uygulanan itkinin Dünya yakın geçişini
 ## Kontroller
 - **Boşluk**: başlat/duraklat · **. ,**: zaman hızı ×2 / ÷2 · "Otomatik hız" olaylara yaklaşırken yavaşlatır
 - **G**: otopilot aç/kapa · **P**: 2 m/s rastgele bozulma (rota düzeltmeleri telafi eder)
-- **Fare**: uydu, asteroit ya da gezegene gel → ad; tıkla → bilgi kartı
+- **M**: çalışma alanı değiştir · **Fare**: uydu, asteroit ya da gezegene gel → ad; tıkla → bilgi kartı
 - **1–8**: kamera (Otomatik, Araç, Dünya, Ay, Dünya–Ay, İniş yeri, Kütle merkezi, Güneş sistemi) · fare sürükle: döndür, tekerlek: yakınlaştır
 - Otopilot kapalıyken: **W/S** ileri/geri, **A/D** normal/anti-normal, **Q/E** radyal dış/iç, **R** yüzeye göre geri, **H** sabit tut,
   **Shift/Ctrl** itki ±%10, **Z** tam itki, **X** kes, **B** kademe ayır
