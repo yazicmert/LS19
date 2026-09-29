@@ -1,0 +1,31 @@
+iss|International Space Station (ISS) (B)/International Space Station (ISS) (B)
+hubble|Hubble Space Telescope (A)/Hubble Space Telescope (A)
+aqua|Aqua (A)/Aqua (A)
+terra|Terra/Terra
+aura|Aura (A)/Aura (A)
+chandra|Chandra X-ray Observatory/Chandra X-ray Observatory
+fermi|Fermi Gamma-ray Large Area Space Telescope/Fermi Gamma-ray Large Area Space Telescope
+swift|Swift/Swift
+gpm|Global Precipitation Measurement/Global Precipitation Measurement
+icesat2|Ice, Clouds, and Land Elevation Satellite-2 (ICESat-2) (A)/Ice, Clouds, and Land Elevation Satellite-2 (ICESat-2) (A)
+landsat8|Landsat 8/Landsat 8
+landsat7|Landsat 7/Landsat 7
+sentinel6|Jason Continuity of Service (Sentinel-6)/Jason Continuity of Service (Sentinel-6)
+oco2|Orbiting Carbon Observatory (OCO) 2/Orbiting Carbon Observatory (OCO) 2
+npp|Suomi National Polar-orbiting Partnership (Suomi NPP)/Suomi National Polar-orbiting Partnership (Suomi NPP)
+sdo|Solar Dynamics Observatory/Solar Dynamics Observatory
+tess|Transiting Exoplanet Survey Satellite (TESS) (B)/Transiting Exoplanet Survey Satellite (TESS) (B)
+hinode|Hinode (Solar-B)/Hinode (Solar-B)
+cygnss|Cyclone Global Navigation Satellite System (CYGNSS)/Cyclone Global Navigation Satellite System (CYGNSS)
+mms|Magnetospheric Multiscale (MMS) (A)/Magnetospheric Multiscale (MMS) (A)
+themis|Time History of Events and Macroscale Interactions During Substorms (THEMIS)/Time History of Events and Macroscale Interactions During Substorms (THEMIS)
+tdrs1|Tracking and Data Relay Satellites (TDRS) (A)/Tracking and Data Relay Satellites (TDRS) (A)
+tdrs3|Tracking and Data Relay Satellites (TDRS) (D)/Tracking and Data Relay Satellites (TDRS) (D)
+goes|Geostationary Operational Environmental Satellites/Geostationary Operational Environmental Satellites
+poes|Polar Operational Environmental Satellite (POES)/Polar Operational Environmental Satellite (POES)
+ibex|Interstellar Boundary Explorer (IBEX)/Interstellar Boundary Explorer (IBEX)
+grace|Gravity Recovery and Climate Experiment (GRACE) (B)/Gravity Recovery and Climate Experiment (GRACE) (B)
+calipso|Cloud-Aerosol Lidar and Infrared Pathfinder Satellite (CALIPSO)/Cloud-Aerosol Lidar and Infrared Pathfinder Satellite (CALIPSO)
+cloudsat|CloudSat (A)/CloudSat (A)
+jason|Ocean Surface Topography Mission (OSTM Jason-2)/Ocean Surface Topography Mission (OSTM Jason-2)
+lro|Lunar Reconnaissance Orbiter (A)/Lunar Reconnaissance Orbiter (A)

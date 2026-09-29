@@ -46,6 +46,9 @@ saptırma laboratuvarı bir asteroide uygulanan itkinin Dünya yakın geçişini
   açılıp kapanabilir; ad ya da NORAD no ile ara, seçilen uydunun yörüngesi çizilir. Veri 2 saatte bir yenilenir.
   Uydu noktaları kameraya yaklaştıkça büyür (yakın plan görünümde kaybolmaz).
   Yörünge öğeleri çağından ±30 gün dışında (ör. 1969) gösterilmez.
+- Gerçek 3B modeller (NASA 3D Resources): ISS, Hubble, Chandra, GOES, TDRS, Landsat… 50'den fazla uydu. Model yalnız kamera o uyduya
+  yaklaşınca (büyüklüğüne göre ~1,5–16 km) indirilir ve çizilir, aynı anda en fazla 3 model; uzaklaşınca kaldırılır. Kartta
+  "3B model" satırı ve **3B modeli yakından gör** düğmesi vardır; modeli olmayan uydular yakından temsili modelle gösterilir.
 - Ay: LRO, Danuri (KPLO), Chandrayaan-2, ARTEMIS P1/P2, CAPSTONE — JPL Horizons vektörleri, yalnız verisi bulunan tarihlerde.
 - Veriler `data/cache/` altında önbelleğe alınır; internet yoksa son kopya kullanılır.
 
@@ -75,6 +78,9 @@ saptırma laboratuvarı bir asteroide uygulanan itkinin Dünya yakın geçişini
 - **Boşluk**: başlat/duraklat · **. ,**: zaman hızı ×2 / ÷2 · "Otomatik hız" olaylara yaklaşırken yavaşlatır
 - **G**: otopilot aç/kapa · **P**: 2 m/s rastgele bozulma (rota düzeltmeleri telafi eder)
 - **M**: çalışma alanı değiştir · **Fare**: uydu, asteroit ya da gezegene gel → ad; tıkla → bilgi kartı
+- **Alt çubuk**: Başlat, zaman hızı (− ×N +) görünür; **Kamera ▾** ve **Uçuş ▾** (otopilot, otomatik hız, bozulma, baştan başlat) açılır ağaç menüdedir.
+  Canlı Gökyüzü'nde **Hız ▾** (×1…×3600, ±1 sa, ±1 gün) ve **Kamera ▾** (Yerden: Gözlemci · Uzaydan: Dünya, Dünya–Ay, Ay, Güneş sistemi).
+  Menüler ok tuşlarıyla gezilir, Esc ya da dışarı tıklama kapatır.
 - **1–8**: kamera (Otomatik, Araç, Dünya, Ay, Dünya–Ay, İniş yeri, Kütle merkezi, Güneş sistemi) · fare sürükle: döndür, tekerlek: yakınlaştır
 - Otopilot kapalıyken: **W/S** ileri/geri, **A/D** normal/anti-normal, **Q/E** radyal dış/iç, **R** yüzeye göre geri, **H** sabit tut,
   **Shift/Ctrl** itki ±%10, **Z** tam itki, **X** kes, **B** kademe ayır
@@ -93,6 +99,8 @@ saptırma laboratuvarı bir asteroide uygulanan itkinin Dünya yakın geçişini
 - `js/ephem.js`, `js/earth.js`, `js/jplkernel.js` — canlı N-cisim efemerisi, Dünya yönelimi, JPL çekirdek okuyucu
 - `js/engine.js` — fizik motoru · `js/worker.js` fizik iş parçacığı · `js/nominal.js` nominal Δv koşusu
 - `js/sats.js`, `js/satlayer.js`, `lib/satellite.esm.js` (satellite.js, MIT) — canlı uydular
+- `js/satcatalog.js`, `js/satmodels.js`, `models/sats/` — gerçek 3B uydu modelleri (NASA 3D Resources, kamu malı), `lib/addons/libs/meshopt_decoder.module.js` (MIT)
+- `js/treemenu.js` — alt çubuktaki açılır ağaç menüler
 - `js/scene.js` Three.js görüntü · `js/ui.js` HUD ve paneller · `js/terrain.js` iniş bölgesi arazisi
 - `js/asteroids.js`, `js/astwork.js` — canlı asteroitler · `js/deflect.js` — saptırma fizik motoru · `js/deflectwork.js`, `js/astui.js` — laboratuvar
 - `js/updater.js` — 10 dakikalık güncelleme denetimi

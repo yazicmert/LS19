@@ -167,27 +167,44 @@
 
   <footer id="controls" class="dock" data-for="mission" aria-label="Görev denetimleri">
     <button id="btnPlay" class="primary" title="Oynat / duraklat (Boşluk)"><i data-icon="play"></i><span>Başlat</span></button>
-    <div class="grp">
-      <button id="btnSlow" title="Zaman hızı ÷2 (,)">−</button>
+    <div class="grp warpgrp" role="group" aria-label="Zaman hızı">
+      <button id="btnSlow" title="Zaman hızı ÷2 (,)" aria-label="Yavaşlat">−</button>
       <span id="warpVal" class="warp">×1</span>
-      <button id="btnFast" title="Zaman hızı ×2 (.)">+</button>
-      <label class="chk"><input id="chkAutoWarp" type="checkbox" checked> Otomatik hız</label>
+      <button id="btnFast" title="Zaman hızı ×2 (.)" aria-label="Hızlandır">+</button>
     </div>
-    <label class="chk sw"><input id="chkAuto" type="checkbox" checked> Otopilot <kbd>G</kbd></label>
-    <button id="btnPerturb" title="Rastgele 2 m/s hız bozulması (P)"><i data-icon="shake"></i><span>Bozulma ekle</span></button>
-    <div class="grp cams">
-      <span class="k">Kamera</span>
-      <button data-cam="AUTO" class="on">Otomatik</button>
-      <button data-cam="VEHICLE">Araç</button>
-      <button data-cam="EARTH">Dünya</button>
-      <button data-cam="MOON">Ay</button>
-      <button data-cam="SYSTEM">Dünya–Ay</button>
-      <button data-cam="SITE">İniş yeri</button>
-      <button data-cam="EMB" title="Dünya–Ay ortak kütle merkezi">Kütle merkezi</button>
-      <button data-cam="SOLAR">Güneş sistemi</button>
+    <div class="tm">
+      <button class="tm-btn" title="Kamera"><i data-icon="camera"></i><span class="tm-k">Kamera</span><span class="tm-val" data-empty="Odak"></span><i data-icon="chev" class="chev"></i></button>
+      <div class="tm-pop" role="menu" aria-label="Kamera" hidden>
+        <button role="menuitemradio" data-cam="AUTO" class="on" data-short="Otomatik">Otomatik <small>görev evresine göre</small></button>
+        <details open><summary>Araç ve iniş</summary><div class="tm-sub">
+          <button role="menuitemradio" data-cam="VEHICLE">Araç</button>
+          <button role="menuitemradio" data-cam="SITE">İniş yeri</button>
+        </div></details>
+        <details open><summary>Cisimler</summary><div class="tm-sub">
+          <button role="menuitemradio" data-cam="EARTH">Dünya</button>
+          <button role="menuitemradio" data-cam="MOON">Ay</button>
+        </div></details>
+        <details><summary>Sistem</summary><div class="tm-sub">
+          <button role="menuitemradio" data-cam="SYSTEM">Dünya–Ay</button>
+          <button role="menuitemradio" data-cam="EMB" title="Dünya–Ay ortak kütle merkezi">Kütle merkezi</button>
+          <button role="menuitemradio" data-cam="SOLAR">Güneş sistemi</button>
+        </div></details>
+      </div>
     </div>
-    <button id="btnRestart" title="Görevi baştan başlat"><i data-icon="restart"></i><span>Baştan</span></button>
-    <button id="btnPanel" title="Paneli aç/kapa"><i data-icon="panel"></i><span>Panel</span></button>
+    <div class="tm">
+      <button class="tm-btn" title="Uçuş seçenekleri"><i data-icon="sliders"></i><span class="tm-k">Uçuş</span><span class="tm-val" data-from="#chkAuto" data-on="Otopilot" data-off="Elle kumanda"></span><i data-icon="chev" class="chev"></i></button>
+      <div class="tm-pop" role="menu" aria-label="Uçuş seçenekleri" hidden>
+        <details open><summary>Kumanda</summary><div class="tm-sub">
+          <label class="tm-toggle"><input id="chkAuto" type="checkbox" role="menuitemcheckbox" checked><span>Otopilot</span><kbd>G</kbd></label>
+          <label class="tm-toggle"><input id="chkAutoWarp" type="checkbox" role="menuitemcheckbox" checked><span>Otomatik zaman hızı</span></label>
+        </div></details>
+        <details open><summary>Senaryo</summary><div class="tm-sub">
+          <button id="btnPerturb" role="menuitem" title="Rastgele 2 m/s hız bozulması"><i data-icon="shake"></i><span>Bozulma ekle</span><kbd>P</kbd></button>
+          <button id="btnRestart" role="menuitem" title="Görevi baştan başlat"><i data-icon="restart"></i><span>Baştan başlat</span></button>
+        </div></details>
+      </div>
+    </div>
+    <button id="btnPanel" class="icon" title="Paneli aç/kapa" aria-label="Panel"><i data-icon="panel"></i></button>
   </footer>
 
 
@@ -306,19 +323,32 @@
   <footer id="skyControls" class="dock" data-for="sky" aria-label="Zaman ve kamera">
     <button id="skyNow" class="primary" title="Gerçek zamana dön (N)"><i data-icon="now"></i><span>Şimdi</span></button>
     <button id="skyPause" title="Saati duraklat (Boşluk)" aria-pressed="false"><i data-icon="pause"></i><span>Duraklat</span></button>
-    <div class="grp seg" role="group" aria-label="Zaman hızı (, .)">
-      <button data-rate="1" class="on">×1</button><button data-rate="10">×10</button><button data-rate="60">×60</button><button data-rate="600">×600</button><button data-rate="3600">×3600</button>
+    <div class="tm">
+      <button class="tm-btn" title="Zaman hızı ve zamanda atlama (, .)"><i data-icon="gauge"></i><span class="tm-k">Hız</span><span class="tm-val" data-empty="durdu"></span><i data-icon="chev" class="chev"></i></button>
+      <div class="tm-pop" role="menu" aria-label="Zaman" hidden>
+        <details open><summary>Zaman akışı</summary><div class="tm-sub seg">
+          <button role="menuitemradio" data-rate="1" class="on" data-short="×1">×1</button><button role="menuitemradio" data-rate="10">×10</button><button role="menuitemradio" data-rate="60">×60</button><button role="menuitemradio" data-rate="600">×600</button><button role="menuitemradio" data-rate="3600">×3600</button>
+        </div></details>
+        <details open><summary>Zamanda atla</summary><div class="tm-sub seg">
+          <button id="skyBackD" data-keep title="1 gün geri">−1 gün</button><button id="skyBack" data-keep title="1 saat geri">−1 sa</button><button id="skyFwd" data-keep title="1 saat ileri">+1 sa</button><button id="skyFwdD" data-keep title="1 gün ileri">+1 gün</button>
+        </div></details>
+      </div>
     </div>
-    <div class="grp"><button id="skyBack" title="1 saat geri"><i data-icon="back"></i><span>1 sa</span></button><button id="skyFwd" title="1 saat ileri"><span>1 sa</span><i data-icon="fwd"></i></button></div>
-    <div class="grp cams" role="group" aria-label="Kamera">
-      <span class="k">Kamera</span>
-      <button data-skycam="EARTH" title="1"><i data-icon="globe"></i><span>Dünya</span></button>
-      <button data-skycam="OBS" title="2: gözlemcinin konumundan gökyüzü"><i data-icon="telescope"></i><span>Gözlemci</span></button>
-      <button data-skycam="SYSTEM" title="3"><i data-icon="orbit"></i><span>Dünya–Ay</span></button>
-      <button data-skycam="MOON" title="4"><i data-icon="moon"></i><span>Ay</span></button>
-      <button data-skycam="SOLAR" title="5"><i data-icon="sun"></i><span>Güneş sistemi</span></button>
+    <div class="tm">
+      <button class="tm-btn" title="Kamera (1–5)"><i data-icon="camera"></i><span class="tm-k">Kamera</span><span class="tm-val" data-empty="Uydu odağı"></span><i data-icon="chev" class="chev"></i></button>
+      <div class="tm-pop" role="menu" aria-label="Kamera" hidden>
+        <details open><summary>Yerden</summary><div class="tm-sub">
+          <button role="menuitemradio" data-skycam="OBS" data-short="Gözlemci"><i data-icon="telescope"></i><span>Gözlemcinin gökyüzü</span><kbd>2</kbd></button>
+        </div></details>
+        <details open><summary>Uzaydan</summary><div class="tm-sub">
+          <button role="menuitemradio" data-skycam="EARTH" data-short="Dünya"><i data-icon="globe"></i><span>Dünya</span><kbd>1</kbd></button>
+          <button role="menuitemradio" data-skycam="SYSTEM" data-short="Dünya–Ay"><i data-icon="orbit"></i><span>Dünya–Ay</span><kbd>3</kbd></button>
+          <button role="menuitemradio" data-skycam="MOON" data-short="Ay"><i data-icon="moon"></i><span>Ay</span><kbd>4</kbd></button>
+          <button role="menuitemradio" data-skycam="SOLAR" data-short="Güneş sistemi"><i data-icon="sun"></i><span>Güneş sistemi</span><kbd>5</kbd></button>
+        </div></details>
+      </div>
     </div>
-    <button id="btnSkyPanel" title="Paneli aç/kapa"><i data-icon="panel"></i><span>Panel</span></button>
+    <button id="btnSkyPanel" class="icon" title="Paneli aç/kapa" aria-label="Panel"><i data-icon="panel"></i></button>
   </footer>
 
   <div id="loading"><div class="lbox"><div class="ltitle">LS19 <span class="lsub">Look Star 19</span></div><div id="loadMsg">Dokular yükleniyor…</div><div class="track"><div id="loadBar" class="fill"></div></div><button id="loadBack" hidden>Varsayılan tarihe dön</button></div></div>

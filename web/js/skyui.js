@@ -34,6 +34,8 @@ export class SkyUI {
     document.querySelectorAll('#skyControls [data-rate]').forEach((b) => b.addEventListener('click', () => { clock.setRate(+b.dataset.rate); this.syncClock(); }));
     $('#skyBack').addEventListener('click', () => { clock.shift(-3600e3); this.syncClock(); });
     $('#skyFwd').addEventListener('click', () => { clock.shift(3600e3); this.syncClock(); });
+    $('#skyBackD').addEventListener('click', () => { clock.shift(-86400e3); this.syncClock(); });
+    $('#skyFwdD').addEventListener('click', () => { clock.shift(86400e3); this.syncClock(); });
     document.querySelectorAll('[data-skycam]').forEach((b) => b.addEventListener('click', () => this.setSkyCam(b.dataset.skycam)));
     // gözlemci
     const sel = $('#obsCity');

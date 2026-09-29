@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import * as E from './engine.js';
 import * as S from '../lib/satellite.esm.js';
 import { DATA_RAW, SUP_FILES } from './config.js';
+import { SatModels, modelFor, MOON_MODELS, MODELS } from './satmodels.js';
 
 export const SAT_GROUPS = [
   { name: 'Uzay istasyonları', color: 0xff5a5a, size: 5.0 },
@@ -23,7 +24,7 @@ const VS = `
   #include <common>
   #include <logdepthbuf_pars_vertex>
   attribute vec3 vel; attribute float grp;
-  uniform vec3 eye, sunDir; uniform float dt, mu, px, obsView, mask[6]; uniform float sizes[6]; uniform vec3 colors[6];
+  uniform vec3 eye, sunDir; uniform float dt, mu, px, obsView, nearHide, mask[6]; uniform float sizes[6]; uniform vec3 colors[6];
   varying vec3 vCol; varying float vOn; varying float vLit;
   void main() {
     int g = int(grp + 0.5);
@@ -38,7 +39,7 @@ const VS = `
     // yerden bakışta yıldız gibi sabit boy; Dünya'nın gölgesindekiler soluk (gözle görülmez)
     gl_PointSize = obsView > 0.5 ? max(1.6, sz * 0.75) * px : sz * px * clamp(pow(18000.0 / max(d, 1.0), 0.65), 1.0, 7.0);
     float a = dot(p, sunDir); vLit = (a < 0.0 && length(p - a * sunDir) < 6378.0) ? 0.22 : 1.0; if (obsView < 0.5) vLit = 1.0;
-    vCol = col; vOn = (on > 0.5 && r == r) ? 1.0 : 0.0;
+    vCol = col; vOn = (on > 0.5 && r == r && d > nearHide) ? 1.0 : 0.0;   // 3B modeli çizilen uydunun (ve ona kenetli araçların) noktası gizli
     if (vOn < 0.5) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
     #include <logdepthbuf_vertex>
   }`;
@@ -89,7 +90,7 @@ export class SatLayer {
     this.worker = new Worker(new URL('./sats.js', import.meta.url), { type: 'module' });
     this.worker.onmessage = (e) => this.onMsg(e.data);
     this.mat = new THREE.ShaderMaterial({
-      uniforms: { eye: { value: new THREE.Vector3() }, sunDir: { value: new THREE.Vector3(1, 0, 0) }, obsView: { value: 0 }, dt: { value: 0 }, mu: { value: E.MU_E }, px: { value: window.devicePixelRatio || 1 },
+      uniforms: { eye: { value: new THREE.Vector3() }, sunDir: { value: new THREE.Vector3(1, 0, 0) }, obsView: { value: 0 }, nearHide: { value: 0 }, dt: { value: 0 }, mu: { value: E.MU_E }, px: { value: window.devicePixelRatio || 1 },
         mask: { value: this.mask.slice() }, sizes: { value: SAT_GROUPS.map((g) => g.size) }, colors: { value: SAT_GROUPS.map((g) => new THREE.Color(g.color)) } },
       vertexShader: VS, fragmentShader: FS, transparent: true, depthWrite: false });
     this.geo = new THREE.BufferGeometry();
@@ -102,6 +103,7 @@ export class SatLayer {
     this.selLabel = this.mkLabel('lbl lbl-sat');
     this.selRing = this.mkSprite(0xffe08a); this.selRing.scale.set(0.02, 0.02, 1); this.selRing.visible = false;
     this.model = satModel(); this.model.visible = false; scene.add(this.model);
+    this.models = new SatModels(scene); this.modelEntries = []; this.moonModelEntries = [];
     this.onChange = null;
   }
   mkLabel(cls) { const d = document.createElement('div'); d.className = cls; d.style.display = 'none'; this.labelsEl.appendChild(d); return d; }
@@ -161,6 +163,15 @@ export class SatLayer {
     try { r = o ? S.json2satrec(o) : null; if (r && r.error) r = null; } catch (e) { r = null; }
     this.recCache.set(id, r); return r;
   }
+  modelOf(id) { const o = this.recordOf(id); return modelFor(id, o ? o.OBJECT_NAME : ''); }
+  // model yerleşimi için konum: Dünya uyduları SGP4 (selPos ile aynı dönüşüm), Ay uyduları Horizons + Ay konumu
+  modelPos(e, t) {
+    if (e.m) { const r = this.moonEnabled ? this.moonState(e.m, t) : null; if (!r) return null; const rm = E.moonPos(t); return [rm[0] + r[0], rm[1] + r[1], rm[2] + r[2]]; }
+    const rec = this.satrec(e.id); if (!rec) return null;
+    let pv = null; try { pv = S.propagate(rec, new Date(E.utcMsFromT(t))); } catch (err) { return null; }
+    if (!pv || !pv.position || !Number.isFinite(pv.position.x)) return null;
+    return E.mtv(E.precession(t), [pv.position.x, pv.position.y, pv.position.z]);
+  }
   recordOf(id) { return this.byId ? this.byId.get(+id) || null : null; }
   indexOf(id) { if (!this.ids) return -1; if (!this.idIndex || this.idIndex.n !== this.n) { this.idIndex = new Map(this.ids.map((x, i) => [+x, i])); this.idIndex.n = this.n; } const i = this.idIndex.get(+id); return i == null ? -1 : i; }
   onMsg(d) {
@@ -173,6 +184,10 @@ export class SatLayer {
       this.geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e6);     // NaN (çökmüş) kayıtlar sıralamayı bozmasın
       this.info = { status: 'hazır' }; this.tProp = null; this.changed();
       this.satrecs = null; this.idIndex = null;
+      // gerçek 3B modeli olan uydular (yakınlaşınca çizilir)
+      this.modelEntries = [];
+      for (let i = 0; i < this.n; i++) { const m = modelFor(this.ids[i], this.names[i]); if (m) this.modelEntries.push({ uid: 'e' + this.ids[i], id: +this.ids[i], key: m.key, name: this.names[i] }); }
+      this.models.setEntries([...this.modelEntries, ...this.moonModelEntries]);
       if (this.pendingSel != null) { const i = this.indexOf(this.pendingSel); this.pendingSel = null; if (i >= 0) this.select(i); }
       if (this.onData) this.onData();
     } else if (d.type === 'pos' && d.id === this.reqId) {
@@ -193,6 +208,7 @@ export class SatLayer {
     const key = this.moonKey;
     for (const m of this.moonSats) { if (m.label) m.label.remove(); if (m.sprite) this.scene.remove(m.sprite); if (m.trail) this.scene.remove(m.trail); }
     this.moonSats = MOON_SATS.map((s) => ({ ...s, status: 'alınıyor…', rows: null }));
+    this.moonModelEntries = []; this.models.setEntries(this.modelEntries);
     this.changed();
     for (const m of this.moonSats) await (async () => {
       try {
@@ -207,6 +223,7 @@ export class SatLayer {
         m.trail = new THREE.Line(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(200 * 3), 3)),
           new THREE.LineBasicMaterial({ color: 0xff9ee8, transparent: true, opacity: 0.55, toneMapped: false }));
         m.trail.frustumCulled = false; this.scene.add(m.trail);
+        if (MOON_MODELS[m.name]) { this.moonModelEntries.push({ uid: 'm' + m.name, m, key: MOON_MODELS[m.name], name: m.name, center: (tt) => E.moonPos(tt) }); this.models.setEntries([...this.modelEntries, ...this.moonModelEntries]); }
       } catch (err) { m.status = 'veri alınamadı'; }
       this.changed();
     })();
@@ -297,6 +314,7 @@ export class SatLayer {
     const out = { name: o.OBJECT_NAME, norad: o.NORAD_CAT_ID, cospar: o.OBJECT_ID, group: SAT_GROUPS[this.groups[i]].name,
       periodMin: 1440 / o.MEAN_MOTION, inc: +o.INCLINATION, ecc, perigee: a * (1 - ecc) - E.R_E, apogee: a * (1 + ecc) - E.R_E,
       epochAgeDays: (E.utcMsFromT(t) - Date.parse(o.EPOCH + 'Z')) / 86400000, launchYear: (o.OBJECT_ID || '').slice(0, 4),
+      model: modelFor(o.NORAD_CAT_ID, o.OBJECT_NAME),
       source: o._sup ? `CelesTrak SupGP (${o._sup.src || o._sup.file}${o._sup.rms != null ? `, RMS ${o._sup.rms} km` : ''})` : 'CelesTrak GP' };
     if (pv && pv.position) {
       const M = E.precession(t), p = E.mtv(M, [pv.position.x, pv.position.y, pv.position.z]);
@@ -314,7 +332,7 @@ export class SatLayer {
   moonSatDetails(m, t) {
     const r = this.moonState(m, t), r2 = this.moonState(m, t + 1); if (!r || !r2) return null;
     const v = Math.hypot(r2[0] - r[0], r2[1] - r[1], r2[2] - r[2]), rn = Math.hypot(...r), a = 1 / (2 / rn - v * v / E.MU_M);
-    return { name: m.name, alt: rn - E.R_M, speed: v, periodMin: a > 0 ? 2 * Math.PI * Math.sqrt(a ** 3 / E.MU_M) / 60 : NaN, rows: m.rows.length };
+    return { name: m.name, model: MOON_MODELS[m.name] ? MODELS[MOON_MODELS[m.name]] : null, alt: rn - E.R_M, speed: v, periodMin: a > 0 ? 2 * Math.PI * Math.sqrt(a ** 3 / E.MU_M) / 60 : NaN, rows: m.rows.length };
   }
 
   // ---------------------------------------------------------------- her kare
@@ -351,7 +369,7 @@ export class SatLayer {
         this.selRing.visible = true; this.selRing.position.set(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]);
         // yakından temsili uydu modeli (gövde + güneş panelleri), paneller Güneş'e dönük
         const dCam = Math.hypot(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]);
-        this.model.visible = dCam < 3;
+        this.model.visible = dCam < 3 && !this.models.active('e' + this.ids[this.sel]);
         if (this.model.visible) {
           this.model.position.set(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]);
           const sun = E.sunPos(t), sd = new THREE.Vector3(sun[0] - p[0], sun[1] - p[1], sun[2] - p[2]).normalize(), nad = new THREE.Vector3(-p[0], -p[1], -p[2]).normalize();
@@ -359,9 +377,13 @@ export class SatLayer {
           this.model.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xAx, yAx, nad));
           this.model.children[1].rotation.y = this.model.children[2].rotation.y = Math.atan2(-sd.dot(nad), sd.dot(xAx));   // panel yüzü Güneş'e
         }
-        this.selRing.visible = !this.model.visible;
+        this.selRing.visible = !this.model.visible && !this.models.active('e' + this.ids[this.sel]);
       } else { this.selLabel.style.display = 'none'; this.selLine.visible = false; this.selRing.visible = false; this.model.visible = false; }
     } else { this.selLabel.style.display = 'none'; this.selLine.visible = false; this.selRing.visible = false; this.model.visible = false; }
+    // gerçek 3B modeller: yalnız kamera bir modelli uyduya yaklaşınca yüklenir/çizilir
+    if (vis || (showMoon && this.moonEnabled)) this.models.update(t, eye, (e, tt) => (e.m ? (showMoon ? this.modelPos(e, tt) : null) : (vis ? this.modelPos(e, tt) : null)), E.unit(E.sunPos(t)));
+    else this.models.hideAll();
+    this.mat.uniforms.nearHide.value = this.models.hideRadius || 0;
     // Ay uyduları
     const rm = E.moonPos(t);
     for (const m of this.moonSats) {

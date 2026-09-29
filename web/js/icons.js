@@ -21,6 +21,10 @@ const P = {
   restart: '<path d="M4 12a8 8 0 108-8H7"/><path d="M8 1L5 4l3 3"/>',
   panel: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M14 4v16"/>',
   shake: '<path d="M3 12h3l2-5 4 10 3-7 2 2h4"/>',
+  camera: '<path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+  sliders: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
+  gauge: '<path d="M4 17a8 8 0 1116 0"/><path d="M12 17l4-5"/>',
+  chev: '<path d="M7 14l5-5 5 5"/>',
   telescope: '<path d="M4 15l12-6 2 4-12 6z"/><path d="M10 17l-2 5M12 16l2 6"/><path d="M16 9l3-1.5 1.5 3L18 12"/>',
 };
 export function icon(name, cls = '') {

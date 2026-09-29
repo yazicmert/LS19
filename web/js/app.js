@@ -12,7 +12,9 @@ import { Updater } from './updater.js';
 import { Tracker } from './tracker.js';
 import { SkyUI, SkyClock } from './skyui.js';
 import { applyIcons, setBtn } from './icons.js';
+import { initTreeMenus, refreshTreeMenus } from './treemenu.js';
 import * as PS from './passes.js';
+import { MODELS, MOON_MODELS } from './satmodels.js';
 
 const DEFAULT_DATE = '2026-10-13';
 let K = null, DESIGN = null, START_MS = 0, sats = null, asts = null, astui = null, updater = null, tracker = null, skyui = null;
@@ -20,6 +22,7 @@ let K = null, DESIGN = null, START_MS = 0, sats = null, asts = null, astui = nul
 let MODE = 'mission', missionSrc = null, skySrc = null, skyT = 0, moonRange = null;
 const clock = new SkyClock();
 applyIcons();
+initTreeMenus();
 
 const $ = (s) => document.querySelector(s);
 const canvas = $('#view');
@@ -49,6 +52,7 @@ async function boot() {
   astui = new AstUI({ world, asts, ui, getT: curT, focusOn, setCam: setSkyCam });
   tracker = new Tracker(world.scene, $('#labels'), sats);
   skyui = new SkyUI({ clock, tracker, sats, asts, setSkyCam, lookAt: lookAtSat, follow: followSat });
+  sats.models.onLoad = (e, st) => { if (st === 'start') skyui.toast(`${e.name}: gerçek 3B model yükleniyor (NASA 3D Resources)…`); else if (st === 'error') skyui.toast(`${e.name}: 3B model yüklenemedi, temsili model gösteriliyor.`); };
   sats.onData = () => { if (tracker) tracker.computePasses(true); };
   world.obsPose = obsPose;
   const jobs = {};
@@ -116,10 +120,11 @@ function setSkyCam(mode) {
   }
   skyui.setCamButtons(mode);
 }
-function followSat(id) {
+function followSat(id, dist = 60) {
   if (MODE !== 'sky') setWorkspace('sky');
   const i = sats.indexOf(id); if (i >= 0) sats.select(i);
-  focusOn({ kind: 'sat', fn: (tt) => tracker.icrfOf(id, tt) }, 60); skyui.setCamButtons('');
+  const mdl = sats.modelOf(id);                                   // gerçek modeli olan uydunun içine girilmesin
+  focusOn({ kind: 'sat', fn: (tt) => tracker.icrfOf(id, tt), R: mdl ? mdl.size / 2000 : 0 }, dist); skyui.setCamButtons('');
 }
 function lookAtSat(id) {
   setSkyCam('OBS');
@@ -283,7 +288,7 @@ $('#btnSlow').onclick = () => setWarp((latest ? latest.warp : warp) / 2);
 $('#chkAutoWarp').onchange = (e) => send({ cmd: 'autoWarp', on: e.target.checked });
 $('#chkAuto').onchange = (e) => { send({ cmd: 'auto', on: e.target.checked }); };
 function syncAuto() {
-  $('#chkAuto').checked = autoPilot; $('#manual').hidden = autoPilot;
+  $('#chkAuto').checked = autoPilot; $('#manual').hidden = autoPilot; refreshTreeMenus();
   if (!autoPilot) { manual.throttle = 0; $('#thrSlider').value = 0; $('#thrSet').textContent = '%0'; }
 }
 $('#btnPerturb').onclick = () => send({ cmd: 'perturb', dv: 2.0 });
@@ -353,12 +358,14 @@ function handleClick(e) {
   } else if (c.kind === 'sat') {
     const id = +sats.ids[c.i];
     const watchAct = () => (tracker.has(id) ? { label: 'Takipten çıkar', fn: () => { tracker.remove(id); ui.hidePick(); } } : { label: 'Takibe al', fn: () => { tracker.add(id); tracker.computePasses(true); ui.hidePick(); skyui.toast(`${sats.names[c.i]} takip listesine eklendi (Takip sekmesi).`); } });
+    const mdl = sats.modelOf(id);
     ui.showPick({ kind: 'sat', refresh: (tt) => {
       const d = sats.satDetails(c.i, tt); if (!d) return d;
       const s = tracker.state(id, E.utcMsFromT(tt)); if (s) { d.obsName = tracker.observer.name; d.obsEl = s.el; d.obsAz = s.az; d.obsRange = s.range; }
       const np = tracker.passes.find((p) => p.id === id && p.rise && p.set.ms > Date.now()); if (np) d.nextPass = np;
       return d; },
     actions: [watchAct(), { label: 'Yörüngesini göster', fn: () => sats.select(c.i) }, { label: 'Kamerayla izle', fn: () => followSat(id) },
+      ...(mdl ? [{ label: '3B modeli yakından gör', fn: () => followSat(id, mdl.size * 2.4 / 1000) }] : []),
       { label: 'Gökte izle', fn: () => lookAtSat(id) }] }, mx, my, t);
   } else if (c.kind === 'ast') {
     const i = c.i; asts.fetchDetail(i);
@@ -368,7 +375,8 @@ function handleClick(e) {
   } else if (c.kind === 'msat') {
     const m = c.m;
     ui.showPick({ kind: 'msat', refresh: (tt) => sats.moonSatDetails(m, tt),
-      actions: [{ label: 'Kamerayla izle', fn: () => focusOn({ kind: 'msat', fn: (tt) => { const r = sats.moonState(m, tt); return r ? E.add(E.moonPos(tt), r) : null; } }, 300) }] }, mx, my, t);
+      actions: [{ label: 'Kamerayla izle', fn: () => focusOn({ kind: 'msat', fn: (tt) => { const r = sats.moonState(m, tt); return r ? E.add(E.moonPos(tt), r) : null; } }, 300) },
+        ...(MOON_MODELS[m.name] ? [{ label: '3B modeli yakından gör', fn: () => focusOn({ kind: 'msat', fn: (tt) => { const r = sats.moonState(m, tt); return r ? E.add(E.moonPos(tt), r) : null; } }, MODELS[MOON_MODELS[m.name]].size * 2.4 / 1000) }] : [])] }, mx, my, t);
   }
 }
 canvas.addEventListener('pointermove', (e) => {
@@ -385,7 +393,7 @@ canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
   if (world.cam.mode === 'SITE' || world.cam.mode === 'OBS') { world.cam.userFov = true; world.camera.fov = Math.max(2, Math.min(world.cam.mode === 'OBS' ? 100 : 70, world.camera.fov * Math.exp(e.deltaY * 0.001))); world.camera.updateProjectionMatrix(); return; }
   const f = world.cam.focus;
-  const minD = world.cam.mode === 'FOCUS' ? (f && f.kind === 'planet' ? world.planetInfo(f.i, curT()).R * 1.15 : f && f.kind === 'ast' ? Math.max(0.004, f.R * 1.3) : 0.004)
+  const minD = world.cam.mode === 'FOCUS' ? (f && f.kind === 'planet' ? world.planetInfo(f.i, curT()).R * 1.15 : f && (f.kind === 'ast' || f.R) ? Math.max(0.004, f.R * 1.3) : 0.004)
     : { VEHICLE: 0.012, EARTH: E.R_E * 1.05, MOON: E.R_M * 1.03, SYSTEM: 50000, EMB: 9000, SOLAR: 2e6 }[world.cam.mode] || 0.01;
   const maxD = world.cam.mode === 'SOLAR' || world.cam.mode === 'FOCUS' ? 1e10 : 3e6;
   world.cam.dist = Math.max(minD, Math.min(maxD, world.cam.dist * Math.exp(e.deltaY * 0.0012)));
@@ -406,7 +414,7 @@ window.addEventListener('keydown', (e) => {
   if (k === ' ') { e.preventDefault(); setPlay(!running); }
   else if (k === '.') setWarp((latest ? latest.warp : warp) * 2);
   else if (k === ',') setWarp((latest ? latest.warp : warp) / 2);
-  else if (k === 'g') { $('#chkAuto').checked = !$('#chkAuto').checked; send({ cmd: 'auto', on: $('#chkAuto').checked }); }
+  else if (k === 'g') { $('#chkAuto').checked = !$('#chkAuto').checked; send({ cmd: 'auto', on: $('#chkAuto').checked }); refreshTreeMenus(); }
   else if (k === 'p') send({ cmd: 'perturb', dv: 2.0 });
   else if (/^[1-8]$/.test(k)) setCam(['AUTO', 'VEHICLE', 'EARTH', 'MOON', 'SYSTEM', 'SITE', 'EMB', 'SOLAR'][+k - 1]);
   else if (!autoPilot) {
