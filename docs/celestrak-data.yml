@@ -48,6 +48,7 @@ jobs:
         run: |
           cd out
           test -s gp_active.json || { echo "::error::gp_active.json yok"; exit 1; }
+          echo '{"git":{"deploymentEnabled":false}}' > vercel.json   # veri dalı Vercel'de yayına alınmasın
           git init -q -b data
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
