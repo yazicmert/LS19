@@ -8,7 +8,8 @@
    2.106,
    2.009
   ],
-  "kaynak": "Ostro vd. radar modeli"
+  "kaynak": "Ostro vd. radar modeli",
+  "yontem": "radar"
  },
  "99942": {
   "key": "apophis",
@@ -19,7 +20,8 @@
    2.079,
    1.894
   ],
-  "kaynak": "Brozović vd. 2018 radar modeli"
+  "kaynak": "Brozović vd. 2018 radar modeli",
+  "yontem": "radar"
  },
  "153591": {
   "key": "a153591",
@@ -30,7 +32,8 @@
    2.179,
    2.288
   ],
-  "kaynak": "Radar modeli"
+  "kaynak": "Radar modeli",
+  "yontem": "radar"
  },
  "52760": {
   "key": "a52760",
@@ -41,7 +44,8 @@
    2.073,
    1.952
   ],
-  "kaynak": "Radar modeli"
+  "kaynak": "Radar modeli",
+  "yontem": "radar"
  },
  "8567": {
   "key": "a8567",
@@ -52,7 +56,8 @@
    1.62,
    1.475
   ],
-  "kaynak": "Radar modeli"
+  "kaynak": "Radar modeli",
+  "yontem": "radar"
  },
  "1": {
   "key": "ceres",
@@ -63,7 +68,8 @@
    2.057,
    1.915
   ],
-  "kaynak": "Dawn SPC modeli"
+  "kaynak": "Dawn SPC modeli",
+  "yontem": "uzay"
  },
  "1620": {
   "key": "geographos",
@@ -74,7 +80,8 @@
    1.54,
    1.856
   ],
-  "kaynak": "Hudson & Ostro radar modeli"
+  "kaynak": "Hudson & Ostro radar modeli",
+  "yontem": "radar"
  },
  "101955": {
   "key": "bennu",
@@ -85,7 +92,8 @@
    2.18,
    2.069
   ],
-  "kaynak": "Nolan vd. radar modeli"
+  "kaynak": "Nolan vd. radar modeli",
+  "yontem": "radar"
  },
  "21": {
   "key": "lutetia",
@@ -96,7 +104,8 @@
    2.452,
    1.718
   ],
-  "kaynak": "Rosetta OSIRIS modeli"
+  "kaynak": "Rosetta OSIRIS modeli",
+  "yontem": "uzay"
  },
  "2063": {
   "key": "bacchus",
@@ -107,7 +116,8 @@
    1.679,
    1.607
   ],
-  "kaynak": "Benner vd. radar modeli"
+  "kaynak": "Benner vd. radar modeli",
+  "yontem": "radar"
  },
  "2867": {
   "key": "steins",
@@ -118,7 +128,8 @@
    2.135,
    1.597
   ],
-  "kaynak": "Rosetta OSIRIS modeli"
+  "kaynak": "Rosetta OSIRIS modeli",
+  "yontem": "uzay"
  },
  "25143": {
   "key": "itokawa",
@@ -129,7 +140,8 @@
    1.883,
    1.503
   ],
-  "kaynak": "Gaskell Hayabusa modeli"
+  "kaynak": "Gaskell Hayabusa modeli",
+  "yontem": "uzay"
  },
  "4": {
   "key": "vesta",
@@ -140,7 +152,8 @@
    2.175,
    1.784
   ],
-  "kaynak": "Dawn modeli"
+  "kaynak": "Dawn modeli",
+  "yontem": "uzay"
  },
  "433": {
   "key": "eros",
@@ -151,7 +164,8 @@
    2.002,
    1.419
   ],
-  "kaynak": "Gaskell NEAR modeli"
+  "kaynak": "Gaskell NEAR modeli",
+  "yontem": "uzay"
  },
  "4179": {
   "key": "toutatis",
@@ -162,7 +176,8 @@
    1.566,
    3.758
   ],
-  "kaynak": "Hudson vd. radar modeli"
+  "kaynak": "Hudson vd. radar modeli",
+  "yontem": "radar"
  },
  "4769": {
   "key": "castalia",
@@ -173,7 +188,8 @@
    1.841,
    1.555
   ],
-  "kaynak": "Hudson & Ostro radar modeli"
+  "kaynak": "Hudson & Ostro radar modeli",
+  "yontem": "radar"
  },
  "6489": {
   "key": "golevka",
@@ -184,7 +200,8 @@
    2.586,
    2.159
   ],
-  "kaynak": "Hudson vd. radar modeli"
+  "kaynak": "Hudson vd. radar modeli",
+  "yontem": "radar"
  },
  "216": {
   "key": "kleopatra",
@@ -195,7 +212,8 @@
    1.708,
    1.487
   ],
-  "kaynak": "Hudson & Ostro radar modeli"
+  "kaynak": "Hudson & Ostro radar modeli",
+  "yontem": "radar"
  },
  "2100": {
   "key": "rashalom",
@@ -206,7 +224,8 @@
    2.154,
    1.714
   ],
-  "kaynak": "Radar modeli"
+  "kaynak": "Radar modeli",
+  "yontem": "radar"
  },
  "4486": {
   "key": "mithra",
@@ -217,7 +236,8 @@
    1.952,
    1.699
   ],
-  "kaynak": "Radar modeli"
+  "kaynak": "Radar modeli",
+  "yontem": "radar"
  },
  "4660": {
   "key": "nereus",
@@ -228,7 +248,8 @@
    1.982,
    1.447
   ],
-  "kaynak": "Brozović vd. radar modeli"
+  "kaynak": "Brozović vd. radar modeli",
+  "yontem": "radar"
  },
  "10115": {
   "key": "sk1992",
@@ -239,7 +260,8 @@
    1.793,
    1.811
   ],
-  "kaynak": "Radar modeli"
+  "kaynak": "Radar modeli",
+  "yontem": "radar"
  },
  "29075": {
   "key": "da1950r",
@@ -250,7 +272,8 @@
    2.461,
    1.845
   ],
-  "kaynak": "Busch vd. radar modeli (geri yönlü)"
+  "kaynak": "Busch vd. radar modeli (geri yönlü)",
+  "yontem": "radar"
  },
  "33342": {
   "key": "wt24",
@@ -261,7 +284,8 @@
    2.05,
    1.946
   ],
-  "kaynak": "Radar modeli"
+  "kaynak": "Radar modeli",
+  "yontem": "radar"
  },
  "54509": {
   "key": "yorp",
@@ -272,7 +296,8 @@
    2.368,
    1.696
   ],
-  "kaynak": "Radar modeli"
+  "kaynak": "Radar modeli",
+  "yontem": "radar"
  },
  "66391": {
   "key": "kw4a",
@@ -283,7 +308,8 @@
    2.27,
    2.047
   ],
-  "kaynak": "Ostro vd. radar modeli (ana gövde)"
+  "kaynak": "Ostro vd. radar modeli (ana gövde)",
+  "yontem": "radar"
  },
  "136617": {
   "key": "cc1994",
@@ -294,7 +320,8 @@
    2.153,
    2.06
   ],
-  "kaynak": "Radar modeli"
+  "kaynak": "Radar modeli",
+  "yontem": "radar"
  },
  "276049": {
   "key": "ce26",
@@ -305,7 +332,8 @@
    2.112,
    1.883
   ],
-  "kaynak": "Radar modeli"
+  "kaynak": "Radar modeli",
+  "yontem": "radar"
  },
  "341843": {
   "key": "ev5",
@@ -316,6 +344,7 @@
    2.196,
    1.995
   ],
-  "kaynak": "Busch vd. radar modeli"
+  "kaynak": "Busch vd. radar modeli",
+  "yontem": "radar"
  }
 }

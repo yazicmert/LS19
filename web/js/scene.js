@@ -121,7 +121,8 @@ void main() {
   // doku çözünürlüğünü (8192 px ≈ 4,9 km) aşan yakınlıkta: kara dokusu ve bulut kenarı için ince ayrıntı
   float magE = smoothstep(0.9, 0.08, useTile > 0.5 ? length(fwidth(vUvT * 512.0)) : length(fwidth(vUv * vec2(8192.0, 4096.0)))), dnE = 0.0, landE = 1.0 - smoothstep(0.1, 0.5, spec);
   if (magE > 0.001) { dnE = (fbm(vLocal * 600.0) - 0.5) * 0.5 + (fbm(vLocal * 2600.0) - 0.5) * 0.35 + (fbm(vLocal * 11000.0) - 0.5) * 0.15; ndlp *= 1.0 + dnE * 0.7 * magE * landE; }
-  float cloud = texture2D(cloudMap, vUv).r + dnE * 0.4 * magE; cloud = smoothstep(0.08, 0.9, cloud);
+  float magC = smoothstep(0.9, 0.08, length(fwidth(vUv * vec2(8192.0, 4096.0))));        // bulut dokusu kendi çözünürlüğünü aştıkça seyrelir: yer ayrıntısı bulanık lekelerin altında kalmasın
+  float cloud = texture2D(cloudMap, vUv).r + dnE * 0.4 * magE; cloud = smoothstep(0.08, 0.9, cloud) * (1.0 - 0.6 * magC);
   vec3 day = (useTile > 0.5 ? texture2D(tileMap, vUvT).rgb : texture2D(dayMap, vUv).rgb) * (1.0 + dnE * 0.5 * magE * landE);
   float tw = smoothstep(-0.12, 0.2, ndl);
   vec3 sunCol = mix(vec3(1.0, 0.55, 0.3), vec3(1.0), smoothstep(0.0, 0.35, ndl));
@@ -302,7 +303,7 @@ export class World {
     this.moonU = mu; this.earthU = eu;
     // yakınlaştıkça yüksek çözünürlüklü parçalar (NASA GIBS Blue Marble kabartmalı + deniz tabanı · NASA Trek LRO WAC)
     const baseTexel = (R) => 2 * Math.PI * R / 8192;
-    this.earthTiles = new TileLayer({ parent: this.earth, R: E.R_E, scheme: 'gibs', tileSize: 512, minZ: 3, maxZ: 7, baseTexelKm: baseTexel(E.R_E), lift: 2e-6, maxTextures: 130,
+    this.earthTiles = new TileLayer({ parent: this.earth, R: E.R_E, scheme: 'gibs', tileSize: 512, minZ: 3, maxZ: 7, baseTexelKm: baseTexel(E.R_E), lift: 2e-6, maxTextures: 130, concurrency: 16,
       url: (z, x, y) => `https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/BlueMarble_ShadedRelief_Bathymetry/default/500m/${z}/${y}/${x}.jpeg`,
       material: (tex) => new THREE.ShaderMaterial({ uniforms: { ...eu, tileMap: { value: tex }, useTile: { value: 1 } }, vertexShader: VS_BODY, fragmentShader: FS_EARTH }) });
     this.moonTiles = new TileLayer({ parent: this.moon, R: E.R_M, scheme: 'eq', tileSize: 256, minZ: 4, maxZ: 8, baseTexelKm: baseTexel(E.R_M), lift: 0, maxTextures: 260,
@@ -805,12 +806,18 @@ export class World {
   updateTiles() {
     const cam = this.camera; cam.updateMatrixWorld(true);
     const fov = cam.fov * Math.PI / 180, H = this.canvas.clientHeight || 800, fwdW = cam.getWorldDirection(new THREE.Vector3());
+    let pending = 0, failed = 0, loaded = 0, drawn = 0;
     for (const [layer, body] of [[this.earthTiles, this.earth], [this.moonTiles, this.moon]]) {
       if (!layer || !body.visible) { if (layer) layer.setEnabled(false); continue; }
       layer.setEnabled(true);
       const qi = body.quaternion.clone().invert();
       layer.update(body.position.clone().negate().applyQuaternion(qi), fwdW.clone().applyQuaternion(qi), fov, cam.aspect, H);
+      pending += layer.stats.pending; failed += layer.stats.failed; loaded += layer.stats.loaded; drawn += layer.stats.drawn;
     }
+    // kullanıcıya geri bildirim: yüzey ayrıntısı iniyor mu, alınamıyor mu
+    let el = this.tileStatusEl; if (!el) { el = this.tileStatusEl = document.createElement('div'); el.className = 'tilestatus'; el.hidden = true; document.body.appendChild(el); }
+    const msg = pending > 0 ? `Yüzey ayrıntısı yükleniyor… (${pending})` : (failed > 0 && loaded === 0 && drawn === 0 ? 'Yüzey ayrıntısı alınamadı: NASA parça sunucusuna erişilemiyor (ağ/reklam engelleyici?)' : '');
+    if (msg !== this.tileMsg) { this.tileMsg = msg; el.textContent = msg; el.hidden = !msg; el.classList.toggle('warn', msg.startsWith('Yüzey ayrıntısı alınamadı')); }
   }
 
   updateLines(x, t, rm, central, eye, extra) {

@@ -221,7 +221,7 @@ export class AsteroidLayer {
     const m = this.damit && this.damit.m[des];
     if (!m) return null;
     return { key: 'damit:' + des, damit: true, shard: m[0], off: m[1], nv: m[2], nf: m[3], lam: m[4], bet: m[5], P: m[6], jd0: m[7], phi0: m[8], eqd: m[9], cal: m[10], nonconvex: m[11],
-      req_km: m[9] && m[10] ? m[9] / 2 : this.diam(i) / 2, kaynak: 'DAMIT (' + (m[11] ? 'dışbükey olmayan' : 'dışbükey') + ' ışık eğrisi modeli) · CC BY 4.0' };
+      yontem: 'isik', req_km: m[9] && m[10] ? m[9] / 2 : this.diam(i) / 2, kaynak: 'DAMIT (' + (m[11] ? 'dışbükey olmayan' : 'dışbükey') + ' ışık eğrisi modeli) · CC BY 4.0' };
   }
   shapeGeometry(sh) {
     let e = this.shapeGeo.get(sh.key);

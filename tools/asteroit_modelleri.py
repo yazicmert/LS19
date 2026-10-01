@@ -22,6 +22,7 @@ MODELS = {
     'wt24': ('33342', 'Radar modeli'), 'yorp': ('54509', 'Radar modeli'), 'kw4a': ('66391', 'Ostro vd. radar modeli (ana gövde)'),
     'cc1994': ('136617', 'Radar modeli'), 'ce26': ('276049', 'Radar modeli'), 'ev5': ('341843', 'Busch vd. radar modeli'),
 }
+UZAY = {'ceres', 'lutetia', 'steins', 'itokawa', 'vesta', 'eros'}      # uzay aracı görüntülerinden; diğerleri radar
 cat = {}
 for key, (des, credit) in MODELS.items():
     p = os.path.join(SRC, key + '.obj')
@@ -49,6 +50,6 @@ for key, (des, credit) in MODELS.items():
     out = os.path.join(OUT, key + '.glb')
     bpy.ops.export_scene.gltf(filepath=out, export_format='GLB', use_selection=True, export_yup=True, export_materials='NONE', export_cameras=False, export_lights=False)
     bb = [max(v.co[i] for v in ob.data.vertices) - min(v.co[i] for v in ob.data.vertices) for i in range(3)]
-    cat[des] = {'key': key, 'req_km': round(req, 5), 'tris': len(ob.data.polygons), 'dims': [round(x, 3) for x in bb], 'kaynak': credit}
+    cat[des] = {'key': key, 'req_km': round(req, 5), 'tris': len(ob.data.polygons), 'dims': [round(x, 3) for x in bb], 'kaynak': credit, 'yontem': 'uzay' if key in UZAY else 'radar'}
     print('%-10s des=%-10s req=%9.4f km  %5d -> %5d üçgen  %6.1f kB' % (key, des, req, n0, len(ob.data.polygons), os.path.getsize(out) / 1024))
 json.dump(cat, open(os.path.join(OUT, 'katalog.json'), 'w'), ensure_ascii=False, indent=1)

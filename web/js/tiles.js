@@ -2,10 +2,16 @@
 // Dünya: NASA GIBS (Blue Marble + kabartma + deniz tabanı, ≈490 m/piksel) · Ay: NASA Trek (LRO WAC mozaiği, ≈83 m/piksel). Her ikisi de kamu malı,
 // tarayıcıdan doğrudan (CORS açık). Taban küre (8K doku) uzaktan yeter; kamera yaklaştıkça yalnız görünen bölgenin daha ince parçaları iner.
 // Her parça, taban küreyle aynı gölgelendiriciyi kullanan küçük bir küre dilimidir (aynı ışık, bulut, gece ışıkları, gölge, kabartma).
+//
+// Hız: parçalar Cache API'de saklanır (ikinci ziyarette ağ yok) · indirme + çözme ana iş parçacığı dışında (fetch + createImageBitmap) ·
+// yakından uzağa öncelik; her parça için iki seviye üst ata da hemen istenir (önce bulanık, sonra net, boşluk yok) ·
+// kamera yaklaşırken bir sonraki seviye önceden istenir (boşta bant genişliğiyle) · gerekmeyen istekler iptal edilir ·
+// kare başına en çok MAX_PROMOTE yeni parça GPU'ya yüklenir (takılma olmasın) · başarısız parça 15 sn sonra yeniden denenir.
 import * as THREE from 'three';
 
 const D2R = Math.PI / 180;
 const NSEG = 14;
+const MAX_PROMOTE = 4, LOOKAHEAD = 0.5, RETRY_MS = 15000, STALE_MS = 2500, CACHE_NAME = 'ls19-tiles-v1';
 
 // ızgara şemaları: parça açısal genişliği (derece), sütun/satır sayısı
 export const SCHEMES = {
@@ -30,13 +36,17 @@ function tileGeometry(R, lat0, lat1, lon0, lon1, uMax, vMin, lift) {
   g.setIndex(idx); g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), R * 1.01); return g;
 }
 
+let cachePromise = null;
+const openCache = () => (cachePromise = cachePromise || (typeof caches !== 'undefined' ? caches.open(CACHE_NAME).catch(() => null) : Promise.resolve(null)));
+
 export class TileLayer {
-  // cfg: { parent, R (km), scheme: 'gibs'|'eq', tileSize, minZ, maxZ, url(z, x, y), baseTexelKm, lift, material(tex, node) -> THREE.Material, maxTextures }
+  // cfg: { parent, R (km), scheme: 'gibs'|'eq', tileSize, minZ, maxZ, url(z, x, y), baseTexelKm, lift, material(tex, node) -> THREE.Material, maxTextures, concurrency, lodBias }
   constructor(cfg) {
     Object.assign(this, cfg);
-    this.S = SCHEMES[cfg.scheme]; this.nodes = new Map(); this.cache = new Map(); this.meshes = new Map(); this.queue = []; this.active = 0; this.frame = 0;
-    this.maxTextures = cfg.maxTextures || 150; this.group = new THREE.Group(); this.group.frustumCulled = false; cfg.parent.add(this.group);
-    this.loader = new THREE.TextureLoader(); this.loader.setCrossOrigin('anonymous'); this.enabled = true; this.stats = { drawn: 0, pending: 0, cached: 0, maxZ: 0 };
+    this.S = SCHEMES[cfg.scheme]; this.nodes = new Map(); this.cache = new Map(); this.meshes = new Map(); this.queue = []; this.loading = new Set(); this.frame = 0;
+    this.maxTextures = cfg.maxTextures || 150; this.concurrency = cfg.concurrency || 6; this.lodBias = cfg.lodBias || 1.15;
+    this.group = new THREE.Group(); this.group.frustumCulled = false; cfg.parent.add(this.group);
+    this.enabled = true; this.puts = 0; this.fails = 0; this.okCount = 0; this.stats = { drawn: 0, pending: 0, cached: 0, maxZ: 0, failed: 0, loaded: 0 };
   }
   node(z, x, y) {
     const key = z + '/' + x + '/' + y; let n = this.nodes.get(key); if (n) return n;
@@ -48,70 +58,118 @@ export class TileLayer {
       texelKm: span * D2R * this.R / this.tileSize };
     n.radKm = Math.max(Math.sin(Math.min(n.rad, 1.5)) * this.R, 1e-3); this.nodes.set(key, n); return n;
   }
+  up(n) { return n.z > this.minZ ? this.node(n.z - 1, n.x >> 1, n.y >> 1) : null; }
   // cam: kamera konumu (cisim sabit çerçevede, km) · fwd: bakış yönü (birim) · fov: dikey (rad) · aspect · viewH: piksel
   update(cam, fwd, fov, aspect, viewH) {
-    this.frame++;
+    this.frame++; const now = performance.now();
     const R = this.R, d = cam.length(), tf = 2 * Math.tan(fov / 2) / viewH, halfDiag = Math.atan(Math.tan(fov / 2) * Math.hypot(1, aspect));
-    const leaves = [];
+    const leaves = [], ahead = [];
     if (this.enabled && d > R * 1.0005) {
       const camDir = cam.clone().divideScalar(d), horizon = Math.acos(Math.min(1, R / d)), v = new THREE.Vector3(), dirV = new THREE.Vector3();
-      const visit = (n) => {
+      // k: piksel boyu çarpanı (1: şimdi, <1: yaklaşırken ihtiyaç duyulacak daha ince seviye) · out: yaprak listesi
+      const visit = (n, k, out) => {
         if (Math.acos(Math.min(1, Math.max(-1, n.c.dot(camDir)))) > horizon + n.rad) return;                 // ufkun ardında
         v.copy(n.c).multiplyScalar(R).sub(cam); const dc = v.length(), dist = Math.max(0.03, dc - n.radKm);
         dirV.copy(v).divideScalar(dc); const ang = Math.acos(Math.min(1, Math.max(-1, dirV.dot(fwd))));
         if (ang > halfDiag + Math.atan(n.radKm / Math.max(dc, 1e-3)) + 0.05) return;                         // görüntü dışı
-        const pf = dist * tf;                                                                                // piksel başına km (düğümün en yakın noktasında)
+        const pf = dist * tf * k;                                                                            // piksel başına km (düğümün en yakın noktasında)
         if (this.baseTexelKm <= pf * 0.9) return;                                                            // taban doku yeter
-        if (n.z < this.maxZ && n.texelKm > pf) {
+        if (n.z < this.maxZ && n.texelKm > pf * this.lodBias) {
           for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) {
             const x = n.x * 2 + dx, y = n.y * 2 + dy; if (x >= this.S.cols(n.z + 1) || y >= this.S.rows(n.z + 1)) continue;
-            visit(this.node(n.z + 1, x, y));
+            visit(this.node(n.z + 1, x, y), k, out);
           }
-        } else { n.dist = dist; leaves.push(n); }
+        } else { n.dist = dist; out.push(n); }
       };
-      const zr = this.minZ; for (let y = 0; y < this.S.rows(zr); y++) for (let x = 0; x < this.S.cols(zr); x++) visit(this.node(zr, x, y));
+      const zr = this.minZ;
+      for (let y = 0; y < this.S.rows(zr); y++) for (let x = 0; x < this.S.cols(zr); x++) visit(this.node(zr, x, y), 1, leaves);
+      // boşta bant genişliği varken: kamera yaklaşırsa gerekecek bir sonraki seviyeyi önceden iste
+      if (this.queue.length + this.loading.size < 4 && leaves.length) {
+        for (let y = 0; y < this.S.rows(zr); y++) for (let x = 0; x < this.S.cols(zr); x++) visit(this.node(zr, x, y), LOOKAHEAD, ahead);
+      }
     }
-    // her yaprak için: dokusu hazırsa kendisi, değilse en yakın hazır atası çizilir; hazır olmayan istenir
+    // her yaprak için: dokusu hazırsa kendisi, değilse en yakın hazır atası çizilir; hazır olmayan (ve iki seviye üst atası) istenir
     const draw = new Map(); let maxZ = 0;
     leaves.sort((a, b) => a.dist - b.dist);
     for (const n of leaves) {
-      let a = n; while (a && !(this.cache.get(a.key) && this.cache.get(a.key).tex)) a = a.z > this.minZ ? this.node(a.z - 1, a.x >> 1, a.y >> 1) : null;
-      if (a !== n) this.request(n);
+      let a = n; while (a && !(this.cache.get(a.key) && this.cache.get(a.key).tex)) a = this.up(a);
+      if (a !== n) {
+        this.request(n, n.dist);
+        let g = n; for (let i = 0; i < 2 && g; i++) g = this.up(g);
+        if (g && !(this.cache.get(g.key) && this.cache.get(g.key).tex)) this.request(g, n.dist * 0.15);       // kaba ata önce gelir
+      }
       if (a) { draw.set(a.key, a); maxZ = Math.max(maxZ, a.z); }
     }
-    this.pump();
+    for (const n of ahead) if (!this.cache.has(n.key)) this.request(n, n.dist * 4 + 1e4);                      // en düşük öncelik
+    const dt = this.lastT ? now - this.lastT : 16; this.lastT = now;
+    this.promote(Math.min(24, Math.max(MAX_PROMOTE, Math.round(dt / 6))));                                      // yavaş karede daha çok (kare başına sabit sınır yavaş cihazda beklemeye yol açmasın)
+    this.pump(now);
     for (const m of this.meshes.values()) m.visible = false;
     for (const n of draw.values()) {
-      const e = this.cache.get(n.key); e.last = this.frame;
+      const e = this.cache.get(n.key); e.last = this.frame; e.t = now;
       let m = this.meshes.get(n.key);
       if (!m) { m = new THREE.Mesh(tileGeometry(this.R, n.lat0, n.lat1, n.lon0, n.lon1, n.uMax, n.vMin, this.lift || 0), this.material(e.tex, n)); m.frustumCulled = false; m.renderOrder = 1; this.group.add(m); this.meshes.set(n.key, m); }
       m.visible = true;
     }
     this.evict();
-    this.stats = { drawn: draw.size, pending: this.queue.length + this.active, cached: this.cache.size, maxZ };
+    this.stats = { drawn: draw.size, pending: this.queue.length + this.loading.size, cached: this.cache.size, maxZ, failed: this.fails, loaded: this.okCount };
   }
-  request(n) {
-    let e = this.cache.get(n.key); if (e) { e.last = this.frame; return; }
-    e = { tex: null, loading: false, last: this.frame, n }; this.cache.set(n.key, e); this.queue.push(e);
-  }
-  pump() {
-    this.queue = this.queue.filter((e) => this.cache.get(e.n.key) === e && e.last >= this.frame - 90);                    // artık gerekmeyen istekleri at
-    this.queue.sort((a, b) => (a.n.dist || 1e9) - (b.n.dist || 1e9));
-    while (this.active < 6 && this.queue.length) {
-      const e = this.queue.shift(); if (e.loading) continue; e.loading = true; this.active++;
-      this.loader.load(this.url(e.n.z, e.n.x, e.n.y), (t) => {
-        this.active--; if (this.cache.get(e.n.key) !== e) { t.dispose(); return; }
-        t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; e.tex = t;
-      }, undefined, () => { this.active--; e.failed = true; e.last = -1e9; });
+  request(n, prio) {
+    let e = this.cache.get(n.key); const now = performance.now();
+    if (e) {
+      e.last = this.frame; e.t = now;
+      if (e.failed && now - e.failedAt > RETRY_MS) { e.failed = false; e.loading = false; e.prio = prio; this.queue.push(e); }         // geçici hatada yeniden dene
+      else if (prio < e.prio) e.prio = prio;
+      return;
     }
+    e = { tex: null, ready: null, loading: false, last: this.frame, t: now, n, prio, ctl: null }; this.cache.set(n.key, e); this.queue.push(e);
+  }
+  async getBlob(url, ctl) {
+    const c = await openCache(); let blob = null;
+    if (c) try { const hit = await c.match(url); if (hit) blob = await hit.blob(); } catch (err) { /* önbellek isteğe bağlı */ }
+    if (blob) return blob;
+    const r = await fetch(url, { signal: ctl.signal, mode: 'cors', credentials: 'omit' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    if (c) { c.put(url, r.clone()).catch(() => {}); if (++this.puts % 300 === 0) this.trimCache(c); }
+    return r.blob();
+  }
+  async trimCache(c) { try { const ks = await c.keys(); if (ks.length > 4000) for (const k of ks.slice(0, 1000)) await c.delete(k); } catch (err) { /* */ } }
+  async decode(blob) {
+    try {                                                                                                     // çözme ana iş parçacığı dışında
+      const bm = await createImageBitmap(blob, { imageOrientation: 'flipY', premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
+      const t = new THREE.Texture(bm); t.flipY = false; return t;
+    } catch (err) {
+      const img = new Image(); img.src = URL.createObjectURL(blob); await img.decode();
+      const t = new THREE.Texture(img); t.flipY = true; return t;
+    }
+  }
+  pump(now) {
+    // gerekmeyen istekleri at / sürenleri iptal et
+    for (const e of [...this.loading]) if (now - e.t > STALE_MS && e.last < this.frame - 30) { if (e.ctl) e.ctl.abort(); this.loading.delete(e); this.cache.delete(e.n.key); }
+    this.queue = this.queue.filter((e) => this.cache.get(e.n.key) === e && !e.loading && now - e.t < 6000);
+    this.queue.sort((a, b) => a.prio - b.prio);
+    while (this.loading.size < this.concurrency && this.queue.length) {
+      const e = this.queue.shift(); e.loading = true; e.ctl = new AbortController(); this.loading.add(e);
+      this.getBlob(this.url(e.n.z, e.n.x, e.n.y), e.ctl).then((b) => this.decode(b)).then((t) => {
+        this.loading.delete(e); if (this.cache.get(e.n.key) !== e) { t.dispose(); return; }
+        t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; t.needsUpdate = true; e.ready = t; this.okCount++;
+      }).catch((err) => { this.loading.delete(e); if (this.cache.get(e.n.key) !== e) return; e.failed = true; e.failedAt = performance.now(); e.loading = false; if (!(err && err.name === 'AbortError')) this.fails++; });
+    }
+  }
+  // hazır dokulardan kare başına en çok MAX_PROMOTE tanesini (en yakınlar önce) çizime aç: GPU yüklemesi takılma yapmasın
+  promote(max = MAX_PROMOTE) {
+    let k = 0, list = [];
+    for (const e of this.cache.values()) if (e.ready && !e.tex) list.push(e);
+    list.sort((a, b) => (a.prio || 0) - (b.prio || 0));
+    for (const e of list) { if (k++ >= max) break; e.tex = e.ready; }
   }
   evict() {
     if (this.cache.size <= this.maxTextures) return;
-    const old = [...this.cache.entries()].filter(([, e]) => e.last < this.frame - 2).sort((a, b) => a[1].last - b[1].last);
+    const old = [...this.cache.entries()].filter(([, e]) => e.last < this.frame - 2 && !e.loading).sort((a, b) => a[1].last - b[1].last);
     while (this.cache.size > this.maxTextures && old.length) {
       const [k, e] = old.shift(); this.cache.delete(k);
       const m = this.meshes.get(k); if (m) { this.group.remove(m); m.geometry.dispose(); m.material.dispose(); this.meshes.delete(k); }
-      if (e.tex) e.tex.dispose();
+      if (e.tex) e.tex.dispose(); else if (e.ready) e.ready.dispose();
     }
   }
   setEnabled(on) { this.enabled = on; if (!on) for (const m of this.meshes.values()) m.visible = false; }
