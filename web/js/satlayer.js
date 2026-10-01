@@ -4,7 +4,9 @@ import * as THREE from 'three';
 import * as E from './engine.js';
 import * as S from '../lib/satellite.esm.js';
 import { DATA_RAW, SUP_FILES } from './config.js';
-import { SatModels, modelFor, MOON_MODELS, MODELS } from './satmodels.js';
+import { SatModels, modelFor, MOON_MODELS, MODELS, showDist } from './satmodels.js';
+import { SatInstancer } from './satinstancer.js';
+import { familyOf, FAMILIES } from './satfamilies.js';
 
 export const SAT_GROUPS = [
   { name: 'Uzay istasyonları', color: 0xff5a5a, size: 5.0 },
@@ -102,7 +104,7 @@ export class SatLayer {
     this.selLine.frustumCulled = false; this.selLine.visible = false; scene.add(this.selLine);
     this.selLabel = this.mkLabel('lbl lbl-sat');
     this.selRing = this.mkSprite(0xffe08a); this.selRing.scale.set(0.02, 0.02, 1); this.selRing.visible = false;
-    this.model = satModel(); this.model.visible = false; scene.add(this.model);
+    this.inst = new SatInstancer(scene); this.realIdx = new Map();
     this.models = new SatModels(scene); this.modelEntries = []; this.moonModelEntries = [];
     this.onChange = null;
   }
@@ -163,6 +165,7 @@ export class SatLayer {
     try { r = o ? S.json2satrec(o) : null; if (r && r.error) r = null; } catch (e) { r = null; }
     this.recCache.set(id, r); return r;
   }
+  familySizeM(id) { const i = this.indexOf(id); return i >= 0 && this.famKeys ? this.inst.sizeOf(this.famKeys[i]) : 0; }
   modelOf(id) { const o = this.recordOf(id); return modelFor(id, o ? o.OBJECT_NAME : ''); }
   // model yerleşimi için konum: Dünya uyduları SGP4 (selPos ile aynı dönüşüm), Ay uyduları Horizons + Ay konumu
   modelPos(e, t) {
@@ -188,6 +191,14 @@ export class SatLayer {
       this.modelEntries = [];
       for (let i = 0; i < this.n; i++) { const m = modelFor(this.ids[i], this.names[i]); if (m) this.modelEntries.push({ uid: 'e' + this.ids[i], id: +this.ids[i], key: m.key, name: this.names[i] }); }
       this.models.setEntries([...this.modelEntries, ...this.moonModelEntries]);
+      // tüm uydular için model ailesi (gerçek modeli olanlar yakında SatModels'e bırakılır)
+      this.famKeys = new Array(this.n); this.realIdx = new Map();
+      const entryById = new Map(this.modelEntries.map((e) => [e.id, e]));
+      for (let i = 0; i < this.n; i++) {
+        const o = this.recordOf(this.ids[i]); this.famKeys[i] = o ? familyOf(o) : 'bus';
+        const e = entryById.get(+this.ids[i]); if (e) this.realIdx.set(i, { entry: e, show: showDist(e.key) });
+      }
+      this.inst.setFamilies(this.famKeys);
       if (this.pendingSel != null) { const i = this.indexOf(this.pendingSel); this.pendingSel = null; if (i >= 0) this.select(i); }
       if (this.onData) this.onData();
     } else if (d.type === 'pos' && d.id === this.reqId) {
@@ -314,7 +325,7 @@ export class SatLayer {
     const out = { name: o.OBJECT_NAME, norad: o.NORAD_CAT_ID, cospar: o.OBJECT_ID, group: SAT_GROUPS[this.groups[i]].name,
       periodMin: 1440 / o.MEAN_MOTION, inc: +o.INCLINATION, ecc, perigee: a * (1 - ecc) - E.R_E, apogee: a * (1 + ecc) - E.R_E,
       epochAgeDays: (E.utcMsFromT(t) - Date.parse(o.EPOCH + 'Z')) / 86400000, launchYear: (o.OBJECT_ID || '').slice(0, 4),
-      model: modelFor(o.NORAD_CAT_ID, o.OBJECT_NAME),
+      model: modelFor(o.NORAD_CAT_ID, o.OBJECT_NAME), family: FAMILIES[this.famKeys && this.famKeys[i]] || null,
       source: o._sup ? `CelesTrak SupGP (${o._sup.src || o._sup.file}${o._sup.rms != null ? `, RMS ${o._sup.rms} km` : ''})` : 'CelesTrak GP' };
     if (pv && pv.position) {
       const M = E.precession(t), p = E.mtv(M, [pv.position.x, pv.position.y, pv.position.z]);
@@ -367,23 +378,19 @@ export class SatLayer {
         for (let k = 0; k < P.length; k++) { a[k * 3] = P[k][0] - eye[0]; a[k * 3 + 1] = P[k][1] - eye[1]; a[k * 3 + 2] = P[k][2] - eye[2]; }
         this.selLine.geometry.setDrawRange(0, P.length); this.selLine.geometry.attributes.position.needsUpdate = true; this.selLine.visible = true;
         this.selRing.visible = true; this.selRing.position.set(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]);
-        // yakından temsili uydu modeli (gövde + güneş panelleri), paneller Güneş'e dönük
-        const dCam = Math.hypot(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]);
-        this.model.visible = dCam < 3 && !this.models.active('e' + this.ids[this.sel]);
-        if (this.model.visible) {
-          this.model.position.set(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]);
-          const sun = E.sunPos(t), sd = new THREE.Vector3(sun[0] - p[0], sun[1] - p[1], sun[2] - p[2]).normalize(), nad = new THREE.Vector3(-p[0], -p[1], -p[2]).normalize();
-          const yAx = new THREE.Vector3().crossVectors(nad, sd).normalize(), xAx = new THREE.Vector3().crossVectors(yAx, nad);
-          this.model.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xAx, yAx, nad));
-          this.model.children[1].rotation.y = this.model.children[2].rotation.y = Math.atan2(-sd.dot(nad), sd.dot(xAx));   // panel yüzü Güneş'e
-        }
-        this.selRing.visible = !this.model.visible && !this.models.active('e' + this.ids[this.sel]);
-      } else { this.selLabel.style.display = 'none'; this.selLine.visible = false; this.selRing.visible = false; this.model.visible = false; }
-    } else { this.selLabel.style.display = 'none'; this.selLine.visible = false; this.selRing.visible = false; this.model.visible = false; }
-    // gerçek 3B modeller: yalnız kamera bir modelli uyduya yaklaşınca yüklenir/çizilir
+        this.selRing.visible = !this.models.active('e' + this.ids[this.sel]);
+      } else { this.selLabel.style.display = 'none'; this.selLine.visible = false; this.selRing.visible = false; }
+    } else { this.selLabel.style.display = 'none'; this.selLine.visible = false; this.selRing.visible = false; }
+    // her uydunun ailesinin modeli (InstancedMesh): yakın ~1500 uydu model, ötesi nokta · yerden bakışta kapalı
+    const instOn = vis && !this.obsView && this.tProp !== null;
+    const ga = this.geo.attributes;
+    this.inst.update(ga.position ? ga.position.array : null, ga.vel ? ga.vel.array : null, t - this.tProp, eye, camera, canvas.clientHeight, this.mask, this.groups, E.MU_E,
+      instOn, this.realIdx, (uid) => this.models.active(uid), (i) => this.modelPos({ id: +this.ids[i] }, t));
+    // gerçek 3B modeller: yalnız kamera bir modelli uyduya yaklaşınca yüklenir/çizilir (aileler hazır değilse tüm liste)
+    this.models.setEntries([...(this.inst.ready ? this.inst.realNear : this.modelEntries), ...this.moonModelEntries]);
     if (vis || (showMoon && this.moonEnabled)) this.models.update(t, eye, (e, tt) => (e.m ? (showMoon ? this.modelPos(e, tt) : null) : (vis ? this.modelPos(e, tt) : null)), E.unit(E.sunPos(t)));
     else this.models.hideAll();
-    this.mat.uniforms.nearHide.value = this.models.hideRadius || 0;
+    this.mat.uniforms.nearHide.value = Math.max(this.models.hideRadius || 0, instOn ? this.inst.hideRadius : 0);
     // Ay uyduları
     const rm = E.moonPos(t);
     for (const m of this.moonSats) {
@@ -403,19 +410,4 @@ export class SatLayer {
       m.trail.geometry.setDrawRange(0, k); m.trail.geometry.attributes.position.needsUpdate = true;
     }
   }
-}
-
-// temsili uydu modeli (m cinsinden, km sahnesi için 0.001 ölçekli): altın folyolu gövde + iki güneş paneli
-function satModel() {
-  const g = new THREE.Group(), KM = 0.001;
-  // hafif öz ışıma: gölgede (Dünya'nın gölgesinde) de seçilebilsin
-  const bus = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.0, 1.1), new THREE.MeshStandardMaterial({ color: 0xc9983a, metalness: 0.8, roughness: 0.35, emissive: 0x3a2a10 }));
-  const pm = new THREE.MeshStandardMaterial({ color: 0x1b2a55, metalness: 0.4, roughness: 0.3, side: THREE.DoubleSide, emissive: 0x0b1430 });
-  const mkPanel = (sgn) => { const q = new THREE.Group(); const pnl = new THREE.Mesh(new THREE.BoxGeometry(0.03, 4.5, 1.6), pm); pnl.position.y = sgn * 3.0; q.add(pnl);
-    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.8, 8), new THREE.MeshStandardMaterial({ color: 0x9b9ea3, metalness: 1, roughness: 0.4 })); arm.position.y = sgn * 0.6; q.add(arm); return q; };
-  const dish = new THREE.Mesh(new THREE.SphereGeometry(0.45, 20, 10, 0, Math.PI * 2, 0, 0.9), new THREE.MeshStandardMaterial({ color: 0xe9e9e4, roughness: 0.6, side: THREE.DoubleSide }));
-  dish.rotation.x = Math.PI; dish.position.z = 0.75;
-  g.add(bus, mkPanel(1), mkPanel(-1), dish);
-  g.scale.setScalar(KM);
-  return g;
 }

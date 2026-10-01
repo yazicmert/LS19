@@ -22,7 +22,8 @@ Tarayıcıda gerçek zamanlı çalışan bir uzay simülasyonu. Dünya park yör
 - **Canlı uydu takibi:** gerçek saatte (×1–×3600 hızlandırılabilir) takip listesi; anlık irtifa, hız, yer izi noktası, Güneş/gölge, gözlemciden yükseklik. Yer izi (geçmiş/gelecek) ve kapsama dairesi Dünya üzerinde çizilir.
 - **Geçiş tahmini:** gözlemci konumu (şehir listesi ya da tarayıcı konumu) için 3 günlük geçişler: doğuş/en yüksek/batış, yön, çıplak gözle görünürlük (uydu Güneş'te, gökyüzü karanlık), gökyüzü (kutup) çizimi; **Gözlemci** kamerası yerden gökyüzüne bakar ve geçişte uyduyu izler; görünür geçişten 5 dk önce bildirim. Skyfield ile karşılaştırmada zamanlar 1 s, açılar 0,01° içinde.
 - **Operatör verisi:** ISS, Starlink, OneWeb, GPS, GLONASS, Planet, Intelsat, SES, Kuiper için CelesTrak Supplemental GP (operatörlerin kendi yörünge çözümleri) normal GP'nin yerine kullanılır.
-- **Gerçek 3B uydu modelleri:** ISS, Hubble, Chandra, Fermi, Swift, TESS, SDO, Terra/Aqua/Aura, GPM, ICESat-2, Landsat 8/9, Sentinel-6A/B, Jason-3, OCO-2, Suomi NPP/NOAA-20/21, GOES-16…19, TDRS, MMS, THEMIS, CYGNSS, GRACE-FO, Hinode ve Ay'da LRO/ARTEMIS için NASA 3D Resources modelleri (26 model, 50+ uydu). Binlerce uydu nokta olarak çizilir; bir model yalnız kamera o uyduya birkaç km yaklaşınca indirilir ve çizilir (aynı anda en fazla 3), uzaklaşınca kaldırılır. Modeller gerçek ölçekte ve uçuş yönünde (başucu, hız, yörünge normali); Dünya'nın gölgesindeyse kameradan yumuşak dolgu ışığı alır.
+- **Her uydu 3B model:** Binlerce uydu artık nokta değil, model olarak çizilir. Kameraya en yakın ~1500 uydu `InstancedMesh` ile kendi ailesinin modelini alır (yakında gerçek ölçekte, uzaklaştıkça ekranda ~13 piksel kalacak kadar büyütülür), ötesi nokta kalır. Aileler: Starlink v1/v2 mini, OneWeb, Kuiper, düz panelli megakonstelasyon (Qianfan/Guowang/Hulianwang), Iridium, Globalstar, seyrüsefer (GPS/Galileo/BeiDou/GLONASS), yer eşzamanlı haberleşme, CubeSat, küçük uydu ve genel gövde. Ad ve yörüngeye göre eşleşir (`web/js/satfamilies.js`); modeller Blender'da betikle üretilir (`tools/uydu_aileleri.py`), boyutlar yayımlanmış yaklaşık değerlerdir ve **temsilidir** (bu uyduların kendi 3B modeli yayımlanmamıştır; bilgi kartında "temsili aile modeli" yazar). Yakındaki uydular ana iş parçacığında SGP4 ile kesin konumlandırılır.
+- **Gerçek 3B uydu modelleri:** ISS, Hubble, Chandra, Fermi, Swift, TESS, SDO, Terra/Aqua/Aura, GPM, ICESat-2, Landsat 8/9, Sentinel-6A/B, Jason-3, OCO-2, Suomi NPP/NOAA-20/21, GOES-16…19, TDRS, MMS, THEMIS, CYGNSS, GRACE-FO, Hinode, SWAS, SORCE ve Ay'da LRO/ARTEMIS için NASA 3D Resources modelleri (29 model, ~50 uydu); ayrıca ticari GEO uydular (Intelsat, SES, Astra, Eutelsat, EchoStar, Galaxy… ~150 uydu) için SSL-1300 platform modeli (temsili, kartta belirtilir). Gerçek model yalnız kamera uyduya birkaç km yaklaşınca indirilir ve çizilir (aynı anda en fazla 3), uzaklaşınca kaldırılır; bu uydularda aile modeli yerine gerçek model gösterilir. Modeller gerçek ölçekte ve uçuş yönünde (başucu, hız, yörünge normali); Dünya'nın gölgesindeyse kameradan yumuşak dolgu ışığı alır.
 - **Sade alt çubuk:** ana düğmeler (oynat, hız, şimdi) görünür; kamera, zaman hızı/atlama ve uçuş seçenekleri açılır ağaç menülerde (katlanabilir gruplar, klavyeyle gezilebilir, seçili değer düğmede yazar).
 - **Otomatik güncelleme:** 10 dakikada bir sürüm denetimi; değişen veri sayfa yenilenmeden yüklenir. Kaynak kurallarına uyulur (CelesTrak en sık 2 saatte bir, JPL SBDB/Sentry günlük).
 
@@ -70,6 +71,7 @@ node test/test_deflect.js      # Apophis 2029 (JPL CAD ile), STM/tam tümleme uy
 node test/test_api.js          # bulut işlevleri (taklit veriyle), yerel sunucuyla aynı biçim, GitHub kopyasına düşme
 node test/test_passes.js       # ISS geçişleri, Skyfield sonuçlarıyla
 node test/test_satmodels.js    # 3B model kataloğu (NORAD/ad eşleşmeleri, dosyalar)
+node test/test_satfamilies.js  # uydu aileleri (ad/yörünge eşleşmesi, aile GLB'leri)
 node test/test_cr3bp.js        # halo/NRHO aileleri
 node test/test_profiles.js     # tüm görev profillerini tasarlayıp uçurur (birkaç dakika)
 ```
@@ -81,6 +83,7 @@ node test/test_profiles.js     # tüm görev profillerini tasarlayıp uçurur (b
 | `web/` | Tarayıcı simülasyonu (Three.js, Web Worker'lar), `sunucu.py`, testler |
 | `web/js/` | `engine.js` fizik · `ephem.js`/`live.js` efemeris · `cr3bp.js`/`halo.js` halo yörüngeleri · `design.js` görev tasarımı · `mission.js` otopilot · `sats.js`/`satlayer.js` uydular · `asteroids.js`/`astwork.js` asteroitler · `deflect.js`/`deflectwork.js`/`astui.js` saptırma · `passes.js`/`tracker.js`/`skyui.js` canlı takip ve geçişler · `satcatalog.js`/`satmodels.js` 3B uydu modelleri · `treemenu.js` alt çubuk menüleri · `updater.js` güncelleme · `scene.js`/`ui.js` görüntü ve arayüz |
 | `web/models/sats/` | NASA 3D Resources uydu modelleri (meshopt + WebP ile küçültülmüş GLB; `tools/uydu_modelleri.mjs` ile yeniden üretilir) |
+| `web/models/fam/` | Uydu aileleri: Blender'da üretilen düşük poligonlu GLB'ler (`tools/uydu_aileleri.py`; köşe renkli, aile başına ~10–25 kB) |
 | `api/` | Vercel sunucusuz işlevleri (canlı veri vekili) |
 | `scripts/` | Blender sürümü (Adım 1–5): görev motoru ve sahne betikleri |
 | `kernels/` | JPL DE440s, Ay yönelim çekirdeği, efemeris tablosu |
@@ -90,6 +93,7 @@ node test/test_profiles.js     # tüm görev profillerini tasarlayıp uçurur (b
 - Kod: MIT (bkz. [LICENSE](LICENSE)).
 - JPL DE440s ve Ay yönelim çekirdekleri: NASA/JPL NAIF.
 - Canlı veri: [CelesTrak](https://celestrak.org) GP, [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/), [JPL Small-Body Database](https://ssd.jpl.nasa.gov/tools/sbdb_query.html), [JPL Sentry](https://cneos.jpl.nasa.gov/sentry/), JPL CAD.
+- Uydu aile modelleri (`web/models/fam/`): bu projede Blender betiğiyle üretildi (MIT, kod ile aynı); Starlink, OneWeb vb. için yayımlanmış yaklaşık boyutlara dayanan temsili modellerdir, resmî CAD değildir.
 - Uydu modelleri: [NASA 3D Resources](https://github.com/nasa/NASA-3D-Resources) (NASA, kamu malı; NASA logosu/amblemi kullanım kurallarına tabidir). Kopuk parçalar temizlendi, ağlar sadeleştirildi, dokular WebP'ye çevrildi.
 - Gezegen dokuları: [Solar System Scope](https://www.solarsystemscope.com/textures/) (CC BY 4.0); Ay rengi ve yükseklik: NASA SVS CGI Moon Kit (LROC/LOLA).
 - Kütüphaneler: [three.js](https://threejs.org) (MIT), [satellite.js](https://github.com/shashwatak/satellite-js) (MIT), jplephem (MIT).

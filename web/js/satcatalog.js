@@ -27,12 +27,15 @@ export const MODELS = {
   grace:     { title: 'GRACE', size: 3.1 },
   jason:     { title: 'Jason-2 (OSTM)', size: 3.8 },
   lro:       { title: 'Lunar Reconnaissance Orbiter', size: 5 },
+  ssl1300:   { title: 'SSL-1300 ticari GEO platformu', size: 30, rot: [0, 0, 0] },
+  swas:      { title: 'SWAS (Submillimeter Wave Astronomy Satellite)', size: 3 },
+  sorce:     { title: 'SORCE', size: 4 },
 };
 const BY_ID = {
   25544: 'iss', 20580: 'hubble', 27424: 'aqua', 25994: 'terra', 28376: 'aura', 25867: 'chandra', 33053: 'fermi', 28485: 'swift',
   39574: 'gpm', 43613: 'icesat2', 39084: 'landsat8', 49260: ['landsat8', 'Landsat 9 — Landsat 8 ile aynı tasarım'],
   46984: 'sentinel6', 40059: 'oco2', 37849: 'npp', 43013: ['npp', 'NOAA-20 — Suomi NPP ile aynı gövde'], 54234: ['npp', 'NOAA-21 — Suomi NPP ile aynı gövde'],
-  36395: 'sdo', 43435: 'tess', 29479: 'hinode', 41240: ['jason', 'Jason-3 — Jason-2 ile aynı Proteus gövdesi'],
+  36395: 'sdo', 25560: 'swas', 27651: 'sorce', 43435: 'tess', 29479: 'hinode', 41240: ['jason', 'Jason-3 — Jason-2 ile aynı Proteus gövdesi'],
 };
 const BY_NAME = [
   [/^SENTINEL-6/, 'sentinel6', 'Sentinel-6 ikizi'],
@@ -42,6 +45,7 @@ const BY_NAME = [
   [/^TDRS ([3-9]|10)$/, 'tdrs1', null],
   [/^TDRS 1[1-3]$/, 'tdrs3', null],
   [/^GOES 1[6-9]$/, 'goes', null],
+  [/^(INTELSAT|SES-|ASTRA|EUTELSAT|ECHOSTAR|GALAXY|TELSTAR|ANIK|AMC-|DIRECTV|SIRIUS|SKYNET|NILESAT|YAHSAT|INMARSAT)/, 'ssl1300', 'SSL-1300 sınıfı ticari GEO platformunun temsili modeli — bu uydunun kendi modeli yayımlanmamıştır'],
   [/^GRACE-FO/, 'grace', 'GRACE-FO — öncül GRACE modeli (benzer gövde)'],
 ];
 // Ay uyduları (Horizons): LRO ve ARTEMIS P1/P2 (THEMIS B/C)

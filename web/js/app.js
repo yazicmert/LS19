@@ -124,7 +124,7 @@ function followSat(id, dist = 60) {
   if (MODE !== 'sky') setWorkspace('sky');
   const i = sats.indexOf(id); if (i >= 0) sats.select(i);
   const mdl = sats.modelOf(id);                                   // gerçek modeli olan uydunun içine girilmesin
-  focusOn({ kind: 'sat', fn: (tt) => tracker.icrfOf(id, tt), R: mdl ? mdl.size / 2000 : 0 }, dist); skyui.setCamButtons('');
+  focusOn({ kind: 'sat', fn: (tt) => tracker.icrfOf(id, tt), R: (mdl ? mdl.size : sats.familySizeM(id)) / 2000 }, dist); skyui.setCamButtons('');
 }
 function lookAtSat(id) {
   setSkyCam('OBS');
@@ -365,7 +365,7 @@ function handleClick(e) {
       const np = tracker.passes.find((p) => p.id === id && p.rise && p.set.ms > Date.now()); if (np) d.nextPass = np;
       return d; },
     actions: [watchAct(), { label: 'Yörüngesini göster', fn: () => sats.select(c.i) }, { label: 'Kamerayla izle', fn: () => followSat(id) },
-      ...(mdl ? [{ label: '3B modeli yakından gör', fn: () => followSat(id, mdl.size * 2.4 / 1000) }] : []),
+      { label: '3B modeli yakından gör', fn: () => followSat(id, (mdl ? mdl.size : sats.familySizeM(id) || 10) * 2.4 / 1000) },
       { label: 'Gökte izle', fn: () => lookAtSat(id) }] }, mx, my, t);
   } else if (c.kind === 'ast') {
     const i = c.i; asts.fetchDetail(i);

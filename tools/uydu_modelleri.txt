@@ -29,3 +29,6 @@ calipso|Cloud-Aerosol Lidar and Infrared Pathfinder Satellite (CALIPSO)/Cloud-Ae
 cloudsat|CloudSat (A)/CloudSat (A)
 jason|Ocean Surface Topography Mission (OSTM Jason-2)/Ocean Surface Topography Mission (OSTM Jason-2)
 lro|Lunar Reconnaissance Orbiter (A)/Lunar Reconnaissance Orbiter (A)
+ssl1300|Space Systems Loral (SSL-1300)/Space Systems Loral (SSL-1300)
+swas|Submillimeter Wave Astronomy Satellite (SWAS)/Submillimeter Wave Astronomy Satellite (SWAS)
+sorce|Solar Radiation and Climate Experiment (SORCE)/Solar Radiation and Climate Experiment (SORCE)
