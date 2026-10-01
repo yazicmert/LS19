@@ -285,10 +285,17 @@ export class UI {
   showPick(obj, mx, my, t) {
     this.pick = obj; this.lastPick = 0;
     const el = $('#pick'), app = $('#app'), W = app.clientWidth, H = app.clientHeight;
-    el.hidden = false;
-    el.style.left = Math.min(W - 300, Math.max(8, mx + 14)) + 'px'; el.style.top = Math.min(H - 330, Math.max(8, my - 20)) + 'px';
+    el.hidden = false; this.pickAnchor = [mx, my];
+    el.style.left = Math.min(W - 308, Math.max(8, mx + 14)) + 'px';
     $('#pick').replaceChildren();
     this.renderPick(t, true);
+  }
+  // kart ekrana sığsın: alt çubuğa (≈88 px) binmesin, uzunsa kendi içinde kaydırılsın; içerik değişince (tazeleme) yeniden hizalanır
+  placePick() {
+    const el = $('#pick'), app = $('#app'), H = app.clientHeight, A = this.pickAnchor || [0, 80], bottom = 88, top0 = 8;
+    el.style.maxHeight = Math.max(160, H - top0 - bottom) + 'px';
+    const h = el.offsetHeight;
+    el.style.top = Math.max(top0, Math.min(A[1] - 20, H - bottom - h)) + 'px';
   }
   hidePick() { this.pick = null; $('#pick').hidden = true; }
   renderPick(t, full = false) {
@@ -338,6 +345,7 @@ export class UI {
       for (const a of P.actions) { const b = mk('button', null, a.label); b.addEventListener('click', () => { a.fn(); }); pa.appendChild(b); }
       root.appendChild(pa);
     }
+    this.placePick();
   }
 
   // ------------------------------------------------------------------ uydular
