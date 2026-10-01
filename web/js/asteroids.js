@@ -2,6 +2,7 @@
 // Konumlar ayrı iş parçacığında (astwork.js) Kepler çözümüyle hesaplanır, GPU'da kısa süre ileri taşınır.
 // Tıklanan asteroidin ayrıntıları (fiziksel özellikler, keşif, Dünya yakın geçişleri, Sentry çarpma riski) istek üzerine alınır.
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as E from './engine.js';
 import { keplerHelio, etFromJd, AU, helioElements } from './deflect.js';
 
@@ -92,6 +93,9 @@ export class AsteroidLayer {
     this.rock = new THREE.Mesh(rockGeometry(), new THREE.ShaderMaterial({ uniforms: { color: { value: new THREE.Color(0x8d8478) }, sunDir: { value: new THREE.Vector3(1, 0, 0) } },
       vertexShader: VS_ROCK, fragmentShader: FS_ROCK }));
     this.rock.visible = false; scene.add(this.rock);
+    // gerçek şekil modeli bilinen asteroitler (NASA PDS, uzay aracı ve radar): models/ast/<anahtar>.glb, birim hacim-eşdeğeri yarıçap
+    this.rockDefault = this.rock.geometry; this.rockKey = null; this.shapeGeo = new Map(); this.shapes = null;
+    fetch('models/ast/katalog.json').then((r) => (r.ok ? r.json() : null)).then((j) => { this.shapes = j; }).catch(() => {});
     this.onChange = null;
   }
   changed() { if (this.onChange) this.onChange(); }
@@ -206,6 +210,17 @@ export class AsteroidLayer {
     const d = await p; this.detail.set(des, d); this.changed(); return d;
   }
   // tıklanan asteroidin kartı
+  // asteroidin gerçek şekil modeli (yoksa null); geometri ilk istekte indirilir
+  shapeOf(i) { return this.shapes && this.C ? this.shapes[this.C.des[i]] || null : null; }
+  shapeGeometry(sh) {
+    let e = this.shapeGeo.get(sh.key);
+    if (!e) {
+      e = { geo: null };
+      new GLTFLoader().loadAsync(`models/ast/${sh.key}.glb`).then((g) => { g.scene.traverse((o) => { if (o.isMesh && !e.geo) e.geo = o.geometry; }); }).catch(() => {});
+      this.shapeGeo.set(sh.key, e);
+    }
+    return e.geo;
+  }
   details(i, t) {
     const C = this.C; if (!C || i < 0) return null;
     const [r, v] = this.helio(i, t), s = E.sunPos(t), geo = [s[0] + r[0], s[1] + r[1], s[2] + r[2]];
@@ -214,7 +229,7 @@ export class AsteroidLayer {
     const out = { name: this.label(i), des: C.des[i], cls: CLASS_TR[C.cls[i]] || C.cls[i], pha: !!C.pha[i], H: C.H[i], D, Dmeas: C.D[i] > 0, alb: C.alb[i],
       rot: C.rot[i], spec: C.spec[i], a: C.a[i], e: C.e[i], inc: C.i[i], q: C.a[i] * (1 - C.e[i]), Q: C.a[i] * (1 + C.e[i]),
       P: Math.pow(C.a[i], 1.5), moid: C.moid[i], cc: C.cc[i], arc: C.arc[i], dSun: Math.hypot(...r) / AU, dEarth: Math.hypot(...geo), v: Math.hypot(...v),
-      epochAgeDays: (E.jdTdb(t) - C.ep[i]), sentry: sen || null, group: AST_GROUPS[this.groupOf(i)].name, oscA: el.a / AU };
+      shape: this.shapeOf(i), epochAgeDays: (E.jdTdb(t) - C.ep[i]), sentry: sen || null, group: AST_GROUPS[this.groupOf(i)].name, oscA: el.a / AU };
     if (det && det.object) {
       const now = E.jdTdb(t);
       const ca = (det.ca_data || []).map((c) => ({ ...c, jd: +c.jd || null })).filter((c) => c.body === 'Earth');
@@ -299,7 +314,10 @@ export class AsteroidLayer {
       this.selLine.geometry.attributes.position.needsUpdate = true; this.selLine.geometry.setDrawRange(0, 1025);
       this.selLine.visible = full;
       if (nearOk) place(this.selLabel, p); else this.selLabel.style.display = 'none';
-      const R = this.diam(this.sel) / 2, dCam = Math.hypot(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]);
+      const sh = this.shapeOf(this.sel), shGeo = sh ? this.shapeGeometry(sh) : null;
+      const key = shGeo ? sh.key : null;
+      if (key !== this.rockKey) { this.rock.geometry = shGeo || this.rockDefault; this.rockKey = key; }
+      const R = (sh && shGeo ? sh.req_km : this.diam(this.sel) / 2), dCam = Math.hypot(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]);
       this.rock.visible = dCam < 600 * R;
       this.selRing.visible = nearOk && !this.rock.visible;
       this.selRing.position.set(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]);

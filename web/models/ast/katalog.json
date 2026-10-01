@@ -1,0 +1,321 @@
+{
+ "1998 KY26": {
+  "key": "1998ky26",
+  "req_km": 0.01321,
+  "tris": 4092,
+  "dims": [
+   2.219,
+   2.106,
+   2.009
+  ],
+  "kaynak": "Ostro vd. radar modeli"
+ },
+ "99942": {
+  "key": "apophis",
+  "req_km": 0.1679,
+  "tris": 3996,
+  "dims": [
+   2.44,
+   2.079,
+   1.894
+  ],
+  "kaynak": "Brozović vd. 2018 radar modeli"
+ },
+ "153591": {
+  "key": "a153591",
+  "req_km": 1.24829,
+  "tris": 2292,
+  "dims": [
+   2.206,
+   2.179,
+   2.288
+  ],
+  "kaynak": "Radar modeli"
+ },
+ "52760": {
+  "key": "a52760",
+  "req_km": 0.49606,
+  "tris": 8000,
+  "dims": [
+   1.949,
+   2.073,
+   1.952
+  ],
+  "kaynak": "Radar modeli"
+ },
+ "8567": {
+  "key": "a8567",
+  "req_km": 1.01159,
+  "tris": 2780,
+  "dims": [
+   3.734,
+   1.62,
+   1.475
+  ],
+  "kaynak": "Radar modeli"
+ },
+ "1": {
+  "key": "ceres",
+  "req_km": 469.71435,
+  "tris": 8000,
+  "dims": [
+   2.062,
+   2.057,
+   1.915
+  ],
+  "kaynak": "Dawn SPC modeli"
+ },
+ "1620": {
+  "key": "geographos",
+  "req_km": 1.29879,
+  "tris": 8000,
+  "dims": [
+   3.936,
+   1.54,
+   1.856
+  ],
+  "kaynak": "Hudson & Ostro radar modeli"
+ },
+ "101955": {
+  "key": "bennu",
+  "req_km": 0.24588,
+  "tris": 2692,
+  "dims": [
+   2.304,
+   2.18,
+   2.069
+  ],
+  "kaynak": "Nolan vd. radar modeli"
+ },
+ "21": {
+  "key": "lutetia",
+  "req_km": 49.07724,
+  "tris": 2962,
+  "dims": [
+   2.269,
+   2.452,
+   1.718
+  ],
+  "kaynak": "Rosetta OSIRIS modeli"
+ },
+ "2063": {
+  "key": "bacchus",
+  "req_km": 0.3186,
+  "tris": 4092,
+  "dims": [
+   3.487,
+   1.679,
+   1.607
+  ],
+  "kaynak": "Benner vd. radar modeli"
+ },
+ "2867": {
+  "key": "steins",
+  "req_km": 2.63092,
+  "tris": 8000,
+  "dims": [
+   2.587,
+   2.135,
+   1.597
+  ],
+  "kaynak": "Rosetta OSIRIS modeli"
+ },
+ "25143": {
+  "key": "itokawa",
+  "req_km": 0.16193,
+  "tris": 7999,
+  "dims": [
+   3.469,
+   1.883,
+   1.503
+  ],
+  "kaynak": "Gaskell Hayabusa modeli"
+ },
+ "4": {
+  "key": "vesta",
+  "req_km": 261.50226,
+  "tris": 8000,
+  "dims": [
+   2.154,
+   2.175,
+   1.784
+  ],
+  "kaynak": "Dawn modeli"
+ },
+ "433": {
+  "key": "eros",
+  "req_km": 8.42657,
+  "tris": 7999,
+  "dims": [
+   3.876,
+   2.002,
+   1.419
+  ],
+  "kaynak": "Gaskell NEAR modeli"
+ },
+ "4179": {
+  "key": "toutatis",
+  "req_km": 1.22493,
+  "tris": 8000,
+  "dims": [
+   1.866,
+   1.566,
+   3.758
+  ],
+  "kaynak": "Hudson vd. radar modeli"
+ },
+ "4769": {
+  "key": "castalia",
+  "req_km": 0.54224,
+  "tris": 4092,
+  "dims": [
+   2.998,
+   1.841,
+   1.555
+  ],
+  "kaynak": "Hudson & Ostro radar modeli"
+ },
+ "6489": {
+  "key": "golevka",
+  "req_km": 0.26499,
+  "tris": 4092,
+  "dims": [
+   1.844,
+   2.586,
+   2.159
+  ],
+  "kaynak": "Hudson vd. radar modeli"
+ },
+ "216": {
+  "key": "kleopatra",
+  "req_km": 55.3128,
+  "tris": 4092,
+  "dims": [
+   3.96,
+   1.708,
+   1.487
+  ],
+  "kaynak": "Hudson & Ostro radar modeli"
+ },
+ "2100": {
+  "key": "rashalom",
+  "req_km": 1.13987,
+  "tris": 2292,
+  "dims": [
+   2.595,
+   2.154,
+   1.714
+  ],
+  "kaynak": "Radar modeli"
+ },
+ "4486": {
+  "key": "mithra",
+  "req_km": 0.8456,
+  "tris": 5996,
+  "dims": [
+   2.783,
+   1.952,
+   1.699
+  ],
+  "kaynak": "Radar modeli"
+ },
+ "4660": {
+  "key": "nereus",
+  "req_km": 0.16669,
+  "tris": 2292,
+  "dims": [
+   3.061,
+   1.982,
+   1.447
+  ],
+  "kaynak": "Brozović vd. radar modeli"
+ },
+ "10115": {
+  "key": "sk1992",
+  "req_km": 0.50247,
+  "tris": 1016,
+  "dims": [
+   2.771,
+   1.793,
+   1.811
+  ],
+  "kaynak": "Radar modeli"
+ },
+ "29075": {
+  "key": "da1950r",
+  "req_km": 0.64911,
+  "tris": 1016,
+  "dims": [
+   2.233,
+   2.461,
+   1.845
+  ],
+  "kaynak": "Busch vd. radar modeli (geri yönlü)"
+ },
+ "33342": {
+  "key": "wt24",
+  "req_km": 0.20766,
+  "tris": 7996,
+  "dims": [
+   2.267,
+   2.05,
+   1.946
+  ],
+  "kaynak": "Radar modeli"
+ },
+ "54509": {
+  "key": "yorp",
+  "req_km": 0.05639,
+  "tris": 572,
+  "dims": [
+   2.647,
+   2.368,
+   1.696
+  ],
+  "kaynak": "Radar modeli"
+ },
+ "66391": {
+  "key": "kw4a",
+  "req_km": 0.65836,
+  "tris": 8000,
+  "dims": [
+   2.326,
+   2.27,
+   2.047
+  ],
+  "kaynak": "Ostro vd. radar modeli (ana gövde)"
+ },
+ "136617": {
+  "key": "cc1994",
+  "req_km": 0.31008,
+  "tris": 3996,
+  "dims": [
+   2.22,
+   2.153,
+   2.06
+  ],
+  "kaynak": "Radar modeli"
+ },
+ "276049": {
+  "key": "ce26",
+  "req_km": 1.72955,
+  "tris": 2292,
+  "dims": [
+   2.111,
+   2.112,
+   1.883
+  ],
+  "kaynak": "Radar modeli"
+ },
+ "341843": {
+  "key": "ev5",
+  "req_km": 0.20261,
+  "tris": 3996,
+  "dims": [
+   2.261,
+   2.196,
+   1.995
+  ],
+  "kaynak": "Busch vd. radar modeli"
+ }
+}
