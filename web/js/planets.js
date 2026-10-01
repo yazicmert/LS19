@@ -17,6 +17,17 @@ export const PLANET_VIS = {
   10: { tex: 'pluto.jpg', W: [302.695, 56.3625225], bump: 5, detail: 1, limb: 0.0, term: 0.0, gain: 1.7, atm: [[0.45, 0.62, 1.0], 0.22, 3.4, 0.02] },
 };
 
+// ortak gürültü (hash, değer gürültüsü, fraktal) — Dünya/Ay gölgelendiricileri de kullanır
+export const GLSL_NOISE = /* glsl */`
+float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float vnoise(vec3 x) {
+  vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(hash(i), hash(i + vec3(1, 0, 0)), f.x), mix(hash(i + vec3(0, 1, 0)), hash(i + vec3(1, 1, 0)), f.x), f.y),
+             mix(mix(hash(i + vec3(0, 0, 1)), hash(i + vec3(1, 0, 1)), f.x), mix(hash(i + vec3(0, 1, 1)), hash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
+float fbm(vec3 p) { float a = 0.5, s = 0.0; for (int i = 0; i < 4; i++) { s += a * vnoise(p); p *= 2.03; a *= 0.5; } return s; }
+`;
+
 const VS = /* glsl */`
 #include <common>
 #include <logdepthbuf_pars_vertex>
@@ -35,13 +46,7 @@ uniform sampler2D map, ringMap;
 uniform float hasMap, bump, detail, limb, term, gain, atmK, atmP, ringOn, ringIn, ringOut, uR, bands;
 uniform vec3 color, sunDir, pole, atmC, ringN;
 varying vec3 vN; varying vec3 vPos; varying vec3 vL; varying vec2 vUv;
-float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
-float vnoise(vec3 x) {
-  vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
-  return mix(mix(mix(hash(i), hash(i + vec3(1, 0, 0)), f.x), mix(hash(i + vec3(0, 1, 0)), hash(i + vec3(1, 1, 0)), f.x), f.y),
-             mix(mix(hash(i + vec3(0, 0, 1)), hash(i + vec3(1, 0, 1)), f.x), mix(hash(i + vec3(0, 1, 1)), hash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
-}
-float fbm(vec3 p) { float a = 0.5, s = 0.0; for (int i = 0; i < 4; i++) { s += a * vnoise(p); p *= 2.03; a *= 0.5; } return s; }
+${GLSL_NOISE}
 void main() {
   #include <logdepthbuf_fragment>
   vec3 N = normalize(vN), L = normalize(sunDir), V = normalize(-vPos);

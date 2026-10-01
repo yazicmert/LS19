@@ -15,9 +15,10 @@ import { applyIcons, setBtn } from './icons.js';
 import { initTreeMenus, refreshTreeMenus } from './treemenu.js';
 import * as PS from './passes.js';
 import { MODELS, MOON_MODELS } from './satmodels.js';
+import { ElevMap } from './elevmap.js';
 
 const DEFAULT_DATE = '2026-10-13';
-let K = null, DESIGN = null, START_MS = 0, sats = null, asts = null, astui = null, updater = null, tracker = null, skyui = null;
+let K = null, DESIGN = null, START_MS = 0, sats = null, asts = null, astui = null, updater = null, tracker = null, skyui = null, elevmap = null;
 // iki bağımsız çalışma alanı: "mission" (Ay görevi: fizik motoru, görev saati) ve "sky" (Canlı Gökyüzü: gerçek saat, uydular, asteroitler)
 let MODE = 'mission', missionSrc = null, skySrc = null, skyT = 0, moonRange = null;
 const clock = new SkyClock();
@@ -52,6 +53,7 @@ async function boot() {
   astui = new AstUI({ world, asts, ui, getT: curT, focusOn, setCam: setSkyCam });
   tracker = new Tracker(world.scene, $('#labels'), sats);
   skyui = new SkyUI({ clock, tracker, sats, asts, setSkyCam, lookAt: lookAtSat, follow: followSat });
+  elevmap = new ElevMap({ getT: () => curT(), sats, tracker }); $('#btnElev').addEventListener('click', () => elevmap.toggle());
   sats.models.onLoad = (e, st) => { if (st === 'start') skyui.toast(`${e.name}: gerçek 3B model yükleniyor (NASA 3D Resources)…`); else if (st === 'error') skyui.toast(`${e.name}: 3B model yüklenemedi, temsili model gösteriliyor.`); };
   sats.onData = () => { if (tracker) tracker.computePasses(true); };
   world.obsPose = obsPose;

@@ -8,7 +8,7 @@ import { R_SITE, SITE_LAT, SITE_LON, siteIcrf, siteMe } from './mission.js';
 import { BODIES } from './ephem.js';
 import { etOf } from './live.js';
 import { HaloRef } from './halo.js';
-import { PLANET_VIS, planetMaterial, atmosphereMesh, ringMaterial, loadPlanetTextures, planetQuaternion } from './planets.js';
+import { GLSL_NOISE, PLANET_VIS, planetMaterial, atmosphereMesh, ringMaterial, loadPlanetTextures, planetQuaternion } from './planets.js';
 // gezegen yarıçapları (km), renk, IAU kutup yönü (RA, Dec derece), bant belirginliği, halka (iç, dış km)
 export const PLANETS = {
   1: { name: 'Merkür', R: 2439.7, c: 0x9a9591, pole: [281.01, 61.41] }, 2: { name: 'Venüs', R: 6051.8, c: 0xe8d8a8, pole: [272.76, 67.16] },
@@ -106,6 +106,7 @@ const FS_EARTH = /* glsl */`
 #include <logdepthbuf_pars_fragment>
 uniform sampler2D dayMap, nightMap, cloudMap, specMap, normalMap; uniform vec3 sunDir; uniform float sunI; uniform float obsMode;
 varying vec3 vN; varying vec3 vE; varying vec3 vPos; varying vec2 vUv; varying vec3 vLocal;
+${GLSL_NOISE}
 void main() {
   #include <logdepthbuf_fragment>
   vec3 N = normalize(vN), T = normalize(vE), B = cross(N, T);
@@ -113,9 +114,12 @@ void main() {
   vec3 Np = normalize(T * nm.x * 0.8 + B * nm.y * 0.8 + N * max(nm.z, 0.2));
   vec3 L = normalize(sunDir), V = normalize(-vPos), H = normalize(L + V);
   float ndl = dot(N, L), ndlp = max(dot(Np, L), 0.0);
-  float cloud = texture2D(cloudMap, vUv).r; cloud = smoothstep(0.08, 0.9, cloud);
   float spec = texture2D(specMap, vUv).r;
-  vec3 day = texture2D(dayMap, vUv).rgb;
+  // doku çözünürlüğünü (8192 px ≈ 4,9 km) aşan yakınlıkta: kara dokusu ve bulut kenarı için ince ayrıntı
+  float magE = smoothstep(0.9, 0.08, length(fwidth(vUv * vec2(8192.0, 4096.0)))), dnE = 0.0, landE = 1.0 - smoothstep(0.1, 0.5, spec);
+  if (magE > 0.001) { dnE = (fbm(vLocal * 600.0) - 0.5) * 0.5 + (fbm(vLocal * 2600.0) - 0.5) * 0.35 + (fbm(vLocal * 11000.0) - 0.5) * 0.15; ndlp *= 1.0 + dnE * 0.7 * magE * landE; }
+  float cloud = texture2D(cloudMap, vUv).r + dnE * 0.4 * magE; cloud = smoothstep(0.08, 0.9, cloud);
+  vec3 day = texture2D(dayMap, vUv).rgb * (1.0 + dnE * 0.5 * magE * landE);
   float tw = smoothstep(-0.12, 0.2, ndl);
   vec3 sunCol = mix(vec3(1.0, 0.55, 0.3), vec3(1.0), smoothstep(0.0, 0.35, ndl));
   vec3 col = day * ndlp * sunCol * tw;
@@ -166,6 +170,7 @@ const FS_MOON = /* glsl */`
 #include <logdepthbuf_pars_fragment>
 uniform sampler2D colorMap, normalMap; uniform vec3 sunDir, earthDir; uniform float sunI, holeCos, albScale; uniform vec3 siteDir;
 varying vec3 vN; varying vec3 vE; varying vec3 vPos; varying vec2 vUv; varying vec3 vLocal;
+${GLSL_NOISE}
 void main() {
   if (dot(normalize(vLocal), siteDir) > holeCos) discard;
   #include <logdepthbuf_fragment>
@@ -176,6 +181,12 @@ void main() {
   float mu0 = max(dot(Np, L), 0.0), mu = max(dot(N, V), 0.05);
   float I = mix(mu0, 2.0 * mu0 / (mu0 + mu + 1e-4), 0.45);
   vec3 alb = texture2D(colorMap, vUv).rgb * albScale;
+  // renk dokusunun çözünürlüğünü (8192 px ≈ 1,06 km) aşan yakınlıkta: regolit tanesi ve küçük krater kabartması
+  float magM = smoothstep(0.9, 0.08, length(fwidth(vUv * vec2(8192.0, 4096.0))));
+  if (magM > 0.001) {
+    float dn = (fbm(vLocal * 900.0) - 0.5) * 0.5 + (fbm(vLocal * 4200.0) - 0.5) * 0.3 + (fbm(vLocal * 16000.0) - 0.5) * 0.2;
+    alb *= 1.0 + dn * 0.5 * magM; I *= 1.0 + dn * 0.9 * magM * (1.0 - 0.5 * mu0);
+  }
   vec3 col = alb * I * sunI + alb * 0.012 * max(dot(Np, normalize(earthDir)), 0.0);
   gl_FragColor = vec4(col, 1.0);
   #include <tonemapping_fragment>
