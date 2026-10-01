@@ -8,6 +8,7 @@ import { R_SITE, SITE_LAT, SITE_LON, siteIcrf, siteMe } from './mission.js';
 import { BODIES } from './ephem.js';
 import { etOf } from './live.js';
 import { HaloRef } from './halo.js';
+import { PLANET_VIS, planetMaterial, atmosphereMesh, ringMaterial, loadPlanetTextures, planetQuaternion } from './planets.js';
 // gezegen yarıçapları (km), renk, IAU kutup yönü (RA, Dec derece), bant belirginliği, halka (iç, dış km)
 export const PLANETS = {
   1: { name: 'Merkür', R: 2439.7, c: 0x9a9591, pole: [281.01, 61.41] }, 2: { name: 'Venüs', R: 6051.8, c: 0xe8d8a8, pole: [272.76, 67.16] },
@@ -16,22 +17,6 @@ export const PLANETS = {
   8: { name: 'Uranüs', R: 25362, c: 0x9fdbe3, pole: [257.31, -15.18], bands: 0.1 }, 9: { name: 'Neptün', R: 24622, c: 0x4a6fe0, pole: [299.36, 43.46], bands: 0.3 },
   10: { name: 'Plüton', R: 1188.3, c: 0xc8b49a, pole: [132.99, -6.16] } };
 const poleVec = ([ra, de]) => { const a = ra * Math.PI / 180, d = de * Math.PI / 180; return new THREE.Vector3(Math.cos(d) * Math.cos(a), Math.cos(d) * Math.sin(a), Math.sin(d)); };
-const VS_PL = `#include <common>
-  #include <logdepthbuf_pars_vertex>
-  varying vec3 vN;
-  void main() { vN = normal; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  #include <logdepthbuf_vertex>
-  }`;
-const FS_PL = `#include <common>
-  #include <logdepthbuf_pars_fragment>
-  uniform vec3 color, sunDir, pole; uniform float bands; varying vec3 vN;
-  void main() {
-    #include <logdepthbuf_fragment>
-    vec3 n = normalize(vN); float lat = asin(clamp(dot(n, pole), -1.0, 1.0));
-    float b = 1.0 + bands * (0.16 * sin(lat * 17.0) + 0.09 * sin(lat * 43.0 + 1.3) + 0.05 * sin(lat * 97.0));
-    float l = max(dot(n, sunDir), 0.0);
-    gl_FragColor = vec4(color * b * (0.02 + 0.98 * l), 1.0);
-  }`;
 import * as CR from './cr3bp.js';
 const K_EMB = E.MU_M / (E.MU_E + E.MU_M);          // Dünya–Ay kütle merkezi: Dünya'dan Ay'a doğru bu oranda
 
@@ -242,6 +227,7 @@ export class World {
   }
 
   async load(base, onProgress = () => {}) {
+    this.base = base;
     const tl = new THREE.TextureLoader(), total = 12; let done = 0;
     const tick = (n) => { done++; onProgress(done / total, n); };
     const tex = (f, srgb = true) => new Promise((res) => tl.load(base + 'textures/' + f, (t) => {
@@ -350,9 +336,10 @@ export class World {
       const d = document.createElement('div'); d.className = 'lbl'; d.textContent = i === 3 ? 'Dünya–Ay' : BODIES[i].name; this.labelsEl.appendChild(d);
       const pl = { i, m, o, d }, info = PLANETS[i];
       if (info) {
-        pl.mesh = new THREE.Mesh(new THREE.SphereGeometry(info.R, 96, 48), new THREE.ShaderMaterial({ vertexShader: VS_PL, fragmentShader: FS_PL,
-          uniforms: { color: { value: new THREE.Color(info.c) }, sunDir: { value: new THREE.Vector3(1, 0, 0) }, pole: { value: poleVec(info.pole) }, bands: { value: info.bands || 0 } } }));
+        const vis = PLANET_VIS[i], pv = poleVec(info.pole); pl.vis = vis;
+        pl.mesh = new THREE.Mesh(sphereGeometry(info.R, 256, 128), planetMaterial(info, vis, pv));
         pl.mesh.frustumCulled = false; pl.mesh.visible = false; S.add(pl.mesh);
+        pl.atm = atmosphereMesh(info, vis, sphereGeometry, pl.mesh.material.uniforms.sunDir); if (pl.atm) { pl.atm.renderOrder = 3; S.add(pl.atm); }
         if (info.ring) {
           const rg = new THREE.RingGeometry(info.ring[0], info.ring[1], 256, 8);
           // halka yoğunluğu: yarıçapa göre (C, B, Cassini boşluğu, A)
@@ -363,7 +350,8 @@ export class World {
           const tex = new THREE.CanvasTexture(cv);
           const pos = rg.attributes.position, uv = rg.attributes.uv;
           for (let k = 0; k < pos.count; k++) { const r = Math.hypot(pos.getX(k), pos.getY(k)); uv.setXY(k, (r - info.ring[0]) / (info.ring[1] - info.ring[0]), 0.5); }
-          pl.ring = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide, depthWrite: false, toneMapped: false }));
+          pl.ring = new THREE.Mesh(rg, ringMaterial(info, pv)); pl.ring.material.uniforms.ringMap.value = tex; pl.ring.renderOrder = 4;   // gerçek doku inince değişir
+          pl.mesh.material.uniforms.ringMap.value = tex; pl.mesh.material.uniforms.ringOn.value = 1;
           pl.ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), poleVec(info.pole));
           pl.ring.frustumCulled = false; pl.ring.visible = false; S.add(pl.ring);
         }
@@ -750,8 +738,20 @@ export class World {
         const dCam = norm(sub(geo, eye)), info = PLANETS[pl.i];
         const appR = info ? info.R / dCam * (this.canvas.clientHeight / 2) / Math.tan(this.camera.fov * Math.PI / 360) : 0;
         pl.appR = appR; pl.m.visible = appR < 5;                       // yakından işaret yerine küre
-        if (pl.mesh) { pl.mesh.position.copy(pl.m.position); pl.mesh.material.uniforms.sunDir.value.copy(unit3(sub(sS[0], p))); }
-        if (pl.ring) pl.ring.position.copy(pl.m.position);
+        if (pl.mesh) {
+          pl.mesh.position.copy(pl.m.position); pl.mesh.material.uniforms.sunDir.value.copy(unit3(sub(sS[0], p)));
+          planetQuaternion(info, pl.vis, et, pl.mesh.quaternion);                    // IAU dönme fazı: dokudaki özellikler gerçek yerinde
+          if (pl.atm) pl.atm.position.copy(pl.m.position);
+          if (!pl.texReq && appR >= 6 && this.base != null) {                        // yaklaşınca dokuyu indir
+            pl.texReq = true;
+            loadPlanetTextures(this.base, pl.vis).then(({ map, ring }) => {
+              const u = pl.mesh.material.uniforms;
+              if (map) { u.map.value = map; u.hasMap.value = 1; }
+              if (ring && pl.ring) { u.ringMap.value = ring; pl.ring.material.uniforms.ringMap.value = ring; }
+            });
+          }
+        }
+        if (pl.ring) { pl.ring.position.copy(pl.m.position); const ru = pl.ring.material.uniforms; ru.pc.value.copy(pl.m.position); ru.sunDir.value.copy(pl.mesh.material.uniforms.sunDir.value); }
         if (!this.plOrb[pl.i] && !obsV) {
           const rh = sub(p, sS[0]), vh = sub(v, sS[1]), mu = BODIES[0].gm + BODIES[pl.i].gm;
           const el = E.elements(rh, vh, mu); this.plOrb[pl.i] = conicPoints(el, rh, mu, 1e11, 361).map((q) => add(q, sub(sS[0], eS[0])));
@@ -760,6 +760,7 @@ export class World {
         const d = pl.d, e = this.eye, vv = new THREE.Vector3(geo[0] - e[0], geo[1] - e[1], geo[2] - e[2]).project(this.camera);
         const below = obsV && this.obsPose && dot(unit(sub(geo, e)), this.obsPose(t).up) < -0.01;      // gözlemcide ufkun altı
         if (below) { pl.m.visible = false; if (pl.mesh) pl.mesh.visible = false; if (pl.ring) pl.ring.visible = false; }
+        if (pl.atm) pl.atm.visible = !!(pl.mesh && pl.mesh.visible) && appR >= 3;
         if (below || vv.z > 1 || Math.abs(vv.x) > 1.1 || Math.abs(vv.y) > 1.1) { d.style.display = 'none'; pl.scr = null; }
         else { const sx = ((vv.x + 1) / 2) * this.canvas.clientWidth, sy = ((1 - vv.y) / 2) * this.canvas.clientHeight;
           pl.scr = [sx, sy]; d.style.display = 'block'; d.style.transform = `translate(${sx}px, ${sy - 10 - Math.min(pl.appR || 0, 400)}px) translate(-50%, -100%)`; }
