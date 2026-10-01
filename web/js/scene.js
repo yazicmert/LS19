@@ -172,7 +172,7 @@ void main() {
 const FS_MOON = /* glsl */`
 #include <common>
 #include <logdepthbuf_pars_fragment>
-uniform sampler2D colorMap, normalMap, tileMap; uniform vec3 sunDir, earthDir; uniform float sunI, holeCos, albScale, useTile, lodDelta; uniform vec3 siteDir;
+uniform sampler2D colorMap, normalMap, tileMap; uniform vec3 sunDir, earthDir; uniform float sunI, holeCos, albScale, useTile, lodDelta, tileAlpha, latCut; uniform vec3 siteDir;
 varying vec2 vUvT;
 varying vec3 vN; varying vec3 vE; varying vec3 vPos; varying vec2 vUv; varying vec3 vLocal;
 ${GLSL_NOISE}
@@ -187,7 +187,10 @@ void main() {
   float I = mix(mu0, 2.0 * mu0 / (mu0 + mu + 1e-4), 0.45);
   vec3 alb = texture2D(colorMap, vUv).rgb * albScale;
   // yüksek çözünürlüklü WAC parçası: taban rengi korunur, parçanın taban çözünürlüğünün altındaki yerel kontrastı (krater, ışın, gölge) eklenir
-  if (useTile > 0.5) { float tl = texture2D(tileMap, vUvT).r, tc = textureLod(tileMap, vUvT, lodDelta).r; alb *= clamp(tl / max(tc, 0.03), 0.3, 3.0); }
+  if (useTile > 0.5) {
+    vec4 tt = texture2D(tileMap, vUvT); if (tileAlpha > 0.5 && (tt.a < 0.5 || abs(vLocal.z) > latCut)) discard;                      // kapsam dışı (saydam) yerde alttaki WAC görünür
+    float tl = tt.r, tc = textureLod(tileMap, vUvT, lodDelta).r; alb *= clamp(tl / max(tc, 0.03), 0.3, 3.0);
+  }
   // renk dokusunun çözünürlüğünü (8192 px ≈ 1,06 km) aşan yakınlıkta: regolit tanesi ve küçük krater kabartması
   float magM = smoothstep(0.9, 0.08, useTile > 0.5 ? length(fwidth(vUvT * 256.0)) : length(fwidth(vUv * vec2(8192.0, 4096.0))));
   if (magM > 0.001) {
@@ -296,7 +299,7 @@ export class World {
       radius: { value: E.R_M }, useHeight: { value: A.mh ? 1 : 0 },
       sunDir: { value: new THREE.Vector3(1, 0, 0) }, earthDir: { value: new THREE.Vector3(1, 0, 0) }, sunI: { value: SUN_I },
       siteDir: { value: new THREE.Vector3(sd[0], sd[1], sd[2]) }, albScale: { value: 0.8 }, holeCos: { value: A.dem ? Math.cos(HOLE_R / E.R_M) : 2.0 },
-      tileMap: { value: flat([128, 128, 128, 255]) }, useTile: { value: 0 }, lodDelta: { value: 0 } };
+      tileMap: { value: flat([128, 128, 128, 255]) }, useTile: { value: 0 }, lodDelta: { value: 0 }, tileAlpha: { value: 0 }, latCut: { value: 2 } };
     if (A.mh) { A.mh.magFilter = THREE.NearestFilter; A.mh.minFilter = THREE.NearestFilter; A.mh.generateMipmaps = false; A.mh.flipY = true; }
     this.moon = new THREE.Mesh(sphereGeometry(E.R_M, 1024, 512), new THREE.ShaderMaterial({ uniforms: mu, vertexShader: VS_BODY, fragmentShader: FS_MOON }));
     this.moon.frustumCulled = false; S.add(this.moon);
@@ -310,6 +313,12 @@ export class World {
       url: (z, x, y) => `https://trek.nasa.gov/tiles/Moon/EQ/LRO_WAC_Mosaic_Global_303ppd_v02/1.0.0/default/default028mm/${z}/${y}/${x}.jpg`,
       material: (tex, n) => new THREE.ShaderMaterial({ uniforms: { ...mu, tileMap: { value: tex }, useTile: { value: 1 }, radius: { value: E.R_M + 0.004 }, lodDelta: { value: Math.min(7, Math.max(0, Math.log2(baseTexel(E.R_M) / n.texelKm))) } },
         vertexShader: VS_BODY, fragmentShader: FS_MOON }) });
+    // WAC'in (≈83 m) üstüne SELENE/Kaguya TC ortho mozaiği (≈21 m, yaklaşık 65°K–65°G): yalnız çok yakında; kapsam dışı saydam, orada WAC kalır
+    this.moonTiles2 = new TileLayer({ parent: this.moon, R: E.R_M, scheme: 'eq', tileSize: 256, rootZ: 4, minZ: 8, maxZ: 10, latLimit: 58, baseTexelKm: 2 * Math.PI * E.R_M / (256 * 2 ** 9), lift: 0, maxTextures: 200, lodBias: 1.15,
+      url: (z, x, y) => `https://trek.nasa.gov/tiles/Moon/EQ/Kaguya_TCortho_Mosaic_Global_4096ppd/1.0.0/default/default028mm/${z}/${y}/${x}.png`,
+      material: (tex, n) => new THREE.ShaderMaterial({ uniforms: { ...mu, tileMap: { value: tex }, useTile: { value: 1 }, tileAlpha: { value: 1 }, latCut: { value: Math.sin(58 * Math.PI / 180) }, radius: { value: E.R_M + 0.009 }, lodDelta: { value: Math.min(7, Math.max(0, Math.log2(baseTexel(E.R_M) / n.texelKm))) } },
+        vertexShader: VS_BODY, fragmentShader: FS_MOON }) });
+    this.moonTiles2.group.renderOrder = 2;
     // iniş arazisi
     if (A.dem) {
       const T = buildTerrain(A.dem, SITE_LAT * 180 / Math.PI, SITE_LON * 180 / Math.PI, E.R_M, R_SITE - E.R_M);
@@ -807,7 +816,7 @@ export class World {
     const cam = this.camera; cam.updateMatrixWorld(true);
     const fov = cam.fov * Math.PI / 180, H = this.canvas.clientHeight || 800, fwdW = cam.getWorldDirection(new THREE.Vector3());
     let pending = 0, failed = 0, loaded = 0, drawn = 0;
-    for (const [layer, body] of [[this.earthTiles, this.earth], [this.moonTiles, this.moon]]) {
+    for (const [layer, body] of [[this.earthTiles, this.earth], [this.moonTiles, this.moon], [this.moonTiles2, this.moon]]) {
       if (!layer || !body.visible) { if (layer) layer.setEnabled(false); continue; }
       layer.setEnabled(true);
       const qi = body.quaternion.clone().invert();

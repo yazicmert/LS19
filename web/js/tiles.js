@@ -40,10 +40,10 @@ let cachePromise = null;
 const openCache = () => (cachePromise = cachePromise || (typeof caches !== 'undefined' ? caches.open(CACHE_NAME).catch(() => null) : Promise.resolve(null)));
 
 export class TileLayer {
-  // cfg: { parent, R (km), scheme: 'gibs'|'eq', tileSize, minZ, maxZ, url(z, x, y), baseTexelKm, lift, material(tex, node) -> THREE.Material, maxTextures, concurrency, lodBias }
+  // cfg: { parent, R (km), latLimit (derece; bu enlemin ötesinde katman yok), scheme: 'gibs'|'eq', tileSize, rootZ (taramanın başladığı seviye, varsayılan minZ), minZ (çizilen en kaba seviye), maxZ, url(z, x, y), baseTexelKm, lift, material(tex, node) -> THREE.Material, maxTextures, concurrency, lodBias }
   constructor(cfg) {
     Object.assign(this, cfg);
-    this.S = SCHEMES[cfg.scheme]; this.nodes = new Map(); this.cache = new Map(); this.meshes = new Map(); this.queue = []; this.loading = new Set(); this.frame = 0;
+    this.rootZ = cfg.rootZ == null ? cfg.minZ : cfg.rootZ; this.S = SCHEMES[cfg.scheme]; this.nodes = new Map(); this.cache = new Map(); this.meshes = new Map(); this.queue = []; this.loading = new Set(); this.frame = 0;
     this.maxTextures = cfg.maxTextures || 150; this.concurrency = cfg.concurrency || 6; this.lodBias = cfg.lodBias || 1.15;
     this.group = new THREE.Group(); this.group.frustumCulled = false; cfg.parent.add(this.group);
     this.enabled = true; this.puts = 0; this.fails = 0; this.okCount = 0; this.stats = { drawn: 0, pending: 0, cached: 0, maxZ: 0, failed: 0, loaded: 0 };
@@ -69,19 +69,20 @@ export class TileLayer {
       // k: piksel boyu çarpanı (1: şimdi, <1: yaklaşırken ihtiyaç duyulacak daha ince seviye) · out: yaprak listesi
       const visit = (n, k, out) => {
         if (Math.acos(Math.min(1, Math.max(-1, n.c.dot(camDir)))) > horizon + n.rad) return;                 // ufkun ardında
+        if (this.latLimit && n.lat0 * n.lat1 > 0 && Math.min(Math.abs(n.lat0), Math.abs(n.lat1)) > this.latLimit) return;   // kapsam dışı enlem (yalnız ilgili katman)
         v.copy(n.c).multiplyScalar(R).sub(cam); const dc = v.length(), dist = Math.max(0.03, dc - n.radKm);
         dirV.copy(v).divideScalar(dc); const ang = Math.acos(Math.min(1, Math.max(-1, dirV.dot(fwd))));
         if (ang > halfDiag + Math.atan(n.radKm / Math.max(dc, 1e-3)) + 0.05) return;                         // görüntü dışı
         const pf = dist * tf * k;                                                                            // piksel başına km (düğümün en yakın noktasında)
         if (this.baseTexelKm <= pf * 0.9) return;                                                            // taban doku yeter
-        if (n.z < this.maxZ && n.texelKm > pf * this.lodBias) {
+        if (n.z < this.maxZ && (n.z < this.minZ || n.texelKm > pf * this.lodBias)) {
           for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) {
             const x = n.x * 2 + dx, y = n.y * 2 + dy; if (x >= this.S.cols(n.z + 1) || y >= this.S.rows(n.z + 1)) continue;
             visit(this.node(n.z + 1, x, y), k, out);
           }
         } else { n.dist = dist; out.push(n); }
       };
-      const zr = this.minZ;
+      const zr = this.rootZ;
       for (let y = 0; y < this.S.rows(zr); y++) for (let x = 0; x < this.S.cols(zr); x++) visit(this.node(zr, x, y), 1, leaves);
       // boşta bant genişliği varken: kamera yaklaşırsa gerekecek bir sonraki seviyeyi önceden iste
       if (this.queue.length + this.loading.size < 4 && leaves.length) {
