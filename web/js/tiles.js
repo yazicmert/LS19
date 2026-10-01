@@ -101,7 +101,7 @@ export class TileLayer {
       }
       if (a) { draw.set(a.key, a); maxZ = Math.max(maxZ, a.z); }
     }
-    for (const n of ahead) if (!this.cache.has(n.key)) this.request(n, n.dist * 4 + 1e4);                      // en düşük öncelik
+    for (const n of ahead) if (!this.cache.has(n.key)) this.request(n, n.dist * 4 + 1e4, true);                      // en düşük öncelik
     const dt = this.lastT ? now - this.lastT : 16; this.lastT = now;
     this.promote(Math.min(24, Math.max(MAX_PROMOTE, Math.round(dt / 6))));                                      // yavaş karede daha çok (kare başına sabit sınır yavaş cihazda beklemeye yol açmasın)
     this.pump(now);
@@ -113,17 +113,22 @@ export class TileLayer {
       m.visible = true;
     }
     this.evict();
-    this.stats = { drawn: draw.size, pending: this.queue.length + this.loading.size, cached: this.cache.size, maxZ, failed: this.fails, loaded: this.okCount };
+    let need = 0; for (const e of this.queue) if (!e.ahead) need++; for (const e of this.loading) if (!e.ahead) need++;
+    this.stats = { drawn: draw.size, pending: need, cached: this.cache.size, maxZ, failed: this.fails, loaded: this.okCount };
   }
-  request(n, prio) {
+  request(n, prio, ahead = false) {
     let e = this.cache.get(n.key); const now = performance.now();
     if (e) {
-      e.last = this.frame; e.t = now;
-      if (e.failed && now - e.failedAt > RETRY_MS) { e.failed = false; e.loading = false; e.prio = prio; this.queue.push(e); }         // geçici hatada yeniden dene
-      else if (prio < e.prio) e.prio = prio;
+      e.last = this.frame; e.t = now; if (!ahead) e.ahead = false;
+      if (e.failed && now - e.failedAt > RETRY_MS) { e.failed = false; e.loading = false; e.prio = prio; e.queued = true; this.queue.push(e); }   // geçici hatada yeniden dene
+      else {
+        if (prio < e.prio) e.prio = prio;
+        // kuyruktan düşmüş (uzun süre istenmemiş) ama şimdi yine gerekli: yeniden kuyruğa al — yoksa parça sonsuza dek eksik kalırdı
+        if (!e.tex && !e.ready && !e.loading && !e.empty && !e.failed && !e.queued) { e.queued = true; e.prio = prio; this.queue.push(e); }
+      }
       return;
     }
-    e = { tex: null, ready: null, loading: false, last: this.frame, t: now, n, prio, ctl: null }; this.cache.set(n.key, e); this.queue.push(e);
+    e = { tex: null, ready: null, loading: false, queued: true, ahead, last: this.frame, t: now, n, prio, ctl: null }; this.cache.set(n.key, e); this.queue.push(e);
   }
   // adresleri sırayla dene; yeterli büyüklükte ilk yanıt kazanır (HLS'te günlük şeritler boş olabilir); hiçbiri yoksa null
   async getBlobs(urls, ctl) {
@@ -157,10 +162,10 @@ export class TileLayer {
   pump(now) {
     // gerekmeyen istekleri at / sürenleri iptal et
     for (const e of [...this.loading]) if (now - e.t > STALE_MS && e.last < this.frame - 30) { if (e.ctl) e.ctl.abort(); this.loading.delete(e); this.cache.delete(e.n.key); }
-    this.queue = this.queue.filter((e) => this.cache.get(e.n.key) === e && !e.loading && now - e.t < 6000);
+    this.queue = this.queue.filter((e) => { const keep = this.cache.get(e.n.key) === e && !e.loading && now - e.t < 6000; if (!keep) e.queued = false; return keep; });
     this.queue.sort((a, b) => a.prio - b.prio);
     while (this.loading.size < this.concurrency && this.queue.length) {
-      const e = this.queue.shift(); e.loading = true; e.ctl = new AbortController(); this.loading.add(e);
+      const e = this.queue.shift(); e.queued = false; e.loading = true; e.ctl = new AbortController(); this.loading.add(e);
       this.getBlobs(this.urls ? this.urls(e.n.z, e.n.x, e.n.y) : [this.url(e.n.z, e.n.x, e.n.y)], e.ctl).then((b) => (b ? this.decode(b) : null)).then((t) => {
         this.loading.delete(e); if (!t) { e.empty = true; e.loading = false; return; }                          // bu parçada veri yok (taban doku kalır)
         if (this.cache.get(e.n.key) !== e) { t.dispose(); return; }
