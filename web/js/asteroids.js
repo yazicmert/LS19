@@ -96,6 +96,9 @@ export class AsteroidLayer {
     // gerçek şekil modeli bilinen asteroitler (NASA PDS, uzay aracı ve radar): models/ast/<anahtar>.glb, birim hacim-eşdeğeri yarıçap
     this.rockDefault = this.rock.geometry; this.rockKey = null; this.shapeGeo = new Map(); this.shapes = null;
     fetch('models/ast/katalog.json').then((r) => (r.ok ? r.json() : null)).then((j) => { this.shapes = j; }).catch(() => {});
+    // DAMIT (ışık eğrisi tersine çevirme, CC BY 4.0): ~4400 asteroit için şekil + dönme ekseni; parçalar gzip'li, seçilince indirilir
+    this.damit = null; this.damitShards = new Map();
+    fetch('models/ast/damit/damit.json').then((r) => (r.ok ? r.json() : null)).then((j) => { this.damit = j; }).catch(() => {});
     this.onChange = null;
   }
   changed() { if (this.onChange) this.onChange(); }
@@ -210,16 +213,41 @@ export class AsteroidLayer {
     const d = await p; this.detail.set(des, d); this.changed(); return d;
   }
   // tıklanan asteroidin kartı
-  // asteroidin gerçek şekil modeli (yoksa null); geometri ilk istekte indirilir
-  shapeOf(i) { return this.shapes && this.C ? this.shapes[this.C.des[i]] || null : null; }
+  // asteroidin gerçek şekil modeli (yoksa null): önce NASA PDS (uzay aracı / radar), sonra DAMIT (ışık eğrisi); geometri ilk istekte indirilir
+  shapeOf(i) {
+    if (!this.C) return null;
+    const des = this.C.des[i];
+    if (this.shapes && this.shapes[des]) return this.shapes[des];
+    const m = this.damit && this.damit.m[des];
+    if (!m) return null;
+    return { key: 'damit:' + des, damit: true, shard: m[0], off: m[1], nv: m[2], nf: m[3], lam: m[4], bet: m[5], P: m[6], jd0: m[7], phi0: m[8], eqd: m[9], cal: m[10], nonconvex: m[11],
+      req_km: m[9] && m[10] ? m[9] / 2 : this.diam(i) / 2, kaynak: 'DAMIT (' + (m[11] ? 'dışbükey olmayan' : 'dışbükey') + ' ışık eğrisi modeli) · CC BY 4.0' };
+  }
   shapeGeometry(sh) {
     let e = this.shapeGeo.get(sh.key);
     if (!e) {
-      e = { geo: null };
-      new GLTFLoader().loadAsync(`models/ast/${sh.key}.glb`).then((g) => { g.scene.traverse((o) => { if (o.isMesh && !e.geo) e.geo = o.geometry; }); }).catch(() => {});
-      this.shapeGeo.set(sh.key, e);
+      e = { geo: null }; this.shapeGeo.set(sh.key, e);
+      if (sh.damit) this.loadShard(sh.shard).then((buf) => {
+        const q = this.damit.q, nv = sh.nv, nf = sh.nf, v16 = new Int16Array(buf.slice(sh.off, sh.off + nv * 6)), f16 = new Uint16Array(buf.slice(sh.off + nv * 6, sh.off + nv * 6 + nf * 6));
+        const pos = new Float32Array(nv * 3); for (let k = 0; k < pos.length; k++) pos[k] = v16[k] / q;
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setIndex(new THREE.BufferAttribute(f16, 1)); g.computeVertexNormals(); e.geo = g;
+      }).catch(() => {});
+      else new GLTFLoader().loadAsync(`models/ast/${sh.key}.glb`).then((g) => { g.scene.traverse((o) => { if (o.isMesh && !e.geo) e.geo = o.geometry; }); }).catch(() => {});
     }
     return e.geo;
+  }
+  loadShard(n) {                                                           // gzip'li parça -> ArrayBuffer (DecompressionStream)
+    let p = this.damitShards.get(n);
+    if (!p) {
+      p = fetch(`models/ast/damit/damit_${String(n).padStart(3, '0')}.bin.gz`).then(async (r) => {
+        if (!r.ok) throw new Error('parça yok');
+        const buf = await r.arrayBuffer(), u = new Uint8Array(buf, 0, 2);
+        if (u[0] !== 0x1f || u[1] !== 0x8b) return buf;                    // sunucu/CDN zaten açmış
+        return new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+      });
+      this.damitShards.set(n, p);
+    }
+    return p;
   }
   details(i, t) {
     const C = this.C; if (!C || i < 0) return null;
@@ -317,17 +345,26 @@ export class AsteroidLayer {
       const sh = this.shapeOf(this.sel), shGeo = sh ? this.shapeGeometry(sh) : null;
       const key = shGeo ? sh.key : null;
       if (key !== this.rockKey) { this.rock.geometry = shGeo || this.rockDefault; this.rockKey = key; }
-      const R = (sh && shGeo ? sh.req_km : this.diam(this.sel) / 2), dCam = Math.hypot(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]);
+      const R = (sh && shGeo ? (sh.damit && this.C.D[this.sel] > 0 ? this.C.D[this.sel] / 2 : sh.req_km) : this.diam(this.sel) / 2), dCam = Math.hypot(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]);
       this.rock.visible = dCam < 600 * R;
       this.selRing.visible = nearOk && !this.rock.visible;
       this.selRing.position.set(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]);
       if (this.rock.visible) {
         this.rock.position.set(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]); this.rock.scale.setScalar(R);
-        this.rock.rotation.set(0.4, (et / 3600 / ((this.C.rot[this.sel] || 6))) * 2 * Math.PI % (2 * Math.PI), 0.2);
+        if (sh && shGeo && sh.damit) this.rock.quaternion.setFromRotationMatrix(damitMatrix(sh, 2451545 + et / 86400));   // gerçek kutup ve faz (DAMIT: λ, β, P, φ0)
+        else this.rock.rotation.set(0.4, (et / 3600 / ((this.C.rot[this.sel] || 6))) * 2 * Math.PI % (2 * Math.PI), 0.2);
         const sd = [-r[0], -r[1], -r[2]], n = Math.hypot(...sd); this.rock.material.uniforms.sunDir.value.set(sd[0] / n, sd[1] / n, sd[2] / n);
       }
     } else { this.selLine.visible = false; this.selLabel.style.display = 'none'; this.selRing.visible = false; this.rock.visible = false; }
   }
+}
+// DAMIT dönüşümü: gövde -> ekliptik = Rz(λ) Ry(90°−β) Rz(φ), φ = φ0 + 360°·(JD−JD0)/P; sonra ekliptik -> ICRF (J2000 eğikliği)
+const EPS_J2000 = (84381.448 / 3600) * Math.PI / 180;
+function damitMatrix(sh, jd) {
+  const ph = (sh.phi0 * Math.PI / 180) + 2 * Math.PI * (((jd - sh.jd0) / (sh.P / 24)) % 1);
+  const m = new THREE.Matrix4().makeRotationX(EPS_J2000);
+  m.multiply(new THREE.Matrix4().makeRotationZ(sh.lam * Math.PI / 180)).multiply(new THREE.Matrix4().makeRotationY(Math.PI / 2 - sh.bet * Math.PI / 180)).multiply(new THREE.Matrix4().makeRotationZ(ph));
+  return m;
 }
 // CAD kaydının JD'si (sbdb.api ca_data'da "jd" alanı yok: "cd" tarih metninden)
 function cadJd(c) {

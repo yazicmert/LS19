@@ -112,7 +112,7 @@ export class AstUI {
     if (d.discovery) rows.push(['Keşif', d.discovery]);
     rows.push(['Yörünge belirsizliği (U)', `${d.cc || '—'} (0 en iyi, 9 en kötü)`], ['Gözlem yayı', d.arc ? `${fmt(d.arc, 0)} gün` : '—'],
       ['Öğelerin yaşı', `${fmt(d.epochAgeDays, 0)} gün (JPL SBDB)`]);
-    if (d.shape) rows.push(['3B şekil modeli', `gerçek şekil (${d.shape.kaynak}) · NASA PDS Küçük Cisimler Düğümü · hacim eşdeğeri yarıçap ${fmt(d.shape.req_km, d.shape.req_km < 1 ? 3 : 1)} km`]);
+    if (d.shape) rows.push(['3B şekil modeli', `gerçek şekil (${d.shape.kaynak})${d.shape.damit ? ' · dönme ekseni ve fazı modelden' : ' · NASA PDS Küçük Cisimler Düğümü'} · hacim eşdeğeri yarıçap ${fmt(d.shape.req_km, d.shape.req_km < 1 ? 3 : 1)} km`]);
     if (d.detailLoading) rows.push(['Ayrıntılar', 'JPL SBDB’den alınıyor…']);
     if (d.detailErr) rows.push(['Ayrıntılar', 'alınamadı (' + String(d.detailErr).replace(/<[^>]*>/g, '').slice(0, 60) + ')']);
     const fn = (d.fullname || '').trim();
