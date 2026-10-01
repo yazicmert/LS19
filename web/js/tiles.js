@@ -40,7 +40,7 @@ let cachePromise = null;
 const openCache = () => (cachePromise = cachePromise || (typeof caches !== 'undefined' ? caches.open(CACHE_NAME).catch(() => null) : Promise.resolve(null)));
 
 export class TileLayer {
-  // cfg: { parent, R (km), latLimit (derece; bu enlemin ötesinde katman yok), scheme: 'gibs'|'eq', tileSize, rootZ (taramanın başladığı seviye, varsayılan minZ), minZ (çizilen en kaba seviye), maxZ, url(z, x, y), baseTexelKm, lift, material(tex, node) -> THREE.Material, maxTextures, concurrency, lodBias }
+  // cfg: { parent, R (km), urls(z, x, y) -> [adres…] (sırayla denenir; isteğe bağlı, ör. HLS için son günler), minBytes (bundan küçük yanıt = veri yok), noBoost, latLimit (derece; bu enlemin ötesinde katman yok), scheme: 'gibs'|'eq', tileSize, rootZ (taramanın başladığı seviye, varsayılan minZ), minZ (çizilen en kaba seviye), maxZ, url(z, x, y), baseTexelKm, lift, material(tex, node) -> THREE.Material, maxTextures, concurrency, lodBias }
   constructor(cfg) {
     Object.assign(this, cfg);
     this.rootZ = cfg.rootZ == null ? cfg.minZ : cfg.rootZ; this.S = SCHEMES[cfg.scheme]; this.nodes = new Map(); this.cache = new Map(); this.meshes = new Map(); this.queue = []; this.loading = new Set(); this.frame = 0;
@@ -96,8 +96,8 @@ export class TileLayer {
       let a = n; while (a && !(this.cache.get(a.key) && this.cache.get(a.key).tex)) a = this.up(a);
       if (a !== n) {
         this.request(n, n.dist);
-        let g = n; for (let i = 0; i < 2 && g; i++) g = this.up(g);
-        if (g && !(this.cache.get(g.key) && this.cache.get(g.key).tex)) this.request(g, n.dist * 0.15);       // kaba ata önce gelir
+        let g = n; for (let i = 0; i < 2 && g && !this.noBoost; i++) g = this.up(g);
+        if (g && !this.noBoost && !(this.cache.get(g.key) && this.cache.get(g.key).tex)) this.request(g, n.dist * 0.15);       // kaba ata önce gelir
       }
       if (a) { draw.set(a.key, a); maxZ = Math.max(maxZ, a.z); }
     }
@@ -125,6 +125,16 @@ export class TileLayer {
     }
     e = { tex: null, ready: null, loading: false, last: this.frame, t: now, n, prio, ctl: null }; this.cache.set(n.key, e); this.queue.push(e);
   }
+  // adresleri sırayla dene; yeterli büyüklükte ilk yanıt kazanır (HLS'te günlük şeritler boş olabilir); hiçbiri yoksa null
+  async getBlobs(urls, ctl) {
+    let last = null, err = null;
+    for (const u of urls) {
+      try { last = await this.getBlob(u, ctl); } catch (e) { if (e && e.name === 'AbortError') throw e; err = e; continue; }   // henüz yayımlanmamış tarih vb.: sonrakini dene
+      if (!this.minBytes || last.size >= this.minBytes) return last;
+    }
+    if (this.minBytes && last) return null;                                                                  // yanıt geldi ama hepsi boş: veri yok
+    throw err || new Error('veri yok');
+  }
   async getBlob(url, ctl) {
     const c = await openCache(); let blob = null;
     if (c) try { const hit = await c.match(url); if (hit) blob = await hit.blob(); } catch (err) { /* önbellek isteğe bağlı */ }
@@ -151,8 +161,9 @@ export class TileLayer {
     this.queue.sort((a, b) => a.prio - b.prio);
     while (this.loading.size < this.concurrency && this.queue.length) {
       const e = this.queue.shift(); e.loading = true; e.ctl = new AbortController(); this.loading.add(e);
-      this.getBlob(this.url(e.n.z, e.n.x, e.n.y), e.ctl).then((b) => this.decode(b)).then((t) => {
-        this.loading.delete(e); if (this.cache.get(e.n.key) !== e) { t.dispose(); return; }
+      this.getBlobs(this.urls ? this.urls(e.n.z, e.n.x, e.n.y) : [this.url(e.n.z, e.n.x, e.n.y)], e.ctl).then((b) => (b ? this.decode(b) : null)).then((t) => {
+        this.loading.delete(e); if (!t) { e.empty = true; e.loading = false; return; }                          // bu parçada veri yok (taban doku kalır)
+        if (this.cache.get(e.n.key) !== e) { t.dispose(); return; }
         t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; t.needsUpdate = true; e.ready = t; this.okCount++;
       }).catch((err) => { this.loading.delete(e); if (this.cache.get(e.n.key) !== e) return; e.failed = true; e.failedAt = performance.now(); e.loading = false; if (!(err && err.name === 'AbortError')) this.fails++; });
     }

@@ -299,3 +299,6 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
 .tilestatus { position: fixed; left: 16px; bottom: 16px; z-index: 5; padding: 6px 12px; border-radius: 999px; font-size: 12px; color: var(--text-secondary); background: rgba(12, 15, 21, .85); border: 1px solid var(--line-2); backdrop-filter: blur(6px); pointer-events: none; }
 .tilestatus[hidden] { display: none; }
 .tilestatus.warn { color: var(--warn); border-color: var(--warn); max-width: 360px; border-radius: 12px; }
+.tilemode { position: fixed; left: 16px; bottom: 54px; z-index: 5; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-family: var(--font); color: var(--text-secondary); background: rgba(12, 15, 21, .85); border: 1px solid var(--line-2); backdrop-filter: blur(6px); cursor: pointer; }
+.tilemode:hover { color: var(--text-primary); border-color: var(--accent); }
+.tilemode[hidden] { display: none; }

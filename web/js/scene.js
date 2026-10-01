@@ -106,11 +106,13 @@ void main() {
 const FS_EARTH = /* glsl */`
 #include <common>
 #include <logdepthbuf_pars_fragment>
-uniform sampler2D dayMap, nightMap, cloudMap, specMap, normalMap, tileMap; uniform vec3 sunDir; uniform float sunI; uniform float obsMode; uniform float useTile;
+uniform sampler2D dayMap, nightMap, cloudMap, specMap, normalMap, tileMap; uniform vec3 sunDir; uniform float sunI; uniform float obsMode; uniform float useTile, tileKind;
 varying vec2 vUvT;
 varying vec3 vN; varying vec3 vE; varying vec3 vPos; varying vec2 vUv; varying vec3 vLocal;
 ${GLSL_NOISE}
 void main() {
+  // kaplama parçaları: 1 = JPEG (saf siyah = kapsam yok, ör. okyanus), 2 = PNG (saydam = veri yok): alttaki Blue Marble görünür
+  if (useTile > 0.5 && tileKind > 0.5) { vec4 tq = texture2D(tileMap, vUvT); if ((tileKind < 1.5 && tq.r + tq.g + tq.b < 0.012) || (tileKind > 1.5 && tq.a < 0.5)) discard; }
   #include <logdepthbuf_fragment>
   vec3 N = normalize(vN), T = normalize(vE), B = cross(N, T);
   vec3 nm = texture2D(normalMap, vUv).xyz * 2.0 - 1.0;
@@ -286,7 +288,7 @@ export class World {
       cloudMap: { value: A.clouds || flat([0, 0, 0, 255]) }, specMap: { value: A.spec || flat([0, 0, 0, 255]) },
       normalMap: { value: A.enorm || flat([128, 128, 255, 255]) }, sunDir: { value: new THREE.Vector3(1, 0, 0) }, sunI: { value: EARTH_I },
       heightMap: { value: flat([0, 0, 0, 255]) }, hSize: { value: new THREE.Vector2(1, 1) }, radius: { value: E.R_E }, useHeight: { value: 0 }, obsMode: { value: 0 },
-      tileMap: { value: flat([0, 0, 0, 255]) }, useTile: { value: 0 } };
+      tileMap: { value: flat([0, 0, 0, 255]) }, useTile: { value: 0 }, tileKind: { value: 0 } };
     this.earth = new THREE.Mesh(sphereGeometry(E.R_E, 1024, 512), new THREE.ShaderMaterial({ uniforms: eu, vertexShader: VS_BODY, fragmentShader: FS_EARTH }));
     this.earth.frustumCulled = false; S.add(this.earth);
     this.atm = new THREE.Mesh(sphereGeometry(E.R_E * 1.0125, 256, 128), new THREE.ShaderMaterial({
@@ -309,6 +311,15 @@ export class World {
     this.earthTiles = new TileLayer({ parent: this.earth, R: E.R_E, scheme: 'gibs', tileSize: 512, minZ: 3, maxZ: 7, baseTexelKm: baseTexel(E.R_E), lift: 2e-6, maxTextures: 130, concurrency: 16,
       url: (z, x, y) => `https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/BlueMarble_ShadedRelief_Bathymetry/default/500m/${z}/${y}/${x}.jpeg`,
       material: (tex) => new THREE.ShaderMaterial({ uniforms: { ...eu, tileMap: { value: tex }, useTile: { value: 1 } }, vertexShader: VS_BODY, fragmentShader: FS_EARTH }) });
+    // Dünya kaplamaları (Blue Marble'ın ≈490 m'sinden daha ince): Landsat WELD (30 m, bulutsuz, ~2000) ya da HLS (30 m, güncel, bulutlu); düğmeyle seçilir
+    const gibs = 'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/';
+    this.earthWeld = new TileLayer({ parent: this.earth, R: E.R_E, scheme: 'gibs', tileSize: 512, rootZ: 4, minZ: 8, maxZ: 11, baseTexelKm: 2.25 * Math.PI / 180 * E.R_E / 512, lift: 4e-6, maxTextures: 110, concurrency: 16, minBytes: 8000,
+      url: (z, x, y) => `${gibs}Landsat_WELD_CorrectedReflectance_TrueColor_Global_Annual/default/2000-12-01/31.25m/${z}/${y}/${x}.jpeg`,
+      material: (tex) => new THREE.ShaderMaterial({ uniforms: { ...eu, tileMap: { value: tex }, useTile: { value: 1 }, tileKind: { value: 1 } }, vertexShader: VS_BODY, fragmentShader: FS_EARTH }) });
+    const hlsDates = () => Array.from({ length: 9 }, (_, k) => new Date(Date.now() - (k + 1) * 864e5).toISOString().slice(0, 10));
+    this.earthHls = new TileLayer({ parent: this.earth, R: E.R_E, scheme: 'gibs', tileSize: 512, rootZ: 4, minZ: 8, maxZ: 11, baseTexelKm: 2.25 * Math.PI / 180 * E.R_E / 512, lift: 6e-6, maxTextures: 70, concurrency: 12, minBytes: 3000, noBoost: true,
+      urls: (z, x, y) => hlsDates().map((d) => `${gibs}HLS_S30_Nadir_BRDF_Adjusted_Reflectance/default/${d}/31.25m/${z}/${y}/${x}.png`),
+      material: (tex) => new THREE.ShaderMaterial({ uniforms: { ...eu, tileMap: { value: tex }, useTile: { value: 1 }, tileKind: { value: 2 } }, vertexShader: VS_BODY, fragmentShader: FS_EARTH }) });
     this.moonTiles = new TileLayer({ parent: this.moon, R: E.R_M, scheme: 'eq', tileSize: 256, minZ: 4, maxZ: 8, baseTexelKm: baseTexel(E.R_M), lift: 0, maxTextures: 260,
       url: (z, x, y) => `https://trek.nasa.gov/tiles/Moon/EQ/LRO_WAC_Mosaic_Global_303ppd_v02/1.0.0/default/default028mm/${z}/${y}/${x}.jpg`,
       material: (tex, n) => new THREE.ShaderMaterial({ uniforms: { ...mu, tileMap: { value: tex }, useTile: { value: 1 }, radius: { value: E.R_M + 0.004 }, lodDelta: { value: Math.min(7, Math.max(0, Math.log2(baseTexel(E.R_M) / n.texelKm))) } },
@@ -816,13 +827,23 @@ export class World {
     const cam = this.camera; cam.updateMatrixWorld(true);
     const fov = cam.fov * Math.PI / 180, H = this.canvas.clientHeight || 800, fwdW = cam.getWorldDirection(new THREE.Vector3());
     let pending = 0, failed = 0, loaded = 0, drawn = 0;
-    for (const [layer, body] of [[this.earthTiles, this.earth], [this.moonTiles, this.moon], [this.moonTiles2, this.moon]]) {
-      if (!layer || !body.visible) { if (layer) layer.setEnabled(false); continue; }
+    let mode = this.earthDetail; if (!mode) { try { mode = localStorage.getItem('ls19.earthdetail'); } catch (e) { mode = null; } this.earthDetail = mode = ['weld', 'hls', 'bm'].includes(mode) ? mode : 'weld'; }
+    if (this.earthWeld) { this.earthWeld.userOn = mode === 'weld'; this.earthHls.userOn = mode === 'hls'; }
+    for (const [layer, body] of [[this.earthTiles, this.earth], [this.earthWeld, this.earth], [this.earthHls, this.earth], [this.moonTiles, this.moon], [this.moonTiles2, this.moon]]) {
+      if (!layer || !body.visible || layer.userOn === false) { if (layer) layer.setEnabled(false); continue; }
       layer.setEnabled(true);
       const qi = body.quaternion.clone().invert();
       layer.update(body.position.clone().negate().applyQuaternion(qi), fwdW.clone().applyQuaternion(qi), fov, cam.aspect, H);
       pending += layer.stats.pending; failed += layer.stats.failed; loaded += layer.stats.loaded; drawn += layer.stats.drawn;
     }
+    // Dünya kaplama kaynağı düğmesi: yalnız Dünya'da ince parçalar devredeyken görünür
+    let mb = this.tileModeEl; if (!mb) {
+      mb = this.tileModeEl = document.createElement('button'); mb.className = 'tilemode'; mb.hidden = true; document.body.appendChild(mb);
+      mb.addEventListener('click', () => { const o = ['weld', 'hls', 'bm']; this.earthDetail = o[(o.indexOf(this.earthDetail) + 1) % 3]; try { localStorage.setItem('ls19.earthdetail', this.earthDetail); } catch (e) { /* */ } this.tileModeTxt = null; });
+    }
+    const showMode = this.earthTiles && this.earthTiles.stats.drawn > 0 && this.earth.visible, label = { weld: 'Dünya yüzeyi: Landsat 30 m (bulutsuz, ~2000 görüntüleri)', hls: 'Dünya yüzeyi: güncel HLS 30 m (Sentinel-2/Landsat; bulutlu, yamalı)', bm: 'Dünya yüzeyi: Blue Marble ≈490 m' }[this.earthDetail] + '  ⟳';
+    if (mb.hidden === showMode) mb.hidden = !showMode;
+    if (showMode && this.tileModeTxt !== label) { this.tileModeTxt = label; mb.textContent = label; mb.title = 'Tıklayın: Landsat (temiz) → güncel HLS → yalnız Blue Marble'; }
     // kullanıcıya geri bildirim: yüzey ayrıntısı iniyor mu, alınamıyor mu
     let el = this.tileStatusEl; if (!el) { el = this.tileStatusEl = document.createElement('div'); el.className = 'tilestatus'; el.hidden = true; document.body.appendChild(el); }
     const msg = pending > 0 ? `Yüzey ayrıntısı yükleniyor… (${pending})` : (failed > 0 && loaded === 0 && drawn === 0 ? 'Yüzey ayrıntısı alınamadı: NASA parça sunucusuna erişilemiyor (ağ/reklam engelleyici?)' : '');
