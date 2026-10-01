@@ -294,31 +294,3 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
   #panel.open, #skyPanel.open { top: 60px; bottom: 64px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
-
-/* 2B yükselti haritası */
-#modebar .seg-extra { font-family: var(--font); font-size: 13px; border-radius: 999px; padding: 6px 12px; font-weight: 600; background: transparent; border: 1px solid var(--line-2); color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px; }
-#modebar .seg-extra:hover { color: var(--text-primary); background: var(--surface-2); }
-#elevmap { position: fixed; inset: 64px 4vw 16px 4vw; z-index: 20; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; max-width: 1500px; margin: 0 auto; background: var(--card); backdrop-filter: blur(10px); border: 1px solid var(--line-2); border-radius: var(--radius); }
-#elevmap[hidden] { display: none; }
-#elevmap header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-#elevmap header b { font-size: 14px; letter-spacing: .04em; }
-#elevmap .seg { display: flex; gap: 4px; }
-#elevmap .seg button { font-family: var(--font); font-size: 13px; border-radius: 999px; padding: 4px 14px; font-weight: 600; background: transparent; border: 1px solid transparent; color: var(--text-secondary); cursor: pointer; }
-#elevmap .seg button.on { background: var(--accent); color: #fff; }
-#elevmap .chk { font-size: 12px; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
-#elevmap #emClose { background: transparent; border: 1px solid var(--line-2); color: var(--text-secondary); border-radius: 8px; width: 30px; height: 30px; cursor: pointer; }
-#elevmap .em-stage { position: relative; flex: 1; min-height: 160px; border-radius: 8px; overflow: hidden; background: #05070b; }
-#elevmap canvas { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
-#elevmap canvas:active { cursor: grabbing; }
-#elevmap .em-tip { position: absolute; pointer-events: none; background: rgba(8,10,16,.92); border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 9px; font-size: 12px; display: flex; flex-direction: column; gap: 2px; font-family: var(--mono); }
-#elevmap .em-tip b { font-size: 15px; color: var(--accent-2); }
-#elevmap .em-tip span { color: var(--text-secondary); }
-#elevmap .em-msg { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-secondary); font-size: 13px; }
-#elevmap .em-msg[hidden] { display: none; }
-#elevmap footer { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-#elevmap .em-legend { width: min(420px, 100%); }
-#elevmap .em-bar { height: 10px; border-radius: 5px; border: 1px solid var(--line-2); }
-#elevmap .em-ticks { position: relative; display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); font-family: var(--mono); margin-top: 2px; height: 14px; }
-#elevmap .em-ticks span:nth-child(2) { position: absolute; transform: translateX(-50%); }
-#elevmap .em-info { font-size: 11px; color: var(--text-muted); flex: 1; min-width: 240px; }
-@media (max-width: 700px) { #elevmap { inset: 56px 8px 8px 8px; } }

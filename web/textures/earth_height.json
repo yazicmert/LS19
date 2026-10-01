@@ -1,1 +1,0 @@
-{"w": 2880, "h": 1440, "unit": "m", "kodlama": "int16 metre; satırda yatay fark; yüksek/alçak bayt düzlemleri; gzip", "lat0": 90, "lon0": -180, "min": -10327, "max": 6507, "kaynak": "NOAA NCEI ETOPO 2022 (60 arc-saniye, 5 örnekte bir, 0,125° alan ortalaması; kara yüzeyi ve deniz tabanı)"}
