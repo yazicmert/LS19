@@ -214,6 +214,10 @@
           <label class="tm-toggle"><input id="chkAutoWarp" type="checkbox" role="menuitemcheckbox" checked><span>Otomatik zaman hızı</span></label>
           <label class="tm-toggle" title="Açık: N-cisim çözücü — tek eylemsiz çerçevede Dünya, Ay ve Güneş aracı aynı anda çeker, etki küresi geçişi yok. Kapalı: iki merkez cisimli (etki küresi) çözücü. Fizik aynıdır; sonuçlar ≤ 1 m uyuşur."><input id="chkNbody" type="checkbox" role="menuitemcheckbox" checked><span>N-cisim çözücü</span></label>
         </div></details>
+        <details open><summary>Araç (görev yeniden kurulur)</summary><div class="tm-sub">
+          <button role="menuitemradio" data-vehicle="two" title="İki kademeli iniş: iniş aracı, Ay yörünge kademesi (MCC, LOI, DOI) ve iniş kademesi olarak bölünür; yörünge kademesi 15 km irtifada, motorlu inişten önce atılır. Toplam kütle, itki ve yörünge tasarımı aynıdır; ölü kütle motorlu inişe taşınmaz, kalan yakıt artar.">İki kademe (yörünge + iniş)</button>
+          <button role="menuitemradio" data-vehicle="one" title="Tek kademe iniş aracı: MCC, LOI, DOI ve motorlu iniş aynı kademeyle yapılır.">Tek kademe iniş aracı</button>
+        </div></details>
         <details open><summary>İniş güdümü</summary><div class="tm-sub">
           <button role="menuitemradio" data-landing="opt" title="Yakıt-optimal güdüm (Açıkmeşe: kayıpsız dışbükeyleştirme + ikinci derece koni programı), dengeli güvenlik koridoru: son 100 s'de itki yönü dikeyden ≤ 45°, iniş ve yatay hız yükseklikle sınırlı. Her 10 s'de yeniden çözülür.">Optimal (dengeli)</button>
           <button role="menuitemradio" data-landing="free" title="Yakıt-optimal güdüm, serbest: işaretleme sınırı yok, hız hunisi gevşek. ZEM/ZEV'e göre en az yakıt (daha agresif iniş profili).">Optimal (serbest)</button>

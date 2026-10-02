@@ -13,6 +13,22 @@ export const R_SITE = 1735.47, H_PARK = 185.0, H_LLO = 110.0;
 export const STAGES = [
   { name: 'TLI kademesi', dry: 2300.0, prop: 6200.0, T: 100.0, isp: 450.0, thr_min: 1.0 },
   { name: 'İniş aracı', dry: 1300.0, prop: 2300.0, T: 16.0, isp: 320.0, thr_min: 0.10 }];
+// İki kademeli iniş (gerçek ikinci itki sistemi): iniş aracı, Ay yörünge kademesi (MCC, LOI/NRI…, LLO işleri, DOI) ve iniş kademesi (motorlu iniş) olarak bölünür;
+// yörünge kademesi iniş öncesi (H_SEP irtifasında) atılır, böylece ölü kütle (kuru kütle ve artan yakıt) motorlu inişe taşınmaz. Toplam kütle, itki ve Isp (yörünge kademesi)
+// aynı kaldığından yörünge tasarımı (TLI, MCC, LOI…) değişmez; hazır tasarımlar olduğu gibi kullanılır. Yörünge kademesinin yakıtı tasarımın Δv'sinden (+%MARGIN +DVRES m/s) roket
+// denklemiyle, iniş kademesininki kalandır (kuru kütleye DPEN kg ayırma cezası eklenir, toplam aynı kalsın diye yakıttan düşer).
+export const TWO_STAGE = { D1: 380, DPEN: 60, MARGIN: 0.03, DVRES: 15, H_SEP: 15, T2: 12.0, ISP2: 325.0, THR_MIN2: 0.10 };
+export function twoStageDesign(D, o = {}) {
+  const c = { ...TWO_STAGE, ...o }, S = D.STAGES || STAGES;
+  if (S.length > 2) return D;
+  const L = S[1], dv = D.DV || {}, cEx = L.isp * E.G0 * 1000, mL = L.dry + L.prop;
+  let dv1 = c.DVRES; for (const k of ['LOI', 'NRI', 'SK', 'DEP', 'LLOI', 'DOI']) dv1 += dv[k] || 0;
+  dv1 *= 1 + c.MARGIN;
+  const p1 = Math.ceil((mL * (1 - Math.exp(-dv1 / cEx))) / 10) * 10, d2 = L.dry + c.DPEN - c.D1, p2 = L.prop - p1 - c.DPEN;
+  if (!(p2 > 0.2 * L.prop)) return D;
+  return { ...D, STAGES: [S[0], { name: 'Ay yörünge kademesi', dry: c.D1, prop: p1, T: L.T, isp: L.isp, thr_min: L.thr_min }, { name: 'İniş kademesi', dry: d2, prop: p2, T: c.T2, isp: c.ISP2, thr_min: c.THR_MIN2 }],
+    SEP2: { hSep: c.H_SEP }, TWO: { dv1, p1, p2, d1: c.D1, d2 } };
+}
 export const TLI = {
   x: [-0.15439776245200978, 272.83091805196824, -0.022276991913496073, 6.759823058395664e-05],
   t_ign: 1093113.5426107736,
@@ -96,7 +112,8 @@ export class Mission {
       this.skTimes().forEach((sk, i) => this.plan.push({ key: 'SK-' + (i + 1), name: `İstasyon tutma ${i + 1}`, t: sk.t }));
       this.plan.push({ key: 'DEP', name: "Halo'dan ayrılış", t: design.DEP.t - 90 }, { key: 'LOI', name: 'LLO girişi', t: design.LLO.tP - 84 });
     } else this.plan.push({ key: 'LOI', name: 'LOI', t: ARRIVAL.t_P - 84 });
-    this.plan.push({ key: 'DOI', name: 'DOI', t: design.t_L - 1620 - 395 - 0.5 * Pl + 60 }, { key: 'PDI', name: 'PDI', t: design.t_L - 2015 },
+    // SEP2 zamanı yaklaşıktır: alçalış yayında hSep irtifasına ulaşma, profile göre PDI'dan ~140–240 s önce
+    this.plan.push({ key: 'DOI', name: 'DOI', t: design.t_L - 1620 - 395 - 0.5 * Pl + 60 }, ...(design.SEP2 ? [{ key: 'SEP2', name: 'Ay yörünge kademesi ayrılır', t: design.t_L - 2015 - 200 }] : []), { key: 'PDI', name: 'PDI', t: design.t_L - 2015 },
       { key: 'INDI', name: 'Temas', t: design.t_L - 1620 });
     this.gen = this.run();
   }
@@ -279,13 +296,15 @@ export class Mission {
     yield* this.mcc(D.DEP.t - tb / 2, D.LLO.tP, rP2geo, 'DEP', 'pos', 0, 'TRANSFER', 'DEP', dv0);
   }
 
+  // etkin kademeyi ayır (sonraki kademe varsa): TLI kademesi TLI'dan 30 dk sonra; iki kademeli inişte Ay yörünge kademesi PDI'dan önce
   separateStage() {
-    const P = this.P;
-    if (this.veh.k > 0) return;
+    const P = this.P, k = this.veh.k, st = this.veh.stages[k];
+    if (k >= this.veh.stages.length - 1) return;
     const sst = P.s.copy(); sst.v = sub(sst.v, scale(unit(sst.v), 0.0005));
-    this.stageP = this.prop(sst, new E.Vehicle([{ name: 'kademe', dry: 2300.0, prop: this.veh.stages[0].prop, T: 0, isp: 1 }]), 1800.0);
-    this.t_sep = P.s.t;
-    this.veh.separate(); this.log('TLI kademesi ayrıldı', 'SEP');
+    this.stageP = this.prop(sst, new E.Vehicle([{ name: 'kademe', dry: st.dry, prop: st.prop, T: 0, isp: 1 }]), k === 0 ? 1800.0 : 60.0);
+    if (k === 0) this.t_sep = P.s.t; else this.t_sep2 = P.s.t;
+    this.veh.separate();
+    this.log(k === 0 ? `${st.name} ayrıldı` : `${st.name} ayrıldı (irtifa ${(norm(P.s.seleno()[0]) - R_SITE).toFixed(1)} km, ${st.prop.toFixed(0)} kg yakıt atıldı); iniş kademesi ${this.veh.mass().toFixed(0)} kg`, k === 0 ? 'SEP' : 'SEP2');
   }
 
   referenceTrajectory() {
@@ -445,13 +464,16 @@ export class Mission {
     { const [rs, vs] = P.s.seleno(), el = E.elements(rs, vs, E.MU_M);
       this.log(`DOI tamam: periselen ${(el.rp - R_SITE).toFixed(2)} km (iniş yerine göre)`, 'DOI_END'); }
     P.phase = 'INIS_SUZULME';
+    const sep2 = this.D.SEP2 && this.veh.k === 1 && this.veh.stages.length > 2;
     for (;;) {
       const rem = mod2pi(this.angleToSite(P.s.t + 650.0) - PDI_ANGLE);
       if (rem < 2e-5 || rem > TWO_PI - 0.02) break;
+      if (sep2 && this.veh.k === 1 && norm(P.s.seleno()[0]) - R_SITE <= this.D.SEP2.hSep) this.separateStage();       // iniş kademesinin son H_SEP km'si
       this.tNext = P.s.t + rem / n;
       P.hMaxCoast = Math.max(0.1, Math.min(60.0, (rem / n) * 0.5));
       yield* this.stepOnce();
     }
+    if (sep2 && this.veh.k === 1) this.separateStage();                       // irtifa ölçütü sağlanmadan PDI geldiyse ateşlemeden hemen önce ayır
     yield* ((this.landing === 'opt' || this.landing === 'free') && conicReady() ? this.descentOptimal() : this.descent());
   }
 
@@ -669,7 +691,7 @@ export class Mission {
     this.log(`Bozulma uygulandı: ${dvMps.toFixed(1)} m/s`, 'PERTURB', { dvm: dvMps });
     this.hist = this.hist.filter((e) => e.t < this.P.s.t); this.pushHist();
   }
-  manualSeparate(td) { if (this.veh.k === 0 && !this.done) { this.rewindTo(td); this.separateStage(); this.pushHist(); } }
+  manualSeparate(td) { if (this.veh.k < this.veh.stages.length - 1 && !this.done) { this.rewindTo(td); this.separateStage(); this.pushHist(); } }
 
   // elle yönelim modları (merkez cisme göre)
   manualDir(mode, hold) {

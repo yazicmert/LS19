@@ -147,7 +147,7 @@ export function stageDvs(stages, k, mNow, propNow) {
   });
 }
 
-// Planlı manevraların durumu: her kalem için nominal Δv, şimdiye kadar yapılan, bitti mi, kalan (m/s) ve kademe (0: TLI kademesi, 1: iniş aracı).
+// Planlı manevraların durumu: her kalem için nominal Δv, şimdiye kadar yapılan, bitti mi, kalan (m/s) ve kademe (0: TLI kademesi, 1: iniş aracı ya da Ay yörünge kademesi, 2: iniş kademesi).
 // nominal: bozulmasız uçuşun manevra Δv'leri (dvFromEvents biçimi); yoksa tasarımın tahmini. events: görev olayları (key, dv km/s, dvm m/s).
 const BURN_PAIRS = { TLI: ['TLI', 'TLI_CUT'], LOI: ['LOI', 'LOI_END'], LLOI: ['LOI', 'LOI_END'], NRI: ['NRI', 'NRI_END'], DOI: ['DOI', 'DOI_END'], PDI: ['PDI', 'INDI'] };
 export function dvProgress(design, nominal, events, dvNow) {
@@ -155,6 +155,7 @@ export function dvProgress(design, nominal, events, dvNow) {
   // başlangıç olayı planlı Δv'yi (dvm) taşıyan kısa yakışlar (MCC, SK, DEP): olaydan beri uygulanan Δv, planlıyı geçmez
   const burned = (e) => Math.min(e.dvm || 0, Math.max(0, (dvNow - e.dv) * 1000));
   const nomOf = (k) => (nominal && nominal[k] != null ? nominal[k] : design && design.DV && design.DV[k] != null ? design.DV[k] : 0);
+  const nSt = design && design.STAGES ? design.STAGES.length : 2;                // 3 kademeli araçta (iki kademeli iniş) PDI son kademededir
   return dvKeys(design).map((key) => {
     let done = false, used = 0;
     if (BURN_PAIRS[key]) {
@@ -170,7 +171,7 @@ export function dvProgress(design, nominal, events, dvNow) {
       used = events.filter((e) => /^SK-\d+$/.test(e.key)).reduce((a, e) => a + burned(e), 0); done = !!(ev('DEP') || ev('DEP_SKIP'));
     } else if (key === 'DEP') { const e = ev('DEP'); if (e) { used = burned(e); done = used >= (e.dvm || 0) - 1e-6; } }
     const nom = nomOf(key);
-    return { key, stage: key === 'RAISE' || key === 'TLI' ? 0 : 1, nom, used, done, rem: done ? 0 : Math.max(0, nom - used) };
+    return { key, stage: key === 'RAISE' || key === 'TLI' ? 0 : key === 'PDI' && nSt > 2 ? 2 : 1, nom, used, done, rem: done ? 0 : Math.max(0, nom - used) };
   });
 }
 // Tasarım payı (m/s), kademe başına: dolu kademenin roket denklemi Δv'si − o kademenin planlı manevralarının toplamı. Görev başında pay budur.

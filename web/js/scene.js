@@ -635,7 +635,8 @@ export class World {
     this.flameL.material.uniforms.throttle.value = stackOn ? 0 : thr;
     const dCamVeh = norm(sub(vehPos, eye));
     this.engineLight.intensity = !stackOn && thr > 0 && dCamVeh < 2 ? 0.02 * thr : 0;
-    // ayrılan kademe
+    // ayrılan kademe (her yeni ayrılmada yönelim yeniden alınır)
+    if (x.k !== this.sepK) { this.sepK = x.k; this.sepAtt = null; }
     if (extra.stage) {
       if (!this.sepAtt) this.sepAtt = this.attQ.clone();
       this.spent.visible = true; rel(extra.stage, this.spent.position); this.spent.quaternion.copy(this.sepAtt);

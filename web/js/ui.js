@@ -162,7 +162,7 @@ export class UI {
       row('Toplam (tasarım)', fmt(tot, 0) + ' m/s', 'tot');
       el.appendChild(tbl);
     }
-    if (D.STAGES) line([[`Araç: ${fmt(D.STAGES.reduce((s, q) => s + q.dry + q.prop, 0), 0)} kg · TLI kademesi yakıtı ${fmt(D.STAGES[0].prop, 0)} kg · iniş aracı yakıtı ${fmt(D.STAGES[1].prop, 0)} kg`]]);
+    if (D.STAGES) line([[`Araç: ${fmt(D.STAGES.reduce((s, q) => s + q.dry + q.prop, 0), 0)} kg · ${D.STAGES.map((q) => `${q.name} yakıtı ${fmt(q.prop, 0)} kg`).join(' · ')}${D.SEP2 ? ` · yörünge kademesi ${fmt(D.SEP2.hSep, 0)} km irtifada ayrılır` : ''}`]]);
   }
   setNominal(dv) { this.nominal = dv; this.renderDv(); }
   isSkyTab(t) { const pg = document.getElementById('tab-' + t); return !!(pg && pg.closest('#skyPanel')); }
@@ -288,8 +288,8 @@ export class UI {
     } else $('#vv').textContent = `Ay'a uzaklık ${fmt(rs, 0)} km · Dünya'ya ${fmt(E.norm(s.r), 0)} km`;
     $('#mass').textContent = fmt(s.m, 0) + ' kg';
     $('#dvu').textContent = fmt(s.dv * 1000, 1) + ' m/s';
-    const ST = (this.design && this.design.STAGES) || [{ prop: 6200 }, { prop: 2300 }];
-    const stg = s.k === 0 ? { name: 'TLI kademesi', cap: ST[0].prop } : { name: 'İniş aracı', cap: ST[1].prop };
+    const ST = (this.design && this.design.STAGES) || [{ name: 'TLI kademesi', prop: 6200 }, { name: 'İniş aracı', prop: 2300 }];
+    const stg = { name: (ST[s.k] || ST[ST.length - 1]).name || (s.k === 0 ? 'TLI kademesi' : 'İniş aracı'), cap: (ST[s.k] || ST[ST.length - 1]).prop };
     $('#propName').textContent = stg.name; $('#propVal').textContent = fmt(s.prop, 0) + ' kg';
     $('#propBar').style.width = Math.max(0, Math.min(100, (100 * s.prop) / stg.cap)) + '%';
     $('#thrBar').style.width = (100 * (s.thr || 0)) + '%'; $('#thrVal').textContent = fmt(100 * (s.thr || 0), 0) + '%';

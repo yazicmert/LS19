@@ -91,8 +91,10 @@ Ay Görevi panelindeki **Kontrol** sekmesi aracın anlık durumunu canlı göste
 - **Boşluk**: başlat/duraklat · **. ,**: zaman hızı ×2 / ÷2 · "Otomatik hız" olaylara yaklaşırken yavaşlatır
 - **G**: otopilot aç/kapa · **P**: 2 m/s rastgele bozulma (rota düzeltmeleri telafi eder) · **K**: Kontrol paneli
 - **M**: çalışma alanı değiştir · **Fare**: uydu, asteroit ya da gezegene gel → ad; tıkla → bilgi kartı
-- **Alt çubuk**: Başlat, zaman hızı (− ×N +) görünür; **Kamera ▾** ve **Uçuş ▾** (otopilot, otomatik hız, **N-cisim çözücü**, bozulma, baştan başlat) açılır ağaç menüdedir.
+- **Alt çubuk**: Başlat, zaman hızı (− ×N +) görünür; **Kamera ▾** ve **Uçuş ▾** (otopilot, otomatik hız, **N-cisim çözücü**, **Araç**, **İniş güdümü**, bozulma, baştan başlat) açılır ağaç menüdedir.
   *N-cisim çözücü* açıkken araç tek eylemsiz çerçevede Dünya + Ay + Güneş çekimiyle ilerler (etki küresi geçişi yok); kapalıyken iki merkez cisimli (etki küresi) çözücü kullanılır. Uçuş sırasında değiştirilebilir. **Yörünge** sekmesinde canlı kuvvet dökümü vardır.
+  *Araç*: **İki kademe** (varsayılan) iniş aracını Ay yörünge kademesi (MCC, LOI/NRI, LLO, DOI) ve iniş kademesi (motorlu iniş) olarak böler; yörünge kademesi 15 km irtifada, motorlu inişten ~2–4 dk önce atılır ve ölü kütle inişe taşınmaz (kalan yakıt artar). **Tek kademe iniş aracı** eski tek kademeli araçtır. Seçim görevi yeniden kurar.
+  *İniş güdümü*: **Optimal (dengeli)** ve **Optimal (serbest)** yakıt-optimal güdümle (kayıpsız dışbükeyleştirme + SOCP, Clarabel WebAssembly) PDI'dan temasa her 10 s'de yeniden planlar; **ZEM/ZEV** eski Apollo benzeri yasadır. Uçuş sırasında değiştirilebilir. Kontrol sekmesinin *İniş* bölümünde güdüm ve optimal plan (iniş süresi, yakıt tahmini, yeniden çözüm sayısı) görünür. Ayrıntı: `../docs/optimal_inis.md`.
   Canlı Gökyüzü'nde **Hız ▾** (×1…×3600, ±1 sa, ±1 gün) ve **Kamera ▾** (Yerden: Gözlemci · Uzaydan: Dünya, Dünya–Ay, Ay, Güneş sistemi).
   Menüler ok tuşlarıyla gezilir, Esc ya da dışarı tıklama kapatır.
 - **1–8**: kamera (Otomatik, Araç, Dünya, Ay, Dünya–Ay, İniş yeri, Kütle merkezi, Güneş sistemi) · fare sürükle: döndür, tekerlek: yakınlaştır
@@ -109,7 +111,7 @@ Ay Görevi panelindeki **Kontrol** sekmesi aracın anlık durumunu canlı göste
 - `js/cr3bp.js` — Dünya–Ay CR3BP: Richardson başlangıcı, diferansiyel düzeltme, halo/NRHO aileleri
 - `js/halo.js` — halo yörüngesini tarihe taşıma (nabız atan dönen çerçeve) ve Dünya+Ay+Güneş+Ay J2/C22 modelinde çoklu atış
 - `js/design.js` — modüler görev tasarımı (Apollo/LLO ve halo profilleri, TLI, KSC fazlaması, araç boyutlandırma)
-- `js/mission.js` — otopilot (TLI, MCC, LOI ya da NRI + istasyon tutma + ayrılış + LLO girişi, DOI, PDI güdümü)
+- `js/mission.js` — otopilot (TLI, MCC, LOI ya da NRI + istasyon tutma + ayrılış + LLO girişi, DOI, PDI güdümü); tek ya da iki kademeli iniş aracı (`twoStageDesign`: yörünge kademesi + iniş kademesi, 15 km'de ayrılma)
 - `js/ephem.js`, `js/earth.js`, `js/jplkernel.js` — canlı N-cisim efemerisi, Dünya yönelimi, JPL çekirdek okuyucu
 - `js/engine.js` — fizik motoru (N-cisim ve iki merkez cisimli çerçeve, değişken kütleli itki, kuvvet dökümü) · `js/worker.js` fizik iş parçacığı · `js/nominal.js` nominal Δv koşusu
 - `js/pdg.js` — motorlu iniş güdümü: yakıt-optimal iniş, kayıpsız dışbükeyleştirme + SOCP, son zaman araması, sıcak başlangıçlı yeniden çözüm · `js/conic.js` — konik çözücü arayüzü · `lib/clarabel/` — Clarabel (WebAssembly, Apache-2.0); `../tools/clarabel_paketle.mjs` ile üretilir; `Uçuş ▾ → İniş güdümü` (Optimal dengeli / serbest / ZEM-ZEV)

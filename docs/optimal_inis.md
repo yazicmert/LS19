@@ -88,8 +88,53 @@ Aynı PDI durumundan (2735 kg, 13,83 km, Apollo profili), kalan yakıt ve toplam
 Kısıtsız en iyi çözüm yüzeye yatay bir "sürünme" ile iner (son 10 s'de 85 m irtifada 97 m/s yatay hız) ve gerçekçi değildir; işaretleme ve hız koridoru bu yüzden eklenir. Güvenlik koridoru yakıt öder:
 iyi tasarlanmış bir Apollo profili (ZEM/ZEV) bu kısıtlar altındaki optimuma %2–3 yaklaşır; kazanç kısıtlar gevşedikçe büyür. En pahalı kısıt işaretleme açısıdır (tek başına kaldırılınca ~60–70 m/s).
 
-## 6. Sınırlar
+## 6. İki kademeli iniş (Ay yörünge kademesi + iniş kademesi)
 
+*Uçuş ▾ → Araç → İki kademe* (varsayılan). Fikir: park yörüngesinden son ~15 km'ye alçalışı (DOI) **Ay yörünge kademesi** yapar, 15 km'den yüzeye motorlu inişi ayrı bir **iniş kademesi** yapar ve
+yörünge kademesi motorlu inişten önce atılır; böylece ölü kütle (yapı + artan yakıt) inişe taşınmaz. Tek kademeli araçta MCC, LOI, DOI ve motorlu iniş aynı kütleyle yapılır.
+
+**Araç bölme (`twoStageDesign`, `web/js/mission.js`).** Seçilen profilin hazır tasarımı **değişmeden** kullanılır: toplam kütle, yörünge kademesinin itkisi (16 kN) ve Isp'si (320 s) tek kademeli iniş aracıyla aynıdır,
+böylece TLI/MCC/LOI/DOI tasarımı yeniden yapılmaz. Yörünge kademesinin yakıtı roket denkleminden, tasarımın yörünge Δv'sinden bulunur:
+
+```
+Δv1 = (15 + Σ Δv{LOI, NRI, SK, DEP, LLOI, DOI}) · 1,03 m/s            (15 m/s sabit ve %3 pay)
+p1  = ⌈ m_L (1 − exp(−Δv1 / (Isp g0))) / 10 ⌉ · 10 kg                (m_L: tek kademeli iniş aracının toplam kütlesi)
+kuru kütleler:  yörünge 380 kg,  iniş 1300 + 60 − 380 = 980 kg        (60 kg: ayırma düzeneği cezası)
+p2  = (iniş aracı yakıtı) − p1 − 60 kg                                 (ceza yakıttan düşer: toplam kütle sabit kalır)
+iniş kademesi: 12 kN, Isp 325 s, en küçük kısma %10
+```
+
+Apollo profilinde 3600 kg = 380 + 890 (yörünge) + 980 + 1350 (iniş); NRHO'da 4160 kg = 380 + 1720 + 980 + 1080. Kademe değerleri **temsilidir**, belirli bir aracın verisi değildir. İniş kademesi itkisi
+12 kN seçildi: Apollo'da 16/14/12 kN'da üç güdümle de temas ve kalan yakıt neredeyse aynı (ZEM 285/286/288 kg); 10 kN'da ZEM/ZEV yüzeye çarpar, optimal iniş ise ~690 s sürüp (12 kN'da ~340–395 s) yalnız ~100 kg
+yakıt bırakır (yerçekimi kaybı); 8 kN'da üçü de çarpar.
+
+**Ayrılma.** Yörünge kademesi, DOI'dan sonraki alçalış yayında irtifa ≤ 15 km olunca atılır (PDI'dan 142–241 s önce; ayrılan kademe aynı konum ve hızdan kendi kütlesiyle serbest uçurulur ve çizilir).
+Motorlu iniş problemi (§2–3) iniş kademesinin kütlesi, itki sınırları (ρ1, ρ2) ve Isp'siyle (α) aynen kurulur; tek fark budur.
+
+**Sonuçlar** (aynı tarih, altı profil × üç güdümün hepsi yumuşak temasla biter; `web/test/test_twostage.js`). Temasta kalan yakıt, tek kademe → iki kademe (kg):
+
+| Profil | ZEM/ZEV | Optimal, dengeli | Optimal, serbest | Ayrılma (PDI'dan önce, irtifa, atılan yakıt) |
+|---|---|---|---|---|
+| Apollo (Apollo 11 ve yükseltmeli de) | 186 → 300 | 209 → 318 | 238 → 334 | 208–211 s, 14,8 km, 25 kg |
+| NRHO | 54 → 152 | 69 → 166 | 106 → 192 | 142 s, 14,9 km, 49 kg |
+| L2 | 69 → 148 | 89 → 167 | 123 → 190 | 236 s, 14,6 km, 83 kg |
+| L1 | 70 → 155 | 91 → 173 | 123 → 196 | 241 s, 14,8 km, 72 kg |
+
+Kazancın kaynağı: iniş kademesinin Isp'si araçla aynı (320 s) alınınca Apollo'da 288 / 305 / 328 kg kalır (NRHO 141 / 156 / 179); yani 325 s varsayımı ~6–13 kg, **geri kalanı (Apollo ~90–100, NRHO ~75–90 kg) ölü kütlenin
+atılmasındandır**.
+Optimal güdümün ZEM/ZEV'e göre kazancı kg olarak iki kademede biraz küçülür (dengeli +23 → +18, serbest +52 → +34 kg): araç hafiflediğinden aynı Δv tasarrufu daha az yakıt eder.
+Bu, §5'teki bulguyu pekiştirir: iyi tasarlanmış bir profilde en büyük kaldıraç güdüm yasası değil **kütle düzenidir**.
+
+Üç kademeli Δv bütçesi (telemetri): planlı PDI manevrası iniş kademesine yazılır, bozulmasız uçuşta kademe başına pay sabit kalır (yayılım 0,00 m/s).
+Dayanıklılık (testte, Apollo): DOI öncesinde (LLO) ve DOI'dan sonra PDI'dan 5–15 dk önce verilen rastgele 10 m/s hız bozulmalarının hepsi (4/4 + 4/4) yumuşak temasla biter; yörünge kademesinin payı yalnız %3 + 15 m/s
+olduğu halde ayrılırken en az 19 kg yakıt kalır. Testte olmayan ek deneyler (10 ve 20 m/s, DOI öncesi 6/6; NRHO 10 m/s 5/5) aynı sonucu verdi. DOI'dan hemen sonra, alçalış yörüngesi yüzeye inecek kadar
+kuvvetli bir bozulma kurtarılamaz: aynı rastgele bozulma tek kademeli araçta (optimal güdüm) da çarptı, ZEM/ZEV için de böyle erken bozulmaların kurtarılamadığı önceden görülmüştü; bu, araç düzeninden değil
+yörünge geometrisinden gelir.
+
+## 7. Sınırlar
+
+- İki kademeli iniş: kademe değişimi PDI'dan **önce** yapılır; ayrılma impulsu, ayrılma sırasındaki yönelim ve itici (yakıt) dinamiği modellenmez. Kademe değişiminin motorlu inişin ortasına denk geldiği ortak çok fazlı
+  problem (kütle süreksizliği + ρ1/ρ2/Isp değişimi, faz sınırında serbest zaman) uygulanmadı. Karşılaştırma toplam kütle sabit tutularak yapılır; gerçek bir aracın kademe değerleri farklı olur.
 - 3 serbestlik dereceli (nokta kütle): yönelim dinamiği, motor ateşleme geçişleri ve arazi yoktur; itki yönü düğüm sınırlarında sıçrar (ZOH).
 - Plan nokta kütle çekimiyle kurulur; Ay'ın harmonikleri ve üçüncü cisimler yeniden çözümle düzeltilir (ayrı bir kanıt: bağımsız RK4 ve tam görev testleri).
 - Son 120 m optimal değildir (son iniş yasası). Kapalı döngü için biçimsel yakınsama/uygunluk garantisi verilmez; gevşek kısıtlar ve geri düşüş (art arda başarısızlıkta son iniş yasası) sağlamlık içindir.

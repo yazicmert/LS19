@@ -5,6 +5,7 @@ import { UI } from './ui.js';
 import { makeLive, makeLiveSource } from './live.js';
 import * as EO from './earth.js';
 import { designMissionAsync, PROFILES, normalizeConfig } from './design.js';
+import { twoStageDesign } from './mission.js';
 import { SatLayer } from './satlayer.js';
 import { AsteroidLayer } from './asteroids.js';
 import { AstUI } from './astui.js';
@@ -189,6 +190,7 @@ async function startDesign(dateStr) {
     }
   }
   $('#loadMsg').textContent = 'Görev kuruluyor…';
+  if (vehicleMode === 'two') msg = { ...msg, design: twoStageDesign(msg.design) };
   send({ cmd: latestSentInit ? 'design' : 'init', ...msg, landing: landingMode }); latestSentInit = true;
 }
 function designFailed(m) {
@@ -209,19 +211,25 @@ function runNominal(tStart, design, landing, done) {
   w.postMessage({ id, tStart, design, landing });
 }
 
-// iniş güdümü: ZEM/ZEV (eski) ya da optimal (SOCP; konik çözücü yüklenemezse ZEM'e düşer). Δv panelinin Nominal sütunu seçilen güdümle uçurulur.
-let landingMode = 'opt', optimalOk = true, lastTStart = null;
-try { const v = localStorage.getItem('ls19.landing'); if (v === 'zem' || v === 'opt' || v === 'free') landingMode = v; } catch (e) { /* özel pencere */ }
+// iniş güdümü: ZEM/ZEV (eski) ya da optimal (SOCP; konik çözücü yüklenemezse ZEM'e düşer); araç: tek kademe iniş aracı ya da iki kademe (Ay yörünge kademesi + iniş kademesi).
+// Δv panelinin Nominal sütunu seçilen güdüm ve araçla uçurulur (anahtar: güdüm + '+2' iki kademeliyse; hazır tasarımın nominali yalnız 'zem' + tek kademe için geçerlidir).
+let landingMode = 'opt', vehicleMode = 'two', optimalOk = true, lastTStart = null;
+try {
+  const v = localStorage.getItem('ls19.landing'); if (v === 'zem' || v === 'opt' || v === 'free') landingMode = v;
+  const w = localStorage.getItem('ls19.vehicle'); if (w === 'one' || w === 'two') vehicleMode = w;
+} catch (e) { /* özel pencere */ }
+const nominalKey = () => (optimalOk ? landingMode : 'zem') + (vehicleMode === 'two' ? '+2' : '');
 function syncLanding() {
   document.querySelectorAll('[data-landing]').forEach((b) => {
     const needs = b.dataset.landing !== 'zem'; b.disabled = needs && !optimalOk; b.classList.toggle('on', b.dataset.landing === (optimalOk ? landingMode : 'zem'));
   });
+  document.querySelectorAll('[data-vehicle]').forEach((b) => b.classList.toggle('on', b.dataset.vehicle === vehicleMode));
   refreshTreeMenus();
 }
 function refreshNominal(preNominal, ce) {
-  const key = optimalOk ? landingMode : 'zem', cached = key === 'zem' ? (preNominal || (ce && ce.nominal)) : (ce && ce.nominalBy && ce.nominalBy[key]);
+  const key = nominalKey(), cached = key === 'zem' ? (preNominal || (ce && ce.nominal)) : (ce && ce.nominalBy && ce.nominalBy[key]);
   if (cached) { ui.setNominal(cached); return; }
-  runNominal(lastTStart, DESIGN, key, (dv) => { if (!ce) return; if (key === 'zem') ce.nominal = dv; else (ce.nominalBy ||= {})[key] = dv; });
+  runNominal(lastTStart, DESIGN, optimalOk ? landingMode : 'zem', (dv) => { if (!ce) return; if (key === 'zem') ce.nominal = dv; else (ce.nominalBy ||= {})[key] = dv; });
 }
 function setLanding(mode) {
   if (mode === landingMode) return; landingMode = mode;
@@ -229,6 +237,13 @@ function setLanding(mode) {
   send({ cmd: 'landing', mode }); syncLanding();
   if (DESIGN && lastTStart != null) refreshNominal(null, designCache.get(cacheKey(START_MS, DESIGN.cfg || ui.getConfig())));
 }
+function setVehicle(mode) {
+  if (mode === vehicleMode) return; vehicleMode = mode;
+  try { localStorage.setItem('ls19.vehicle', mode); } catch (e) { /* özel pencere */ }
+  syncLanding();
+  if (latestSentInit && pendingDate) startDesign(pendingDate);               // araç değişince görev (önbellekteki tasarımla) yeniden kurulur
+}
+document.querySelectorAll('[data-vehicle]').forEach((b) => b.addEventListener('click', () => setVehicle(b.dataset.vehicle)));
 document.querySelectorAll('[data-landing]').forEach((b) => b.addEventListener('click', () => setLanding(b.dataset.landing)));
 
 worker.onmessage = (e) => {
