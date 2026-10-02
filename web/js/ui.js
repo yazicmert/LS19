@@ -7,7 +7,7 @@ import { BODIES, IS, IE, IM } from './ephem.js';
 import { sunElevationAtSite, PROFILES, normalizeConfig, configLabel } from './design.js';
 import { dvKeys, DV_NAMES, dvFromEvents } from './dvbudget.js';
 import { SAT_GROUPS } from './satlayer.js';
-import { fmtReentry } from './impact.js';
+import { fmtReentry, ageYears, controlNote } from './impact.js';
 
 const $ = (s) => document.querySelector(s);
 const fmt = (x, d = 0) => (Number.isFinite(x) ? x.toLocaleString('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—');
@@ -323,6 +323,7 @@ export class UI {
         ['Perije / apoje', `${fmt(d.perigee, 0)} / ${fmt(d.apogee, 0)} km`], ['Dış merkezlik', fmt(d.ecc, 5)],
         ['Öğelerin yaşı', `${fmt(d.epochAgeDays, 1)} gün`], ['Yörünge verisi', d.source || 'CelesTrak GP']);
       rows.push(['Tahmini yeniden giriş', fmtReentry(d.decay)]);
+      rows.push(['Kontrol durumu', controlNote(d.decay && d.decay.age, d.group === SAT_GROUPS[0].name)]);
       rows.push(['3B model', d.model ? `${d.model.note || d.model.title} · NASA 3D Resources (~${fmt(d.model.size, 0)} m)` : d.family ? `${d.family.title} · temsili aile modeli (${d.family.note})` : 'nokta']);
       if (d.obsEl != null) rows.push([`${d.obsName}'dan`, d.obsEl > 0 ? `gökte ${fmt(d.obsEl, 1)}° · az ${fmt(d.obsAz, 0)}° · ${fmt(d.obsRange, 0)} km` : 'ufkun altında']);
       if (d.nextPass) { const p = d.nextPass, tt = new Date(p.rise.ms);

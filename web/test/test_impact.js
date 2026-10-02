@@ -1,5 +1,5 @@
 // Çarpma / yeniden giriş modeli: büyüklük sıraları, tutarlılık, eksantrik yörünge, biçimlendirme, Sentry ayrıştırma
-import { assessSat, atmosphereDensity, fmtReentry, fmtSpan, sentryRows, fmtOdds } from '../js/impact.js';
+import { assessSat, atmosphereDensity, fmtReentry, fmtSpan, sentryRows, fmtOdds, launchYear, ageYears, controlNote } from '../js/impact.js';
 let fail = 0;
 const ok = (c, m) => { if (!c) { fail++; console.log('HATA', m); } else console.log('tamam', m); };
 const MU = 398600.4418, RE = 6378.135;
@@ -44,4 +44,10 @@ ok(/yeniden giriş/.test(fmtReentry({ durum: 'girdi' })) && /yüksek yörünge/.
 { const m = new Map([['2011 TO', { ip: 2.937e-6, ps: -6.15, ts: '0', range: '2064-2064', n: 1, D: 0.018, vinf: 8.55 }], ['A', { ip: 0.01, ps: -1, ts: '1', range: '2030-2040', n: 3, D: 0.2, vinf: 10 }]]);
   const r = sentryRows(m, 2026); ok(r[0].y0 === 2064 && r[0].inYears === 38 && r[1].y1 === 2040 && r[1].odds === 100, 'Sentry satırları: yıl aralığı, kalan yıl, 1/N');
   ok(fmtOdds(0.01) === '1 / 100' && fmtOdds(0) === '—', 'olasılık metni'); }
+// kontrol durumu: yaş ≥ görev ömrü (≈5) + 5 yıl
+ok(launchYear({ OBJECT_ID: '1998-067A' }) === 1998 && launchYear({ OBJECT_ID: '1998-067XY' }) === null, 'ISS (1998-067A) yılı var, ISS\'ten bırakılan nesneler (1998-067xx) bilinmiyor');
+ok(launchYear({ OBJECT_ID: '1990-037B' }) === 1990 && launchYear({ OBJECT_ID: '' }) === null && launchYear({ OBJECT_ID: '1900-001A' }) === null, 'COSPAR kimliğinden fırlatma yılı');
+{ const now = Date.UTC(2026, 9, 2); const a = ageYears({ OBJECT_ID: '1990-037B' }, now); ok(a > 36 && a < 37, `yaş hesabı: ${a.toFixed(1)} yıl`);
+  ok(/yaşlı.*kontrolsüz/.test(controlNote(36)) && /orta yaşlı/.test(controlNote(7)) && /genç.*manevra/.test(controlNote(2)) && /kontrollü \(istasyon\)/.test(controlNote(28, true)) && /bilinmiyor/.test(controlNote(null)), 'kontrol durumu metinleri (≥10 yıl kontrolsüz aday, <5 genç, istasyon kontrollü)');
+  ok(assessSat({ ...rec(400, 400, 1e-4), OBJECT_ID: '2020-001A' }, now, false).age > 6 && assessSat({ ...rec(400, 400, 1e-4), OBJECT_ID: '2020-001A' }, now, false).age < 7, 'assessSat çıktısında yaş'); }
 if (fail) process.exit(1);

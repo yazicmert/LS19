@@ -66,7 +66,7 @@ export function assessSat(o, nowMs = Date.now(), withCurve = true) {
   if (!(n > 0) || !(e0 >= 0) || e0 >= 1) return { durum: 'veri yok' };
   const a0 = Math.cbrt(MU / (n * 2 * Math.PI / DAY) ** 2), hp0 = a0 * (1 - e0) - RE, ha0 = a0 * (1 + e0) - RE;
   const epochMs = Date.parse((o.EPOCH || '') + 'Z') || nowMs;
-  const base = { perigeeKm: hp0, apogeeKm: ha0, ecc: e0, epochMs };
+  const base = { perigeeKm: hp0, apogeeKm: ha0, ecc: e0, epochMs, age: ageYears(o, nowMs) };
   if (hp0 < REENTRY_KM) return { ...base, durum: 'girdi', lifeDays: 0, reentryMs: epochMs, conf: 'yüksek', curve: [[0, hp0, ha0]] };
   const bstar = +o.BSTAR, ndot = +o.MEAN_MOTION_DOT;
   const krB = bstar > 1e-7 ? kRhoFromBstar(bstar, hp0) : 0, krN = ndot > 0 ? kRhoFromNdot(ndot, a0) : 0;
@@ -91,6 +91,25 @@ export function assessSat(o, nowMs = Date.now(), withCurve = true) {
   if (ratio != null && ratio > 0.33 && ratio < 3) conf = lifeDays < 60 ? 'yüksek' : lifeDays < 40 * 365 ? 'orta' : 'düşük';
   else if (ratio == null && lifeDays < 30) conf = 'orta';
   return { ...base, durum: capped ? 'uzun' : 'bozunuyor', lifeDays, reentryMs: capped ? Infinity : epochMs + lifeDays * DAY * 1000, conf, method, ratio, kr0, curve, capped };
+}
+
+// ---------------------------------------------------------------- kontrol durumu (yakıt/manevra bilinmediği için)
+// Yakıtı bilmediğimizden, bir uydunun yeniden girişi ancak görev süreci bittikten sonra anlamlıdır; FCC'nin 5 yıl kuralı (görev sonu + 5 yıl) uyarınca
+// görev sonu fırlatmadan sonraki tipik ömürle (~5 yıl) yaklaştırılır: yaş ≥ MISSION_PLUS + 5 -> kontrolsüz aday. Kesin görev sonu tarihi geçmiş yörünge verisiyle bulunabilir.
+export const MISSION_PLUS = 5;
+export function launchYear(o) {
+  const id = String(o.OBJECT_ID || ''), y = +id.slice(0, 4);
+  if (/^1998-067/.test(id) && !/^1998-067A$/.test(id.trim())) return null;                  // ISS'ten sonradan bırakılan nesneler ISS'in uluslararası tanımını (1998-067) taşır: gerçek fırlatma yılı bilinmiyor
+  return y >= 1957 && y < 2100 ? y : null;
+}
+export function ageYears(o, nowMs = Date.now()) { const y = launchYear(o); return y == null ? null : Math.max(0, (nowMs - Date.UTC(y, 6, 1)) / (365.25 * 864e5)); }
+export function controlNote(age, isStation = false) {
+  if (isStation) return 'kontrollü (istasyon): yörünge düzenli yükseltilir';
+  if (age == null) return 'bilinmiyor (fırlatma yılı yok)';
+  const a = Math.round(age);
+  if (age < 5) return `genç (${a} yıl): büyük olasılıkla görevde ve manevra yapar; tahmin yalnız "manevra yapılmazsa" senaryosudur`;
+  if (age < 2 * MISSION_PLUS) return `orta yaşlı (${a} yıl): görev ömrü dolmuş olabilir, durum belirsiz`;
+  return `yaşlı (${a} yıl): görev süreci + ${MISSION_PLUS} yıl dolmuş olabilir; kontrolsüz yeniden giriş adayı`;
 }
 
 // ---------------------------------------------------------------- JPL Sentry

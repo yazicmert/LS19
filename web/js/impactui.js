@@ -1,7 +1,7 @@
 // "Çarpma" sekmesi: Dünya'ya çarpma / yeniden giriş tahmini
 //  • Uydular: yörünge bozunmasından tahmini yeniden giriş yılı (manevrasız); seçilince yükseklik-zaman eğrisi
 //  • Asteroitler: JPL Sentry sanal çarpıcıları (olasılık, olası yıllar); seçilince N-cisim taraması için Saptırma laboratuvarı
-import { assessSat, fmtReentry, fmtSpan, fmtDate, sentryRows, fmtOdds } from './impact.js';
+import { assessSat, fmtReentry, fmtSpan, fmtDate, sentryRows, fmtOdds, ageYears, controlNote } from './impact.js';
 import { SAT_GROUPS } from './satlayer.js';
 
 const $ = (s) => document.querySelector(s);
@@ -16,7 +16,7 @@ export class ImpactUI {
     this.mode = 'sat'; this.res = null; this.doneFor = null; this.selId = null;
     $('#cpGroup').append(...[['all', 'Tüm gruplar'], ...SAT_GROUPS.map((g, i) => [String(i), g.name])].map(([v, t]) => { const o = mk('option', null, t); o.value = v; return o; }));
     document.querySelectorAll('#cpMode button').forEach((b) => b.addEventListener('click', () => { this.mode = b.dataset.m; this.render(); }));
-    for (const id of ['#cpGroup', '#cpHorizon', '#cpSatQ', '#cpSort', '#cpYear', '#cpAstQ']) $(id).addEventListener(id.endsWith('Q') ? 'input' : 'change', () => this.renderList());
+    for (const id of ['#cpGroup', '#cpCtl', '#cpHorizon', '#cpSatQ', '#cpSort', '#cpYear', '#cpAstQ']) $(id).addEventListener(id.endsWith('Q') ? 'input' : 'change', () => this.renderList());
   }
   // sekme açıldığında
   open() { this.render(); }
@@ -44,18 +44,21 @@ export class ImpactUI {
   renderList() { if (this.mode === 'sat') this.renderSatList(); else this.renderAstList(); }
   renderSatList() {
     if (!this.res || this.res.length < (this.sats.gp || this.sats.omm || []).length) return;
-    const now = Date.now(), g = $('#cpGroup').value, hz = HORIZON[$('#cpHorizon').value], q = $('#cpSatQ').value.trim().toUpperCase();
+    const now = Date.now(), g = $('#cpGroup').value, hz = HORIZON[$('#cpHorizon').value], q = $('#cpSatQ').value.trim().toUpperCase(), minAge = +$('#cpCtl').value;
     const days = (x) => (x.r.reentryMs - now) / 864e5;
     const all = this.res.filter((x) => x.r.durum === 'bozunuyor' || x.r.durum === 'girdi');
-    const live = all.filter((x) => x.r.durum === 'girdi' || days(x) > 0), stale = all.length - live.length;     // süresi elemanların çağından beri dolmuş: veri eski (ya da çoktan yeniden girmiş)
+    const alive = all.filter((x) => x.r.durum === 'girdi' || days(x) > 0), stale = all.length - alive.length;
+    const ageOf = (x) => ageYears(x.o, now), isStation = (x) => this.groupOf.get(x.id) === 0;
+    const live = minAge > 0 ? alive.filter((x) => !isStation(x) && ageOf(x) != null && ageOf(x) >= minAge) : alive;                // kontrol süzgeci: yaş ≥ eşik (görev ömrü + 5 yıl yaklaşımı)     // süresi elemanların çağından beri dolmuş: veri eski (ya da çoktan yeniden girmiş)
     const sel = live.filter((x) => (g === 'all' || this.groupOf.get(x.id) === +g) && days(x) <= hz && (!q || x.o.OBJECT_NAME.toUpperCase().includes(q) || String(x.id) === q));
     sel.sort((a, b) => a.r.reentryMs - b.r.reentryMs);
     const n1 = live.filter((x) => days(x) <= 365.25).length, n5 = live.filter((x) => days(x) <= 5 * 365.25).length, nHigh = this.res.filter((x) => x.r.durum === 'yüksek').length;
-    $('#cpSatSum').innerHTML = `<b>${live.length.toLocaleString('tr-TR')}</b> uydu/cisim yörünge bozunmasıyla alçalıyor · <b>${n1.toLocaleString('tr-TR')}</b> tanesi 1 yıl, <b>${n5.toLocaleString('tr-TR')}</b> tanesi 5 yıl içinde yeniden girer (manevra yapılmazsa) · ${nHigh.toLocaleString('tr-TR')} cisim çok yüksek yörüngede (bozunma ihmal edilebilir)${stale ? ` · ${stale.toLocaleString('tr-TR')} cismin hesaplanan süresi veri çağından beri dolmuş (veri eski ya da çoktan yeniden girdi)` : ''}`;
+    $('#cpSatSum').innerHTML = `${minAge > 0 ? `Fırlatmadan ≥ ${minAge} yıl geçmiş, <b>kontrolsüz olabilecek</b>` : 'Tüm aktif katalogda (manevrasız senaryo)'} <b>${live.length.toLocaleString('tr-TR')}</b> cisim alçalıyor${minAge > 0 ? ` (katalogda bozunan ${alive.length.toLocaleString('tr-TR')} cisimden)` : ''} · <b>${n1.toLocaleString('tr-TR')}</b> tanesi 1 yıl, <b>${n5.toLocaleString('tr-TR')}</b> tanesi 5 yıl içinde yeniden girer · ${nHigh.toLocaleString('tr-TR')} cisim çok yüksek yörüngede (bozunma ihmal edilebilir)${stale ? ` · ${stale.toLocaleString('tr-TR')} cismin hesaplanan süresi veri çağından beri dolmuş (veri eski ya da çoktan yeniden girdi)` : ''}`;
     const ul = $('#cpSatList'); ul.replaceChildren();
     for (const x of sel.slice(0, LIMIT)) {
       const li = mk('li', 'cp-li' + (x.id === this.selId ? ' on' : '')), left = mk('div'), rem = days(x);
-      left.append(mk('b', null, x.o.OBJECT_NAME), mk('div', 'k small', `perije ${Math.round(x.r.perigeeKm)} km${x.r.ecc > 0.01 ? ` · apoje ${Math.round(x.r.apogeeKm)} km` : ''}`));
+      const ag = ageOf(x);
+      left.append(mk('b', null, x.o.OBJECT_NAME), mk('div', 'k small', `perije ${Math.round(x.r.perigeeKm)} km${x.r.ecc > 0.01 ? ` · apoje ${Math.round(x.r.apogeeKm)} km` : ''}${ag != null ? ` · ${Math.round(ag)} yıllık` : ''}`));
       const right = mk('div', 'cp-r'), dot = mk('i', 'cp-dot'); dot.style.background = DOT[x.r.conf] || DOT.düşük; dot.title = 'güven: ' + x.r.conf;
       right.append(mk('div', null, rem <= 0 ? 'şimdi' : rem < 730 ? fmtDate(x.r.reentryMs) : String(new Date(x.r.reentryMs).getUTCFullYear())), mk('div', 'k small', rem <= 0 ? '—' : fmtSpan(rem) + ' sonra')); right.prepend(dot);
       li.append(left, right); li.addEventListener('click', () => this.pickSat(x)); ul.appendChild(li);
@@ -66,7 +69,7 @@ export class ImpactUI {
   pickSat(x) {
     this.selId = x.id; const i = this.sats.indexOf(x.id); if (i >= 0) this.sats.select(i);
     const r = assessSat(x.o, Date.now(), true), el = $('#cpSatDet'); el.replaceChildren();
-    const rows = [['Tahmini yeniden giriş', fmtReentry(r)], ['Yörünge', `${Math.round(r.perigeeKm)} × ${Math.round(r.apogeeKm)} km · e ${r.ecc.toFixed(4)}`],
+    const rows = [['Tahmini yeniden giriş', fmtReentry(r)], ['Kontrol durumu', controlNote(ageYears(x.o), this.groupOf.get(x.id) === 0)], ['Yörünge', `${Math.round(r.perigeeKm)} × ${Math.round(r.apogeeKm)} km · e ${r.ecc.toFixed(4)}`],
       ['Sürüklenme kaynağı', r.method === 'B*' ? `B* = ${(+x.o.BSTAR).toExponential(2)}${r.ratio ? ` · gözlenen bozunmayla (MEAN_MOTION_DOT) oran ${r.ratio.toFixed(2)}` : ''}` : 'MEAN_MOTION_DOT (gözlenen bozunma)'], ['Veri çağı (epoch)', fmtDate(r.epochMs)]];
     const tb = mk('table', 'tbl'); for (const [k, v] of rows) { const tr = mk('tr'); tr.append(mk('td', 'k', k), mk('td', null, v)); tb.appendChild(tr); } el.appendChild(tb);
     const cv = mk('canvas'); cv.id = 'cpChart'; cv.height = 150; el.appendChild(cv); this.drawCurve(cv, r);
