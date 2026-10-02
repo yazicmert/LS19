@@ -1,8 +1,8 @@
 # LS19 · Look Star 19
 
-Tarayıcıda gerçek zamanlı çalışan bir uzay simülasyonu. Dünya park yörüngesinden Apollo 11 iniş bölgesine kadar tüm Ay görevini fizik motoruyla uçurur, Güneş sistemini canlı N-cisim efemerisiyle hesaplar, Dünya ve Ay çevresindeki gerçek uyduları ve ~53.000 asteroidi canlı gösterir. Saptırma laboratuvarında bir asteroide uygulanan itkinin Dünya yakın geçişini ne kadar değiştirdiğini hesaplar.
+Tarayıcıda gerçek zamanlı çalışan bir uzay simülasyonu. Dünya park yörüngesinden Apollo 11 iniş bölgesine kadar tüm Ay görevini fizik motoruyla uçurur: motorlu iniş isteğe bağlı olarak **yakıt-optimal güdümle** (kayıpsız dışbükeyleştirme + ikinci derece koni programı, tarayıcıda WebAssembly çözücüyle) ve **iki kademeli iniş aracıyla** yapılır, aracın anlık durumu canlı **kontrol panelinde** izlenir. Güneş sistemini canlı N-cisim efemerisiyle hesaplar, Dünya ve Ay çevresindeki gerçek uyduları ve ~53.000 asteroidi canlı gösterir. Saptırma laboratuvarında bir asteroide uygulanan itkinin Dünya yakın geçişini ne kadar değiştirdiğini hesaplar.
 
-*A real-time, browser-based space simulator: live N-body ephemeris (DE440-initialised), an Earth-to-Moon mission with LLO/halo/NRHO staging flown by a closed-loop autopilot, ~16,600 live satellites (CelesTrak + SGP4), ~53,000 asteroids (JPL SBDB), and an asteroid-deflection physics engine (kinetic impactor or continuous force, B-plane analysis, validated against JPL close-approach data).*
+*A real-time, browser-based space simulator: live N-body ephemeris (DE440-initialised), an Earth-to-Moon mission with LLO/halo/NRHO staging flown by a closed-loop autopilot (optional fuel-optimal powered descent via lossless convexification and second-order cone programming, re-solved every 10 s with a WebAssembly interior-point solver; one- or two-stage lander; live flight-telemetry control panel), ~16,600 live satellites (CelesTrak + SGP4), ~53,000 asteroids (JPL SBDB), and an asteroid-deflection physics engine (kinetic impactor or continuous force, B-plane analysis, validated against JPL close-approach data).*
 
 ![İç Güneş sistemi: ~53.000 asteroit](docs/b0_hero.png)
 
@@ -10,6 +10,10 @@ Tarayıcıda gerçek zamanlı çalışan bir uzay simülasyonu. Dünya park yör
 |---|---|
 | ![Saptırma laboratuvarı: Apophis 2029](docs/b2_lab.png) | ![Asteroit katmanı](docs/b1_solar_ui.png) |
 | ![Canlı uydular](docs/s1_sats.png) | ![Uydu bilgi kartı](docs/p2_pick.png) |
+
+![Yakıt-optimal motorlu iniş: iki kademeli iniş aracı ve Kontrol paneli (Δv bütçesi, iniş faz düzlemi)](docs/c1_optimal_inis.png)
+
+*Yakıt-optimal motorlu iniş (iki kademeli araç, Apollo 11 iniş yeri): yörünge kademesi atılmış, iniş kademesi %90 gazda; sağda Kontrol sekmesi.*
 
 ## Özellikler
 
@@ -133,6 +137,7 @@ animate(el, { opacity: [0, 1], y: [8, 0] }, { duration: 0.2, ease: 'easeOut' });
 | Yol | İçerik |
 |---|---|
 | `web/` | Tarayıcı simülasyonu (Three.js, Web Worker'lar), `sunucu.py`, testler |
+| `docs/` | Ekran görüntüleri ve teknik notlar: [optimal_inis.md](docs/optimal_inis.md) (yakıt-optimal iniş: okunan kaynaklar, formülasyon, doğrulama, iki kademeli iniş, sınırlar) |
 | `web/js/` | `engine.js` fizik (merkez cisimli ve N-cisim çerçeveleri, değişken kütleli itki, kuvvet dökümü) · `ephem.js`/`live.js` efemeris · `cr3bp.js`/`halo.js` halo yörüngeleri · `design.js` görev tasarımı · `mission.js` otopilot (tek ve iki kademeli iniş aracı) · `sats.js`/`satlayer.js` uydular · `asteroids.js`/`astwork.js` asteroitler · `deflect.js`/`deflectwork.js`/`astui.js` saptırma · `passes.js`/`tracker.js`/`skyui.js` canlı takip ve geçişler · `satcatalog.js`/`satmodels.js` 3B uydu modelleri · `treemenu.js` alt çubuk menüleri · `updater.js` güncelleme · `pdg.js`/`conic.js` yakıt-optimal iniş güdümü (kayıpsız dışbükeyleştirme, SOCP) ve konik çözücü arayüzü · `telemetry.js`/`controlpanel.js` canlı uçuş telemetrisi ve kontrol paneli · `scene.js`/`ui.js` görüntü ve arayüz |
 | `web/models/sats/` | NASA 3D Resources uydu modelleri (meshopt + WebP ile küçültülmüş GLB; `tools/uydu_modelleri.mjs` ile yeniden üretilir) |
 | `web/models/fam/` | Uydu aileleri: Blender'da üretilen düşük poligonlu GLB'ler (`tools/uydu_aileleri.py`; köşe renkli, aile başına ~10–25 kB) |
