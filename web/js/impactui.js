@@ -1,7 +1,7 @@
 // "Çarpma" sekmesi: Dünya'ya çarpma / yeniden giriş tahmini
 //  • Uydular: yörünge bozunmasından tahmini yeniden giriş yılı (manevrasız); seçilince yükseklik-zaman eğrisi
 //  • Asteroitler: JPL Sentry sanal çarpıcıları (olasılık, olası yıllar); seçilince N-cisim taraması için Saptırma laboratuvarı
-import { assessSat, fmtReentry, fmtSpan, fmtDate, sentryRows, fmtOdds, ageYears, controlNote } from './impact.js';
+import { assessSat, fmtReentry, fmtSpan, fmtDate, sentryRows, fmtOdds, ageYears, controlNote, controlFromHistory } from './impact.js';
 import { SAT_GROUPS } from './satlayer.js';
 
 const $ = (s) => document.querySelector(s);
@@ -19,7 +19,17 @@ export class ImpactUI {
     for (const id of ['#cpGroup', '#cpCtl', '#cpHorizon', '#cpSatQ', '#cpSort', '#cpYear', '#cpAstQ']) $(id).addEventListener(id.endsWith('Q') ? 'input' : 'change', () => this.renderList());
   }
   // sekme açıldığında
-  open() { this.render(); }
+  open() { this.loadHist().then(() => this.render()); }
+  // halka açık CelesTrak geçmişinden türetilmiş yörünge özeti (tools/gecmis_derle.mjs); yoksa yalnız yaş süzgeci kullanılır
+  loadHist() {
+    return this.histP || (this.histP = fetch('data/gecmis.json').then((r) => (r.ok ? r.json() : null)).catch(() => null).then((j) => { this.histData = j; return j; }));
+  }
+  // NORAD no -> geçmiş özeti (+ sınıf); veri yoksa null
+  histOf(id) {
+    const j = this.histData, r = j && j.sats[id]; if (!r) return null;
+    const h = { n: r[0], spanDays: r[1], boostCount: r[2], lastBoostMs: r[3] * 864e5, slopeKmDay: r[4], rms: r[5], aLast: r[6], epochDay: r[7], expKmDay: r[8], segDays: r[9] };
+    h.ctl = controlFromHistory(h); return h;
+  }
   render() {
     document.querySelectorAll('#cpMode button').forEach((b) => b.classList.toggle('on', b.dataset.m === this.mode));
     $('#cpSat').hidden = this.mode !== 'sat'; $('#cpAst').hidden = this.mode !== 'ast';
@@ -35,7 +45,7 @@ export class ImpactUI {
     const step = () => {
       if (this.doneFor !== omm) return;
       const t0 = performance.now();
-      while (i < omm.length && performance.now() - t0 < 12) { const o = omm[i++]; res.push({ o, id: +o.NORAD_CAT_ID, r: assessSat(o, now, false) }); }
+      while (i < omm.length && performance.now() - t0 < 12) { const o = omm[i++], id = +o.NORAD_CAT_ID, h = this.histOf(id); res.push({ o, id, h, r: assessSat(o, now, false, h && h.ctl.klass === 'serbest' ? h : null) }); }
       $('#cpSatSum').textContent = `Yörünge bozunması hesaplanıyor… ${i.toLocaleString('tr-TR')} / ${omm.length.toLocaleString('tr-TR')}`;
       if (i < omm.length) setTimeout(step, 0); else { this.groupOf = new Map((this.sats.ids || []).map((id, k) => [+id, this.sats.groups[k]])); this.renderList(); }
     };
@@ -44,21 +54,24 @@ export class ImpactUI {
   renderList() { if (this.mode === 'sat') this.renderSatList(); else this.renderAstList(); }
   renderSatList() {
     if (!this.res || this.res.length < (this.sats.gp || this.sats.omm || []).length) return;
-    const now = Date.now(), g = $('#cpGroup').value, hz = HORIZON[$('#cpHorizon').value], q = $('#cpSatQ').value.trim().toUpperCase(), minAge = +$('#cpCtl').value;
+    const now = Date.now(), g = $('#cpGroup').value, hz = HORIZON[$('#cpHorizon').value], q = $('#cpSatQ').value.trim().toUpperCase(), ctl = $('#cpCtl').value, byHist = ctl === 'hist', minAge = byHist ? 0 : +ctl;
     const days = (x) => (x.r.reentryMs - now) / 864e5;
     const all = this.res.filter((x) => x.r.durum === 'bozunuyor' || x.r.durum === 'girdi');
     const alive = all.filter((x) => x.r.durum === 'girdi' || days(x) > 0), stale = all.length - alive.length;
     const ageOf = (x) => ageYears(x.o, now), isStation = (x) => this.groupOf.get(x.id) === 0;
-    const live = minAge > 0 ? alive.filter((x) => !isStation(x) && ageOf(x) != null && ageOf(x) >= minAge) : alive;                // kontrol süzgeci: yaş ≥ eşik (görev ömrü + 5 yıl yaklaşımı)     // süresi elemanların çağından beri dolmuş: veri eski (ya da çoktan yeniden girmiş)
+    // kontrol süzgeci: yaş ≥ eşik (görev ömrü + 5 yıl yaklaşımı) ve geçmişte yörünge koruma (yükseltme/sürekli itki) kanıtı yok; 'hist': yaştan bağımsız, yalnız geçmişte serbest bozunanlar
+    const kept = (x) => x.h && x.h.ctl.klass === 'korunuyor', free = (x) => x.h && x.h.ctl.klass === 'serbest';
+    const live = byHist ? alive.filter(free) : minAge > 0 ? alive.filter((x) => !isStation(x) && ageOf(x) != null && ageOf(x) >= minAge && !kept(x)) : alive;
+    const nKept = minAge > 0 ? alive.filter((x) => !isStation(x) && ageOf(x) != null && ageOf(x) >= minAge && kept(x)).length : 0;
     const sel = live.filter((x) => (g === 'all' || this.groupOf.get(x.id) === +g) && days(x) <= hz && (!q || x.o.OBJECT_NAME.toUpperCase().includes(q) || String(x.id) === q));
     sel.sort((a, b) => a.r.reentryMs - b.r.reentryMs);
     const n1 = live.filter((x) => days(x) <= 365.25).length, n5 = live.filter((x) => days(x) <= 5 * 365.25).length, nHigh = this.res.filter((x) => x.r.durum === 'yüksek').length;
-    $('#cpSatSum').innerHTML = `${minAge > 0 ? `Fırlatmadan ≥ ${minAge} yıl geçmiş, <b>kontrolsüz olabilecek</b>` : 'Tüm aktif katalogda (manevrasız senaryo)'} <b>${live.length.toLocaleString('tr-TR')}</b> cisim alçalıyor${minAge > 0 ? ` (katalogda bozunan ${alive.length.toLocaleString('tr-TR')} cisimden)` : ''} · <b>${n1.toLocaleString('tr-TR')}</b> tanesi 1 yıl, <b>${n5.toLocaleString('tr-TR')}</b> tanesi 5 yıl içinde yeniden girer · ${nHigh.toLocaleString('tr-TR')} cisim çok yüksek yörüngede (bozunma ihmal edilebilir)${stale ? ` · ${stale.toLocaleString('tr-TR')} cismin hesaplanan süresi veri çağından beri dolmuş (veri eski ya da çoktan yeniden girdi)` : ''}`;
+    $('#cpSatSum').innerHTML = `${byHist ? 'Son ~14 ayda <b>hiç yükseltme yapmadan serbestçe alçalan</b> (gözlenen bozunma B*\'la uyumlu)' : minAge > 0 ? `Fırlatmadan ≥ ${minAge} yıl geçmiş, <b>kontrolsüz olabilecek</b>` : 'Tüm aktif katalogda (manevrasız senaryo)'} <b>${live.length.toLocaleString('tr-TR')}</b> cisim${minAge > 0 || byHist ? ` (katalogda bozunan ${alive.length.toLocaleString('tr-TR')} cisimden)` : ''} · <b>${n1.toLocaleString('tr-TR')}</b> tanesi 1 yıl, <b>${n5.toLocaleString('tr-TR')}</b> tanesi 5 yıl içinde yeniden girer · ${nHigh.toLocaleString('tr-TR')} cisim çok yüksek yörüngede (bozunma ihmal edilebilir)${nKept ? ` · yaşı yeterli ama son ~14 ayda yörüngesini koruyan ${nKept.toLocaleString('tr-TR')} cisim elendi` : ''}${this.histData ? '' : ' · geçmiş verisi yüklenemedi (yalnız yaş süzgeci)'}${stale ? ` · ${stale.toLocaleString('tr-TR')} cismin hesaplanan süresi veri çağından beri dolmuş (veri eski ya da çoktan yeniden girdi)` : ''}`;
     const ul = $('#cpSatList'); ul.replaceChildren();
     for (const x of sel.slice(0, LIMIT)) {
       const li = mk('li', 'cp-li' + (x.id === this.selId ? ' on' : '')), left = mk('div'), rem = days(x);
       const ag = ageOf(x);
-      left.append(mk('b', null, x.o.OBJECT_NAME), mk('div', 'k small', `perije ${Math.round(x.r.perigeeKm)} km${x.r.ecc > 0.01 ? ` · apoje ${Math.round(x.r.apogeeKm)} km` : ''}${ag != null ? ` · ${Math.round(ag)} yıllık` : ''}`));
+      left.append(mk('b', null, x.o.OBJECT_NAME), mk('div', 'k small', `perije ${Math.round(x.r.perigeeKm)} km${x.r.ecc > 0.01 ? ` · apoje ${Math.round(x.r.apogeeKm)} km` : ''}${ag != null ? ` · ${Math.round(ag)} yıllık` : ''}${x.h ? ` · geçmiş: ${x.h.ctl.klass}` : ''}`));
       const right = mk('div', 'cp-r'), dot = mk('i', 'cp-dot'); dot.style.background = DOT[x.r.conf] || DOT.düşük; dot.title = 'güven: ' + x.r.conf;
       right.append(mk('div', null, rem <= 0 ? 'şimdi' : rem < 730 ? fmtDate(x.r.reentryMs) : String(new Date(x.r.reentryMs).getUTCFullYear())), mk('div', 'k small', rem <= 0 ? '—' : fmtSpan(rem) + ' sonra')); right.prepend(dot);
       li.append(left, right); li.addEventListener('click', () => this.pickSat(x)); ul.appendChild(li);
@@ -68,13 +81,35 @@ export class ImpactUI {
   }
   pickSat(x) {
     this.selId = x.id; const i = this.sats.indexOf(x.id); if (i >= 0) this.sats.select(i);
-    const r = assessSat(x.o, Date.now(), true), el = $('#cpSatDet'); el.replaceChildren();
+    const h = x.h, r = assessSat(x.o, Date.now(), true, h && h.ctl.klass === 'serbest' ? h : null), el = $('#cpSatDet'); el.replaceChildren();
     const rows = [['Tahmini yeniden giriş', fmtReentry(r)], ['Kontrol durumu', controlNote(ageYears(x.o), this.groupOf.get(x.id) === 0)], ['Yörünge', `${Math.round(r.perigeeKm)} × ${Math.round(r.apogeeKm)} km · e ${r.ecc.toFixed(4)}`],
-      ['Sürüklenme kaynağı', r.method === 'B*' ? `B* = ${(+x.o.BSTAR).toExponential(2)}${r.ratio ? ` · gözlenen bozunmayla (MEAN_MOTION_DOT) oran ${r.ratio.toFixed(2)}` : ''}` : 'MEAN_MOTION_DOT (gözlenen bozunma)'], ['Veri çağı (epoch)', fmtDate(r.epochMs)]];
+      ['Sürüklenme kaynağı', r.method === 'geçmiş' ? `gözlenen a(t) eğimi (${h.segDays.toFixed(0)} gün)${r.ratio ? ` · B*'a oran ${r.ratio.toFixed(2)}` : ''}` : r.method === 'B*' ? `B* = ${(+x.o.BSTAR).toExponential(2)}${r.ratio ? ` · gözlenen bozunmayla (MEAN_MOTION_DOT) oran ${r.ratio.toFixed(2)}` : ''}` : 'MEAN_MOTION_DOT (gözlenen bozunma)'], ['Veri çağı (epoch)', fmtDate(r.epochMs)]];
+    if (h) rows.splice(2, 0, ['Geçmiş yörünge (CelesTrak, ~' + Math.round(h.spanDays / 30.4) + ' ay)', this.histText(h)]);
     const tb = mk('table', 'tbl'); for (const [k, v] of rows) { const tr = mk('tr'); tr.append(mk('td', 'k', k), mk('td', null, v)); tb.appendChild(tr); } el.appendChild(tb);
+    const ser = this.histData && this.histData.seri[x.id];
+    if (ser) { const hc = mk('canvas'); hc.id = 'cpHist'; hc.height = 120; el.append(mk('div', 'k small', 'Geçmiş: ortalama irtifa (a − Rₑ) ve gözlenen eğim'), hc); this.drawHist(hc, ser, h); }
+    el.append(mk('div', 'k small', 'Tahmin: perije (sarı) ve apoje (mavi) yüksekliği'));
     const cv = mk('canvas'); cv.id = 'cpChart'; cv.height = 150; el.appendChild(cv); this.drawCurve(cv, r);
     const act = mk('div', 'daterow'), b = mk('button', 'sm', 'Kamerayla izle'); b.addEventListener('click', () => this.follow(x.id)); act.appendChild(b); el.appendChild(act);
     el.hidden = false; this.renderSatList();
+  }
+  histText(h) {
+    const c = h.ctl, last = h.lastBoostMs ? `son yükseltme ${fmtDate(h.lastBoostMs)}` : 'yükseltme yok', slope = h.slopeKmDay ? `${(-h.slopeKmDay * 365.25).toFixed(1).replace('.', ',')} km/yıl alçalma` : 'ölçülebilir eğim yok';
+    const exp = h.expKmDay > 0 ? ` (B*'tan beklenen ${(h.expKmDay * 365.25).toFixed(1).replace('.', ',')})` : '';
+    return `${h.boostCount} manevra · ${last} · ${slope}${exp} → ${c.klass === 'korunuyor' ? 'yörüngesi korunuyor' : c.klass === 'serbest' ? 'serbestçe bozunuyor' : 'belirsiz'} (${c.neden})`;
+  }
+  // a(t) geçmişi: dikey eksen irtifa (a − Rₑ), düz çizgi Theil–Sen eğimi
+  drawHist(cv, ser, h) {
+    const dpr = window.devicePixelRatio || 1, W = Math.max(240, cv.clientWidth || 320), H = 120; cv.width = W * dpr; cv.height = H * dpr; cv.style.height = H + 'px';
+    const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+    const ax = this.histData.meta.eksen, pts = []; ser.forEach((a, k) => { if (a != null) pts.push([ax[k], a - 6378.135]); });
+    if (pts.length < 2) return;
+    const t0 = pts[0][0], t1 = pts[pts.length - 1][0], ys = pts.map((p) => p[1]), lo = Math.min(...ys), hi = Math.max(...ys), pad = Math.max(0.5, (hi - lo) * 0.15), L = 44, B = 16, R = 8, Tp = 8;
+    const X = (t) => L + ((t - t0) / (t1 - t0 || 1)) * (W - L - R), Y = (y) => Tp + (1 - (y - (lo - pad)) / (hi - lo + 2 * pad)) * (H - Tp - B);
+    g.fillStyle = '#8591a3'; g.font = '10px "Roboto Mono", monospace'; g.fillText(hi.toFixed(0) + ' km', 2, Y(hi) + 3); g.fillText(lo.toFixed(0) + ' km', 2, Y(lo) + 3);
+    g.fillText('0', L, H - 3); g.fillText(Math.round(t1 - t0) + ' gün', W - R - 48, H - 3);
+    g.strokeStyle = '#ffd166'; g.lineWidth = 1.5; g.beginPath(); pts.forEach((p, k) => (k ? g.lineTo(X(p[0]), Y(p[1])) : g.moveTo(X(p[0]), Y(p[1])))); g.stroke();
+    if (h && h.slopeKmDay) { const yEnd = pts[pts.length - 1][1], yStart = yEnd - h.slopeKmDay * (t1 - t0); g.strokeStyle = '#5ee7ff'; g.setLineDash([4, 3]); g.beginPath(); g.moveTo(X(t0), Y(yStart)); g.lineTo(X(t1), Y(yEnd)); g.stroke(); g.setLineDash([]); }
   }
   drawCurve(cv, r) {
     const dpr = window.devicePixelRatio || 1, W = Math.max(240, cv.clientWidth || 320), H = 150; cv.width = W * dpr; cv.height = H * dpr; cv.style.height = H + 'px';

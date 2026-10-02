@@ -36,6 +36,10 @@ function kRhoFromBstar(bstar, hpKm) {
   return 2 * bstar * ((q0 - s) / (r - s)) ** 4 / RE;
 }
 // gözlenen bozunmadan (MEAN_MOTION_DOT, tur/gün²) K·ρ (1/km): dairesel yaklaşım
+function krFromSlope(slopeKmDay, a0, e0, hp0) {
+  const ref = 1e-11, lnr0 = lnrho(hp0), [dadt] = derivs(a0, e0, ref, lnr0), obs = slopeKmDay / DAY;               // km/s
+  return dadt < 0 && obs < 0 ? ref * (obs / dadt) : 0;
+}
 function kRhoFromNdot(ndotRevDay2, a) {
   const n = Math.sqrt(MU / a ** 3), dn = 2 * ndotRevDay2 * 2 * Math.PI / DAY ** 2;          // rad/s, rad/s²
   const dadt = -(2 * a / (3 * n)) * dn;                                                      // km/s (negatif = alçalıyor)
@@ -61,7 +65,7 @@ function derivs(a, e, kr0, lnr0) {
 }
 
 // o: CelesTrak GP (OMM) kaydı -> yeniden giriş tahmini
-export function assessSat(o, nowMs = Date.now(), withCurve = true) {
+export function assessSat(o, nowMs = Date.now(), withCurve = true, hist = null) {
   const n = +o.MEAN_MOTION, e0 = +o.ECCENTRICITY;
   if (!(n > 0) || !(e0 >= 0) || e0 >= 1) return { durum: 'veri yok' };
   const a0 = Math.cbrt(MU / (n * 2 * Math.PI / DAY) ** 2), hp0 = a0 * (1 - e0) - RE, ha0 = a0 * (1 + e0) - RE;
@@ -70,10 +74,13 @@ export function assessSat(o, nowMs = Date.now(), withCurve = true) {
   if (hp0 < REENTRY_KM) return { ...base, durum: 'girdi', lifeDays: 0, reentryMs: epochMs, conf: 'yüksek', curve: [[0, hp0, ha0]] };
   const bstar = +o.BSTAR, ndot = +o.MEAN_MOTION_DOT;
   const krB = bstar > 1e-7 ? kRhoFromBstar(bstar, hp0) : 0, krN = ndot > 0 ? kRhoFromNdot(ndot, a0) : 0;
-  const kr0 = krB > 0 ? krB : krN;
+  // geçmiş yörünge eğimi (yarı büyük eksen a(t), manevrasız dilim) varsa sürüklenme genliği oradan kalibre edilir: gözlenen gerçek bozunma, tek anlık B*'tan daha sağlam
+  let krH = 0;
+  if (hist && hist.slopeKmDay < -1e-4 && hist.segDays >= 45) krH = krFromSlope(hist.slopeKmDay, a0, e0, hp0);
+  const kr0 = krH > 0 ? krH : krB > 0 ? krB : krN;
   if (hp0 > 1400) return { ...base, durum: 'yüksek', lifeDays: Infinity, conf: 'orta' };                  // sürüklenme ihmal edilebilir (yüzyıllar)
   if (!(kr0 > 0)) return { ...base, durum: 'sürüklenme yok', lifeDays: Infinity, conf: 'düşük' };
-  const ratio = krB > 0 && krN > 0 ? krB / krN : null, method = krB > 0 ? 'B*' : 'ndot';
+  const ratio = krH > 0 && krB > 0 ? krH / krB : krB > 0 && krN > 0 ? krB / krN : null, method = krH > 0 ? 'geçmiş' : krB > 0 ? 'B*' : 'ndot';
   const lnr0 = lnrho(hp0);
   let a = a0, e = e0, t = 0, hp = hp0, nextRec = 0.5 * DAY, steps = 0;
   const curve = withCurve ? [[0, hp0, ha0]] : null;
@@ -90,7 +97,48 @@ export function assessSat(o, nowMs = Date.now(), withCurve = true) {
   let conf = 'düşük';
   if (ratio != null && ratio > 0.33 && ratio < 3) conf = lifeDays < 60 ? 'yüksek' : lifeDays < 40 * 365 ? 'orta' : 'düşük';
   else if (ratio == null && lifeDays < 30) conf = 'orta';
+  if (krH > 0 && ratio != null && ratio > 0.5 && ratio < 2 && hist.spanDays >= 180) conf = lifeDays < 15 * 365 ? 'yüksek' : 'orta';     // iki bağımsız yöntem uyumlu ve geçmiş ≥ 6 ay
   return { ...base, durum: capped ? 'uzun' : 'bozunuyor', lifeDays, reentryMs: capped ? Infinity : epochMs + lifeDays * DAY * 1000, conf, method, ratio, kr0, curve, capped };
+}
+
+// ---------------------------------------------------------------- geçmiş yörünge analizi
+// S: [{t (ms), a (km)}] zaman sıralı yarı büyük eksen serisi -> manevra (yükseltme) sıçramaları ve bozunma eğimi (Theil–Sen, son manevradan beri)
+export function analyzeHistory(S, { boostKm = 0.35 } = {}) {
+  const n = S.length;
+  if (n < 3) return { durum: 'yetersiz', n };
+  const boosts = [];
+  for (let i = 1; i < n; i++) { const da = S[i].a - S[i - 1].a; if (da > boostKm) boosts.push({ i, t: S[i].t, da }); }
+  const last = boosts.length ? boosts[boosts.length - 1] : null, from = last ? last.i : 0, seg = S.slice(from);
+  const day = (x) => x / 864e5, segDays = seg.length > 1 ? day(seg[seg.length - 1].t - seg[0].t) : 0;
+  let slope = 0, rms = 0;
+  if (seg.length >= 3 && segDays >= 7) {
+    const sl = []; for (let i = 0; i < seg.length; i++) for (let j = i + 1; j < seg.length; j++) { const dt = day(seg[j].t - seg[i].t); if (dt >= 1) sl.push((seg[j].a - seg[i].a) / dt); }
+    sl.sort((x, y) => x - y); slope = sl.length ? sl[sl.length >> 1] : 0;
+    const med = [...seg.map((p) => p.a - slope * day(p.t - seg[0].t))].sort((x, y) => x - y)[seg.length >> 1];
+    rms = Math.sqrt(seg.reduce((s, p) => s + (p.a - slope * day(p.t - seg[0].t) - med) ** 2, 0) / seg.length);
+  }
+  return { durum: 'tamam', n, spanDays: day(S[n - 1].t - S[0].t), boostCount: boosts.length, lastBoostMs: last ? last.t : 0, boosts, slopeKmDay: slope, slopeRms: rms, segDays, segN: seg.length };
+}
+
+// B*'tan beklenen serbest bozunma hızı (km/gün, pozitif = alçalma); B* ≤ 0 ise 0
+export function expectedDecayKmDay(a, e, bstar) {
+  const hp = a * (1 - e) - RE; if (!(bstar > 1e-7) || hp < REENTRY_KM) return 0;
+  const kr = kRhoFromBstar(bstar, hp), [dadt] = derivs(a, e, kr, lnrho(hp));
+  return dadt < 0 ? -dadt * DAY : 0;
+}
+// geçmiş özeti (manevra sayısı, son manevra, gözlenen eğim, beklenen bozunma) -> 'korunuyor' | 'serbest' | 'belirsiz'
+//   korunuyor: son 120 günde yükseltme sıçraması ya da gözlenen bozunma beklenenin %40'ından az (sürekli itki, ör. Starlink)
+//   serbest:   uzun geçmiş (≥ 120 gün), a(t) düzenli (rms ≤ 3 km), gözlenen bozunma B*'tan beklenenin 0,6–5 katı ve yakın zamanda manevra yok
+//   belirsiz:  geçmiş kısa, a(t) düzensiz (aşağı manevra / yörünge değişimi), gözlenen ile beklenen bozunma uyuşmuyor
+export function controlFromHistory(h, nowMs = Date.now()) {
+  if (!h || !(h.spanDays >= 120)) return { klass: 'belirsiz', ratio: null, neden: 'geçmiş verisi kısa' };
+  const obs = -h.slopeKmDay, ratio = h.expKmDay > 0 ? obs / h.expKmDay : null, recent = h.lastBoostMs && nowMs - h.lastBoostMs < 120 * 864e5;
+  if (recent) return { klass: 'korunuyor', ratio, neden: 'son 120 günde yörünge yükseltme' };
+  if (ratio != null && ratio < 0.4) return { klass: 'korunuyor', ratio, neden: 'gözlenen bozunma beklenenin çok altında (sürekli itki)' };
+  if (h.rms != null && h.rms > 3) return { klass: 'belirsiz', ratio, neden: 'yarı büyük eksen düzensiz değişiyor (aşağı manevra ya da yörünge değişimi)' };
+  if (ratio != null && ratio > 5) return { klass: 'belirsiz', ratio, neden: 'gözlenen bozunma beklenenden çok hızlı (itkiyle alçalıyor olabilir)' };
+  if ((ratio != null && ratio >= 0.6) || (ratio == null && obs > 0.002 && h.boostCount === 0)) return { klass: 'serbest', ratio, neden: h.boostCount ? `son manevra ${Math.round((nowMs - h.lastBoostMs) / 864e5)} gün önce` : 'geçmişte hiç yükseltme yok' };
+  return { klass: 'belirsiz', ratio, neden: 'gözlenen ve beklenen bozunma uyuşmuyor' };
 }
 
 // ---------------------------------------------------------------- kontrol durumu (yakıt/manevra bilinmediği için)

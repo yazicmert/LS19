@@ -1,5 +1,5 @@
 // Çarpma / yeniden giriş modeli: büyüklük sıraları, tutarlılık, eksantrik yörünge, biçimlendirme, Sentry ayrıştırma
-import { assessSat, atmosphereDensity, fmtReentry, fmtSpan, sentryRows, fmtOdds, launchYear, ageYears, controlNote } from '../js/impact.js';
+import { assessSat, atmosphereDensity, fmtReentry, fmtSpan, sentryRows, fmtOdds, launchYear, ageYears, controlNote, analyzeHistory, expectedDecayKmDay, controlFromHistory } from '../js/impact.js';
 let fail = 0;
 const ok = (c, m) => { if (!c) { fail++; console.log('HATA', m); } else console.log('tamam', m); };
 const MU = 398600.4418, RE = 6378.135;
@@ -50,4 +50,31 @@ ok(launchYear({ OBJECT_ID: '1990-037B' }) === 1990 && launchYear({ OBJECT_ID: ''
 { const now = Date.UTC(2026, 9, 2); const a = ageYears({ OBJECT_ID: '1990-037B' }, now); ok(a > 36 && a < 37, `yaş hesabı: ${a.toFixed(1)} yıl`);
   ok(/yaşlı.*kontrolsüz/.test(controlNote(36)) && /orta yaşlı/.test(controlNote(7)) && /genç.*manevra/.test(controlNote(2)) && /kontrollü \(istasyon\)/.test(controlNote(28, true)) && /bilinmiyor/.test(controlNote(null)), 'kontrol durumu metinleri (≥10 yıl kontrolsüz aday, <5 genç, istasyon kontrollü)');
   ok(assessSat({ ...rec(400, 400, 1e-4), OBJECT_ID: '2020-001A' }, now, false).age > 6 && assessSat({ ...rec(400, 400, 1e-4), OBJECT_ID: '2020-001A' }, now, false).age < 7, 'assessSat çıktısında yaş'); }
+// geçmiş yörünge analizi: sentetik a(t) serileri
+{ const D = 864e5, t0 = Date.UTC(2025, 7, 1), mk = (days, f) => days.map((d) => ({ t: t0 + d * D, a: f(d) }));
+  const days = Array.from({ length: 61 }, (_, k) => k * 7);                                                // 420 gün, 7 günde bir
+  // 1) manevrasız, düzenli alçalma: -0.05 km/gün
+  const free = analyzeHistory(mk(days, (d) => 6800 - 0.05 * d));
+  ok(free.boostCount === 0 && Math.abs(free.slopeKmDay + 0.05) < 1e-6 && free.spanDays === 420, `manevrasız seri: eğim ${free.slopeKmDay.toFixed(4)} km/gün, manevra ${free.boostCount}`);
+  // 2) her ~60 günde +3 km yükseltme: manevralar bulunur, eğim yalnız son dilimden
+  const reb = analyzeHistory(mk(days, (d) => 6800 - 0.05 * (d % 63) + 3 * Math.floor(d / 63)));
+  ok(reb.boostCount >= 5 && Math.abs(reb.slopeKmDay + 0.05) < 0.01 && reb.segDays < 70, `yükseltmeli seri: ${reb.boostCount} manevra, son dilim eğimi ${reb.slopeKmDay.toFixed(3)} km/gün`);
+  // 3) tek aykırı değer eğimi bozmaz (Theil–Sen)
+  const out = analyzeHistory(mk(days, (d) => 6800 - 0.05 * d + (d === 210 ? -0.3 : 0)));
+  ok(Math.abs(out.slopeKmDay + 0.05) < 0.003, `aykırı değere dayanıklı eğim: ${out.slopeKmDay.toFixed(4)}`);
+  ok(analyzeHistory(mk([0, 7], (d) => 6800 - d)).durum === 'yetersiz', 'iki örnekle analiz yok');
+  // sınıflandırma: B*'tan beklenen bozunma ile gözlenen uyumlu -> serbest; sürekli itki (gözlenen ≪ beklenen) -> korunuyor
+  const a = RE + 420, exp = expectedDecayKmDay(a, 0.0005, 2e-4); ok(exp > 0.01 && exp < 0.5, `B*=2e-4, 420 km: beklenen bozunma ${exp.toFixed(3)} km/gün`);
+  const base = { spanDays: 400, boostCount: 0, lastBoostMs: 0, rms: 0.4, expKmDay: exp, segDays: 400 }, now = Date.now();
+  ok(controlFromHistory({ ...base, slopeKmDay: -exp * 1.3 }, now).klass === 'serbest', 'gözlenen ≈ beklenen, manevra yok -> serbest');
+  ok(controlFromHistory({ ...base, slopeKmDay: -exp * 0.05 }, now).klass === 'korunuyor', 'gözlenen ≪ beklenen -> korunuyor (sürekli itki)');
+  ok(controlFromHistory({ ...base, slopeKmDay: -exp, boostCount: 3, lastBoostMs: now - 30 * D }, now).klass === 'korunuyor', 'son 30 günde yükseltme -> korunuyor');
+  ok(controlFromHistory({ ...base, slopeKmDay: -exp, boostCount: 2, lastBoostMs: now - 300 * D }, now).klass === 'serbest', '300 gün önceki yükseltme: şimdi serbest');
+  ok(controlFromHistory({ ...base, slopeKmDay: -exp, rms: 20 }, now).klass === 'belirsiz' && controlFromHistory({ ...base, slopeKmDay: -exp * 40 }, now).klass === 'belirsiz', 'düzensiz a(t) ya da aşırı hızlı alçalma -> belirsiz');
+  ok(controlFromHistory({ ...base, spanDays: 60, slopeKmDay: -exp }, now).klass === 'belirsiz' && controlFromHistory(null).klass === 'belirsiz', 'kısa/yok geçmiş -> belirsiz');
+  // gözlenen eğimden kalibre edilen tahmin: B* yanlışsa (10× fazla) geçmiş eğimi düzeltir
+  const o = rec(420, 420, 2e-3), nowMs = Date.parse('2026-10-01T00:00:00Z'), truth = assessSat(rec(420, 420, 2e-4), nowMs, false), wrong = assessSat(o, nowMs, false);
+  const cal = assessSat(o, nowMs, false, { slopeKmDay: -expectedDecayKmDay(RE + 420, 0, 2e-4), segDays: 300, spanDays: 400 });
+  ok(cal.method === 'geçmiş' && Math.abs(cal.lifeDays / truth.lifeDays - 1) < 0.15 && wrong.lifeDays < truth.lifeDays / 4, `geçmiş eğimiyle kalibrasyon: ömür ${(cal.lifeDays / 365.25).toFixed(1)} yıl (doğru ${(truth.lifeDays / 365.25).toFixed(1)}, yanlış B* ${(wrong.lifeDays / 365.25).toFixed(1)})`);
+}
 if (fail) process.exit(1);
