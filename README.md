@@ -95,6 +95,32 @@ node test/test_telemetry.js    # kontrol paneli telemetrisi: jeodezik, Kepler (b
 node test/test_profiles.js     # tüm görev profillerini tasarlayıp uçurur (birkaç dakika)
 ```
 
+## Geliştirme araçları
+
+**Yapay zekâ becerileri (`.claude/skills/`; yalnız geliştirme için, siteye girmez).** [Claude Code](https://claude.com/claude-code) depoyu açınca bu klasördeki becerileri yükler: [UI UX Pro Max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) (arayüz stili, renk, yazı tipi ve UX kuralları veritabanı) ve [Emil Kowalski'nin 14 becerisi](https://github.com/emilkowalski/skill) (animasyon ve tasarım mühendisliği: `animate`, `improve-animations`, `review-animations`, `find-animation-opportunities`, `pick-ui-library`, `emil-design-eng`, …). İkisi de MIT; lisans metinleri `.claude/skills/LICENSES.md`'de, Emil Kowalski becerilerinin dosya özetleri `skills-lock.json`'dadır. Yeniden kurmak ya da güncellemek için:
+
+```bash
+npm i -g uipro-cli && uipro init --ai claude --offline    # UI UX Pro Max (--offline: GitHub'dan indirmeden paketin içindeki varlıklar)
+npx skills add emilkowalski/skill -a claude-code -y       # Emil Kowalski becerileri; skills-lock.json güncellenir
+```
+
+**Hareket kütüphaneleri (`web/lib/`).** Site bundler kullanmaz; üç kütüphane tek dosyalık ESM olarak depoda durur ve `web/index.html`'deki importmap ile adlandırılır (Three.js ile aynı yöntem). Importmap girdisi, modül içe aktarılana kadar hiçbir şey indirmez; arayüz bunları şimdilik kullanmaz.
+
+| İçe aktarma adı | Dosya | Ne işe yarar | Boyut (gzip) |
+|---|---|---|---|
+| `motion` 14.0.0 | `lib/motion.esm.js` | `animate` (yay, `stagger`, bağımsız `x`/`y`/`scale`), `inView`, `scroll`, `hover`, `press`, `MotionValue` | 78 KB (29) |
+| `number-flow` 0.6.2 | `lib/number-flow.esm.js` | `<number-flow>`: rakamları kayarak değişen sayı (canlı değerler için) | 17 KB (6) |
+| `torph` 0.1.3 | `lib/torph.esm.js` | `TextMorph`: metin değişince harfler arası geçiş | 27 KB (11) |
+
+```js
+import { animate, stagger } from 'motion';
+import 'number-flow';                       // <number-flow> öğesini tanımlar → el.update(1234.5)
+import { TextMorph } from 'torph';          // new TextMorph({ element }).update('Yeni metin')
+animate(el, { opacity: [0, 1], y: [8, 0] }, { duration: 0.2, ease: 'easeOut' });
+```
+
+`node tools/motion_paketle.mjs` paketleri npm'den geçici bir klasöre kurar, esbuild ile paketler ve `web/lib/`'e yazar (sürümler betiğin başında; npm erişimi gerekir). Lisanslar her kütüphanenin yanındaki `web/lib/<ad>.LICENSE.md`'dedir.
+
 ## Klasörler
 
 | Yol | İçerik |
@@ -105,6 +131,9 @@ node test/test_profiles.js     # tüm görev profillerini tasarlayıp uçurur (b
 | `web/models/fam/` | Uydu aileleri: Blender'da üretilen düşük poligonlu GLB'ler (`tools/uydu_aileleri.py`; köşe renkli, aile başına ~10–25 kB) |
 | `web/models/ast/` | Gerçek asteroit şekil modelleri (NASA PDS OBJ → ~8 bin üçgen GLB, hacim eşdeğeri yarıçap 1) ve `katalog.json`; `tools/asteroit_modelleri.py` ile üretilir · `damit/`: DAMIT şekilleri (≤ 800 üçgen, int16, gzip'li parçalar) ve `damit.json` indeksi; `tools/damit_paketle.py` ile üretilir |
 | `web/data/gecmis.json` | Halka açık CelesTrak geçmişinden türetilmiş uydu yörünge özeti (manevra sayısı, eğim, B*'tan beklenen bozunma) ve serbest bozunanların a(t) serileri (~2 MB, gzip ~0,5 MB); `tools/gecmis_derle.mjs` ile (haftalık `.github/workflows/gecmis.yml`) yenilenir |
+| `web/lib/` | Tek dosyalık ESM kütüphaneler ve lisansları: Three.js (+ `addons/`), satellite.js, motion, number-flow, torph |
+| `tools/` | Model, veri ve paket üreten betikler (`uydu_modelleri.mjs`, `uydu_aileleri.py`, `asteroit_modelleri.py`, `damit_paketle.py`, `gecmis_derle.mjs`, `motion_paketle.mjs`) |
+| `.claude/skills/`, `skills-lock.json` | Claude Code becerileri (UI UX Pro Max, Emil Kowalski) ve sürüm özetleri; siteye girmez |
 | `api/` | Vercel sunucusuz işlevleri (canlı veri vekili) |
 | `scripts/` | Blender sürümü (Adım 1–5): görev motoru ve sahne betikleri |
 | `kernels/` | JPL DE440s, Ay yönelim çekirdeği, efemeris tablosu |
@@ -122,4 +151,5 @@ node test/test_profiles.js     # tüm görev profillerini tasarlayıp uçurur (b
 - Geçmiş yörünge özeti: halka açık [CelesTrak](https://celestrak.org) aktif uydu TLE'lerinin 12 saatte bir kaydı, [jtmiclat/celestrak-historical](https://github.com/jtmiclat/celestrak-historical) (MIT) deposunun git geçmişinden alınır; yalnız türetilmiş özetler (a, manevra sayısı, eğim) dağıtılır, ham TLE dağıtılmaz. **Space-Track verisi kullanılmaz** (kullanım şartları yeniden dağıtımı kısıtlar).
 - Yeniden giriş modeli: atmosfer yoğunluğu Vallado, *Fundamentals of Astrodynamics and Applications* Tablo 8-4 (üstel model); B* tanımı ve yoğunluk yasası SGP4 (Hoots & Roehrich, Spacetrack Report #3; Vallado vd. 2006); asteroit çarpma olasılıkları [JPL Sentry](https://cneos.jpl.nasa.gov/sentry/).
 - Gezegen dokuları: [Solar System Scope](https://www.solarsystemscope.com/textures/) (CC BY 4.0; Merkür, Venüs bulut tepesi, Mars, Jüpiter, Satürn ve halkaları, Uranüs, Neptün); Plüton: NASA/JHUAPL/SwRI New Horizons genişletilmiş renk haritası (PIA19956, kamu malı); Ay rengi ve yükseklik: NASA SVS CGI Moon Kit (LROC/LOLA).
-- Kütüphaneler: [three.js](https://threejs.org) (MIT), [satellite.js](https://github.com/shashwatak/satellite-js) (MIT), jplephem (MIT).
+- Kütüphaneler: [three.js](https://threejs.org) (MIT), [satellite.js](https://github.com/shashwatak/satellite-js) (MIT), jplephem (MIT), [Motion](https://motion.dev) (MIT), [NumberFlow](https://number-flow.barvian.me/vanilla) (MIT, içinde esm-env), [torph](https://torph.lochie.me) (MIT); lisans metinleri `web/lib/*.LICENSE.md`.
+- Geliştirme becerileri (`.claude/skills/`): [UI UX Pro Max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) (MIT, Next Level Builder) ve [Emil Kowalski becerileri](https://github.com/emilkowalski/skill) (MIT); bildirimler `.claude/skills/LICENSES.md`'de.

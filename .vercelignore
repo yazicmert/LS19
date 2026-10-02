@@ -11,3 +11,5 @@ web/data/cache/
 web/baslat.command
 web/sunucu.py
 **/__pycache__/
+.claude/
+skills-lock.json
