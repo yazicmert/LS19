@@ -214,6 +214,11 @@
           <label class="tm-toggle"><input id="chkAutoWarp" type="checkbox" role="menuitemcheckbox" checked><span>Otomatik zaman hızı</span></label>
           <label class="tm-toggle" title="Açık: N-cisim çözücü — tek eylemsiz çerçevede Dünya, Ay ve Güneş aracı aynı anda çeker, etki küresi geçişi yok. Kapalı: iki merkez cisimli (etki küresi) çözücü. Fizik aynıdır; sonuçlar ≤ 1 m uyuşur."><input id="chkNbody" type="checkbox" role="menuitemcheckbox" checked><span>N-cisim çözücü</span></label>
         </div></details>
+        <details open><summary>İniş güdümü</summary><div class="tm-sub">
+          <button role="menuitemradio" data-landing="opt" title="Yakıt-optimal güdüm (Açıkmeşe: kayıpsız dışbükeyleştirme + ikinci derece koni programı), dengeli güvenlik koridoru: son 100 s'de itki yönü dikeyden ≤ 45°, iniş ve yatay hız yükseklikle sınırlı. Her 10 s'de yeniden çözülür.">Optimal (dengeli)</button>
+          <button role="menuitemradio" data-landing="free" title="Yakıt-optimal güdüm, serbest: işaretleme sınırı yok, hız hunisi gevşek. ZEM/ZEV'e göre en az yakıt (daha agresif iniş profili).">Optimal (serbest)</button>
+          <button role="menuitemradio" data-landing="zem" title="Eski güdüm: sıfır-çaba-ıskası/hızı (ZEM/ZEV), Apollo benzeri fren-yaklaşma-son iniş aşamaları.">ZEM/ZEV (Apollo)</button>
+        </div></details>
         <details open><summary>Senaryo</summary><div class="tm-sub">
           <button id="btnPerturb" role="menuitem" title="Rastgele 2 m/s hız bozulması"><i data-icon="shake"></i><span>Bozulma ekle</span><kbd>P</kbd></button>
           <button id="btnRestart" role="menuitem" title="Görevi baştan başlat"><i data-icon="restart"></i><span>Baştan başlat</span></button>

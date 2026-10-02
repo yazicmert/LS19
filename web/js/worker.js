@@ -1,17 +1,20 @@
 // LS19 fizik iş parçacığı (Web Worker): görev + motor burada koşar, ana iş parçacığı yalnız çizer.
 import * as E from './engine.js';
 import * as EO from './earth.js';
-import { Mission, R_SITE, STAGES } from './mission.js';
+import { Mission, R_SITE, STAGES, LANDING_MODES } from './mission.js';
+import { initConic, conicReady } from './conic.js';
 import { makeLive } from './live.js';
 import { designMission } from './design.js';
 
-let K = null, DESIGN = null, T_START = 0, LIVE = null;
+let K = null, DESIGN = null, T_START = 0, LIVE = null, landingMode = 'opt', conicErr = null;     // landingMode: iniş güdümü (LANDING_MODES); konik çözücü yüklenemezse ZEM kullanılır
 async function loadKernels() {
   if (K) return K;
   const get = (f) => fetch(new URL('../data/' + f, import.meta.url)).then((r) => { if (!r.ok) throw new Error(f + ' yüklenemedi'); return r; });
   const [spk, pck, eo, def] = await Promise.all([get('de440s.bsp').then((r) => r.arrayBuffer()), get('moon_pa_de440_200625.bpc').then((r) => r.arrayBuffer()),
     get('earth_orient.json').then((r) => r.json()), get('design_default.json').then((r) => r.json()).catch(() => null)]);
-  K = { spk, pck, eo, def }; EO.loadEarthOrientation(eo); return K;
+  K = { spk, pck, eo, def }; EO.loadEarthOrientation(eo);
+  try { await initConic(); } catch (err) { conicErr = String(err.message || err); }
+  return K;
 }
 // UTC ms -> motor zamanı (TDB s), sağlayıcıdan bağımsız
 function tOfUtcMs(ms) { const jdU = ms / 86400000 + 2440587.5; return (jdU + EO.ttMinusUtc(jdU + 69 / 86400) / 86400 - E.jdTdb(0)) * 86400; }
@@ -19,6 +22,7 @@ function tOfUtcMs(ms) { const jdU = ms / 86400000 + 2440587.5; return (jdU + EO.
 // gelmezse (eski istemci) burada hesaplanır
 async function setupDate(d) {
   await loadKernels();
+  if (d.landing && LANDING_MODES[d.landing]) landingMode = d.landing;
   const startMs = d.startMs;
   const def = !d.design && K.def && Math.abs(K.def.startMs - startMs) < 1000 ? K.def : null;
   T_START = d.design ? d.tStart : def ? def.tStart : tOfUtcMs(startMs) - 86400;   // efemeris başlangıcı: seçilen günden 1 gün önce
@@ -29,7 +33,7 @@ async function setupDate(d) {
   else DESIGN = designMission(tOfUtcMs(startMs), (msg, frac) => postMessage({ type: 'designProgress', msg, frac }), d.cfg);
   E.setMoonZone(DESIGN.profile === 'HALO' ? 1.25 * DESIGN.HALO.stats.raKm : E.SOI_M);
   newMission(); paused = true;
-  postMessage({ type: 'ready', t0: M.P.s.t, plan: M.plan, stages: DESIGN.STAGES || STAGES, design: DESIGN, tStart: T_START, startMs, nominal });
+  postMessage({ type: 'ready', t0: M.P.s.t, plan: M.plan, stages: DESIGN.STAGES || STAGES, design: DESIGN, tStart: T_START, startMs, nominal, landing: landingMode, optimalOk: conicReady(), optimalErr: conicErr });
 }
 
 let M = null, tDisp = 0, warp = 1, autoWarp = true, paused = true, maxWarp = 20000;
@@ -49,7 +53,7 @@ function sampleTrail() {
   }
 }
 function newMission() {
-  M = new Mission({ design: DESIGN, nbody });
+  M = new Mission({ design: DESIGN, nbody, landing: conicReady() ? landingMode : 'zem' });
   M.attachHistory();
   const push = M.P.onStep; M.P.onStep = (...a) => { push(...a); sampleTrail(); };
   tDisp = M.P.s.t; sentEvents = 0; status = '';
@@ -140,7 +144,7 @@ function tick() {
   }
   postMessage({ type: 'state', t: x.t, r: x.r, v: x.v, m: x.m, prop: x.prop, k: x.k, thr: x.thr, u: x.u, phase: x.phase, nbody, forces,
     dv: x.dv, stage, local, auto: M.auto, done: M.done, result: M.result, paused, warp: wEff, warpSet: warp, autoWarp,
-    tNext: M.tNext, status, events: newEv, drAxis: M.drAxis, manual, trail, trailReset: reset });
+    tNext: M.tNext, status, events: newEv, drAxis: M.drAxis, manual, trail, trailReset: reset, landing: M.landing, opt: M.descentInfo ? { tf: M.descentInfo.tf, fuel: M.descentInfo.fuel, replans: M.descentInfo.replans, fails: M.descentInfo.fails } : null });
 }
 
 onmessage = (e) => {
@@ -170,6 +174,7 @@ onmessage = (e) => {
       }
       break;
     case 'solver': nbody = !!d.nbody; M.setSolver(nbody); break;
+    case 'landing': if (LANDING_MODES[d.mode]) { landingMode = d.mode; if (!M.done) M.landing = conicReady() ? landingMode : 'zem'; } break;     // PDI'dan önce etkili (iniş başlamışsa sürmekte olan güdüm değişmez)
     case 'perturb': M.perturb(tDisp, d.dv); break;
     case 'separate': M.manualSeparate(tDisp); break;
     case 'seek': seek(d.t); postMessage({ type: 'restarted', t0: M.t0, plan: M.plan, seek: true }); break;

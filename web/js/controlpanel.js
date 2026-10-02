@@ -3,6 +3,7 @@
 // Her satırın başlığında (fare ile üzerine gelince) tanım/formül yazar: değerlerin neye dayandığı görünür.
 import * as T from './telemetry.js';
 import { R_E } from './engine.js';
+import { LANDING_MODES } from './mission.js';
 
 const D = 180 / Math.PI, AU = 149597870.7;
 const fmt = (x, d = 0) => (Number.isFinite(x) ? x.toLocaleString('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—');
@@ -38,6 +39,8 @@ const SECTIONS = [
     ['Durma yüksekliği', (t, c) => (t.land ? [`${km(t.land.stopH)} (pay ${km(t.land.stopMargin)})`, t.land.stopMargin < 0 ? 'bad' : null] : '—'), 'tam gazla dikey hızı sıfırlamak için gereken irtifa: v²/(2(a_azami − g)); pay = irtifa − durma yüksekliği'],
     ['Hız sıfırlama Δv ≥', (t, c) => (t.land ? `${fmt(t.land.vRel * 1000, 0)} m/s (kalan ${fmt(t.dvStage * 1000, 0)})` : '—'), 'yüzeye göre hızı sıfırlamak için en az |v| Δv gerekir (yerçekimi kaybı ayrıca eklenir)'],
     ['Güneş yüksekliği', (t) => (t.land && t.land.sunElev != null ? ang(t.land.sunElev, 1) : '—')],
+    ['İniş güdümü', (t, c) => (c.landing ? LANDING_MODES[c.landing] || c.landing : null), 'ZEM/ZEV: sıfır-çaba-ıskası güdümü (Apollo benzeri). Optimal: kayıpsız dışbükeyleştirilmiş yakıt-optimal güdüm (SOCP), kapalı döngüde yeniden çözülür'],
+    ['Optimal plan', (t, c) => (c.opt ? `${fmt(c.opt.tf, 0)} s · ~${fmt(c.opt.fuel, 0)} kg · ${c.opt.replans} yeniden çözüm${c.opt.fails ? ` (${c.opt.fails} başarısız)` : ''}` : null), 'PDI anındaki ilk plan: iniş süresi ve yakıt tahmini (kapıya kadar); yeniden çözüm sayısı'],
   ], canvas: 'phase' },
   { id: 'motor', title: 'Motor ve yakıt', open: true, rows: [
     ['Kademe', (t) => (t.stage ? t.stage.name : '—')],
@@ -194,7 +197,7 @@ export class ControlPanel {
     this.budgetNote.textContent = (c.nominal && Object.keys(c.nominal).length ? 'Gerekli: bozulmasız (nominal) uçuşun kalan manevraları.' : 'Gerekli: tasarım tahmini (nominal uçuş hesaplanıyor).') + ' Pay = kalan − gerekli; plan dışı harcama payı azaltır.';
     // satırlar
     const showLand = !!L && (T.LANDING_PHASES.has(s.phase) || L.h < 30);
-    const ctx2 = { rSite: c.rSite, touchCls: risk ? 'warn' : null };
+    const ctx2 = { rSite: c.rSite, touchCls: risk ? 'warn' : null, landing: s.landing && s.opt !== undefined && T.LANDING_PHASES.has(s.phase) ? s.landing : null, opt: s.opt };
     for (const row of this.rows) {
       const q = row.fn(tel, ctx2), txt = Array.isArray(q) ? q[0] : q, cls = Array.isArray(q) ? q[1] || '' : '';
       if (txt == null) { if (!row.tr.hidden) row.tr.hidden = true; continue; }

@@ -4,6 +4,8 @@
 // (rota düzeltmeleri o anki duruma göre yeniden hedefler).
 import * as E from './engine.js';
 import { HaloRef } from './halo.js';
+import { conicReady } from './conic.js';
+import { solvePDG, replanPDG, controlAt } from './pdg.js';
 const { add, sub, scale, dot, cross, norm, unit, mv, mtv } = E;
 
 export const SITE_LAT = 0.67409 * Math.PI / 180, SITE_LON = 23.47298 * Math.PI / 180;
@@ -24,6 +26,13 @@ export const LAUNCH = { t_launch: 1082571.0725359619, t_ins: 1083171.0725359619,
 const TLI_DUR_ERROR = 0.05, PDI_ANGLE = 9.0 * Math.PI / 180, H_PDI = 15.0, TF_BRAKE = 310.0, TF_APPROACH = 45.0;
 const GATE_HI = { x: -0.700, z: 1.500, vx: 0.045, vz: -0.035 }, GATE_LO = { x: 0.0, z: 0.250, vx: 0.0, vz: -0.018 };
 const V_TOUCH = -0.001, TILT_MAX_LOW = 40 * Math.PI / 180;
+// Optimal iniş (pdg.js). Ortak: son iniş kapısı irtifası GATE_H (m; kapıdaki iniş hızı son iniş yasasının eğrisiyle uyumlu: 1 + 0,07·h), itki payı (planlama için üst sınır = pay × tam itki),
+// kuru kütleye yedek (kg), yeniden çözüm aralığı (s), düğüm sayısı, gevşek kısıt ağırlığı, kumanda sürekliliği. Ön ayarlar (güvenlik koridoru):
+//   opt  (dengeli): son 100 s'de itki yönü dikeyden ≤ 45°, son 200 s'de iniş hızı ≤ vd + 0,06·h ve yatay hız ≤ 1 + 0,15·h (yüzeye göre)
+//   free (serbest): işaretleme sınırı yok, hız hunisi gevşek (0,25 / 0,6, son 120 s) — saf yakıt-optimale en yakın; ZEM'e göre ~%5,6 daha az Δv
+export const OPT_DESCENT = { GATE_H: 120, THR_MARGIN: 0.9, RESERVE: 25, REPLAN: 10, N: 60, SOFT: 200, REG: 0.003,
+  PRESETS: { opt: { POINT_DEG: 45, POINT_TAIL: 100, KD: 0.06, VH0: 1.0, KH: 0.15, FUNNEL_TAIL: 200 }, free: { POINT_DEG: 0, POINT_TAIL: 0, KD: 0.25, VH0: 1.0, KH: 0.6, FUNNEL_TAIL: 120 } } };
+export const LANDING_MODES = { zem: 'ZEM/ZEV (Apollo benzeri)', opt: 'Optimal (SOCP, dengeli)', free: 'Optimal (SOCP, serbest)' };
 export const T_L_TARGET = 1453339.4275498604;
 // Ekim 2026 Apollo tasarımı (design.js, değişken kütleli sonlu itkiyle); diğer tarihler design.js ile tarayıcıda üretilir
 export const DEFAULT_DESIGN = { TLI, ARRIVAL, LAUNCH, t_L: T_L_TARGET, label: '2026-10-13 (design.js)' };
@@ -47,9 +56,10 @@ function solve3(J, F) {             // J x = F (Cramer)
 
 export class Mission {
   // nbody: true (varsayılan) N-cisim çözücü (tek eylemsiz çerçeve, etki küresi geçişi yok); false etki küresi (iki merkez cisimli) çözücü
-  constructor({ tliError = TLI_DUR_ERROR, verbose = false, compat = false, design = DEFAULT_DESIGN, nbody = true } = {}) {
+  // landing: 'zem' (sıfır-çaba-ıskası güdümü) | 'opt' | 'free' (yakıt-optimal, kayıpsız dışbükeyleştirilmiş SOCP; LANDING_MODES; konik çözücü yüklü değilse ZEM)
+  constructor({ tliError = TLI_DUR_ERROR, verbose = false, compat = false, design = DEFAULT_DESIGN, nbody = true, landing = 'zem' } = {}) {
     this.D = design; const { TLI, ARRIVAL, LAUNCH } = design;
-    this.nbody = nbody;
+    this.nbody = nbody; this.landing = landing; this.descentInfo = null;
     this.compat = compat;          // true: Python sürümüyle birebir (MCC-3 yok, LOI 20 s kuantalı)
     // modüler yapılandırma (eski tasarımlarda yoksa Apollo varsayılanları)
     this.hPark = design.EARTH ? design.EARTH.h : H_PARK;
@@ -442,7 +452,7 @@ export class Mission {
       P.hMaxCoast = Math.max(0.1, Math.min(60.0, (rem / n) * 0.5));
       yield* this.stepOnce();
     }
-    yield* this.descent();
+    yield* ((this.landing === 'opt' || this.landing === 'free') && conicReady() ? this.descentOptimal() : this.descent());
   }
 
   // site'a bağlı yerel çerçeve: x menzil (yaklaşma yönü), y sol, z yukarı
@@ -491,6 +501,78 @@ export class Mission {
     const stop = (Pp) => norm(Pp.s.seleno()[0]) - R_SITE <= 0.0;
     this.tNext = null;
     yield* this.until(P.s.t + 1500, ctrl, stop);
+    this.touchdown();
+  }
+
+  // Optimal iniş: PDI'da yakıt-optimal plan (pdg.js: kayıpsız dışbükeyleştirme + SOCP), planı uygula, her OPT.REPLAN s'de (son dakikada 4 s) sıcak başlangıçlı yeniden çöz;
+  // plan, iniş yerinin GATE_H irtifalı kapısına biter, ardından eski ZEM güdümündeki son iniş yasası temas edene dek sürer. Plan Ay merkezli eylemsiz çerçevede (ICRF eksenleri), SI birimlerindedir.
+  // Çözüm bulunamazsa ZEM/ZEV güdümüne dönülür. Kumanda: ZOH düğümündeki ivme vektörü u → itki = m·|u| (gerçek kütleyle), tam itkıya ve en küçük kısmaya kırpılır.
+  *descentOptimal() {
+    const P = this.P, stg = this.veh.active, O = { ...OPT_DESCENT, ...OPT_DESCENT.PRESETS[this.landing] }, MU = E.MU_M * 1e9, G0m = E.G0 * 1e3;
+    O.VD_GATE = 1.0 + 0.07 * O.GATE_H;
+    const gfun = (r) => { const n = Math.hypot(r[0], r[1], r[2]), k = -MU / (n * n * n); return [r[0] * k, r[1] * k, r[2] * k]; };
+    const mk = (t0) => {
+      const [rs, vs] = P.s.seleno(), m = this.veh.mass();
+      return { r0: scale(rs, 1000), v0: scale(vs, 1000), m0: m, mDry: m - stg.prop + O.RESERVE, rho1: stg.thr_min * stg.T * 1000, rho2: O.THR_MARGIN * stg.T * 1000, alpha: 1 / (stg.isp * G0m),
+        gfun, surfaceR: R_SITE * 1000, floorMargin: 0, soft: O.SOFT,
+        point: O.POINT_DEG ? { cosTheta: Math.cos(O.POINT_DEG * Math.PI / 180), tail: O.POINT_TAIL } : undefined,
+        funnel: { vd0: O.VD_GATE, kd: O.KD, vh0: O.VH0, kh: O.KH, tail: O.FUNNEL_TAIL },
+        target: (tf) => { const tl = t0 + tf, sU = siteIcrf(tl), up = unit(sU), rf = add(scale(sU, 1000), scale(up, O.GATE_H)), vsite = cross(E.omegaMoon(tl), rf);
+          return { rf, vf: sub(vsite, scale(up, O.VD_GATE)), up, vsite }; } };
+    };
+    const [, vs0] = P.s.seleno(), s0 = siteIcrf(P.s.t), up0 = unit(s0);
+    this.status = 'İniş yörüngesi hesaplanıyor…'; yield 'COMPUTE';
+    const t0 = P.s.t, R = solvePDG(mk(t0), { Nfinal: O.N });
+    this.status = '';
+    if (!R.ok) { this.log(`Optimal iniş planı bulunamadı (${R.why}): ZEM/ZEV güdümü`, 'PLAN_FAIL'); yield* this.descent(); return; }
+    this.drAxis = unit(sub(vs0, scale(up0, dot(vs0, up0))));
+    let plan = { t0, sol: R.sol };
+    const info = this.descentInfo = { tf: R.tf, fuel: R.fuel, calls: R.calls, planMs: R.ms, replans: 0, fails: 0, replanMs: 0, violMax: R.sol.violMax ?? 0, gateT: null };
+    P.phase = 'PDI'; P.hMaxBurn = 0.2;
+    this.log(`PDI ateşleme (irtifa ${(norm(P.s.seleno()[0]) - R_SITE).toFixed(2)} km)`, 'PDI');
+    this.log(`Optimal iniş planı (SOCP): ${R.tf.toFixed(0)} s, ~${R.fuel.toFixed(0)} kg yakıt (Δv ${(stg.isp * G0m * Math.log(this.veh.mass() / R.sol.m[R.sol.N])).toFixed(0)} m/s), ${R.calls} çözüm / ${R.ms} ms`, 'PLAN', { fuel: R.fuel, tf: R.tf });
+    const alt = () => norm(P.s.seleno()[0]) - R_SITE;                       // km
+    const st = { mode: 'PDG', fails: 0 };
+    const clampThr = (T) => Math.min(1.0, Math.max(stg.thr_min, T / stg.T));
+    const ctrl = (Pp) => {
+      if (st.mode === 'PDG') {
+        const c = controlAt(plan.sol, Pp.s.t - plan.t0), an = norm(c.u), a = alt();
+        Pp.phase = a > 3.0 ? 'PDI' : 'YAKLASMA';
+        return [clampThr((this.veh.mass() * an) / 1000), unit(c.u)];          // kg·m/s² = N → kN
+      }
+      const { p, v, g, Rf } = this.localState(Pp.s.t);
+      const vzr = V_TOUCH - 0.07 * Math.max(p[2], 0.0), a = [-0.15 * p[0] - 0.8 * v[0], -0.15 * p[1] - 0.8 * v[1], 1.2 * (vzr - v[2])], at = sub(a, g);
+      const hz = Math.hypot(at[0], at[1]), tilt = Math.atan2(hz, at[2]);
+      if (tilt > TILT_MAX_LOW) { const s_ = (Math.tan(TILT_MAX_LOW) * at[2]) / hz; at[0] *= s_; at[1] *= s_; }
+      if (p[2] < 0.003) { at[0] = 0; at[1] = 0; }
+      return [clampThr(this.veh.mass() * norm(at)), mtv(Rf, unit(at))];
+    };
+    const surface = () => alt() <= 0.0, gate = () => alt() <= O.GATE_H / 1000 + 0.002;
+    this.tNext = null;
+    for (;;) {
+      if (st.mode === 'PDG') {
+        const tEnd = plan.t0 + plan.sol.tf, tgo = tEnd - P.s.t;
+        if (tgo <= 0.5 || gate()) {
+          st.mode = 'TERMINAL'; P.phase = 'SON_INIS'; info.gateT = P.s.t;
+          const { v } = this.localState();
+          this.log(`Son iniş kapısı: irtifa ${(alt() * 1000).toFixed(0)} m, dikey hız ${(v[2] * 1000).toFixed(1)} m/s, yatay ${(Math.hypot(v[0], v[1]) * 1000).toFixed(1)} m/s`, 'GATE');
+          continue;
+        }
+        const hit = yield* this.until(Math.min(P.s.t + (tgo > 60 ? O.REPLAN : 4), tEnd), ctrl, (Pp) => surface() || gate());
+        if (hit && surface()) break;
+        if (hit || P.s.t >= tEnd - 1e-9) continue;
+        const left = tEnd - P.s.t;
+        if (left > 8) {
+          let q = replanPDG(mk(P.s.t), plan, P.s.t, { N: Math.max(10, Math.min(O.N, Math.round(left / 0.6))), reg: O.REG });
+          if (!q.ok && st.fails >= 1) q = solvePDG(mk(P.s.t), { Nfinal: O.N, tfGuess: Math.max(left, 20), tfSpan: 0.6 });   // art arda ikinci başarısızlık (elle uçuş, büyük bozulma): sıfırdan çöz
+          if (q.ok) { plan = { t0: P.s.t, sol: q.sol }; st.fails = 0; info.replans++; info.replanMs += q.ms; info.violMax = Math.max(info.violMax, q.sol.violMax ?? 0); }
+          else {
+            info.fails++; st.fails++;
+            if (st.fails >= 4) { st.mode = 'TERMINAL'; P.phase = 'SON_INIS'; this.log('Optimal iniş planı sürdürülemedi: son iniş yasasına geçildi', 'PLAN_FAIL'); }
+          }
+        }
+      } else { yield* this.until(P.s.t + 1500, ctrl, surface); break; }
+    }
     this.touchdown();
   }
 

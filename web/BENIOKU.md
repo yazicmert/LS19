@@ -112,6 +112,7 @@ Ay Görevi panelindeki **Kontrol** sekmesi aracın anlık durumunu canlı göste
 - `js/mission.js` — otopilot (TLI, MCC, LOI ya da NRI + istasyon tutma + ayrılış + LLO girişi, DOI, PDI güdümü)
 - `js/ephem.js`, `js/earth.js`, `js/jplkernel.js` — canlı N-cisim efemerisi, Dünya yönelimi, JPL çekirdek okuyucu
 - `js/engine.js` — fizik motoru (N-cisim ve iki merkez cisimli çerçeve, değişken kütleli itki, kuvvet dökümü) · `js/worker.js` fizik iş parçacığı · `js/nominal.js` nominal Δv koşusu
+- `js/pdg.js` — motorlu iniş güdümü: yakıt-optimal iniş, kayıpsız dışbükeyleştirme + SOCP, son zaman araması, sıcak başlangıçlı yeniden çözüm · `js/conic.js` — konik çözücü arayüzü · `lib/clarabel/` — Clarabel (WebAssembly, Apache-2.0); `../tools/clarabel_paketle.mjs` ile üretilir; `Uçuş ▾ → İniş güdümü` (Optimal dengeli / serbest / ZEM-ZEV)
 - `js/telemetry.js` — canlı uçuş telemetrisi (jeodezik irtifa, yüzeye göre hız, osküle elemanlar, Kepler süreleri, Tsiolkovsky Δv ve bütçe, tutulma, görüş hattı, uyarılar) · `js/controlpanel.js` — Kontrol sekmesi
 - `lib/motion.esm.js`, `lib/number-flow.esm.js`, `lib/torph.esm.js` (Motion, NumberFlow, torph; MIT) — hareket kütüphaneleri; `index.html`'deki importmap'te `motion`, `number-flow`, `torph` adlarıyla tanımlıdır (içe aktarılana kadar indirilmez, arayüz henüz kullanmıyor); `../tools/motion_paketle.mjs` ile üretilir, lisanslar `lib/*.LICENSE.md`
 - `js/sats.js`, `js/satlayer.js`, `lib/satellite.esm.js` (satellite.js, MIT) — canlı uydular

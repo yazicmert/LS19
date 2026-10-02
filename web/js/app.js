@@ -189,7 +189,7 @@ async function startDesign(dateStr) {
     }
   }
   $('#loadMsg').textContent = 'Görev kuruluyor…';
-  send({ cmd: latestSentInit ? 'design' : 'init', ...msg }); latestSentInit = true;
+  send({ cmd: latestSentInit ? 'design' : 'init', ...msg, landing: landingMode }); latestSentInit = true;
 }
 function designFailed(m) {
   $('#loadMsg').textContent = 'Tasarım başarısız: ' + m; $('#loadBack').hidden = false;
@@ -201,13 +201,35 @@ ui.onDesign = startDesign;
 $('#loadBack').onclick = () => startDesign(goodDate && goodDate !== pendingDate ? goodDate : DEFAULT_DATE);
 // Δv panelinin "Nominal" sütunu: aynı tarihin bozulmasız otopilot uçuşu, ayrı bir iş parçacığında (~5 s)
 let nomWorker = null, nomId = 0;
-function runNominal(tStart, design, done) {
+function runNominal(tStart, design, landing, done) {
   if (nomWorker) nomWorker.terminate();
   const w = (nomWorker = new Worker(new URL('./nominal.js', import.meta.url), { type: 'module' })), id = ++nomId;
   w.onmessage = (e) => { if (e.data.id !== id) return; ui.setNominal(e.data.error ? {} : e.data.dv); if (!e.data.error && done) done(e.data.dv); w.terminate(); if (nomWorker === w) nomWorker = null; };
   w.onerror = () => { ui.setNominal({}); w.terminate(); if (nomWorker === w) nomWorker = null; };
-  w.postMessage({ id, tStart, design });
+  w.postMessage({ id, tStart, design, landing });
 }
+
+// iniş güdümü: ZEM/ZEV (eski) ya da optimal (SOCP; konik çözücü yüklenemezse ZEM'e düşer). Δv panelinin Nominal sütunu seçilen güdümle uçurulur.
+let landingMode = 'opt', optimalOk = true, lastTStart = null;
+try { const v = localStorage.getItem('ls19.landing'); if (v === 'zem' || v === 'opt' || v === 'free') landingMode = v; } catch (e) { /* özel pencere */ }
+function syncLanding() {
+  document.querySelectorAll('[data-landing]').forEach((b) => {
+    const needs = b.dataset.landing !== 'zem'; b.disabled = needs && !optimalOk; b.classList.toggle('on', b.dataset.landing === (optimalOk ? landingMode : 'zem'));
+  });
+  refreshTreeMenus();
+}
+function refreshNominal(preNominal, ce) {
+  const key = optimalOk ? landingMode : 'zem', cached = key === 'zem' ? (preNominal || (ce && ce.nominal)) : (ce && ce.nominalBy && ce.nominalBy[key]);
+  if (cached) { ui.setNominal(cached); return; }
+  runNominal(lastTStart, DESIGN, key, (dv) => { if (!ce) return; if (key === 'zem') ce.nominal = dv; else (ce.nominalBy ||= {})[key] = dv; });
+}
+function setLanding(mode) {
+  if (mode === landingMode) return; landingMode = mode;
+  try { localStorage.setItem('ls19.landing', mode); } catch (e) { /* özel pencere */ }
+  send({ cmd: 'landing', mode }); syncLanding();
+  if (DESIGN && lastTStart != null) refreshNominal(null, designCache.get(cacheKey(START_MS, DESIGN.cfg || ui.getConfig())));
+}
+document.querySelectorAll('[data-landing]').forEach((b) => b.addEventListener('click', () => setLanding(b.dataset.landing)));
 
 worker.onmessage = (e) => {
   const d = e.data;
@@ -227,8 +249,9 @@ worker.onmessage = (e) => {
     E.setMoonZone(DESIGN.profile === 'HALO' ? 1.25 * DESIGN.HALO.stats.raKm : E.SOI_M);
     world.resetDynamic && world.resetDynamic(); world.setDesign(DESIGN);
     const ce = designCache.get(cacheKey(d.startMs, DESIGN.cfg || ui.getConfig()));
-    if (d.nominal) ui.setNominal(d.nominal); else if (ce && ce.nominal) ui.setNominal(ce.nominal);
-    else runNominal(d.tStart, d.design, (dv) => { if (ce) ce.nominal = dv; });
+    lastTStart = d.tStart; if (d.type === 'ready') optimalOk = d.optimalOk !== false;
+    syncLanding();
+    refreshNominal(d.nominal, ce);
     refreshCompare();
   }
   if (d.type === 'ready' || d.type === 'restarted') {

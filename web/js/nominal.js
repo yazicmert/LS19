@@ -3,15 +3,17 @@
 import { makeLive } from './live.js';
 import { Mission } from './mission.js';
 import { dvFromEvents } from './dvbudget.js';
+import { initConic, conicReady } from './conic.js';
 
 const get = (f) => fetch(new URL('../data/' + f, import.meta.url)).then((r) => { if (!r.ok) throw new Error(f + ' yüklenemedi'); return r; });
 onmessage = async (e) => {
-  const { id, tStart, design } = e.data;
+  const { id, tStart, design, landing = 'zem' } = e.data;
   try {
     const [spk, pck, eo] = await Promise.all([get('de440s.bsp').then((r) => r.arrayBuffer()),
       get('moon_pa_de440_200625.bpc').then((r) => r.arrayBuffer()), get('earth_orient.json').then((r) => r.json())]);
     makeLive(spk, pck, eo, tStart);
-    const M = new Mission({ design }); M.P.tLimit = Infinity;
+    if (landing !== 'zem') { try { await initConic(); } catch (err) { /* ZEM'e düşer */ } }
+    const M = new Mission({ design, landing: conicReady() ? landing : 'zem' }); M.P.tLimit = Infinity;
     for (;;) { const r = M.gen.next(); if (r.done) break; }
     const td = M.events.find((x) => x.key === 'INDI');
     postMessage({ id, dv: dvFromEvents(M.events), ok: !!(M.result && M.result.ok), tTouch: td ? td.t : null });
