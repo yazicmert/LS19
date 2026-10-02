@@ -3,14 +3,15 @@
 // web/data/gecmis.json (yalnız türetilmiş özetler ve aday cisimlerin seyreltilmiş a(t) serileri).
 // Space-Track kullanılmaz (şartları yeniden dağıtımı kısıtlar); yalnız kamuya açık CelesTrak verisi.
 //
-// Kullanım (Node 20+):   node tools/gecmis_derle.mjs [--adim-gun 7] [--cikti web/data/gecmis.json] [--onbellek /tmp/gecmis]
+// Kullanım (Node 20+):   node tools/gecmis_derle.mjs [--adim-gun 7] [--pencere-gun 0] [--cikti web/data/gecmis.json] [--onbellek /tmp/gecmis]
+//   --pencere-gun N: yalnız son N günü kullan (0 = tüm kayıt). Haftalık GitHub Action (.github/workflows/gecmis.yml) 425 ile ~14 aylık kayan pencere tutar.
 // GitHub API hız sınırı için isteğe bağlı: GITHUB_TOKEN ortam değişkeni.
 import fs from 'fs';
 import path from 'path';
 import { analyzeHistory, expectedDecayKmDay, controlFromHistory } from '../web/js/impact.js';
 
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
-const STEP = +arg('adim-gun', 7), OUT = arg('cikti', 'web/data/gecmis.json'), CACHE = arg('onbellek', path.join(process.env.TMPDIR || '/tmp', 'ls19-gecmis'));
+const STEP = +arg('adim-gun', 7), WINDOW = +arg('pencere-gun', 0), OUT = arg('cikti', 'web/data/gecmis.json'), CACHE = arg('onbellek', path.join(process.env.TMPDIR || '/tmp', 'ls19-gecmis'));
 const REPO = 'jtmiclat/celestrak-historical', FILE = 'raw-data/tle-data.txt', MU = 398600.4418;
 const H = { 'User-Agent': 'LS19-gecmis', ...(process.env.GITHUB_TOKEN ? { Authorization: 'Bearer ' + process.env.GITHUB_TOKEN } : {}) };
 fs.mkdirSync(CACHE, { recursive: true });
@@ -53,7 +54,8 @@ async function snapshot(c) {
   return parse(fs.readFileSync(f, 'utf8'), c.t);
 }
 
-const all = await commits();
+let all = await commits();
+if (WINDOW > 0) { const cut = all[all.length - 1].t - WINDOW * 864e5; all = all.filter((c) => c.t >= cut); }
 // seçim: her adım günde bir (hedef saate en yakın) + son 6 anlık görüntü (güncel eğim için)
 const picks = []; let nextT = all[0].t;
 for (const c of all) if (c.t >= nextT) { picks.push(c); nextT = c.t + STEP * 864e5 - 12 * 3600e3; }
@@ -62,17 +64,19 @@ picks.sort((a, b) => a.t - b.t);
 console.log(`${all.length} anlık görüntü; ${picks.length} tanesi indirilecek (adım ${STEP} gün)`);
 
 const series = new Map();                                   // id -> [{t,a,e,bstar}]
-let done = 0;
+let done = 0, skipped = 0;
 async function worker(q) {
   while (q.length) {
     const c = q.shift(); let snap;
-    for (let k = 0; k < 3 && !snap; k++) { try { snap = await snapshot(c); } catch (e) { if (k === 2) console.log('ATLANDI', e.message); } }
+    for (let k = 0; k < 3 && !snap; k++) { try { snap = await snapshot(c); } catch (e) { if (k === 2) { console.log('ATLANDI', e.message); skipped++; } } }
     if (snap) for (const [id, s] of snap) { let a = series.get(id); if (!a) series.set(id, (a = [])); const last = a[a.length - 1]; if (!last || s.t > last.t) a.push(s); }
     if (++done % 10 === 0) console.log(`  ${done}/${picks.length}`);
   }
 }
 const q = picks.slice(); await Promise.all(Array.from({ length: 4 }, () => worker(q)));
 
+// bozuk/eksik indirme sessizce eski veriyi bozmasın: örneklerin ≥ %80'i okunmuş olmalı
+if (done < 3 || series.size < 5000 || skipped > 0.2 * picks.length) { console.error(`HATA: veri yetersiz (${series.size} uydu, ${skipped} anlık görüntü atlandı); dosya yazılmadı`); process.exit(1); }
 const sats = {}, seri = {}; let nSeri = 0;
 const t0 = picks[0].t, axis = picks.map((c) => Math.round((c.t - t0) / 864e3) / 100), RE = 6378.135;
 for (const [id, S] of series) {
