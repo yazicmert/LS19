@@ -26,8 +26,9 @@ const dummy = () => E.dummyVehicle();
 const D2R = Math.PI / 180;
 
 // ---------------------------------------------------------------- yapılandırma
+export const DEFAULT_RAISE = { n: 0, ha: 20000 };            // yörünge yükseltme: TLI öncesi apoje yükseltme yakışı sayısı (0 = yok) ve son apoje irtifası (km)
 export const DEFAULT_CONFIG = {
-  earth: { h: 185, inc: 28.6, revs: 1.5 },                    // Dünya park yörüngesi: irtifa (km), eğim (°), tur
+  earth: { h: 185, inc: 28.6, revs: 1.5, raise: DEFAULT_RAISE },   // Dünya park yörüngesi: irtifa (km), eğim (°), tur (yükseltmeden önce park yörüngesinde)
   moon: { type: 'LLO', llo: { h: 110, revs: 2 }, halo: { preset: 'NRHO92', revs: 1 } },
 };
 export const PROFILES = {
@@ -36,12 +37,16 @@ export const PROFILES = {
   NRHO: { name: 'Artemis: NRHO 9:2 bekleme (1 tur) + LLO', cfg: { earth: DEFAULT_CONFIG.earth, moon: { type: 'HALO', llo: { h: 100, revs: 2 }, halo: { preset: 'NRHO92', revs: 1 } } } },
   L2: { name: 'L2 halo bekleme + LLO', cfg: { earth: DEFAULT_CONFIG.earth, moon: { type: 'HALO', llo: { h: 100, revs: 2 }, halo: { preset: 'L2S13', revs: 1 } } } },
   L1: { name: 'L1 halo bekleme + LLO', cfg: { earth: DEFAULT_CONFIG.earth, moon: { type: 'HALO', llo: { h: 100, revs: 2 }, halo: { preset: 'L1N10', revs: 1 } } } },
+  YUKSELTME: { name: 'Yörünge yükseltmeli: 3 yakış (apoje 40.000 km) + TLI + LLO', cfg: { earth: { h: 185, inc: 28.6, revs: 1.5, raise: { n: 3, ha: 40000 } }, moon: DEFAULT_CONFIG.moon } },
 };
 export const HALO_OPTIONS = Object.fromEntries(Object.entries(HALO_PRESETS).map(([k, v]) => [k, v.name]));
 const clone = (o) => JSON.parse(JSON.stringify(o));
 export function normalizeConfig(c) {
   const d = clone(DEFAULT_CONFIG), cfg = c ? clone(c) : {};
   const out = { earth: { ...d.earth, ...(cfg.earth || {}) }, moon: { ...d.moon, ...(cfg.moon || {}) } };
+  out.earth.raise = { ...DEFAULT_RAISE, ...((cfg.earth || {}).raise || {}) };
+  out.earth.raise.n = Math.min(4, Math.max(0, Math.round(+out.earth.raise.n)));
+  out.earth.raise.ha = out.earth.raise.n ? Math.min(100000, Math.max(1000, +out.earth.raise.ha)) : DEFAULT_RAISE.ha;     // yükseltme yoksa apoje anlamsız: tek biçim (önbellek anahtarı)
   out.moon.llo = { ...d.moon.llo, ...((cfg.moon || {}).llo || {}) };
   out.moon.halo = { ...d.moon.halo, ...((cfg.moon || {}).halo || {}) };
   out.earth.h = Math.min(1000, Math.max(160, +out.earth.h));
@@ -56,7 +61,7 @@ export function normalizeConfig(c) {
 }
 export function configLabel(cfg) {
   const e = cfg.earth, m = cfg.moon;
-  const park = `Dünya park ${e.h} km, i ${e.inc}°, ${e.revs} tur`;
+  const park = `Dünya park ${e.h} km, i ${e.inc}°, ${e.revs} tur` + (e.raise && e.raise.n ? ` + ${e.raise.n} yükseltme yakışı (apoje ${e.raise.ha} km)` : '');
   const moon = m.type === 'HALO' ? `${HALO_PRESETS[m.halo.preset].name}, ${m.halo.revs} tur + LLO ${m.llo.h} km, ${m.llo.revs} tur`
                                   : `LLO ${m.llo.h} km, ${m.llo.revs} tur`;
   return `${park} · ${moon}`;
@@ -68,7 +73,10 @@ function ctx(cfg, stages) {
   const H_LLO = cfg.moon.llo.h, R_LLO = E.R_M + H_LLO, N_LLOm = Math.sqrt(E.MU_M / R_LLO ** 3), P_LLO = 2 * Math.PI / N_LLOm;
   const N_REV = cfg.moon.llo.revs;
   const incList = Math.abs(cfg.earth.inc - 28.6) < 1e-9 ? [28.6, 30, 32.5, 35, 40] : [cfg.earth.inc, cfg.earth.inc + 2, cfg.earth.inc + 4, cfg.earth.inc + 7, cfg.earth.inc + 11].filter((x) => x <= 90);
-  return { cfg, H_PARK, R_PARK, PARK_REVS: cfg.earth.revs, incList, H_LLO, R_LLO, N_LLOm, P_LLO, N_REV, VINF: 0.85,
+  // TLI öncesi yörünge: yükseltme yoksa dairesel park yörüngesi; varsa perijesi R_PARK, apojesi RA olan elips (TLI perijede başlar)
+  const RAISE = cfg.earth.raise || DEFAULT_RAISE, RA = RAISE.n ? E.R_E + RAISE.ha : R_PARK;
+  const V_PRE = RAISE.n ? Math.sqrt(E.MU_E * (2 / R_PARK - 2 / (R_PARK + RA))) : Math.sqrt(E.MU_E / R_PARK);
+  return { cfg, H_PARK, R_PARK, PARK_REVS: cfg.earth.revs, incList, H_LLO, R_LLO, N_LLOm, P_LLO, N_REV, VINF: 0.85, RAISE, RA, V_PRE,
     STAGES: stages || BASE_STAGES.map((s) => ({ ...s })),
     tLof: (tP) => tP + 700.0 + (N_REV + 0.5) * P_LLO, arrState: null };
 }
@@ -230,10 +238,17 @@ const APOLLO_GRID = [];
 for (const b of [-25, -10, 0, 10, 25]) for (let u = 0; u < 360; u += 15) APOLLO_GRID.push([u, b]);
 
 // ---------------------------------------------------------------- TLI
+// TLI öncesi durum: yükseltme yoksa dairesel park yörüngesi; varsa perijesi phat yönünde R_PARK, apojesi RA olan elips. phi: perijeden gerçek anomali (açı)
 function parkState(K, t, phat, hhat, phi, psi) {
   const h = unit(add(scale(hhat, Math.cos(psi)), scale(cross(phat, hhat), Math.sin(psi))));
-  const p = unit(sub(phat, scale(h, dot(phat, h)))), q = cross(h, p), vc = Math.sqrt(E.MU_E / K.R_PARK);
-  return new E.State(t, add(scale(p, K.R_PARK * Math.cos(phi)), scale(q, K.R_PARK * Math.sin(phi))), add(scale(p, -vc * Math.sin(phi)), scale(q, vc * Math.cos(phi))), 'E');
+  const p = unit(sub(phat, scale(h, dot(phat, h)))), q = cross(h, p);
+  if (!K.RAISE.n) {
+    const vc = Math.sqrt(E.MU_E / K.R_PARK);
+    return new E.State(t, add(scale(p, K.R_PARK * Math.cos(phi)), scale(q, K.R_PARK * Math.sin(phi))), add(scale(p, -vc * Math.sin(phi)), scale(q, vc * Math.cos(phi))), 'E');
+  }
+  const e = (K.RA - K.R_PARK) / (K.RA + K.R_PARK), pp = K.R_PARK * (1 + e), r = pp / (1 + e * Math.cos(phi)), w = Math.sqrt(E.MU_E / pp);
+  const rh = add(scale(p, Math.cos(phi)), scale(q, Math.sin(phi))), th = add(scale(p, -Math.sin(phi)), scale(q, Math.cos(phi)));
+  return new E.State(t, scale(rh, r), add(scale(rh, w * e * Math.sin(phi)), scale(th, w * (1 + e * Math.cos(phi)))), 'E');
 }
 function flyTli(K, x, ref, tStop) {
   const [phi, dur, pitch, psi] = x;
@@ -246,7 +261,7 @@ function designAt(K, tP, x0, incT, log) {
   const sb = solveBack(K, tP, x0, incT);
   if (!sb) return null;
   const pg = sb.a.pst, phat = unit(pg.r), hhat = unit(cross(pg.r, pg.v));
-  const vc = Math.sqrt(E.MU_E / K.R_PARK), dvImp = norm(pg.v) - vc;
+  const vc = K.V_PRE, dvImp = norm(pg.v) - vc;                        // TLI öncesi perije hızı (dairesel ya da yükseltilmiş elips)
   sizeTli(K, dvImp);
   const st = K.STAGES[0], m0 = K.STAGES.reduce((s, q) => s + q.dry + q.prop, 0);
   const mdot = st.T / (st.isp * E.G0), tb = (m0 * (1 - Math.exp(-dvImp / (st.isp * E.G0)))) / mdot;
@@ -284,20 +299,124 @@ function designAt(K, tP, x0, incT, log) {
   return { t_P: tP, xArr: sb.x, rP: stP.r, vP: stP.v, t_ign: ref.t_ign, phat, hhat, x, inc: incT, farErr: norm(F), dvTli: dvImp };
 }
 
+// ---------------------------------------------------------------- yörünge yükseltme zinciri (TLI öncesi enerji yükseltme)
+// TLI, perijesi R_PARK, apojesi RA olan eliptik yörüngenin perijesinde başlar. Bu yörünge park yörüngesinden n apoje yükseltme yakışıyla kurulur.
+// Her yakış: önceki perijede ortalı, tam itkili sonlu yakış; itki yönü eylemsiz sabit (perije hızı yönü). Zincir TLI'dan GERİYE doğru çözülür
+// (tam model: J2 + Ay + Güneş): her yakış için yakıştan sonraki yay geriye yayınlanıp önceki perije bulunur; yakış süresi τ, yakış öncesi yörüngenin
+// apojesi hedef apojeye (ilk yakışta dairesel hıza) eşit olacak biçimde çözülür. Yakış değişken kütleli itkiyle geriye entegre edilir (mission.js ileri
+// yönde aynı itkiyi uygular; sabit yönlü yakış tam ters çevrilebilir). Çıktı: yakışlar (ileri sırayla), ilk yakış öncesi (park) durumu, ek yakıt.
+function apogeeSchedule(K) {                       // eşit özgül enerji adımlarıyla apoje yarıçapları ra[0] (dairesel) … ra[n] (= RA)
+  const n = K.RAISE.n, rp = K.R_PARK, mu = E.MU_E, e0 = -mu / (2 * rp), en = -mu / (rp + K.RA), out = [];
+  for (let k = 0; k <= n; k++) out.push(2 * (-mu / (2 * (e0 + ((en - e0) * k) / n))) - rp);
+  return out;
+}
+function perigeeBefore(S) {                         // S'den önceki turun perijesi: geriye yayınımda r·v'nin ikinci sıfır geçişi (birincisi apoje)
+  const P = new E.Propagator(S.copy(), dummy(), 600.0);
+  let prev = dot(P.s.r, P.s.v), cr = 0;
+  for (let i = 0; i < 40000 && cr < 2; i++) {
+    P.step(-1e9);
+    const rv = dot(P.s.r, P.s.v);
+    if (rv * prev < 0) cr++;
+    prev = rv;
+  }
+  return cr < 2 ? null : refinePerigee(P.s);
+}
+// yakışın bitiş durumundan geriye: sabit yönlü (u), tam itkili (T kN), kütle akışı mdot, bitişteki kütle mEnd; süre tau
+function burnBack(s, u, tau, T, mdot, mEnd) {
+  const st = s.copy(), tGoal = s.t - tau; let m = mEnd;
+  while (st.t > tGoal + 1e-9) {
+    let h = Math.max(-1.0, tGoal - st.t), r5, v5, err;
+    for (;;) { [r5, v5, err] = E.dopriStep(st, h, { u, T, m, mdot }); if (err <= 1) break; h *= Math.max(0.2, 0.9 * err ** -0.2); }
+    st.r = r5; st.v = v5; st.t += h; m -= mdot * h;
+  }
+  return st;
+}
+// azalan g için kök (g(0) > 0): braketle, yalancı konum (Illinois)
+function solveDecreasing(g, tau0) {
+  let lo = 0, glo = g(0), hi = Math.max(tau0, 5), ghi = g(hi);
+  for (let i = 0; i < 14 && ghi > 0; i++) { lo = hi; glo = ghi; hi *= 1.6; ghi = g(hi); }
+  if (!(glo > 0) || !(ghi <= 0)) return null;
+  let side = 0;
+  for (let i = 0; i < 80 && hi - lo > 1e-6; i++) {
+    const x = (lo * ghi - hi * glo) / (ghi - glo), gx = g(x);
+    if (gx > 0) { lo = x; glo = gx; if (side === 1) ghi /= 2; side = 1; } else { hi = x; ghi = gx; if (side === -1) glo /= 2; side = -1; }
+    if (Math.abs(gx) < 1e-9) return x;
+  }
+  return 0.5 * (lo + hi);
+}
+function raiseChain(K, sol) {
+  const n = K.RAISE.n, st = K.STAGES[0], T = st.T, c = st.isp * E.G0, mdot = T / c, ra = apogeeSchedule(K);
+  let S = parkState(K, sol.t_ign, sol.phat, sol.hhat, sol.x[0], sol.x[3]);          // TLI yakışının başlangıç durumu (yükseltilmiş elips)
+  let mass = K.STAGES.reduce((q, x) => q + x.dry + x.prop, 0);                       // TLI başlangıcındaki kütle
+  const burns = [];
+  for (let k = n; k >= 1; k--) {
+    const per = perigeeBefore(S); if (!per) return null;                             // yakış k'nın ortalandığı perije (yakıştan sonraki yayın perijesi)
+    let u = unit(per.v); const mEnd = mass, rh = unit(per.r);                        // eylemsiz sabit itki yönü (perije hızı yönü); yakış sonu kütlesi
+    const dirOf = (alpha) => unit(add(scale(unit(per.v), Math.cos(alpha)), scale(rh, Math.sin(alpha))));   // alpha: yönün perije düzleminde radyal yöne eğimi
+    const burnWith = (tau, ud) => {                                                  // perijeden τ/2 sonraki yay durumundan geriye yakış
+      const Q = new E.Propagator(per.copy(), dummy(), 60.0); Q.runUntil(per.t + tau / 2);
+      return burnBack(Q.s, ud, tau, T, mdot, mEnd);
+    };
+    const burn = (tau) => burnWith(tau, u);
+    const mu = E.MU_E, rP = norm(per.r);
+    const g = k > 1 ? (tau) => { const B = burn(tau); return E.elements(B.r, B.v, mu).ra - ra[k - 1]; }       // yakış öncesi yörüngenin apojesi = hedef
+      : (tau) => { const B = burn(tau); return dot(B.v, B.v) - mu / norm(B.r); };                             // ilk yakış: öncesi dairesel hız
+    const aPre = k > 1 ? (rP + ra[k - 1]) / 2 : rP, dvEst = norm(per.v) - Math.sqrt(mu * (2 / rP - 1 / aPre));
+    const tau = solveDecreasing(g, (mEnd / mdot) * (1 - Math.exp(-Math.max(dvEst, 0.01) / c)));
+    if (tau == null || !(tau > 0)) return null;
+    let tauK = tau;
+    if (k === 1) {
+      // park yörüngesi gerçekten dairesel olsun: ilk yakışta süre τ ve eğim α birlikte çözülür (hız dairesel ve radyal hız sıfır); yakınsamazsa 1B çözüm kalır
+      const F = (x) => { const B = burnWith(x[0], dirOf(x[1])), r = norm(B.r), v = norm(B.v); return [(v * v - mu / r) / (mu / r), dot(B.r, B.v) / (r * v)]; };
+      let x = [tau, 0], f = F(x), ok = Math.abs(f[0]) < 1e-9 && Math.abs(f[1]) < 1e-9;
+      for (let it = 0; it < 10 && !ok; it++) {
+        const hs = [0.02, 1e-4], J = [[0, 0], [0, 0]];
+        hs.forEach((h, j) => { const xx = x.slice(); xx[j] += h; const f1 = F(xx); J[0][j] = (f1[0] - f[0]) / h; J[1][j] = (f1[1] - f[1]) / h; });
+        const det = J[0][0] * J[1][1] - J[0][1] * J[1][0]; if (!Number.isFinite(det) || Math.abs(det) < 1e-30) break;
+        let d = [(J[1][1] * f[0] - J[0][1] * f[1]) / det, (-J[1][0] * f[0] + J[0][0] * f[1]) / det];
+        const sc = Math.min(1, 20 / (Math.abs(d[0]) + 1e-12), 0.1 / (Math.abs(d[1]) + 1e-12)); d = d.map((q) => q * sc);
+        x = [x[0] - d[0], x[1] - d[1]]; f = F(x); ok = Math.abs(f[0]) < 1e-9 && Math.abs(f[1]) < 1e-9;
+        if (!Number.isFinite(f[0]) || x[0] <= 0) break;
+      }
+      if (ok) { tauK = x[0]; u = dirOf(x[1]); }
+    }
+    const B = burnWith(tauK, u), m0 = mEnd + mdot * tauK;
+    // otopilot için: yakışın bitişindeki osküle apoje (kapalı döngü kesme hedefi) ve ateşlemeden önceki yörüngenin perijesine kalan süre (perije senkronu)
+    const Qe = new E.Propagator(per.copy(), dummy(), 60.0); Qe.runUntil(per.t + tauK / 2);
+    const raEnd = E.elements(Qe.s.r, Qe.s.v, E.MU_E).ra, tauPeri = k > 1 ? E.timeToPerigee(B) : null;
+    burns.unshift({ k, t_s: B.t, dur: tauK, u, dv: c * Math.log(m0 / mEnd), m0, apoAfter: ra[k] - E.R_E, raEnd, tauPeri });
+    S = B; mass = m0;
+  }
+  const el = E.elements(S.r, S.v, E.MU_E);
+  const sT0 = parkState(K, sol.t_ign, sol.phat, sol.hhat, sol.x[0], sol.x[3]);
+  return { burns, S1: S, tliTauPeri: E.timeToPerigee(sT0), propExtra: mdot * burns.reduce((q, b) => q + b.dur, 0), dv: burns.reduce((q, b) => q + b.dv, 0),
+    leoAlt: norm(S.r) - E.R_E, leoPeri: el.rp - E.R_E, leoApo: el.ra - E.R_E };
+}
+
+// yükseltme zincirinden tasarım çıktısı: yakış listesi ve park (giriş) durumu (ilk yakışın öncesi, tIns anına geriye yayınlanmış)
+function raiseOutput(K, chain, tIns) {
+  const P = new E.Propagator(chain.S1.copy(), dummy(), 30.0); P.runUntil(tIns);
+  return { RAISE: { n: K.RAISE.n, ha: K.RAISE.ha, propExtra: chain.propExtra, tliTauPeri: chain.tliTauPeri, leo: { alt: chain.leoAlt, peri: chain.leoPeri, apo: chain.leoApo },
+      burns: chain.burns.map((b) => ({ k: b.k, t: b.t_s, dur: b.dur, u: b.u, dv: b.dv * 1000, apo: b.apoAfter, raEnd: b.raEnd, tauPeri: b.tauPeri })) },
+    INS: { t: tIns, r: P.s.r.slice(), v: P.s.v.slice() } };
+}
+
 // ---------------------------------------------------------------- KSC fırlatma fazlaması
 function kscIcrf(t) { const x = [Math.cos(KSC_LAT) * Math.cos(KSC_LON), Math.cos(KSC_LAT) * Math.sin(KSC_LON), Math.sin(KSC_LAT)]; return mtv(E.earthIcrfToItrf(t), x); }
 const rotz = (a, v) => [Math.cos(a) * v[0] - Math.sin(a) * v[1], Math.sin(a) * v[0] + Math.cos(a) * v[1], v[2]];
-function phasingShift(K, sol) {
-  const st = parkState(K, sol.t_ign, sol.phat, sol.hhat, sol.x[0], sol.x[3]);
-  const h0 = unit(cross(st.r, st.v)), n = Math.sqrt(E.MU_E / K.R_PARK ** 3), Tp = 2 * Math.PI / n;
-  const inc = Math.acos(dot(h0, E.precession(sol.t_ign)[2]));
-  const dOm = -1.5 * n * E.J2_E * (E.R_E / K.R_PARK) ** 2 * Math.cos(inc);
-  const hz = (t) => rotz(dOm * (t - sol.t_ign), h0);
+// ref: ilk manevranın (TLI ya da ilk yükseltme yakışı) başlangıç durumu {t, r, v}; verilmezse TLI başlangıcındaki dairesel park durumu
+function phasingShift(K, sol, ref = null) {
+  const st = ref ? { r: ref.r, v: ref.v } : parkState(K, sol.t_ign, sol.phat, sol.hhat, sol.x[0], sol.x[3]), tRef = ref ? ref.t : sol.t_ign;
+  const Rpk = ref ? norm(st.r) : K.R_PARK;
+  const h0 = unit(cross(st.r, st.v)), n = Math.sqrt(E.MU_E / Rpk ** 3), Tp = 2 * Math.PI / n;
+  const inc = Math.acos(dot(h0, E.precession(tRef)[2]));
+  const dOm = -1.5 * n * E.J2_E * (E.R_E / Rpk) ** 2 * Math.cos(inc);
+  const hz = (t) => rotz(dOm * (t - tRef), h0);
   const f = (t) => dot(kscIcrf(t), hz(t));
   const cands = [];
   const span = (K.PARK_REVS + 1) * Tp + 30 * 3600;
-  let t0 = sol.t_ign - span, f0 = f(t0);
-  for (let t = t0 + 30; t < sol.t_ign + 30 * 3600; t += 30) {
+  let t0 = tRef - span, f0 = f(t0);
+  for (let t = t0 + 30; t < tRef + 30 * 3600; t += 30) {
     const f1 = f(t);
     if (f0 * f1 < 0) { let a = t - 30, b = t; for (let k = 0; k < 40; k++) { const m = 0.5 * (a + b); if (f(a) * f(m) <= 0) b = m; else a = m; } cands.push(0.5 * (a + b)); }
     f0 = f1;
@@ -310,7 +429,7 @@ function phasingShift(K, sol) {
     let ang = Math.atan2(dot(cross(ins, tp), h), dot(ins, tp)); ang = ((ang % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
     let coast = ang / n; while (coast < (K.PARK_REVS - 0.5) * Tp) coast += Tp;
     const east = unit(cross([0, 0, 1], k)), north = cross(k, east), d = cross(h, k);
-    return { t_launch: tc, t_ins: tIns, coast, delta: tIns + coast - sol.t_ign, az: Math.atan2(dot(d, east), dot(d, north)) * 180 / Math.PI };
+    return { t_launch: tc, t_ins: tIns, coast, delta: tIns + coast - tRef, az: Math.atan2(dot(d, east), dot(d, north)) * 180 / Math.PI };
   });
 }
 
@@ -331,7 +450,9 @@ function sizeTli(K, dvTli) {
   let prop = (pay + st.dry) * (Math.exp((dvTli + 0.02) / c) - 1);
   const tb = prop / (st.T / c), margin = 0.004 + 0.016 * (tb / 274) ** 2 + 0.008 * Math.max(0, tb / 274 - 1);
   prop = (pay + st.dry) * (Math.exp((dvTli + margin) / c) - 1);
-  st.prop = Math.max(BASE_STAGES[0].prop, Math.ceil(prop / 10) * 10);
+  // yükseltmeli tasarımda burası yalnız TLI yakışının yakıtı (yükseltme yakışlarınınki raiseChain'de eklenir): taban yakıt uygulanmaz
+  const floor = K.RAISE && K.RAISE.n ? 0 : BASE_STAGES[0].prop;
+  st.prop = Math.max(floor, Math.ceil(prop / 10) * 10);
 }
 
 // ---------------------------------------------------------------- ana giriş
@@ -357,6 +478,7 @@ function* designSteps(tFrom, progress, cfg0) {
   log('Yapılandırma: ' + configLabel(cfg), 0.01);
   const D = cfg.moon.type === 'HALO' ? yield* designHalo(K, tFrom, log) : yield* designApollo(K, tFrom, log);
   D.cfg = cfg; D.STAGES = K.STAGES.map((s) => ({ ...s }));
+  if (D.RAISE) D.STAGES[0].prop += D.RAISE.propExtra;                        // TLI kademesi yükseltme yakışlarının yakıtını da taşır
   D.EARTH = { h: K.H_PARK, revs: K.PARK_REVS }; D.LLO = { ...(D.LLO || {}), h: K.H_LLO, revs: K.N_REV, P: K.P_LLO };
   D.sunElAtLanding = sunElevationAtSite(D.t_L - 1620);
   const m0 = D.STAGES.reduce((s, q) => s + q.dry + q.prop, 0);
@@ -383,13 +505,16 @@ function* designApollo(K, tFrom, log) {
   }
   if (!x0) throw new Error('Varış geometrisi çözülemedi');
   log(`Geri çözüm: uP=${x0[0].toFixed(2)}°, β=${x0[1].toFixed(2)}°, eğim ${incT}°`, 0.15); yield;
-  let sol = null, opt = null;
+  let sol = null, opt = null, chain = null;
   for (let it = 0; it < 10; it++) {
     sol = designAt(K, tP, x0, incT, (m) => log(m, 0.2 + it * 0.07));
     if (!sol) throw new Error('TLI tasarımı yakınsamadı');
     yield;
     x0 = sol.xArr;
-    const opts = phasingShift(K, sol).filter((o) => o.delta > -3 * 3600).sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta));
+    chain = K.RAISE.n ? raiseChain(K, sol) : null;
+    if (K.RAISE.n && !chain) throw new Error('Yörünge yükseltme zinciri çözülemedi');
+    if (chain) { log(`  yükseltme: ${chain.burns.map((b) => `${b.dur.toFixed(0)} s (apoje ${b.apoAfter.toFixed(0)} km)`).join(' → ')}; park ${chain.leoAlt.toFixed(0)} km`, 0.2 + it * 0.07); yield; }
+    const opts = phasingShift(K, sol, chain && { t: chain.S1.t, r: chain.S1.r, v: chain.S1.v }).filter((o) => o.delta > -3 * 3600).sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta));
     if (!opts.length) throw new Error('KSC fırlatma fırsatı bulunamadı');
     opt = opts[0];
     log(`Fazlama ${it + 1}: fırlatma ${E.utcString(opt.t_launch)}, azimut ${opt.az.toFixed(1)}°, kaydırma ${(opt.delta / 60).toFixed(2)} dk`, 0.25 + it * 0.07); yield;
@@ -402,7 +527,8 @@ function* designApollo(K, tFrom, log) {
     ARRIVAL: { t_P: sol.t_P, rP: sol.rP, vP: sol.vP, uP: sol.xArr[0], beta: sol.xArr[1], vp, kind: 'peri' },
     LAUNCH: { t_launch: opt.t_launch, t_ins: opt.t_ins, az: opt.az, coast: opt.coast, site: 'Kennedy Uzay Merkezi LC-39B (28.5729°K, 80.6490°B)' },
     t_L: K.tLof(sol.t_P), inc: incT, label: E.utcString(opt.t_launch),
-    DV: { TLI: sol.dvTli * 1000, LOI: loiDv * 1000, DOI: doiDv(K) * 1000, PDI: PDI_DV * 1000 },
+    DV: { ...(chain ? { RAISE: chain.dv * 1000 } : {}), TLI: sol.dvTli * 1000, LOI: loiDv * 1000, DOI: doiDv(K) * 1000, PDI: PDI_DV * 1000 },
+    ...(chain ? raiseOutput(K, chain, opt.t_ins) : {}),
   };
 }
 
@@ -553,15 +679,21 @@ function* designHaloInner(K, tFrom, log) {
   // iniş aracı boyutlandırma
   const skRes = (preset.by === 'period' ? 0.002 : 0.010) * (hc.revs + 1);
   sizeLander(K, arr.dv + skRes + dep.dv1 + dep.dv2);
-  let sol = null, opt = null;
+  let sol = null, opt = null, chain = null;
   for (let it = 0; it < 10; it++) {
     sol = designAt(K, tA, x0, incT, (m) => log(m, 0.55 + it * 0.04));
+    if (!sol && it > 0) {                                           // fazlama kaydırması büyükse eski başlangıç tahmini yakınsamayabilir: varış çözümü yeniden taranır
+      const r = yield* solveAt(tA, incT);
+      if (r) { x0 = r.x; sol = designAt(K, tA, x0, incT, (m) => log(m, 0.55 + it * 0.04)); }
+    }
     if (!sol) throw new Error('TLI tasarımı yakınsamadı');
     yield;
     x0 = sol.xArr;
+    chain = K.RAISE.n ? raiseChain(K, sol) : null;
+    if (K.RAISE.n && !chain) throw new Error('Yörünge yükseltme zinciri çözülemedi');
     // varış halo boyunca kayabilir: halo ve iniş zamanlaması sabit kalır
     const lo = ref.t0 + 3600 - tA, hi = Math.min(tNriP + (fLim + 0.05) * Ts, dep.tD - 0.15 * Ts) - tA;
-    const all = phasingShift(K, sol), opts = all.filter((o) => o.delta > lo && o.delta < hi).sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta));
+    const all = phasingShift(K, sol, chain && { t: chain.S1.t, r: chain.S1.r, v: chain.S1.v }), opts = all.filter((o) => o.delta > lo && o.delta < hi).sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta));
     if (!opts.length) throw new Error('KSC fırlatma fırsatı bulunamadı');
     opt = opts[0];
     log(`Fazlama ${it + 1}: fırlatma ${E.utcString(opt.t_launch)}, azimut ${opt.az.toFixed(1)}°, varış kaydırma ${(opt.delta / 60).toFixed(2)} dk`, 0.58 + it * 0.04); yield;
@@ -580,7 +712,8 @@ function* designHaloInner(K, tFrom, log) {
     DEP: { t: dep.tD, dv: sub(dep.v0, dep.vD), tP2, rP2: dep.tgt.r, vP2: dep.tgt.v, h: dep.tgt.h, uP: dep.uP, beta: dep.beta, from: dep.opt },
     LLO: { tP: tP2, n: dep.tgt.h },
     t_L: tL, inc: incT, label: E.utcString(opt.t_launch),
-    DV: { TLI: sol.dvTli * 1000, NRI: nri * 1000, SK: skRes * 1000, DEP: dep.dv1 * 1000, LLOI: dep.dv2 * 1000, DOI: doiDv(K) * 1000, PDI: PDI_DV * 1000 },
+    DV: { ...(chain ? { RAISE: chain.dv * 1000 } : {}), TLI: sol.dvTli * 1000, NRI: nri * 1000, SK: skRes * 1000, DEP: dep.dv1 * 1000, LLOI: dep.dv2 * 1000, DOI: doiDv(K) * 1000, PDI: PDI_DV * 1000 },
+    ...(chain ? raiseOutput(K, chain, opt.t_ins) : {}),
   };
 }
 // Nelder–Mead'in üreteç sürümü (her değerlendirmede yield)
@@ -609,4 +742,4 @@ function* nelderMeadGen(f, x0, steps, { maxEval = 80, tol = 1e-3 } = {}) {
 }
 export { nelderMead };
 // test/deneme için iç işlevler
-export const __internals = { ctx, scanBack, solveBack, back, lambert, shootImpulse, planeBasis, lloState, designAt, parkState, flyTli };
+export const __internals = { ctx, scanBack, solveBack, back, lambert, shootImpulse, planeBasis, lloState, designAt, parkState, flyTli, raiseChain, burnBack, apogeeSchedule };

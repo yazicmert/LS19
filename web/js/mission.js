@@ -12,20 +12,21 @@ export const STAGES = [
   { name: 'TLI kademesi', dry: 2300.0, prop: 6200.0, T: 100.0, isp: 450.0, thr_min: 1.0 },
   { name: 'İniş aracı', dry: 1300.0, prop: 2300.0, T: 16.0, isp: 320.0, thr_min: 0.10 }];
 export const TLI = {
-  x: [-0.15432745628064812, 273.08951439591203, -0.022609578742937834, 6.791110181274024e-05],
-  t_ign: 1093114.4970916419,
-  phat: [-0.31173799476035463, 0.8368265989729966, 0.45004518203629357],
-  hhat: [0.3302584846107584, -0.34868779448125087, 0.8771237970334669] };
-export const ARRIVAL = { t_P: 1434828.329960779, rP: [-440.0086942362937, -1534.2006163226988, -930.3265974223907],
-  uP: 234.10913741749823, beta: -10.752796815417604, vp: 2.4556636659511857 };
-export const LAUNCH = { t_launch: 1082572.266253084, t_ins: 1083172.266253084, az: 88.60991672516388,
+  x: [-0.15439776245200978, 272.83091805196824, -0.022276991913496073, 6.759823058395664e-05],
+  t_ign: 1093113.5426107736,
+  phat: [-0.3117337011889207, 0.8368331676337251, 0.4500359419992615],
+  hhat: [0.3302313041907705, -0.3486918323997383, 0.8771324254353932] };
+export const ARRIVAL = { t_P: 1434826.340426953, rP: [-440.1209747319318, -1534.658929695061, -929.5172172198984],
+  vP: [-2.366133402092828, 0.6559758280060041, 0.03731590606260471],
+  uP: 233.8652293328464, beta: -10.747537919560603, vp: 2.4556636659511857 };
+export const LAUNCH = { t_launch: 1082571.0725359619, t_ins: 1083171.0725359619, az: 88.60848745290069,
   site: 'Kennedy Uzay Merkezi LC-39B (28.5729°K, 80.6490°B)' };
 const TLI_DUR_ERROR = 0.05, PDI_ANGLE = 9.0 * Math.PI / 180, H_PDI = 15.0, TF_BRAKE = 310.0, TF_APPROACH = 45.0;
 const GATE_HI = { x: -0.700, z: 1.500, vx: 0.045, vz: -0.035 }, GATE_LO = { x: 0.0, z: 0.250, vx: 0.0, vz: -0.018 };
 const V_TOUCH = -0.001, TILT_MAX_LOW = 40 * Math.PI / 180;
-export const T_L_TARGET = 1453341.4170836865;
-// Ekim 2026 tasarımı (Python zinciri); diğer tarihler design.js ile tarayıcıda üretilir
-export const DEFAULT_DESIGN = { TLI, ARRIVAL, LAUNCH, t_L: T_L_TARGET, label: '2026-10-13 (Python tasarımı)' };
+export const T_L_TARGET = 1453339.4275498604;
+// Ekim 2026 Apollo tasarımı (design.js, değişken kütleli sonlu itkiyle); diğer tarihler design.js ile tarayıcıda üretilir
+export const DEFAULT_DESIGN = { TLI, ARRIVAL, LAUNCH, t_L: T_L_TARGET, label: '2026-10-13 (design.js)' };
 const TWO_PI = 2 * Math.PI;
 const mod2pi = (a) => ((a % TWO_PI) + TWO_PI) % TWO_PI;
 
@@ -45,8 +46,10 @@ function solve3(J, F) {             // J x = F (Cramer)
 }
 
 export class Mission {
-  constructor({ tliError = TLI_DUR_ERROR, verbose = false, compat = false, design = DEFAULT_DESIGN } = {}) {
+  // nbody: true (varsayılan) N-cisim çözücü (tek eylemsiz çerçeve, etki küresi geçişi yok); false etki küresi (iki merkez cisimli) çözücü
+  constructor({ tliError = TLI_DUR_ERROR, verbose = false, compat = false, design = DEFAULT_DESIGN, nbody = true } = {}) {
     this.D = design; const { TLI, ARRIVAL, LAUNCH } = design;
+    this.nbody = nbody;
     this.compat = compat;          // true: Python sürümüyle birebir (MCC-3 yok, LOI 20 s kuantalı)
     // modüler yapılandırma (eski tasarımlarda yoksa Apollo varsayılanları)
     this.hPark = design.EARTH ? design.EARTH.h : H_PARK;
@@ -58,15 +61,21 @@ export class Mission {
     this.auto = true; this.status = ''; this.tNext = null; this.done = false; this.result = null;
     this.stageP = null; this.t_sep = null; this.local = null; this.drAxis = null;
     // park yörüngesinde TLI ateşlemesinden geriye: giriş anındaki durum (J2 dahil tutarlı)
-    const stIgn = this.parkStateAtIgn();
-    const Pb = new E.Propagator(stIgn.copy(), E.dummyVehicle(), 30.0);
-    Pb.runUntil(LAUNCH.t_ins);
-    this.t0 = Pb.s.t;
-    this.P = new E.Propagator(Pb.s.copy(), this.veh, 30.0, 1.0);
+    let s0;
+    if (design.INS) s0 = new E.State(design.INS.t, design.INS.r, design.INS.v, 'E');          // yörünge yükseltmeli tasarım: giriş durumu tasarımdan
+    else {
+      const stIgn = this.parkStateAtIgn();
+      const Pb = this.prop(stIgn.copy(), E.dummyVehicle(), 30.0);
+      Pb.runUntil(LAUNCH.t_ins);
+      s0 = Pb.s;
+    }
+    this.t0 = s0.t;
+    this.P = this.prop(s0.copy(), this.veh, 30.0, 1.0);
     this.P.phase = 'PARK';
     const Pl = 2 * Math.PI * Math.sqrt((E.R_M + this.hLlo) ** 3 / E.MU_M);
     this.plan = [
       { key: 'INS', name: 'Yörüngeye giriş', t: LAUNCH.t_ins },
+      ...(design.RAISE ? design.RAISE.burns.map((b) => ({ key: 'RAISE-' + b.k, name: `Yörünge yükseltme ${b.k}/${design.RAISE.n} (apoje ${Math.round(b.apo)} km)`, t: b.t })) : []),
       { key: 'TLI', name: 'TLI ateşleme', t: TLI.t_ign },
       { key: 'SEP', name: 'TLI kademesi ayrılır', t: TLI.t_ign + TLI.x[1] + 1800 },
       { key: 'MCC-1', name: 'MCC-1', t: TLI.t_ign + TLI.x[1] + 1800 + 20 * 3600 },
@@ -80,6 +89,17 @@ export class Mission {
     this.plan.push({ key: 'DOI', name: 'DOI', t: design.t_L - 1620 - 395 - 0.5 * Pl + 60 }, { key: 'PDI', name: 'PDI', t: design.t_L - 2015 },
       { key: 'INDI', name: 'Temas', t: design.t_L - 1620 });
     this.gen = this.run();
+  }
+
+  // görevin tüm yayınımları aynı çözücüyü kullanır (N-cisim ya da etki küresi)
+  prop(state, veh, hMaxCoast, hMaxBurn = 1.0) { return new E.Propagator(state, veh, hMaxCoast, hMaxBurn, { nbody: this.nbody }); }
+  // çözücüyü uçuş sırasında değiştir: durum iki çerçeve arasında kesin dönüştürülür (fizik değişmez, yalnız çerçeve)
+  setSolver(nbody) {
+    if (nbody === this.nbody) return;
+    this.nbody = nbody;
+    const frame = (s) => (nbody ? 'N' : norm(s.seleno()[0]) < E.SOI_M ? 'M' : 'E');
+    this.P.s = this.P.s.toFrame(frame(this.P.s)); this.P.nbody = nbody;
+    if (this.stageP) { this.stageP.s = this.stageP.s.toFrame(frame(this.stageP.s)); this.stageP.nbody = nbody; }
   }
 
   log(msg, key = null, extra = {}) {
@@ -122,9 +142,15 @@ export class Mission {
   // ---------------------------------------------------------------- görev programı
   *run() {
     const P = this.P, { TLI, ARRIVAL, LAUNCH } = this.D;
-    this.log(`Yörüngeye giriş (fırlatma ${E.utcString(LAUNCH.t_launch)}, KSC, azimut ${LAUNCH.az.toFixed(1)}°) — ${this.hPark.toFixed(0)} km park yörüngesi`, 'INS');
-    this.tNext = TLI.t_ign;
-    yield* this.until(TLI.t_ign);
+    this.log(`Yörüngeye giriş (fırlatma ${E.utcString(LAUNCH.t_launch)}, KSC, azimut ${LAUNCH.az.toFixed(1)}°) — ${(this.D.RAISE ? this.D.RAISE.leo.alt : this.hPark).toFixed(0)} km park yörüngesi`, 'INS');
+    let tTli = TLI.t_ign;
+    if (this.D.RAISE) {
+      yield* this.raiseBurns();
+      this.tNext = TLI.t_ign; P.hMaxCoast = 600.0;
+      tTli = yield* this.tliSync();
+    }
+    this.tNext = tTli;
+    yield* this.until(tTli);
     // TLI
     const [, dur, pitch] = TLI.x;
     P.phase = 'TLI'; this.log('TLI ateşleme', 'TLI');
@@ -132,7 +158,7 @@ export class Mission {
       const r = Pp.s.r, v = Pp.s.v, vh = unit(v), nh = unit(cross(r, v)), rh = cross(nh, vh);
       return [1.0, add(scale(vh, Math.cos(pitch)), scale(rh, Math.sin(pitch)))];
     };
-    yield* this.until(TLI.t_ign + dur + this.tliError, tliCtrl);
+    yield* this.until(tTli + dur + this.tliError, tliCtrl);
     this.log('TLI motor kesme', 'TLI_CUT');
     P.phase = 'SUZULME'; P.hMaxCoast = 120.0;
     this.tNext = P.s.t + 1800.0;
@@ -157,6 +183,50 @@ export class Mission {
     }
     yield* this.lunarOps();
     this.done = true;
+  }
+
+  // ---------------------------------------------------------------- Dünya park yörüngesinde enerji yükseltme (TLI öncesi)
+  // Her yakış tam itkılı ve sabit eylemsiz yönlüdür (tasarım). İlk yakış tasarım anında başlar (dairesel yörüngede faz yakışın yerini belirler);
+  // sonrakiler aracın KENDİ perijesine göre ortalanır (süzülme hatası zamanlamayı kaydırmasın) ve yakış süresi, tasarımın bitiş apojesine ulaşacak biçimde
+  // ateşlemede gerçek durumdan çözülür (enerji hatası bir sonraki yakışa taşınmasın). Nominal uçuşta tasarımla birebir aynı an ve süredir.
+  *raiseBurns() {
+    const P = this.P, R = this.D.RAISE;
+    for (const b of R.burns) {
+      P.phase = b.k === 1 ? 'PARK' : 'YUKSELTME'; P.hMaxCoast = b.k === 1 ? 30.0 : 600.0;
+      let tIgn = b.t; this.tNext = b.t;
+      if (b.k > 1) {
+        yield* this.until(b.t - 1200);
+        P.hMaxCoast = 60.0; tIgn = Math.max(P.s.t, P.s.t + E.timeToPerigee(P.s) - b.tauPeri);
+      }
+      this.tNext = tIgn;
+      yield* this.until(tIgn);
+      const dur = this.raiseDuration(b);                                 // ateşlemede gerçek durumdan çözülen süre (nominalde tasarım süresi)
+      P.phase = 'RAISE-' + b.k; P.hMaxBurn = 1.0; this.tNext = P.s.t + dur;
+      this.log(`Yörünge yükseltme ${b.k}/${R.n}: ${dur.toFixed(1)} s, hedef apoje ~${Math.round(b.apo)} km`, 'RAISE-' + b.k);
+      yield* this.until(P.s.t + dur, () => [1.0, b.u]);
+      const el = E.elements(P.s.r, P.s.v, E.MU_E);
+      this.log(`Yörünge yükseltme ${b.k} tamam: perije ${(el.rp - E.R_E).toFixed(1)} km, apoje ${(el.ra - E.R_E).toFixed(0)} km`, 'RAISE-' + b.k + '_CUT');
+      P.phase = 'YUKSELTME'; P.hMaxCoast = 600.0; P.hMaxBurn = 1.0;
+    }
+  }
+  // yakış süresi: aracın şimdiki durumundan, kopya yayınımla tasarımın bitiş apojesine (osküle) ulaşma süresi (ikiye bölme; apoje süreyle hızla artar,
+  // bu yüzden yalancı konum güvenilmez); bulunamazsa tasarım süresi
+  raiseDuration(b) {
+    const s0 = this.P.s, apo = (tau) => {
+      const Q = this.prop(s0.copy(), this.veh.clone(), 600.0, 1.0); Q.runUntil(s0.t + tau, () => [1.0, b.u]);
+      return E.elements(Q.s.r, Q.s.v, E.MU_E).ra - b.raEnd;
+    };
+    let lo = 0.5 * b.dur, hi = 1.5 * b.dur;
+    if (!(apo(lo) < 0 && apo(hi) > 0)) return b.dur;
+    for (let i = 0; i < 48; i++) { const x = 0.5 * (lo + hi); if (apo(x) < 0) lo = x; else hi = x; }
+    return 0.5 * (lo + hi);
+  }
+  // TLI öncesi yüksek elips: ateşleme aracın kendi perijesine göre (tasarımdaki perijeye kalan süre korunur)
+  *tliSync() {
+    const P = this.P;
+    yield* this.until(this.D.TLI.t_ign - 1200);
+    P.hMaxCoast = 60.0;
+    return Math.max(P.s.t, P.s.t + E.timeToPerigee(P.s) - this.D.RAISE.tliTauPeri);
   }
 
   // ---------------------------------------------------------------- halo fazları
@@ -203,7 +273,7 @@ export class Mission {
     const P = this.P;
     if (this.veh.k > 0) return;
     const sst = P.s.copy(); sst.v = sub(sst.v, scale(unit(sst.v), 0.0005));
-    this.stageP = new E.Propagator(sst, new E.Vehicle([{ name: 'kademe', dry: 2300.0, prop: this.veh.stages[0].prop, T: 0, isp: 1 }]), 1800.0);
+    this.stageP = this.prop(sst, new E.Vehicle([{ name: 'kademe', dry: 2300.0, prop: this.veh.stages[0].prop, T: 0, isp: 1 }]), 1800.0);
     this.t_sep = P.s.t;
     this.veh.separate(); this.log('TLI kademesi ayrıldı', 'SEP');
   }
@@ -221,7 +291,7 @@ export class Mission {
   refAt(ref, t) { const Q = new E.Propagator(ref.copy(), E.dummyVehicle(), 1800.0); Q.runUntil(t); return Q.s.geo(); }
 
   flyBurn(st, veh, dv, tTarget) {
-    const Q = new E.Propagator(st.copy(), veh, 1800.0, 0.5);
+    const Q = this.prop(st.copy(), veh, 1800.0, 0.5);
     const dvm = norm(dv);
     if (dvm > 1e-9) { const tb = burnTime(veh, dvm), u = scale(dv, 1 / dvm); Q.runUntil(st.t + tb, () => [1.0, u]); }
     return Q;
@@ -305,7 +375,7 @@ export class Mission {
     const stg = this.veh.active;
     const tToPeri = (Pp) => { const [rs, vs] = Pp.s.seleno(); return -dot(rs, vs) / dot(vs, vs); };
     for (;;) {
-      if (P.s.central === 'M') {
+      if (P.s.inMoonFrame()) {
         const [rs, vs] = P.s.seleno(), rn = norm(rs);
         const dvEst = rn < 3000 ? norm(vs) - Math.sqrt(E.MU_M / rn) : 0.9;
         const tb = burnTime(this.veh, Math.max(dvEst, 0.5));
@@ -471,8 +541,8 @@ export class Mission {
   // otopilottan elle uçuşa geçerken fiziği ekran zamanına geri al
   rewindTo(td) {
     const x = this.stateAt(td); if (!x || x.t >= this.P.s.t - 1e-9) return;
-    const st = new E.State(x.t, x.r, x.v, 'E');
-    if (norm(sub(x.r, E.moonPos(x.t))) < E.SOI_M) { st.r = sub(x.r, E.moonPos(x.t)); st.v = sub(x.v, E.moonVel(x.t)); st.central = 'M'; }
+    const st = new E.State(x.t, x.r, x.v, this.nbody ? 'N' : 'E');
+    if (!this.nbody && norm(sub(x.r, E.moonPos(x.t))) < E.SOI_M) { st.r = sub(x.r, E.moonPos(x.t)); st.v = sub(x.v, E.moonVel(x.t)); st.central = 'M'; }
     this.P.s = st; this.P.h = 1.0;
     if (this.veh.k === x.k) this.veh.active.prop = x.prop;
     this.P.dvUsed = x.dv;
@@ -521,15 +591,15 @@ export class Mission {
 
   // elle yönelim modları (merkez cisme göre)
   manualDir(mode, hold) {
-    const P = this.P, r = P.s.r, v = P.s.central === 'M' ? P.s.v : P.s.v;
+    const P = this.P, moon = P.s.inMoonFrame(), [r, v] = moon ? P.s.seleno() : P.s.geo();      // merkez cisme göre (Ay'ın çevresinde Ay'a göre)
     const vh = unit(v), rh = unit(r), nh = unit(cross(r, v));
     switch (mode) {
       case 'PRO': return vh; case 'RETRO': return scale(vh, -1);
       case 'NML': return nh; case 'ANML': return scale(nh, -1);
       case 'RADOUT': return rh; case 'RADIN': return scale(rh, -1);
       case 'SRFRETRO': {                               // Ay yüzeyine göre geri yön
-        if (P.s.central !== 'M') return scale(vh, -1);
-        const vr = sub(P.s.v, cross(E.omegaMoon(P.s.t), P.s.r)); return scale(unit(vr), -1);
+        if (!moon) return scale(vh, -1);
+        const vr = sub(v, cross(E.omegaMoon(P.s.t), r)); return scale(unit(vr), -1);
       }
       case 'HOLD': return hold || vh;
       default: return vh;
@@ -539,10 +609,10 @@ export class Mission {
   // Ay yüzeyine (ya da Dünya atmosferine) çarpma / elle temas denetimi
   checkSurface(manual) {
     const P = this.P;
-    if (P.s.central === 'M') {
+    if (P.s.inMoonFrame()) {
       const [rs] = P.s.seleno();
       if (norm(rs) - R_SITE <= 0) { this.touchdown(manual); return true; }
-    } else if (norm(P.s.r) < E.R_E + 80) {
+    } else if (norm(P.s.geo()[0]) < E.R_E + 80) {
       this.log('Dünya atmosferine girdi — görev sona erdi', 'REENTRY'); this.done = true; this.result = { ok: false, reentry: true }; return true;
     }
     return false;

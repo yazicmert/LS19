@@ -35,6 +35,7 @@ async function setupDate(d) {
 let M = null, tDisp = 0, warp = 1, autoWarp = true, paused = true, maxWarp = 20000;
 let manual = { throttle: 0, mode: 'PRO', hold: null };
 let lastReal = 0, status = '', timer = null, sentEvents = 0;
+let nbody = true, forces = null, lastForces = -1e9;                // çözücü: true N-cisim (tek çerçeve), false etki küresi; kuvvet dökümü (~2 Hz)
 const TICK_MS = 1000 / 60;
 
 let trailPending = [], trailLast = null, trailReset = true;
@@ -48,7 +49,7 @@ function sampleTrail() {
   }
 }
 function newMission() {
-  M = new Mission({ design: DESIGN });
+  M = new Mission({ design: DESIGN, nbody });
   M.attachHistory();
   const push = M.P.onStep; M.P.onStep = (...a) => { push(...a); sampleTrail(); };
   tDisp = M.P.s.t; sentEvents = 0; status = '';
@@ -71,6 +72,7 @@ function seek(t) {
 
 // otomatik zaman hızı: sıradaki olaya ~4 s gerçek zamanda yaklaş, yakışta yavaşla
 function burnWarp(phase) {
+  if (/^RAISE-/.test(phase)) return 10;
   switch (phase) {
     case 'TLI': return 10; case 'LOI': return 10; case 'DOI': return 2;
     case 'PDI': return 4; case 'YAKLASMA': return 1; case 'SON_INIS': return 1;
@@ -132,7 +134,11 @@ function tick() {
   sentEvents += newEv.length;
   let i = 0; while (i < trailPending.length && trailPending[i].t <= tDisp) i++;
   const trail = trailPending.splice(0, i), reset = trailReset; trailReset = false;
-  postMessage({ type: 'state', t: x.t, r: x.r, v: x.v, m: x.m, prop: x.prop, k: x.k, thr: x.thr, u: x.u, phase: x.phase,
+  if (now - lastForces > 400) {                                  // kuvvet dökümü: Dünya, Ay, Güneş ve diğer etkiler (m/s²); itki ivmesi eklenir
+    lastForces = now;
+    try { forces = E.accelBreakdown(x.t, x.r, 'N'); const st = M.veh.stages[x.k]; forces.thrust = st && x.thr > 0 ? (1000 * x.thr * st.T) / x.m : 0; } catch (err) { forces = null; }
+  }
+  postMessage({ type: 'state', t: x.t, r: x.r, v: x.v, m: x.m, prop: x.prop, k: x.k, thr: x.thr, u: x.u, phase: x.phase, nbody, forces,
     dv: x.dv, stage, local, auto: M.auto, done: M.done, result: M.result, paused, warp: wEff, warpSet: warp, autoWarp,
     tNext: M.tNext, status, events: newEv, drAxis: M.drAxis, manual, trail, trailReset: reset });
 }
@@ -163,6 +169,7 @@ onmessage = (e) => {
         manual.throttle = th;
       }
       break;
+    case 'solver': nbody = !!d.nbody; M.setSolver(nbody); break;
     case 'perturb': M.perturb(tDisp, d.dv); break;
     case 'separate': M.manualSeparate(tDisp); break;
     case 'seek': seek(d.t); postMessage({ type: 'restarted', t0: M.t0, plan: M.plan, seek: true }); break;

@@ -240,6 +240,7 @@ worker.onmessage = (e) => {
     if (d.type === 'ready' && !urlApplied) { urlApplied = true; applyUrlParams(); }
   } else if (d.type === 'state') {
     latest = d;
+    if (d.nbody !== undefined && $('#chkNbody').checked !== d.nbody) $('#chkNbody').checked = d.nbody;
     if (d.trail && (d.trail.length || d.trailReset)) withMission(() => { world.addTrail(d.trail, d.trailReset); ui.addSamples(d.trail, d.trailReset); });
     if (d.events && d.events.length) ui.addEvents(d.events);
     ui.onState(d);
@@ -288,6 +289,7 @@ const setWarp = (w) => { warp = Math.max(1, Math.min(100000, w)); send({ cmd: 'w
 $('#btnFast').onclick = () => setWarp((latest ? latest.warp : warp) * 2);
 $('#btnSlow').onclick = () => setWarp((latest ? latest.warp : warp) / 2);
 $('#chkAutoWarp').onchange = (e) => send({ cmd: 'autoWarp', on: e.target.checked });
+$('#chkNbody').onchange = (e) => send({ cmd: 'solver', nbody: e.target.checked });
 $('#chkAuto').onchange = (e) => { send({ cmd: 'auto', on: e.target.checked }); };
 function syncAuto() {
   $('#chkAuto').checked = autoPilot; $('#manual').hidden = autoPilot; refreshTreeMenus();

@@ -80,6 +80,7 @@
             <option value="NRHO">Artemis: NRHO 9:2 bekleme + LLO</option>
             <option value="L2">L2 halo bekleme + LLO</option>
             <option value="L1">L1 halo bekleme + LLO</option>
+            <option value="YUKSELTME">Yörünge yükseltmeli: 3 yakış (apoje 40.000 km) + LLO</option>
             <option value="CUSTOM">Özel</option>
           </select></div>
         <div class="fttl">Dünya park yörüngesi</div>
@@ -87,6 +88,11 @@
           <label>İrtifa<span><input id="cfgEh" type="number" min="160" max="1000" step="5"> km</span></label>
           <label>Eğim<span><input id="cfgEi" type="number" min="28.6" max="90" step="0.1"> °</span></label>
           <label>Tur<span><input id="cfgEr" type="number" min="0.5" max="15.5" step="1"></span></label>
+        </div>
+        <div class="frow3" title="TLI öncesi park yörüngesinde apoje yükseltme yakışları: her yakış perijede, TLI yüksek elipsin perijesinde. 0 = park yörüngesinden doğrudan TLI.">
+          <label>Yükseltme yakışı<span><input id="cfgRn" type="number" min="0" max="4" step="1"></span></label>
+          <label>Son apoje<span><input id="cfgRa" type="number" min="1000" max="100000" step="500"> km</span></label>
+          <span></span>
         </div>
         <div class="fttl">Ay bekleme yörüngesi</div>
         <div class="frow"><label for="cfgMt">Tür</label>
@@ -145,6 +151,10 @@
       <h3>Anlık yörünge elemanları</h3>
       <table id="orbtable" class="tbl"><tbody></tbody></table>
       <p class="note">Anlık (oskülatör) konik: o andaki konum ve hızdan, yalnız merkez cismin çekimiyle. Mavi elips, turuncu hiperbol, mor Ay merkezli.</p>
+      <h3>Kuvvet dökümü <span class="k">(m/s²)</span></h3>
+      <div id="forceFrame" class="k"></div>
+      <table id="forcetable" class="tbl forces"><thead><tr><th>Etki</th><th class="num">Doğrudan</th><th class="num">Etkin</th></tr></thead><tbody></tbody></table>
+      <p class="note">Doğrudan: cismin aracı tek başına çekmesi. Etkin: baskın cismin çerçevesinde harekete gerçekten etki eden kısım; baskın cisim için çekimin kendisi, diğerleri için gelgit (bozucu) etkisi (çekimi − baskın cisme çekimi). Güneş doğrudan ~6·10⁻³ çeker ama Dünya'yla birlikte düştüğü için etkisi ~10⁻⁷ kalır. Dünya J2 ve Ay J2/C22 şekil terimleridir. Çözücü N-cisimken Dünya, Ay ve Güneş aynı anda, etki küresi geçişi olmadan çeker.</p>
     </div>
   </aside>
 
@@ -199,6 +209,7 @@
         <details open><summary>Kumanda</summary><div class="tm-sub">
           <label class="tm-toggle"><input id="chkAuto" type="checkbox" role="menuitemcheckbox" checked><span>Otopilot</span><kbd>G</kbd></label>
           <label class="tm-toggle"><input id="chkAutoWarp" type="checkbox" role="menuitemcheckbox" checked><span>Otomatik zaman hızı</span></label>
+          <label class="tm-toggle" title="Açık: N-cisim çözücü — tek eylemsiz çerçevede Dünya, Ay ve Güneş aracı aynı anda çeker, etki küresi geçişi yok. Kapalı: iki merkez cisimli (etki küresi) çözücü. Fizik aynıdır; sonuçlar ≤ 1 m uyuşur."><input id="chkNbody" type="checkbox" role="menuitemcheckbox" checked><span>N-cisim çözücü</span></label>
         </div></details>
         <details open><summary>Senaryo</summary><div class="tm-sub">
           <button id="btnPerturb" role="menuitem" title="Rastgele 2 m/s hız bozulması"><i data-icon="shake"></i><span>Bozulma ekle</span><kbd>P</kbd></button>

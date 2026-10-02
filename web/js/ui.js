@@ -17,12 +17,12 @@ export function fmtDur(s) {
   const z = (x) => String(x).padStart(2, '0');
   return (neg ? '−' : '') + (d ? `${d}g ` : '') + `${z(h)}:${z(m)}:${z(sec)}`;
 }
-const PHASE_TR = { PARK: 'Park yörüngesi', TLI: "Ay'a transfer yakışı (TLI)", SUZULME: 'Serbest süzülme', 'MCC-1': 'Orta rota düzeltmesi 1',
+const PHASE_TR = { PARK: 'Park yörüngesi', YUKSELTME: 'Yörünge yükseltme: eliptik park yörüngesi', TLI: "Ay'a transfer yakışı (TLI)", SUZULME: 'Serbest süzülme', 'MCC-1': 'Orta rota düzeltmesi 1',
   'MCC-2': 'Orta rota düzeltmesi 2', 'MCC-3': 'Orta rota düzeltmesi 3', LOI: 'Ay yörüngesine giriş (LOI)', AY_YORUNGESI: 'Ay yörüngesi',
   DOI: 'İniş yörüngesine geçiş (DOI)', INIS_SUZULME: "15 km'ye alçalış", PDI: 'Motorlu iniş: frenleme', YAKLASMA: 'Motorlu iniş: yaklaşma',
   SON_INIS: 'Son iniş', INDI: 'Yüzeyde', NRI: 'Halo yörüngesine giriş (NRI)', HALO: 'Halo yörüngesinde', DEP: "Halo'dan ayrılış yakışı",
   TRANSFER: "LLO'ya iniş transferi" };
-const phaseName = (p) => PHASE_TR[p] || (/^SK-\d+$/.test(p) ? `İstasyon tutma yakışı (${p})` : p);
+const phaseName = (p) => PHASE_TR[p] || (/^SK-\d+$/.test(p) ? `İstasyon tutma yakışı (${p})` : /^RAISE-\d+$/.test(p) ? `Yörünge yükseltme yakışı ${p.slice(6)}` : p);
 const sameCfg = (a, b) => JSON.stringify(normalizeConfig(a)) === JSON.stringify(normalizeConfig(b));
 const DATE_MIN = '1850-01-01', DATE_MAX = '2149-12-01';        // de440s kapsamı (1849-12 … 2150-01) içinde, görev süresi payıyla
 const AU = 149597870.7, D2R = Math.PI / 180, R2AS = 180 / Math.PI * 3600;
@@ -73,7 +73,7 @@ export class UI {
       go(b.dataset.date === 'today' ? new Date().toISOString().slice(0, 10) : b.dataset.date)));
     // görev yapılandırması (modüler park yörüngeleri)
     $('#cfgProfile').addEventListener('change', (e) => { if (PROFILES[e.target.value]) this.setConfig(PROFILES[e.target.value].cfg); });
-    for (const id of ['cfgEh', 'cfgEi', 'cfgEr', 'cfgMt', 'cfgHp', 'cfgHr', 'cfgLh', 'cfgLr'])
+    for (const id of ['cfgEh', 'cfgEi', 'cfgEr', 'cfgRn', 'cfgRa', 'cfgMt', 'cfgHp', 'cfgHr', 'cfgLh', 'cfgLr'])
       $('#' + id).addEventListener('change', () => { this.syncProfileSel(); this.syncCfgVis(); });
     document.querySelectorAll('.cfg input').forEach((el) => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') go($('#dateInput').value); }));
     this.setConfig(PROFILES.APOLLO.cfg);
@@ -82,18 +82,18 @@ export class UI {
   // ------------------------------------------------------------------ görev yapılandırması
   getConfig() {
     const n = (id) => parseFloat($('#' + id).value);
-    return normalizeConfig({ earth: { h: n('cfgEh'), inc: n('cfgEi'), revs: n('cfgEr') },
+    return normalizeConfig({ earth: { h: n('cfgEh'), inc: n('cfgEi'), revs: n('cfgEr'), raise: { n: n('cfgRn') || 0, ha: n('cfgRa') } },
       moon: { type: $('#cfgMt').value, llo: { h: n('cfgLh'), revs: n('cfgLr') }, halo: { preset: $('#cfgHp').value, revs: n('cfgHr') } } });
   }
   setConfig(c) {
     const cfg = normalizeConfig(c), set = (id, v) => ($('#' + id).value = v);
-    set('cfgEh', cfg.earth.h); set('cfgEi', cfg.earth.inc); set('cfgEr', cfg.earth.revs); set('cfgMt', cfg.moon.type);
+    set('cfgEh', cfg.earth.h); set('cfgEi', cfg.earth.inc); set('cfgEr', cfg.earth.revs); set('cfgRn', cfg.earth.raise.n); set('cfgRa', cfg.earth.raise.ha); set('cfgMt', cfg.moon.type);
     set('cfgHp', cfg.moon.halo.preset); set('cfgHr', cfg.moon.halo.revs); set('cfgLh', cfg.moon.llo.h); set('cfgLr', cfg.moon.llo.revs);
     this.syncProfileSel(); this.syncCfgVis();
   }
   profileKeyOf(cfg) { return Object.keys(PROFILES).find((k) => sameCfg(PROFILES[k].cfg, cfg)) || 'CUSTOM'; }
   syncProfileSel() { $('#cfgProfile').value = this.profileKeyOf(this.getConfig()); }
-  syncCfgVis() { $('#rowHalo').style.display = $('#cfgMt').value === 'HALO' ? '' : 'none'; }
+  syncCfgVis() { $('#rowHalo').style.display = $('#cfgMt').value === 'HALO' ? '' : 'none'; $('#cfgRa').disabled = !(parseFloat($('#cfgRn').value) > 0); }
   // profil karşılaştırma tablosu: rows = [{key, name, D (tasarım) | null, err, busy}]
   setCompare(rows, status = '') {
     const tb = $('#cmptable tbody'); tb.replaceChildren();
@@ -103,8 +103,8 @@ export class UI {
       const td = (html, cls) => { const c = document.createElement('td'); if (cls) c.className = cls; c.append(...html); return c; };
       const txt = (t, small) => { const e = document.createElement(small ? 'small' : 'span'); e.textContent = t; return e; };
       const D = r.D, dv = D ? D.DV : null;
-      const moon = dv ? Object.entries(dv).filter(([k]) => k !== 'TLI').reduce((a, [, v]) => a + v, 0) : null;
-      const tot = dv ? moon + dv.TLI : null;
+      const moon = dv ? Object.entries(dv).filter(([k]) => k !== 'TLI' && k !== 'RAISE').reduce((a, [, v]) => a + v, 0) : null;
+      const tot = dv ? moon + dv.TLI + (dv.RAISE || 0) : null;
       const days = D ? (D.t_L - D.LAUNCH.t_launch) / 86400 : null;
       tr.append(td([txt(r.name), txt(D ? `fırlatma ${utcShort(D.LAUNCH.t_launch).slice(0, 10)}, iniş aracı yakıtı ${fmt(D.STAGES[1].prop, 0)} kg` : (r.err || (r.busy ? 'hesaplanıyor…' : '—')), true)]),
         td([txt(moon != null ? fmt(moon, 0) : '')], 'num'), td([txt(tot != null ? fmt(tot, 0) : '')], 'num'), td([txt(days != null ? fmt(days, 1) + ' g' : '')], 'num'));
@@ -137,6 +137,11 @@ export class UI {
     line([[`${day} sonrası ilk uygun pencere` + (wait > 1 ? ` (${fmt(wait, 0)} gün sonra)` : '')]]);
     line([['Fırlatma: '], [utcShort(tl), true]]);
     line([[`KSC LC-39B · azimut ${fmt(D.LAUNCH.az, 1)}° · park eğimi ${fmt(D.inc, 1)}°`]]);
+    if (D.RAISE) {
+      const R = D.RAISE;
+      line([[`Yörünge yükseltme: ${R.n} yakış (${R.burns.map((b) => `${fmt(b.dur, 0)} s`).join(' + ')}), apoje ${R.burns.map((b) => fmt(b.apo, 0)).join(' → ')} km; park yörüngesi ${fmt(R.leo.alt, 0)} km`]]);
+      line([[`TLI: ${utcShort(D.TLI.t_ign)} (girişten ${fmt((D.TLI.t_ign - D.INS.t) / 3600, 1)} sa sonra, ${fmt(D.TLI.x[1], 0)} s yakış)`]]);
+    }
     if (D.profile === 'HALO') {
       const H = D.HALO;
       line([[`Halo girişi (NRI): ~${utcShort(D.ARRIVAL.t_P)}`]]);
@@ -209,7 +214,7 @@ export class UI {
   }
 
   renderDv() {
-    const act = dvFromEvents(this.events), N = this.nominal, keys = dvKeys(this.design && this.design.profile);
+    const act = dvFromEvents(this.events), N = this.nominal, keys = dvKeys(this.design || undefined);
     const tb = $('#dvtable tbody'); tb.replaceChildren();
     let sumNom = 0;
     for (const k of keys) {
@@ -248,7 +253,7 @@ export class UI {
     const nearM = rs < E.MOON_ZONE;
     $('#utc').textContent = E.utcString(t);
     $('#met').textContent = 'T+' + fmtDur(met);
-    $('#phase').textContent = s.phase === 'PARK' && this.design && this.design.EARTH ? `Park yörüngesi (${fmt(this.design.EARTH.h, 0)} km)` : phaseName(s.phase);
+    $('#phase').textContent = s.phase === 'PARK' && this.design && this.design.EARTH ? `Park yörüngesi (${fmt(this.design.RAISE ? this.design.RAISE.leo.alt : this.design.EARTH.h, 0)} km)` : phaseName(s.phase);
     // Dünya: WGS-84 elipsoidine göre (yaklaşık), Ay: iniş yakınında iniş yeri yüzeyine, değilse ortalama yarıçapa göre
     const rE = E.norm(s.r), sphi = s.r[2] / rE, Rell = E.R_E * (1 - (1 / 298.257) * sphi * sphi);
     let alt = nearM ? (s.local ? s.local.p[2] : rs - E.R_M) : rE - Rell;
@@ -277,7 +282,7 @@ export class UI {
     // sonraki olay
     this.tNext = s.tNext; this.renderPlan(t);
     // yörünge sekmesi
-    if (this.tab === 'yorunge') this.orbitTab(s);
+    if (this.tab === 'yorunge') { this.orbitTab(s); this.forceTab(s); }
     if (this.tab === 'efemeris' && now - this.lastEph > 250) { this.lastEph = now; this.ephTab(t); }
     if (this.pick && now - (this.lastPick || 0) > 500) { this.lastPick = now; this.renderPick(t); }
     if (this.tab === 'grafik') this.charts.forEach((c, i) => { c.set(this.series.t, i === 0 ? this.series.alt : this.series.spd); c.draw(); });
@@ -430,6 +435,25 @@ export class UI {
       ['Özgül enerji', fmt(el.energy, 4) + ' km²/s²']];
     const tb = $('#orbtable tbody'); tb.replaceChildren();
     for (const [k, val] of rows) { const tr = document.createElement('tr'); const a = document.createElement('td'); a.textContent = k; const b = document.createElement('td'); b.className = 'num'; b.textContent = val; tr.append(a, b); tb.appendChild(tr); }
+  }
+
+  // kuvvet dökümü: Dünya, Ay, Güneş (+gezegenler), şekil terimleri ve itki; çubuklar logaritmik (10⁻⁹ … 10¹ m/s²)
+  forceTab(s) {
+    const f = s.forces; if (!f) return;
+    const fx = (x) => (x > 0 ? x.toExponential(2).replace('.', ',').replace('e+', '·10^').replace('e-', '·10^−') : '—');
+    const sup = (t) => t.replace(/\^(−?)(\d+)/, (m, sg, d) => (sg ? '⁻' : '') + d.split('').map((c) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[+c]).join(''));
+    const rows = [['Dünya', f.earth, f.earthEff], ['Ay', f.moon, f.moonEff], ['Güneş', f.sun, f.sunEff], ['Gezegenler (toplam)', null, f.planets],
+      ['Dünya J2 (basıklık)', null, f.earthJ2], ['Ay J2/C22 (şekil)', null, f.moonFig], ['İtki', null, f.thrust]];
+    const eff = rows.map((r) => r[2] || 0), top = Math.max(...eff.slice(0, 3)), tb = $('#forcetable tbody'); tb.replaceChildren();
+    $('#forceFrame').textContent = `Baskın cisim: ${f.frame === 'M' ? 'Ay' : 'Dünya'} · Ay'a ${fmt(f.moonDist, 0)} km, Dünya'ya ${fmt(f.earthDist, 0)} km · çözücü: ${s.nbody ? 'N-cisim (tek çerçeve)' : 'etki küresi (iki merkez cisim)'}`;
+    rows.forEach((r, i) => {
+      const tr = document.createElement('tr'); if (i < 3 && r[2] === top) tr.className = 'hl';
+      const a = document.createElement('td'); a.textContent = r[0];
+      const b = document.createElement('td'); b.className = 'num'; b.textContent = r[1] != null ? sup(fx(r[1])) : '';
+      const c = document.createElement('td'); c.className = 'num'; c.textContent = sup(fx(r[2] || 0));
+      const bar = document.createElement('span'); bar.className = 'fbar'; bar.style.width = Math.max(0, Math.min(100, ((Math.log10(Math.max(r[2] || 0, 1e-12)) + 9) / 10) * 100)) + '%'; c.appendChild(bar);
+      tr.append(a, b, c); tb.appendChild(tr);
+    });
   }
 
   // ------------------------------------------------------------------ canlı efemeris sekmesi

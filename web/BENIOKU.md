@@ -31,8 +31,11 @@ saptırma laboratuvarı bir asteroide uygulanan itkinin Dünya yakın geçişini
 - ISS, Starlink, OneWeb, GPS, GLONASS, Planet, Intelsat, SES, Kuiper için operatör verisi (CelesTrak Supplemental GP) kullanılır.
 
 ## Görev yapılandırması (Görev sekmesi)
-- Profil: Apollo hızlı (LLO 2 tur) · Apollo 11 gibi (LLO 13 tur, park eğimi 32,5°) · Artemis NRHO 9:2 · L2 halo · L1 halo · Özel.
+- Profil: Apollo hızlı (LLO 2 tur) · Apollo 11 gibi (LLO 13 tur, park eğimi 32,5°) · Artemis NRHO 9:2 · L2 halo · L1 halo · Yörünge yükseltmeli (3 yakış, apoje 40.000 km) · Özel.
 - Dünya park yörüngesi: irtifa (160–1000 km), eğim (28,6–90°), tur.
+- Yörünge yükseltme: *Yükseltme yakışı* (0–4) ve *Son apoje* (1000–100.000 km). 0 ise park yörüngesinden doğrudan TLI; ≥ 1 ise park yörüngesinde
+  perijede ortalı apoje yükseltme yakışlarıyla yüksek bir elipse çıkılır ve TLI o elipsin perijesinde yapılır (Chandrayaan / Artemis tarzı).
+  Yakış süreleri ve zamanları tasarlanır; uçuşta her yakış aracın kendi perijesine göre ateşlenir ve hedef apojeye göre kesilir (Δv panelinde *Yörünge yükseltme* satırı).
 - Ay bekleme yörüngesi: LLO (irtifa, tur) ya da halo (NRHO 9:2, L2 güney Az 13.000 km, L1 kuzey Az 10.000 km; en az tur);
   halo seçilince iniş, halo'dan LLO'ya iki yakışlı transferle yapılır (ayrılış anı, LLO düzlemi ve varış noktası en az Δv için aranır).
 - Tarih seç, **Tasarla**. Varsayılan tarihte (13 Ekim 2026) tüm hazır profiller önceden hesaplanmıştır (anında açılır);
@@ -78,7 +81,8 @@ saptırma laboratuvarı bir asteroide uygulanan itkinin Dünya yakın geçişini
 - **Boşluk**: başlat/duraklat · **. ,**: zaman hızı ×2 / ÷2 · "Otomatik hız" olaylara yaklaşırken yavaşlatır
 - **G**: otopilot aç/kapa · **P**: 2 m/s rastgele bozulma (rota düzeltmeleri telafi eder)
 - **M**: çalışma alanı değiştir · **Fare**: uydu, asteroit ya da gezegene gel → ad; tıkla → bilgi kartı
-- **Alt çubuk**: Başlat, zaman hızı (− ×N +) görünür; **Kamera ▾** ve **Uçuş ▾** (otopilot, otomatik hız, bozulma, baştan başlat) açılır ağaç menüdedir.
+- **Alt çubuk**: Başlat, zaman hızı (− ×N +) görünür; **Kamera ▾** ve **Uçuş ▾** (otopilot, otomatik hız, **N-cisim çözücü**, bozulma, baştan başlat) açılır ağaç menüdedir.
+  *N-cisim çözücü* açıkken araç tek eylemsiz çerçevede Dünya + Ay + Güneş çekimiyle ilerler (etki küresi geçişi yok); kapalıyken iki merkez cisimli (etki küresi) çözücü kullanılır. Uçuş sırasında değiştirilebilir. **Yörünge** sekmesinde canlı kuvvet dökümü vardır.
   Canlı Gökyüzü'nde **Hız ▾** (×1…×3600, ±1 sa, ±1 gün) ve **Kamera ▾** (Yerden: Gözlemci · Uzaydan: Dünya, Dünya–Ay, Ay, Güneş sistemi).
   Menüler ok tuşlarıyla gezilir, Esc ya da dışarı tıklama kapatır.
 - **1–8**: kamera (Otomatik, Araç, Dünya, Ay, Dünya–Ay, İniş yeri, Kütle merkezi, Güneş sistemi) · fare sürükle: döndür, tekerlek: yakınlaştır
@@ -97,7 +101,7 @@ saptırma laboratuvarı bir asteroide uygulanan itkinin Dünya yakın geçişini
 - `js/design.js` — modüler görev tasarımı (Apollo/LLO ve halo profilleri, TLI, KSC fazlaması, araç boyutlandırma)
 - `js/mission.js` — otopilot (TLI, MCC, LOI ya da NRI + istasyon tutma + ayrılış + LLO girişi, DOI, PDI güdümü)
 - `js/ephem.js`, `js/earth.js`, `js/jplkernel.js` — canlı N-cisim efemerisi, Dünya yönelimi, JPL çekirdek okuyucu
-- `js/engine.js` — fizik motoru · `js/worker.js` fizik iş parçacığı · `js/nominal.js` nominal Δv koşusu
+- `js/engine.js` — fizik motoru (N-cisim ve iki merkez cisimli çerçeve, değişken kütleli itki, kuvvet dökümü) · `js/worker.js` fizik iş parçacığı · `js/nominal.js` nominal Δv koşusu
 - `js/sats.js`, `js/satlayer.js`, `lib/satellite.esm.js` (satellite.js, MIT) — canlı uydular
 - `js/satcatalog.js`, `js/satmodels.js`, `models/sats/` — gerçek 3B uydu modelleri (NASA 3D Resources, kamu malı), `lib/addons/libs/meshopt_decoder.module.js` (MIT)
 - `js/treemenu.js` — alt çubuktaki açılır ağaç menüler

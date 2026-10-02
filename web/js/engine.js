@@ -1,13 +1,23 @@
-// LS19 fizik motoru — rocsim_mission_engine.py'nin birebir JavaScript karşılığı
+// LS19 fizik motoru — rocsim_mission_engine.py'nin JavaScript karşılığı (N-cisim çerçevesi ve değişken kütleli itki eklendi)
 // Birimler: km, s, kg. Zaman: TDB saniye (JD0 = 2026-10-01 00:00 TDB'den). Çerçeve: ICRF.
-// Kuvvetler: merkez cisim (Dünya/Ay, etki küresiyle geçiş) + Dünya J2 (presesyonlu kutup)
-//            + Ay J2/C22 (PA çerçevesi) + Ay/Dünya/Güneş üçüncü cisim (DE440) + sonlu itki.
+// Kuvvetler: merkez cisim (Dünya/Ay) + Dünya J2 (presesyonlu kutup) + Ay J2/C22 (PA çerçevesi)
+//            + Ay/Dünya/Güneş (ve canlı efemeriste gezegenler) üçüncü cisim çekimi (DE440 konumları) + sonlu itki.
+// Çerçeve ('central'):
+//   'E' Dünya merkezli, 'M' Ay merkezli (Ay'ın etki küresine girince/çıkınca durum kesin dönüşümle değişir) — iki merkez cisimli (patched) çerçeve.
+//   'N' N-cisim: tek eylemsiz çerçeve (Dünya merkezli, ICRF eksenli), etki küresi geçişi YOK. Dünya, Ay, Güneş (+gezegenler) araca her an birlikte
+//       çeker; Dünya J2 her yerde, Ay J2/C22 Ay'ın MOON_FIG_RANGE yakınında uygulanır. Üçüncü cisimler dolaylı terimiyle (Dünya'nın ivmesi) alınır,
+//       yani uzay aracının barisentrik hareket denklemiyle eşdeğerdir (bağımsız barisentrik entegrasyonla ≤ 1 m uyum: test/test_nbody.js).
+// Sonlu itki: itki ivmesi her DOPRI aşamasında o aşamanın kütlesiyle (m₀ − ṁ·Δt) hesaplanır; böylece uygulanan Δv roket denklemine uyar.
 // Entegratör: Dormand–Prince 5(4), uyarlamalı adım.
 
 export const MU_E = 398600.435507, MU_M = 4902.800118, MU_S = 132712440041.279;
 export const R_E = 6378.1363, J2_E = 1.0826267e-3;
 export const R_M_REF = 1738.0, R_M = 1737.4, J2_M = 2.03213e-4, C22_M = 2.2382e-5;
 export const G0 = 9.80665e-3, SOI_M = 66100.0, TT_UTC = 69.184, DAY = 86400.0;
+// N-cisim çerçevesinde Ay figür (J2/C22) terimi bu uzaklığın içinde uygulanır (km; sınırdaki ivme ~1e-14 km/s²)
+export const MOON_FIG_RANGE = 150000.0;
+// motor seçenekleri: exactMass=false eski davranış (itki ivmesi adım başı kütleyle sabit; TLI'da Δv'yi ~%0,14 eksik uygular)
+export const OPTS = { exactMass: true };
 // görüntü/arayüz için 'Ay çevresi' yarıçapı (fizikteki merkez cisim geçişinden bağımsız): halo görevlerinde halo'yu kapsar
 export let MOON_ZONE = SOI_M;
 export function setMoonZone(r) { MOON_ZONE = r; }
@@ -145,11 +155,23 @@ function gmst82(t) {
 }
 
 // ------------------------------------------------------------------ kuvvet modeli
+// Ay'ın figür (J2, C22) ivmesi: r Ay'a göre konum (ICRF), M ICRF -> PA dönüşü; sonuç ICRF'de
+function moonFigure(M, r, rn2, rn) {
+  const [x, y, zz] = mv(M, r);
+  const Rr = R_M_REF * R_M_REF, r5 = rn2 * rn2 * rn, r7 = r5 * rn2;
+  const kJ = (-1.5 * J2_M * MU_M * Rr) / r5, q = (5 * zz * zz) / rn2;
+  const kC = 3 * MU_M * Rr * C22_M, w = x * x - y * y;
+  const loc = [kJ * x * (1 - q) + kC * (2 * x / r5 - 5 * w * x / r7),
+               kJ * y * (1 - q) + kC * (-2 * y / r5 - 5 * w * y / r7),
+               kJ * zz * (3 - q) + kC * (-5 * w * zz / r7)];
+  return mtv(M, loc);
+}
+// 'E' ve 'N': Dünya merkezli (eylemsiz) çerçeve. 'N' ek olarak Ay figürünü Ay'ın yakınında uygular; etki küresi geçişi yoktur.
 export function accel(t, r, central, thr, pole, Mpa) {
   const rm = moonPos(t), rs = sunPos(t);
   const rn2 = dot(r, r), rn = Math.sqrt(rn2);
   let ax, ay, az;
-  if (central === 'E') {
+  if (central !== 'M') {
     const k0 = -MU_E / (rn2 * rn);
     ax = k0 * r[0]; ay = k0 * r[1]; az = k0 * r[2];
     const p = pole || PROV.pole(t);
@@ -164,18 +186,17 @@ export function accel(t, r, central, thr, pole, Mpa) {
       const dp = sub(rp, r), dpn = norm(dp), rpn = norm(rp), p1 = gm / (dpn * dpn * dpn), p2 = gm / (rpn * rpn * rpn);
       ax += p1 * dp[0] - p2 * rp[0]; ay += p1 * dp[1] - p2 * rp[1]; az += p1 * dp[2] - p2 * rp[2];
     }
+    if (central === 'N') {                                   // N-cisim: Ay'ın figürü (yalnız yakınında anlamlı)
+      const s = sub(r, rm), sn2 = dot(s, s);
+      if (sn2 < MOON_FIG_RANGE * MOON_FIG_RANGE) {
+        const g = moonFigure(Mpa || moonIcrfToPa(t), s, sn2, Math.sqrt(sn2));
+        ax += g[0]; ay += g[1]; az += g[2];
+      }
+    }
   } else {
     const k0 = -MU_M / (rn2 * rn);
     ax = k0 * r[0]; ay = k0 * r[1]; az = k0 * r[2];
-    const M = Mpa || moonIcrfToPa(t);
-    const [x, y, zz] = mv(M, r);
-    const Rr = R_M_REF * R_M_REF, r5 = rn2 * rn2 * rn, r7 = r5 * rn2;
-    const kJ = (-1.5 * J2_M * MU_M * Rr) / r5, q = (5 * zz * zz) / rn2;
-    const kC = 3 * MU_M * Rr * C22_M, w = x * x - y * y;
-    const loc = [kJ * x * (1 - q) + kC * (2 * x / r5 - 5 * w * x / r7),
-                 kJ * y * (1 - q) + kC * (-2 * y / r5 - 5 * w * y / r7),
-                 kJ * zz * (3 - q) + kC * (-5 * w * zz / r7)];
-    const g = mtv(M, loc);
+    const g = moonFigure(Mpa || moonIcrfToPa(t), r, rn2, rn);
     ax += g[0]; ay += g[1]; az += g[2];
     const re = [-rm[0], -rm[1], -rm[2]];
     let d = sub(re, r), dn = norm(d), ren = norm(re), q1 = MU_E / (dn * dn * dn), q2 = MU_E / (ren * ren * ren);
@@ -192,6 +213,35 @@ export function accel(t, r, central, thr, pole, Mpa) {
   return [ax, ay, az];
 }
 
+// Kuvvet dökümü (arayüz ve inceleme için): araca etkiyen ivmelerin büyüklükleri, m/s².
+// r: durumun merkez cismine göre konum (central: 'E' | 'M' | 'N'). Her cisim için iki değer:
+//   direct: o cismin aracı tek başına çekmesi (μ/d²)
+//   eff   : baskın cismin çerçevesinde hareketi gerçekten etkileyen kısım. Baskın cisim kendisi için direct'tir; diğerleri için
+//           bozucu (gelgit) etkidir: cismin araca çekimi − baskın cisme çekimi (ortak ivme düşer, örn. Güneş: 6e-3 → ~1e-7 m/s²).
+// frame: baskın cisim, araç Ay'ın etki küresinin içindeyse 'M', değilse 'E'.
+export function accelBreakdown(t, r, central = 'N') {
+  const K = 1000.0, rm = moonPos(t), rg = central === 'M' ? add(r, rm) : r, rn = norm(rg);
+  const sMoon = sub(rg, rm), sn = norm(sMoon), frame = sn < SOI_M ? 'M' : 'E';
+  const rc = frame === 'M' ? rm : [0, 0, 0];                              // baskın cismin (çerçeve merkezinin) geosentrik konumu
+  const out = { frame, earthDist: rn, moonDist: sn };
+  const body = (gm, rb) => {                                              // [doğrudan, etkin, bozucu vektör]
+    const d = sub(rb, rg), dn = norm(d), dc = sub(rb, rc), dcn = norm(dc), direct = (K * gm) / (dn * dn);
+    if (dcn < 1e-9) return [direct, direct, null];                        // baskın cismin kendisi
+    const a = sub(scale(d, gm / dn ** 3), scale(dc, gm / dcn ** 3));
+    return [direct, K * norm(a), a];
+  };
+  [out.earth, out.earthEff] = body(MU_E, [0, 0, 0]);
+  [out.moon, out.moonEff] = body(MU_M, rm);
+  [out.sun, out.sunEff] = body(MU_S, sunPos(t));
+  let pl = [0, 0, 0];
+  for (const [gm, rp] of PROV.planets(t)) pl = add(pl, body(gm, rp)[2]);
+  out.planets = K * norm(pl);
+  const p = PROV.pole(t), z = dot(rg, p), kk = (1.5 * J2_E * MU_E * R_E * R_E) / rn ** 5, f = 5 * z * z / (rn * rn) - 1;
+  out.earthJ2 = K * norm([kk * (f * rg[0] - 2 * z * p[0]), kk * (f * rg[1] - 2 * z * p[1]), kk * (f * rg[2] - 2 * z * p[2])]);
+  out.moonFig = sn < MOON_FIG_RANGE ? K * norm(moonFigure(moonIcrfToPa(t), sMoon, sn * sn, sn)) : 0;
+  return out;
+}
+
 // ------------------------------------------------------------------ araç
 export class Vehicle {
   constructor(stages) { this.stages = stages.map((s) => ({ ...s })); this.k = 0; }
@@ -206,9 +256,19 @@ export const dummyVehicle = () => new Vehicle([{ name: 'x', dry: 1, prop: 0, T: 
 export class State {
   constructor(t, r, v, central = 'E') { this.t = t; this.r = r.slice(); this.v = v.slice(); this.central = central; }
   copy() { return new State(this.t, this.r, this.v, this.central); }
-  geo() { return this.central === 'E' ? [this.r, this.v] : [add(this.r, moonPos(this.t)), add(this.v, moonVel(this.t))]; }
+  // geosentrik (yer merkezli eylemsiz) durum: 'E' ve 'N' zaten öyledir
+  geo() { return this.central === 'M' ? [add(this.r, moonPos(this.t)), add(this.v, moonVel(this.t))] : [this.r, this.v]; }
   seleno() { return this.central === 'M' ? [this.r, this.v] : [sub(this.r, moonPos(this.t)), sub(this.v, moonVel(this.t))]; }
+  // durumu başka çerçeveye kesin dönüştür ('E' | 'M' | 'N'); aynı çerçeveyse kopya
+  toFrame(central) {
+    if (central === this.central) return this.copy();
+    if (central === 'M') { const [rs, vs] = this.seleno(); return new State(this.t, rs, vs, 'M'); }
+    const [g, gv] = this.geo(); return new State(this.t, g, gv, central);
+  }
+  // Ay çerçevesindeki ('M') durumun eşdeğeri: N-cisim çerçevesinde araç Ay'ın etki küresinin içindeyse doğru (etki küresi modunda central === 'M')
+  inMoonFrame() { return this.central === 'M' || (this.central === 'N' && norm(sub(this.r, moonPos(this.t))) < SOI_M); }
   switchIfNeeded() {
+    if (this.central === 'N') return false;                  // N-cisim: tek çerçeve, geçiş yok
     const [rs, vs] = this.seleno(), d = norm(rs);
     if (this.central === 'E' && d < SOI_M * 0.98) { this.r = rs; this.v = vs; this.central = 'M'; return true; }
     if (this.central === 'M' && d > SOI_M * 1.02) { const [g, gv] = this.geo(); this.r = g; this.v = gv; this.central = 'E'; return true; }
@@ -226,10 +286,16 @@ const B5 = [35 / 384, 0, 500 / 1113, 125 / 192, -2187 / 6784, 11 / 84, 0];
 const B4 = [5179 / 57600, 0, 7571 / 16695, 393 / 640, -92097 / 339200, 187 / 2100, 1 / 40];
 export const TOL = { ATOL_R: 1e-5, ATOL_V: 1e-8, RTOL: 1e-12 };
 
-export function dopriStep(st, h, accThr) {
+// thrust: null | [ax, ay, az] (sabit itki ivmesi, km/s²) | { u, T, m, mdot } (birim yön, itki kN, adım başı kütle kg, kütle akışı kg/s):
+// ikincisinde itki ivmesi her aşamada o aşamanın kütlesiyle (m − ṁ·Cᵢ·h) hesaplanır
+export function dopriStep(st, h, thrust) {
   const t = st.t, r = st.r, v = st.v, c = st.central;
-  const pole = c === 'E' ? PROV.pole(t) : null;
-  const Mpa = c === 'M' ? moonIcrfToPa(t + h / 2) : null;
+  const pole = c !== 'M' ? PROV.pole(t) : null;
+  let Mpa = null;
+  if (c === 'M') Mpa = moonIcrfToPa(t + h / 2);
+  else if (c === 'N') { const s = sub(r, moonPos(t)); if (dot(s, s) < MOON_FIG_RANGE * MOON_FIG_RANGE) Mpa = moonIcrfToPa(t + h / 2); }
+  const thrAt = !thrust ? () => null : Array.isArray(thrust) ? () => thrust
+    : (i) => { const k = thrust.T / (thrust.m - thrust.mdot * Cc[i] * h); return [thrust.u[0] * k, thrust.u[1] * k, thrust.u[2] * k]; };
   const kr = [], kv = [];
   for (let i = 0; i < 7; i++) {
     let ri = r, vi = v;
@@ -244,7 +310,7 @@ export function dopriStep(st, h, accThr) {
       }
     }
     kr.push(vi);
-    kv.push(accel(t + Cc[i] * h, ri, c, accThr, pole, Mpa));
+    kv.push(accel(t + Cc[i] * h, ri, c, thrAt(i), pole, Mpa));
   }
   const r5 = r.slice(), v5 = v.slice(), r4 = r.slice(), v4 = v.slice();
   for (let i = 0; i < 7; i++) {
@@ -259,8 +325,10 @@ export function dopriStep(st, h, accThr) {
 }
 
 export class Propagator {
-  constructor(state, vehicle, hMaxCoast = 900.0, hMaxBurn = 1.0) {
-    this.s = state; this.veh = vehicle; this.h = 10.0;
+  // opts.nbody: durumu N-cisim çerçevesine ('N') alır; etki küresi geçişi yapılmaz
+  constructor(state, vehicle, hMaxCoast = 900.0, hMaxBurn = 1.0, opts = {}) {
+    this.nbody = !!opts.nbody;
+    this.s = this.nbody ? state.toFrame('N') : state; this.veh = vehicle; this.h = 10.0;
     this.hMaxCoast = hMaxCoast; this.hMaxBurn = hMaxBurn;
     this.phase = ''; this.dvUsed = 0.0;
     this.tLimit = Infinity;          // canlı modda ekran saatinin ötesine geçme
@@ -274,20 +342,22 @@ export class Propagator {
     const st = this.veh.active;
     const T = thr > 0 && st.prop > 0 ? thr * st.T : 0.0;
     const m = this.veh.mass();
-    const acc = T > 0 ? scale(u, T / m) : null;
+    const mdot = T > 0 ? T / (st.isp * G0) : 0.0;
     const hmax = T > 0 ? this.hMaxBurn : this.hMaxCoast;
     let h = Math.sign(hReq) * Math.min(Math.abs(hReq), hmax, Math.abs(this.h));
+    if (T > 0 && mdot * Math.abs(h) > st.prop) h = Math.sign(h) * (st.prop / mdot);   // yakıt bitişinde adım biter (itki o anda kesilir)
+    const thrust = T <= 0 ? null : OPTS.exactMass ? { u, T, m, mdot } : scale(u, T / m);
     let r5, v5, err;
     for (;;) {
-      [r5, v5, err] = dopriStep(this.s, h, acc);
+      [r5, v5, err] = dopriStep(this.s, h, thrust);
       if (err <= 1.0) break;
       h *= Math.max(0.2, 0.9 * err ** -0.2);
     }
     this.s.r = r5; this.s.v = v5; this.s.t += h;
     if (T > 0) {
-      const dm = Math.min((T / (st.isp * G0)) * Math.abs(h), st.prop);
+      const dm = Math.min(mdot * Math.abs(h), st.prop);
       this.dvUsed += st.isp * G0 * Math.log(m / (m - dm));
-      st.prop -= dm;
+      st.prop -= dm; if (st.prop < 1e-9) st.prop = 0;       // yuvarlama artığı kalmasın (bitiş adımı yakıtı tam tüketir)
     }
     const fac = err < 1e-10 ? 5.0 : Math.min(5.0, 0.9 * err ** -0.2);
     this.h = Math.min(Math.abs(h) * fac, this.hMaxCoast);
@@ -304,6 +374,18 @@ export class Propagator {
     }
     return false;
   }
+}
+
+// s0'dan en yakın perijeye süre (s; geçtiyse negatif): r·v = 0 kökü, tam kuvvet modeliyle Newton (s0 perijeye ~ çeyrek turdan yakın olmalı)
+export function timeToPerigee(s0, hMax = 60.0) {
+  const Q = new Propagator(s0.copy(), dummyVehicle(), hMax), t0 = Q.s.t;
+  for (let i = 0; i < 40; i++) {
+    const r = Q.s.r, v = Q.s.v, a = accel(Q.s.t, r, Q.s.central), rv = dot(r, v);
+    const dt = Math.max(-600, Math.min(600, -rv / (dot(v, v) + dot(r, a))));
+    if (Math.abs(dt) < 1e-6) break;
+    Q.runUntil(Q.s.t + dt);
+  }
+  return Q.s.t - t0;
 }
 
 // ------------------------------------------------------------------ yardımcılar
