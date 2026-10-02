@@ -227,6 +227,7 @@
       <button class="tab" role="tab" data-tab="uydular" aria-selected="false" tabindex="-1">Uydular</button>
       <button class="tab" role="tab" data-tab="asteroit" aria-selected="false" tabindex="-1">Asteroitler</button>
       <button class="tab" role="tab" data-tab="saptirma" aria-selected="false" tabindex="-1">Saptırma</button>
+      <button class="tab" role="tab" data-tab="carpma" aria-selected="false" tabindex="-1">Çarpma</button>
     </nav>
     <div id="tab-takip" class="tabpage" role="tabpanel">
       <h3><i data-icon="pin"></i> Gözlemci</h3>
@@ -319,6 +320,32 @@
       <canvas id="dfSweep" class="chart"></canvas>
       <p class="note">Fizik motoru: asteroit, Güneş + 8 gezegen + Ay + Plüton çekimi (konumlar JPL DE440'tan) ve Güneş'in genel görelilik düzeltmesiyle DOPRI5 ile tümlenir. Yakın geçiş, Dünya'ya uzaklığın yerel en küçüğü olarak ikiye bölmeyle bulunur. Kaçırma, B-düzleminde (Öpik–Valsecchi ξ, ζ) ölçülür: Dünya'yı ıskalamak için kayma, çekim odaklamasıyla büyüyen yakalama yarıçapını (bE) aşmalıdır. İtkinin etkisi hem durum geçiş matrisiyle (doğrusal) hem tam tümlemeyle hesaplanır. Kinetik çarpıcı: Δv = β·m·U / (M + m). Yarkovsky etkisi ve öteki asteroitlerin çekimi modelde yok.</p>
       <p id="dfDart" class="note"></p>
+    </div>
+      <div id="tab-carpma" class="tabpage" role="tabpanel" hidden>
+      <h3>Dünya'ya çarpma ve yeniden giriş</h3>
+      <div id="cpMode" class="cpseg" role="tablist" aria-label="Cisim türü"><button data-m="sat" class="on" role="tab">Uydular</button><button data-m="ast" role="tab">Asteroitler</button></div>
+      <div id="cpSat">
+        <div id="cpSatSum" class="dinfo"></div>
+        <div class="cp-filters">
+          <label>Grup<select id="cpGroup"></select></label>
+          <label>Yeniden giriş<select id="cpHorizon"><option value="all">Hepsi</option><option value="d30">≤ 30 gün</option><option value="y1">≤ 1 yıl</option><option value="y5">≤ 5 yıl</option><option value="y25">≤ 25 yıl</option><option value="y100">≤ 100 yıl</option></select></label>
+        </div>
+        <div class="daterow"><input id="cpSatQ" type="search" placeholder="Uydu ara (ad ya da NORAD no)" aria-label="Uydu ara"></div>
+        <ul id="cpSatList" class="sresults cp-list"></ul>
+        <div id="cpSatDet" hidden></div>
+        <p class="note">Tahmin, CelesTrak GP kaydındaki sürüklenme terimi (B*) ve atmosfer modeline dayanan <b>kaba bir yörünge bozunması</b> hesabıdır; yeniden giriş 120 km perijede sayılır. Güneş aktivitesi gelecekte değişeceği için uzun süreli tahminlerde ±2–5× belirsizlik vardır. Starlink gibi aktif uydular yörüngelerini korur ya da planlı olarak indirir; burada <i>manevra yapılmasa</i> ne olacağı gösterilir. Nokta renkleri güveni belirtir (yeşil yüksek, sarı orta, gri düşük).</p>
+      </div>
+      <div id="cpAst" hidden>
+        <div id="cpAstSum" class="dinfo"></div>
+        <div class="cp-filters">
+          <label>Sırala<select id="cpSort"><option value="year">En erken yıl</option><option value="ip">En yüksek olasılık</option><option value="ps">Palermo (yüksek)</option></select></label>
+          <label>Olası yıl<select id="cpYear"><option value="2050">≤ 2050</option><option value="2075">≤ 2075</option><option value="2100" selected>≤ 2100</option><option value="2200">≤ 2200</option><option value="9999">Hepsi</option></select></label>
+        </div>
+        <div class="daterow"><input id="cpAstQ" type="search" placeholder="Asteroit ara" aria-label="Asteroit ara"></div>
+        <ul id="cpAstList" class="sresults cp-list"></ul>
+        <div id="cpAstDet" hidden></div>
+        <p class="note">Kaynak: JPL Sentry (sanal çarpıcılar). Bir satırı seçince asteroit haritada işaretlenir; "N-cisim taramasını aç" bu asteroidin nominal yörüngesini Güneş, gezegenler ve Ay çekimiyle yıllarca ileri tümleyip Dünya'ya yakın geçişlerini listeler.</p>
+      </div>
     </div>
   </aside>
 

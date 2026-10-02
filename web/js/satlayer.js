@@ -7,6 +7,7 @@ import { DATA_RAW, SUP_FILES } from './config.js';
 import { SatModels, modelFor, MOON_MODELS, MODELS, showDist } from './satmodels.js';
 import { SatInstancer } from './satinstancer.js';
 import { familyOf, FAMILIES } from './satfamilies.js';
+import { assessSat } from './impact.js';
 
 export const SAT_GROUPS = [
   { name: 'Uzay istasyonları', color: 0xff5a5a, size: 5.0 },
@@ -121,7 +122,7 @@ export class SatLayer {
     if (!d) try { d = await celestrakDirect(); } catch (e) { errs.push('doğrudan: ' + e.message); }
     if (!d) { this.info = { status: 'Uydu verisi alınamadı (' + errs.join(' · ') + ')' }; this.changed(); return; }
     this.src = { kaynak: d.kaynak, yas: d.yas, t: Date.now() };
-    this.gp = d.omm; this.sup = null;
+    this.gp = d.omm; this.gpMap = null; this.sup = null;
     this.apply(this.gp);
     this.loadSup(v);                                              // operatör verisi arkadan gelir
   }
@@ -175,6 +176,8 @@ export class SatLayer {
     if (!pv || !pv.position || !Number.isFinite(pv.position.x)) return null;
     return E.mtv(E.precession(t), [pv.position.x, pv.position.y, pv.position.z]);
   }
+  // sürüklenme (B*) için standart GP kaydı: operatör (SupGP) çözümleri yörünge konumu için daha iyi ama B* değerleri bozunma için güvenilir değil (ör. ISS ~10×)
+  gpRecord(id) { if (!this.gp) return this.recordOf(id); if (!this.gpMap) this.gpMap = new Map(this.gp.map((o) => [+o.NORAD_CAT_ID, o])); return this.gpMap.get(+id) || this.recordOf(id); }
   recordOf(id) { return this.byId ? this.byId.get(+id) || null : null; }
   indexOf(id) { if (!this.ids) return -1; if (!this.idIndex || this.idIndex.n !== this.n) { this.idIndex = new Map(this.ids.map((x, i) => [+x, i])); this.idIndex.n = this.n; } const i = this.idIndex.get(+id); return i == null ? -1 : i; }
   onMsg(d) {
@@ -325,7 +328,7 @@ export class SatLayer {
     const out = { name: o.OBJECT_NAME, norad: o.NORAD_CAT_ID, cospar: o.OBJECT_ID, group: SAT_GROUPS[this.groups[i]].name,
       periodMin: 1440 / o.MEAN_MOTION, inc: +o.INCLINATION, ecc, perigee: a * (1 - ecc) - E.R_E, apogee: a * (1 + ecc) - E.R_E,
       epochAgeDays: (E.utcMsFromT(t) - Date.parse(o.EPOCH + 'Z')) / 86400000, launchYear: (o.OBJECT_ID || '').slice(0, 4),
-      model: modelFor(o.NORAD_CAT_ID, o.OBJECT_NAME), family: FAMILIES[this.famKeys && this.famKeys[i]] || null,
+      decay: assessSat(this.gpRecord(this.ids[i]) || o, Date.now(), false), model: modelFor(o.NORAD_CAT_ID, o.OBJECT_NAME), family: FAMILIES[this.famKeys && this.famKeys[i]] || null,
       source: o._sup ? `CelesTrak SupGP (${o._sup.src || o._sup.file}${o._sup.rms != null ? `, RMS ${o._sup.rms} km` : ''})` : 'CelesTrak GP' };
     if (pv && pv.position) {
       const M = E.precession(t), p = E.mtv(M, [pv.position.x, pv.position.y, pv.position.z]);

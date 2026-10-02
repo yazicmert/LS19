@@ -7,6 +7,7 @@ import { BODIES, IS, IE, IM } from './ephem.js';
 import { sunElevationAtSite, PROFILES, normalizeConfig, configLabel } from './design.js';
 import { dvKeys, DV_NAMES, dvFromEvents } from './dvbudget.js';
 import { SAT_GROUPS } from './satlayer.js';
+import { fmtReentry } from './impact.js';
 
 const $ = (s) => document.querySelector(s);
 const fmt = (x, d = 0) => (Number.isFinite(x) ? x.toLocaleString('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—');
@@ -166,6 +167,7 @@ export class UI {
     panel.querySelectorAll('.tab').forEach((b) => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; });
     panel.querySelectorAll('.tabpage').forEach((p) => (p.hidden = p.id !== 'tab-' + t));
     if (t === 'grafik') this.charts.forEach((c) => c.draw());
+    if (t === 'carpma' && this.onCarpma) this.onCarpma();
   }
   pickTick(t, now) { if (this.pick && now - (this.lastPick || 0) > 500) { this.lastPick = now; this.renderPick(t); } }
   reset(plan, t0, tLaunch) {
@@ -320,6 +322,7 @@ export class UI {
       rows.push(['Periyot', d.periodMin > 180 ? fmt(d.periodMin / 60, 2) + ' sa' : fmt(d.periodMin, 1) + ' dk'], ['Eğim', fmt(d.inc, 2) + '°'],
         ['Perije / apoje', `${fmt(d.perigee, 0)} / ${fmt(d.apogee, 0)} km`], ['Dış merkezlik', fmt(d.ecc, 5)],
         ['Öğelerin yaşı', `${fmt(d.epochAgeDays, 1)} gün`], ['Yörünge verisi', d.source || 'CelesTrak GP']);
+      rows.push(['Tahmini yeniden giriş', fmtReentry(d.decay)]);
       rows.push(['3B model', d.model ? `${d.model.note || d.model.title} · NASA 3D Resources (~${fmt(d.model.size, 0)} m)` : d.family ? `${d.family.title} · temsili aile modeli (${d.family.note})` : 'nokta']);
       if (d.obsEl != null) rows.push([`${d.obsName}'dan`, d.obsEl > 0 ? `gökte ${fmt(d.obsEl, 1)}° · az ${fmt(d.obsAz, 0)}° · ${fmt(d.obsRange, 0)} km` : 'ufkun altında']);
       if (d.nextPass) { const p = d.nextPass, tt = new Date(p.rise.ms);

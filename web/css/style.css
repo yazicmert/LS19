@@ -302,3 +302,21 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
 .tilemode { position: fixed; left: 16px; bottom: 54px; z-index: 5; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-family: var(--font); color: var(--text-secondary); background: rgba(12, 15, 21, .85); border: 1px solid var(--line-2); backdrop-filter: blur(6px); cursor: pointer; }
 .tilemode:hover { color: var(--text-primary); border-color: var(--accent); }
 .tilemode[hidden] { display: none; }
+
+/* Çarpma sekmesi */
+.cpseg { display: flex; gap: 4px; margin: 6px 0 8px; }
+.cpseg button { flex: 1; font-family: var(--font); font-size: 13px; font-weight: 600; padding: 6px 10px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--line-2); color: var(--text-secondary); cursor: pointer; }
+.cpseg button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.cp-list { max-height: 300px; overflow-y: auto; }
+.cp-li { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.cp-li.on { background: rgba(57, 135, 229, 0.16); color: var(--text-primary); }
+.cp-li b { font-weight: 600; color: var(--text-primary); }
+.cp-r { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cp-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+#cpChart { width: 100%; height: 150px; display: block; margin: 6px 0; }
+#cpSatDet, #cpAstDet { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; }
+.cp-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 6px 0; }
+.cp-filters label { display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; color: var(--text-muted); min-width: 0; }
+.cp-filters select { width: 100%; min-width: 0; }
+#tab-carpma input[type=search] { width: 100%; box-sizing: border-box; }
+#tab-carpma .tbl td.k { color: var(--text-muted); width: 42%; vertical-align: top; }
