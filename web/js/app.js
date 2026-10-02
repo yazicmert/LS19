@@ -420,6 +420,7 @@ window.addEventListener('keydown', (e) => {
   else if (k === ',') setWarp((latest ? latest.warp : warp) / 2);
   else if (k === 'g') { $('#chkAuto').checked = !$('#chkAuto').checked; send({ cmd: 'auto', on: $('#chkAuto').checked }); refreshTreeMenus(); }
   else if (k === 'p') send({ cmd: 'perturb', dv: 2.0 });
+  else if (k === 'k') { ui.setTab('kontrol'); $('#panel').classList.add('open'); }
   else if (/^[1-8]$/.test(k)) setCam(['AUTO', 'VEHICLE', 'EARTH', 'MOON', 'SYSTEM', 'SITE', 'EMB', 'SOLAR'][+k - 1]);
   else if (!autoPilot) {
     const modes = { w: 'PRO', s: 'RETRO', a: 'NML', d: 'ANML', q: 'RADOUT', e: 'RADIN', r: 'SRFRETRO', h: 'HOLD' };

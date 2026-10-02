@@ -77,9 +77,19 @@ saptırma laboratuvarı bir asteroide uygulanan itkinin Dünya yakın geçişini
 - "Çarpma rotasındaymış gibi" seçeneği gerçek yörüngeyi Dünya merkezine gidiyormuş gibi kabul eder: itki bu çarpışmayı önler mi?
 - Doğrulama: Apophis 13 Nisan 2029 yakın geçişi JPL CAD'e göre ~2 km farkla; DART/Dimorphos periyot değişimi.
 
+## Kontrol paneli (Kontrol sekmesi, **K**)
+Ay Görevi panelindeki **Kontrol** sekmesi aracın anlık durumunu canlı gösterir (saniyede ~10 güncelleme; zaman hızından ve duraklatmadan bağımsız doğru kalır).
+- **Üstte:** evre, rozetler (motor, otopilot/elle, çözücü, zaman hızı), sıradaki olay ve kalan süre, varsa uyarılar; dört ana gösterge (irtifa, hız, dikey hız, yakıt) ve gaz çubuğu.
+- **Δv bütçesi:** her kademe için *kalan Δv* (roket denklemi), *gerekli* (planlı manevraların kalanı) ve *pay*. Pay bozulmasız uçuşta sabittir; bozulma, elle yakış ya da fazladan rota düzeltmesi onu azaltır (satırın üzerine gelince plan dışı harcama yazar).
+- **İniş** (iniş evrelerinde ve 30 km altında): iniş yeri irtifası, dikey/yatay hız, menzil, motor kesilirse çarpmaya kalan süre, tam gazla durma yüksekliği ve payı, askıda kalma gazı, hız sıfırlama alt sınırı; grafikte dikey hız–√irtifa faz düzlemi (kırmızı bölgede dikey hız artık sıfırlanamaz, yeşil kutu temas sınırı).
+- **Motor ve yakıt**, **Konum ve hız** (irtifa, enlem/boylam, eylemsiz ve yüzeye göre hız, uçuş yolu açısı, yön), **Yörünge (osküle)** (elemanlar, apsislere kalan süre, enerji, harita), **Ortam ve haberleşme** (Dünya/Ay/Güneş uzaklığı, ışık gecikmesi, görüş hattı, Güneş ışığı oranı). Bölüm başlıklarına tıklayınca katlanır.
+- Her satırın üzerine gelince **tanım ve formül** görünür; *Fizik notları* varsayımları sıralar (baskın cisim, osküle konik, yüzeye göre hız, jeodezik irtifa, nokta kütle ve atmosfersiz model).
+- **Koniğin geçerliliği:** üçüncü cisimlerin bozucu ivmesinin merkezi çekime oranı. Küçükse (yeşil) periapsis/apoapsis ve çarpma süresi güvenilirdir; transferde ve halo yörüngelerinde büyür (kırmızı) ve oskülatör periapsis yaklaşıktır.
+- Hesap `js/telemetry.js` (DOM'suz, saf), çizim `js/controlpanel.js`; fizik testleri `node test/test_telemetry.js`.
+
 ## Kontroller
 - **Boşluk**: başlat/duraklat · **. ,**: zaman hızı ×2 / ÷2 · "Otomatik hız" olaylara yaklaşırken yavaşlatır
-- **G**: otopilot aç/kapa · **P**: 2 m/s rastgele bozulma (rota düzeltmeleri telafi eder)
+- **G**: otopilot aç/kapa · **P**: 2 m/s rastgele bozulma (rota düzeltmeleri telafi eder) · **K**: Kontrol paneli
 - **M**: çalışma alanı değiştir · **Fare**: uydu, asteroit ya da gezegene gel → ad; tıkla → bilgi kartı
 - **Alt çubuk**: Başlat, zaman hızı (− ×N +) görünür; **Kamera ▾** ve **Uçuş ▾** (otopilot, otomatik hız, **N-cisim çözücü**, bozulma, baştan başlat) açılır ağaç menüdedir.
   *N-cisim çözücü* açıkken araç tek eylemsiz çerçevede Dünya + Ay + Güneş çekimiyle ilerler (etki küresi geçişi yok); kapalıyken iki merkez cisimli (etki küresi) çözücü kullanılır. Uçuş sırasında değiştirilebilir. **Yörünge** sekmesinde canlı kuvvet dökümü vardır.
@@ -102,6 +112,7 @@ saptırma laboratuvarı bir asteroide uygulanan itkinin Dünya yakın geçişini
 - `js/mission.js` — otopilot (TLI, MCC, LOI ya da NRI + istasyon tutma + ayrılış + LLO girişi, DOI, PDI güdümü)
 - `js/ephem.js`, `js/earth.js`, `js/jplkernel.js` — canlı N-cisim efemerisi, Dünya yönelimi, JPL çekirdek okuyucu
 - `js/engine.js` — fizik motoru (N-cisim ve iki merkez cisimli çerçeve, değişken kütleli itki, kuvvet dökümü) · `js/worker.js` fizik iş parçacığı · `js/nominal.js` nominal Δv koşusu
+- `js/telemetry.js` — canlı uçuş telemetrisi (jeodezik irtifa, yüzeye göre hız, osküle elemanlar, Kepler süreleri, Tsiolkovsky Δv ve bütçe, tutulma, görüş hattı, uyarılar) · `js/controlpanel.js` — Kontrol sekmesi
 - `js/sats.js`, `js/satlayer.js`, `lib/satellite.esm.js` (satellite.js, MIT) — canlı uydular
 - `js/satcatalog.js`, `js/satmodels.js`, `models/sats/` — gerçek 3B uydu modelleri (NASA 3D Resources, kamu malı), `lib/addons/libs/meshopt_decoder.module.js` (MIT)
 - `js/treemenu.js` — alt çubuktaki açılır ağaç menüler

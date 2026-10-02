@@ -65,6 +65,7 @@
   <aside id="panel" class="panel" data-for="mission" aria-label="Ay görevi paneli">
     <nav class="tabs" role="tablist" aria-label="Ay görevi sekmeleri">
       <button class="tab on" role="tab" aria-selected="true" data-tab="gorev">Görev</button>
+      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="kontrol" title="Canlı uçuş kontrol paneli (K)">Kontrol</button>
       <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="dv">Δv</button>
       <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="grafik">Grafik</button>
       <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="yorunge">Yörünge</button>
@@ -123,6 +124,7 @@
       <h3>Olay günlüğü</h3>
       <ul id="log" class="log"></ul>
     </div>
+    <div id="tab-kontrol" class="tabpage" hidden></div>
     <div id="tab-dv" class="tabpage" hidden>
       <h3>Δv bütçesi (m/s)</h3>
       <table id="dvtable" class="tbl">

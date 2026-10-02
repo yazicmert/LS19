@@ -1,7 +1,8 @@
 // LS19 arayüzü: HUD, görev paneli (olaylar, Δv bütçesi, grafikler, yörünge elemanları)
 import * as E from './engine.js';
 import * as EO from './earth.js';
-import { R_SITE } from './mission.js';
+import { R_SITE, STAGES, siteIcrf } from './mission.js';
+import { ControlPanel } from './controlpanel.js';
 import { etOf } from './live.js';
 import { BODIES, IS, IE, IM } from './ephem.js';
 import { sunElevationAtSite, PROFILES, normalizeConfig, configLabel } from './design.js';
@@ -62,6 +63,7 @@ export class UI {
       const n = bs[(i + (e.key === 'ArrowRight' ? 1 : bs.length - 1)) % bs.length]; n.focus(); this.setTab(n.dataset.tab); e.preventDefault();
     }));
     this.charts = [new LineChart($('#chartAlt'), 'İrtifa', 'km', true), new LineChart($('#chartSpd'), 'Hız', 'km/s', false)];
+    this.cp = new ControlPanel($('#tab-kontrol')); this.lastS = null;
     // görev tarihi: seçilen günden itibaren ilk uygun pencere için tarayıcıda yeniden tasarım
     const go = (d) => {
       if (!/^\d{4}-\d\d-\d\d$/.test(d || '') || d < DATE_MIN || d > DATE_MAX) { this.designMsg(`Tarih ${DATE_MIN.slice(0, 4)}–${DATE_MAX.slice(0, 4)} arasında olmalı (JPL DE440 kapsamı).`); return; }
@@ -172,13 +174,14 @@ export class UI {
     panel.querySelectorAll('.tab').forEach((b) => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; });
     panel.querySelectorAll('.tabpage').forEach((p) => (p.hidden = p.id !== 'tab-' + t));
     if (t === 'grafik') this.charts.forEach((c) => c.draw());
+    if (t === 'kontrol' && this.lastS) this.cp.update(this.lastS, this.cpCtx(this.lastS.t));
     if (t === 'carpma' && this.onCarpma) this.onCarpma();
   }
   pickTick(t, now) { if (this.pick && now - (this.lastPick || 0) > 500) { this.lastPick = now; this.renderPick(t); } }
   reset(plan, t0, tLaunch) {
     this.plan = plan; this.t0 = t0; this.tLaunch = tLaunch; this.events = [];
     this.series = { t: [], alt: [], spd: [] }; this.lastSample = -Infinity;
-    $('#log').replaceChildren(); this.renderPlan(t0); this.renderDv();
+    $('#log').replaceChildren(); this.renderPlan(t0); this.renderDv(); this.cp.reset();
   }
   addEvents(evs) {
     for (const e of evs) {
@@ -247,13 +250,26 @@ export class UI {
     if (this.series.t.length > 8000) for (const k of ['t', 'alt', 'spd']) this.series[k].splice(0, 2000);
   }
 
+  // evre adı (HUD ve kontrol paneli ortak): park yörüngesinde irtifa da yazar
+  phaseLabel(p) { return p === 'PARK' && this.design && this.design.EARTH ? `Park yörüngesi (${fmt(this.design.RAISE ? this.design.RAISE.leo.alt : this.design.EARTH.h, 0)} km)` : phaseName(p); }
+  // sıradaki planlı olay ve ona kalan süre (görev çizelgesiyle aynı mantık)
+  nextEvent(t) {
+    const done = new Set(this.events.map((e) => e.key)), p = this.plan.find((q) => !done.has(q.key) && !done.has(q.key + '_SKIP'));
+    return p ? { name: p.name, dt: (this.tNext != null && this.tNext > t + 1 ? this.tNext : p.t) - t } : null;
+  }
+  // kontrol paneli bağlamı: araç kademeleri, tasarım, olaylar, nominal Δv, iniş yeri
+  cpCtx(t) {
+    const D = this.design;
+    return { stages: (D && D.STAGES) || STAGES, design: D, events: this.events, nominal: this.nominal, siteIcrf, rSite: R_SITE, tLaunch: this.tLaunch, phaseName: (p) => this.phaseLabel(p), next: this.nextEvent(t) };
+  }
+
   hud(s, now) {
     if (now - this.lastHud < 100) return; this.lastHud = now;
     const t = s.t, met = t - this.tLaunch, rm = E.moonPos(t), rsv = E.sub(s.r, rm), rs = E.norm(rsv);
     const nearM = rs < E.MOON_ZONE;
     $('#utc').textContent = E.utcString(t);
     $('#met').textContent = 'T+' + fmtDur(met);
-    $('#phase').textContent = s.phase === 'PARK' && this.design && this.design.EARTH ? `Park yörüngesi (${fmt(this.design.RAISE ? this.design.RAISE.leo.alt : this.design.EARTH.h, 0)} km)` : phaseName(s.phase);
+    $('#phase').textContent = this.phaseLabel(s.phase);
     // Dünya: WGS-84 elipsoidine göre (yaklaşık), Ay: iniş yakınında iniş yeri yüzeyine, değilse ortalama yarıçapa göre
     const rE = E.norm(s.r), sphi = s.r[2] / rE, Rell = E.R_E * (1 - (1 / 298.257) * sphi * sphi);
     let alt = nearM ? (s.local ? s.local.p[2] : rs - E.R_M) : rE - Rell;
@@ -282,6 +298,8 @@ export class UI {
     // sonraki olay
     this.tNext = s.tNext; this.renderPlan(t);
     // yörünge sekmesi
+    this.lastS = s;
+    if (this.tab === 'kontrol') this.cp.update(s, this.cpCtx(t));
     if (this.tab === 'yorunge') { this.orbitTab(s); this.forceTab(s); }
     if (this.tab === 'efemeris' && now - this.lastEph > 250) { this.lastEph = now; this.ephTab(t); }
     if (this.pick && now - (this.lastPick || 0) > 500) { this.lastPick = now; this.renderPick(t); }
