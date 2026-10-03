@@ -327,7 +327,7 @@ const telOf = (smp, extra = {}) => T.computeTelemetry({ ...smp.h, ...extra }, O)
   check('uyarı: alçak Ay yörüngesinde 150 m/s fren → "yörünge yüzeyi kesiyor" + çarpma süresi', r1.al.includes('surf') && r1.tl.tImpact > 0 && r1.tl.orbit.rp < R_SITE, `periselen ${(r1.tl.orbit.rp - R_SITE).toFixed(1)} km, çarpmaya ${r1.tl.tImpact.toFixed(0)} s`);
   check('uyarı: iniş aracının yakıtı bitti', A({ prop: 0 }).al.includes('burnout') && !A({ prop: 60, thr: 1 }).al.includes('burnout'));
   { // uzak transferde koniğin periseleni yüzeyin altında olsa da (üçüncü cisim hatası ≫ delme derinliği) "yüzey" uyarısı verilmez
-    const far = add(rm, scale(unit(sub(llo.r, rm)), 50000)), vin = add(vm, scale(unit(sub(llo.r, rm)), -0.3)), farT = T.computeTelemetry(mkState(llo.t, far, vin, { phase: 'TRANSFER' }), O);
+    const rad = unit(sub(llo.r, rm)), tan = unit(cross(rad, [0, 0, 1])), far = add(rm, scale(rad, 50000)), vin = add(vm, add(scale(rad, -0.3), scale(tan, 0.02))), farT = T.computeTelemetry(mkState(llo.t, far, vin, { phase: 'TRANSFER' }), O);
     check('uyarı: 50.000 km uzakta, periselen yüzeyin altında ama bozucu hatası delme derinliğinden büyük → "yüzey" uyarısı yok', farT.orbit.rp < R_SITE && farT.pertRatio > 1e-3 && !T.alerts(farT, [], O).some((a) => a.id === 'surf'), `periselen ${(farT.orbit.rp - R_SITE).toFixed(0)} km, bozucu/merkezi ${farT.pertRatio.toExponential(1)}, çarpmaya ${farT.tImpact == null ? '—' : farT.tImpact.toFixed(0) + ' s'}`);
   }
   const near = { ...llo, r: add(rm, scale(unit(sub(llo.r, rm)), R_SITE + 0.005)), v: add(vm, add(scale(unit(cross([0, 0, 1], sub(llo.r, rm))), 0.003), scale(unit(sub(llo.r, rm)), -0.005))), phase: 'SON_INIS' };

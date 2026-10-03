@@ -9,6 +9,8 @@
 //       yani uzay aracının barisentrik hareket denklemiyle eşdeğerdir (bağımsız barisentrik entegrasyonla ≤ 1 m uyum: test/test_nbody.js).
 // Sonlu itki: itki ivmesi her DOPRI aşamasında o aşamanın kütlesiyle (m₀ − ṁ·Δt) hesaplanır; böylece uygulanan Δv roket denklemine uyar.
 // Entegratör: Dormand–Prince 5(4), uyarlamalı adım.
+// Yönelim (isteğe bağlı, attitude.js): Propagator'a bir Attitude verilirse itki, komuta doğru hız sınırlı dönen GERÇEK itki ekseni boyunca uygulanır; yoksa itki yönü komutla birebir (eski davranış).
+import { attStep, D2R } from './attitude.js';
 
 export const MU_E = 398600.435507, MU_M = 4902.800118, MU_S = 132712440041.279;
 export const R_E = 6378.1363, J2_E = 1.0826267e-3;
@@ -243,6 +245,10 @@ export function accelBreakdown(t, r, central = 'N') {
 }
 
 // ------------------------------------------------------------------ araç
+// Yönelim ayarları: azami açısal hız (°/s) kademede 'slew' olarak verilebilir; verilmezse büyük itkılı (≥ 50 kN) üst kademe yavaş, iniş aracı sınıfı hızlı döner.
+// tau: komuta yaklaşırken üstel yavaşlama (s); snap: bu açı içindeki komut tam izlenir (°); fine: bundan büyük bir dönme sürerken adım H_SLEW ile sınırlanır (kare kare örnekleme)
+export const ATT = { RATE_HEAVY: 2.0, RATE_LIGHT: 15.0, TAU: 0.8, SNAP_DEG: 0.5, FINE_DEG: 10.0, H_SLEW: 1.0 };
+export const attParams = (st) => ({ rate: (st.slew != null ? st.slew : st.T >= 50 ? ATT.RATE_HEAVY : ATT.RATE_LIGHT) * D2R, tau: ATT.TAU, snap: ATT.SNAP_DEG * D2R });
 export class Vehicle {
   constructor(stages) { this.stages = stages.map((s) => ({ ...s })); this.k = 0; }
   get active() { return this.stages[this.k]; }
@@ -334,25 +340,38 @@ export class Propagator {
     this.tLimit = Infinity;          // canlı modda ekran saatinin ötesine geçme
     this.lastThr = 0; this.lastU = [0, 0, 0];
     this.onStep = null;              // (P, h, thr, u) geri çağrısı (kayıt için)
+    this.att = null;                 // Attitude (attitude.js) ya da null: yoksa itki yönü komutla birebir
+    this.attCmd = null;              // (P) -> birim yön | null: itkisiz süzülürken yönelim komutu (itkili adımda komut kumandanın yönüdür)
+    this.lastQ = null;               // son adımdan sonraki yönelim kuaterniyonu [x, y, z, w] (gövde → ICRF)
+    this.lastCmd = null; this.lastTheta = 0;
   }
-  // control(P) -> [throttle, u] ya da null
+  // control(P) -> [throttle, u] ya da null. u (birim yön) itki YÖNÜ KOMUTUdur; yönelim varsa gerçek itki ekseni komuta hız sınırlı döner.
+  // throttle = 0 ile verilen [0, u] itkisiz yönelim komutudur.
   step(hReq, control = null) {
-    let thr = 0, u = [0, 0, 0];
-    if (control) { const c = control(this); if (c) { thr = c[0]; u = c[1]; } }
+    let thr = 0, u = [0, 0, 0], cmd = null;
+    if (control) { const c = control(this); if (c) { thr = c[0]; u = c[1]; cmd = c[1]; } }
+    const att = this.att;
+    if (att && !cmd && this.attCmd) cmd = this.attCmd(this);
     const st = this.veh.active;
     const T = thr > 0 && st.prop > 0 ? thr * st.T : 0.0;
     const m = this.veh.mass();
     const mdot = T > 0 ? T / (st.isp * G0) : 0.0;
-    const hmax = T > 0 ? this.hMaxBurn : this.hMaxCoast;
+    let hmax = T > 0 ? this.hMaxBurn : this.hMaxCoast;
+    const ap = att && cmd ? attParams(st) : null;
+    if (ap && att.angleTo(cmd) > ATT.FINE_DEG * D2R) hmax = Math.min(hmax, ATT.H_SLEW);     // büyük bir dönme sürerken kare kare örnekle
     let h = Math.sign(hReq) * Math.min(Math.abs(hReq), hmax, Math.abs(this.h));
     if (T > 0 && mdot * Math.abs(h) > st.prop) h = Math.sign(h) * (st.prop / mdot);   // yakıt bitişinde adım biter (itki o anda kesilir)
-    const thrust = T <= 0 ? null : OPTS.exactMass ? { u, T, m, mdot } : scale(u, T / m);
-    let r5, v5, err;
+    let r5, v5, err, A = null, ux = u;
     for (;;) {
+      if (ap) { A = attStep(att.q, cmd, Math.abs(h), ap); ux = A.mid; }                   // bu adımdaki gerçek itki ekseni (adım küçülürse yeniden)
+      const thrust = T <= 0 ? null : OPTS.exactMass ? { u: ux, T, m, mdot } : scale(ux, T / m);
       [r5, v5, err] = dopriStep(this.s, h, thrust);
       if (err <= 1.0) break;
       h *= Math.max(0.2, 0.9 * err ** -0.2);
     }
+    if (A) att.q = A.q;
+    if (att) this.lastQ = att.q;
+    this.lastCmd = cmd; this.lastTheta = A ? A.theta : 0;           // komut ve adım başındaki yönelim hatası (rad; yönelim yoksa 0)
     this.s.r = r5; this.s.v = v5; this.s.t += h;
     if (T > 0) {
       const dm = Math.min(mdot * Math.abs(h), st.prop);
@@ -361,7 +380,7 @@ export class Propagator {
     }
     const fac = err < 1e-10 ? 5.0 : Math.min(5.0, 0.9 * err ** -0.2);
     this.h = Math.min(Math.abs(h) * fac, this.hMaxCoast);
-    this.lastThr = T > 0 ? thr : 0; this.lastU = u;
+    this.lastThr = T > 0 ? thr : 0; this.lastU = T > 0 ? ux : u;                     // itkili adımda GERÇEK itki ekseni
     this.s.switchIfNeeded();
     if (this.onStep) this.onStep(this, h, this.lastThr, u);
     return h;

@@ -83,22 +83,23 @@ function burnWarp(phase) {
     default: return 5;
   }
 }
+// otomatik zaman hızı yönelim manevrası sürerken (yakış öncesi hizalama, yakış sonrası ileri yöne dönüş: komutla eksen arası > 8°) en çok ×SLEW_WARP: dönme izlenebilsin
+const SLEW_WARP = 5, SLEW_DEG = 8 * Math.PI / 180;
 function chooseWarp(x) {
   if (!M.auto && manual.throttle > 0) return Math.min(warp, 10);     // elle yakışta en çok ×10
   if (!autoWarp) return warp;
   if (!M.auto) return Math.min(warp, x.thr > 0 ? 10 : maxWarp);
-  if (x.thr > 0) return burnWarp(x.phase);
-  if (x.phase === 'PDI' || x.phase === 'YAKLASMA' || x.phase === 'SON_INIS') return 1;
-  if (x.phase === 'INDI') return 1;
-  const tn = M.tNext;
-  if (tn == null || tn <= tDisp) return 5;
-  return Math.max(1, Math.min(maxWarp, (tn - tDisp) / 4));
+  let w;
+  if (x.thr > 0) w = burnWarp(x.phase);
+  else if (x.phase === 'PDI' || x.phase === 'YAKLASMA' || x.phase === 'SON_INIS' || x.phase === 'INDI') w = 1;
+  else { const tn = M.tNext; w = tn == null || tn <= tDisp ? 5 : Math.max(1, Math.min(maxWarp, (tn - tDisp) / 4)); }
+  return M.P.att && M.P.lastTheta > SLEW_DEG ? Math.min(w, SLEW_WARP) : w;
 }
 
+// elle uçuş: seçili yön moduna (ileri, geri, normal…) itkisiz de dönülür (gaz 0 ile verilen yön yalnız yönelim komutudur); itki gerçek yönelim ekseni boyunca uygulanır
 function manualCtrl(P) {
-  if (manual.throttle <= 0) return null;
   const u = M.manualDir(manual.mode, manual.hold);
-  return [manual.throttle, u];
+  return [Math.max(0, manual.throttle), u];
 }
 
 function tick() {
@@ -120,12 +121,9 @@ function tick() {
   M.pruneHistory(tDisp);
   x = M.stateAt(tDisp);
   if (!x) return;
-  // ayrılan kademe
-  let stage = null;
-  if (M.stageP) {
-    if (M.stageP.s.t < tDisp) M.stageP.runUntil(tDisp);
-    stage = M.stageP.s.geo()[0];
-  }
+  // ayrılan kademeler: her biri kendi yörüngesinde ve ayrıldığı andaki (eylemsiz sabit) yönelimiyle; stage: en son ayrılanın konumu (işaretçi, etiket)
+  const debris = M.debris.filter((d) => d.t <= tDisp + 1e-6).map((d) => { if (d.P.s.t < tDisp) d.P.runUntil(tDisp); return { id: d.id, kind: d.kind, name: d.name, r: d.P.s.geo()[0], q: d.q }; });      // fizik ekranın önündeyse henüz ayrılmamış kademe çizilmez
+  const stage = debris.length ? debris[debris.length - 1].r : null;
   // yerel iniş verisi (iniş yerine yakınken)
   let local = null;
   const rm = E.moonPos(x.t), vm = E.moonVel(x.t);
@@ -142,8 +140,8 @@ function tick() {
     lastForces = now;
     try { forces = E.accelBreakdown(x.t, x.r, 'N'); const st = M.veh.stages[x.k]; forces.thrust = st && x.thr > 0 ? (1000 * x.thr * st.T) / x.m : 0; } catch (err) { forces = null; }
   }
-  postMessage({ type: 'state', t: x.t, r: x.r, v: x.v, m: x.m, prop: x.prop, k: x.k, thr: x.thr, u: x.u, phase: x.phase, nbody, forces,
-    dv: x.dv, stage, local, auto: M.auto, done: M.done, result: M.result, paused, warp: wEff, warpSet: warp, autoWarp,
+  postMessage({ type: 'state', t: x.t, r: x.r, v: x.v, m: x.m, prop: x.prop, k: x.k, thr: x.thr, u: x.u, q: x.q, phase: x.phase, nbody, forces,
+    dv: x.dv, stage, debris, local, auto: M.auto, done: M.done, result: M.result, paused, warp: wEff, warpSet: warp, autoWarp,
     tNext: M.tNext, status, events: newEv, drAxis: M.drAxis, manual, trail, trailReset: reset, landing: M.landing, opt: M.descentInfo ? { tf: M.descentInfo.tf, fuel: M.descentInfo.fuel, replans: M.descentInfo.replans, fails: M.descentInfo.fails } : null });
 }
 

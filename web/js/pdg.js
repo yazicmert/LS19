@@ -67,7 +67,7 @@ export function discretize(omega, alpha, dt) {
 
 // ---------------------------------------------------------------- sabit tf için dışbükey problem
 // P: { r0, v0, m0, rf, vf, g (3-vektör ya da N uzunlukta dizi), omega?, rho1, rho2, alpha, mDry,
-//      point?: {n, cosTheta, tail?}, glide?: {n, tanGamma, tail?, pyramid?}, funnel?: {n, vd0, kd, vh0, kh, tail?, vsite?}, floor?: [{n, h}] (N+1 düğüm), vmax?,
+//      point?: {n, cosTheta, tail?}, point2?: {cosTheta, tail?} (ikinci işaretleme konisi: örn. son saniyelerde daha dar), glide?: {n, tanGamma, tail?, pyramid?}, funnel?: {n, vd0, kd, vh0, kh, tail?, vsite?}, floor?: [{n, h}] (N+1 düğüm), vmax?,
 //      soft?: w (>0: işaretleme, süzülme konisi ve hız hunisi gevşek kısıt olur: eksik değeri w ağırlıkla cezalanır, bozulma sonrası da çözüm bulunur),
 //      objective?: 'fuel' | 'error', errAxis?: n̂ (en küçük hatada yükseklik ekseni) }
 //   tail: kısıt yalnız son `tail` saniyede geçerli · funnel: yüzeye göre iniş hızı ≤ vd0 + kd·h ve yatay hız ≤ vh0 + kh·h (h = n̂·(r − rf))
@@ -80,11 +80,12 @@ export function solveFixed(P, tf, N, opts = {}) {
   const nx = 7, nw = 4, X = (k, i) => k * nx + i, W = (k, j) => nx * (N + 1) + nw * k + j, base = nx * (N + 1) + nw * N;
   const tailOk = (c, k) => !c.tail || tf - k * dt <= c.tail + 1e-9;                   // c.tail: kısıt yalnız son c.tail saniyede geçerli
   // gevşek kısıtların dolgu değişkenleri (soft > 0): süzülme, işaretleme, huni dikey, huni yatay
-  const soft = P.soft || 0, sl = { glide: [], point: [], fun1: [], fun2: [] }; let ns = 0;
+  const soft = P.soft || 0, sl = { glide: [], point: [], point2: [], fun1: [], fun2: [] }; let ns = 0;
   const TE = err ? base : -1, sb = base + (err ? 1 : 0);
   if (soft) for (let k = 0; k <= N; k++) {
     if (P.glide && !P.glide.pyramid && tailOk(P.glide, k)) sl.glide[k] = sb + ns++;
     if (P.point && k < N && tailOk(P.point, k)) sl.point[k] = sb + ns++;
+    if (P.point2 && k < N && tailOk(P.point2, k)) sl.point2[k] = sb + ns++;
     if (P.funnel && tailOk(P.funnel, k)) { sl.fun1[k] = sb + ns++; sl.fun2[k] = sb + ns++; }
   }
   const nvar = sb + ns, C = new Conic(nvar), S = [Ls, Ls, Ls, Vs, Vs, Vs, 1], xbar = [P.rf[0], P.rf[1], P.rf[2], 0, 0, 0, lnm0];
@@ -120,8 +121,8 @@ export function solveFixed(P, tf, N, opts = {}) {
     if (P.rho1 > 0) {                                                             // Σ ≥ a1 (1 − d + d²/2), d = ζ − Zr  (dönel koni)
       C.soc([-1 - 2 * Zr, [[sg, 2 / a1], [z, 2]]], [[-2 * Zr, [[z, 2]]], [-3 - 2 * Zr, [[sg, 2 / a1], [z, 2]]]]);
     }
-    if (P.point && tailOk(P.point, k)) {
-      C.geq(0, [[W(k, 3), -P.point.cosTheta], ...[0, 1, 2].map((j) => [W(k, j), P.point.n[j]]), ...(sl.point[k] !== undefined ? [[sl.point[k], 1]] : [])]);
+    for (const [cone, slk] of [[P.point, sl.point], [P.point2, sl.point2]]) if (cone && tailOk(cone, k)) {
+      C.geq(0, [[W(k, 3), -cone.cosTheta], ...[0, 1, 2].map((j) => [W(k, j), cone.n[j]]), ...(slk[k] !== undefined ? [[slk[k], 1]] : [])]);
     }
   }
   C.geq(-Math.log(mClamp / P.m0), [[X(N, 6), 1]]);                                  // z_N ≥ ln m_kuru
@@ -147,7 +148,7 @@ export function solveFixed(P, tf, N, opts = {}) {
   }
   if (P.vmax) for (let k = 0; k <= N; k++) C.soc([P.vmax / Vs, []], [0, 1, 2].map((j) => [0, [[X(k, 3 + j), 1]]]));
   if (P.reg) for (let k = 0; k < N; k++) for (let j = 0; j < 3; j++) C.quad(W(k, j), P.reg.w / N, P.reg.u[k][j] / As);   // sürekliliği korur: düz yönleri ayırt eder
-  for (const key of ['glide', 'point', 'fun1', 'fun2']) for (const j of sl[key]) if (j !== undefined) { C.geq(0, [[j, 1]]); C.cost(j, soft / N); }   // dolgu ≥ 0, ağır ceza
+  for (const key of ['glide', 'point', 'point2', 'fun1', 'fun2']) for (const j of sl[key]) if (j !== undefined) { C.geq(0, [[j, 1]]); C.cost(j, soft / N); }   // dolgu ≥ 0, ağır ceza
   // amaç
   if (!err) for (let k = 0; k < N; k++) C.cost(W(k, 3), 1 / N);
   else {
@@ -170,8 +171,8 @@ export function solveFixed(P, tf, N, opts = {}) {
   }
   if (soft) {
     const mx = (a, f) => a.reduce((q, j) => (j === undefined ? q : Math.max(q, f * x[j])), 0);
-    out.viol = { glide: mx(sl.glide, Ls), point: mx(sl.point, 1), vd: mx(sl.fun1, Vs), vh: mx(sl.fun2, Vs) };
-    out.violMax = Math.max(out.viol.glide, out.viol.vd, out.viol.vh, 1e3 * out.viol.point);
+    out.viol = { glide: mx(sl.glide, Ls), point: mx(sl.point, 1), point2: mx(sl.point2, 1), vd: mx(sl.fun1, Vs), vh: mx(sl.fun2, Vs) };
+    out.violMax = Math.max(out.viol.glide, out.viol.vd, out.viol.vh, 1e3 * out.viol.point, 1e3 * out.viol.point2);
   }
   out.zeta = out.m.map((m) => Math.log(m / P.m0));
   out.fuel = P.m0 - out.m[N];
@@ -201,7 +202,7 @@ export function makeForTf(P) {
   return (tf, r, Nn) => {
     const T = P.target ? P.target(tf) : {}, Q = { ...P, ...T };
     if (Q.up) {
-      if (P.point) Q.point = { ...P.point, n: Q.up }; if (P.glide) Q.glide = { ...P.glide, n: Q.up };
+      if (P.point) Q.point = { ...P.point, n: Q.up }; if (P.point2) Q.point2 = { ...P.point2, n: Q.up }; if (P.glide) Q.glide = { ...P.glide, n: Q.up };
       if (P.funnel) Q.funnel = { ...P.funnel, n: Q.up, vsite: T.vsite || P.funnel.vsite };
     }
     if (P.gfun) Q.g = Array.from({ length: Nn }, (_, k) => P.gfun(r((k + 0.5) / Nn)));
@@ -211,7 +212,7 @@ export function makeForTf(P) {
 }
 
 // maliyet (kg eşdeğeri): yakıt + gevşek kısıt aşımı cezası (aşımsız çözümlerde yakıttır)
-const costOf = (sol) => sol.fuel + (sol.viol ? 20 * (sol.viol.vd + sol.viol.vh) + 0.2 * sol.viol.glide + 5000 * sol.viol.point : 0);
+const costOf = (sol) => sol.fuel + (sol.viol ? 20 * (sol.viol.vd + sol.viol.vh) + 0.2 * sol.viol.glide + 5000 * (sol.viol.point + (sol.viol.point2 || 0)) : 0);
 // ζ düğümlerinden normalleşmiş zamanda doğrusal ara değer (ż = −ασ aralıkta sabit olduğundan ζ parçalı doğrusaldır)
 function zetaAt(sol, tau) { const x = Math.min(Math.max(tau, 0), 1) * sol.N, k = Math.min(Math.floor(x), sol.N - 1), f = x - k; return sol.zeta[k] + f * (sol.zeta[k + 1] - sol.zeta[k]); }
 const zRefOf = (sol, Nn) => Array.from({ length: Nn }, (_, k) => zetaAt(sol, k / Nn));

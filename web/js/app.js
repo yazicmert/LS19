@@ -271,7 +271,7 @@ worker.onmessage = (e) => {
   }
   if (d.type === 'ready' || d.type === 'restarted') {
     ui.reset(d.plan, d.t0, DESIGN.LAUNCH.t_launch);
-    world.trail = { E: [], M: [] }; world.sepAtt = null; world.attQ = null;
+    world.trail = { E: [], M: [] }; world.resetDynamic && world.resetDynamic();
     $('#loading').style.display = 'none';
     if (d.seek) { if (!running) setPlay(true); }
     else { running = false; setBtn($('#btnPlay'), 'play', 'Başlat'); }
@@ -304,7 +304,7 @@ function frame(now) {
     if (ui.skyTab === 'uydular' && now - lastSatTab > 400) { lastSatTab = now; ui.satTab(t); }
     if (updater && now - lastUpd > 5000) { lastUpd = now; astui.renderUpdater(updater); }
   } else if (latest) {
-    world.update(latest, { dtReal: dt, stage: latest.stage, local: latest.local, drAxis: latest.drAxis });
+    world.update(latest, { dtReal: dt, stage: latest.stage, debris: latest.debris, local: latest.local, drAxis: latest.drAxis });
     // uydular ve asteroitler Ay görevi alanında çizilmez (yalnız Canlı Gökyüzü'nde)
     if (sats && world.eye) { sats.obsView = false; sats.update(latest.t, world.eye, world.camera, canvas, false, false); }
     if (asts) { asts.hideAll(); astui.update(null); }

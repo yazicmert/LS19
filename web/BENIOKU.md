@@ -99,7 +99,7 @@ Ay Görevi panelindeki **Kontrol** sekmesi aracın anlık durumunu canlı göste
   Menüler ok tuşlarıyla gezilir, Esc ya da dışarı tıklama kapatır.
 - **1–8**: kamera (Otomatik, Araç, Dünya, Ay, Dünya–Ay, İniş yeri, Kütle merkezi, Güneş sistemi) · fare sürükle: döndür, tekerlek: yakınlaştır
 - Otopilot kapalıyken: **W/S** ileri/geri, **A/D** normal/anti-normal, **Q/E** radyal dış/iç, **R** yüzeye göre geri, **H** sabit tut,
-  **Shift/Ctrl** itki ±%10, **Z** tam itki, **X** kes, **B** kademe ayır
+  **Shift/Ctrl** itki ±%10, **Z** tam itki, **X** kes, **B** kademe ayır (yönelim hız sınırıyla seçili yön moduna döner, itkisiz de; itki gerçek yönelim ekseni boyunca uygulanır)
 - Görev çizelgesindeki bir olaya tıkla: görev o ana kadar hızlıca (ekransız) koşulur ve oradan devam eder.
 - **Fareyle üzerine gel**: uydu ya da gezegenin adı · **tıkla**: bilgi kartı · **Esc**: kartı kapat
   - Uydu kartı: grup, yörünge türü, irtifa, hız, yer izi, aydınlanma, periyot, eğim, perije/apoje, dış merkezlik, öğelerin yaşı;
@@ -114,6 +114,7 @@ Ay Görevi panelindeki **Kontrol** sekmesi aracın anlık durumunu canlı göste
 - `js/mission.js` — otopilot (TLI, MCC, LOI ya da NRI + istasyon tutma + ayrılış + LLO girişi, DOI, PDI güdümü); tek ya da iki kademeli iniş aracı (`twoStageDesign`: yörünge kademesi + iniş kademesi, 15 km'de ayrılma)
 - `js/ephem.js`, `js/earth.js`, `js/jplkernel.js` — canlı N-cisim efemerisi, Dünya yönelimi, JPL çekirdek okuyucu
 - `js/engine.js` — fizik motoru (N-cisim ve iki merkez cisimli çerçeve, değişken kütleli itki, kuvvet dökümü) · `js/worker.js` fizik iş parçacığı · `js/nominal.js` nominal Δv koşusu
+- `js/attitude.js` — araç yönelimi: hız sınırlı kuaterniyon durumu (fizik motorundadır; itki gerçek eksen boyunca), en kısa yayla dönüş, yuvarlanma sıçramaz; `../docs/yonelim.md`
 - `js/pdg.js` — motorlu iniş güdümü: yakıt-optimal iniş, kayıpsız dışbükeyleştirme + SOCP, son zaman araması, sıcak başlangıçlı yeniden çözüm · `js/conic.js` — konik çözücü arayüzü · `lib/clarabel/` — Clarabel (WebAssembly, Apache-2.0); `../tools/clarabel_paketle.mjs` ile üretilir; `Uçuş ▾ → İniş güdümü` (Optimal dengeli / serbest / ZEM-ZEV)
 - `js/telemetry.js` — canlı uçuş telemetrisi (jeodezik irtifa, yüzeye göre hız, osküle elemanlar, Kepler süreleri, Tsiolkovsky Δv ve bütçe, tutulma, görüş hattı, uyarılar) · `js/controlpanel.js` — Kontrol sekmesi
 - `lib/motion.esm.js`, `lib/number-flow.esm.js`, `lib/torph.esm.js` (Motion, NumberFlow, torph; MIT) — hareket kütüphaneleri; `index.html`'deki importmap'te `motion`, `number-flow`, `torph` adlarıyla tanımlıdır (içe aktarılana kadar indirilmez, arayüz henüz kullanmıyor); `../tools/motion_paketle.mjs` ile üretilir, lisanslar `lib/*.LICENSE.md`
