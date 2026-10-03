@@ -3,6 +3,9 @@
 Bu belge iki rapor edilen sorunun incelemesini ve düzeltmesini anlatır: *"Aya inerken araç bir anlık 360° döngü atıyor"* ve *"Dünya'dan çıkarken ayrılan ilk kademe Ay'a inerken yeniden beliriyor"*.
 Kod: `web/js/attitude.js` (yönelim modeli), `web/js/engine.js` (`Propagator`), `web/js/mission.js` (hizalama, güdüm düzeltmeleri, enkaz), `web/js/scene.js` (çizim). Test: `web/test/test_attitude.js`.
 
+> **Güncelleme:** Bu belge, yönelimin fizik motoruna alındığı **kinematik** model ve bulunan tutarsızlıklar içindir (`Mission({ attitude: 'kin' })`; hız sınırlı, torksuz). Varsayılan model artık gerçek **6 serbestlik dereceli rijit cisim dinamiğidir**
+> (RCS, gimbal, eylemsizlik, Euler denklemleri): [6dof.md](6dof.md). §1'deki bulgular ve §2.2–2.4'teki düzeltmeler (yakış öncesi hizalama, güdüm düzeltmeleri, kademe görselleri) her iki model için de geçerlidir; §2.1 ve §4 kinematik modeli anlatır.
+
 ## 1. Bulgular
 
 ### 1.1 Fizik motorunun yönelimi yoktu; görüntü kendi yönelimini uyduruyordu
@@ -76,7 +79,7 @@ Yönelim gerçekten fiziğin parçası olduğundan, yavaş yönelimde (τ = 1,5 
 
 ## 3. Doğrulama
 
-`node test/test_attitude.js` (33 sınama):
+`node test/test_attitude.js` (33 sınama; kinematik model, `attitude: 'kin'`):
 
 - Dönme matematiği (Rodrigues ile aynı), hız sınırı 15°/s aşılmaz, açı hatası tekdüze azalır (aşım yok), tam ters (180°) komutta tekillik yok, **yuvarlanma sıçramaz** (komut düşeyden ve tam turdan geçerken fark 1e-15 rad).
 - Hizalı yönelim itki sonucunu değiştirmez; hizasız ateşlemede itki Δv'si, kayıtlı gerçek eksenlerden beklenenle %0,04 içinde uyuşur ve komutun gerisindedir (5,7°).
@@ -94,6 +97,6 @@ ayrılan iki kademe ayrı enkaz olarak (`0:tli`, `1:orb`) çizilir. Ayrılma anl
 
 ## 4. Sınırlar
 
-Bu bir 6 serbestlik dereceli (rijit cisim) model **değildir**: dönme momenti, RCS itkiçileri, gimbal, kütle merkezi kayması, yakıt çalkantısı ve ayrılma anındaki devrilme yoktur. Yönelim, hız sınırlı bir **kinematik izleme**dir;
+Bu (kinematik) model 6 serbestlik dereceli bir rijit cisim **değildir**: dönme momenti, RCS itkiçileri, gimbal, kütle merkezi kayması, yakıt çalkantısı ve ayrılma anındaki devrilme yoktur (bunlar varsayılan 6-DOF modelde vardır: [6dof.md](6dof.md); sınırları §5). Yönelim, hız sınırlı bir **kinematik izleme**dir;
 itki ekseninin komuttan gecikmesi ve ateşleme öncesi hizalama modellenir. Kademe değerleri (hız sınırları, enkaz modelleri) temsilidir. Yuvarlanma (itki ekseni etrafında dönüş) serbesttir; güneş paneli ya da iletişim yönelimi modellenmez.
 Enkaz kademeler ayrıldığı andaki yönelimini eylemsiz olarak korur (dönme yok). Fizik hâlâ nokta kütledir: yönelim yalnız itki yönünü sınırlar ve görüntüyü belirler.

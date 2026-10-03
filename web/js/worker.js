@@ -122,7 +122,7 @@ function tick() {
   x = M.stateAt(tDisp);
   if (!x) return;
   // ayrılan kademeler: her biri kendi yörüngesinde ve ayrıldığı andaki (eylemsiz sabit) yönelimiyle; stage: en son ayrılanın konumu (işaretçi, etiket)
-  const debris = M.debris.filter((d) => d.t <= tDisp + 1e-6).map((d) => { if (d.P.s.t < tDisp) d.P.runUntil(tDisp); return { id: d.id, kind: d.kind, name: d.name, r: d.P.s.geo()[0], q: d.q }; });      // fizik ekranın önündeyse henüz ayrılmamış kademe çizilmez
+  const debris = M.debris.filter((d) => d.t <= tDisp + 1e-6).map((d) => { if (d.P.s.t < tDisp) d.P.runUntil(tDisp); return { id: d.id, kind: d.kind, name: d.name, r: d.P.s.geo()[0], q: M.debrisQ(d, tDisp) }; });      // fizik ekranın önündeyse henüz ayrılmamış kademe çizilmez
   const stage = debris.length ? debris[debris.length - 1].r : null;
   // yerel iniş verisi (iniş yerine yakınken)
   let local = null;
@@ -140,7 +140,7 @@ function tick() {
     lastForces = now;
     try { forces = E.accelBreakdown(x.t, x.r, 'N'); const st = M.veh.stages[x.k]; forces.thrust = st && x.thr > 0 ? (1000 * x.thr * st.T) / x.m : 0; } catch (err) { forces = null; }
   }
-  postMessage({ type: 'state', t: x.t, r: x.r, v: x.v, m: x.m, prop: x.prop, k: x.k, thr: x.thr, u: x.u, q: x.q, phase: x.phase, nbody, forces,
+  postMessage({ type: 'state', t: x.t, r: x.r, v: x.v, m: x.m, prop: x.prop, k: x.k, thr: x.thr, u: x.u, q: x.q, w: x.w, att: x.att, rcsUsed: x.rcsUsed, phase: x.phase, nbody, forces,
     dv: x.dv, stage, debris, local, auto: M.auto, done: M.done, result: M.result, paused, warp: wEff, warpSet: warp, autoWarp,
     tNext: M.tNext, status, events: newEv, drAxis: M.drAxis, manual, trail, trailReset: reset, landing: M.landing, opt: M.descentInfo ? { tf: M.descentInfo.tf, fuel: M.descentInfo.fuel, replans: M.descentInfo.replans, fails: M.descentInfo.fails } : null });
 }

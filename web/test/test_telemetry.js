@@ -6,12 +6,16 @@
 //  5) canlı görev uçuşu: park yörüngesi, ölçülen özgül kuvvet, Δv korunumu, temas verisi, çarpma süresi, görüş hattı/gölge (ışın atmayla)
 //  6) Δv bütçesi: bozulmasız uçuşta pay sabit, plan dışı harcama tam Δv kadar
 //  7) uyarılar: nominal uçuşta yanlış alarm yok; bozulmuş durumlarda doğru alarm; uzak transferde/halo'da yanıltıcı konik uyarısı yok
-//  8) tüm görev profilleri (Apollo, NRHO, L1, L2, yörünge yükseltmeli): istisnasız, NaN'sız, sabit Δv payı
+//  8) tüm görev profilleri (Apollo, NRHO, L1, L2, yörünge yükseltmeli): istisnasız, NaN'sız, Δv payı (6-DOF RCS kütle etkisi dışında) sabit
+//  9) 6-DOF yönelim telemetrisi (varsayılan model): yönelim bloğu, kütle özellikleri, RCS yakıtı, yanlış alarm yok, RCS kütlesinin Δv payına etkisi sınırlı ve fizikle uyumlu
+//  Bölüm 5–7'nin canlı uçuşu yönelimsiz (3 serbestlik dereceli) koşulur: Δv ve pay bilançosu RCS kütle kaybından bağımsız tam sağlanır; 6-DOF etkisi 8 ve 9'da ayrıca ölçülür.
 import fs from 'fs';
 import * as E from '../js/engine.js';
 import * as EO from '../js/earth.js';
 import { makeLive } from '../js/live.js';
 import { Mission, R_SITE, SITE_LAT, SITE_LON, siteIcrf } from '../js/mission.js';
+import { stageSpec } from '../js/rigidbody.js';
+import { dvFromEvents } from '../js/dvbudget.js';
 import * as T from '../js/telemetry.js';
 
 let fail = 0;
@@ -196,7 +200,7 @@ const mkState = (t, r, v, over = {}) => ({ t, r, v, m: 3000, prop: 1500, k: 1, t
 
 // ---------------------------------------------------------------- 5) canlı görev uçuşu
 live();
-const M = new Mission({ design: D }); M.P.tLimit = Infinity; M.attachHistory();
+const M = new Mission({ design: D, attitude: false }); M.P.tLimit = Infinity; M.attachHistory();
 const samples = [], tliSteps = [];                                  // samples: { h, nev } (olay sayısı); tliSteps: TLI yakışının tüm fizik adımları
 {
   let last = -1e9, n = 0;
@@ -210,6 +214,7 @@ const samples = [], tliSteps = [];                                  // samples: 
   const h = M.hist[M.hist.length - 1]; samples.push({ h: { ...h }, nev: M.events.length });
 }
 const evUpTo = (nev) => M.events.slice(0, nev);
+const NOM = dvFromEvents(M.events);                                  // bu (yönelimsiz) uçuşun kendi nominal Δv'si: bölüm 6–7'de pay bilançosu kendisiyle tutarlı olmalı
 const telOf = (smp, extra = {}) => T.computeTelemetry({ ...smp.h, ...extra }, O);
 {
   const first = samples[0], tel = telOf(first);
@@ -292,10 +297,10 @@ const telOf = (smp, extra = {}) => T.computeTelemetry({ ...smp.h, ...extra }, O)
 
 // ---------------------------------------------------------------- 6) Δv bütçesi
 {
-  const budgets = samples.map((smp) => ({ smp, b: T.dvBudget(D, DEF.nominal, evUpTo(smp.nev), smp.h, O.stages) }));
+  const budgets = samples.map((smp) => ({ smp, b: T.dvBudget(D, NOM, evUpTo(smp.nev), smp.h, O.stages) }));
   let m1lo = Infinity, m1hi = -Infinity, m0lo = Infinity, m0hi = -Infinity, unplMax = -Infinity;
   for (const { b } of budgets) for (const q of b.rows) { if (q.stage === 1) { m1lo = Math.min(m1lo, q.margin); m1hi = Math.max(m1hi, q.margin); unplMax = Math.max(unplMax, q.unplanned); } else { m0lo = Math.min(m0lo, q.margin); m0hi = Math.max(m0hi, q.margin); } }
-  const base = T.dvBaseline(D, DEF.nominal, O.stages);
+  const base = T.dvBaseline(D, NOM, O.stages);
   check('Δv payı: TLI kademesinde sabit (harcanan Δv hem kalandan hem gereksinimden düşer)', (m0hi - m0lo) < 1e-6, `pay ${m0lo.toFixed(4)} m/s, yayılım ${(m0hi - m0lo).toExponential(1)}`);
   check('Δv payı: iniş aracında tüm görev boyunca sabit (kısa yakışlar uygulanan Δv ile ilerler; nominal ile gerçek manevra farkı < 1 m/s)', m1hi - m1lo < 1 && Math.abs(m1lo - base[1]) < 1, `pay ${m1lo.toFixed(2)}…${m1hi.toFixed(2)} m/s, tasarım payı ${base[1].toFixed(2)} m/s`);
   check('Δv payı: bozulmasız uçuşta plan dışı harcama ≈ 0', unplMax < 1, `en büyük ${unplMax.toFixed(2)} m/s`);
@@ -308,7 +313,7 @@ const telOf = (smp, extra = {}) => T.computeTelemetry({ ...smp.h, ...extra }, O)
   // plan dışı harcama: gerçek bir durumda ekstra yakış (m, prop azalır; kullanılan Δv artar): pay tam roket denklemi Δv'si kadar düşer
   const mid = samples.find((s) => s.h.phase === 'MCC-2' && s.h.k === 1) || samples.find((s) => s.h.k === 1), s0 = mid.h, st = D.STAGES[1], dm = 120;
   const dvX = st.isp * E.G0 * Math.log(s0.m / (s0.m - dm)) * 1000;
-  const b0 = T.dvBudget(D, DEF.nominal, evUpTo(mid.nev), s0, O.stages), b1 = T.dvBudget(D, DEF.nominal, evUpTo(mid.nev), { ...s0, m: s0.m - dm, prop: s0.prop - dm, dv: s0.dv + dvX / 1000 }, O.stages);
+  const b0 = T.dvBudget(D, NOM, evUpTo(mid.nev), s0, O.stages), b1 = T.dvBudget(D, NOM, evUpTo(mid.nev), { ...s0, m: s0.m - dm, prop: s0.prop - dm, dv: s0.dv + dvX / 1000 }, O.stages);
   const q0 = b0.rows.find((q) => q.stage === 1), q1 = b1.rows.find((q) => q.stage === 1);
   check('Δv payı: plan dışı yakış (120 kg) tam roket denklemi Δv\'si kadar plan dışı harcama sayılır', Math.abs((q1.unplanned - q0.unplanned) - dvX) < 1e-6 && Math.abs((q0.margin - q1.margin) - dvX) < 1e-6, `${dvX.toFixed(2)} m/s`);
 }
@@ -317,7 +322,7 @@ const telOf = (smp, extra = {}) => T.computeTelemetry({ ...smp.h, ...extra }, O)
 {
   let bad = 0, nA = 0;
   for (const smp of samples) {
-    const tel = telOf(smp), b = T.dvBudget(D, DEF.nominal, evUpTo(smp.nev), smp.h, O.stages), al = T.alerts(tel, b.rows, O);
+    const tel = telOf(smp), b = T.dvBudget(D, NOM, evUpTo(smp.nev), smp.h, O.stages), al = T.alerts(tel, b.rows, O);
     nA++; const hard = al.filter((a) => a.level !== 'info'); if (hard.length) { bad++; if (bad < 4) console.log('  yanlış alarm:', smp.h.phase, hard.map((a) => a.text).join(' | ')); }
   }
   check('uyarılar: bozulmasız nominal uçuşta bad/warn uyarısı yok (yalnız bilgi)', bad === 0, `${nA} durum`);
@@ -367,8 +372,47 @@ const telOf = (smp, extra = {}) => T.computeTelemetry({ ...smp.h, ...extra }, O)
       if (++n > 8e6) break;
     }
     const sp = (a) => (a.length ? Math.max(...a) - Math.min(...a) : 0);
-    check(`profil ${name}: telemetri istisnasız, NaN yok, yanlış alarm yok, Δv payı sabit, iniş başarılı`, M2.result && M2.result.ok && errs === 0 && nan === 0 && hard === 0 && sp(mg[0]) < 1 && sp(mg[1]) < 1.5,
-      `${nS} örnek, pay yayılımı k0 ${sp(mg[0]).toFixed(2)} / k1 ${sp(mg[1]).toFixed(2)} m/s${ex ? ', ' + ex : ''}`);
+    // 6-DOF: RCS yakıtı kuru kütlenin parçasıdır; harcandıkça araç hafifler ve ana motorun Δv kapasitesi artar (kademe başına ≈ 0,3–1,6 m/s/kg). Pay yayılımı bununla sınırlıdır.
+    const r0 = M2.veh.stages[0].rcsUsed || 0, r1 = M2.veh.stages[1].rcsUsed || 0, lim0 = 0.5 + 0.6 * r0, lim1 = 1.5 + 1.8 * r1;
+    check(`profil ${name}: telemetri istisnasız, NaN yok, yanlış alarm yok, Δv payı sabit (6-DOF RCS kütle etkisi hariç), iniş başarılı`, M2.result && M2.result.ok && errs === 0 && nan === 0 && hard === 0 && sp(mg[0]) < lim0 && sp(mg[1]) < lim1,
+      `${nS} örnek, pay yayılımı k0 ${sp(mg[0]).toFixed(2)} (RCS ${r0.toFixed(1)} kg, sınır ${lim0.toFixed(2)}) / k1 ${sp(mg[1]).toFixed(2)} (RCS ${r1.toFixed(1)} kg, sınır ${lim1.toFixed(2)}) m/s${ex ? ', ' + ex : ''}`);
   }
+}
+
+// ---------------------------------------------------------------- 9) 6-DOF yönelim telemetrisi (varsayılan model)
+{
+  live(); E.setMoonZone(E.SOI_M);
+  const M3 = new Mission({ design: D }); M3.P.tLimit = Infinity; M3.attachHistory();
+  const S3 = []; let last = -1e9;
+  for (;;) {
+    if (M3.gen.next().done) break;
+    const h = M3.hist[M3.hist.length - 1];
+    if (h.t - last > (h.thr > 0 ? 20 : h.phase === 'SUZULME' ? 3000 : 600)) { last = h.t; S3.push({ h: { ...h }, nev: M3.events.length }); }
+  }
+  S3.push({ h: { ...M3.hist[M3.hist.length - 1] }, nev: M3.events.length });
+  const ev3 = (nev) => M3.events.slice(0, nev), tel3 = (smp) => T.computeTelemetry({ ...smp.h }, O);
+  // (a) yönelim bloğu: her örnekte var, sonlu, tutarlı
+  let nAtt = 0, bad = 0, maxMassErr = 0, monoOk = true, prev = { k: -1, r: 0 }, maxFrac = 0, minFrac = 1, hardAl = 0, exAl = '';
+  for (const smp of S3) {
+    const tl = tel3(smp), A = tl.att; if (!A) { bad++; continue; } nAtt++;
+    const fin = [A.err, A.errT, A.wMag, A.gMag, A.gMax, ...A.I, A.ell, A.m, ...A.rcsMax, ...A.alphaRcs, A.alphaTvc, A.rcsUsed, A.rcsCap, A.rcsLeft, A.wLimit].every(Number.isFinite);
+    if (!fin || !(A.I[0] > 0 && A.I[2] > 0 && A.m > 0 && A.ell > 0) || !(A.rcsFrac >= 0 && A.rcsFrac <= 1)) bad++;
+    maxMassErr = Math.max(maxMassErr, Math.abs(A.m - smp.h.m) / smp.h.m); maxFrac = Math.max(maxFrac, A.rcsFrac); minFrac = Math.min(minFrac, A.rcsFrac);
+    if (smp.h.k === prev.k && smp.h.rcsUsed < prev.r - 1e-9) monoOk = false; prev = { k: smp.h.k, r: smp.h.rcsUsed };
+    const al = T.alerts(tl, T.dvBudget(D, DEF.nominal, ev3(smp.nev), smp.h, O.stages).rows, O).filter((a) => a.level !== 'info'); if (al.length) { hardAl++; exAl = exAl || `${smp.h.phase}: ${al[0].text}`; }
+  }
+  const stageOk = S3.every((smp) => { const A = tel3(smp).att; return A && A.role === stageSpec(D.STAGES[smp.h.k]).role; });
+  check('6-DOF telemetri: her örnekte yönelim bloğu var, sonlu; I > 0, ℓ > 0, RCS payı [0, 1]; kütle özelliklerinden (massProps) gelen kütle araç kütlesiyle aynı; RCS tüketimi kademe içinde azalmaz; kademe rolü doğru',
+    nAtt === S3.length && bad === 0 && maxMassErr < 1e-9 && monoOk && stageOk, `${nAtt} örnek, kütle farkı ${maxMassErr.toExponential(1)}, RCS kalan payı ${(100 * minFrac).toFixed(0)}–${(100 * maxFrac).toFixed(0)} %`);
+  check('6-DOF telemetri: nominal uçuşta bad/warn uyarısı yok (yönelim hatası kalıcı değil, RCS yeterli)', hardAl === 0, `${S3.length} durum${exAl ? ', ' + exAl : ''}`);
+  // (a2) depoda gönderilen nominal Δv verisi (design_default.json) güncel görev koduyla uçulan bozulmasız görevle aynı (kod değişince veri yenilenmeli)
+  const nomNow = dvFromEvents(M3.events), keys = Object.keys(DEF.nominal), vals = keys.filter((k) => DEF.nominal[k] != null), nulls = keys.filter((k) => DEF.nominal[k] == null);
+  const worstNom = Math.max(...vals.map((k) => Math.abs((nomNow[k] ?? NaN) - DEF.nominal[k])));
+  check('nominal Δv verisi (data/design_default.json) güncel görev koduyla uçulan nominal görevle aynı (olay başına < 0,01 m/s; bu profilde olmayan manevralar boş)', worstNom < 0.01 && nulls.every((k) => nomNow[k] == null), `${vals.length} manevra, en büyük fark ${worstNom.toExponential(1)} m/s, boş: ${nulls.join(', ')}`);
+  // (b) RCS kütlesi Δv payına etkisi: pay yayılımı (3 serbestlik dereceli yönelimsiz uçuş: ~0) RCS tüketimiyle orantılı, işareti pozitif (araç hafifler → kapasite artar)
+  const rowsOf = (smp) => T.dvBudget(D, DEF.nominal, ev3(smp.nev), smp.h, O.stages).rows;
+  const m1 = S3.map((smp) => rowsOf(smp).find((q) => q.stage === 1)).filter((q) => q).map((q) => q.margin), r1 = M3.veh.stages[1].rcsUsed || 0, drift = m1[m1.length - 1] - m1[0], spread = Math.max(...m1) - Math.min(...m1);
+  check('6-DOF: iniş aracı Δv payı yayılımı RCS kütle kaybı etkisiyle sınırlı ve pozitif yönlü (1 kg RCS ≈ 0,3–1,8 m/s)', r1 > 1 && drift > 0.3 * r1 && spread < 1.5 + 1.8 * r1 && drift < 1.8 * r1 + 0.5,
+    `RCS ${r1.toFixed(2)} kg, pay kayması ${drift.toFixed(2)} m/s (${(drift / r1).toFixed(2)} m/s/kg), yayılım ${spread.toFixed(2)} m/s`);
 }
 console.log(fail ? `\n${fail} HATA` : '\nTAMAM'); process.exit(fail ? 1 : 0);

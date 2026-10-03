@@ -58,7 +58,7 @@ Sabit son zaman tf için bu bir SOCP'dir. Yakıt, tf'nin tek tepeli bir işlevid
 - **Gevşek kısıtlar:** işaretleme, süzülme ve hız koridoru isteğe bağlı olarak dolgu değişkenleriyle gevşetilir ve ağır cezalanır; bozulma sonrasında da çözüm bulunur, aşım bildirilir. İtki sınırları, dinamik ve son koşullar sert kalır.
 - **Kapalı döngü:** ilk plan PDI'da ~0,7 s'de (49 SOCP), sonra her 10 s'de (son dakikada 4 s) sıcak başlangıçla yeniden çözüm: çekim yolu, Taylor noktası ve kumanda (köşegen ikinci derece düzenleyici; düz yönlerde plan sürüklenmesini önler) önceki plandan alınır; iniş anı sabit tutulur, yalnız koridor aşılırsa uzatılır. Ortalama 45 ms.
 - **Kapı:** plan, iniş yerinin 120 m üstündeki kapıya biter (iniş hızı 1 + 0,07·h = 9,4 m/s); ardından son iniş yasası temasa taşır: yerel çerçevede PD (yatay konum/hız sönümü kp = 0,06, kd = 0,5 s⁻¹, dikey hız profili 1 + 0,07·h); itki asla aşağı yönde değildir ve dikeyden ≤ 40° yatar.
-- **Kumanda:** ZOH düğümündeki u vektörü, gerçek kütleyle itkiye çevrilir (T = m·‖u‖), en küçük kısmaya ve tam itkıya kırpılır; planlama üst sınırı tam itkının %90'ıdır (kumanda payı). u yönelim **komutudur**: gerçek itki ekseni, fizik motorundaki hız sınırlı yönelim durumunu izler ([docs/yonelim.md](yonelim.md)).
+- **Kumanda:** ZOH düğümündeki u vektörü, gerçek kütleyle itkiye çevrilir (T = m·‖u‖), en küçük kısmaya ve tam itkıya kırpılır; planlama üst sınırı tam itkının %90'ıdır (kumanda payı). u yönelim **komutudur**: gerçek itki ekseni, fizik motorundaki 6-DOF yönelim durumunu (RCS + gimbal) izler ([docs/6dof.md](6dof.md)).
 - **Ön ayarlar:** *dengeli* (son 100 s'de itki dikeyden ≤ 45°, son 20 s'de ≤ 15° (ikinci işaretleme konisi `point2`: araç kapıya dikeye yakın varır, son iniş yasasına geçişte büyük dönme olmaz); son 200 s'de iniş hızı ≤ vd + 0,06·h, yatay ≤ 1 + 0,15·h) ve *serbest* (işaretleme yok; hız koridoru 0,25 / 0,6, son 120 s).
 - **Çözücü:** [Clarabel](https://github.com/oxfordcontrol/Clarabel.rs) (iç nokta, WebAssembly, 268 KB), `cvxjs` 0.1.4 paketinden olduğu gibi (`web/lib/clarabel/`, SHA-256'lı); tarayıcıda Web Worker'da, Node'da aynı ikiliyle koşar.
 
@@ -76,17 +76,17 @@ Sabit son zaman tf için bu bir SOCP'dir. Yakıt, tf'nin tek tepeli bir işlevid
 
 ## 5. Bulgular
 
-Aynı PDI durumundan (2735 kg, 13,83 km, Apollo profili; yönelim fizik durumu, [docs/yonelim.md](yonelim.md)), kalan yakıt ve toplam motorlu iniş Δv'si:
+Aynı PDI durumundan (2729 kg, 13,79 km, Apollo profili; yönelim 6-DOF rijit cisim dinamiği, [docs/6dof.md](6dof.md)), kalan yakıt ve toplam motorlu iniş Δv'si:
 
 | Güdüm | Δv (m/s) | kalan yakıt (kg) |
 |---|---|---|
-| ZEM/ZEV (eski, Apollo benzeri) | 1906 | 190 |
-| Optimal, dengeli | 1880 | 202 |
-| Optimal, serbest | 1811 | 236 |
+| ZEM/ZEV (eski, Apollo benzeri) | 1907 | 191 |
+| Optimal, dengeli | 1881 | 204 |
+| Optimal, serbest | 1809 | 239 |
 | (kuramsal) kısıtsız yakıt-optimal, kapısız | ~1736 | — |
 
 Kısıtsız en iyi çözüm yüzeye yatay bir "sürünme" ile iner (son 10 s'de 85 m irtifada 97 m/s yatay hız) ve gerçekçi değildir; işaretleme ve hız koridoru bu yüzden eklenir. Güvenlik koridoru yakıt öder:
-iyi tasarlanmış bir Apollo profili (ZEM/ZEV) bu kısıtlar altındaki optimuma %1–2 yaklaşır (dengeli mod yönelimi dikeye yakın bitirmek için ~7 kg öder); kazanç kısıtlar gevşedikçe büyür. En pahalı kısıt işaretleme açısıdır (tek başına kaldırılınca ~60–70 m/s).
+iyi tasarlanmış bir Apollo profili (ZEM/ZEV) bu kısıtlar altındaki optimuma %1–2 yaklaşır (dengeli mod yönelimi dikeye yakın bitirmek için ~8 kg öder); kazanç kısıtlar gevşedikçe büyür. En pahalı kısıt işaretleme açısıdır (tek başına kaldırılınca ~60–70 m/s).
 
 ## 6. İki kademeli iniş (Ay yörünge kademesi + iniş kademesi)
 
@@ -108,21 +108,21 @@ Apollo profilinde 3600 kg = 380 + 890 (yörünge) + 980 + 1350 (iniş); NRHO'da 
 12 kN seçildi: Apollo'da 16/14/12 kN'da üç güdümle de temas ve kalan yakıt neredeyse aynı (ZEM 289/289/290 kg); 10 kN'da ZEM/ZEV ve serbest mod yüzeye çarpar, dengeli iniş ise ~690 s sürüp (12 kN'da ~340–400 s) yalnız ~100 kg
 yakıt bırakır (yerçekimi kaybı); 8 kN'da üçü de çarpar.
 
-**Ayrılma.** Yörünge kademesi, DOI'dan sonraki alçalış yayında irtifa ≤ 15 km olunca atılır (PDI'dan 142–241 s önce; ayrılan kademe aynı konum ve hızdan kendi kütlesiyle serbest uçurulur ve çizilir).
+**Ayrılma.** Yörünge kademesi, DOI'dan sonraki alçalış yayında irtifa ≤ 15 km olunca atılır (PDI'dan 138–282 s önce; ayrılan kademe aynı konum ve hızdan kendi kütlesiyle serbest uçurulur ve çizilir).
 Motorlu iniş problemi (§2–3) iniş kademesinin kütlesi, itki sınırları (ρ1, ρ2) ve Isp'siyle (α) aynen kurulur; tek fark budur.
 
 **Sonuçlar** (aynı tarih, altı profil × üç güdümün hepsi yumuşak temasla biter; `web/test/test_twostage.js`). Temasta kalan yakıt, tek kademe → iki kademe (kg):
 
 | Profil | ZEM/ZEV | Optimal, dengeli | Optimal, serbest | Ayrılma (PDI'dan önce, irtifa, atılan yakıt) |
 |---|---|---|---|---|
-| Apollo (Apollo 11 ve yükseltmeli de) | 190 → 302 | 202 → 311 | 236 → 333 | 208–211 s, 14,8 km, 25 kg |
-| NRHO | 58 → 154 | 70 → 163 | 103 → 190 | 142 s, 14,9 km, 49 kg |
-| L2 | 74 → 151 | 86 → 160 | 120 → 188 | 236 s, 14,6 km, 83 kg |
-| L1 | 74 → 157 | 86 → 167 | 120 → 193 | 241 s, 14,8 km, 72 kg |
+| Apollo (Apollo 11 ve yükseltmeli de) | 191 → 302 | 204 → 311 | 239 → 334 | 210–211 s, 14,8 km, 23–24 kg |
+| NRHO | 61 → 154 | 74 → 164 | 107 → 190 | 138 s, 14,9 km, 50 kg |
+| L2 | 76 → 152 | 89 → 163 | 123 → 189 | 282 s, 14,7 km, 85 kg |
+| L1 | 79 → 156 | 91 → 165 | 127 → 193 | 250 s, 15,0 km, 73 kg |
 
-Kazancın kaynağı: iniş kademesinin Isp'si araçla aynı (320 s) alınınca Apollo'da 290 / 299 / 326 kg kalır (NRHO 144 / 151 / 178); yani 325 s varsayımı ~7–13 kg, **geri kalanı (Apollo ~90–100, NRHO ~75–85 kg) ölü kütlenin
+Kazancın kaynağı: iniş kademesinin Isp'si araçla aynı (320 s) alınınca Apollo'da 290 / 300 / 325 kg kalır (NRHO 144 / 149 / 180); yani 325 s varsayımı ~9–15 kg, **geri kalanı (Apollo ~86–99, NRHO ~73–83 kg) ölü kütlenin
 atılmasındandır**.
-Optimal güdümün ZEM/ZEV'e göre kazancı kg olarak iki kademede biraz küçülür (dengeli +12 → +9, serbest +46 → +31 kg): araç hafiflediğinden aynı Δv tasarrufu daha az yakıt eder.
+Optimal güdümün ZEM/ZEV'e göre kazancı kg olarak iki kademede biraz küçülür (dengeli +13 → +9, serbest +48 → +32 kg): araç hafiflediğinden aynı Δv tasarrufu daha az yakıt eder.
 Bu, §5'teki bulguyu pekiştirir: iyi tasarlanmış bir profilde en büyük kaldıraç güdüm yasası değil **kütle düzenidir**.
 
 Üç kademeli Δv bütçesi (telemetri): planlı PDI manevrası iniş kademesine yazılır, bozulmasız uçuşta kademe başına pay sabit kalır (yayılım 0,00 m/s).
@@ -135,7 +135,7 @@ yörünge geometrisinden gelir.
 
 - İki kademeli iniş: kademe değişimi PDI'dan **önce** yapılır; ayrılma impulsu, ayrılma sırasındaki yönelim ve itici (yakıt) dinamiği modellenmez. Kademe değişiminin motorlu inişin ortasına denk geldiği ortak çok fazlı
   problem (kütle süreksizliği + ρ1/ρ2/Isp değişimi, faz sınırında serbest zaman) uygulanmadı. Karşılaştırma toplam kütle sabit tutularak yapılır; gerçek bir aracın kademe değerleri farklı olur.
-- 3 serbestlik dereceli (nokta kütle): yönelim hız sınırlı bir kinematik durumdur ([docs/yonelim.md](yonelim.md)); dönme dinamiği (RCS, gimbal), motor ateşleme geçişleri ve arazi yoktur; komut düğüm sınırlarında sıçrar (ZOH), gerçek eksen onu hız sınırıyla izler.
+- Öteleme nokta kütledir; yönelim 6 serbestlik dereceli rijit cisim dinamiğidir ([docs/6dof.md](6dof.md): RCS, gimbal, eylemsizlik; sınırları orada). Arazi yoktur. Plan komutu düğüm sınırlarında sıçrar (ZOH); gerçek itki ekseni onu RCS/gimbal yetkisiyle izler: klasik ZEM/ZEV'de komut sıçramaları son ~250 m'de eksen hatasına (rms 4–6°) yol açar, dengeli optimal güdümde eksen hatası rms 3–5°'dir.
 - Plan nokta kütle çekimiyle kurulur; Ay'ın harmonikleri ve üçüncü cisimler yeniden çözümle düzeltilir (ayrı bir kanıt: bağımsız RK4 ve tam görev testleri).
 - Son 120 m optimal değildir (son iniş yasası). Kapalı döngü için biçimsel yakınsama/uygunluk garantisi verilmez; gevşek kısıtlar ve geri düşüş (art arda başarısızlıkta son iniş yasası) sağlamlık içindir.
 - Motor kapatılamaz (ρ1 > 0); yarı sürekli girdili (kapalı/[ρ1, ρ2]) kayıpsız dışbükeyleştirme uygulanmadı.

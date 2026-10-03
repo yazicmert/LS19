@@ -13,6 +13,8 @@
 //   Özgül kuvvet  itki ÷ kütle (yerçekimi dışı ivme): mürettebatın hissedeceği ivme; birimi g₀ = 9,80665 m/s².
 import * as E from './engine.js';
 import { dvKeys } from './dvbudget.js';
+import { massProps, stageSpec } from './rigidbody.js';
+import { CTL } from './attctl.js';
 
 const { add, sub, scale, dot, cross, norm, unit } = E;
 export const C_LIGHT = 299792.458;                 // ışık hızı, km/s
@@ -196,6 +198,24 @@ export function dvBudget(design, nominal, events, s, stages) {
   return { progress, rows: dvMargins(progress, stageDvs(stages, s.k, s.m, s.prop), dvBaseline(design, nominal, stages)) };
 }
 
+
+// ------------------------------------------------------------------ yönelim ve kontrol (6-DOF)
+// s: durum (worker): { q, w (gövde açısal hızı, rad/s), att: Dyn6.diag() (err, mode, g, tq, tqRcs, tqTvc, duty, sat), rcsUsed (kg, etkin kademe), k, prop, thr }; stages: tasarım kademeleri.
+// Kütle özellikleri (rigidbody.massProps) o anki yakıt ve RCS tüketimiyle yeniden kurulur; yetkiler kademenin RCS/TVC değerlerinden: RCS tork yetkisi 2·n·F·kol (N·m),
+// gimbal torku azami T·ℓ·tan(δmaks) (ℓ: kütle merkezi–gimbal kolu), açısal ivme yetkisi = tork / eylemsizlik.
+export function attitudeInfo(s, stages) {
+  const a = s.att, k = s.k, st = stages && stages[k];
+  if (!a || !st) return null;
+  const sp = stageSpec(st), sim = stages.map((x, j) => ({ ...x, prop0: x.prop, prop: j === k ? s.prop : x.prop, dry: j === k ? x.dry - (s.rcsUsed || 0) : x.dry })), mp = massProps(sim, k);
+  const rcsMax = [0, 1, 2].map((i) => 2 * sp.rcs.n[i] * sp.rcs.F * 1000 * sp.rcs.arm[i]);
+  const T = s.prop > 0 ? (s.thr || 0) * st.T : 0, tvcOn = T > 0 && mp.ell > CTL.ELL_MIN, gMax = Math.tan(sp.tvc.max * Math.PI / 180);
+  const tvcMax = tvcOn ? T * 1000 * mp.ell * gMax : 0, rcsLeft = Math.max(0, sp.rcs.prop - (s.rcsUsed || 0)), w = s.w || a.w;
+  const wMag = norm(w), gMag = Math.hypot(a.g[0], a.g[1]);
+  return { mode: a.mode, err: a.err, errT: a.errT || 0, w, wMag, tq: a.tq, tqRcs: a.tqRcs, tqTvc: a.tqTvc, duty: a.duty, g: a.g, gMag, gMax, sat: a.sat, I: mp.I, ell: mp.ell, zCg: mp.zCg, m: mp.m,
+    rcsMax, tvcMax, alphaRcs: [0, 1, 2].map((i) => rcsMax[i] / mp.I[i]), alphaTvc: tvcMax / mp.I[0], rcsUsed: s.rcsUsed || 0, rcsCap: sp.rcs.prop, rcsLeft, rcsFrac: sp.rcs.prop > 0 ? rcsLeft / sp.rcs.prop : null,
+    wLimit: sp.ctl.wMax * Math.PI / 180, tvcOn, role: sp.role };
+}
+
 // ------------------------------------------------------------------ ana hesap
 // s: { t, r, v (geosentrik ICRF), m, prop, k, thr, u, phase, dv, local? }; o: { stages, siteIcrf(t), rSite, tLaunch }
 export function computeTelemetry(s, o) {
@@ -245,6 +265,7 @@ export function computeTelemetry(s, o) {
     const u = unit(s.u);
     tel.thrustDir = { vsVel: Math.acos(clamp(dot(u, unit(vb)), -1, 1)), pitch: Math.asin(clamp(dot(u, up), -1, 1)), az: eastU ? mod(Math.atan2(dot(u, eastU), dot(u, northU)), TWO_PI) : null };
   } else tel.thrustDir = null;
+  tel.att = attitudeInfo(s, o.stages);
 
   // ortam: uzaklıklar, ışık süresi, Dünya ile görüş hattı, Güneş ışığı
   const dS = norm(sub(sunG, rg)), earthBlocked = sphereBlocksSegment(rg, [0, 0, 0], rm, E.R_M);
@@ -302,6 +323,12 @@ export function alerts(tel, margins = [], o = {}) {
     else if (L.hoverOk === false && L.h < 1) push('hover', 'warn', 'En düşük itki ağırlıktan büyük (ya da azami itki yetmiyor): askıda kalınamaz');
     if (L.h > 0 && L.stopMargin < 0 && L.vz < 0 && L.h < 20) push('stop', 'bad', `Durma yüksekliğinin altında: ${f0(L.h * 1000)} m irtifada ${f1(-L.vz * 1000)} m/s alçalışı azami itkı ${f0(L.stopH * 1000)} m'de durdurabilir`);
     if (touchRisk(tel, lim)) push('touch', 'warn', `Temas hızı sınırın üstünde: dikey ${f1(Math.abs(L.vz) * 1000)} m/s (sınır ${f1(lim.vz)}), yatay ${f1(L.vh * 1000)} m/s (sınır ${f1(lim.vh)})`);
+  }
+  const A = tel.att;
+  if (A) {
+    if (A.mode === 'free') push('attfree', 'bad', 'Yönelim denetimsiz: RCS yakıtı bitti, gimbal yok — araç torksuz serbest dönüyor');
+    else if (A.rcsFrac != null && A.rcsFrac < 0.2 && A.rcsLeft > 0) push('rcslow', 'warn', `RCS yakıtı azaldı: ${f1(A.rcsLeft)} kg kaldı (bütçe ${f0(A.rcsCap)} kg)`);
+    if (tel.F > 0 && A.errT >= 8 && tel.phase !== 'INDI') push('atterr', 'warn', `İtki ekseni komuttan ${f1(A.err * 180 / Math.PI)}° saptı ve ${f0(A.errT)} s'dir düzelmiyor (itki gerçek eksen boyunca uygulanıyor)`);
   }
   if (!tel.earthVisible) push('los', 'info', 'Dünya ile görüş hattı yok: Ay engelliyor (haberleşme kesik)');
   if (tel.eclipseBy) push('ecl', 'info', `${tel.eclipseBy === 'Ay' ? "Ay'ın" : tel.eclipseBy === 'Dünya' ? "Dünya'nın" : tel.eclipseBy} gölgesinde: Güneş ışığı %${f0(100 * tel.sunFrac)}`);

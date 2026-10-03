@@ -79,8 +79,10 @@ for (const [name, entry] of Object.entries(ALL.profiles)) {
     if (++n > 8e6) break;
   }
   const sp = (a) => (a.length ? Math.max(...a) - Math.min(...a) : 0);
-  check(`profil ${name} (iki kademe): telemetri istisnasız, NaN yok, yanlış alarm yok, Δv payı sabit, PDI iniş kademesinde`, M.result.ok && errs === 0 && nan === 0 && hard === 0 && pdiStage === 2 && sp(mg[1]) < 1.5 && sp(mg[2]) < 1.5,
-    `${nS} örnek, pay yayılımı k1 ${sp(mg[1]).toFixed(2)} / k2 ${sp(mg[2]).toFixed(2)} m/s${ex ? ', ' + ex : ''}`);
+  // 6-DOF: RCS yakıtı kuru kütlenin parçasıdır; harcandıkça araç hafifler ve ana motorun Δv kapasitesi artar (≈ 0,3–1,8 m/s/kg): pay yayılımı bununla sınırlıdır
+  const r1 = M.veh.stages[1].rcsUsed || 0, r2 = M.veh.stages[2].rcsUsed || 0, lim1 = 1.5 + 1.8 * r1, lim2 = 1.5 + 1.8 * r2;
+  check(`profil ${name} (iki kademe): telemetri istisnasız, NaN yok, yanlış alarm yok, Δv payı sabit (6-DOF RCS kütle etkisi hariç), PDI iniş kademesinde`, M.result.ok && errs === 0 && nan === 0 && hard === 0 && pdiStage === 2 && sp(mg[1]) < lim1 && sp(mg[2]) < lim2,
+    `${nS} örnek, pay yayılımı k1 ${sp(mg[1]).toFixed(2)} (RCS ${r1.toFixed(1)} kg, sınır ${lim1.toFixed(2)}) / k2 ${sp(mg[2]).toFixed(2)} (RCS ${r2.toFixed(1)} kg, sınır ${lim2.toFixed(2)}) m/s${ex ? ', ' + ex : ''}`);
 }
 
 // ---------------------------------------------------------------- 4) hız bozulmalarına dayanıklılık (yörünge kademesinin payı yalnız %3 + 15 m/s; tek kademeli araçtaki gibi her iki pencerede de kurtarılır)

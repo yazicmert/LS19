@@ -58,6 +58,19 @@ const SECTIONS = [
     ['Kullanılan Δv', (t) => `${fmt(t.dvUsed * 1000, 1)} m/s`, 'motorun toplayıp saydığı Σ Isp·g₀·ln(m/(m−dm))'],
     ['İtki yönü', (t) => (t.thrustDir ? `hıza ${ang(t.thrustDir.vsVel, 1)} · ufka ${ang(t.thrustDir.pitch, 1)}` : '—'), 'hıza göre 0° = ileri (prograde), 180° = geri (retrograde); ufuk açısı yerel yataya göre'],
   ] },
+  { id: 'yonelim', title: 'Yönelim ve kontrol (6-DOF)', open: false, rows: [
+    ['Kip', (t) => (t.att ? (t.att.mode === 'free' ? ['denetimsiz: serbest dönme', 'bad'] : t.att.mode === 'dyn' ? 'dinamik (RCS / TVC çalışıyor)' : 'tutma (komuta oturmuş)') : null), 'tutma: itkisiz süzülürken komut ölü bant (0,5°) içinde ve yavaşsa dönme dinamiği benzetilmez, yönelim komuta oturur. Dinamik: dönme, yakış ya da manevra sırasında Euler denklemleriyle her 0,05–0,1 s ilerler. Denetimsiz: RCS yakıtı bitti.'],
+    ['İtki ekseni hatası', (t) => (t.att ? [ang(t.att.err, 2), t.att.err > 5 / D ? 'warn' : null] : null), 'gövde itki ekseni (+z) ile otopilotun istediği itki yönü arasındaki açı; itki gerçek eksen (ve gimbal) boyunca uygulanır'],
+    ['Açısal hız (p · q · r)', (t) => (t.att ? `${fmt(t.att.w[0] * D, 2)} · ${fmt(t.att.w[1] * D, 2)} · ${fmt(t.att.w[2] * D, 2)} °/s` : null), 'gövde eksenlerinde ω (x, y: yunuslama/sapma, z: itki ekseni etrafında yuvarlanma); Euler: I·ω̇ = τ − ω×Iω'],
+    ['Toplam açısal hız', (t) => (t.att ? `${fmt(t.att.wMag * D, 2)} °/s (sınır ${fmt(t.att.wLimit * D, 0)} °/s)` : null), 'otopilot, iniş ve elle uçuşta bu hıza dek döner; seyirde (hizalama) daha yavaş döner (RCS yakıtı ∝ I·ω)'],
+    ['Gimbal (TVC)', (t) => (t.att && t.att.tvcOn ? [`${fmt(t.att.g[0] * D, 2)}° · ${fmt(t.att.g[1] * D, 2)}° (sınır ${fmt(Math.atan(t.att.gMax) * D, 0)}°)${t.att.sat ? ' · doymuş' : ''}`, t.att.sat ? 'warn' : null] : t.att ? 'motor kapalı' : null), 'ana motorun gövdeye göre sapması (x, y teğet açıları): yunuslama/sapma torku ve kırpma (kütle merkezi ofseti, itki sapması) için; açı/hız sınırlı, birinci derece gecikmeli'],
+    ['Tork (x · y · z)', (t) => (t.att ? `${fmt(t.att.tq[0], 0)} · ${fmt(t.att.tq[1], 0)} · ${fmt(t.att.tq[2], 0)} N·m` : null), 'kütle merkezi etrafında toplam tork: RCS + gimbal (r×F) + gravite gradyanı'],
+    ['RCS (görev oranı x · y · z)', (t) => (t.att ? t.att.duty.map((x) => (x > 0 ? '+' : x < 0 ? '−' : '') + fmt(Math.abs(x) * 100, 0) + '%').join(' · ') : null), 'tork çiftlerinin açık kalma oranı (darbe sıklığı modülasyonu, en küçük darbe 14–20 ms)'],
+    ['RCS yakıtı', (t) => (t.att ? [`${fmt(t.att.rcsLeft, 1)} / ${fmt(t.att.rcsCap, 0)} kg`, t.att.rcsFrac != null && t.att.rcsFrac < 0.2 ? 'warn' : null] : null), 'etkin kademenin RCS yakıtı (kuru kütlenin parçası; kullanıldıkça araç hafifler). Tüketim ṁ = |τ|/(kol·Isp·g₀)'],
+    ['Eylemsizlik (Ix · Iy · Iz)', (t) => (t.att ? `${fmt(t.att.I[0], 0)} · ${fmt(t.att.I[1], 0)} · ${fmt(t.att.I[2], 0)} kg·m²` : null), 'yığının kütle merkezinde: kademeler ve yakıt sütunu bileşen olarak (paralel eksen teoremi); yakıt azaldıkça değişir'],
+    ['Açısal ivme yetkisi', (t) => (t.att ? `RCS ${fmt(t.att.alphaRcs[0] * D, 1)} °/s²${t.att.tvcOn ? ` · gimbal ${fmt(t.att.alphaTvc * D, 1)} °/s²` : ''}` : null), 'azami tork / eylemsizlik (yunuslama). Gimbal yetkisi itkiyle orantılıdır: T·ℓ·tan δmaks'],
+    ['Kütle merkezi–gimbal kolu', (t) => (t.att ? `${fmt(t.att.ell, 2)} m` : null), 'ℓ: gimbal torkunun kolu (gimbal torku = T·ℓ·sin δ)'],
+  ] },
   { id: 'konum', title: 'Konum ve hız', open: true, rows: [
     ['Baskın cisim', (t) => t.body, 'Ay\'ın gösterim bölgesindeyse Ay, değilse Dünya; tüm büyüklükler o cisme göre, dönmeyen (ICRF eksenli) çerçevede'],
     [(t) => (t.isMoon ? 'İrtifa (ort. yarıçap)' : 'İrtifa (WGS-84)'), (t) => km(t.alt), 'Dünya: elipsoide dik jeodezik yükseklik. Ay: merkez uzaklığı − ortalama yarıçap (1737,4 km).'],
@@ -102,7 +115,7 @@ const NOTES = [
   'Yörünge elemanları osküle koniktir: yalnız merkez cismin çekimi; J2, üçüncü cisimler ve itki dışarıda. "Koniğin geçerliliği" bunun ne kadar yaklaşık olduğunu gösterir.',
   'Δv Tsiolkovsky denklemiyledir ve motorun saydığı Δv ile aynı büyüklüktür. Δv payı = kademenin kalan Δv\'si − o kademenin yapacağı planlı manevraların kalanı; bozulmasız uçuşta sabit kalır, plan dışı harcama onu azaltır.',
   'Çarpma süresi ve durma yüksekliği motor kesilirse / tam gazla düşeydeki en iyi durum içindir; ikincisi yatay hızı hesaba katmaz.',
-  'Model: nokta kütle, atmosfer yok (Dünya\'da yalnız yörünge), yönelim dinamiği yok; itki yönü otopilotun komut ettiği yöndür.',
+  'Model: ötelemede nokta kütle (N-cisim), atmosfer yok (Dünya\'da yalnız yörünge). Yönelim 6-DOF rijit cisimdir: Euler denklemleri, değişken kütle özellikleri, RCS (PWM/darbe sıklığı) ve TVC gimbal; itki gerçek eksen boyunca uygulanır. Sensör, çalkantı ve esneklik modellenmez.',
 ];
 
 export class ControlPanel {

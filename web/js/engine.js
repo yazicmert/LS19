@@ -9,8 +9,10 @@
 //       yani uzay aracının barisentrik hareket denklemiyle eşdeğerdir (bağımsız barisentrik entegrasyonla ≤ 1 m uyum: test/test_nbody.js).
 // Sonlu itki: itki ivmesi her DOPRI aşamasında o aşamanın kütlesiyle (m₀ − ṁ·Δt) hesaplanır; böylece uygulanan Δv roket denklemine uyar.
 // Entegratör: Dormand–Prince 5(4), uyarlamalı adım.
-// Yönelim (isteğe bağlı, attitude.js): Propagator'a bir Attitude verilirse itki, komuta doğru hız sınırlı dönen GERÇEK itki ekseni boyunca uygulanır; yoksa itki yönü komutla birebir (eski davranış).
+// Yönelim (isteğe bağlı): Propagator'a bir Attitude (attitude.js, kinematik: hız sınırlı) ya da Dyn6 (attctl.js, 6-DOF: rijit cisim + RCS/TVC) verilirse itki komuta doğru dönen GERÇEK itki ekseni boyunca
+// uygulanır; yoksa itki yönü komutla birebir (eski davranış). Dyn6'da dönme Euler denklemleriyle, her denetim periyodunda (itkili ya da dönerken ≤ 0,05–0,1 s) ilerler; ötelemeyi bu dosyanın DOPRI5'i taşır.
 import { attStep, D2R } from './attitude.js';
+import { massProps } from './rigidbody.js';
 
 export const MU_E = 398600.435507, MU_M = 4902.800118, MU_S = 132712440041.279;
 export const R_E = 6378.1363, J2_E = 1.0826267e-3;
@@ -250,7 +252,7 @@ export function accelBreakdown(t, r, central = 'N') {
 export const ATT = { RATE_HEAVY: 2.0, RATE_LIGHT: 15.0, TAU: 0.8, SNAP_DEG: 0.5, FINE_DEG: 10.0, H_SLEW: 1.0 };
 export const attParams = (st) => ({ rate: (st.slew != null ? st.slew : st.T >= 50 ? ATT.RATE_HEAVY : ATT.RATE_LIGHT) * D2R, tau: ATT.TAU, snap: ATT.SNAP_DEG * D2R });
 export class Vehicle {
-  constructor(stages) { this.stages = stages.map((s) => ({ ...s })); this.k = 0; }
+  constructor(stages) { this.stages = stages.map((s) => ({ ...s, prop0: s.prop0 != null ? s.prop0 : s.prop, dry0: s.dry0 != null ? s.dry0 : s.dry })); this.k = 0; }       // prop0/dry0: başlangıç yakıtı (tank doluluğu) ve kuru kütlesi (RCS yakıtı kuru kütleden düşer)
   get active() { return this.stages[this.k]; }
   mass() { let m = 0; for (let i = this.k; i < this.stages.length; i++) m += this.stages[i].dry + this.stages[i].prop; return m; }
   separate() { this.k += 1; }
@@ -330,6 +332,7 @@ export function dopriStep(st, h, thrust) {
   return [r5, v5, err];
 }
 
+const FAST_PHASES = new Set(['PDI', 'YAKLASMA', 'SON_INIS', 'INDI']);          // motorlu iniş: yönelim çevik
 export class Propagator {
   // opts.nbody: durumu N-cisim çerçevesine ('N') alır; etki küresi geçişi yapılmaz
   constructor(state, vehicle, hMaxCoast = 900.0, hMaxBurn = 1.0, opts = {}) {
@@ -344,18 +347,21 @@ export class Propagator {
     this.attCmd = null;              // (P) -> birim yön | null: itkisiz süzülürken yönelim komutu (itkili adımda komut kumandanın yönüdür)
     this.lastQ = null;               // son adımdan sonraki yönelim kuaterniyonu [x, y, z, w] (gövde → ICRF)
     this.lastCmd = null; this.lastTheta = 0;
+    this.attAim = false;             // true: yakış öncesi hizalama (itki vektörü hedefe baksın: kırpma gimbali ve itki sapması hesaba katılır)
+    this.attFast = false;            // true: yönelim denetleyicisi çevik (azami dönme hızı wMax; elle uçuş); false: seyir dönme hızı sınırı (hizalama)
   }
   // control(P) -> [throttle, u] ya da null. u (birim yön) itki YÖNÜ KOMUTUdur; yönelim varsa gerçek itki ekseni komuta hız sınırlı döner.
   // throttle = 0 ile verilen [0, u] itkisiz yönelim komutudur.
   step(hReq, control = null) {
-    let thr = 0, u = [0, 0, 0], cmd = null;
-    if (control) { const c = control(this); if (c) { thr = c[0]; u = c[1]; cmd = c[1]; } }
+    let thr = 0, u = [0, 0, 0], cmd = null, src = null;
+    if (control) { const c = control(this); if (c) { thr = c[0]; u = c[1]; cmd = c[1]; src = 'ctl'; } }
     const att = this.att;
-    if (att && !cmd && this.attCmd) cmd = this.attCmd(this);
+    if (att && !cmd && this.attCmd) { cmd = this.attCmd(this); src = 'att'; }
     const st = this.veh.active;
     const T = thr > 0 && st.prop > 0 ? thr * st.T : 0.0;
     const m = this.veh.mass();
     const mdot = T > 0 ? T / (st.isp * G0) : 0.0;
+    if (att && att.dynamic && hReq > 0) return this.stepDyn(hReq, control, thr, u, cmd, src, T, m, mdot);
     let hmax = T > 0 ? this.hMaxBurn : this.hMaxCoast;
     const ap = att && cmd ? attParams(st) : null;
     if (ap && att.angleTo(cmd) > ATT.FINE_DEG * D2R) hmax = Math.min(hmax, ATT.H_SLEW);     // büyük bir dönme sürerken kare kare örnekle
@@ -381,6 +387,50 @@ export class Propagator {
     const fac = err < 1e-10 ? 5.0 : Math.min(5.0, 0.9 * err ** -0.2);
     this.h = Math.min(Math.abs(h) * fac, this.hMaxCoast);
     this.lastThr = T > 0 ? thr : 0; this.lastU = T > 0 ? ux : u;                     // itkili adımda GERÇEK itki ekseni
+    this.s.switchIfNeeded();
+    if (this.onStep) this.onStep(this, h, this.lastThr, u);
+    return h;
+  }
+  // 6-DOF adımı (att = Dyn6): denetleyici planı → (dönen yönelim için) aktüatör + RK4 dönme integrasyonu → itki gerçek (gimbal sapmalı) eksen boyunca DOPRI5 → kabul.
+  // İtkili ya da yönelim hatalıyken adım ≤ denetim periyodu (kademe: 0,05–0,1 s), itkisiz ve komuta oturmuşken yarı-durağan tutma: adım serbest (günlerce süzülme).
+  stepDyn(hReq, control, thr, u, cmd, src, T, m, mdot) {
+    const D = this.att, veh = this.veh, st = veh.active, t0 = this.s.t;
+    if (!cmd) cmd = D.axis();                                           // komut yoksa mevcut yönelim korunur
+    const mp = massProps(veh.stages, veh.k), sp = mp.sp, rcsLeft = Math.max(0, sp.rcs.prop - (st.rcsUsed || 0));
+    const P = D.plan({ cmd, t: t0, T, mp, rcsLeft, fast: this.attFast || FAST_PHASES.has(this.phase), aim: this.attAim });
+    let hmax = T > 0 ? this.hMaxBurn : this.hMaxCoast;
+    if (!P.hold) hmax = Math.min(hmax, P.free ? 10.0 : sp.ctl.dt);
+    let h = Math.min(hReq, hmax, this.h);
+    if (T > 0 && mdot * h > st.prop) h = st.prop / mdot;                // yakıt bitişinde adım biter
+    const ctx = {};
+    if (!P.hold) {                                                      // gravite gradyanı: baskın cisme göre konum
+      const rg = this.s.geo()[0], rr = sub(rg, moonPos(t0)), near = norm(rr) < MOON_ZONE, rv = near ? rr : rg, rn = norm(rv);
+      ctx.gg = { rhat: [rv[0] / rn, rv[1] / rn, rv[2] / rn], k3: 3 * (near ? MU_M : MU_E) / (rn * rn * rn) };
+    }
+    let r5, v5, err, R = null;
+    for (;;) {
+      if (!P.hold) R = D.integrate(P, h, ctx);                          // saf: adım küçülürse yeniden
+      const thrust = T <= 0 ? null : OPTS.exactMass ? { u: R.u, T, m, mdot } : scale(R.u, T / m);
+      [r5, v5, err] = dopriStep(this.s, h, thrust);
+      if (err <= 1.0) break;
+      h *= Math.max(0.2, 0.9 * err ** -0.2);
+    }
+    this.s.r = r5; this.s.v = v5; this.s.t += h;
+    if (T > 0) {
+      const dm = Math.min(mdot * h, st.prop);
+      this.dvUsed += st.isp * G0 * Math.log(m / (m - dm));
+      st.prop -= dm; if (st.prop < 1e-9) st.prop = 0;
+    }
+    if (P.hold) {                                                       // adım sonundaki komut (yeni durumla): yarı-durağan tutma ona oturur
+      let cmdEnd = cmd;
+      if (src === 'ctl') { const c = control ? control(this) : null; if (c) cmdEnd = c[1]; }
+      else if (this.attCmd) cmdEnd = this.attCmd(this);
+      D.holdCommit(P, cmdEnd, h, this.s.t);
+    } else D.commit(R, P, st, h, t0);
+    const fac = err < 1e-10 ? 5.0 : Math.min(5.0, 0.9 * err ** -0.2);
+    this.h = Math.min(h * fac, this.hMaxCoast);
+    this.lastQ = D.q; this.lastCmd = cmd; this.lastTheta = P.th;
+    this.lastThr = T > 0 ? thr : 0; this.lastU = T > 0 ? R.u : u;
     this.s.switchIfNeeded();
     if (this.onStep) this.onStep(this, h, this.lastThr, u);
     return h;

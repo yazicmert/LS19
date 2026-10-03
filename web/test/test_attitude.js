@@ -1,4 +1,5 @@
-// Araç yönelimi doğrulaması (Node 20+): cd web && node test/test_attitude.js
+// Araç yönelimi doğrulaması — KİNEMATİK model (Mission({ attitude: 'kin' }): hız sınırlı, torksuz) (Node 20+): cd web && node test/test_attitude.js
+//  Varsayılan model 6 serbestlik dereceli rijit cisimdir (Dyn6, bkz. test/test_dynamics6.js); kinematik model hafif seçenek ve çapraz kontrol olarak korunur.
 //  1) attitude.js: dönme matematiği, açısal hız sınırı, aşım yok, tam ters komutta tekillik yok, yuvarlanma sürekliliği (dönme = yalnız eksen kayması)
 //  2) Propagator: yönelim yokken eski davranış birebir; yönelim varken itki gerçek eksen boyunca, hizalıyken aynı sonuç, hizasızken gecikmeli
 //  3) Tam görev (altı profil arasından Apollo, NRHO; tek ve iki kademeli araç; ZEM/ZEV, dengeli, serbest): kuaterniyon birim, açısal hız ≤ kademe sınırı, her adımda dönme = eksen kayması
@@ -86,7 +87,7 @@ const ALL = JSON.parse(fs.readFileSync(new URL('../data/designs_default.json', i
 // ---------------------------------------------------------------- 3) tam görevler
 const fly = (D, landing) => {
   E.setMoonZone(D.profile === 'HALO' ? 1.25 * D.HALO.stats.raKm : E.SOI_M); makeLive(SPK, PCK, eo, ALL.tStart);
-  const M = new Mission({ design: D, landing }); M.P.tLimit = Infinity;
+  const M = new Mission({ design: D, landing, attitude: 'kin' }); M.P.tLimit = Infinity;
   const rec = []; M.P.onStep = (P, h, thr) => rec.push({ t: P.s.t, h, thr, k: M.veh.k, ph: P.phase, q: P.att.q.slice(), u: P.lastU.slice(), th: P.lastTheta, r: P.s.geo()[0], v: P.s.geo()[1], rs: P.s.seleno()[0] });
   for (;;) { if (M.gen.next().done) break; }
   return { M, rec };
@@ -138,7 +139,7 @@ for (const [name, mode, two] of cases) {
 // ---------------------------------------------------------------- 5) elle uçuş: seçili yön moduna (ters yön) itkisiz de dönülür; itki gerçek eksen boyunca, gecikmeli
 {
   const D = ALL.profiles.APOLLO.design; E.setMoonZone(E.SOI_M); makeLive(SPK, PCK, eo, ALL.tStart);
-  const M = new Mission({ design: D, landing: 'zem' }); M.attachHistory(); M.P.tLimit = Infinity;
+  const M = new Mission({ design: D, landing: 'zem', attitude: 'kin' }); M.attachHistory(); M.P.tLimit = Infinity;
   const tStart = D.TLI.t_ign + D.TLI.x[1] + 2400, now = () => 0;                      // TLI'dan sonra, TLI kademesi ayrıldıktan sonra (iniş aracı sınıfı, 15°/s)
   M.advance(tStart, 1e9, null, now);
   M.setAuto(false, M.P.s.t);

@@ -6,6 +6,8 @@ import * as E from './engine.js';
 import { HaloRef } from './halo.js';
 import { conicReady } from './conic.js';
 import { Attitude, qSlerp, qRot, Z_AXIS } from './attitude.js';
+import { Dyn6 } from './attctl.js';
+import { massProps, freeRot } from './rigidbody.js';
 import { solvePDG, replanPDG, controlAt } from './pdg.js';
 const { add, sub, scale, dot, cross, norm, unit, mv, mtv } = E;
 
@@ -74,6 +76,7 @@ export const DEFAULT_DESIGN = { TLI, ARRIVAL, LAUNCH, t_L: T_L_TARGET, label: '2
 const TWO_PI = 2 * Math.PI;
 // Yönelim (attitude.js): ateşlemeden bu kadar önce (s) itki yönüne dönmeye başlanır; iniş aracı sınıfı 15°/s ile 180° ≈ 13 s, 2°/s'lik TLI yığını küçük açılar döner
 const ATT_LEAD = 180.0, ATT_H_APPROACH = 5.0;
+const TIPOFF = 0.5 * Math.PI / 180;                         // ayrılma devrilmesi (rad/s): kademe ayrılırken kazandığı enine açısal hız (6-DOF)
 const mod2pi = (a) => ((a % TWO_PI) + TWO_PI) % TWO_PI;
 
 export const siteMe = () => [Math.cos(SITE_LAT) * Math.cos(SITE_LON), Math.cos(SITE_LAT) * Math.sin(SITE_LON), Math.sin(SITE_LAT)];
@@ -94,12 +97,14 @@ function solve3(J, F) {             // J x = F (Cramer)
 export class Mission {
   // nbody: true (varsayılan) N-cisim çözücü (tek eylemsiz çerçeve, etki küresi geçişi yok); false etki küresi (iki merkez cisimli) çözücü
   // landing: 'zem' (sıfır-çaba-ıskası güdümü) | 'opt' | 'free' (yakıt-optimal, kayıpsız dışbükeyleştirilmiş SOCP; LANDING_MODES; konik çözücü yüklü değilse ZEM)
-  constructor({ tliError = TLI_DUR_ERROR, verbose = false, compat = false, design = DEFAULT_DESIGN, nbody = true, landing = 'zem', attitude = true } = {}) {
+  // attitude: 'dyn6' (varsayılan; true) 6-DOF rijit cisim dinamiği (attctl.js: RCS + TVC, Euler denklemleri) | 'kin' kinematik hız sınırlı yönelim (attitude.js) | false yönelimsiz (itki yönü komutla birebir)
+  constructor({ tliError = TLI_DUR_ERROR, verbose = false, compat = false, design = DEFAULT_DESIGN, nbody = true, landing = 'zem', attitude = 'dyn6' } = {}) {
     this.D = design; const { TLI, ARRIVAL, LAUNCH } = design;
     this.nbody = nbody; this.landing = landing; this.descentInfo = null;
     this.compat = compat;          // true: Python sürümüyle birebir (MCC-3 yok, LOI 20 s kuantalı)
-    this.attitude = !!attitude && !compat;       // true: itki, hız sınırlı dönen gerçek yönelim ekseni boyunca uygulanır (attitude.js); false: itki yönü komutla birebir
-    this.debris = [];              // ayrılan kademeler: { id, kind: 'tli' | 'orb', name, P: yayınım, q: ayrılma anındaki yönelim (eylemsiz sabit), t }
+    this.attModel = compat || !attitude ? null : attitude === 'kin' ? 'kin' : 'dyn6';
+    this.attitude = !!this.attModel;               // true: itki, dönen GERÇEK yönelim ekseni boyunca uygulanır (6-DOF ya da kinematik); false: itki yönü komutla birebir
+    this.debris = [];              // ayrılan kademeler: { id, kind: 'tli' | 'orb', name, P: yayınım, q: ayrılma anındaki yönelim, rot: 6-DOF serbest dönme durumu { q, w, I, t } (yoksa q eylemsiz sabit), t }
     // modüler yapılandırma (eski tasarımlarda yoksa Apollo varsayılanları)
     this.hPark = design.EARTH ? design.EARTH.h : H_PARK;
     this.hLlo = design.LLO && design.LLO.h ? design.LLO.h : H_LLO;
@@ -195,10 +200,13 @@ export class Mission {
   // attMode (yakış öncesi hizalama, ya da inişte sürdürülen ters yön) yoksa ileri yön (merkez cisme göre hız yönü).
   initAttitude() {
     const P = this.P, [r] = P.s.geo();
-    P.att = new Attitude(this.prograde(P), unit(r));                  // gövde x: yerel dikey; yuvarlanma sonra sürekli (en kısa yay) taşınır
+    P.att = this.attModel === 'dyn6' ? new Dyn6(this.prograde(P), unit(r)) : new Attitude(this.prograde(P), unit(r));       // gövde x: yerel dikey; yuvarlanma sonra sürekli (en kısa yay) taşınır
     this.attMode = null;
     P.attCmd = (Pp) => (this.attMode ? this.attMode(Pp) : this.prograde(Pp));
   }
+  // attMode (yakış öncesi hizalama komutu): atanınca fizik motoruna 'itki vektörünü hedefle' bayrağı da verilir (Propagator.attAim)
+  get attMode() { return this._attMode || null; }
+  set attMode(v) { this._attMode = v; if (this.P) this.P.attAim = !!v; }
   prograde(Pp) { const t = Pp.s.t, [r, v] = Pp.s.geo(), rm = E.moonPos(t); return unit(norm(sub(r, rm)) < E.MOON_ZONE ? sub(v, E.moonVel(t)) : v); }
   retro(Pp) { return scale(this.prograde(Pp), -1); }
   // ateşlemeden ATT_LEAD s önce yönelimi dirFn'e çevirmeye başla ve tIgn'e kadar süzül (yönelim dönerken adımlar ≤ H_SLEW); yakıştan sonra attMode = null yapılır
@@ -354,11 +362,26 @@ export class Mission {
     // ayrılma itkisi 0,5 m/s, kademenin KENDİ ekseni boyunca (araçtan uzağa, −z): TLI'da araç ileri yönelimlidir (kademe geride, geriye iter), inişte ters yönelimlidir (kademe önde, ileriye iter)
     const sst = P.s.copy(), axis = P.att ? qRot(P.att.q, Z_AXIS) : unit(sst.v); sst.v = sub(sst.v, scale(axis, 0.0005));
     this.stageP = this.prop(sst, new E.Vehicle([{ name: 'kademe', dry: st.dry, prop: st.prop, T: 0, isp: 1 }]), k === 0 ? 1800.0 : 60.0);
-    // ayrılan kademe, ayrıldığı andaki yönelimini eylemsiz uzayda korur (dönme momenti yok); her ayrılan kademe kendi modeliyle çizilir ve görev boyunca kalır
-    this.debris.push({ id: this.debris.length, kind: k === 0 ? 'tli' : 'orb', name: st.name, P: this.stageP, q: P.att ? P.att.q.slice() : null, t: P.s.t });
+    // ayrılan kademe kendi rijit cismidir (JEOD'daki detach gibi): ayrıldığı andaki yönelim ve açısal hız (araçtan devralınan + ayrılma devrilmesi) ile torksuz serbest dönmeye başlar (6-DOF);
+    // kinematik/yönelimsiz modelde yönelimi eylemsiz sabit kalır. Araç da karşı yönde küçük bir devrilme alır (açısal momentumun korunması)
+    let rot = null;
+    if (P.att && P.att.dynamic) {
+      const idx = this.debris.length, ph = (idx + 1) * 2.399963, A = TIPOFF, tip = [A * Math.cos(ph), A * Math.sin(ph), 0.2 * A];
+      const mpD = massProps([{ ...st }], 0), mpV = massProps(this.veh.stages, k + 1);      // ayrılan kademe tek başına (kendi rolü ve geometrisi) / kalan araç
+      rot = { q: P.att.q.slice(), w: [P.att.w[0] + tip[0], P.att.w[1] + tip[1], P.att.w[2] + tip[2]], I: mpD.I, t: P.s.t };
+      P.att.w = [P.att.w[0] - tip[0] * mpD.I[0] / mpV.I[0], P.att.w[1] - tip[1] * mpD.I[1] / mpV.I[1], P.att.w[2] - tip[2] * mpD.I[2] / mpV.I[2]];
+      P.att.mode = 'dyn'; P.att.cPrev = null;
+    }
+    this.debris.push({ id: this.debris.length, kind: k === 0 ? 'tli' : 'orb', name: st.name, P: this.stageP, q: P.att ? P.att.q.slice() : null, rot, t: P.s.t });
     if (k === 0) this.t_sep = P.s.t; else this.t_sep2 = P.s.t;
     this.veh.separate();
     this.log(k === 0 ? `${st.name} ayrıldı` : `${st.name} ayrıldı (irtifa ${(norm(P.s.seleno()[0]) - R_SITE).toFixed(1)} km, ${st.prop.toFixed(0)} kg yakıt atıldı); iniş kademesi ${this.veh.mass().toFixed(0)} kg`, k === 0 ? 'SEP' : 'SEP2');
+  }
+  // ayrılan kademenin t anındaki yönelimi: 6-DOF'ta torksuz serbest dönme (Euler denklemleri), yoksa ayrıldığı andaki sabit yönelim
+  debrisQ(d, t) {
+    const r = d.rot; if (!r) return d.q;
+    if (t > r.t + 1e-9) { const s = freeRot(r.q, r.w, r.I, t - r.t); r.q = s.q; r.w = s.w; r.t = t; }
+    return r.q;
   }
 
   referenceTrajectory() {
@@ -690,7 +713,8 @@ export class Mission {
     const push = () => {
       const P = this.P, [g, gv] = P.s.geo();
       this.hist.push({ t: P.s.t, r: g, v: gv, m: this.veh.mass(), prop: this.veh.active.prop, k: this.veh.k,
-                       thr: P.lastThr, u: P.lastU, q: P.att ? P.att.q.slice() : null, phase: P.phase, dv: P.dvUsed });
+                       thr: P.lastThr, u: P.lastU, q: P.att ? P.att.q.slice() : null, w: P.att && P.att.dynamic ? P.att.w.slice() : null, att: P.att && P.att.dynamic ? P.att.diag() : null,
+                       rcsUsed: this.veh.active.rcsUsed || 0, phase: P.phase, dv: P.dvUsed });
       if (this.hist.length > 4000) this.hist.splice(0, 2000);
     };
     push();
@@ -711,7 +735,8 @@ export class Mission {
     const v = [0, 1, 2].map((k) => (d00 * a.r[k] + d01 * b.r[k]) / h + d10 * a.v[k] + d11 * b.v[k]);
     // yakış verisi: b adımında uygulanan itki (a→b aralığında sabit tutuldu)
     return { t: td, r, v, m: a.m + (b.m - a.m) * s, prop: a.k === b.k ? a.prop + (b.prop - a.prop) * s : b.prop, k: b.k,
-             thr: b.thr, u: b.u, q: a.q && b.q ? qSlerp(a.q, b.q, s) : b.q, phase: b.phase, dv: a.dv + (b.dv - a.dv) * s };
+             thr: b.thr, u: b.u, q: a.q && b.q ? qSlerp(a.q, b.q, s) : b.q, w: a.w && b.w ? [0, 1, 2].map((i) => a.w[i] + (b.w[i] - a.w[i]) * s) : b.w, att: b.att, rcsUsed: b.rcsUsed,
+             phase: b.phase, dv: a.dv + (b.dv - a.dv) * s };
   }
   pruneHistory(td) { const H = this.hist; let i = 0; while (i < H.length - 2 && H[i + 1].t < td) i++; if (i > 0) H.splice(0, i); }
 
@@ -723,7 +748,8 @@ export class Mission {
     this.P.s = st; this.P.h = 1.0;
     if (this.veh.k === x.k) this.veh.active.prop = x.prop;
     this.P.dvUsed = x.dv;
-    if (this.P.att && x.q) this.P.att.set(x.q);
+    if (this.P.att && x.q) this.P.att.set(x.q, x.w);
+    if (x.rcsUsed != null && this.veh.k === x.k) { const st = this.veh.active; st.rcsUsed = x.rcsUsed; st.dry = (st.dry0 != null ? st.dry0 : st.dry) - x.rcsUsed; }
     this.hist = this.hist.filter((e) => e.t <= td); this.pushHist();
   }
 
@@ -753,8 +779,8 @@ export class Mission {
   // ---------------------------------------------------------------- kullanıcı müdahaleleri
   setAuto(on, td) {
     if (on === this.auto || this.done) return;
-    if (!on) { this.rewindTo(td); this.auto = false; this.log('Otopilot kapatıldı — elle kontrol', 'AUTO_OFF'); }
-    else { this.auto = true; this.log('Otopilot yeniden devrede (rota düzeltmeleri o anki durumdan hedefler)', 'AUTO_ON'); }
+    if (!on) { this.rewindTo(td); this.auto = false; this.P.attFast = true; this.log('Otopilot kapatıldı — elle kontrol', 'AUTO_OFF'); }
+    else { this.auto = true; this.P.attFast = false; this.log('Otopilot yeniden devrede (rota düzeltmeleri o anki durumdan hedefler)', 'AUTO_ON'); }
   }
   perturb(td, dvMps, dir = null) {
     if (this.done) return;

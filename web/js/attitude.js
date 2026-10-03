@@ -23,6 +23,7 @@ export function qRot(q, v) {                                    // q v q*
   return [v[0] + w * tx + (y * tz - z * ty), v[1] + w * ty + (z * tx - x * tz), v[2] + w * tz + (x * ty - y * tx)];
 }
 export function qAxisAngle(n, ang) { const s = Math.sin(ang / 2); return [n[0] * s, n[1] * s, n[2] * s, Math.cos(ang / 2)]; }
+export const qConj = (q) => [-q[0], -q[1], -q[2], q[3]];
 export function qNormalize(q) { const l = Math.hypot(q[0], q[1], q[2], q[3]); return [q[0] / l, q[1] / l, q[2] / l, q[3] / l]; }
 export function qAngle(a, b) {                                   // iki yönelim arası dönüş açısı (rad); a⁻¹ ⊗ b'nin açısı (küçük açılarda da duyarlı: atan2)
   const x = a[3] * b[0] - a[0] * b[3] - a[1] * b[2] + a[2] * b[1], y = a[3] * b[1] + a[0] * b[2] - a[1] * b[3] - a[2] * b[0],
@@ -62,7 +63,7 @@ export function attStep(q, cmd, h, { rate, tau = 1.5, snap = 0.5 * D2R }) {
   const phi = Math.min(theta, Math.min(rate, theta / tau) * h), sw = qSwing(a, c, q, phi);
   return { q: qNormalize(qMul(sw, q)), mid: qRot(qMul(qSwing(a, c, q, phi / 2), q), Z_AXIS), phi, theta };
 }
-function qSwing(a, c, q, phi) {                                  // a → c düzlemindeki dönme ekseni (z'ye dik); tam ters ise gövde y ekseni (yunuslama)
+export function qSwing(a, c, q, phi) {                                  // a → c düzlemindeki dönme ekseni (z'ye dik); tam ters ise gövde y ekseni (yunuslama)
   let n = cross(a, c); const ns = norm(n);
   n = ns > 1e-9 ? [n[0] / ns, n[1] / ns, n[2] / ns] : qRot(q, Y_AXIS);
   return qAxisAngle(n, phi);

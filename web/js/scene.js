@@ -361,6 +361,8 @@ export class World {
     this.flameO = this.makeFlame(0.5, 6.0, new THREE.Color(1.0, 0.85, 0.65), new THREE.Color(0.35, 0.45, 1.0), 0.8);
     this.flameO.position.set(0, 0, this.orbExitZ); this.orbStage.add(this.flameO);
     this.engineLight = new THREE.PointLight(0xffb070, 0, 0.08, 2); this.engineLight.position.set(0, 0, (this.landerExitZ ?? -1.6) - 1.0); this.landerModel.add(this.engineLight);
+    this.rcsSets = { lander: this.makeRcsPlumes(-0.4, 1.7), orb: this.makeRcsPlumes(-3.05 - 1.2, 1.7), tli: this.makeRcsPlumes(-3.05 - 14.0, 1.5) };      // iticiler (gövde z, yarıçap; m)
+    for (const g of Object.values(this.rcsSets)) { this.vehicle.add(g.grp); g.grp.visible = false; }
     // işaretçiler
     const ring = ringTexture();
     const mk = (color, size) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: ring, color, sizeAttenuation: false, depthTest: false, toneMapped: false }));
@@ -481,6 +483,36 @@ export class World {
     return g;
   }
 
+  // RCS iticileri (6-DOF): gövde çerçevesinde (z, yarıçap; m) dört sıralı çift grubu; her eksen/işaret için iki duman (tork çifti). Fizikteki RCS görev oranı (x.att.duty) ile birebir yanar:
+  //   τx>0: +y sıradaki jet −z yönünde, −y sıradaki +z yönünde püskürtür (kuvvet +z / −z); τy>0: +x'te +z, −x'te −z püskürtme (kuvvet −z / +z); τz>0: +x'te −y, −x'te +y püskürtme (teğetsel).
+  makeRcsPlumes(z, R) {
+    const grp = new THREE.Group(); grp.scale.setScalar(KM); grp.position.set(0, 0, z * KM);
+    const geo = new THREE.ConeGeometry(0.14, 1.0, 10, 1, true); geo.translate(0, -0.5, 0);               // taban başlangıçta, uç −y'ye doğru: setFromUnitVectors ile püskürtme yönüne döner
+    const mat = () => new THREE.MeshBasicMaterial({ color: 0xcfe3ff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
+    // [eksen, işaret, konum, püskürtme yönü]
+    const defs = [[0, 1, [0, R, 0], [0, 0, -1]], [0, 1, [0, -R, 0], [0, 0, 1]], [0, -1, [0, R, 0], [0, 0, 1]], [0, -1, [0, -R, 0], [0, 0, -1]],
+      [1, 1, [R, 0, 0], [0, 0, 1]], [1, 1, [-R, 0, 0], [0, 0, -1]], [1, -1, [R, 0, 0], [0, 0, -1]], [1, -1, [-R, 0, 0], [0, 0, 1]],
+      [2, 1, [R, 0, 0], [0, -1, 0]], [2, 1, [-R, 0, 0], [0, 1, 0]], [2, -1, [R, 0, 0], [0, 1, 0]], [2, -1, [-R, 0, 0], [0, -1, 0]]];
+    const jets = defs.map(([axis, sign, pos, dir]) => {
+      const m = new THREE.Mesh(geo, mat()); m.position.set(...pos); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), new THREE.Vector3(...dir)); m.visible = false; m.frustumCulled = false; grp.add(m);
+      return { m, axis, sign };
+    });
+    return { grp, jets };
+  }
+  // fizikten gelen RCS görev oranlarını göster (duty: [x, y, z], −1..1); set: rcsSets girdisi ya da null (gizle)
+  showRcs(set, duty) {
+    for (const g of Object.values(this.rcsSets)) if (g !== set) g.grp.visible = false;
+    if (!set) return;
+    set.grp.visible = true;
+    for (const j of set.jets) { const d = duty ? duty[j.axis] * j.sign : 0; j.m.visible = d > 0.02; if (d > 0.02) j.m.scale.set(1, 0.4 + 1.2 * Math.min(1, d), 1); }
+  }
+  // gimbal: alev (−z yönünde uzanır) motorun gövdeye göre sapmasıyla (x, y teğet) döner
+  setNozzle(flame, g) {
+    if (!g) { flame.quaternion.identity(); return; }
+    this._v1 = this._v1 || new THREE.Vector3(); this._v2 = this._v2 || new THREE.Vector3(0, 0, -1);
+    flame.quaternion.setFromUnitVectors(this._v2, this._v1.set(-g[0], -g[1], -1).normalize());
+  }
+
   makeFlame(r0, len, hot, cool, gain = 1.0) {
     const geo = new THREE.CylinderGeometry(r0 * 0.9, r0 * 2.6, len, 32, 1, true);
     geo.translate(0, -len / 2, 0); geo.rotateX(Math.PI / 2);          // -z yönünde uzanır
@@ -492,6 +524,7 @@ export class World {
   resetDynamic() {
     this.embT = null; this.plT = null; this.embRef = null; this.moonPathT = null; this.trail = { E: [], M: [] }; this.attQ = null;
     for (const m of this.debrisMeshes.values()) m.visible = false;
+    if (this.rcsSets) this.showRcs(null, null);
   }
   // tasarım: halo profilinde referans halo yörüngesini (Ay'a göre) örnekle
   setDesign(D) {
@@ -667,6 +700,9 @@ export class World {
     this.flameS.material.uniforms.throttle.value = k === 0 ? thr : 0;
     this.flameO.material.uniforms.throttle.value = nSt > 2 && k === 1 ? thr : 0;
     this.flameL.material.uniforms.throttle.value = k === last ? thr : 0;
+    const A = x.att, gim = A && A.g && thr > 0 ? A.g : null;                               // 6-DOF: gimbal (gövde x, y teğetleri) ve RCS görev oranı fizikten gelir
+    this.setNozzle(this.flameS, k === 0 ? gim : null); this.setNozzle(this.flameO, nSt > 2 && k === 1 ? gim : null); this.setNozzle(this.flameL, k === last ? gim : null);
+    this.showRcs(A ? (k === last ? this.rcsSets.lander : nSt > 2 && k === 1 ? this.rcsSets.orb : k === 0 ? this.rcsSets.tli : null) : null, A ? A.duty : null);
     const dCamVeh = norm(sub(vehPos, eye));
     this.engineLight.position.z = (k === last ? (this.landerExitZ ?? -1.6) : -3.05 + (this.orbExitZ ?? -3.28)) - 1.0;
     this.engineLight.intensity = k > 0 && thr > 0 && dCamVeh < 2 ? 0.02 * thr : 0;
