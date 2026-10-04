@@ -124,6 +124,7 @@ Ay Görevi panelindeki **Kontrol** sekmesi aracın anlık durumunu canlı göste
 - `js/satcatalog.js`, `js/satmodels.js`, `models/sats/` — gerçek 3B uydu modelleri (NASA 3D Resources, kamu malı), `lib/addons/libs/meshopt_decoder.module.js` (MIT)
 - `js/treemenu.js` — alt çubuktaki açılır ağaç menüler
 - `js/scene.js` Three.js görüntü · `js/ui.js` HUD ve paneller · `js/terrain.js` iniş bölgesi arazisi
+- `models/lander.glb`, `orb.glb`, `stage.glb` — araç modelleri: NASA 3D Resources'taki resmî Apollo modellerinden (LM, hizmet modülü, Saturn V S-IVB) türetilmiş, ~0,7 MB; yerleşim sayıları (motor çanı, RCS halkası, kademe boyu) dosyanın `extras` alanındadır; `../tools/apollo_modelleri.mjs` ile üretilir, ayrıntı ve lisans `../docs/modeller.md`
 - `js/asteroids.js`, `js/astwork.js` — canlı asteroitler · `js/deflect.js` — saptırma fizik motoru · `js/deflectwork.js`, `js/astui.js` — laboratuvar
 - `js/updater.js` — 10 dakikalık güncelleme denetimi
 - `sunucu.py` — yerel sunucu + veri vekili · `../api/` — aynı vekilin bulut (Vercel) sürümü · `data/designs_default.json` — hazır tasarımlar

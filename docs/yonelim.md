@@ -5,6 +5,7 @@ Kod: `web/js/attitude.js` (yönelim modeli), `web/js/engine.js` (`Propagator`), 
 
 > **Güncelleme:** Bu belge, yönelimin fizik motoruna alındığı **kinematik** model ve bulunan tutarsızlıklar içindir (`Mission({ attitude: 'kin' })`; hız sınırlı, torksuz). Varsayılan model artık gerçek **6 serbestlik dereceli rijit cisim dinamiğidir**
 > (RCS, gimbal, eylemsizlik, Euler denklemleri): [6dof.md](6dof.md). §1'deki bulgular ve §2.2–2.4'teki düzeltmeler (yakış öncesi hizalama, güdüm düzeltmeleri, kademe görselleri) her iki model için de geçerlidir; §2.1 ve §4 kinematik modeli anlatır.
+> İniş görüntüsünün ikinci turu (Ay yörüngesinde takla, gimbal girdabı, itki komutunun sürekliliği, kamera çerçevesi): [6dof.md §5](6dof.md). Araç modelleri artık NASA'nın resmî Apollo modellerinden türetilir: [modeller.md](modeller.md).
 
 ## 1. Bulgular
 
@@ -55,7 +56,7 @@ Uzaktaki enkazın işaretçisinin etiketi de sabit "TLI kademesi" yazıyordu (in
 
 - **ZEM/ZEV:** itki asla aşağı yönde değildir (`limitTilt`: dikey bileşen ≤ 0 ise itki dikey ve en küçük gazla). PDI Δv'si 1913 → 1906 m/s, temasta kalan yakıt 186 → 190 kg (Apollo).
 - **Son iniş yasası:** PD kazançları kp 0,15 → 0,06, kd 0,8 → 0,5 s⁻¹ (yönelim gecikmesi altında yatay döngü salınım yapmasın; bkz. tarama aşağıda).
-- **Optimal plan, dengeli mod:** ikinci işaretleme konisi (`point2`): son 20 s'de itki dikeyden ≤ 15°. Plan kapıya dikeye yakın varır; son iniş yasasına geçişte 40–70° dönme ve salınım olmaz.
+- **Optimal plan, dengeli mod:** ikinci işaretleme konisi (`point2`): son 20 s'de itki dikeyden ≤ 15° (bu basamaklı koniler sonradan kalan süreye göre koni çizelgesiyle değiştirildi: [6dof.md §5](6dof.md)). Plan kapıya dikeye yakın varır; son iniş yasasına geçişte 40–70° dönme ve salınım olmaz.
   Bedeli ~7 kg yakıt (Apollo 209 → 202 kg). *Serbest* mod saf yakıt-optimal kalır (kapıda hızla döner, son iniş dönüşü ~170°).
 
 Yönelim gecikmesinin etkisi (Apollo, tek kademe; kalan yakıt kg, eski yönelimsiz modelle karşılaştırma):
@@ -71,8 +72,8 @@ Yönelim gerçekten fiziğin parçası olduğundan, yavaş yönelimde (τ = 1,5 
 ### 2.4 Görüntü (`scene.js`, `worker.js`)
 
 - Sahne yönelimi fizikten alır (durum mesajında `q`); ara değer `Mission.stateAt` içinde (kuaterniyon slerp). Tarayıcıda sahne ↔ fizik yönelimi farkı 0'dır (aşağıda).
-- Araç modeli aktif kademeye göre değişir: yığın (üstten alta) iniş aracı / Ay yörünge kademesi (iki kademeli iniş aracı) / TLI kademesi; her kademenin kendi motor alevi. Ay yörünge kademesi için ayrı bir model vardır
-  (beyaz boyalı tank, altın MLI kuşağı, niyobyum çan; `makeOrbitalStage`).
+- Araç modeli aktif kademeye göre değişir: yığın (üstten alta) iniş aracı / Ay yörünge kademesi (iki kademeli iniş aracı) / TLI kademesi; her kademenin kendi motor alevi. Modeller NASA'nın resmî Apollo modellerinden
+  türetilir (iniş aracı LM, Ay yörünge kademesi hizmet modülü, TLI kademesi S-IVB; [modeller.md](modeller.md)); dosya yüklenemezse Ay yörünge kademesi için betikle çizilen yedek (`makeOrbitalStage`) kullanılır.
 - **Her ayrılan kademe kendi modeliyle, kendi yörüngesinde, kendi işaretçisi ve adlı etiketiyle ve ayrıldığı andaki eylemsiz sabit yönelimiyle** görev boyunca çizilir (`Mission.debris`, durum mesajında `debris`). Ayrılma itkisi (0,5 m/s) kademenin kendi ekseni
   boyunca, araçtan uzağa uygulanır: TLI'da (ileri yönelim) geriye, inişte (ters yönelim) ileriye.
 - Otomatik zaman hızı, yönelim dönerken (komutla eksen arası > 8°: yakış öncesi hizalama, yakış sonrası ileri yöne dönüş) en çok ×5'e iner; böylece dönme izlenebilir, ×45'te bir kareye sıkışıp "sıçrama" gibi görünmez.

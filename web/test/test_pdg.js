@@ -8,10 +8,11 @@
 //  6) Gevşek kısıtlar: sert halde bulunamayan durum çözülür ve aşım bildirilir; aşım yoksa sonuç değişmez
 //  7) Kapalı döngü (sıcak başlangıçlı yeniden çözüm): hız bozulmasına rağmen kapıya ve yüzeye ulaşır
 //  8) Tam görev (N-cisim motor): ZEM/ZEV ile iki optimal mod temasla biter; yakıt sıralaması serbest ≥ dengeli ≥ ZEM; iniş sırasında ve öncesinde rastgele hız bozulmalarına dayanıklı
+//  6b) İşaretleme konisi çizelgesi (kalan süreye göre parçalı doğrusal açı) ve uçuşta kullanılan sürekli kumanda (controlAtSmooth: aralık ortalarında düğüm değeri, aralık sınırlarında süreklilik, aralık ortalaması)
 //  9) Altı görev profilinin hepsi (Apollo, Apollo 11, NRHO, L2, L1, yörünge yükseltmeli) her optimal modla temasla biter; yakıt payı ZEM'den fazladır
 import fs from 'fs';
 import { initConic, Conic } from '../js/conic.js';
-import { solveFixed, solvePDG, replanPDG, controlAt, expm } from '../js/pdg.js';
+import { solveFixed, solvePDG, replanPDG, controlAt, controlAtSmooth, expm } from '../js/pdg.js';
 
 let fail = 0;
 const check = (name, ok, detail = '') => { console.log(`${ok ? 'TAMAM' : 'HATA '} ${name}${detail ? ' — ' + detail : ''}`); if (!ok) fail++; };
@@ -131,6 +132,50 @@ function sub3(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
   check('gevşek kısıt: karşılanamayan işaretleme sınırı (10°, son 400 s) aşım olarak bildirilir', imp.ok && imp.sol.viol.point > 0.05, imp.ok ? `işaretleme aşımı ${imp.sol.viol.point.toFixed(2)}` : imp.why);
   const a = solvePDG(lunar({ soft: 0 }), { Nfinal: 40 }), b = solvePDG(lunar({ soft: 200 }), { Nfinal: 40 });
   check('gevşek kısıt: aşım yokken sonuç değişmez (yakıt farkı ≤ 0,5 kg)', a.ok && b.ok && b.sol.violMax < 1e-2 && Math.abs(a.fuel - b.fuel) < 0.5, a.ok && b.ok ? `sert ${a.fuel.toFixed(2)} kg, gevşek ${b.fuel.toFixed(2)} kg` : '');
+}
+
+// ---------------------------------------------------------------- 6b) işaretleme konisi çizelgesi ve sürekli kumanda
+{
+  const D2 = Math.PI / 180, SCH = [[180, 110], [100, 45], [30, 45], [20, 15], [0, 15]];                        // dengeli güdümün çizelgesi: [kalan süre (s), koni açısı (°)]
+  const cosAt = (tgo) => {                                                                                     // bağımsız yazım: koni kosinüsü kalan süreye göre parçalı doğrusal; ilk noktadan önce kısıt yok
+    if (tgo > SCH[0][0]) return null;
+    for (let i = 1; i < SCH.length; i++) if (tgo >= SCH[i][0]) { const f = (SCH[i - 1][0] - tgo) / (SCH[i - 1][0] - SCH[i][0]), c0 = Math.cos(SCH[i - 1][1] * D2), c1 = Math.cos(SCH[i][1] * D2); return c0 + (c1 - c0) * f; }
+    return Math.cos(SCH[SCH.length - 1][1] * D2);
+  };
+  const angDeg = (a, b) => Math.acos(Math.max(-1, Math.min(1, (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / (norm(a) * norm(b))))) / D2;
+  const SCHED = { n: up, sched: SCH.map(([t, a]) => [t, Math.cos(a * D2)]) }, STEP = { point: { n: up, cosTheta: Math.cos(45 * D2), tail: 100 }, point2: { n: up, cosTheta: Math.cos(15 * D2), tail: 20 } };
+  const R = solvePDG(lunar({ point: SCHED, soft: 0 }), { Nfinal: 40 });
+  check('koni çizelgesi: plan bulunur (sert kısıt, 110° → 45° → 15°)', R.ok, R.ok ? `tf ${R.tf.toFixed(0)} s, yakıt ${R.fuel.toFixed(1)} kg` : R.why);
+  const slackOf = (s, k) => (up[0] * s.u[k][0] + up[1] * s.u[k][1] + up[2] * s.u[k][2]) / norm(s.u[k]) - cosAt(s.tf - k * s.dt);      // ≥ 0: itki yönü koninin içinde
+  const mx = (sol) => Math.max(...sol.u.slice(1).map((u, i) => angDeg(sol.u[i], u)));
+  if (R.ok) {
+    const s = R.sol, N = s.N; let worst = 1, nAct = 0, nCon = 0;
+    for (let k = 0; k < N; k++) { if (cosAt(s.tf - k * s.dt) === null) continue; const sl = slackOf(s, k); nCon++; worst = Math.min(worst, sl); if (sl < 1e-4) nAct++; }
+    check('koni çizelgesi: her düğümde itki yönü çizelgenin o andaki konisinin içindedir (bağımsız hesap, ≥ −1e-6)', nCon >= 15 && worst > -1e-6, `${nCon} kısıtlı düğüm, en küçük pay ${worst.toExponential(1)}, ${nAct} düğümde koni sıkı`);
+    // iniş sonu (kalan ~55 s): ince düğümlerle yeniden çözüm; koni basamak (45° → 15° bir anda) yerine eğimse düğümler arası itki yönü değişimi küçük kalır
+    const k0 = N - 6, t0 = k0 * s.dt, mk = (cones) => lunar({ r0: s.r[k0], v0: s.v[k0], m0: s.m[k0], soft: 0, ...cones }), opt = { N: 45, reg: 0 };
+    const fine = replanPDG(mk({ point: SCHED }), { t0: 0, sol: s }, t0, opt), step = replanPDG(mk(STEP), { t0: 0, sol: s }, t0, opt);
+    if (fine.ok && step.ok) {
+      const f = fine.sol; let w2 = 1, tail = 1;
+      for (let k = 0; k < f.N; k++) { if (cosAt(f.tf - k * f.dt) === null) continue; const sl = slackOf(f, k); w2 = Math.min(w2, sl); if (f.tf - k * f.dt <= 20) tail = Math.min(tail, (up[0] * f.u[k][0] + up[1] * f.u[k][1] + up[2] * f.u[k][2]) / norm(f.u[k]) - Math.cos(15 * D2)); }
+      check('koni çizelgesi (ince düğümler, kalan ~55 s): koni içinde ve son 20 s\'de itki dikeyden ≤ 15°', w2 > -1e-6 && tail > -1e-6, `en küçük pay ${w2.toExponential(1)}, son 20 s en küçük pay ${tail.toExponential(1)} (${f.N} düğüm, aralık ${f.dt.toFixed(2)} s)`);
+      check('koni çizelgesi: koni açısı basamak değil eğimdir; düğümler arası itki yönü değişimi basamaklı konilerinkinden küçük (≤ 12°)', mx(f) < mx(step.sol) && mx(f) < 12, `en büyük düğümler arası dönme: çizelge ${mx(f).toFixed(1)}°, basamaklı ${mx(step.sol).toFixed(1)}° (yakıt ${f.fuel.toFixed(1)} ↔ ${step.sol.fuel.toFixed(1)} kg)`);
+    } else check('koni çizelgesi (ince düğümler): yeniden çözüm', false, `çizelge ${fine.ok ? 'tamam' : fine.why}, basamaklı ${step.ok ? 'tamam' : step.why}`);
+    // controlAtSmooth: aralık ortasında düğüm değeri, aralık sınırlarında süreklilik, aralık ortalaması = u_k + (u_{k−1} − 2u_k + u_{k+1})/8, ZOH ile aynı aralık dizini ve gaz
+    const dt = s.dt, U = (t, f = 0) => controlAtSmooth(s, t, f).u, mid = [3, 10, 20, N - 3].map((k) => norm(sub3(U((k + 0.5) * dt), s.u[k])));
+    check('controlAtSmooth: aralık ortasında düğüm değerini verir', Math.max(...mid) < 1e-12, `en büyük fark ${Math.max(...mid).toExponential(1)} m/s²`);
+    let jump = 0; for (let k = 1; k < N; k++) jump = Math.max(jump, norm(sub3(U(k * dt - 1e-9), U(k * dt + 1e-9))) / norm(s.u[k]));
+    check('controlAtSmooth: aralık sınırlarında süreklidir (ZOH basamağı yok)', jump < 1e-6, `en büyük bağıl basamak ${jump.toExponential(1)}`);
+    let mErr = 0; for (const k of [2, 7, 15, 25, N - 3]) { let m = [0, 0, 0]; const M = 400; for (let i = 0; i < M; i++) { const u = U((k + (i + 0.5) / M) * dt); m = [m[0] + u[0] / M, m[1] + u[1] / M, m[2] + u[2] / M]; }
+      const e = [0, 1, 2].map((j) => s.u[k][j] + (s.u[k - 1][j] - 2 * s.u[k][j] + s.u[k + 1][j]) / 8); mErr = Math.max(mErr, norm(sub3(m, e)) / norm(s.u[k])); }
+    check('controlAtSmooth: aralık ortalaması u_k + (u_{k−1} − 2u_k + u_{k+1})/8 (ikinci farkın sekizde biri)', mErr < 1e-3, `en büyük bağıl fark ${mErr.toExponential(1)}`);
+    const c1 = controlAtSmooth(s, 7.3 * dt, 0), c2 = controlAt(s, 7.3 * dt);
+    check('controlAtSmooth: aralık dizini, gaz ve itki ZOH ile aynı (yalnız ivme vektörü sürekli)', c1.k === c2.k && c1.sigma === c2.sigma && c1.thrust === c2.thrust);
+    const f1 = [0.15, 0.4, 0.8, 0.99].map((x) => norm(sub3(U((1 + x) * dt, 1), s.u[1])));
+    check('controlAtSmooth(from = 1): ilk düğüm komşu olarak kullanılmaz; ikinci aralığın ilk yarısı düğüm 1\'de kalır', f1[0] < 1e-12 && f1[1] < 1e-12 && U(1.5 * dt, 1)[0] === s.u[1][0] && norm(sub3(U(1.25 * dt, 0), s.u[1])) > norm(sub3(U(1.25 * dt, 1), s.u[1])) - 1e-15, `from=1 ilk yarıda fark ${Math.max(f1[0], f1[1]).toExponential(1)}, from=0 ${norm(sub3(U(1.25 * dt, 0), s.u[1])).toExponential(1)}`);
+    const e0 = controlAtSmooth(s, 0, 0), eN = controlAtSmooth(s, s.tf - 1e-9, 0);
+    check('controlAtSmooth: uçlarda tanımlı (ilk ve son aralıkta komşusuz yarı sabit)', norm(sub3(e0.u, s.u[0])) < 1e-12 && norm(sub3(eN.u, s.u[N - 1])) < 1e-12);
+  }
 }
 
 // ---------------------------------------------------------------- 7) kapalı döngü: sıcak başlangıçlı yeniden çözüm + bozulma (nokta kütle gerçeği)

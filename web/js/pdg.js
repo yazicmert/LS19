@@ -67,7 +67,7 @@ export function discretize(omega, alpha, dt) {
 
 // ---------------------------------------------------------------- sabit tf için dışbükey problem
 // P: { r0, v0, m0, rf, vf, g (3-vektör ya da N uzunlukta dizi), omega?, rho1, rho2, alpha, mDry,
-//      point?: {n, cosTheta, tail?}, point2?: {cosTheta, tail?} (ikinci işaretleme konisi: örn. son saniyelerde daha dar), glide?: {n, tanGamma, tail?, pyramid?}, funnel?: {n, vd0, kd, vh0, kh, tail?, vsite?}, floor?: [{n, h}] (N+1 düğüm), vmax?,
+//      point?: {n, cosTheta, tail?, ramp?, cosFrom?, sched?}, point2?: {cosTheta, tail?, ramp?, cosFrom?, sched?} (ikinci işaretleme konisi: örn. son saniyelerde daha dar; ramp: koni tail'den önceki ramp saniyede cosFrom'dan cosTheta'ya daralır; sched: [[kalan süre, cos], …] çizelge), glide?: {n, tanGamma, tail?, pyramid?}, funnel?: {n, vd0, kd, vh0, kh, tail?, vsite?}, floor?: [{n, h}] (N+1 düğüm), vmax?,
 //      soft?: w (>0: işaretleme, süzülme konisi ve hız hunisi gevşek kısıt olur: eksik değeri w ağırlıkla cezalanır, bozulma sonrası da çözüm bulunur),
 //      objective?: 'fuel' | 'error', errAxis?: n̂ (en küçük hatada yükseklik ekseni) }
 //   tail: kısıt yalnız son `tail` saniyede geçerli · funnel: yüzeye göre iniş hızı ≤ vd0 + kd·h ve yatay hız ≤ vh0 + kh·h (h = n̂·(r − rf))
@@ -79,13 +79,27 @@ export function solveFixed(P, tf, N, opts = {}) {
   const gAt = (k) => (Array.isArray(P.g[0]) ? P.g[k] : P.g), lnm0 = Math.log(P.m0);
   const nx = 7, nw = 4, X = (k, i) => k * nx + i, W = (k, j) => nx * (N + 1) + nw * k + j, base = nx * (N + 1) + nw * N;
   const tailOk = (c, k) => !c.tail || tf - k * dt <= c.tail + 1e-9;                   // c.tail: kısıt yalnız son c.tail saniyede geçerli
+  // işaretleme konisi (point/point2): kalan süre ≤ tail iken cosTheta; c.ramp > 0 ise tail ile tail + ramp arasında koni kosinüsü cosFrom'dan cosTheta'ya doğrusal daralır.
+  // c.sched = [[kalan süre (s), cos(açı)], …] (kalan süre azalan sırada) verilirse koni açısı bu çizelgede parçalı doğrusal değişir (ilk kalan süreden önce kısıt yok, son noktadan sonra son değer).
+  // Koni açısı basamak yerine eğimdir: itki yönü sıçramaz, araç yumuşak döner. Kısıt yoksa null.
+  const coneCos = (c, k) => {
+    const tgo = tf - k * dt;
+    if (c.sched) {
+      const S = c.sched; if (tgo > S[0][0] + 1e-9) return null;
+      for (let i = 1; i < S.length; i++) if (tgo >= S[i][0] - 1e-9) { const f = (S[i - 1][0] - tgo) / Math.max(1e-9, S[i - 1][0] - S[i][0]); return S[i - 1][1] + (S[i][1] - S[i - 1][1]) * Math.min(1, Math.max(0, f)); }
+      return S[S.length - 1][1];
+    }
+    if (!c.tail || tgo <= c.tail + 1e-9) return c.cosTheta;
+    if (c.ramp > 0 && tgo <= c.tail + c.ramp + 1e-9) return c.cosTheta + ((c.cosFrom ?? 0) - c.cosTheta) * (tgo - c.tail) / c.ramp;
+    return null;
+  };
   // gevşek kısıtların dolgu değişkenleri (soft > 0): süzülme, işaretleme, huni dikey, huni yatay
   const soft = P.soft || 0, sl = { glide: [], point: [], point2: [], fun1: [], fun2: [] }; let ns = 0;
   const TE = err ? base : -1, sb = base + (err ? 1 : 0);
   if (soft) for (let k = 0; k <= N; k++) {
     if (P.glide && !P.glide.pyramid && tailOk(P.glide, k)) sl.glide[k] = sb + ns++;
-    if (P.point && k < N && tailOk(P.point, k)) sl.point[k] = sb + ns++;
-    if (P.point2 && k < N && tailOk(P.point2, k)) sl.point2[k] = sb + ns++;
+    if (P.point && k < N && coneCos(P.point, k) !== null) sl.point[k] = sb + ns++;
+    if (P.point2 && k < N && coneCos(P.point2, k) !== null) sl.point2[k] = sb + ns++;
     if (P.funnel && tailOk(P.funnel, k)) { sl.fun1[k] = sb + ns++; sl.fun2[k] = sb + ns++; }
   }
   const nvar = sb + ns, C = new Conic(nvar), S = [Ls, Ls, Ls, Vs, Vs, Vs, 1], xbar = [P.rf[0], P.rf[1], P.rf[2], 0, 0, 0, lnm0];
@@ -121,8 +135,9 @@ export function solveFixed(P, tf, N, opts = {}) {
     if (P.rho1 > 0) {                                                             // Σ ≥ a1 (1 − d + d²/2), d = ζ − Zr  (dönel koni)
       C.soc([-1 - 2 * Zr, [[sg, 2 / a1], [z, 2]]], [[-2 * Zr, [[z, 2]]], [-3 - 2 * Zr, [[sg, 2 / a1], [z, 2]]]]);
     }
-    for (const [cone, slk] of [[P.point, sl.point], [P.point2, sl.point2]]) if (cone && tailOk(cone, k)) {
-      C.geq(0, [[W(k, 3), -cone.cosTheta], ...[0, 1, 2].map((j) => [W(k, j), cone.n[j]]), ...(slk[k] !== undefined ? [[slk[k], 1]] : [])]);
+    for (const [cone, slk] of [[P.point, sl.point], [P.point2, sl.point2]]) if (cone) {
+      const ct = coneCos(cone, k); if (ct === null) continue;
+      C.geq(0, [[W(k, 3), -ct], ...[0, 1, 2].map((j) => [W(k, j), cone.n[j]]), ...(slk[k] !== undefined ? [[slk[k], 1]] : [])]);
     }
   }
   C.geq(-Math.log(mClamp / P.m0), [[X(N, 6), 1]]);                                  // z_N ≥ ln m_kuru
@@ -321,4 +336,14 @@ export function replanPDG(P, prev, tNow, opts = {}) {
 export function controlAt(sol, t) {
   const k = Math.min(sol.N - 1, Math.max(0, Math.floor(t / sol.dt + 1e-9)));
   return { k, u: sol.u[k], sigma: sol.sigma[k], thrust: sol.thrust[k] };
+}
+// Uçuşta kullanılan kumanda: düğüm değerleri aralık ORTASINDA geçerli sayılıp aralarında doğrusal ara değer alınır (ZOH basamakları yerine sürekli itki vektörü).
+// Aralık başına ortalama ivme korunur (ikinci farkın sekizde biri kadar sapma, komşu aralıklarda ters işaretli); ZOH'a göre yalnız itki yönü ve gazın basamakları yumuşar.
+// from: bu indeksten önceki düğümler komşu olarak kullanılmaz (from = 1: ilk düğüm atlanır; kapalı döngüde yeni planın ilk düğümü önceki komuttan kesintisiz bağlanan ayrı bir eğriyle değiştirilir,
+// ikinci aralığın ilk yarısı onu karıştırmadan düğüm 1'in değerinde kalır).
+export function controlAtSmooth(sol, t, from = 0) {
+  const N = sol.N, x = t / sol.dt, k = Math.min(N - 1, Math.max(0, Math.floor(x + 1e-9))), s = Math.min(1, Math.max(0, x - k));
+  const j = s < 0.5 ? Math.max(from, k - 1) : Math.min(N - 1, k + 1), w = s < 0.5 ? (j >= k ? 0 : 0.5 - s) : (j === k ? 0 : s - 0.5);        // u_k'dan komşu aralık ortasına doğru
+  const a = sol.u[k], b = sol.u[j], u = [a[0] + (b[0] - a[0]) * w, a[1] + (b[1] - a[1]) * w, a[2] + (b[2] - a[2]) * w];
+  return { k, u, sigma: sol.sigma[k], thrust: sol.thrust[k] };
 }
