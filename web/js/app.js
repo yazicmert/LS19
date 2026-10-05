@@ -17,6 +17,7 @@ import { initTreeMenus, refreshTreeMenus } from './treemenu.js';
 import * as PS from './passes.js';
 import { MODELS, MOON_MODELS } from './satmodels.js';
 import { ImpactUI } from './impactui.js';
+import { Cinema } from './cinema.js';
 
 const DEFAULT_DATE = '2026-10-13';
 let K = null, DESIGN = null, START_MS = 0, sats = null, asts = null, astui = null, updater = null, tracker = null, skyui = null, impactui = null;
@@ -38,6 +39,10 @@ window.addEventListener('resize', resize);
 const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
 const send = (m) => worker.postMessage(m);
 const ui = new UI(world, send);
+// sinematik "fragman" gösterimi (cinema.js): görevi baştan oynatır; kamera, zaman hızı ve bindirmeleri yönetir
+const cinema = new Cinema({ world, send, ui, root: $('#app'), latest: () => latest, play: (on) => setPlay(on), running: () => running, landing: () => landingMode,
+  onStart: () => { document.querySelectorAll('.tm-pop').forEach((p) => { p.hidden = true; }); ui.hidePick(); $('#hoverTip').hidden = true; },
+  onStop: () => { resize(); } });
 
 async function boot() {
   resize();
@@ -81,6 +86,7 @@ function withMission(fn) {
 const camStore = { mission: null, sky: { mode: 'EARTH', dist: 36000, el: 0.45, az: 0.6, auto: false, key: '' } };
 function setWorkspace(m, push = true) {
   if (m === MODE && camStore[m]) return;
+  if (m === 'sky' && cinema.on) cinema.stop();
   if (m === 'sky') { cmpCancel = true; }
   camStore[MODE] = world.cam; MODE = m;
   world.cam = camStore[m] || world.cam;
@@ -271,6 +277,7 @@ worker.onmessage = (e) => {
   }
   if (d.type === 'ready' || d.type === 'restarted') {
     ui.reset(d.plan, d.t0, DESIGN.LAUNCH.t_launch);
+    if (d.type === 'restarted') cinema.onRestarted();
     world.trail = { E: [], M: [] }; world.resetDynamic && world.resetDynamic();
     $('#loading').style.display = 'none';
     if (d.seek) { if (!running) setPlay(true); }
@@ -322,6 +329,7 @@ function setPlay(on) {
   setBtn($('#btnPlay'), on ? 'pause' : 'play', on ? 'Duraklat' : 'Devam');
 }
 $('#btnPlay').onclick = () => setPlay(!running);
+$('#btnCine').onclick = () => { if (cinema.on) cinema.stop(); else cinema.start(); };
 let warp = 1;
 const setWarp = (w) => { warp = Math.max(1, Math.min(100000, w)); send({ cmd: 'warp', value: warp }); $('#chkAutoWarp').checked = false; send({ cmd: 'autoWarp', on: false }); };
 $('#btnFast').onclick = () => setWarp((latest ? latest.warp : warp) * 2);
@@ -459,6 +467,7 @@ window.addEventListener('keydown', (e) => {
   else if (k === 'g') { $('#chkAuto').checked = !$('#chkAuto').checked; send({ cmd: 'auto', on: $('#chkAuto').checked }); refreshTreeMenus(); }
   else if (k === 'p') send({ cmd: 'perturb', dv: 2.0 });
   else if (k === 'k') { ui.setTab('kontrol'); $('#panel').classList.add('open'); }
+  else if (k === 'c') cinema.start();
   else if (/^[1-8]$/.test(k)) setCam(['AUTO', 'VEHICLE', 'EARTH', 'MOON', 'SYSTEM', 'SITE', 'EMB', 'SOLAR'][+k - 1]);
   else if (!autoPilot) {
     const modes = { w: 'PRO', s: 'RETRO', a: 'NML', d: 'ANML', q: 'RADOUT', e: 'RADIN', r: 'SRFRETRO', h: 'HOLD' };
@@ -510,10 +519,11 @@ function applyUrlParams() {
   let m = q.get('mode'); if (!m) { try { m = localStorage.getItem('ls19.mode'); } catch (e) { m = null; } }
   if (m === 'sky' || (q.get('tab') && ui.isSkyTab(q.get('tab')))) setWorkspace('sky', false);
   if (q.get('skycam')) setSkyCam(q.get('skycam').toUpperCase());
+  if (q.get('cine') && !q.get('seek')) setTimeout(() => cinema.start({ scale: Math.max(0.2, parseFloat(q.get('cine')) || 1) }), 800);       // ?cine=1: açılışta sinematik gösterim (sayı: süre ölçeği)
 }
 $('#btnPanel').onclick = () => $('#panel').classList.toggle('open');
 $('#btnSkyPanel').onclick = () => $('#skyPanel').classList.toggle('open');
-window.LS19 = { world, ui, send, setCam, setPlay, focusOn, setWorkspace, setSkyCam, clock, followSat, lookAtSat, get mode() { return MODE; }, get skyT() { return skyT; },
+window.LS19 = { world, ui, send, setCam, setPlay, cinema, focusOn, setWorkspace, setSkyCam, clock, followSat, lookAtSat, get mode() { return MODE; }, get skyT() { return skyT; },
   get sats() { return sats; }, get asts() { return asts; }, get astui() { return astui; }, get updater() { return updater; }, get tracker() { return tracker; }, get skyui() { return skyui; } };
 window.ROCSIM = window.LS19;
 

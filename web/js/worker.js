@@ -157,7 +157,7 @@ onmessage = (e) => {
       break;
     case 'restart': if (!M) break; newMission(); paused = true; postMessage({ type: 'restarted', t0: M.P.s.t, plan: M.plan }); break;
     case 'pause': paused = d.on; lastReal = performance.now(); break;
-    case 'warp': warp = Math.max(1, Math.min(100000, d.value)); break;
+    case 'warp': warp = Math.max(0.05, Math.min(100000, d.value)); break;               // < 1: sinematik yavaş çekim (arayüz düğmeleri ≥ 1 gönderir)
     case 'autoWarp': autoWarp = d.on; break;
     case 'auto':
       if (d.on && manual.throttle > 0) endManualBurn();

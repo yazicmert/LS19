@@ -39,7 +39,8 @@ Betik bağımsız bir Node programıdır (`@gltf-transform`, `meshoptimizer`, `s
 ## 3. Sahnede
 
 - Yığın (üstten alta): LM / hizmet modülü / S-IVB. LM ile hizmet modülü arasındaki boşluk fizik modelindeki gibi 0,15 m'dir; TLI kademesi `3,05 m + len` (len = 4,55 m) aşağıya yerleşir. SPS çanı (6,19 m) `len`'den uzundur: ucu S-IVB'nin içine ~1,6 m girer (S-IVB'nin üst yüzü kapalıdır, çan görünmez).
-- Motor alevi çıkış yarıçapından ve çıkış z'sinden başlar, gimbal açısıyla döner; RCS plümleri `rcsZ`/`rcsR` halkasından fizikteki görev oranıyla yanar. Gaz değişimi sahnede yumuşatılır (alevin boyu ani basamak yapmaz).
+- Motor plümü (`fx.js`, vakumda genişleyen HDR kabuk) çıkış yarıçapından ve çıkış z'sinden başlar, gimbal açısıyla döner; RCS plümleri `rcsZ`/`rcsR` halkasından fizikteki görev oranıyla yanar. Gaz değişimi sahnede yumuşatılır (plümün boyu ve ışıması ani basamak yapmaz).
+- **Görünüm:** kaynak modellerdeki Maya "blinn" malzemeleri metalik içermez; `scene.js` içindeki tabloyla malzeme adına göre metalik/pürüzlülük verilir (altın folyo, gri metal, beyaz boya…), dolaylı ışık (Dünya/Ay yansıması), her zaman açık kendi gölgesi, yeni motor plümü ve ayrılma/toz efektleri için bkz. [sinematik.md §5](sinematik.md).
 - Ayrılan kademeler aynı modellerin kopyalarıdır ve ayrıldıkları yönelimle serbest dönerler ([6dof.md](6dof.md) §2.5).
 - Model boyutları: toplam üçgen ~80 bin, indirme ~0,7 MB (ilk açılışta yüklenir; `scene.js` yükleme sayacında).
 

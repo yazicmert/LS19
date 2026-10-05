@@ -91,7 +91,7 @@ Ay Görevi panelindeki **Kontrol** sekmesi aracın anlık durumunu canlı göste
 ## Kontroller
 - **Boşluk**: başlat/duraklat · **. ,**: zaman hızı ×2 / ÷2 · "Otomatik hız" olaylara yaklaşırken yavaşlatır
 - **G**: otopilot aç/kapa · **P**: 2 m/s rastgele bozulma (rota düzeltmeleri telafi eder) · **K**: Kontrol paneli
-- **M**: çalışma alanı değiştir · **Fare**: uydu, asteroit ya da gezegene gel → ad; tıkla → bilgi kartı
+- **M**: çalışma alanı değiştir · **C**: **Sinematik gösterim** (alt çubukta film simgesi; adreste `?cine=1`): görevi baştan, NASA fragmanı gibi ~2 dakikada oynatır — **Esc** çık, **Boşluk** duraklat, **→** sonraki çekim, **R** yeniden izle (ayrıntı: `docs/sinematik.md`) · **Fare**: uydu, asteroit ya da gezegene gel → ad; tıkla → bilgi kartı
 - **Alt çubuk**: Başlat, zaman hızı (− ×N +) görünür; **Kamera ▾** ve **Uçuş ▾** (otopilot, otomatik hız, **N-cisim çözücü**, **Araç**, **İniş güdümü**, bozulma, baştan başlat) açılır ağaç menüdedir.
   *N-cisim çözücü* açıkken araç tek eylemsiz çerçevede Dünya + Ay + Güneş çekimiyle ilerler (etki küresi geçişi yok); kapalıyken iki merkez cisimli (etki küresi) çözücü kullanılır. Uçuş sırasında değiştirilebilir. **Yörünge** sekmesinde canlı kuvvet dökümü vardır.
   *Araç*: **İki kademe** (varsayılan) iniş aracını Ay yörünge kademesi (MCC, LOI/NRI, LLO, DOI) ve iniş kademesi (motorlu iniş) olarak böler; yörünge kademesi 15 km irtifada, motorlu inişten ~2–4 dk önce atılır ve ölü kütle inişe taşınmaz (kalan yakıt artar). **Tek kademe iniş aracı** eski tek kademeli araçtır. Seçim görevi yeniden kurar.

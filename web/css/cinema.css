@@ -1,0 +1,107 @@
+/* LS19 sinematik gösterim (js/cinemaui.js): letterbox, bölüm kartları, veri şeridi, zaman çizelgesi, geçişler.
+   Hareket yalnız transform / opacity / clip-path ile; bir kez izlenen, açıklayıcı/pazarlama türü bir gösteri olduğundan süreler 300 ms'den uzun (kart açılışı ~1 s).
+   Eğriler: girişlerde güçlü ease-out, ekrandaki harekette (letterbox) ease-in-out. prefers-reduced-motion: kaydırma/silme yok, yalnız sönme. */
+:root {
+  --cine-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --cine-io: cubic-bezier(0.77, 0, 0.175, 1);
+  --cine-ink: #f3efe6;
+  --cine-ink-2: rgba(243, 239, 230, 0.74);
+  --cine-accent: #ffb35c;
+}
+
+/* normal arayüz sinematik kipte kapanır (düğme, panel, HUD…) */
+body.cine-on #hud, body.cine-on #panel, body.cine-on #controls, body.cine-on #modebar, body.cine-on #manual, body.cine-on #pick, body.cine-on #hoverTip, body.cine-on #toasts,
+body.cine-on .tilemode, body.cine-on .tilestatus, body.cine-on #skyHud, body.cine-on #skyPanel, body.cine-on #skyControls {
+  opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.4s var(--cine-out), visibility 0s linear 0.4s;
+}
+body.cine-on #view { cursor: none; }
+
+.cine { position: absolute; inset: 0; z-index: 20; display: none; pointer-events: none; overflow: hidden; color: var(--cine-ink); font-family: var(--font);
+  --bar: max(0px, calc((100vh - 100vw / 2.39) / 2)); }                      /* 2,39:1 letterbox; daha geniş pencerede çubuk yok */
+.cine.live { display: block; }
+
+/* letterbox */
+.cine-bar { position: absolute; left: 0; right: 0; height: var(--bar); background: #000; transition: transform 0.8s var(--cine-io); }
+.cine-bar.top { top: 0; transform: translateY(-101%); }
+.cine-bar.bottom { bottom: 0; transform: translateY(101%); }
+.cine.on .cine-bar { transform: none; }
+
+/* bölüm kartları */
+.cine-cards { position: absolute; inset: 0; }
+.cine-card { position: absolute; left: clamp(24px, 6vw, 96px); bottom: calc(var(--bar) + clamp(78px, 12vh, 140px)); max-width: min(620px, 62vw); opacity: 0; }
+.cine-card.in { opacity: 1; }
+.cine-card.out { opacity: 0; transition: opacity 0.45s var(--cine-out); }
+.cc-idx { display: block; margin-bottom: 12px; font: 500 12px var(--mono); letter-spacing: 0.32em; color: var(--cine-accent); opacity: 0; transition: opacity 0.6s var(--cine-out); }
+.cc-idx i { font-style: normal; opacity: 0.5; margin: 0 0.45em; }
+.cc-h { margin: 0; font-weight: 600; font-size: clamp(22px, 3.4vw, 52px); line-height: 1.12; letter-spacing: 0.2em; text-transform: uppercase; text-shadow: 0 2px 34px rgba(0, 0, 0, 0.6);
+  clip-path: inset(-0.2em 100% -0.2em 0); transform: translateX(-14px); transition: clip-path 0.95s var(--cine-out), transform 0.95s var(--cine-out); }
+.cc-rule { display: block; height: 2px; width: min(240px, 42%); margin: 18px 0 14px; background: linear-gradient(90deg, var(--cine-accent), rgba(255, 179, 92, 0)); transform: scaleX(0); transform-origin: left center; transition: transform 0.8s var(--cine-out) 0.22s; }
+.cc-s { margin: 0; font: 400 clamp(11px, 1.25vw, 16px) / 1.6 var(--mono); letter-spacing: 0.1em; color: var(--cine-ink-2); text-shadow: 0 1px 14px rgba(0, 0, 0, 0.8);
+  opacity: 0; transform: translateY(8px); transition: opacity 0.7s var(--cine-out) 0.42s, transform 0.7s var(--cine-out) 0.42s; }
+.cine-card.in .cc-idx { opacity: 1; }
+.cine-card.in .cc-h { clip-path: inset(-0.2em 0 -0.2em 0); transform: none; }
+.cine-card.in .cc-rule { transform: none; }
+.cine-card.in .cc-s { opacity: 1; transform: none; }
+
+/* açılış kartı ortada; kapanış kartı solda (özne sağda kalır) */
+.cine-card.open { left: 0; right: 0; bottom: auto; top: 38%; max-width: none; margin: 0 auto; text-align: center; transform: translateY(-50%); }
+.cine-card.close { max-width: min(560px, 48vw); bottom: calc(var(--bar) + clamp(70px, 11vh, 120px)); }
+.cine-card.open .cc-h { font-size: clamp(44px, 10vw, 150px); letter-spacing: 0.4em; padding-left: 0.4em; }
+.cine-card.close .cc-h { font-size: clamp(28px, 4.6vw, 70px); letter-spacing: 0.26em; }
+.cine-card.open .cc-rule { margin-left: auto; margin-right: auto; transform-origin: center; width: min(300px, 50%); background: linear-gradient(90deg, rgba(255, 179, 92, 0), var(--cine-accent), rgba(255, 179, 92, 0)); }
+.cine-card.open .cc-h { transform: none; clip-path: inset(-0.2em 50% -0.2em 50%); }
+.cine-card.open.in .cc-h { clip-path: inset(-0.2em 0 -0.2em 0); }
+
+/* kapanış özeti */
+.cc-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 44px; margin-top: 28px; text-align: left; }
+.cc-stat { display: flex; flex-direction: column; gap: 5px; padding-top: 9px; border-top: 1px solid rgba(243, 239, 230, 0.26); }
+.cc-sk { font: 500 10px var(--mono); letter-spacing: 0.22em; text-transform: uppercase; color: var(--cine-ink-2); }
+.cc-sval { font: 500 clamp(18px, 2.3vw, 30px) var(--mono); font-variant-numeric: tabular-nums; }
+.cc-sv { display: inline-block; }
+.cc-su { margin-left: 0.45em; font-size: 0.52em; letter-spacing: 0.14em; color: var(--cine-ink-2); }
+
+/* veri şeridi (alt üçte bir) */
+.cine-strip { position: absolute; left: clamp(24px, 6vw, 96px); right: clamp(24px, 6vw, 96px); bottom: calc(var(--bar) + clamp(20px, 3.6vh, 42px)); display: flex; align-items: flex-end; gap: clamp(18px, 3.2vw, 56px);
+  opacity: 0; transform: translateY(8px); transition: opacity 0.6s var(--cine-out) 0.5s, transform 0.6s var(--cine-out) 0.5s; }
+.cine.on .cine-strip { opacity: 1; transform: none; }
+.cine.nostrip .cine-strip { opacity: 0; transition-delay: 0s; }
+.cs-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cs-phase { flex: 1; }
+.cs-warp { margin-left: auto; text-align: right; }
+.cs-k { font: 500 10px var(--mono); letter-spacing: 0.24em; text-transform: uppercase; color: var(--cine-ink-2); text-shadow: 0 1px 10px rgba(0, 0, 0, 0.85); }
+.cs-v { font: 500 clamp(13px, 1.5vw, 20px) var(--mono); letter-spacing: 0.06em; font-variant-numeric: tabular-nums; white-space: nowrap; text-shadow: 0 1px 14px rgba(0, 0, 0, 0.85); }
+
+/* zaman çizelgesi: ilerleme yalnız scaleX */
+.cine-timeline { position: absolute; left: clamp(24px, 6vw, 96px); right: clamp(24px, 6vw, 96px); bottom: calc(var(--bar) + 9px); height: 2px; opacity: 0; transition: opacity 0.6s var(--cine-out) 0.6s; }
+.cine.on .cine-timeline { opacity: 1; }
+.ct-track, .ct-prog { position: absolute; inset: 0; display: block; }
+.ct-track { background: rgba(243, 239, 230, 0.22); }
+.ct-prog { background: var(--cine-accent); transform: scaleX(0); transform-origin: left center; }
+.ct-ticks { position: absolute; inset: 0; }
+.ct-ticks i { position: absolute; top: -3px; width: 1px; height: 8px; background: rgba(243, 239, 230, 0.6); }
+
+/* ipucu ve çıkış düğmesi */
+.cine-hint { position: absolute; top: calc(var(--bar) + 14px); left: clamp(24px, 6vw, 96px); font: 500 11px var(--mono); letter-spacing: 0.12em; color: var(--cine-ink-2); text-shadow: 0 1px 10px rgba(0, 0, 0, 0.9); opacity: 0; transition: opacity 0.5s var(--cine-out); }
+.cine-hint.show { opacity: 1; }
+.cine-hint kbd { background: rgba(0, 0, 0, 0.45); border-color: rgba(243, 239, 230, 0.35); color: var(--cine-ink); }
+.cine-exit { position: absolute; top: calc(var(--bar) + 10px); right: clamp(18px, 3vw, 40px); pointer-events: auto; background: rgba(0, 0, 0, 0.5); border-color: rgba(243, 239, 230, 0.3); color: var(--cine-ink);
+  opacity: 0; transition: opacity 0.4s var(--cine-out), background-color 0.18s ease; }
+.cine.active .cine-exit, .cine-exit:focus-visible { opacity: 1; }
+@media (hover: none) { .cine-exit { opacity: 0.8; } }
+@media (hover: hover) and (pointer: fine) { .cine-exit:hover { background: rgba(255, 255, 255, 0.16); } }
+
+/* geçişler: kararma ve ayrılma parlaması */
+.cine-fade { position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity 350ms var(--cine-io); }
+.cine-flash { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle at 50% 52%, #fff 0%, rgba(255, 255, 255, 0.6) 45%, rgba(255, 255, 255, 0) 80%); }
+.cine-flash.go { animation: cine-flash 0.55s var(--cine-out) both; }
+@keyframes cine-flash { from { opacity: 0.8; } to { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .cine-bar { transition: none; }
+  .cc-h, .cine-card.open .cc-h, .cine-card.close .cc-h { clip-path: none; transform: none; opacity: 0; transition: opacity 0.5s ease; }
+  .cine-card.in .cc-h { opacity: 1; }
+  .cc-rule { transform: none; opacity: 0; transition: opacity 0.5s ease; }
+  .cine-card.in .cc-rule { opacity: 1; }
+  .cc-s, .cine-strip { transform: none; transition: opacity 0.5s ease; }
+  .cine-flash.go { animation: none; }
+}
