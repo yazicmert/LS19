@@ -242,11 +242,11 @@ const ALL = JSON.parse(fs.readFileSync(new URL('../data/designs_default.json', i
 // ---------------------------------------------------------------- 6) tam görev
 {
   const prof = (name) => ALL.profiles[name].design;
-  const cases = [['APOLLO', 'one', 'zem'], ['APOLLO', 'one', 'opt'], ['APOLLO', 'one', 'free'], ['APOLLO', 'two', 'opt'], ['NRHO', 'two', 'zem'], ['NRHO', 'one', 'opt'], ['L1', 'two', 'free']];
+  const cases = [['APOLLO', 'one', 'zem'], ['APOLLO', 'one', 'opt'], ['APOLLO', 'one', 'free'], ['APOLLO', 'two', 'opt'], ['NRHO', 'two', 'zem'], ['NRHO', 'one', 'opt'], ['L1', 'two', 'free'], ['L1', 'two', 'opt']];
   for (const [name, veh, mode] of cases) {
     const D = veh === 'two' ? twoStageDesign(prof(name)) : prof(name); E.setMoonZone(D.profile === 'HALO' ? 1.25 * D.HALO.stats.raKm : E.SOI_M); makeLive(SPK, PCK, eo, ALL.tStart);
     const M = new Mission({ design: D, landing: mode }); M.P.tLimit = Infinity;
-    const rec = { n: 0, maxW: 0, maxG: 0, ign: [], badIgn: [], tauOver: 0, qBad: 0, wMismatch: 0, wCount: 0, down: 0, freeSteps: 0 }; let lastThr = 0, prevQ = null, prevW = null, prevT = 0, prevDyn = false;
+    const rec = { n: 0, maxW: 0, maxG: 0, ign: [], badIgn: [], tauOver: 0, qBad: 0, wMismatch: 0, wCount: 0, down: 0, freeSteps: 0, tLlo: null, lloN: 0, lloMax: -1, lloW: 0, prevCmd: null, cmdMax: 0, n2: 0, w2: 0, errMax: 0 }; let lastThr = 0, prevQ = null, prevW = null, prevT = 0, prevDyn = false;
     M.P.onStep = (P, h, thr) => {
       const a = P.att; rec.n++; const st = M.veh.active, sp = stageSpec(st);
       rec.maxW = Math.max(rec.maxW, norm(a.w) / (sp.ctl.wMax * D2R)); rec.maxG = Math.max(rec.maxG, Math.hypot(...a.g) / Math.tan(sp.tvc.max * D2R)); rec.qBad = Math.max(rec.qBad, Math.abs(Math.hypot(...a.q) - 1));
@@ -257,6 +257,13 @@ const ALL = JSON.parse(fs.readFileSync(new URL('../data/designs_default.json', i
       // q ↔ ω: ardışık iki dinamik adımda q'nun gerçek dönme hızı, bildirilen ω'nın adım ortalaması (tork adım boyunca sabit → ω doğrusal) ile uyuşur
       const dyn = a.mode === 'dyn'; if (dyn && prevDyn && prevQ && h > 1e-6 && Math.abs(P.s.t - prevT - h) < 1e-6) { const dq = qMul(qConj(prevQ), a.q), wf = norm([2 * dq[0] / h, 2 * dq[1] / h, 2 * dq[2] / h]), wm = norm([0, 1, 2].map((k) => 0.5 * (prevW[k] + a.w[k]))); if (wm > 0.02) { rec.wCount++; if (Math.abs(wf - wm) / wm > 0.05) rec.wMismatch++; } }
       prevQ = a.q.slice(); prevW = a.w.slice(); prevT = P.s.t; prevDyn = dyn;
+      // Ay yörüngesi süzülmesi (LOI sonrası, DOI öncesi): araç ters yönde kalır; 180° "takla" yok (LOI sonrası ileri dönüp DOI öncesi yine ters dönmek gerekmez)
+      if (P.phase === 'AY_YORUNGESI' && thr === 0) { if (rec.tLlo === null) rec.tLlo = P.s.t; if (P.s.t - rec.tLlo > 900) { rec.lloN++; rec.lloMax = Math.max(rec.lloMax, dot(a.axis(), M.prograde(P))); rec.lloW = Math.max(rec.lloW, norm(a.w)); } }
+      // iniş: itki komutunun yönü bir denetim adımından ötekine sıçramaz; yaklaşma ve son inişte yönelim sakin
+      if (/PDI|YAKLASMA|SON_INIS/.test(P.phase) && P.lastCmd && thr > 0) {
+        const c = unit(P.lastCmd); if (rec.prevCmd) rec.cmdMax = Math.max(rec.cmdMax, vAngle(rec.prevCmd, c)); rec.prevCmd = c;
+        if (/YAKLASMA|SON_INIS/.test(P.phase)) { rec.n2++; rec.w2 += norm(a.w) ** 2; rec.errMax = Math.max(rec.errMax, P.lastTheta); }
+      } else rec.prevCmd = null;
       if (/SON_INIS|YAKLASMA|PDI/.test(P.phase) && P.lastU && thr > 0) { const up = unit(E.sub(P.s.seleno()[0], [0, 0, 0])); if (dot(P.lastU, up) < 0 && P.s.seleno()[0] && E.norm(P.s.seleno()[0]) - 1735.47 < 2) rec.down++; }
     };
     for (;;) { if (M.gen.next().done) break; }
@@ -267,6 +274,10 @@ const ALL = JSON.parse(fs.readFileSync(new URL('../data/designs_default.json', i
       rec.maxW < 1.06 && rec.maxG <= 1 + 1e-9 && rec.tauOver === 0 && rec.qBad < 1e-12 && worstUse < 0.7 && rec.freeSteps === 0 && rec.down === 0,
       `ω/sınır ${rec.maxW.toFixed(3)}, gimbal/sınır ${rec.maxG.toFixed(3)}, RCS bütçe payı ${used.map((x) => (100 * x).toFixed(0) + '%').join('/')}, ${rec.n} adım`);
     check(`${name} ${veh === 'two' ? 'iki' : 'tek'} kademe ${mode}: bildirilen ω (adım ortalaması) = q'nun gerçek dönme hızı (ardışık dinamik adımlarda, ${rec.wCount} örnek, ≤ %5 sapma, aykırı ≤ %0,5)`, rec.wCount > 100 && rec.wMismatch <= 0.005 * rec.wCount, `uyumsuz ${rec.wMismatch}`);
+    if (name === 'APOLLO') check(`${name} ${veh === 'two' ? 'iki' : 'tek'} kademe ${mode}: Ay yörüngesi süzülmesinde araç LOI'dan DOI'ya ters yönde kalır (itki ekseni · ileri yön < −0,99: takla yok), dönme hızı ≤ 2°/s (ateşleme öncesi itki vektörü hizalaması ~1°/s'yi aşmaz)`,
+      rec.lloN > 100 && rec.lloMax < -0.99 && rec.lloW < 2 * D2R, `${rec.lloN} adım, en büyük itki ekseni · ileri yön ${rec.lloMax.toFixed(4)}, azami dönme hızı ${(rec.lloW * DEG).toFixed(3)}°/s`);
+    if (mode === 'opt') check(`${name} ${veh === 'two' ? 'iki' : 'tek'} kademe dengeli güdüm: itki komutunun yönü sürekli (denetim adımı başına ≤ 3°; yeniden çözümler ve son iniş yasasına geçiş dahil), yaklaşma + son inişte rms |ω| ≤ 2,5°/s ve itki ekseni hatası ≤ 12°`,
+      rec.n2 > 500 && rec.cmdMax < 3 * D2R && Math.sqrt(rec.w2 / rec.n2) < 2.5 * D2R && rec.errMax < 12 * D2R, `en büyük komut adımı ${(rec.cmdMax * DEG).toFixed(2)}°, rms |ω| ${(Math.sqrt(rec.w2 / rec.n2) * DEG).toFixed(2)}°/s, en büyük eksen hatası ${(rec.errMax * DEG).toFixed(1)}° (${rec.n2} adım)`);
     if (veh === 'two' || name === 'APOLLO') {
       // ayrılan kademeler: kendi eylemsizlikleriyle torksuz serbest dönme, açısal momentum korunumu, ayrılma devrilmesi 0,5°/s mertebesinde
       let ok = M.debris.length >= (veh === 'two' ? 2 : 1), msg = [];

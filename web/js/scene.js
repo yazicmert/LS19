@@ -2,6 +2,7 @@
 // Dünya, Ay, Güneş, yıldızlar ve araç gerçek konum/yönelimlerinde; her kare fizikten gelen durumla güncellenir.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as E from './engine.js';
 import { buildTerrain, detailNormalTexture, HOLE_R } from './terrain.js';
 import { R_SITE, SITE_LAT, SITE_LON, siteIcrf, siteMe } from './mission.js';
@@ -22,6 +23,8 @@ import * as CR from './cr3bp.js';
 const K_EMB = E.MU_M / (E.MU_E + E.MU_M);          // Dünya–Ay kütle merkezi: Dünya'dan Ay'a doğru bu oranda
 
 const { add, sub, scale, dot, cross, norm, unit, mv, mtv } = E;
+const LANDING_PH = new Set(['PDI', 'YAKLASMA', 'SON_INIS', 'INDI']);          // motorlu iniş evreleri: araç kamerası yaklaşma eksenine bağlanır
+const CAM_BLEND_S = 1.4;                                                         // yakın kameralar arası geçiş süresi (gerçek s)
 const SUN_I = 1.6;                       // tonlamadan önce Güneş aydınlığı (Ay, araç, arazi)
 const EARTH_I = 1.15;                    // Dünya (bulutlar ve okyanus yansıması parlak olduğundan düşük)
 const KM = 0.001;                        // m -> km
@@ -251,12 +254,15 @@ export class World {
     this.attQ = null;                // görüntülenen araç yönelimi (THREE.Quaternion): fizik motorundan gelir (durum x.q)
     this.nStages = 2;                // görev tasarımındaki kademe sayısı (2: TLI kademesi + iniş aracı; 3: + Ay yörünge kademesi)
     this.debrisMeshes = new Map();   // ayrılan kademe kimliği -> model
+    this.place = { lander: { exitZ: -1.6, exitR: 0.5, rcsZ: -0.4, rcsR: 1.7 }, orb: { exitZ: -3.28, exitR: 0.85, len: 3.4, rcsZ: -1.2, rcsR: 1.7 }, stage: { exitZ: -16, exitR: 1.0, rcsZ: -14, rcsR: 1.5 } };   // model yerleşimi (m): çan çıkışı z/yarıçap, iticiler halkası z/yarıçap, len: kademe boyu
+    this.thrS = {};                  // alev gazı yumuşatma durumu (S: TLI kademesi, O: Ay yörünge kademesi, L: iniş aracı)
+    this.camBlend = null;            // otomatik kamera geçişi harmanı (yakın kipler arası)
     this.ready = false;
   }
 
   async load(base, onProgress = () => {}) {
     this.base = base;
-    const tl = new THREE.TextureLoader(), total = 12; let done = 0;
+    const tl = new THREE.TextureLoader(), total = 13; let done = 0;
     const tick = (n) => { done++; onProgress(done / total, n); };
     const tex = (f, srgb = true) => new Promise((res) => tl.load(base + 'textures/' + f, (t) => {
       t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; t.anisotropy = 8; tick(f); res(t);
@@ -266,10 +272,10 @@ export class World {
       tex('earth_day.jpg'), tex('earth_night.jpg'), tex('earth_clouds.jpg', false), tex('earth_spec.png', false), tex('earth_normal.png', false),
       tex('moon_color.jpg'), tex('moon_normal.jpg', false), tex('moon_height.png', false), tex('stars.jpg'), json('data/site_dem.json')]);
     tick('dem');
-    const gl = new GLTFLoader();
+    const gl = new GLTFLoader(); gl.setMeshoptDecoder(MeshoptDecoder);
     const glb = (f) => new Promise((res) => gl.load(base + 'models/' + f, (g) => { tick(f); res(g.scene); }, undefined, () => { tick(f + ' (yok)'); res(null); }));
-    const [lander, stage] = await Promise.all([glb('lander.glb'), glb('stage.glb')]);
-    this.build({ day, night, clouds, spec, enorm, mcol, mnorm, mh, stars, dem, lander, stage });
+    const [lander, stage, orb] = await Promise.all([glb('lander.glb'), glb('stage.glb'), glb('orb.glb')]);          // NASA resmî Apollo modelleri: LM, S-IVB, hizmet modülü (tools/apollo_modelleri.mjs)
+    this.build({ day, night, clouds, spec, enorm, mcol, mnorm, mh, stars, dem, lander, stage, orb });
     this.ready = true;
   }
 
@@ -347,21 +353,22 @@ export class World {
     this.vehicle = new THREE.Group(); S.add(this.vehicle);
     this.landerModel = this.prepModel(A.lander, 'lander');
     this.stageModel = this.prepModel(A.stage, 'stage');             // TLI kademesi (şablon; araçtaki ve ayrılan kopyalar bundan klonlanır)
-    this.orbModel = this.makeOrbitalStage();                        // Ay yörünge kademesi (iki kademeli iniş aracı; şablon)
+    this.orbModel = A.orb ? this.prepModel(A.orb, 'orb') : this.makeOrbitalStage();         // Ay yörünge kademesi (iki kademeli iniş aracı; şablon)
     this.vehicle.add(this.landerModel);
     // yığın (üstten alta): iniş aracı / Ay yörünge kademesi (varsa) / TLI kademesi; motorlar en altta
     this.orbStage = this.orbModel.clone(); this.orbStage.position.set(0, 0, -3.05 * KM); this.vehicle.add(this.orbStage);
     this.stackStage = this.stageModel.clone(); this.stackStage.position.set(0, 0, -3.05 * KM); this.vehicle.add(this.stackStage);
     // alevler
     // alevler model grubunun içinde: birimler metre (grup ölçeği 1e-3)
-    this.flameL = this.makeFlame(0.55, 7.0, new THREE.Color(1.0, 0.85, 0.65), new THREE.Color(0.35, 0.45, 1.0), 0.8);
-    this.flameL.position.set(0, 0, this.landerExitZ ?? -1.6); this.landerModel.add(this.flameL);
-    this.flameS = this.makeFlame(1.0, 20.0, new THREE.Color(0.7, 0.75, 1.0), new THREE.Color(0.2, 0.3, 0.9), 0.35);   // LH2/LOX: vakumda soluk
-    this.flameS.position.set(0, 0, this.stageExitZ ?? -16); this.stackStage.add(this.flameS);
-    this.flameO = this.makeFlame(0.5, 6.0, new THREE.Color(1.0, 0.85, 0.65), new THREE.Color(0.35, 0.45, 1.0), 0.8);
-    this.flameO.position.set(0, 0, this.orbExitZ); this.orbStage.add(this.flameO);
-    this.engineLight = new THREE.PointLight(0xffb070, 0, 0.08, 2); this.engineLight.position.set(0, 0, (this.landerExitZ ?? -1.6) - 1.0); this.landerModel.add(this.engineLight);
-    this.rcsSets = { lander: this.makeRcsPlumes(-0.4, 1.7), orb: this.makeRcsPlumes(-3.05 - 1.2, 1.7), tli: this.makeRcsPlumes(-3.05 - 14.0, 1.5) };      // iticiler (gövde z, yarıçap; m)
+    const ML = this.place.lander, MO = this.place.orb, MS = this.place.stage;          // modellerin yerleşim sayıları (çan çıkışı/yarıçapı, iticiler halkası); model dosyasının extras'ından
+    this.flameL = this.makeFlame(ML.exitR / 0.9, 6.5, new THREE.Color(1.0, 0.85, 0.65), new THREE.Color(0.35, 0.45, 1.0), 0.8);
+    this.flameL.position.set(0, 0, ML.exitZ); this.landerModel.add(this.flameL);
+    this.flameS = this.makeFlame(MS.exitR / 0.9, 18.0, new THREE.Color(0.7, 0.75, 1.0), new THREE.Color(0.2, 0.3, 0.9), 0.35);   // LH2/LOX: vakumda soluk
+    this.flameS.position.set(0, 0, MS.exitZ); this.stackStage.add(this.flameS);
+    this.flameO = this.makeFlame(MO.exitR / 0.9, 8.0, new THREE.Color(1.0, 0.85, 0.65), new THREE.Color(0.35, 0.45, 1.0), 0.8);
+    this.flameO.position.set(0, 0, MO.exitZ); this.orbStage.add(this.flameO);
+    this.engineLight = new THREE.PointLight(0xffb070, 0, 0.08, 2); this.engineLight.position.set(0, 0, ML.exitZ - 1.0); this.landerModel.add(this.engineLight);
+    this.rcsSets = { lander: this.makeRcsPlumes(ML.rcsZ, ML.rcsR), orb: this.makeRcsPlumes(-3.05 + MO.rcsZ, MO.rcsR), tli: this.makeRcsPlumes(-3.05 + MS.rcsZ, MS.rcsR) };      // iticiler (gövde z, yarıçap; m); tli halkası yığın düzenine göre update'te kaydırılır
     for (const g of Object.values(this.rcsSets)) { this.vehicle.add(g.grp); g.grp.visible = false; }
     // işaretçiler
     const ring = ringTexture();
@@ -425,41 +432,28 @@ export class World {
     }
   }
 
+  // Araç modeli hazırla: glTF Y-yukarı → gövde çerçevesi (z itki ekseni, motor çanı −z), birim metre (grup ölçeği 1e-3). Modeller NASA'nın resmî Apollo modellerinden üretilir (tools/apollo_modelleri.mjs):
+  // iniş aracı ← LM, Ay yörünge kademesi ← hizmet modülü, TLI kademesi ← Saturn V S-IVB; yerleşim sayıları (çan çıkışı, iticiler halkası, kademe boyu) dosyanın extras'ında (userData) gelir.
+  // Dosya yoksa basit yedek geometri çizilir.
   prepModel(scene3, kind) {
     const g = new THREE.Group();
-    if (!scene3) {                          // model yoksa basit yedek geometri
+    if (!scene3) {
       const mat = new THREE.MeshStandardMaterial({ color: kind === 'lander' ? 0xc8a24a : 0xdadde2, metalness: 0.6, roughness: 0.4 });
       const m = kind === 'lander' ? new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.8, 3.2, 16), mat) : new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 12, 16), mat);
-      m.rotation.x = Math.PI / 2; if (kind === 'stage') m.position.z = -8;
+      m.rotation.x = Math.PI / 2; if (kind !== 'lander') m.position.z = -8;
       g.add(m); g.scale.setScalar(KM);
-      if (kind === 'lander') this.landerExitZ = -1.6; else this.stageExitZ = -16;
       g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
       return g;
     }
-    const inner = new THREE.Group(); inner.rotation.x = Math.PI / 2; inner.add(scene3);   // glTF Y-yukarı -> Blender Z-yukarı
+    const inner = new THREE.Group(); inner.rotation.x = Math.PI / 2; inner.add(scene3);   // glTF Y-yukarı -> gövde Z-yukarı
     g.add(inner); g.scale.setScalar(KM);
-    g.updateMatrixWorld(true);
-    // malzemeleri yeniden ayarla (Blender düğüm ağaçları glTF'ye tam geçmez)
-    const P = {
-      MLI_Altin_Folyo: { color: 0xc9983a, metalness: 1.0, roughness: 0.32 }, Beyaz_Boya: { color: 0xe9e9e4, metalness: 0.0, roughness: 0.55 },
-      Koyu_Gri: { color: 0x3b3d42, metalness: 0.2, roughness: 0.6 }, Titanyum: { color: 0x9b9ea3, metalness: 1.0, roughness: 0.35 },
-      Gunes_Paneli: { color: 0x1b2748, metalness: 0.5, roughness: 0.25 }, Nozul_Niyobyum: { color: 0x6c6a6e, metalness: 1.0, roughness: 0.42 } };
     scene3.traverse((o) => {
       if (!o.isMesh) return;
       o.castShadow = true; o.receiveShadow = true;
-      const name = (o.material && o.material.name) || '';
-      const key = Object.keys(P).find((k) => name.startsWith(k));
-      if (key) { const p = P[key]; o.material = new THREE.MeshStandardMaterial({ color: p.color, metalness: p.metalness, roughness: p.roughness, name }); }
-      else if (o.material) { o.material.metalness = Math.min(o.material.metalness ?? 0.5, 0.9); }
+      if (o.material) o.material.metalness = Math.min(o.material.metalness ?? 0.5, 0.9);
     });
-    // meme çıkışı (motor çanının en alt noktası)
-    const find = (names) => { let f = null; scene3.traverse((o) => { if (!f && names.some((n) => o.name.startsWith(n))) f = o; }); return f; };
-    const bell = kind === 'lander' ? find(['Motor_Cani']) : find(['K_RL10_Uzatma', 'K_RL10_Rejen_Can']);
-    if (bell) {
-      const box = new THREE.Box3().setFromObject(bell), inv = new THREE.Matrix4().copy(g.matrixWorld).invert();
-      const zmin = box.clone().applyMatrix4(inv).min.z;
-      if (kind === 'lander') this.landerExitZ = zmin; else this.stageExitZ = zmin;
-    }
+    const u = scene3.userData || {};
+    for (const k of ['exitZ', 'exitR', 'len', 'rcsZ', 'rcsR']) if (typeof u[k] === 'number') this.place[kind][k] = u[k];
     return g;
   }
 
@@ -479,7 +473,7 @@ export class World {
     cyl(0.33, 0.85, 1.0, nb, -2.78, true);                            // motor çanı
     for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2, b = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 0.3), dark); b.position.set(1.56 * Math.cos(a), 1.56 * Math.sin(a), -0.5); b.rotation.z = a; g.add(b); }   // RCS blokları
     g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-    g.scale.setScalar(KM); this.orbExitZ = -3.28; this.orbLen = 3.4;
+    g.scale.setScalar(KM); Object.assign(this.place.orb, { exitZ: -3.28, exitR: 0.85, len: 3.4, rcsZ: -1.2, rcsR: 1.7 });
     return g;
   }
 
@@ -599,20 +593,41 @@ export class World {
       const obs = add(s, fromBasis([xx, y, up], [-0.125, -0.13, 0.002]));
       const dv = sub(info.vehPos, obs), dh = sub(dv, scale(up, dot(dv, up))), elev = Math.atan2(dot(dv, up), norm(dh));
       const fov = c.userFov ? this.camera.fov : Math.min(60, Math.max(22, (2 * elev * 180) / Math.PI + 12));
-      if (!c.userFov && Math.abs(this.camera.fov - fov) > 0.05) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
       const lookEl = Math.max(0.02, elev - ((fov / 2 - 5) * Math.PI) / 180 * (elev > 0.05 ? 1 : 0));
       const hdir = unit(dh), tdir = add(scale(hdir, Math.cos(Math.min(lookEl, elev))), scale(up, Math.sin(Math.min(lookEl, elev))));
-      return { eye: obs, target: add(obs, tdir), up };
+      return { eye: obs, target: add(obs, tdir), up, fov };
     }
-    // VEHICLE: merkez cisme göre yerel dikey çerçeve
+    // VEHICLE: merkez cisme göre yerel dikey çerçeve (x: hızın yatay izdüşümü). Motorlu inişte x, yaklaşma ekseni (iniş yerine bağlı, sabit) olur: yüzeye göre hız sıfıra yaklaşırken
+    // eylemsiz hızın yönü oynar (Ay'ın dönmesi ~4,6 m/s, yatay hız bundan küçük); hıza bağlı çerçeve kamerayı aracın çevresinde döndürür, arazi sallanır.
     const cen = info.central === 'M' ? rm : [0, 0, 0], vcen = info.central === 'M' ? E.moonVel(t) : [0, 0, 0];
-    const z = unit(sub(x.r, cen)), vv = sub(x.v, vcen), xx = unit(sub(vv, scale(z, dot(vv, z)))), y = cross(z, xx);
-    return { eye: add(info.vehPos, scale(fromBasis([xx, y, z], sph(c.az, c.el)), c.dist)), target: info.vehPos, up: z };
+    const z = unit(sub(x.r, cen)), vv = sub(x.v, vcen);
+    let hx = sub(vv, scale(z, dot(vv, z)));
+    if (info.central === 'M' && info.drAxis && LANDING_PH.has(x.phase)) hx = sub(info.drAxis, scale(z, dot(info.drAxis, z)));
+    const xx = unit(hx), y = cross(z, xx);
+    return { eye: add(info.vehPos, scale(fromBasis([xx, y, z], sph(c.az, c.el)), c.dist)), target: info.vehPos, up: z, fov: 50 };
+  }
+
+  // kamera pozu; otomatik kamera yakın kipler arasında (araç ↔ iniş yeri) geçerken önceki ve yeni poz süre boyunca yumuşak (smoothstep) harmanlanır, görüş açısı da.
+  blendedPose(x, info, dt) {
+    let pose = this.cameraPose(x, info);
+    const b = this.camBlend;
+    if (b) {
+      b.p += Math.min(0.1, dt) / CAM_BLEND_S;
+      if (b.p >= 1) this.camBlend = null;
+      else {
+        const cur = this.cam; this.cam = b.from;
+        let p0; try { p0 = this.cameraPose(x, info); } finally { this.cam = cur; }
+        const f = b.p * b.p * (3 - 2 * b.p), mix = (a, c) => [a[0] + (c[0] - a[0]) * f, a[1] + (c[1] - a[1]) * f, a[2] + (c[2] - a[2]) * f];
+        pose = { eye: mix(p0.eye, pose.eye), target: mix(p0.target, pose.target), up: unit(mix(p0.up, pose.up)), fov: (p0.fov ?? 50) + ((pose.fov ?? 50) - (p0.fov ?? 50)) * f };
+      }
+    }
+    if (pose.fov !== undefined && Math.abs(this.camera.fov - pose.fov) > 0.05) { this.camera.fov = pose.fov; this.camera.updateProjectionMatrix(); }
+    return pose;
   }
 
   autoCamera(x, info) {
-    if (this.cam.mode !== 'SITE' && this.cam.mode !== 'OBS' && this.camera.fov !== 50) { this.camera.fov = 50; this.camera.updateProjectionMatrix(); }
-    if (!this.cam.auto) return;
+    if (this.cam.mode !== 'SITE' && this.cam.mode !== 'OBS' && this.camera.fov !== 50 && !this.camBlend) { this.camera.fov = 50; this.camera.updateProjectionMatrix(); }
+    if (!this.cam.auto) { this.camBlend = null; return; }
     const ph = x.phase, burning = x.thr > 0, rE = norm(x.r), rs = norm(sub(x.r, info.rm));
     let key, set;
     const alt = info.local ? info.local.p[2] : Infinity;
@@ -627,6 +642,9 @@ export class World {
     else if (rE < 45000) { key = 'EARTH'; set = { mode: 'EARTH', dist: Math.max(22000, 2.6 * rE), el: 0.35, az: 0.4 }; }
     else { key = 'SYSTEM'; set = { mode: 'SYSTEM', dist: 760000, el: 1.05, az: -1.2 }; }
     if (key !== this.cam.key) {
+      const near = (m) => m === 'VEHICLE' || m === 'SITE';                      // yakın kameralar arası geçişte kamera sıçramaz, yumuşak süzülür
+      if (this.cam.key && near(this.cam.mode) && near(set.mode)) this.camBlend = { from: { ...this.cam }, p: 0 };
+      else this.camBlend = null;
       Object.assign(this.cam, set); this.cam.key = key;
       if (key === 'MOON' || key === 'EARTH') {         // Güneş'in aydınlattığı yarıdan, aracı da gören bakış
         const cen = key === 'MOON' ? info.rm : [0, 0, 0];
@@ -664,7 +682,7 @@ export class World {
     const vehPos = add(x.r, [zNow.x * 0.0029, zNow.y * 0.0029, zNow.z * 0.0029]);
     const info = { rm, central, vehPos, drAxis: extra.drAxis, local: extra.local };
     this.autoCamera(x, info);
-    const pose = this.cameraPose(x, info);
+    const pose = this.blendedPose(x, info, extra.dtReal || 0.016);
     const eye = pose.eye;
     this.eye = eye;
     const rel = (p, v = new THREE.Vector3()) => v.set(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]);
@@ -696,16 +714,20 @@ export class World {
     const nSt = this.nStages, last = nSt - 1, k = x.k, thr = x.thr || 0;
     this.stackStage.visible = k === 0;
     this.orbStage.visible = nSt > 2 && k <= 1;
-    this.stackStage.position.z = -(3.05 + (nSt > 2 ? this.orbLen : 0)) * KM;           // TLI kademesi Ay yörünge kademesinin altında
-    this.flameS.material.uniforms.throttle.value = k === 0 ? thr : 0;
-    this.flameO.material.uniforms.throttle.value = nSt > 2 && k === 1 ? thr : 0;
-    this.flameL.material.uniforms.throttle.value = k === last ? thr : 0;
+    const orbLen = this.place.orb.len, stackTop = 3.05 + (nSt > 2 ? orbLen : 0);
+    this.stackStage.position.z = -stackTop * KM;                                           // TLI kademesi Ay yörünge kademesinin altında
+    this.rcsSets.tli.grp.position.z = (-stackTop + this.place.stage.rcsZ) * KM;
+    // alev boyu/parlaklığı motorun gaz tepkisi gibi yumuşar (gaz basamakları alevi aniden büyütüp küçültmez; yalnız görüntü)
+    const sm = (key, target) => { const a = 1 - Math.exp(-Math.min(0.1, extra.dtReal || 0.016) / 0.3); const v = (this.thrS[key] ?? 0) + (target - (this.thrS[key] ?? 0)) * a; this.thrS[key] = target === 0 && v < 0.01 ? 0 : v; return this.thrS[key]; };
+    this.flameS.material.uniforms.throttle.value = sm('S', k === 0 ? thr : 0);
+    this.flameO.material.uniforms.throttle.value = sm('O', nSt > 2 && k === 1 ? thr : 0);
+    this.flameL.material.uniforms.throttle.value = sm('L', k === last ? thr : 0);
     const A = x.att, gim = A && A.g && thr > 0 ? A.g : null;                               // 6-DOF: gimbal (gövde x, y teğetleri) ve RCS görev oranı fizikten gelir
     this.setNozzle(this.flameS, k === 0 ? gim : null); this.setNozzle(this.flameO, nSt > 2 && k === 1 ? gim : null); this.setNozzle(this.flameL, k === last ? gim : null);
     this.showRcs(A ? (k === last ? this.rcsSets.lander : nSt > 2 && k === 1 ? this.rcsSets.orb : k === 0 ? this.rcsSets.tli : null) : null, A ? A.duty : null);
     const dCamVeh = norm(sub(vehPos, eye));
-    this.engineLight.position.z = (k === last ? (this.landerExitZ ?? -1.6) : -3.05 + (this.orbExitZ ?? -3.28)) - 1.0;
-    this.engineLight.intensity = k > 0 && thr > 0 && dCamVeh < 2 ? 0.02 * thr : 0;
+    this.engineLight.position.z = (k === last ? this.place.lander.exitZ : -3.05 + this.place.orb.exitZ) - 1.0;
+    this.engineLight.intensity = k > 0 && dCamVeh < 2 ? 0.02 * Math.max(this.thrS.L || 0, this.thrS.O || 0) : 0;
     // ayrılan kademeler: her biri kendi modeliyle (TLI kademesi ya da Ay yörünge kademesi), kendi yörüngesinde ve ayrıldığı andaki eylemsiz yönelimiyle çizilir; görev boyunca kalır
     const seenDebris = new Set();
     for (const d of extra.debris || []) {
@@ -714,7 +736,7 @@ export class World {
       m.visible = true; rel(d.r, m.position);
       if (d.q) m.quaternion.set(d.q[0], d.q[1], d.q[2], d.q[3]); else m.quaternion.copy(this.attQ);
       // ayrıldığı yığın konumundan (araç referans noktasının −z'sinde: TLI kademesi üstü 0,15 m, üç kademeli araçta Ay yörünge kademesinin altında) kopar: ayrılırken sıçrama olmaz
-      const off = d.kind === 'orb' ? 0.15 : 0.15 + (this.nStages > 2 ? this.orbLen : 0);
+      const off = d.kind === 'orb' ? 0.15 : 0.15 + (this.nStages > 2 ? this.place.orb.len : 0);
       m.position.add(new THREE.Vector3(0, 0, -off * KM).applyQuaternion(m.quaternion));
       seenDebris.add(d.id);
     }

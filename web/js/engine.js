@@ -397,7 +397,7 @@ export class Propagator {
     const D = this.att, veh = this.veh, st = veh.active, t0 = this.s.t;
     if (!cmd) cmd = D.axis();                                           // komut yoksa mevcut yönelim korunur
     const mp = massProps(veh.stages, veh.k), sp = mp.sp, rcsLeft = Math.max(0, sp.rcs.prop - (st.rcsUsed || 0));
-    const P = D.plan({ cmd, t: t0, T, mp, rcsLeft, fast: this.attFast || FAST_PHASES.has(this.phase), aim: this.attAim });
+    const P = D.plan({ cmd, t: t0, T, Tmax: st.T, mp, rcsLeft, fast: this.attFast || FAST_PHASES.has(this.phase), aim: this.attAim });
     let hmax = T > 0 ? this.hMaxBurn : this.hMaxCoast;
     if (!P.hold) hmax = Math.min(hmax, P.free ? 10.0 : sp.ctl.dt);
     let h = Math.min(hReq, hmax, this.h);

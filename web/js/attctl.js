@@ -24,6 +24,7 @@ export const CTL = {
   FF_TAU: 2.0, FF_JUMP: 3.0 * D2R,                                  // komut hızı süzgeci zaman sabiti (s) ve bunun üstünde (rad/s) komut sıçraması sayılır
   ELL_MIN: 0.1,                                                     // kütle merkezi–gimbal kolu bundan küçükse TVC kullanılmaz (m)
   ERR_WARN: 10.0 * D2R,                                             // itki ekseni hatasının 'sürüyor' sayıldığı eşik (rad); süre errT'de birikir (telemetri uyarısı için)
+  TVC_MIN: 0.3,                                                     // gimbal yalnız itki, tam itkinin bu oranından büyükken kullanılır: altında gimbal yetkisi küçüktür ve doygun gimbalin yan kuvveti yönelim komutuyla sürekli salınıma girer → yönelim RCS'ye bırakılır
 };
 
 // v vektörünü, d birim vektörünü z eksenine götüren dönmeyle döndür (Rodrigues): komutu "itki çerçevesinde" ifade eder
@@ -84,7 +85,7 @@ export class Dyn6 {
     this.err = th;
     if (T <= 0 && th <= CTL.HOLD_ENTER && rate <= CTL.HOLD_RATE && wrel <= CTL.HOLD_W) { P.hold = true; return P; }
     // yetkiler
-    const rcs = sp.rcs, rcsOn = rcsLeft > 0, tvcOn = T > 0 && !!sp.tvc && mp.ell > CTL.ELL_MIN;
+    const rcs = sp.rcs, rcsOn = rcsLeft > 0, tvcOn = T > 0 && !!sp.tvc && mp.ell > CTL.ELL_MIN && (!ctx.Tmax || T >= CTL.TVC_MIN * ctx.Tmax);
     if (!rcsOn && !tvcOn) { P.free = true; return P; }                 // RCS yakıtı bitti, gimbal yok: denetim YOK; yönelim torksuz serbest döner (büyük adımlarla)
     const tauMax = rcsOn ? [0, 1, 2].map((i) => 2 * rcs.n[i] * rcs.F * 1000 * rcs.arm[i]) : [0, 0, 0];
     const Tl = tvcOn ? T * 1000 * mp.ell : 0;                       // gimbal teğeti başına tork (N·m)

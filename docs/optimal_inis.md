@@ -58,8 +58,10 @@ Sabit son zaman tf için bu bir SOCP'dir. Yakıt, tf'nin tek tepeli bir işlevid
 - **Gevşek kısıtlar:** işaretleme, süzülme ve hız koridoru isteğe bağlı olarak dolgu değişkenleriyle gevşetilir ve ağır cezalanır; bozulma sonrasında da çözüm bulunur, aşım bildirilir. İtki sınırları, dinamik ve son koşullar sert kalır.
 - **Kapalı döngü:** ilk plan PDI'da ~0,7 s'de (49 SOCP), sonra her 10 s'de (son dakikada 4 s) sıcak başlangıçla yeniden çözüm: çekim yolu, Taylor noktası ve kumanda (köşegen ikinci derece düzenleyici; düz yönlerde plan sürüklenmesini önler) önceki plandan alınır; iniş anı sabit tutulur, yalnız koridor aşılırsa uzatılır. Ortalama 45 ms.
 - **Kapı:** plan, iniş yerinin 120 m üstündeki kapıya biter (iniş hızı 1 + 0,07·h = 9,4 m/s); ardından son iniş yasası temasa taşır: yerel çerçevede PD (yatay konum/hız sönümü kp = 0,06, kd = 0,5 s⁻¹, dikey hız profili 1 + 0,07·h); itki asla aşağı yönde değildir ve dikeyden ≤ 40° yatar.
-- **Kumanda:** ZOH düğümündeki u vektörü, gerçek kütleyle itkiye çevrilir (T = m·‖u‖), en küçük kısmaya ve tam itkıya kırpılır; planlama üst sınırı tam itkının %90'ıdır (kumanda payı). u yönelim **komutudur**: gerçek itki ekseni, fizik motorundaki 6-DOF yönelim durumunu (RCS + gimbal) izler ([docs/6dof.md](6dof.md)).
-- **Ön ayarlar:** *dengeli* (son 100 s'de itki dikeyden ≤ 45°, son 20 s'de ≤ 15° (ikinci işaretleme konisi `point2`: araç kapıya dikeye yakın varır, son iniş yasasına geçişte büyük dönme olmaz); son 200 s'de iniş hızı ≤ vd + 0,06·h, yatay ≤ 1 + 0,15·h) ve *serbest* (işaretleme yok; hız koridoru 0,25 / 0,6, son 120 s).
+- **Kumanda:** düğümdeki u vektörü, gerçek kütleyle itkiye çevrilir (T = m·‖u‖), en küçük kısmaya ve tam itkıya kırpılır; planlama üst sınırı tam itkının %90'ıdır (kumanda payı). u yönelim **komutudur**: gerçek itki ekseni, fizik motorundaki 6-DOF yönelim durumunu (RCS + gimbal) izler ([docs/6dof.md](6dof.md)).
+  *Dengeli* güdümde komut ayrıca **sürekli** tutulur (yönelim ve aktüatörler izleyebilsin diye; fizik aynı, yalnız komutun biçimi): düğümler arası **doğrusal ara değer** (FOH, `controlAtSmooth`: düğüm değerleri aralık ortasında, aralık ortalaması korunur), yeni planın ilk düğümü önceki komuttan **kesintisiz bağlanır** (JOIN: bir aralık boyunca büyüklük doğrusal, yön küresel ara değer; ilk düğüm atlanır), plandan son iniş yasasına geçişte **4 s'lik yumuşak adım** (HANDOVER) ve yeniden çözümde komutun önceki plandan sapması ağır cezalanır (REG = 0,3). Ayrıntı ve ölçümler: [docs/6dof.md §5](6dof.md).
+- **Ön ayarlar:** *dengeli*: itki yönü dikeyden en çok **koni çizelgesindeki** açı kadar sapar (`point.sched`, [kalan süre s, açı °], aralarında doğrusal: 180 s kalana dek 110° (kısıt yok gibi), 100 s kalana dek 45°, 60 s kalana dek 45°, 20 s kalana dek 20°, kapıya dek 20°; araç kapıya dikeye yakın varır, son iniş yasasına geçişte büyük dönme olmaz);
+  koni açısı basamak değil eğimdir ve daralma yönelimin izleyebileceği kadar yavaştır (10 s'de 45° → 15° daralan önceki çizelge, yönelimi planın gerisinde bırakıp yaklaşmada ani dönmelere yol açıyordu); son 200 s'de iniş hızı ≤ vd + 0,06·h, yatay ≤ 1 + 0,15·h. *Serbest*: işaretleme yok; hız koridoru 0,25 / 0,6, son 120 s.
 - **Çözücü:** [Clarabel](https://github.com/oxfordcontrol/Clarabel.rs) (iç nokta, WebAssembly, 268 KB), `cvxjs` 0.1.4 paketinden olduğu gibi (`web/lib/clarabel/`, SHA-256'lı); tarayıcıda Web Worker'da, Node'da aynı ikiliyle koşar.
 
 ## 4. Doğrulama (`web/test/test_pdg.js`)
@@ -80,13 +82,15 @@ Aynı PDI durumundan (2729 kg, 13,79 km, Apollo profili; yönelim 6-DOF rijit ci
 
 | Güdüm | Δv (m/s) | kalan yakıt (kg) |
 |---|---|---|
-| ZEM/ZEV (eski, Apollo benzeri) | 1907 | 191 |
-| Optimal, dengeli | 1881 | 204 |
-| Optimal, serbest | 1809 | 239 |
+| ZEM/ZEV (eski, Apollo benzeri) | 1906 | 190 |
+| Optimal, dengeli | 1892 | 198 |
+| Optimal, serbest | 1809 | 238 |
 | (kuramsal) kısıtsız yakıt-optimal, kapısız | ~1736 | — |
 
 Kısıtsız en iyi çözüm yüzeye yatay bir "sürünme" ile iner (son 10 s'de 85 m irtifada 97 m/s yatay hız) ve gerçekçi değildir; işaretleme ve hız koridoru bu yüzden eklenir. Güvenlik koridoru yakıt öder:
-iyi tasarlanmış bir Apollo profili (ZEM/ZEV) bu kısıtlar altındaki optimuma %1–2 yaklaşır (dengeli mod yönelimi dikeye yakın bitirmek için ~8 kg öder); kazanç kısıtlar gevşedikçe büyür. En pahalı kısıt işaretleme açısıdır (tek başına kaldırılınca ~60–70 m/s).
+iyi tasarlanmış bir Apollo profili (ZEM/ZEV) bu kısıtlar altındaki optimuma %1–2 yaklaşır; kazanç kısıtlar gevşedikçe büyür. En pahalı kısıt işaretleme açısıdır (tek başına kaldırılınca ~60–70 m/s).
+Dengeli ön ayarın kazancı (ZEM/ZEV'e göre −%0,7 Δv, +8 kg) bilerek mütevazıdır: koni, yönelimin (RCS + gimbal, ≤ 15°/s) izleyebileceği kadar yavaş daralır; önceki hızlı daralan çizelge 6 kg daha çok yakıt kazandırıyordu (204 kg, Δv 1881 m/s) ama yaklaşmada
+yönelim planın gerisinde kalıp hata 29°'ye, dönme hızı sınıra çıkıyordu ([docs/6dof.md §5](6dof.md)). Saf yakıt-optimal davranış için *serbest* ön ayar vardır (son ~12 s'de kapıda hızla dönmesi, yani görüntüde sert bir burun indirme, bu güdümün doğasıdır).
 
 ## 6. İki kademeli iniş (Ay yörünge kademesi + iniş kademesi)
 
@@ -115,19 +119,19 @@ Motorlu iniş problemi (§2–3) iniş kademesinin kütlesi, itki sınırları (
 
 | Profil | ZEM/ZEV | Optimal, dengeli | Optimal, serbest | Ayrılma (PDI'dan önce, irtifa, atılan yakıt) |
 |---|---|---|---|---|
-| Apollo (Apollo 11 ve yükseltmeli de) | 191 → 302 | 204 → 311 | 239 → 334 | 210–211 s, 14,8 km, 23–24 kg |
-| NRHO | 61 → 154 | 74 → 164 | 107 → 190 | 138 s, 14,9 km, 50 kg |
-| L2 | 76 → 152 | 89 → 163 | 123 → 189 | 282 s, 14,7 km, 85 kg |
-| L1 | 79 → 156 | 91 → 165 | 127 → 193 | 250 s, 15,0 km, 73 kg |
+| Apollo (Apollo 11 ve yükseltmeli de) | 190 → 302 | 198 → 304 | 238 → 335 | 208–211 s, 14,7–14,8 km, 23–24 kg |
+| NRHO | 60 → 155 | 68 → 159 | 106 → 191 | 142 s, 14,9 km, 50 kg |
+| L2 | 77 → 151 | 85 → 156 | 124 → 188 | 233 s, 14,5 km, 84 kg |
+| L1 | 76 → 157 | 85 → 162 | 123 → 194 | 240 s, 14,7 km, 73 kg |
 
-Kazancın kaynağı: iniş kademesinin Isp'si araçla aynı (320 s) alınınca Apollo'da 290 / 300 / 325 kg kalır (NRHO 144 / 149 / 180); yani 325 s varsayımı ~9–15 kg, **geri kalanı (Apollo ~86–99, NRHO ~73–83 kg) ölü kütlenin
+Kazancın kaynağı: iniş kademesinin Isp'si araçla aynı (320 s) alınınca Apollo'da 290 / 291 / 325 kg kalır (NRHO 144 / 149 / 180); yani 325 s varsayımı ~10–13 kg, **geri kalanı (Apollo ~87–100, NRHO ~74–84 kg) ölü kütlenin
 atılmasındandır**.
-Optimal güdümün ZEM/ZEV'e göre kazancı kg olarak iki kademede biraz küçülür (dengeli +13 → +9, serbest +48 → +32 kg): araç hafiflediğinden aynı Δv tasarrufu daha az yakıt eder.
+Optimal güdümün ZEM/ZEV'e göre kazancı kg olarak iki kademede küçülür (dengeli +8 → +2, serbest +48 → +33 kg): araç hafiflediğinden aynı Δv tasarrufu daha az yakıt eder.
 Bu, §5'teki bulguyu pekiştirir: iyi tasarlanmış bir profilde en büyük kaldıraç güdüm yasası değil **kütle düzenidir**.
 
 Üç kademeli Δv bütçesi (telemetri): planlı PDI manevrası iniş kademesine yazılır, bozulmasız uçuşta kademe başına pay sabit kalır (yayılım 0,00 m/s).
 Dayanıklılık (testte, Apollo): DOI öncesinde (LLO) ve DOI'dan sonra PDI'dan 5–15 dk önce verilen rastgele 10 m/s hız bozulmalarının hepsi (4/4 + 4/4) yumuşak temasla biter; yörünge kademesinin payı yalnız %3 + 15 m/s
-olduğu halde ayrılırken en az 19 kg yakıt kalır. Testte olmayan ek deneyler (10 ve 20 m/s, DOI öncesi 6/6; NRHO 10 m/s 5/5) aynı sonucu verdi. DOI'dan hemen sonra, alçalış yörüngesi yüzeye inecek kadar
+olduğu halde ayrılırken en az 18 kg yakıt kalır. DOI'dan hemen sonra, alçalış yörüngesi yüzeye inecek kadar
 kuvvetli bir bozulma kurtarılamaz: aynı rastgele bozulma tek kademeli araçta (optimal güdüm) da çarptı, ZEM/ZEV için de böyle erken bozulmaların kurtarılamadığı önceden görülmüştü; bu, araç düzeninden değil
 yörünge geometrisinden gelir.
 
@@ -135,7 +139,7 @@ yörünge geometrisinden gelir.
 
 - İki kademeli iniş: kademe değişimi PDI'dan **önce** yapılır; ayrılma impulsu, ayrılma sırasındaki yönelim ve itici (yakıt) dinamiği modellenmez. Kademe değişiminin motorlu inişin ortasına denk geldiği ortak çok fazlı
   problem (kütle süreksizliği + ρ1/ρ2/Isp değişimi, faz sınırında serbest zaman) uygulanmadı. Karşılaştırma toplam kütle sabit tutularak yapılır; gerçek bir aracın kademe değerleri farklı olur.
-- Öteleme nokta kütledir; yönelim 6 serbestlik dereceli rijit cisim dinamiğidir ([docs/6dof.md](6dof.md): RCS, gimbal, eylemsizlik; sınırları orada). Arazi yoktur. Plan komutu düğüm sınırlarında sıçrar (ZOH); gerçek itki ekseni onu RCS/gimbal yetkisiyle izler: klasik ZEM/ZEV'de komut sıçramaları son ~250 m'de eksen hatasına (rms 4–6°) yol açar, dengeli optimal güdümde eksen hatası rms 3–5°'dir.
+- Öteleme nokta kütledir; yönelim 6 serbestlik dereceli rijit cisim dinamiğidir ([docs/6dof.md](6dof.md): RCS, gimbal, eylemsizlik; sınırları orada). Arazi yoktur. Dengeli güdümde plan komutu sürekli tutulur (FOH + JOIN + HANDOVER, §3) ve gerçek itki ekseni onu RCS/gimbal yetkisiyle izler: yaklaşma ve son inişte itki ekseni hatası ≤ 5° (11/12 görevde; bir görevde plandan son iniş yasasına geçişte ~9°'lik tek düzeltme), rms |ω| 0,7–2,0°/s. Serbest modda komut düğümlerde ZOH basamaklıdır ve kapıda hızla döner (hata 54–74°), klasik ZEM/ZEV'de komut sıçramaları son ~250 m'de eksen hatasına (rms |ω| 4–5°/s) yol açar (docs/6dof.md §5–6).
 - Plan nokta kütle çekimiyle kurulur; Ay'ın harmonikleri ve üçüncü cisimler yeniden çözümle düzeltilir (ayrı bir kanıt: bağımsız RK4 ve tam görev testleri).
 - Son 120 m optimal değildir (son iniş yasası). Kapalı döngü için biçimsel yakınsama/uygunluk garantisi verilmez; gevşek kısıtlar ve geri düşüş (art arda başarısızlıkta son iniş yasası) sağlamlık içindir.
 - Motor kapatılamaz (ρ1 > 0); yarı sürekli girdili (kapalı/[ρ1, ρ2]) kayıpsız dışbükeyleştirme uygulanmadı.
