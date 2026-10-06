@@ -18,6 +18,7 @@ import * as PS from './passes.js';
 import { MODELS, MOON_MODELS } from './satmodels.js';
 import { ImpactUI } from './impactui.js';
 import { Cinema } from './cinema.js';
+import { PixelGovernor } from './perfgov.js';
 
 const DEFAULT_DATE = '2026-10-13';
 let K = null, DESIGN = null, START_MS = 0, sats = null, asts = null, astui = null, updater = null, tracker = null, skyui = null, impactui = null;
@@ -28,7 +29,7 @@ applyIcons();
 initTreeMenus();
 
 const $ = (s) => document.querySelector(s);
-const canvas = $('#view');
+const canvas = $('#view'), chkNbody = $('#chkNbody');
 const world = new World(canvas, $('#labels'));
 let latest = null, lastFrame = performance.now(), running = false, autoPilot = true;
 const manual = { throttle: 0, mode: 'PRO' };
@@ -53,6 +54,15 @@ async function boot() {
   $('#loadMsg').textContent = 'JPL efemeris çekirdekleri yükleniyor…';
   await kp;
   const q = new URLSearchParams(location.search);
+  const pk = (q.get('profile') || '').toUpperCase(); if (PROFILES[pk]) ui.setConfig(PROFILES[pk].cfg);
+  startDesign(q.get('date') || DEFAULT_DATE);
+}
+// Canlı Gökyüzü katmanları: uydular (SGP4 worker + 3B modeller), asteroitler (katalog, DAMIT, worker), takip/asteroit/çarpma arayüzleri ve veri güncelleyici (canlı veri
+// indirmeleri). Açılışı geciktirmesin diye açılışta kurulmaz: görev hazır olup arayüz boşa çıkınca (ya da gökyüzü çalışma alanı daha önce açılırsa o an) tek seferlik kurulur.
+let skyInit = false;
+function initSky() {
+  if (skyInit || !K) return; skyInit = true;
+  const q = new URLSearchParams(location.search);
   // canlı uydular ve asteroitler (yerel sunucu ya da bulut vekili üzerinden); 10 dakikada bir sürüm denetimi
   sats = new SatLayer(world.scene, $('#labels'), K.eo); ui.bindSats(sats);
   asts = new AsteroidLayer(world.scene, $('#labels'));
@@ -63,12 +73,17 @@ async function boot() {
   sats.models.onLoad = (e, st) => { if (st === 'start') skyui.toast(`${e.name}: gerçek 3B model yükleniyor (NASA 3D Resources)…`); else if (st === 'error') skyui.toast(`${e.name}: 3B model yüklenemedi, temsili model gösteriliyor.`); };
   sats.onData = () => { if (tracker) tracker.computePasses(true); };
   world.obsPose = obsPose;
+  if (gov.r !== gov.max) { sats.setPixelScale(gov.r / world.prMax); asts.setPixelScale(gov.r / world.prMax); }          // oran önceden düşmüşse yeni katmanlar da aynı ölçekte
   const jobs = {};
   if (q.get('sats') !== '0') jobs.gp = (v) => sats.load(v);
   if (q.get('ast') !== '0') Object.assign(jobs, { neo: (v) => asts.load('neo', v), mb: (v) => asts.load('mb', v), sentry: (v) => asts.loadSentry(v) });
   updater = new Updater(jobs); updater.onChange = () => astui.renderUpdater(updater); updater.start();
-  const pk = (q.get('profile') || '').toUpperCase(); if (PROFILES[pk]) ui.setConfig(PROFILES[pk].cfg);
-  startDesign(q.get('date') || DEFAULT_DATE);
+}
+// arayüz boşa çıkınca kur (rIC yoksa kısa gecikmeyle); ?prefetch=1 ile görev hazır olur olmaz
+function idleInitSky() {
+  if (skyInit) return;
+  if (new URLSearchParams(location.search).get('prefetch') === '1') { initSky(); return; }
+  if (window.requestIdleCallback) requestIdleCallback(initSky, { timeout: 8000 }); else setTimeout(initSky, 3000);
 }
 // ------------------------------------------------------------------ çalışma alanları
 const curT = () => (MODE === 'sky' ? skyT : latest ? latest.t : 0);
@@ -94,6 +109,7 @@ function setWorkspace(m, push = true) {
   document.querySelectorAll('[data-workspace]').forEach((b) => { const on = b.dataset.workspace === m; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
   ui.hidePick(); $('#hoverTip').hidden = true;
   if (m === 'sky') {
+    initSky();
     skyT = tOfUtcMs(clock.nowMs()); ensureSky(skyT);
     E.setProvider(skySrc.prov); world.live = skySrc; world.resetDynamic && world.resetDynamic();
     skyui.setCamButtons(world.cam.mode); loadMoonSats(skyT);
@@ -152,7 +168,10 @@ const cacheKey = (ms, cfg) => ms + '|' + JSON.stringify(normalizeConfig(cfg));
 function cachedDesign(ms, cfg) {
   const c = designCache.get(cacheKey(ms, cfg)); if (c) return c;
   const d = K.defs; if (!d || Math.abs(d.startMs - ms) > 1000) return null;
-  for (const v of Object.values(d.profiles)) if (sameCfg(v.design.cfg, cfg)) return { tStart: d.tStart, design: v.design, nominal: v.nominal };
+  for (const v of Object.values(d.profiles)) if (sameCfg(v.design.cfg, cfg)) {
+    // nominalBy: öteki güdüm/araç birleşimlerinin hazır Δv'si (test/make_designs.js); önbelleğe alınır ki sonradan hesaplananlar da saklansın
+    const e = { tStart: d.tStart, design: v.design, nominal: v.nominal, nominalBy: { ...(v.nominalBy || {}) } }; designCache.set(cacheKey(ms, cfg), e); return e;
+  }
   return null;
 }
 // UTC ms -> motor zamanı (TDB s); worker'daki ile aynı
@@ -278,14 +297,14 @@ worker.onmessage = (e) => {
   if (d.type === 'ready' || d.type === 'restarted') {
     ui.reset(d.plan, d.t0, DESIGN.LAUNCH.t_launch);
     if (d.type === 'restarted') cinema.onRestarted();
-    world.trail = { E: [], M: [] }; world.resetDynamic && world.resetDynamic();
+    world.resetTrail(); world.resetDynamic && world.resetDynamic();
     $('#loading').style.display = 'none';
     if (d.seek) { if (!running) setPlay(true); }
     else { running = false; setBtn($('#btnPlay'), 'play', 'Başlat'); }
-    if (d.type === 'ready' && !urlApplied) { urlApplied = true; applyUrlParams(); }
+    if (d.type === 'ready' && !urlApplied) { urlApplied = true; applyUrlParams(); idleInitSky(); }
   } else if (d.type === 'state') {
     latest = d;
-    if (d.nbody !== undefined && $('#chkNbody').checked !== d.nbody) $('#chkNbody').checked = d.nbody;
+    if (d.nbody !== undefined && chkNbody.checked !== d.nbody) chkNbody.checked = d.nbody;          // durum iletisi saniyede ~60: DOM sorgusu önbellekte
     if (d.trail && (d.trail.length || d.trailReset)) withMission(() => { world.addTrail(d.trail, d.trailReset); ui.addSamples(d.trail, d.trailReset); });
     if (d.events && d.events.length) ui.addEvents(d.events);
     ui.onState(d);
@@ -294,8 +313,16 @@ worker.onmessage = (e) => {
 };
 
 let lastUpd = 0, lastSkyHud = 0, lastSatTab = 0;
+// Uyarlanır çizim çözünürlüğü (perfgov.js): kare süresi sürekli yüksekse piksel oranı kademeli düşer. Kapalı: ?adapt=0, otomasyon (webdriver), sinematik kip (post hattı kendi kalitesini yönetir)
+const gov = new PixelGovernor({ max: world.prMax, min: 1 });
+const govOn = !navigator.webdriver && new URLSearchParams(location.search).get('adapt') !== '0';
+function applyPixelRatio(r) {
+  world.setPixelRatio(r);
+  const k = r / world.prMax; if (sats) sats.setPixelScale(k); if (asts) asts.setPixelScale(k);
+}
 function frame(now) {
-  const dt = Math.min(0.1, (now - lastFrame) / 1000); lastFrame = now;
+  const dtMs = now - lastFrame, dt = Math.min(0.1, dtMs / 1000); lastFrame = now;
+  if (govOn && !cinema.on && !designing && !document.hidden) { const r = gov.tick(dtMs, now); if (r) applyPixelRatio(r); }
   if (MODE === 'sky' && K && skyui && !designing) {
     const ms = clock.nowMs(); skyT = tOfUtcMs(ms); ensureSky(skyT);
     world.updateSky(skyT, { dtReal: dt });
@@ -329,13 +356,21 @@ function setPlay(on) {
   setBtn($('#btnPlay'), on ? 'pause' : 'play', on ? 'Duraklat' : 'Devam');
 }
 $('#btnPlay').onclick = () => setPlay(!running);
+// Sekme arka plandayken görev benzetimi duraklar: fizik worker'ı gizli sekmede de tam hızda koşar (CPU/pil), kimse izlemiyor. Sekmeye dönünce kaldığı yerden sürer
+// (kullanıcı kendisi duraklattıysa dokunulmaz). ?bg=1: arka planda sürsün.
+let bgPaused = false;
+document.addEventListener('visibilitychange', () => {
+  if (new URLSearchParams(location.search).get('bg') === '1') return;
+  if (document.hidden) { if (running && !designing) { bgPaused = true; setPlay(false); } }
+  else if (bgPaused) { bgPaused = false; setPlay(true); }
+});
 $('#btnCine').onclick = () => { if (cinema.on) cinema.stop(); else cinema.start(); };
 let warp = 1;
 const setWarp = (w) => { warp = Math.max(1, Math.min(100000, w)); send({ cmd: 'warp', value: warp }); $('#chkAutoWarp').checked = false; send({ cmd: 'autoWarp', on: false }); };
 $('#btnFast').onclick = () => setWarp((latest ? latest.warp : warp) * 2);
 $('#btnSlow').onclick = () => setWarp((latest ? latest.warp : warp) / 2);
 $('#chkAutoWarp').onchange = (e) => send({ cmd: 'autoWarp', on: e.target.checked });
-$('#chkNbody').onchange = (e) => send({ cmd: 'solver', nbody: e.target.checked });
+chkNbody.onchange = (e) => send({ cmd: 'solver', nbody: e.target.checked });
 $('#chkAuto').onchange = (e) => { send({ cmd: 'auto', on: e.target.checked }); };
 function syncAuto() {
   $('#chkAuto').checked = autoPilot; $('#manual').hidden = autoPilot; refreshTreeMenus();

@@ -180,6 +180,7 @@ export class SatLayer {
   gpRecord(id) { if (!this.gp) return this.recordOf(id); if (!this.gpMap) this.gpMap = new Map(this.gp.map((o) => [+o.NORAD_CAT_ID, o])); return this.gpMap.get(+id) || this.recordOf(id); }
   recordOf(id) { return this.byId ? this.byId.get(+id) || null : null; }
   indexOf(id) { if (!this.ids) return -1; if (!this.idIndex || this.idIndex.n !== this.n) { this.idIndex = new Map(this.ids.map((x, i) => [+x, i])); this.idIndex.n = this.n; } const i = this.idIndex.get(+id); return i == null ? -1 : i; }
+  setPixelScale(k) { this.mat.uniforms.px.value = (window.devicePixelRatio || 1) * k; }          // uyarlanır çözünürlük: nokta boyu ekranda sabit kalsın (k = geçerli oran / en yüksek oran)
   onMsg(d) {
     if (d.type === 'loaded') {
       this.n = d.n; this.groups = d.groups; this.names = d.names; this.ids = d.ids; this.epochMs = d.epochMs;

@@ -15,6 +15,7 @@ import * as E from './engine.js';
 import { dvKeys } from './dvbudget.js';
 import { massProps, stageSpec } from './rigidbody.js';
 import { CTL } from './attctl.js';
+import { fmt, fmtInt } from './format.js';
 
 const { add, sub, scale, dot, cross, norm, unit } = E;
 export const C_LIGHT = 299792.458;                 // ışık hızı, km/s
@@ -298,7 +299,7 @@ export function touchRisk(tel, lim = LIMITS) {
   const L = tel.land;
   return !!L && tel.phase !== 'INDI' && L.h * 1000 < 10 && (Math.abs(L.vz) * 1000 > lim.vz || L.vh * 1000 > lim.vh);
 }
-const f0 = (x) => Math.round(x).toLocaleString('tr-TR'), f1 = (x) => x.toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const f0 = fmtInt, f1 = (x) => fmt(x, 1);                          // önbellekli biçimleyiciler (format.js)
 export function alerts(tel, margins = [], o = {}) {
   const out = [], push = (id, level, text) => out.push({ id, level, text }), lim = o.limits || LIMITS, landing = LANDING_PHASES.has(tel.phase);
   const names = o.stages || [];

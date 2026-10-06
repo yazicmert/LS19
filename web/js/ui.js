@@ -9,9 +9,12 @@ import { sunElevationAtSite, PROFILES, normalizeConfig, configLabel } from './de
 import { dvKeys, DV_NAMES, dvFromEvents } from './dvbudget.js';
 import { SAT_GROUPS } from './satlayer.js';
 import { fmtReentry, ageYears, controlNote } from './impact.js';
+import { fmt } from './format.js';
 
 const $ = (s) => document.querySelector(s);
-const fmt = (x, d = 0) => (Number.isFinite(x) ? x.toLocaleString('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—');
+// aynı değeri yeniden yazma: textContent / style atamak, değer aynı olsa da düğümü yeniler ve stil/düzen geçersiz kılar (HUD saniyede 10 kez güncellenir)
+const setText = (el, t) => { if (el._t !== t) { el._t = t; el.textContent = t; } };
+const setWidth = (el, w) => { if (el._w !== w) { el._w = w; el.style.width = w; } };
 export function fmtDur(s) {
   const neg = s < 0; s = Math.abs(s);
   const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60);
@@ -173,17 +176,18 @@ export class UI {
     if (panel.id === 'skyPanel') this.skyTab = t; else this.tab = t;
     panel.querySelectorAll('.tab').forEach((b) => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; });
     panel.querySelectorAll('.tabpage').forEach((p) => (p.hidden = p.id !== 'tab-' + t));
-    if (t === 'grafik') this.charts.forEach((c) => c.draw());
+    if (t === 'grafik') this.charts.forEach((c) => { c._sig = null; c.draw(); });
     if (t === 'kontrol' && this.lastS) this.cp.update(this.lastS, this.cpCtx(this.lastS.t));
     if (t === 'carpma' && this.onCarpma) this.onCarpma();
   }
   pickTick(t, now) { if (this.pick && now - (this.lastPick || 0) > 500) { this.lastPick = now; this.renderPick(t); } }
   reset(plan, t0, tLaunch) {
-    this.plan = plan; this.t0 = t0; this.tLaunch = tLaunch; this.events = [];
+    this.plan = plan; this.t0 = t0; this.tLaunch = tLaunch; this.events = []; this.evVer = (this.evVer || 0) + 1; this.planUi = null;
     this.series = { t: [], alt: [], spd: [] }; this.lastSample = -Infinity;
     $('#log').replaceChildren(); this.renderPlan(t0); this.renderDv(); this.cp.reset();
   }
   addEvents(evs) {
+    if (evs.length) this.evVer = (this.evVer || 0) + 1;
     for (const e of evs) {
       this.events.push(e);
       const li = document.createElement('li');
@@ -197,22 +201,33 @@ export class UI {
     if (evs.length) this.renderDv();
   }
 
-  renderPlan(t) {
-    const ul = $('#plan'); ul.replaceChildren();
-    const doneKeys = new Map(this.events.map((e) => [e.key, e]));
-    let nextMarked = false;
+  // plan listesi: öğeler plan değişince bir kez kurulur; her güncellemede yalnız sınıf ve geri sayım/saat metni değişenlere yazılır (liste 10 Hz'te yeniden kurulmaz)
+  buildPlan(ul) {
+    ul.replaceChildren(); const items = [];
     for (const p of this.plan) {
-      const li = document.createElement('li'); const ev = doneKeys.get(p.key) || doneKeys.get(p.key + '_SKIP');
-      const dot = document.createElement('span'); dot.className = 'pl-dot';
-      const name = document.createElement('span'); name.className = 'pl-n'; name.textContent = p.name;
-      const when = document.createElement('span'); when.className = 'pl-t';
-      if (ev) { li.className = 'done'; when.textContent = E.utcString(ev.t).slice(5, 19); }
-      else if (!nextMarked) { li.className = 'next'; nextMarked = true; const tn = this.tNext != null && this.tNext > t + 1 ? this.tNext : p.t; when.textContent = 'T−' + fmtDur(Math.max(0, tn - t)); }
-      else { li.className = 'later'; when.textContent = '~' + E.utcString(p.t).slice(5, 16); }
+      const li = document.createElement('li'), dot = document.createElement('span'), name = document.createElement('span'), when = document.createElement('span');
+      dot.className = 'pl-dot'; name.className = 'pl-n'; name.textContent = p.name; when.className = 'pl-t';
       li.append(dot, name, when); ul.appendChild(li);
       li.title = 'Bu olaya atla'; li.tabIndex = 0;
       const jump = () => this.onSeek && this.onSeek(p.t - (p.key === 'INS' ? 0 : p.key === 'INDI' ? 90 : p.key === 'PDI' ? 40 : 120));
       li.addEventListener('click', jump); li.addEventListener('keydown', (e) => { if (e.key === 'Enter') jump(); });
+      items.push({ p, li, when, cls: '', evFor: null, evTxt: '', laterTxt: '' });
+    }
+    this.planUi = { plan: this.plan, items, evVer: -1, done: new Map() };
+  }
+  renderPlan(t) {
+    if (!this.planUi || this.planUi.plan !== this.plan) this.buildPlan($('#plan'));
+    const U = this.planUi;
+    if (U.evVer !== this.evVer) { U.evVer = this.evVer; U.done = new Map(this.events.map((e) => [e.key, e])); }          // olaylar değişince tamamlanan anahtarlar
+    let nextMarked = false;
+    for (const it of U.items) {
+      const p = it.p, ev = U.done.get(p.key) || U.done.get(p.key + '_SKIP');
+      let cls, when;
+      if (ev) { cls = 'done'; if (it.evFor !== ev) { it.evFor = ev; it.evTxt = E.utcString(ev.t).slice(5, 19); } when = it.evTxt; }
+      else if (!nextMarked) { cls = 'next'; nextMarked = true; const tn = this.tNext != null && this.tNext > t + 1 ? this.tNext : p.t; when = 'T−' + fmtDur(Math.max(0, tn - t)); }
+      else { cls = 'later'; if (!it.laterTxt) it.laterTxt = '~' + E.utcString(p.t).slice(5, 16); when = it.laterTxt; }
+      if (it.cls !== cls) { it.cls = cls; it.li.className = cls; }
+      setText(it.when, when);
     }
   }
 
@@ -265,11 +280,12 @@ export class UI {
 
   hud(s, now) {
     if (now - this.lastHud < 100) return; this.lastHud = now;
+    const H = this.hudRefs || (this.hudRefs = Object.fromEntries(['utc', 'met', 'phase', 'altRef', 'spdRef', 'alt', 'spd', 'vv', 'mass', 'dvu', 'propName', 'propVal', 'propBar', 'thrBar', 'thrVal', 'warpVal', 'status'].map((k) => [k, $('#' + k)])));
     const t = s.t, met = t - this.tLaunch, rm = E.moonPos(t), rsv = E.sub(s.r, rm), rs = E.norm(rsv);
     const nearM = rs < E.MOON_ZONE;
-    $('#utc').textContent = E.utcString(t);
-    $('#met').textContent = 'T+' + fmtDur(met);
-    $('#phase').textContent = this.phaseLabel(s.phase);
+    setText(H.utc, E.utcString(t));
+    setText(H.met, 'T+' + fmtDur(met));
+    setText(H.phase, this.phaseLabel(s.phase));
     // Dünya: WGS-84 elipsoidine göre (yaklaşık), Ay: iniş yakınında iniş yeri yüzeyine, değilse ortalama yarıçapa göre
     const rE = E.norm(s.r), sphi = s.r[2] / rE, Rell = E.R_E * (1 - (1 / 298.257) * sphi * sphi);
     let alt = nearM ? (s.local ? s.local.p[2] : rs - E.R_M) : rE - Rell;
@@ -277,24 +293,24 @@ export class UI {
     const surf = nearM && s.local && s.local.p[2] < 50;
     const vRelVec = nearM ? E.sub(s.v, E.moonVel(t)) : s.v;
     const vRel = surf ? E.norm(s.local.v) : E.norm(vRelVec);
-    $('#altRef').textContent = nearM ? (s.local ? 'iniş yerine göre' : "Ay'a göre") : "Dünya'ya göre";
-    $('#spdRef').textContent = surf ? 'yüzeye göre' : nearM ? "Ay'a göre" : "Dünya'ya göre";
-    $('#alt').textContent = alt > 100 ? fmt(alt, 0) + ' km' : alt > 2 ? fmt(alt, 2) + ' km' : fmt(alt * 1000, 1) + ' m';
-    $('#spd').textContent = vRel > 0.1 ? fmt(vRel, 3) + ' km/s' : fmt(vRel * 1000, 2) + ' m/s';
+    setText(H.altRef, nearM ? (s.local ? 'iniş yerine göre' : "Ay'a göre") : "Dünya'ya göre");
+    setText(H.spdRef, surf ? 'yüzeye göre' : nearM ? "Ay'a göre" : "Dünya'ya göre");
+    setText(H.alt, alt > 100 ? fmt(alt, 0) + ' km' : alt > 2 ? fmt(alt, 2) + ' km' : fmt(alt * 1000, 1) + ' m');
+    setText(H.spd, vRel > 0.1 ? fmt(vRel, 3) + ' km/s' : fmt(vRel * 1000, 2) + ' m/s');
     if (s.local && s.local.p[2] < 20) {
       const up = E.unit(rsv), vs = E.sub(s.v, E.moonVel(t)), vr = E.sub(vs, E.cross(E.omegaMoon(t), rsv));
       const vz = E.dot(vr, up), vh = E.norm(E.sub(vr, E.scale(up, vz))), rng = Math.hypot(s.local.p[0], s.local.p[1]);
-      $('#vv').textContent = `dikey ${fmt(vz * 1000, 1)} m/s · yatay ${fmt(vh * 1000, 1)} m/s · iniş yerine ${rng > 5 ? fmt(rng, 1) + ' km' : fmt(rng * 1000, 0) + ' m'}`;
-    } else $('#vv').textContent = `Ay'a uzaklık ${fmt(rs, 0)} km · Dünya'ya ${fmt(E.norm(s.r), 0)} km`;
-    $('#mass').textContent = fmt(s.m, 0) + ' kg';
-    $('#dvu').textContent = fmt(s.dv * 1000, 1) + ' m/s';
+      setText(H.vv, `dikey ${fmt(vz * 1000, 1)} m/s · yatay ${fmt(vh * 1000, 1)} m/s · iniş yerine ${rng > 5 ? fmt(rng, 1) + ' km' : fmt(rng * 1000, 0) + ' m'}`);
+    } else setText(H.vv, `Ay'a uzaklık ${fmt(rs, 0)} km · Dünya'ya ${fmt(E.norm(s.r), 0)} km`);
+    setText(H.mass, fmt(s.m, 0) + ' kg');
+    setText(H.dvu, fmt(s.dv * 1000, 1) + ' m/s');
     const ST = (this.design && this.design.STAGES) || [{ name: 'TLI kademesi', prop: 6200 }, { name: 'İniş aracı', prop: 2300 }];
     const stg = { name: (ST[s.k] || ST[ST.length - 1]).name || (s.k === 0 ? 'TLI kademesi' : 'İniş aracı'), cap: (ST[s.k] || ST[ST.length - 1]).prop };
-    $('#propName').textContent = stg.name; $('#propVal').textContent = fmt(s.prop, 0) + ' kg';
-    $('#propBar').style.width = Math.max(0, Math.min(100, (100 * s.prop) / stg.cap)) + '%';
-    $('#thrBar').style.width = (100 * (s.thr || 0)) + '%'; $('#thrVal').textContent = fmt(100 * (s.thr || 0), 0) + '%';
-    $('#warpVal').textContent = '×' + (s.warp >= 100 ? fmt(s.warp, 0) : fmt(s.warp, s.warp < 10 ? 1 : 0));
-    $('#status').textContent = s.status || (s.done ? (s.result && s.result.ok ? 'Görev tamamlandı: iniş başarılı' : 'Görev sona erdi') : '');
+    setText(H.propName, stg.name); setText(H.propVal, fmt(s.prop, 0) + ' kg');
+    setWidth(H.propBar, Math.max(0, Math.min(100, (100 * s.prop) / stg.cap)).toFixed(1) + '%');
+    setWidth(H.thrBar, (100 * (s.thr || 0)).toFixed(1) + '%'); setText(H.thrVal, fmt(100 * (s.thr || 0), 0) + '%');
+    setText(H.warpVal, '×' + (s.warp >= 100 ? fmt(s.warp, 0) : fmt(s.warp, s.warp < 10 ? 1 : 0)));
+    setText(H.status, s.status || (s.done ? (s.result && s.result.ok ? 'Görev tamamlandı: iniş başarılı' : 'Görev sona erdi') : ''));
     // sonraki olay
     this.tNext = s.tNext; this.renderPlan(t);
     // yörünge sekmesi
@@ -451,8 +467,23 @@ export class UI {
       ['Eğim (ekvatora göre)', fmt(inc, 2) + '°'], ['Periapsis irtifası', fmt(el.rp - Rb, 1) + ' km'],
       ['Apoapsis irtifası', el.e < 1 ? fmt(el.ra - Rb, 1) + ' km' : '∞'], ['Periyot', Number.isFinite(period) ? fmtDur(period) : '—'],
       ['Özgül enerji', fmt(el.energy, 4) + ' km²/s²']];
-    const tb = $('#orbtable tbody'); tb.replaceChildren();
-    for (const [k, val] of rows) { const tr = document.createElement('tr'); const a = document.createElement('td'); a.textContent = k; const b = document.createElement('td'); b.className = 'num'; b.textContent = val; tr.append(a, b); tb.appendChild(tr); }
+    this.fillRows($('#orbtable tbody'), rows);
+  }
+  // etiket/değer satırlarını yerinde güncelle: yapı (etiketler ve bölüm başlıkları) değişmedikçe düğümler yeniden kurulmaz, yalnız değişen değer metinleri yazılır
+  fillRows(tb, rows) {
+    const sig = rows.map((r) => (r.sec ? '§' + r.sec : r[0])).join('|');
+    let S = tb._rows;
+    if (!S || S.sig !== sig) {
+      tb.replaceChildren(); const cells = [];
+      for (const r of rows) {
+        const tr = document.createElement('tr');
+        if (r.sec) { tr.className = 'sec'; const th = document.createElement('th'); th.colSpan = 2; th.textContent = r.sec; tr.appendChild(th); cells.push(null); }
+        else { const a = document.createElement('td'); a.textContent = r[0]; const b = document.createElement('td'); b.className = 'num'; tr.append(a, b); cells.push(b); }
+        tb.appendChild(tr);
+      }
+      S = tb._rows = { sig, cells };
+    }
+    rows.forEach((r, i) => { if (!r.sec) setText(S.cells[i], r[1]); });
   }
 
   // kuvvet dökümü: Dünya, Ay, Güneş (+gezegenler), şekil terimleri ve itki; çubuklar logaritmik (10⁻⁹ … 10¹ m/s²)
@@ -462,15 +493,22 @@ export class UI {
     const sup = (t) => t.replace(/\^(−?)(\d+)/, (m, sg, d) => (sg ? '⁻' : '') + d.split('').map((c) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[+c]).join(''));
     const rows = [['Dünya', f.earth, f.earthEff], ['Ay', f.moon, f.moonEff], ['Güneş', f.sun, f.sunEff], ['Gezegenler (toplam)', null, f.planets],
       ['Dünya J2 (basıklık)', null, f.earthJ2], ['Ay J2/C22 (şekil)', null, f.moonFig], ['İtki', null, f.thrust]];
-    const eff = rows.map((r) => r[2] || 0), top = Math.max(...eff.slice(0, 3)), tb = $('#forcetable tbody'); tb.replaceChildren();
-    $('#forceFrame').textContent = `Baskın cisim: ${f.frame === 'M' ? 'Ay' : 'Dünya'} · Ay'a ${fmt(f.moonDist, 0)} km, Dünya'ya ${fmt(f.earthDist, 0)} km · çözücü: ${s.nbody ? 'N-cisim (tek çerçeve)' : 'etki küresi (iki merkez cisim)'}`;
+    const eff = rows.map((r) => r[2] || 0), top = Math.max(...eff.slice(0, 3)), tb = $('#forcetable tbody');
+    setText($('#forceFrame'), `Baskın cisim: ${f.frame === 'M' ? 'Ay' : 'Dünya'} · Ay'a ${fmt(f.moonDist, 0)} km, Dünya'ya ${fmt(f.earthDist, 0)} km · çözücü: ${s.nbody ? 'N-cisim (tek çerçeve)' : 'etki küresi (iki merkez cisim)'}`);
+    let S = tb._force;
+    if (!S) {                                                    // satırlar sabit: bir kez kurulur, sonra yalnız metin/çubuk genişliği güncellenir
+      tb.replaceChildren(); S = tb._force = rows.map((r) => {
+        const tr = document.createElement('tr'), a = document.createElement('td'), b = document.createElement('td'), c = document.createElement('td'), bar = document.createElement('span'), tn = document.createTextNode('');
+        a.textContent = r[0]; b.className = 'num'; c.className = 'num'; bar.className = 'fbar'; c.append(tn, bar); tr.append(a, b, c); tb.appendChild(tr);
+        return { tr, b, tn, bar, cls: '' };
+      });
+    }
     rows.forEach((r, i) => {
-      const tr = document.createElement('tr'); if (i < 3 && r[2] === top) tr.className = 'hl';
-      const a = document.createElement('td'); a.textContent = r[0];
-      const b = document.createElement('td'); b.className = 'num'; b.textContent = r[1] != null ? sup(fx(r[1])) : '';
-      const c = document.createElement('td'); c.className = 'num'; c.textContent = sup(fx(r[2] || 0));
-      const bar = document.createElement('span'); bar.className = 'fbar'; bar.style.width = Math.max(0, Math.min(100, ((Math.log10(Math.max(r[2] || 0, 1e-12)) + 9) / 10) * 100)) + '%'; c.appendChild(bar);
-      tr.append(a, b, c); tb.appendChild(tr);
+      const o = S[i], cls = i < 3 && r[2] === top ? 'hl' : '';
+      if (o.cls !== cls) { o.cls = cls; o.tr.className = cls; }
+      setText(o.b, r[1] != null ? sup(fx(r[1])) : '');
+      const txt = sup(fx(r[2] || 0)); if (o.tn.nodeValue !== txt) o.tn.nodeValue = txt;
+      setWidth(o.bar, Math.max(0, Math.min(100, ((Math.log10(Math.max(r[2] || 0, 1e-12)) + 9) / 10) * 100)).toFixed(1) + '%');
     });
   }
 
@@ -531,13 +569,7 @@ export class UI {
       ['Başlangıç (DE440 durumu)', utcShort(L.et0 - etOf(0))],
       ['Hesaplanan aralık', `${fmt((fwd - bwd) / 86400, 2)} gün · ${L.steps ?? L.fwd.length + L.bwd.length} adım`],
     ];
-    const tb = $('#ephtable tbody'); tb.replaceChildren();
-    for (const r of rows) {
-      const tr = document.createElement('tr');
-      if (r.sec) { tr.className = 'sec'; const th = document.createElement('th'); th.colSpan = 2; th.textContent = r.sec; tr.appendChild(th); }
-      else { const a = document.createElement('td'); a.textContent = r[0]; const b = document.createElement('td'); b.className = 'num'; b.textContent = r[1]; tr.append(a, b); }
-      tb.appendChild(tr);
-    }
+    this.fillRows($('#ephtable tbody'), rows);
   }
 }
 
@@ -545,17 +577,30 @@ export class UI {
 class LineChart {
   constructor(canvas, title, unit, log) {
     this.c = canvas; this.title = title; this.unit = unit; this.log = log; this.x = []; this.y = []; this.hover = null;
-    canvas.addEventListener('pointermove', (e) => { const r = canvas.getBoundingClientRect(); this.hover = e.clientX - r.left; this.draw(); });
-    canvas.addEventListener('pointerleave', () => { this.hover = null; this.draw(); });
+    canvas.addEventListener('pointermove', (e) => { const r = canvas.getBoundingClientRect(); this.hover = e.clientX - r.left; this.redraw(); });
+    canvas.addEventListener('pointerleave', () => { this.hover = null; this.redraw(); });
   }
   set(x, y) { this.x = x; this.y = y; }
+  redraw() { if (this._raf) return; this._raf = requestAnimationFrame(() => { this._raf = 0; this.draw(); }); }      // imleç olayları (yüksek hızlı fare) kare başına tek çizime indirgenir
+  // tema renkleri: getComputedStyle stil hesabını zorlar; renkler 1 sn önbelleklenir (tema değişimi yine görünür)
+  colors() {
+    const now = performance.now();
+    if (!this._cols || now - this._colT > 1000) {
+      const cs = getComputedStyle(document.documentElement), g = (n) => cs.getPropertyValue(n).trim();
+      const cols = { ink2: g('--text-secondary'), grid: g('--grid'), ser: g('--series-1'), s1: g('--surface-1'), s2: g('--surface-2'), ink: g('--text-primary') };
+      cols.sig = Object.values(cols).join('|'); this._cols = cols; this._colT = now;
+    }
+    return this._cols;
+  }
   draw() {
     const c = this.c, dpr = window.devicePixelRatio || 1, W = c.clientWidth, H = c.clientHeight;
     if (!W || !H) return;
+    // yeni örnek, boyut, imleç ya da renk değişmedikçe yeniden çizilmez (HUD her 100 ms'de çağırır)
+    const C = this.colors(), n0 = this.x.length, sig = `${n0}:${n0 ? this.x[n0 - 1] : ''}:${n0 ? this.y[n0 - 1] : ''}:${W}x${H}:${dpr}:${this.hover}:${C.sig}`;
+    if (sig === this._sig) return; this._sig = sig;
     if (c.width !== W * dpr) { c.width = W * dpr; c.height = H * dpr; }
     const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
-    const cs = getComputedStyle(document.documentElement);
-    const ink2 = cs.getPropertyValue('--text-secondary').trim(), grid = cs.getPropertyValue('--grid').trim(), ser = cs.getPropertyValue('--series-1').trim();
+    const ink2 = C.ink2, grid = C.grid, ser = C.ser;
     const L = 60, R = 12, T = 22, B = 22;
     g.font = '12px system-ui, sans-serif'; g.fillStyle = ink2; g.textBaseline = 'alphabetic';
     g.fillText(`${this.title} (${this.unit})`, L, 14);
@@ -580,7 +625,7 @@ class LineChart {
     g.stroke();
     // uç noktası
     const lx = px(this.x[n - 1]), ly = py(fy(this.y[n - 1]));
-    g.fillStyle = cs.getPropertyValue('--surface-1').trim(); g.beginPath(); g.arc(lx, ly, 6, 0, 7); g.fill();
+    g.fillStyle = C.s1; g.beginPath(); g.arc(lx, ly, 6, 0, 7); g.fill();
     g.fillStyle = ser; g.beginPath(); g.arc(lx, ly, 4, 0, 7); g.fill();
     // çapraz imleç + araç ipucu
     if (this.hover != null && this.hover >= L && this.hover <= W - R) {
@@ -590,8 +635,8 @@ class LineChart {
       const val = this.y[j], lab = `${fmt(val, val < 10 ? 3 : 0)} ${this.unit}`, sub = `T+${fmt(this.x[j], 2)} sa`;
       g.font = '600 12px system-ui, sans-serif'; const w = Math.max(g.measureText(lab).width, g.measureText(sub).width) + 16;
       const bx = Math.min(W - R - w, Math.max(L, X + 8)), by = T + 4;
-      g.fillStyle = cs.getPropertyValue('--surface-2').trim(); g.fillRect(bx, by, w, 38);
-      g.fillStyle = cs.getPropertyValue('--text-primary').trim(); g.textAlign = 'left'; g.fillText(lab, bx + 8, by + 16);
+      g.fillStyle = C.s2; g.fillRect(bx, by, w, 38);
+      g.fillStyle = C.ink; g.textAlign = 'left'; g.fillText(lab, bx + 8, by + 16);
       g.font = '12px system-ui, sans-serif'; g.fillStyle = ink2; g.fillText(sub, bx + 8, by + 31);
     }
   }

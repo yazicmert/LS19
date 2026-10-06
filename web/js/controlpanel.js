@@ -4,9 +4,9 @@
 import * as T from './telemetry.js';
 import { R_E } from './engine.js';
 import { LANDING_MODES } from './mission.js';
+import { fmt } from './format.js';
 
 const D = 180 / Math.PI, AU = 149597870.7;
-const fmt = (x, d = 0) => (Number.isFinite(x) ? x.toLocaleString('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—');
 const km = (x) => { if (x === Infinity) return '∞'; if (!Number.isFinite(x)) return '—'; if (Math.abs(x) < 5e-5) x = 0; const a = Math.abs(x); return a >= 10000 ? fmt(x, 0) + ' km' : a >= 100 ? fmt(x, 1) + ' km' : a >= 1 ? fmt(x, 2) + ' km' : fmt(x * 1000, a >= 0.1 ? 0 : 1) + ' m'; };
 const spd = (x) => { if (!Number.isFinite(x)) return '—'; const a = Math.abs(x); return a >= 1 ? fmt(x, 3) + ' km/s' : fmt(x * 1000, a >= 0.1 ? 1 : 2) + ' m/s'; };
 const ang = (rad, d = 2) => (Number.isFinite(rad) ? fmt(rad * D, d) + '°' : '—');
@@ -19,7 +19,10 @@ const dur = (s) => {
 const latlon = (lat, lon) => `${fmt(Math.abs(lat * D), 2)}° ${lat >= 0 ? 'K' : 'G'} · ${fmt(Math.abs(lon * D), 2)}° ${lon >= 0 ? 'D' : 'B'}`;
 const sg = (x, f) => (x > 0 ? '+' : x < 0 ? '−' : '') + f(Math.abs(x));
 // büyük gösterge metni: son boşluktan sonrası birimdir, küçük yazılır (dar kartta sığsın)
+const setText = (el, t) => { if (el._t !== t) { el._t = t; el.textContent = t; } };
+const setW = (el, w) => { if (el._w !== w) { el._w = w; el.style.width = w; } };     // aynı metni yeniden yazma (düğüm yenilenmez, stil/düzen geçersiz kılınmaz)
 const setBig = (el, text) => {
+  if (el._t === text) return; el._t = text;
   const i = text.lastIndexOf(' ');
   if (i > 0 && /[a-zA-Z]/.test(text.slice(i + 1))) { const u = document.createElement('i'); u.textContent = ' ' + text.slice(i + 1); el.replaceChildren(text.slice(0, i), u); } else el.textContent = text;
 };
@@ -171,16 +174,17 @@ export class ControlPanel {
     this.tel = tel; this.s = s;
     const budget = T.dvBudget(c.design, c.nominal, c.events, s, c.stages), al = T.alerts(tel, budget.rows, { stages: c.stages, rSite: c.rSite });
     // başlık
-    this.el.phase.textContent = c.phaseName(s.phase);
+    setText(this.el.phase, c.phaseName(s.phase));
     const badge = (txt, cls) => `<span class="kp-badge ${cls || ''}">${txt}</span>`;
     const L = tel.land, risk = T.touchRisk(tel);
-    this.el.badges.innerHTML = badge(tel.F > 0 ? 'MOTOR AÇIK' : 'MOTOR KAPALI', tel.F > 0 ? 'on' : '') + badge(s.auto ? 'OTOPİLOT' : 'ELLE', s.auto ? '' : 'warn') + badge(s.nbody ? 'N-CİSİM' : 'ETKİ KÜRESİ') + (s.paused ? badge('DURAKLATILDI', 'warn') : badge('×' + fmt(s.warp, s.warp < 10 ? 1 : 0)));
-    this.el.next.textContent = s.done ? '' : c.next ? `Sıradaki: ${c.next.name} · T−${dur(Math.max(0, c.next.dt))}` : '';
+    const bh = badge(tel.F > 0 ? 'MOTOR AÇIK' : 'MOTOR KAPALI', tel.F > 0 ? 'on' : '') + badge(s.auto ? 'OTOPİLOT' : 'ELLE', s.auto ? '' : 'warn') + badge(s.nbody ? 'N-CİSİM' : 'ETKİ KÜRESİ') + (s.paused ? badge('DURAKLATILDI', 'warn') : badge('×' + fmt(s.warp, s.warp < 10 ? 1 : 0)));
+    if (bh !== this.badgeHtml) { this.badgeHtml = bh; this.el.badges.innerHTML = bh; }               // rozetler yalnız değişince yeniden kurulur
+    setText(this.el.next, s.done ? '' : c.next ? `Sıradaki: ${c.next.name} · T−${dur(Math.max(0, c.next.dt))}` : '');
     const R = s.done ? s.result : null;
     this.el.result.hidden = !R;
     if (R) {
-      this.el.result.className = 'kp-result ' + (R.ok ? 'good' : 'bad');
-      this.el.result.textContent = R.reentry ? 'Dünya atmosferine girdi — görev sona erdi' : `${R.ok ? 'TEMAS' : 'ÇARPMA'}${R.manual ? ' (elle)' : ''}: dikey ${fmt(Math.abs(R.v_mps[2]), 2)} m/s, yatay ${fmt(Math.hypot(R.v_mps[0], R.v_mps[1]), 2)} m/s, konum hatası ${fmt(Math.hypot(...R.posErr_m), 1)} m, kalan yakıt ${fmt(R.prop, 0)} kg`;
+      const rc = 'kp-result ' + (R.ok ? 'good' : 'bad'); if (this.el.result.className !== rc) this.el.result.className = rc;
+      setText(this.el.result, R.reentry ? 'Dünya atmosferine girdi — görev sona erdi' : `${R.ok ? 'TEMAS' : 'ÇARPMA'}${R.manual ? ' (elle)' : ''}: dikey ${fmt(Math.abs(R.v_mps[2]), 2)} m/s, yatay ${fmt(Math.hypot(R.v_mps[0], R.v_mps[1]), 2)} m/s, konum hatası ${fmt(Math.hypot(...R.posErr_m), 1)} m, kalan yakıt ${fmt(R.prop, 0)} kg`);
     }
     // uyarılar
     const sig = al.map((a) => a.level + a.text).join('|');
@@ -191,23 +195,26 @@ export class ControlPanel {
     }
     // ana göstergeler
     const C = this.cards, onSite = tel.isMoon && tel.altSite != null && tel.alt < 300, altV = onSite ? tel.altSite : tel.alt;
-    setBig(C.alt.v, km(altV)); C.alt.s.textContent = tel.isMoon ? (onSite ? 'iniş yeri yüzeyine göre' : 'Ay ortalama yarıçapına göre') : 'WGS-84 elipsoidine göre';
+    setBig(C.alt.v, km(altV)); setText(C.alt.s, tel.isMoon ? (onSite ? 'iniş yeri yüzeyine göre' : 'Ay ortalama yarıçapına göre') : 'WGS-84 elipsoidine göre');
     const surf = tel.isMoon && tel.altSite != null && tel.altSite < 50;           // HUD gibi: yüzeye göre hız yalnız iniş yerinin yakınında birincil
-    setBig(C.spd.v, spd(surf ? tel.vRel : tel.v)); C.spd.s.textContent = surf ? 'yüzeye göre' : `${tel.body} merkezine göre, eylemsiz`;
-    setBig(C.vz.v, (tel.vr < 0 ? '↓ ' : tel.vr > 0 ? '↑ ' : '') + spd(Math.abs(tel.vr))); C.vz.s.textContent = `yatay ${spd(surf ? tel.vRelH : tel.vt)}`;
+    setBig(C.spd.v, spd(surf ? tel.vRel : tel.v)); setText(C.spd.s, surf ? 'yüzeye göre' : `${tel.body} merkezine göre, eylemsiz`);
+    setBig(C.vz.v, (tel.vr < 0 ? '↓ ' : tel.vr > 0 ? '↑ ' : '') + spd(Math.abs(tel.vr))); setText(C.vz.s, `yatay ${spd(surf ? tel.vRelH : tel.vt)}`);
     C.vz.c.classList.toggle('bad', risk);
-    C.fuel.v.textContent = tel.propFrac != null ? `%${fmt(100 * tel.propFrac, 1)}` : '—'; C.fuel.s.textContent = tel.stage ? `${tel.stage.name}: ${fmt(tel.prop, 0)} kg` : '';
-    C.fuel.f.style.width = Math.max(0, Math.min(100, 100 * (tel.propFrac || 0))) + '%'; C.fuel.f.classList.toggle('low', tel.propFrac != null && tel.propFrac < 0.1);
-    this.thrVal.textContent = tel.F > 0 ? `${fmt(100 * tel.thr, 0)}% · ${fmt(tel.F, 1)} kN` : 'kapalı'; this.thrFill.style.width = 100 * (tel.F > 0 ? tel.thr : 0) + '%';
+    setText(C.fuel.v, tel.propFrac != null ? `%${fmt(100 * tel.propFrac, 1)}` : '—'); setText(C.fuel.s, tel.stage ? `${tel.stage.name}: ${fmt(tel.prop, 0)} kg` : '');
+    setW(C.fuel.f, Math.max(0, Math.min(100, 100 * (tel.propFrac || 0))).toFixed(1) + '%'); C.fuel.f.classList.toggle('low', tel.propFrac != null && tel.propFrac < 0.1);
+    setText(this.thrVal, tel.F > 0 ? `${fmt(100 * tel.thr, 0)}% · ${fmt(tel.F, 1)} kN` : 'kapalı'); setW(this.thrFill, (100 * (tel.F > 0 ? tel.thr : 0)).toFixed(1) + '%');
     // Δv bütçesi
-    const tb = this.budget.tBodies[0]; tb.replaceChildren();
-    for (const q of budget.rows) {
-      const tr = mk('tr'), td = (txt, cls) => mk('td', cls, txt), unp = q.unplanned;
-      const cls = q.margin < 0 ? 'bad' : q.base > 0 && unp > Math.max(5, 0.5 * q.base) ? 'warn' : 'good';
-      tr.append(td(c.stages[q.stage] ? c.stages[q.stage].name : 'Kademe ' + q.stage), td(fmt(q.avail, 1), 'num'), td(q.req > 0 ? fmt(q.req, 1) : '—', 'num'), td(q.req > 0 ? sg(q.margin, (x) => fmt(x, 1)) : '(serbest)', 'num ' + (q.req > 0 ? cls : '')));
-      tr.title = `Plan dışı harcama: ${fmt(unp, 1)} m/s · tasarım payı ${fmt(q.base, 1)} m/s`; tb.appendChild(tr);
+    const brows = budget.rows.map((q) => {
+      const unp = q.unplanned, cls = q.margin < 0 ? 'bad' : q.base > 0 && unp > Math.max(5, 0.5 * q.base) ? 'warn' : 'good';
+      return [c.stages[q.stage] ? c.stages[q.stage].name : 'Kademe ' + q.stage, fmt(q.avail, 1), q.req > 0 ? fmt(q.req, 1) : '—', q.req > 0 ? sg(q.margin, (x) => fmt(x, 1)) : '(serbest)', 'num ' + (q.req > 0 ? cls : ''),
+        `Plan dışı harcama: ${fmt(unp, 1)} m/s · tasarım payı ${fmt(q.base, 1)} m/s`];
+    });
+    const bsig = JSON.stringify(brows);
+    if (bsig !== this.budgetSig) {                                                           // tablo yalnız değerleri değişince yeniden kurulur
+      this.budgetSig = bsig; const tb = this.budget.tBodies[0]; tb.replaceChildren();
+      for (const [name, avail, req, margin, mcls, title] of brows) { const tr = mk('tr'), td = (txt, cls) => mk('td', cls, txt); tr.append(td(name), td(avail, 'num'), td(req, 'num'), td(margin, mcls)); tr.title = title; tb.appendChild(tr); }
     }
-    this.budgetNote.textContent = (c.nominal && Object.keys(c.nominal).length ? 'Gerekli: bozulmasız (nominal) uçuşun kalan manevraları.' : 'Gerekli: tasarım tahmini (nominal uçuş hesaplanıyor).') + ' Pay = kalan − gerekli; plan dışı harcama payı azaltır.';
+    setText(this.budgetNote, (c.nominal && Object.keys(c.nominal).length ? 'Gerekli: bozulmasız (nominal) uçuşun kalan manevraları.' : 'Gerekli: tasarım tahmini (nominal uçuş hesaplanıyor).') + ' Pay = kalan − gerekli; plan dışı harcama payı azaltır.');
     // satırlar
     const showLand = !!L && (T.LANDING_PHASES.has(s.phase) || L.h < 30);
     const ctx2 = { rSite: c.rSite, touchCls: risk ? 'warn' : null, landing: s.landing && s.opt !== undefined && T.LANDING_PHASES.has(s.phase) ? s.landing : null, opt: s.opt };
@@ -233,7 +240,9 @@ export class ControlPanel {
     const W = cv.clientWidth, H = cv.clientHeight; if (!W || !H) return null;
     const dpr = window.devicePixelRatio || 1; if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
     const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
-    const cs = getComputedStyle(document.documentElement), col = (n) => cs.getPropertyValue(n).trim();
+    const now = performance.now();
+    if (!this._cs || now - this._csT > 1000) { this._cs = getComputedStyle(document.documentElement); this._cc = new Map(); this._csT = now; }     // getComputedStyle stil hesabını zorlar: 1 sn önbellek
+    const cs = this._cs, cc = this._cc, col = (n) => { let v = cc.get(n); if (v === undefined) { v = cs.getPropertyValue(n).trim(); cc.set(n, v); } return v; };
     return { g, W, H, col };
   }
   draw() { const tel = this.tel; if (!tel) return; if (!this.sections.yorunge.hidden && this.sections.yorunge.open) this.drawOrbit(tel); if (!this.sections.inis.hidden && this.sections.inis.open) this.drawPhase(tel); }

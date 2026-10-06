@@ -20,4 +20,15 @@ console.log(`  ${found}/${REF.length} geçiş eşleşti · en büyük zaman fark
 const vis = ps.filter((p) => p.visible).map((p) => new Date(p.visFrom).toISOString().slice(0, 16));
 console.log('  görünür geçişler (UTC):', vis.join(', '));
 const ok = found === REF.length && worst < 2500 && worstEl < 0.05 && vis.includes('2026-09-29T17:03');
-console.log(ok ? 'TAMAM' : 'HATA'); process.exit(ok ? 0 : 1);
+console.log(ok ? 'TAMAM' : 'HATA');
+
+// zaman dilimli tarama (findPassesIter): aynı sonucu verir, tek uzun görev yerine çok sayıda kısa dilim yapar (Tracker.computePasses dilimler arasında tarayıcıya döner)
+const t0 = performance.now(), it = P.findPassesIter(rec, obs, Date.parse('2026-09-29T00:00:00Z'), 3, { minMaxEl: 0 });
+let slices = 0, r, maxSlice = 0, tl = performance.now();
+while (!(r = it.next()).done) { slices++; const now = performance.now(); maxSlice = Math.max(maxSlice, now - tl); tl = now; }
+const same = JSON.stringify(r.value) === JSON.stringify(ps), total = performance.now() - t0;
+console.log(`  dilimli tarama: ${slices} dilim, en uzun dilim ${maxSlice.toFixed(1)} ms (toplam ${total.toFixed(0)} ms), sonuç tek seferlikle ${same ? 'aynı' : 'FARKLI'}`);
+const ok2 = same && slices >= 30 && maxSlice < 40 && P.PASS_SLICE === 256;           // 3 gün / 30 s = 8640 adım → 33 dilim
+const ge = P.findPassesIter({ ...rec, no: 0.0043 }, obs, Date.parse('2026-09-29T00:00:00Z'), 3), g1 = ge.next();        // yer sabit uydu: geçiş kavramı yok, dilimsiz biter
+const ok3 = g1.done && Array.isArray(g1.value);
+console.log(ok2 && ok3 ? 'TAMAM' : 'HATA'); process.exit(ok && ok2 && ok3 ? 0 : 1);

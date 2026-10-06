@@ -38,6 +38,7 @@ function tileGeometry(R, lat0, lat1, lon0, lon1, uMax, vMin, lift) {
 
 let cachePromise = null;
 const openCache = () => (cachePromise = cachePromise || (typeof caches !== 'undefined' ? caches.open(CACHE_NAME).catch(() => null) : Promise.resolve(null)));
+const closeBitmap = (t) => { const im = t && t.image; if (im && typeof im.close === 'function') try { im.close(); } catch (err) { /* zaten kapalı */ } };      // atılan dokunun çözülmüş piksel belleğini bırak
 
 export class TileLayer {
   // cfg: { parent, R (km), urls(z, x, y) -> [adres…] (sırayla denenir; isteğe bağlı, ör. HLS için son günler), minBytes (bundan küçük yanıt = veri yok), noBoost, latLimit (derece; bu enlemin ötesinde katman yok), scheme: 'gibs'|'eq', tileSize, rootZ (taramanın başladığı seviye, varsayılan minZ), minZ (çizilen en kaba seviye), maxZ, url(z, x, y), baseTexelKm, lift, material(tex, node) -> THREE.Material, maxTextures, concurrency, lodBias }
@@ -46,10 +47,10 @@ export class TileLayer {
     this.rootZ = cfg.rootZ == null ? cfg.minZ : cfg.rootZ; this.S = SCHEMES[cfg.scheme]; this.nodes = new Map(); this.cache = new Map(); this.meshes = new Map(); this.queue = []; this.loading = new Set(); this.frame = 0;
     this.maxTextures = cfg.maxTextures || 150; this.concurrency = cfg.concurrency || 6; this.lodBias = cfg.lodBias || 1.15;
     this.group = new THREE.Group(); this.group.frustumCulled = false; cfg.parent.add(this.group);
-    this.enabled = true; this.puts = 0; this.fails = 0; this.okCount = 0; this.stats = { drawn: 0, pending: 0, cached: 0, maxZ: 0, failed: 0, loaded: 0 };
+    this.enabled = true; this.puts = 0; this.fails = 0; this.okCount = 0; this.nReady = 0; this.stats = { drawn: 0, pending: 0, cached: 0, maxZ: 0, failed: 0, loaded: 0 };   // nReady: GPU'ya açılmayı bekleyen hazır doku sayısı
   }
   node(z, x, y) {
-    const key = z + '/' + x + '/' + y; let n = this.nodes.get(key); if (n) return n;
+    const key = (z * 4096 + x) * 4096 + y; let n = this.nodes.get(key); if (n) return n;          // sayısal anahtar (metin birleştirme her karede yüzlerce kez çalışırdı)
     const S = this.S, span = S.span(z), lon0 = -180 + x * span, lat1 = 90 - y * span, lon1 = Math.min(180, lon0 + span), lat0 = Math.max(-90, lat1 - span);
     const latc = (lat0 + lat1) / 2, lonc = (lon0 + lon1) / 2, cl = Math.cos(latc * D2R);
     n = { key, z, x, y, lat0, lat1, lon0, lon1, span, uMax: (lon1 - lon0) / span, vMin: 1 - (lat1 - lat0) / span,
@@ -61,10 +62,12 @@ export class TileLayer {
   up(n) { return n.z > this.minZ ? this.node(n.z - 1, n.x >> 1, n.y >> 1) : null; }
   // cam: kamera konumu (cisim sabit çerçevede, km) · fwd: bakış yönü (birim) · fov: dikey (rad) · aspect · viewH: piksel
   update(cam, fwd, fov, aspect, viewH) {
-    this.frame++; const now = performance.now();
+    this.frame++; this.allHidden = false; const now = performance.now();
     const R = this.R, d = cam.length(), tf = 2 * Math.tan(fov / 2) / viewH, halfDiag = Math.atan(Math.tan(fov / 2) * Math.hypot(1, aspect));
     const leaves = [], ahead = [];
-    if (this.enabled && d > R * 1.0005) {
+    // en yakın nokta bile taban dokudan ince ayrıntı gerektirmeyecek kadar uzaksa kuadağaç gezilmez (yalnız yüklemeler/çıkarma sürer)
+    const far = d > R * 1.0005 && this.baseTexelKm <= Math.max(0.03, d - R) * tf * 0.9;
+    if (this.enabled && d > R * 1.0005 && !far) {
       const camDir = cam.clone().divideScalar(d), horizon = Math.acos(Math.min(1, R / d)), v = new THREE.Vector3(), dirV = new THREE.Vector3();
       // k: piksel boyu çarpanı (1: şimdi, <1: yaklaşırken ihtiyaç duyulacak daha ince seviye) · out: yaprak listesi
       const visit = (n, k, out) => {
@@ -103,15 +106,19 @@ export class TileLayer {
     }
     for (const n of ahead) if (!this.cache.has(n.key)) this.request(n, n.dist * 4 + 1e4, true);                      // en düşük öncelik
     const dt = this.lastT ? now - this.lastT : 16; this.lastT = now;
-    this.promote(Math.min(24, Math.max(MAX_PROMOTE, Math.round(dt / 6))));                                      // yavaş karede daha çok (kare başına sabit sınır yavaş cihazda beklemeye yol açmasın)
+    if (this.nReady > 0) this.promote(Math.min(24, Math.max(MAX_PROMOTE, Math.round(dt / 6))));                // yavaş karede daha çok (kare başına sabit sınır yavaş cihazda beklemeye yol açmasın)
     this.pump(now);
-    for (const m of this.meshes.values()) m.visible = false;
+    // görünürlük: yalnız değişenlere yazılır (yüzlerce mesh üzerinde her karede döngü yok)
+    const vis = this.visSet || (this.visSet = new Set()), next = new Set();
     for (const n of draw.values()) {
       const e = this.cache.get(n.key); e.last = this.frame; e.t = now;
       let m = this.meshes.get(n.key);
       if (!m) { m = new THREE.Mesh(tileGeometry(this.R, n.lat0, n.lat1, n.lon0, n.lon1, n.uMax, n.vMin, this.lift || 0), this.material(e.tex, n)); m.frustumCulled = false; m.renderOrder = 1; this.group.add(m); this.meshes.set(n.key, m); }
-      m.visible = true;
+      if (!vis.has(n.key)) m.visible = true;
+      next.add(n.key);
     }
+    for (const k of vis) if (!next.has(k)) { const m = this.meshes.get(k); if (m) m.visible = false; }
+    this.visSet = next;
     this.evict();
     let need = 0; for (const e of this.queue) if (!e.ahead) need++; for (const e of this.loading) if (!e.ahead) need++;
     this.stats = { drawn: draw.size, pending: need, cached: this.cache.size, maxZ, failed: this.fails, loaded: this.okCount };
@@ -153,7 +160,9 @@ export class TileLayer {
   async decode(blob) {
     try {                                                                                                     // çözme ana iş parçacığı dışında
       const bm = await createImageBitmap(blob, { imageOrientation: 'flipY', premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
-      const t = new THREE.Texture(bm); t.flipY = false; return t;
+      const t = new THREE.Texture(bm); t.flipY = false;
+      t.onUpdate = () => { t.onUpdate = null; bm.close(); };                                                   // GPU'ya yüklenince çözülmüş piksel belleği bırakılır (yüzlerce parça × 1 MB)
+      return t;
     } catch (err) {
       const img = new Image(); img.src = URL.createObjectURL(blob); await img.decode();
       const t = new THREE.Texture(img); t.flipY = true; return t;
@@ -161,15 +170,17 @@ export class TileLayer {
   }
   pump(now) {
     // gerekmeyen istekleri at / sürenleri iptal et
-    for (const e of [...this.loading]) if (now - e.t > STALE_MS && e.last < this.frame - 30) { if (e.ctl) e.ctl.abort(); this.loading.delete(e); this.cache.delete(e.n.key); }
-    this.queue = this.queue.filter((e) => { const keep = this.cache.get(e.n.key) === e && !e.loading && now - e.t < 6000; if (!keep) e.queued = false; return keep; });
-    this.queue.sort((a, b) => a.prio - b.prio);
+    if (this.loading.size) for (const e of [...this.loading]) if (now - e.t > STALE_MS && e.last < this.frame - 30) { if (e.ctl) e.ctl.abort(); this.loading.delete(e); this.cache.delete(e.n.key); }
+    if (this.queue.length) {
+      this.queue = this.queue.filter((e) => { const keep = this.cache.get(e.n.key) === e && !e.loading && now - e.t < 6000; if (!keep) e.queued = false; return keep; });
+      this.queue.sort((a, b) => a.prio - b.prio);
+    }
     while (this.loading.size < this.concurrency && this.queue.length) {
       const e = this.queue.shift(); e.queued = false; e.loading = true; e.ctl = new AbortController(); this.loading.add(e);
       this.getBlobs(this.urls ? this.urls(e.n.z, e.n.x, e.n.y) : [this.url(e.n.z, e.n.x, e.n.y)], e.ctl).then((b) => (b ? this.decode(b) : null)).then((t) => {
         this.loading.delete(e); if (!t) { e.empty = true; e.loading = false; return; }                          // bu parçada veri yok (taban doku kalır)
-        if (this.cache.get(e.n.key) !== e) { t.dispose(); return; }
-        t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; t.needsUpdate = true; e.ready = t; this.okCount++;
+        if (this.cache.get(e.n.key) !== e) { t.dispose(); closeBitmap(t); return; }
+        t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; t.needsUpdate = true; e.ready = t; this.okCount++; this.nReady++;
       }).catch((err) => { this.loading.delete(e); if (this.cache.get(e.n.key) !== e) return; e.failed = true; e.failedAt = performance.now(); e.loading = false; if (!(err && err.name === 'AbortError')) this.fails++; });
     }
   }
@@ -178,7 +189,7 @@ export class TileLayer {
     let k = 0, list = [];
     for (const e of this.cache.values()) if (e.ready && !e.tex) list.push(e);
     list.sort((a, b) => (a.prio || 0) - (b.prio || 0));
-    for (const e of list) { if (k++ >= max) break; e.tex = e.ready; }
+    for (const e of list) { if (k++ >= max) break; e.tex = e.ready; this.nReady--; }
   }
   evict() {
     if (this.cache.size <= this.maxTextures) return;
@@ -186,8 +197,8 @@ export class TileLayer {
     while (this.cache.size > this.maxTextures && old.length) {
       const [k, e] = old.shift(); this.cache.delete(k);
       const m = this.meshes.get(k); if (m) { this.group.remove(m); m.geometry.dispose(); m.material.dispose(); this.meshes.delete(k); }
-      if (e.tex) e.tex.dispose(); else if (e.ready) e.ready.dispose();
+      if (e.tex) { e.tex.dispose(); closeBitmap(e.tex); } else if (e.ready) { e.ready.dispose(); closeBitmap(e.ready); this.nReady--; }
     }
   }
-  setEnabled(on) { this.enabled = on; if (!on) for (const m of this.meshes.values()) m.visible = false; }
+  setEnabled(on) { this.enabled = on; if (!on && !this.allHidden) { for (const m of this.meshes.values()) m.visible = false; this.visSet = new Set(); this.allHidden = true; } }       // kapalıyken her karede yinelenmesin
 }

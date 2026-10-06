@@ -68,19 +68,31 @@ export class Tracker {
   name(id) { const o = this.sats.recordOf(id); return o ? o.OBJECT_NAME : `NORAD ${id}`; }
 
   // ---------------------------------------------------------------- geçişler (gerçek "şimdi"den 3 gün)
+  // Tarama zaman dilimlerine bölünür (dilim ≤ ~8 ms, aralarda tarayıcıya dönülür): 3 günlük tarama uydu başına ~90 ms'dir ve eskiden hepsi tek uzun görevdi.
+  // Yeni hesap başlarsa eskisi bırakılır; liste (passes) tamamlanınca bir kerede değişir.
   computePasses(force = false) {
     const now = Date.now();
     if (!force && now - this.passT < 10 * 60000) return;
     if (!this.sats.byId) return;
-    this.passT = now; const all = [];
-    for (const id of this.watch) {
-      const rec = this.sats.satrec(id); if (!rec) continue;
-      try {
-        for (const p of P.findPasses(rec, this.observer, now - 20 * 60000, 3, { minMaxEl: 10 })) all.push({ ...p, id, name: this.name(id) });
-      } catch (e) { /* bozuk kayıt */ }
-    }
-    this.passes = all.filter((p) => p.kind === 'sabit' || p.set.ms > now).sort((a, b) => (a.rise ? a.rise.ms : 0) - (b.rise ? b.rise.ms : 0));
-    this.schedule(); this.changed();
+    this.passT = now; const tok = this.passTok = (this.passTok || 0) + 1, ids = [...this.watch], all = []; let cur = null;
+    const finish = () => {
+      this.passes = all.filter((p) => p.kind === 'sabit' || p.set.ms > now).sort((a, b) => (a.rise ? a.rise.ms : 0) - (b.rise ? b.rise.ms : 0));
+      this.schedule(); this.changed();
+    };
+    const slice = () => {
+      if (tok !== this.passTok) return;                                  // daha yeni bir hesap başladı
+      const t0 = performance.now();
+      while (performance.now() - t0 < 8) {
+        if (!cur) {
+          const id = ids.shift(); if (id === undefined) { finish(); return; }
+          const rec = this.sats.satrec(id); if (!rec) continue;
+          cur = { id, name: this.name(id), it: P.findPassesIter(rec, this.observer, now - 20 * 60000, 3, { minMaxEl: 10 }) };
+        }
+        try { const r = cur.it.next(); if (r.done) { for (const p of r.value) all.push({ ...p, id: cur.id, name: cur.name }); cur = null; } } catch (e) { cur = null; }          // bozuk kayıt
+      }
+      setTimeout(slice, 0);
+    };
+    slice();
   }
   nextPass(visibleOnly = true) { const now = Date.now(); return this.passes.find((p) => p.rise && p.set.ms > now && (!visibleOnly || p.visible)) || null; }
   // bildirim: görünür geçişten 5 dk önce (sayfa açıkken)
@@ -137,7 +149,7 @@ export class Tracker {
       if (!pv || far) { it.sprite.visible = it.track.visible = it.trackPast.visible = it.foot.visible = false; it.label.style.display = 'none'; continue; }
       const g = P.gmst(ms), ecf = P.eciToEcf(pv.p, g), p = toIcrf(ecf);
       it.sprite.visible = true; it.sprite.position.set(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]);
-      it.label.textContent = this.name(id); place(it.label, p, 12);
+      const nm = this.name(id); if (it.nm !== nm) { it.nm = nm; it.label.textContent = nm; } place(it.label, p, 12);          // metin yalnız değişince (her yazım düzeni geçersiz kılar)
       if (this.trackOn.has(id)) {
         if (!it.trackT || Math.abs(ms - it.trackT) > it.trackP / 60) {
           const gt = P.groundTrack(rec, ms, 0.5, 1.5, 300); it.trackT = ms; it.trackP = gt.P;
@@ -151,6 +163,6 @@ export class Tracker {
     // gözlemci
     const o = this.obsIcrf(t, 0.5);
     this.obsMark.visible = !far; this.obsMark.position.set(o[0] - eye[0], o[1] - eye[1], o[2] - eye[2]);
-    this.obsLabel.textContent = this.observer.name; if (far) this.obsLabel.style.display = 'none'; else place(this.obsLabel, o, 10);
+    if (this.obsNm !== this.observer.name) { this.obsNm = this.observer.name; this.obsLabel.textContent = this.obsNm; } if (far) this.obsLabel.style.display = 'none'; else place(this.obsLabel, o, 10);
   }
 }

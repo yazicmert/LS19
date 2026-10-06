@@ -2,10 +2,10 @@
 // gözlemci, yaklaşan geçişler, gökyüzü çizimi, bildirimler). Ay görevinin fizik motorundan tamamen bağımsızdır.
 import * as P from './passes.js';
 import { CITIES } from './tracker.js';
+import { fmt } from './format.js';
 
 const $ = (s) => document.querySelector(s);
 const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
-const fmt = (x, d = 0) => (Number.isFinite(x) ? x.toLocaleString('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—');
 const hm = (ms, sec = false) => new Date(ms).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', ...(sec ? { second: '2-digit' } : {}) });
 const day = (ms) => { const d = new Date(ms), n = new Date(); const dd = Math.round((new Date(d.toDateString()) - new Date(n.toDateString())) / 86400000);
   return dd === 0 ? 'Bugün' : dd === 1 ? 'Yarın' : d.toLocaleDateString('tr-TR', { weekday: 'short', day: 'numeric', month: 'short' }); };

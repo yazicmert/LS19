@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as E from './engine.js';
-import { buildTerrain, detailNormalTexture, HOLE_R } from './terrain.js';
+import { loadTerrain, terrainBasis, HOLE_R } from './terrain.js';
 import { R_SITE, SITE_LAT, SITE_LON, siteIcrf, siteMe } from './mission.js';
 import { BODIES } from './ephem.js';
 import { etOf } from './live.js';
@@ -12,6 +12,10 @@ import { HaloRef } from './halo.js';
 import { TileLayer } from './tiles.js';
 import { GLSL_NOISE, PLANET_VIS, planetMaterial, atmosphereMesh, ringMaterial, loadPlanetTextures, planetQuaternion } from './planets.js';
 import { makeSpaceEnv, ENV_HALF_DEG, makePlume, plumeGeometry, setPlume, plumeTick, makeGlow, Particles } from './fx.js';
+import { PointStore } from './pointstore.js';
+import { mergeByMaterial } from './meshmerge.js';
+import { loadTextures, lowMemory } from './texload.js';
+import { TEX } from './texplan.js';
 // gezegen yarıçapları (km), renk, IAU kutup yönü (RA, Dec derece), bant belirginliği, halka (iç, dış km)
 export const PLANETS = {
   1: { name: 'Merkür', R: 2439.7, c: 0x9a9591, pole: [281.01, 61.41] }, 2: { name: 'Venüs', R: 6051.8, c: 0xe8d8a8, pole: [272.76, 67.16] },
@@ -29,6 +33,7 @@ const CAM_BLEND_S = 1.4;                                                        
 const SUN_I = 1.6;                       // tonlamadan önce Güneş aydınlığı (Ay, araç, arazi)
 const EARTH_I = 1.15;                    // Dünya (bulutlar ve okyanus yansıması parlak olduğundan düşük)
 const KM = 0.001;                        // m -> km
+const TERRAIN_FAR_KM = 25000;            // iniş arazisi yamasının (60 km yarıçap) çizildiği en büyük kamera uzaklığı
 // model malzemelerinin PBR değerleri [metalik, pürüzlülük] (kaynak: NASA modellerindeki Maya "blinn" malzemeleri, adlarıyla)
 const PBR = {
   lander: { 'blinn1SG.002': [0.55, 0.36], 'blinn4SG.002': [0.4, 0.4], 'blinn5SG.002': [0.35, 0.5], 'blinn2SG.002': [0.4, 0.42], 'blinn6SG.001': [0.1, 0.6], 'initialShadingGr.001': [0.45, 0.4],
@@ -38,25 +43,28 @@ const PBR = {
 
 // ------------------------------------------------------------------ yardımcılar
 function sphereGeometry(R, nLon, nLat) {
-  const n = (nLon + 1) * (nLat + 1), pos = new Float32Array(n * 3), uv = new Float32Array(n * 2), idx = [];
+  // dizin sayısı kesin bilinir (kutup şeritlerinde tek üçgen): düz tipli dizi, ara JS dizisi (3 milyon eleman) ve boyut dönüşümü yok
+  const n = (nLon + 1) * (nLat + 1), pos = new Float32Array(n * 3), uv = new Float32Array(n * 2), idx = new (n > 65535 ? Uint32Array : Uint16Array)(6 * nLon * (nLat - 1));
+  const cx = new Float64Array(nLon + 1), sx = new Float64Array(nLon + 1);                  // boylam kosinüs/sinüsü satırdan satıra aynı
+  for (let k = 0; k <= nLon; k++) { const lon = -Math.PI + (k / nLon) * 2 * Math.PI; cx[k] = Math.cos(lon); sx[k] = Math.sin(lon); }
   let i = 0;
   for (let j = 0; j <= nLat; j++) {
     const v = j / nLat, lat = -Math.PI / 2 + v * Math.PI, cl = Math.cos(lat), sl = Math.sin(lat);
     for (let k = 0; k <= nLon; k++) {
-      const u = k / nLon, lon = -Math.PI + u * 2 * Math.PI;
-      pos[i * 3] = R * cl * Math.cos(lon); pos[i * 3 + 1] = R * cl * Math.sin(lon); pos[i * 3 + 2] = R * sl;
-      uv[i * 2] = u; uv[i * 2 + 1] = v; i++;
+      pos[i * 3] = R * cl * cx[k]; pos[i * 3 + 1] = R * cl * sx[k]; pos[i * 3 + 2] = R * sl;
+      uv[i * 2] = k / nLon; uv[i * 2 + 1] = v; i++;
     }
   }
+  let q = 0;
   for (let j = 0; j < nLat; j++) for (let k = 0; k < nLon; k++) {
     const a = j * (nLon + 1) + k, b = a + 1, c = a + nLon + 1, d = c + 1;
-    if (j > 0) idx.push(a, b, d);
-    if (j < nLat - 1) idx.push(a, d, c);
+    if (j > 0) { idx[q++] = a; idx[q++] = b; idx[q++] = d; }
+    if (j < nLat - 1) { idx[q++] = a; idx[q++] = d; idx[q++] = c; }
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-  g.setIndex(idx);
+  g.setIndex(new THREE.BufferAttribute(idx, 1));
   g.computeBoundingSphere();
   return g;
 }
@@ -224,14 +232,21 @@ export class World {
   constructor(canvas, labelsEl) {
     this.canvas = canvas; this.labelsEl = labelsEl;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, logarithmicDepthBuffer: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.prMax = Math.min(window.devicePixelRatio, 2); this.renderer.setPixelRatio(this.prMax);          // prMax: en yüksek çizim oranı (uyarlanır düşürme perfgov.js)
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping; this.renderer.toneMappingExposure = 1.0;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.shadowMap.enabled = true; this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // GPU bağlamı kaybolursa (sürücü sıfırlaması, bellek baskısı) ana dokular yeniden yüklenemez: çözülmüş bitmap'ler GPU'ya yüklenince bırakılır (bellek).
+    // Geri gelince sayfa bir kez yenilenir (30 sn içinde ikinci kayıpta döngüye girmesin diye yalnız bir kez)
+    canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.ctxLost = true; });
+    canvas.addEventListener('webglcontextrestored', () => {
+      let last = 0; try { last = +sessionStorage.getItem('ls19.ctxReload') || 0; sessionStorage.setItem('ls19.ctxReload', String(Date.now())); } catch (err) { /* depolama kapalı */ }
+      if (Date.now() - last > 30000) location.reload();
+    });
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(50, 1, 1e-5, 1e11);
     this.cam = { mode: 'VEHICLE', az: -2.3, el: 0.22, dist: 0.055, auto: true, key: '' };
-    this.trail = { E: [], M: [], last: null };
+    this.trail = { E: new PointStore(), M: new PointStore() };          // Dünya ve Ay merkezli iz (düz Float64 depolar)
     this.labels = {};
     this.attQ = null;                // görüntülenen araç yönelimi (THREE.Quaternion): fizik motorundan gelir (durum x.q)
     this.nStages = 2;                // görev tasarımındaki kademe sayısı (2: TLI kademesi + iniş aracı; 3: + Ay yörünge kademesi)
@@ -244,23 +259,31 @@ export class World {
     this.post = null; this._postLoad = null; this._lastRender = 0;
   }
 
+  // Yükleme hattı: dokular (texload.js: ana iş parçacığı dışında çözme, GPU'ya kareler arasında yükleme), arazi verisi ve modeller birlikte iner;
+  // sahne kurulunca gölgelendiriciler önceden derlenir (ilk çizim derleme için donmasın).
   async load(base, onProgress = () => {}) {
     this.base = base;
-    const tl = new THREE.TextureLoader(), total = 13; let done = 0;
-    const tick = (n) => { done++; onProgress(done / total, n); };
-    const tex = (f, srgb = true) => new Promise((res) => tl.load(base + 'textures/' + f, (t) => {
-      t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; t.anisotropy = 8; tick(f); res(t);
-    }, undefined, () => { tick(f + ' (yok)'); res(null); }));
-    const json = (f) => fetch(base + f).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-    const [day, night, clouds, spec, enorm, mcol, mnorm, mh, stars, dem] = await Promise.all([
-      tex('earth_day.jpg'), tex('earth_night.jpg'), tex('earth_clouds.jpg', false), tex('earth_spec.png', false), tex('earth_normal.png', false),
-      tex('moon_color.jpg'), tex('moon_normal.jpg', false), tex('moon_height.png', false), tex('stars.jpg'), json('data/site_dem.json')]);
-    tick('dem');
+    const lowmem = this.lowMem = lowMemory(), total = TEX.length * 2 + 5; let done = 0;       // doku başına 2 adım (çözüldü, GPU'da) + arazi verisi + 3 model + derleme
+    const tick = (n) => { done++; onProgress(Math.min(1, done / total), n); };
+    const json = (f) => fetch(base + f).then((r) => (r.ok ? r.json() : null)).catch(() => null).then((x) => { tick('dem'); return x; });
     const gl = new GLTFLoader(); gl.setMeshoptDecoder(MeshoptDecoder);
     const glb = (f) => new Promise((res) => gl.load(base + 'models/' + f, (g) => { tick(f); res(g.scene); }, undefined, () => { tick(f + ' (yok)'); res(null); }));
-    const [lander, stage, orb] = await Promise.all([glb('lander.glb'), glb('stage.glb'), glb('orb.glb')]);          // NASA resmî Apollo modelleri: LM, S-IVB, hizmet modülü (tools/apollo_modelleri.mjs)
-    this.build({ day, night, clouds, spec, enorm, mcol, mnorm, mh, stars, dem, lander, stage, orb });
+    const [T, dem, lander, stage, orb] = await Promise.all([loadTextures(this.renderer, base, { lowmem, tick }), json('data/site_dem.json'),
+      glb('lander.glb'), glb('stage.glb'), glb('orb.glb')]);          // NASA resmî Apollo modelleri: LM, S-IVB, hizmet modülü (tools/apollo_modelleri.mjs)
+    this.build({ ...T, dem, lander, stage, orb });
+    await this.precompile(); tick('gölgelendiriciler');
     this.ready = true;
+  }
+  // Programları (gölgelendirici bağlama) ilk çizimden önce derle: KHR_parallel_shader_compile varsa ana iş parçacığını tutmadan.
+  // Eşzamanlı hata denetimi paralel derlemeyi engeller: derleme sırasında kapatılır, sonra bağlama durumu toplu denetlenir.
+  async precompile() {
+    const r = this.renderer, gl = r.getContext(), was = r.debug.checkShaderErrors;
+    try {
+      r.debug.checkShaderErrors = false;
+      if (r.extensions.has('KHR_parallel_shader_compile')) await Promise.race([r.compileAsync(this.scene, this.camera), new Promise((res) => setTimeout(res, 10000))]);          // takılırsa ilk çizimde derlenir
+      else r.compile(this.scene, this.camera);                                                    // eklenti yok: eşzamanlı derle (yine de ilk çizim karesinden önce, yükleme ekranındayken); compileAsync uyarı basardı
+    } catch (e) { /* ilk çizimde derlenir */ } finally { r.debug.checkShaderErrors = was; }
+    for (const p of r.info.programs || []) if (p.program && !gl.getProgramParameter(p.program, gl.LINK_STATUS)) console.error('Gölgelendirici bağlanamadı:', gl.getProgramInfoLog(p.program));
   }
 
   build(A) {
@@ -286,22 +309,21 @@ export class World {
       heightMap: { value: flat([0, 0, 0, 255]) }, hSize: { value: new THREE.Vector2(1, 1) }, radius: { value: E.R_E }, useHeight: { value: 0 }, obsMode: { value: 0 },
       tileMap: { value: flat([0, 0, 0, 255]) }, useTile: { value: 0 }, tileKind: { value: 0 } };
     this.earth = new THREE.Mesh(sphereGeometry(E.R_E, 1024, 512), new THREE.ShaderMaterial({ uniforms: eu, vertexShader: VS_BODY, fragmentShader: FS_EARTH }));
-    this.earth.frustumCulled = false; S.add(this.earth);
+    S.add(this.earth);                                    // görüş dışındaki cisim köşe işlemeye girmez (frustum culling): her biri ~1 milyon üçgen
     this.atm = new THREE.Mesh(sphereGeometry(E.R_E * 1.0125, 256, 128), new THREE.ShaderMaterial({
       uniforms: { sunDir: eu.sunDir, sunI: eu.sunI }, vertexShader: VS_ATM, fragmentShader: FS_ATM, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
-    this.atm.frustumCulled = false; S.add(this.atm);
+    S.add(this.atm);
     // Ay (LOLA ile yer değiştirmiş)
     const sd = siteMe();
     const mu = { colorMap: { value: A.mcol || flat([150, 150, 150, 255]) }, normalMap: { value: A.mnorm || flat([128, 128, 255, 255]) },
-      heightMap: { value: A.mh || flat([0, 0, 0, 255]) }, hSize: { value: new THREE.Vector2(A.mh ? A.mh.image.width : 1, A.mh ? A.mh.image.height : 1) },
+      heightMap: { value: A.mh || flat([0, 0, 0, 255]) }, hSize: { value: new THREE.Vector2(...(A.mh ? A.mh.userData.size : [1, 1])) },          // boyut: yükleyici saklar (bitmap GPU'ya yüklenince kapatılır)
       radius: { value: E.R_M }, useHeight: { value: A.mh ? 1 : 0 },
       sunDir: { value: new THREE.Vector3(1, 0, 0) }, earthDir: { value: new THREE.Vector3(1, 0, 0) }, sunI: { value: SUN_I },
-      siteDir: { value: new THREE.Vector3(sd[0], sd[1], sd[2]) }, albScale: { value: 0.8 }, holeCos: { value: A.dem ? Math.cos(HOLE_R / E.R_M) : 2.0 },
+      siteDir: { value: new THREE.Vector3(sd[0], sd[1], sd[2]) }, albScale: { value: 0.8 }, holeCos: { value: 2.0 },          // delik (arazi yaması varken küre çizilmez): arazi hazır olunca açılır (loadTerrain)
       tileMap: { value: flat([128, 128, 128, 255]) }, useTile: { value: 0 }, lodDelta: { value: 0 }, tileAlpha: { value: 0 }, latCut: { value: 2 }, tilePull: { value: 0 } };
-    if (A.mh) { A.mh.magFilter = THREE.NearestFilter; A.mh.minFilter = THREE.NearestFilter; A.mh.generateMipmaps = false; A.mh.flipY = true; }
     this.moon = new THREE.Mesh(sphereGeometry(E.R_M, 1024, 512), new THREE.ShaderMaterial({ uniforms: mu, vertexShader: VS_BODY, fragmentShader: FS_MOON }));
-    this.moon.frustumCulled = false; S.add(this.moon);
-    this.moonU = mu; this.earthU = eu;
+    this.moon.geometry.boundingSphere.radius = E.R_M + 15; S.add(this.moon);          // LOLA yer değiştirmesi (±11 km) küre sınırının dışına taşabilir
+    this.moonU = mu; this.earthU = eu; this.holeCos0 = mu.holeCos.value;
     // yakınlaştıkça yüksek çözünürlüklü parçalar (NASA GIBS Blue Marble kabartmalı + deniz tabanı · NASA Trek LRO WAC)
     const baseTexel = (R) => 2 * Math.PI * R / 8192;
     this.earthTiles = new TileLayer({ parent: this.earth, R: E.R_E, scheme: 'gibs', tileSize: 512, minZ: 3, maxZ: 7, baseTexelKm: baseTexel(E.R_E), lift: 2e-6, maxTextures: 130, concurrency: 16,
@@ -326,13 +348,22 @@ export class World {
       material: (tex, n) => new THREE.ShaderMaterial({ uniforms: { ...mu, tileMap: { value: tex }, useTile: { value: 1 }, tileAlpha: { value: 1 }, tilePull: { value: 0.0735 }, latCut: { value: Math.sin(58 * Math.PI / 180) }, radius: { value: E.R_M + 0.009 }, lodDelta: { value: Math.min(7, Math.max(0, Math.log2(baseTexel(E.R_M) / n.texelKm))) } },
         vertexShader: VS_BODY, fragmentShader: FS_MOON }) });
     this.moonTiles2.group.renderOrder = 2;
-    // iniş arazisi
+    // iniş arazisi: üretimi Web Worker'da (~0,9 sn, ana iş parçacığını tutmaz). Gelene dek aynı öznitelik/malzeme kümesiyle yer tutucu ağ durur:
+    // gölgelendirici derlemesi (precompile) hazır olur, Ay küresinde delik açılmaz (holeCos 2.0); hazır olunca geometri ve ayrıntı dokusu yerine geçer
     if (A.dem) {
-      const T = buildTerrain(A.dem, SITE_LAT * 180 / Math.PI, SITE_LON * 180 / Math.PI, E.R_M, R_SITE - E.R_M);
+      const B = terrainBasis(SITE_LAT * 180 / Math.PI, SITE_LON * 180 / Math.PI, E.R_M, R_SITE - E.R_M);
+      const ph = new THREE.DataTexture(new Uint8Array([128, 128, 255, 255]), 1, 1); ph.channel = 1; ph.needsUpdate = true;          // yer tutucu normal haritası (aynı uv kanalı: aynı program)
       const mat = new THREE.MeshStandardMaterial({ map: A.mcol, vertexColors: true, roughness: 1.0, metalness: 0.0, color: new THREE.Color(0.8, 0.8, 0.8),
-        normalMap: detailNormalTexture(), normalScale: new THREE.Vector2(0.9, 0.9) });
-      this.terrain = new THREE.Mesh(T.geometry, mat); this.terrain.receiveShadow = true; this.terrain.frustumCulled = false;
-      this.terrainSite = T.sitePosMe; S.add(this.terrain);
+        normalMap: ph, normalScale: new THREE.Vector2(0.9, 0.9) });
+      const g0 = new THREE.BufferGeometry();
+      for (const [n, k] of [['position', 3], ['normal', 3], ['uv', 2], ['uv1', 2], ['color', 3]]) g0.setAttribute(n, new THREE.BufferAttribute(new Float32Array(3 * k), k));
+      this.terrain = new THREE.Mesh(g0, mat); this.terrain.receiveShadow = true; this.terrain.visible = false; this.terrain.frustumCulled = false;
+      this.terrainSite = B.sitePos; this.terrainReady = false; S.add(this.terrain);
+      loadTerrain(A.dem, SITE_LAT * 180 / Math.PI, SITE_LON * 180 / Math.PI, E.R_M, R_SITE - E.R_M).then(({ geometry, detail }) => {
+        const t = this.terrain, old = t.geometry, oldMap = t.material.normalMap;
+        t.geometry = geometry; t.material.normalMap = detail; t.frustumCulled = true; old.dispose(); oldMap.dispose();
+        this.holeCos0 = Math.cos(HOLE_R / E.R_M); this.terrainReady = true;                // sonraki karede placeTerrain görünürlüğü ve deliği ayarlar
+      });
     }
     // araç
     this.vehicle = new THREE.Group(); S.add(this.vehicle);
@@ -448,6 +479,7 @@ export class World {
       const m = o.material, t = m && pbr[m.name];
       if (t) { m.metalness = t[0]; m.roughness = t[1]; }           // kaynak modeller Maya "blinn" malzemeleri (metalik yok): folyo ve metal yüzeylere ortam yansıması için PBR değeri verilir
     });
+    (this.mergeInfo = this.mergeInfo || {})[kind] = mergeByMaterial(scene3);               // yüzlerce küçük ağ → malzeme başına bir ağ (çizim çağrısı ve gölge geçişi yükü)
     const u = scene3.userData || {};
     for (const k of ['exitZ', 'exitR', 'len', 'rcsZ', 'rcsR']) if (typeof u[k] === 'number') this.place[kind][k] = u[k];
     return g;
@@ -504,7 +536,7 @@ export class World {
   }
 
   resetDynamic() {
-    this.embT = null; this.plT = null; this.embRef = null; this.moonPathT = null; this.trail = { E: [], M: [] }; this.attQ = null; this._nDeb = undefined;
+    this.embT = null; this.plT = null; this.embRef = null; this.moonPathT = null; this.resetTrail(); this.attQ = null; this._nDeb = undefined;
     if (this.puffs) { this.puffs.n = 0; this.puffs.group.visible = false; this.dust.n = 0; this.dust.group.visible = false; }
     for (const m of this.debrisMeshes.values()) m.visible = false;
     if (this.rcsSets) this.showRcs(null, null);
@@ -519,8 +551,9 @@ export class World {
     }
   }
 
+  resetTrail() { this.trail = { E: new PointStore(), M: new PointStore() }; }
   addTrail(points, reset) {
-    if (reset) this.trail = { E: [], M: [] };
+    if (reset) this.resetTrail();
     for (const q of points) {
       const rm = E.moonPos(q.t), rs = sub(q.r, rm);
       if (norm(rs) < E.MOON_ZONE) this.trail.M.push(rs); else this.trail.E.push(q.r);
@@ -540,6 +573,7 @@ export class World {
     return { name: info.name, R: info.R, dSun: norm(rh) / AU, dEarth: dE / AU, lightMin: dE / 299792.458 / 60, v: norm(vh),
       periodDays: el.a > 0 ? 2 * Math.PI * Math.sqrt(el.a ** 3 / mu) / 86400 : NaN, a: el.a / AU, e: el.e };
   }
+  setPixelRatio(r) { this.renderer.setPixelRatio(r); this.resize(this.canvas.clientWidth, this.canvas.clientHeight); }          // uyarlanır çözünürlük: tampon yeni orana göre yeniden boyutlanır
   resize(w, h) { this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); if (this.post) this.post.setSize(w, h); }
 
   // ---------------------------------------------------------------- kamera
@@ -699,10 +733,7 @@ export class World {
     this.atm.position.copy(this.earth.position);
     rel(rm, this.moon.position); this.moon.quaternion.copy(m3ToQuat(E.mT(Mme)));
     this.updateTiles();
-    if (this.terrain) {
-      const sp = add(rm, mtv(Mme, this.terrainSite));
-      rel(sp, this.terrain.position); this.terrain.quaternion.copy(this.moon.quaternion);
-    }
+    if (this.terrainReady) this.placeTerrain(rm, Mme, eye, rel);
     // araç
     rel(vehPos, this.vehicle.position); this.vehicle.quaternion.copy(this.attQ);
     // aktif kademeye göre araç: yığın (üstten alta) iniş aracı / Ay yörünge kademesi (iki kademeli iniş aracı, ayrılana dek) / TLI kademesi (ayrılana dek);
@@ -886,7 +917,7 @@ export class World {
     rel([0, 0, 0], this.earth.position); this.earth.quaternion.copy(m3ToQuat(E.mT(Mitrf))); this.atm.position.copy(this.earth.position);
     rel(rm, this.moon.position); this.moon.quaternion.copy(m3ToQuat(E.mT(Mme)));
     this.updateTiles();
-    if (this.terrain) { rel(add(rm, mtv(Mme, this.terrainSite)), this.terrain.position); this.terrain.quaternion.copy(this.moon.quaternion); }
+    if (this.terrainReady) this.placeTerrain(rm, Mme, eye, rel);
     this.sunLight.intensity = Math.PI * SUN_I; this.sunLight.castShadow = false; this.ambient.intensity = 0.02; this.eclipse = 1;
     this.sunLight.target.position.set(0, 0, 0); this.sunLight.position.copy(sd);
     // Ay'ın yolu (±4 gün)
@@ -1008,6 +1039,13 @@ export class World {
     if (mode === 'SOLAR' || focusPl) this.sunSprite.position.set(sg[0] - eye[0], sg[1] - eye[1], sg[2] - eye[2]);
   }
 
+  // iniş arazisi yaması: yalnız yakınken çizilir; uzakta (yama ~0,25°'nin altında) hem yama hem Ay küresindeki delik kapatılır (yarım milyon üçgen ve delik gölgelendirme işi kalmaz)
+  placeTerrain(rm, Mme, eye, rel) {
+    const sp = add(rm, mtv(Mme, this.terrainSite)), near = norm(sub(sp, eye)) < TERRAIN_FAR_KM;
+    rel(sp, this.terrain.position); this.terrain.quaternion.copy(this.moon.quaternion);
+    if (this.terrain.visible !== near) { this.terrain.visible = near; this.moonU.holeCos.value = near ? this.holeCos0 : 2.0; }
+  }
+
   // yüksek çözünürlüklü yüzey parçaları: kamera cisim sabit çerçevesinde
   updateTiles() {
     const cam = this.camera; cam.updateMatrixWorld(true);
@@ -1037,42 +1075,44 @@ export class World {
   }
 
   updateLines(x, t, rm, central, eye, extra) {
-    // anlık (oskülatör) yörünge: merkez cisme göre
+    // anlık (oskülatör) yörünge: merkez cisme göre; noktalar ara dizi kurmadan doğrudan GPU tamponuna yazılır
     const cen = central === 'M' ? rm : [0, 0, 0], vcen = central === 'M' ? E.moonVel(t) : [0, 0, 0];
     const mu = central === 'M' ? E.MU_M : E.MU_E;
     const r = sub(x.r, cen), v = sub(x.v, vcen), el = E.elements(r, v, mu);
-    const pts = conicPoints(el, r, mu, central === 'M' ? 60000 : 1.2e6, 721);
     const oa = this.osc.geometry.attributes.position.array;
-    for (let i = 0; i < pts.length; i++) { oa[i * 3] = pts[i][0] + cen[0] - eye[0]; oa[i * 3 + 1] = pts[i][1] + cen[1] - eye[1]; oa[i * 3 + 2] = pts[i][2] + cen[2] - eye[2]; }
-    this.osc.geometry.setDrawRange(0, pts.length); this.osc.geometry.attributes.position.needsUpdate = true;
+    const no = conicEach(el, r, mu, central === 'M' ? 60000 : 1.2e6, 721, (i, px, py, pz) => { oa[i * 3] = px + cen[0] - eye[0]; oa[i * 3 + 1] = py + cen[1] - eye[1]; oa[i * 3 + 2] = pz + cen[2] - eye[2]; });
+    this.osc.geometry.setDrawRange(0, no); this.upload(this.osc.geometry.attributes.position, no);
     this.osc.material.color.set(central === 'M' ? 0xc88cff : (el.e < 1 ? 0x49b6ff : 0xff8a3d));
     this.osc.visible = x.phase !== 'INDI' && !(extra.local && extra.local.p[2] < 20);
     this.oscEl = { ...el, central };
     // iz: Dünya merkezli ve Ay merkezli ayrı (Ay yörüngesi Ay'la birlikte taşınır); noktalar fizik worker'ından gelir
     const T = this.trail;
-    if (T.E.length > 39000) T.E.splice(0, 1000); if (T.M.length > 39000) T.M.splice(0, 1000);
-    const fill = (line, arr, off) => {
-      const a = line.geometry.attributes.position.array;
-      for (let i = 0; i < arr.length; i++) { a[i * 3] = arr[i][0] + off[0] - eye[0]; a[i * 3 + 1] = arr[i][1] + off[1] - eye[1]; a[i * 3 + 2] = arr[i][2] + off[2] - eye[2]; }
-      const n = arr.length;
-      if (n) { const lp = central === (line === this.trailLineM ? 'M' : 'E') ? x.r : null;
-        if (lp) { a[n * 3] = lp[0] - eye[0]; a[n * 3 + 1] = lp[1] - eye[1]; a[n * 3 + 2] = lp[2] - eye[2]; } line.geometry.setDrawRange(0, lp ? n + 1 : n); }
-      else line.geometry.setDrawRange(0, 0);
-      line.geometry.attributes.position.needsUpdate = true;
-    };
-    fill(this.trailLineE, T.E, [0, 0, 0]); fill(this.trailLineM, T.M, rm);
+    if (T.E.n > 39000) T.E.dropFirst(1000); if (T.M.n > 39000) T.M.dropFirst(1000);
     const nearGround = extra.local && extra.local.p[2] < 20;
+    const trailsOn = !nearGround && (!this.cine.on || !!this.cine.lines);                 // görünmeyecek iz tamponları doldurulmaz/yüklenmez
     this.trailLineM.visible = !nearGround; this.trailLineE.visible = !nearGround;
+    const fill = (line, st, off, own) => {
+      const attr = line.geometry.attributes.position, a = attr.array, n = st.fillRelative(a, off, eye);
+      let m = n;
+      if (n && own) { a[n * 3] = x.r[0] - eye[0]; a[n * 3 + 1] = x.r[1] - eye[1]; a[n * 3 + 2] = x.r[2] - eye[2]; m = n + 1; }       // iz ucu aracın anlık konumuna bağlanır
+      line.geometry.setDrawRange(0, m); this.upload(attr, m);
+    };
+    if (trailsOn) { fill(this.trailLineE, T.E, [0, 0, 0], central === 'E'); fill(this.trailLineM, T.M, rm, central === 'M'); }
     // Ay'ın yolu (±4 gün)
+    const mpVisible = !['EMB', 'SYSTEM', 'SOLAR'].includes(this.cam.mode) && (norm(eye) > 60000 || (norm(sub(rm, eye)) > 30000 && central === 'E'));
     if (!this.moonPathT || Math.abs(t - this.moonPathT) > 3600) {
       this.moonPathT = t; this.moonPathPts = [];
       for (let i = 0; i < 600; i++) this.moonPathPts.push(E.moonPos(t - 4 * 86400 + (i * 8 * 86400) / 599));
     }
-    const ma = this.moonPath.geometry.attributes.position.array;
-    this.moonPathPts.forEach((p, i) => { ma[i * 3] = p[0] - eye[0]; ma[i * 3 + 1] = p[1] - eye[1]; ma[i * 3 + 2] = p[2] - eye[2]; });
-    this.moonPath.geometry.setDrawRange(0, 600); this.moonPath.geometry.attributes.position.needsUpdate = true;
-    this.moonPath.visible = !['EMB', 'SYSTEM', 'SOLAR'].includes(this.cam.mode) && (norm(eye) > 60000 || (norm(sub(rm, eye)) > 30000 && central === 'E'));
+    if (mpVisible) {
+      const ma = this.moonPath.geometry.attributes.position.array;
+      this.moonPathPts.forEach((p, i) => { ma[i * 3] = p[0] - eye[0]; ma[i * 3 + 1] = p[1] - eye[1]; ma[i * 3 + 2] = p[2] - eye[2]; });
+      this.moonPath.geometry.setDrawRange(0, 600); this.upload(this.moonPath.geometry.attributes.position, 600);
+    }
+    this.moonPath.visible = mpVisible;
   }
+  // tamponun yalnız kullanılan ilk n noktasını GPU'ya yükle (varsayılan: tüm dizi; 40.000 noktalık iz tamponu ~480 KB'tır)
+  upload(attr, n) { attr.clearUpdateRanges(); attr.addUpdateRange(0, n * 3); attr.needsUpdate = true; }
 
   planetName(i) { return PLANETS[i] ? PLANETS[i].name : BODIES[i].name; }
   pickPlanet(mx, my) {
@@ -1128,8 +1168,8 @@ export class World {
 
 function unit3(a) { const u = unit(a); return new THREE.Vector3(u[0], u[1], u[2]); }
 
-// oskülatör konik noktaları (merkeze göre)
-export function conicPoints(el, r, mu, rMax, n) {
+// oskülatör konik noktaları (merkeze göre): her nokta için f(i, x, y, z) çağrılır (ara dizi yok); döner: nokta sayısı n
+export function conicEach(el, r, mu, rMax, n, f) {
   const e = el.e, p = el.p, W = unit(el.h);
   const Pv = e > 1e-8 ? scale(el.evec, 1 / e) : unit(r), Qv = cross(W, Pv);
   let nu0, nu1;
@@ -1139,10 +1179,12 @@ export function conicPoints(el, r, mu, rMax, n) {
     if (e >= 1) lim = Math.min(lim, Math.acos(-1 / e) - 1e-3);
     nu0 = -lim; nu1 = lim;
   }
-  const out = [];
   for (let i = 0; i < n; i++) {
-    const nu = nu0 + ((nu1 - nu0) * i) / (n - 1), rr = p / (1 + e * Math.cos(nu));
-    out.push(add(scale(Pv, rr * Math.cos(nu)), scale(Qv, rr * Math.sin(nu))));
+    const nu = nu0 + ((nu1 - nu0) * i) / (n - 1), rr = p / (1 + e * Math.cos(nu)), a = rr * Math.cos(nu), b = rr * Math.sin(nu);
+    f(i, Pv[0] * a + Qv[0] * b, Pv[1] * a + Qv[1] * b, Pv[2] * a + Qv[2] * b);
   }
-  return out;
+  return n;
+}
+export function conicPoints(el, r, mu, rMax, n) {
+  const out = []; conicEach(el, r, mu, rMax, n, (i, x, y, z) => out.push([x, y, z])); return out;
 }

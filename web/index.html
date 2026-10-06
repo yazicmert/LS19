@@ -27,6 +27,64 @@
 { "imports": { "three": "./lib/three.module.js", "three/addons/": "./lib/addons/",
   "motion": "./lib/motion.esm.js", "number-flow": "./lib/number-flow.esm.js", "torph": "./lib/torph.esm.js" } }
 </script>
+<!-- Modül grafiği düz liste olarak paralel indirilir (içe aktarma zinciri tek tek keşfedilirse her seviye bir ağ gidiş-dönüşü); liste test/test_preload.js ile grafikten doğrulanır (node test/test_preload.js --print) -->
+<link rel="modulepreload" href="js/app.js">
+<link rel="modulepreload" href="js/engine.js">
+<link rel="modulepreload" href="js/attitude.js">
+<link rel="modulepreload" href="js/rigidbody.js">
+<link rel="modulepreload" href="js/scene.js">
+<link rel="modulepreload" href="lib/three.module.js">
+<link rel="modulepreload" href="lib/addons/loaders/GLTFLoader.js">
+<link rel="modulepreload" href="lib/addons/utils/BufferGeometryUtils.js">
+<link rel="modulepreload" href="lib/addons/libs/meshopt_decoder.module.js">
+<link rel="modulepreload" href="js/terrain.js">
+<link rel="modulepreload" href="js/terraingen.js">
+<link rel="modulepreload" href="js/mission.js">
+<link rel="modulepreload" href="js/halo.js">
+<link rel="modulepreload" href="js/cr3bp.js">
+<link rel="modulepreload" href="js/conic.js">
+<link rel="modulepreload" href="lib/clarabel/clarabel_wasm.js">
+<link rel="modulepreload" href="js/attctl.js">
+<link rel="modulepreload" href="js/pdg.js">
+<link rel="modulepreload" href="js/ephem.js">
+<link rel="modulepreload" href="js/earth.js">
+<link rel="modulepreload" href="js/live.js">
+<link rel="modulepreload" href="js/jplkernel.js">
+<link rel="modulepreload" href="js/tiles.js">
+<link rel="modulepreload" href="js/planets.js">
+<link rel="modulepreload" href="js/fx.js">
+<link rel="modulepreload" href="js/pointstore.js">
+<link rel="modulepreload" href="js/meshmerge.js">
+<link rel="modulepreload" href="js/texload.js">
+<link rel="modulepreload" href="js/texplan.js">
+<link rel="modulepreload" href="js/ui.js">
+<link rel="modulepreload" href="js/controlpanel.js">
+<link rel="modulepreload" href="js/telemetry.js">
+<link rel="modulepreload" href="js/dvbudget.js">
+<link rel="modulepreload" href="js/format.js">
+<link rel="modulepreload" href="js/design.js">
+<link rel="modulepreload" href="js/satlayer.js">
+<link rel="modulepreload" href="lib/satellite.esm.js">
+<link rel="modulepreload" href="js/config.js">
+<link rel="modulepreload" href="js/satmodels.js">
+<link rel="modulepreload" href="js/satcatalog.js">
+<link rel="modulepreload" href="js/satinstancer.js">
+<link rel="modulepreload" href="js/satfamilies.js">
+<link rel="modulepreload" href="js/impact.js">
+<link rel="modulepreload" href="js/asteroids.js">
+<link rel="modulepreload" href="js/deflect.js">
+<link rel="modulepreload" href="js/astui.js">
+<link rel="modulepreload" href="js/updater.js">
+<link rel="modulepreload" href="js/tracker.js">
+<link rel="modulepreload" href="js/passes.js">
+<link rel="modulepreload" href="js/skyui.js">
+<link rel="modulepreload" href="js/icons.js">
+<link rel="modulepreload" href="js/treemenu.js">
+<link rel="modulepreload" href="js/impactui.js">
+<link rel="modulepreload" href="js/cinema.js">
+<link rel="modulepreload" href="js/cinemaui.js">
+<link rel="modulepreload" href="js/perfgov.js">
+<link rel="modulepreload" href="js/worker.js">
 </head>
 <body data-mode="mission">
 <div id="app">

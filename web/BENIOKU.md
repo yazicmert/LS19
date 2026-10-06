@@ -12,7 +12,7 @@ saptırma laboratuvarı bir asteroide uygulanan itkinin Dünya yakın geçişini
 - Ya da Terminal'de bu klasörde: `python3 sunucu.py` ve tarayıcıda `http://localhost:8765`.
 - Dosyayı doğrudan (file://) açmak çalışmaz. Eski `python3 -m http.server` da site için yeterlidir ama uydular gelmez.
 - En hızlı çalışma için Safari ya da Chrome önerilir.
-- Adres parametreleri: `?date=1969-07-16`, `?profile=NRHO` (APOLLO, APOLLO11, NRHO, L2, L1), `?sats=0` (uyduları kapat), `?ast=0` (asteroitleri kapat), `?tab=saptirma`.
+- Adres parametreleri: `?date=1969-07-16`, `?profile=NRHO` (APOLLO, APOLLO11, NRHO, L2, L1), `?sats=0` (uyduları kapat), `?ast=0` (asteroitleri kapat), `?tab=saptirma`, `?lowmem=1` (düşük bellek dokuları; telefonda kendiliğinden), `?adapt=0` (uyarlanır çözünürlüğü kapat), `?bg=1` (sekme arka plandayken de oynat), `?prefetch=1` (gökyüzü katmanlarını hemen kur).
 - Bulutta (Vercel) aynı site `api/` işlevleriyle çalışır; kurulum için depo kökündeki README'ye bakın.
 
 ## İki çalışma alanı
@@ -123,7 +123,8 @@ Ay Görevi panelindeki **Kontrol** sekmesi aracın anlık durumunu canlı göste
 - `js/sats.js`, `js/satlayer.js`, `lib/satellite.esm.js` (satellite.js, MIT) — canlı uydular
 - `js/satcatalog.js`, `js/satmodels.js`, `models/sats/` — gerçek 3B uydu modelleri (NASA 3D Resources, kamu malı), `lib/addons/libs/meshopt_decoder.module.js` (MIT)
 - `js/treemenu.js` — alt çubuktaki açılır ağaç menüler
-- `js/scene.js` Three.js görüntü · `js/ui.js` HUD ve paneller · `js/terrain.js` iniş bölgesi arazisi
+- `js/scene.js` Three.js görüntü · `js/ui.js` HUD ve paneller · `js/terrain.js` iniş bölgesi arazisi (geometri kurar) · `js/terraingen.js` + `js/terrainwork.js` arazi üretimi (saf kod, Web Worker'da)
+- Performans (`../docs/performans.md`): `js/format.js` önbellekli sayı/tarih biçimleyiciler · `js/texload.js` + `js/texplan.js` ana doku hattı (ImageBitmap, R8, aşamalı GPU yükleme, düşük bellek katmanı) · `js/meshmerge.js` model ağlarını malzemeye göre birleştirir · `js/pointstore.js` iz noktaları için düz Float64 depo · `js/perfgov.js` uyarlanır çizim çözünürlüğü · `js/nominalrun.js` nominal Δv koşusu (tarayıcı worker'ı ve üretici betik ortak)
 - `models/lander.glb`, `orb.glb`, `stage.glb` — araç modelleri: NASA 3D Resources'taki resmî Apollo modellerinden (LM, hizmet modülü, Saturn V S-IVB) türetilmiş, ~0,7 MB; yerleşim sayıları (motor çanı, RCS halkası, kademe boyu) dosyanın `extras` alanındadır; `../tools/apollo_modelleri.mjs` ile üretilir, ayrıntı ve lisans `../docs/modeller.md`
 - `js/asteroids.js`, `js/astwork.js` — canlı asteroitler · `js/deflect.js` — saptırma fizik motoru · `js/deflectwork.js`, `js/astui.js` — laboratuvar
 - `js/updater.js` — 10 dakikalık güncelleme denetimi

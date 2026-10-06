@@ -63,7 +63,15 @@ export function footprintAngle(altKm, minElDeg = 0) {
 export function compass(az) { return ['K', 'KKD', 'KD', 'DKD', 'D', 'DGD', 'GD', 'GGD', 'G', 'GGB', 'GB', 'BGB', 'B', 'BKB', 'KB', 'KKB'][Math.round(az / 22.5) % 16]; }
 
 // geçişler: [startMs, startMs + days) içinde yükseklik açısı 0°'yi aşan her geçiş (minMaxEl'den alçaklar atılır)
-export function findPasses(rec, obs, startMs, days = 3, opt = {}) {
+// Taramanın kendisi bir üreteçtir (findPassesIter): her SLICE adımda yield eder, çağıran isterse zaman dilimlerine bölerek çalıştırır
+// (3 günlük tarama uydu başına ~90 ms; ana iş parçacığında uzun görev yapmasın). findPasses aynı sonucu tek seferde verir.
+export const PASS_SLICE = 256;
+export function findPasses(...args) {
+  const it = findPassesIter(...args); let r;
+  while (!(r = it.next()).done);
+  return r.value;
+}
+export function* findPassesIter(rec, obs, startMs, days = 3, opt = {}) {
   const step = opt.stepMs || 30000, minMax = opt.minMaxEl ?? 10, end = startMs + days * 86400000, out = [];
   obs = { ...obs, ecf: ecfFromGeodetic(obs.lat, obs.lon, obs.h || 0) };
   const elAt = (ms) => { const pv = propagate(rec, ms); return pv ? lookAngles(obs, eciToEcf(pv.p, gmst(ms))).el : NaN; };
@@ -75,7 +83,8 @@ export function findPasses(rec, obs, startMs, days = 3, opt = {}) {
     return s ? [{ kind: 'sabit', always: s.el > 0, az: s.az, el: s.el }] : [];
   }
   let prev = elAt(startMs), tRise = prev > 0 ? startMs : null;
-  for (let ms = startMs + step; ms <= end; ms += step) {
+  for (let ms = startMs + step, k = 0; ms <= end; ms += step) {
+    if (++k % PASS_SLICE === 0) yield k;
     const e = elAt(ms);
     if (!Number.isFinite(e)) { prev = e; continue; }
     if (prev <= 0 && e > 0) tRise = cross(ms - step, ms, true);

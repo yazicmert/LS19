@@ -3,9 +3,9 @@ import * as THREE from 'three';
 import * as E from './engine.js';
 import { AST_GROUPS } from './asteroids.js';
 import { AU, R_E, massOf, etFromJd, jdFromEt, kineticDv } from './deflect.js';
+import { fmt } from './format.js';
 
 const $ = (s) => document.querySelector(s);
-const fmt = (x, d = 0) => (Number.isFinite(x) ? x.toLocaleString('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—');
 const sig = (x, n = 3) => { if (!Number.isFinite(x)) return '—'; if (x === 0) return '0'; const d = Math.max(0, n - 1 - Math.floor(Math.log10(Math.abs(x)))); return fmt(x, Math.min(d, 9)); };
 const LD = 384399;
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

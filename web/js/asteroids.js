@@ -164,6 +164,7 @@ export class AsteroidLayer {
     for (let i = 0; i < this.n; i++) { const k = this.groupOf(i); g.array[i] = k; this.counts[k]++; }
     g.needsUpdate = true;
   }
+  setPixelScale(k) { this.mat.uniforms.px.value = (window.devicePixelRatio || 1) * k; }          // uyarlanır çözünürlük: nokta boyu ekranda sabit kalsın (k = geçerli oran / en yüksek oran)
   onMsg(d) {
     if (d.type === 'loaded') { this.info = { status: 'hazır' }; this.changed(); }
     else if (d.type === 'pos' && d.id === this.reqId) {
