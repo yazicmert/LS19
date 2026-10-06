@@ -88,13 +88,13 @@ const RIG = {
     const eye = add(add(add(tgt, scale(away, a('dist') * KM)), scale(lat, a('side') * KM)), scale(up2, a('lift') * KM));
     return { eye, target: add(tgt, scale(away, -a('aim') * a('dist') * KM)), up: up2, fov: a('fov') };
   },
-  // yerden: iniş yerinin yaklaşma eksenli çerçevesinde (x ileri, y yan, h yükseklik; m) sabit gözlemci; araca bakar, görüş açısı mesafeye göre
+  // yerden: iniş yerinin yaklaşma eksenli çerçevesinde (x ileri, y yan, h yükseklik; m) sabit gözlemci; araca bakar (fixed: iniş noktasına bakar, tripod: araç kadraja iner), görüş açısı mesafeye göre
   ground(c, p, e) {
     const a = (k) => (Array.isArray(p[k]) ? lerp(p[k][0], p[k][1], e) : p[k]);
     const t = c.x.t, up = unit(siteIcrf(t)), s = add(c.info.rm, siteIcrf(t));
     const ax = c.info.drAxis || unit(cross([0, 0, 1], up)), xx = unit(sub(ax, scale(up, dot(ax, up)))), yy = cross(up, xx);
     const obs = add(s, add(add(scale(xx, a('x') * KM), scale(yy, a('y') * KM)), scale(up, a('h') * KM)));
-    const tgt = add(c.info.vehPos, scale(up, (p.aimUp || 0) * KM)), dM = norm(sub(tgt, obs)) * 1000;
+    const tgt = add(p.fixed ? s : c.info.vehPos, scale(up, (a('aimUp') || 0) * KM)), dM = norm(sub(tgt, obs)) * 1000;
     const fov = clamp(2 * Math.atan(a('frame') / Math.max(5, dM)) * 180 / Math.PI, p.fovMin || 12, p.fovMax || 55);
     return { eye: obs, target: tgt, up, fov };
   },
@@ -169,7 +169,7 @@ export function buildShots(P, opts = {}) {
     // 6 Ay yörüngesi: zaman atlaması
     const tl0 = t('LOI', loiBurn + 40), tl1 = Math.min(has('SEP2') ? P.SEP2 - 110 : has('PDI') ? P.PDI - 400 : tl0 + 12000, tl0 + 18000);       // en çok ~2,7 tur gösterilir; kalanı sonraki çekimin başında kararma altında geçilir
     add_({ id: 'llo', dur: 8, wmax: 2600, T: () => [[0, tl0], [1, Math.max(tl0 + 600, tl1)]], chapter: { title: 'AY YÖRÜNGESİ', sub: (c) => `Ay çevresinde ${fmt(c.alt, 0)} km irtifada`, at: 0.25, hold: 3.4 },
-      rig: { type: 'wide', cam: { mode: 'MOON', az: [0.2, 1.7], el: [0.5, 0.32], dist: [6400, 4300] }, fov: 42 }, lines: true, osc: true, beacon: true, dip: true });
+      rig: { type: 'wide', cam: (c, e) => lightCam(c.x, lerp(6400, 4300, e), 0.9, 0.3, lerp(0.95, 0.45, e), lerp(0.32, 0.2, e), 'MOON', E.moonPos(c.x.t)), fov: 42, yaw: [0.34, 0.24] }, lines: true, osc: true, beacon: true, dip: true });   // Güneş'in aydınlattığı yüz (gece yüzü değil); Ay kadrajın sağında (kart solda)
   }
   // 7 iniş kademesinin ayrılması
   if (has('SEP2')) {
@@ -186,12 +186,12 @@ export function buildShots(P, opts = {}) {
       chapter: { title: 'MOTORLU İNİŞ', sub: land, at: 1.0, hold: 3.6 },
       rigs: [{ to: 0.2, rig: { type: 'body', ref: 'engine', eye: [[6, -2.5, -5], [7, -1.5, -8]], tgt: [[0, 0, 1.5], [0, 0, 1]], fov: [28, 32], up: 'body' } },
         { to: 1, rig: { type: 'lvlh', az: [2.1, 2.45], el: [0.12, 0.08], dist: [0.055, 0.04], fov: [34, 30], look: 'mid' } }], dip: true });
-    add_({ id: 'approach', dur: 8, wmax: 40, T: () => [[0, t('PDI', 200)], [1, P.INDI]], wf: landWarp, until: (x) => alt(x) < 0.075, minT: 3, shake: 0.3,
+    add_({ id: 'approach', dur: 8, wmax: 40, T: () => [[0, t('PDI', 200)], [1, P.INDI]], wf: landWarp, until: (x) => alt(x) < 0.034, minT: 3, shake: 0.3,
       rig: { type: 'lvlh', az: [2.9, 2.3], el: [0.05, 0.13], dist: [0.04, 0.032], fov: [32, 28], look: 'mid' } });
     add_({ id: 'touchdown', dur: 14, wmin: 0.3, wmax: 20, T: () => [[0, P.INDI - 30], [1, P.INDI + 10]], wf: landWarp,
       until: (x, c) => (x.phase === 'INDI' || x.done) && c.sinceLand > 4.5, minT: 4, shake: 0.25,
       chapter: { title: 'TEMAS', sub: (c) => c.touch, at: 'land', hold: 3.8 },
-      rig: { type: 'ground', x: [-34, -22], y: [96, 82], h: [2.6, 2.4], frame: [15, 8], fovMin: 14, fovMax: 46, aimUp: 3 } });
+      rig: { type: 'ground', fixed: true, x: [-40, -34], y: [118, 108], h: [1.7, 1.6], frame: [23, 11], fovMin: 10, fovMax: 46, aimUp: [7.5, 3.2] } });
     add_({ id: 'outro', dur: 13, wmin: 1, wmax: 3, T: () => [[0, P.INDI + 5], [1, P.INDI + 8]], closing: true,
       rig: { type: 'lvlh', az: [-2.5, -1.7], el: [0.1, 0.3], dist: [0.03, 0.075], fov: [34, 30], look: -1.2, yaw: [0.2, 0.26] } });
   }

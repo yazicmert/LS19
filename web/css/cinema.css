@@ -17,7 +17,7 @@ body.cine-on .tilemode, body.cine-on .tilestatus, body.cine-on #skyHud, body.cin
 body.cine-on #view { cursor: none; }
 
 .cine { position: absolute; inset: 0; z-index: 20; display: none; pointer-events: none; overflow: hidden; color: var(--cine-ink); font-family: var(--font);
-  --bar: max(0px, calc((100vh - 100vw / 2.39) / 2)); }                      /* 2,39:1 letterbox; daha geniş pencerede çubuk yok */
+  --bar: clamp(0px, calc((100vh - 100vw / 2.39) / 2), 15vh); }              /* 2,39:1 letterbox; daha geniş pencerede çubuk yok; dikey ekranda çubuk en çok %15 (resim alanı kalsın) */
 .cine.live { display: block; }
 
 /* letterbox */
@@ -25,6 +25,12 @@ body.cine-on #view { cursor: none; }
 .cine-bar.top { top: 0; transform: translateY(-101%); }
 .cine-bar.bottom { bottom: 0; transform: translateY(101%); }
 .cine.on .cine-bar { transform: none; }
+
+/* alt karartma: parlak yüzeylerde (Ay, Dünya, bulut) alt şeridin ve kartların okunurluğu; yalnız opacity */
+.cine-scrim { position: absolute; left: 0; right: 0; bottom: var(--bar); height: clamp(150px, 32vh, 320px); pointer-events: none;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.58), rgba(0, 0, 0, 0.3) 42%, rgba(0, 0, 0, 0)); opacity: 0; transition: opacity 0.8s var(--cine-out) 0.4s; }
+.cine.on .cine-scrim { opacity: 1; }
+.cine.nostrip .cine-scrim { opacity: 0; transition-delay: 0s; }
 
 /* bölüm kartları */
 .cine-cards { position: absolute; inset: 0; }
@@ -95,6 +101,40 @@ body.cine-on #view { cursor: none; }
 .cine-flash { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle at 50% 52%, #fff 0%, rgba(255, 255, 255, 0.6) 45%, rgba(255, 255, 255, 0) 80%); }
 .cine-flash.go { animation: cine-flash 0.55s var(--cine-out) both; }
 @keyframes cine-flash { from { opacity: 0.8; } to { opacity: 0; } }
+
+/* dar ya da dikey ekran (telefon): veri şeridi 2×2 ızgara, kartlar tam genişlik, kapanış kartı üstte */
+@media (max-width: 700px), (max-aspect-ratio: 1/1) {
+  .cine-strip { left: 24px; right: 24px; bottom: calc(var(--bar) + 24px); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; align-items: end; }
+  .cs-phase { display: none; }
+  .cs-warp { margin-left: 0; text-align: left; }
+  .cs-v { font-size: clamp(12px, 3.6vw, 17px); }
+  .cine-timeline { left: 24px; right: 24px; }
+  .cine-card { left: 24px; max-width: calc(100vw - 48px); bottom: calc(var(--bar) + 118px); }
+  .cc-h { font-size: clamp(18px, 6vw, 30px); letter-spacing: 0.14em; }
+  .cc-s { font-size: 12px; letter-spacing: 0.06em; }
+  .cine-card.open { left: 0; max-width: none; bottom: auto; }
+  .cine-card.open .cc-h { font-size: clamp(40px, 16vw, 90px); }
+  .cine-card.close { max-width: calc(100vw - 48px); top: calc(var(--bar) + 36px); bottom: auto; }
+  .cine-card.close .cc-h { font-size: clamp(22px, 7vw, 34px); }
+  .cc-stats { gap: 12px 18px; margin-top: 18px; }
+  .cc-sval { font-size: clamp(15px, 4.6vw, 22px); }
+  .cine-hint { left: 24px; max-width: calc(100vw - 150px); font-size: 10px; }
+  .cine-exit { right: 16px; }
+}
+
+/* kısa ekran (yatay telefon): başlıklar yüksekliğe göre ölçeklenir, kartlar sıkılaşır */
+@media (max-height: 520px) {
+  .cine-card { bottom: calc(var(--bar) + 76px); }
+  .cc-h { font-size: min(clamp(22px, 3.4vw, 52px), 7vh); }
+  .cc-rule { margin: 10px 0 8px; }
+  .cine-card.open .cc-h { font-size: min(clamp(44px, 10vw, 150px), 16vh); }
+  .cine-card.close { bottom: calc(var(--bar) + 44px); }
+  .cine-card.close .cc-h { font-size: min(clamp(28px, 4.6vw, 70px), 7.5vh); }
+  .cc-stats { gap: 8px 28px; margin-top: 12px; }
+  .cc-stat { padding-top: 6px; gap: 3px; }
+  .cine-strip { bottom: calc(var(--bar) + 16px); }
+  .cine-timeline { bottom: calc(var(--bar) + 6px); }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .cine-bar { transition: none; }

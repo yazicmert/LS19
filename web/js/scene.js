@@ -139,7 +139,7 @@ void main() {
   float tw = smoothstep(-0.12, 0.2, ndl);
   vec3 sunCol = mix(vec3(1.0, 0.55, 0.3), vec3(1.0), smoothstep(0.0, 0.35, ndl));
   vec3 col = day * ndlp * sunCol * tw;
-  float glint = spec * pow(max(dot(N, H), 0.0), 90.0) * 1.6 + spec * pow(max(dot(N, H), 0.0), 12.0) * 0.08;
+  float nh = max(dot(N, H), 0.0), glint = spec * (pow(nh, 400.0) * 1.15 + pow(nh, 40.0) * 0.1);                // okyanus Güneş parıltısı: küçük, parlak çekirdek ve ince hâle (geniş, patlak bir leke değil)
   col += glint * sunCol * step(0.0, ndl) * (1.0 - cloud);
   col = mix(col, vec3(0.85) * max(ndl, 0.0) * sunCol * tw, cloud * 0.9);
   vec3 night = texture2D(nightMap, vUv).rgb;
@@ -611,8 +611,14 @@ export class World {
         pose = { eye: mix(p0.eye, pose.eye), target: mix(p0.target, pose.target), up: unit(mix(p0.up, pose.up)), fov: (p0.fov ?? 50) + ((pose.fov ?? 50) - (p0.fov ?? 50)) * f };
       }
     }
-    if (pose.fov !== undefined && Math.abs(this.camera.fov - pose.fov) > 0.05) { this.camera.fov = pose.fov; this.camera.updateProjectionMatrix(); }
+    const fov = pose.fov !== undefined && this.cam.mode === 'CINE' ? this.cineFov(pose.fov) : pose.fov;
+    if (fov !== undefined && Math.abs(this.camera.fov - fov) > 0.05) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
     return pose;
+  }
+  // dar ya da dikey pencerede (telefon) yatay görüş alanı daralmasın: sinematik kamerada dikey görüş açısı en-boy oranına göre genişler (1,4'ten geniş pencerede değişmez)
+  cineFov(fov) {
+    const a = this.camera.aspect || 1.78, k = Math.min(2.2, Math.max(1, 1.4 / a));
+    return k > 1.001 ? (2 * Math.atan(Math.tan(fov * Math.PI / 360) * k) * 180) / Math.PI : fov;
   }
 
   autoCamera(x, info) {

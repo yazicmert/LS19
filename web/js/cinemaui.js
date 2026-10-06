@@ -12,6 +12,7 @@ export class CineUI {
     root.innerHTML = `
       <div class="cine-bar top"></div>
       <div class="cine-bar bottom"></div>
+      <div class="cine-scrim"></div>
       <div class="cine-cards" aria-live="polite"></div>
       <div class="cine-strip">
         <div class="cs-cell"><span class="cs-k">Görev süresi</span><span class="cs-v" data-f="met">T+0g 00:00:00</span></div>

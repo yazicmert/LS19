@@ -29,10 +29,10 @@ Gösterim yaklaşık **2 dakika** sürer (Apollo profilinde ~134 s anma süre; h
 | 3 | **kademe ayrılması** | omuz üstü (Dünya arkada) → ayrılma düzleminde yakın plan | ×600 → ×1; ayrılma anında **parlama + pufları** |
 | 4 | **Ay'a yolculuk** | Dünya geri çekilirken omuz üstü → Dünya–Ay sistemi (yörünge izi, Dünya/Ay/araç ışıltıları) → Ay'a yaklaşma | ×10⁴ … 4·10⁴ (kadar fizik yetişir) |
 | 5 | **LOI** | Ay'ın üstünden omuz üstü → motor yakın planı → araç çevresi | ateşlemeye ×1,5'a yavaşlar, yakışta ×18 |
-| 6 | **Ay yörüngesi** | Ay etrafında geniş, anlık yörünge elipsi, araç ışıltısı | ×~2000 (en çok ~2,7 tur gösterilir; kalanı kararma altında geçilir) |
+| 6 | **Ay yörüngesi** | Ay etrafında geniş: Güneş'in aydınlattığı yüz kameraya dönük (gece yüzü değil), Ay kadrajın sağında (kart solda); anlık yörünge elipsi, araç ışıltısı | ×~2000 (en çok ~2,7 tur gösterilir; kalanı kararma altında geçilir) |
 | 7 | **iniş kademesi ayrılır** | araç çevresinde yakın plan, parlama + pufları | ×6 → ×1 → ×19 |
 | 8 | **motorlu iniş** → **yaklaşma** | motor yakın planı → araç çevresi (yaklaşma eksenine bağlı) | **irtifaya göre**: 12 km üstü ×60 … 1,6 km ×22 … 250 m ×8 … 25 m ×3 … temas ×1 |
-| 9 | **temas** | iniş yerinde yerden alçak açı, uzun mercek; Ay tozu | irtifaya göre, temastan sonra 4,5 s |
+| 9 | **temas** | iniş noktasına bakan **sabit yer kamerası** (tripod; ~118 m uzakta, göz yüksekliği 1,7 m): araç yukarıdan kadraja iner, kadraj ağır ağır yaklaşır (görüş açısı ~21° → ~10°), yüzeye yakın Ay tozu halkası görünür; yaklaşma çekimi aracı kadraja alacak irtifada (34 m) biter | irtifaya göre, temastan sonra 4,5 s |
 | 10 | **kapanış** | aracın çevresinde yavaş yükselen kamera; bakış hafifçe sola döndürülür, araç kadrajın sağında kalır (kart solda) | temas özeti: süre, Δv, temas hızı, kalan yakıt (sayılar `number-flow` ile yuvarlanır); kart açılınca veri şeridi söner (aynı değerler kartta) |
 
 Dokuz **bölüm kartı** vardır (`01 / 09` …): sol altta büyük, geniş aralıklı başlık, ince çizgi ve alt yazı; altta **veri şeridi** (görev süresi, aşama, irtifa/hız ya da Dünya–Ay uzaklığı, zaman hızı) ve **zaman çizelgesi** (bölüm işaretleri). Alt yazılardaki sayılar o anki durumdan gelir.
@@ -47,7 +47,7 @@ Fizik ayrı bir iş parçacığında (worker) gerçek zamanın `×warp` katıyla
 
 ### 2.2 Kamera düzenekleri
 
-`LVLH` (araç çevresinde küresel az/el/uzaklık, yerel dikey çerçevede; iniş evrelerinde yaklaşma eksenine bağlı), `gövde` (motor çıkışına göre metre cinsinden göz/hedef, yönelim 0,35 s zaman sabitiyle yumuşatılır ki RCS titremesi kamerayı sallamasın), `omuz üstü` (kamera Dünya/Ay'ın karşı tarafında: araç ön planda, cisim arkada), `yerden` (iniş yerinin yaklaşma eksenli çerçevesinde sabit gözlemci; görüş açısı mesafeye göre), `geniş` (Dünya/Ay/Sistem etrafında; ışık yönüne göre bakış, kıyı bileşimi, bakışı yatırma/döndürme). Hepsi `scene.js`'in `CINE` kamera kipinden çağrılır; çekim başına görüş açısı ve (yakışta) hafif titreşim vardır.
+`LVLH` (araç çevresinde küresel az/el/uzaklık, yerel dikey çerçevede; iniş evrelerinde yaklaşma eksenine bağlı), `gövde` (motor çıkışına göre metre cinsinden göz/hedef, yönelim 0,35 s zaman sabitiyle yumuşatılır ki RCS titremesi kamerayı sallamasın), `omuz üstü` (kamera Dünya/Ay'ın karşı tarafında: araç ön planda, cisim arkada), `yerden` (iniş yerinin yaklaşma eksenli çerçevesinde sabit gözlemci; aracı izler ya da `fixed` iken sabit bir iniş noktasına bakar, araç kadraja iner; görüş açısı mesafeye göre), `geniş` (Dünya/Ay/Sistem etrafında; ışık yönüne göre bakış, kıyı bileşimi, bakışı yatırma/döndürme). Hepsi `scene.js`'in `CINE` kamera kipinden çağrılır; çekim başına görüş açısı ve (yakışta) hafif titreşim vardır.
 
 ## 3. Bindirmeler ve hareket tasarımı
 
@@ -56,7 +56,9 @@ Bindirmeler DOM'dur (canvas'ın üstünde); hareket **yalnız `transform`, `opac
 * **Letterbox** 2,39:1: üst/alt çubuklar `translateY` ile kayar (daha geniş pencerede çubuk yok).
 * **Bölüm kartı**: başlık soldan sağa `clip-path` ile açılır, ince çizgi `scaleX`, alt yazı 0,4 s gecikmeyle yükselir (kademeli giriş); çıkış tek `opacity` sönmesi.
 * **Kararma / ayrılma parlaması**: tam ekran siyah/beyaz katman, `opacity`.
+* **Alt karartma** (`.cine-scrim`): alt kenarda siyahtan saydama yumuşak bir geçiş; Ay, Dünya ya da bulut gibi parlak yüzeylerde veri şeridi ve kartlar okunur kalır; yalnız `opacity` ile belirir, kapanış kartında söner.
 * **Azaltılmış hareket** (`prefers-reduced-motion`): letterbox kaymaz, başlık silinmez, parlama yok; yalnız sönme kalır; kamera titreşimi kapanır.
+* **Dar / dikey ekran (telefon):** veri şeridi 2×2 ızgaraya, bölüm kartları tam genişliğe geçer, kapanış kartı üstte durur; letterbox çubuğu dikey ekranda yüksekliğin en çok %15'i kadardır (resim alanı kalsın); kısa (yatay telefon) ekranda başlıklar yüksekliğe göre ölçeklenir. Kamera tarafında `cineFov`: en-boy oranı 1,4'ün altına indikçe dikey görüş açısı büyütülür (en çok 2,2×), böylece araç dar kadrajda taşmaz.
 * Normal arayüz (HUD, panel, alt çubuk) sinematik kipte `opacity` ile kapanır; işaretçiler, etiketler ve yardımcı çizgiler gizlenir (iz çizgileri yalnız geniş çekimlerde).
 
 ## 4. Son işlem hattı (yalnız sinematik kip)
@@ -71,6 +73,7 @@ Bindirmeler DOM'dur (canvas'ın üstünde); hareket **yalnız `transform`, `opac
 * **Malzemeler (PBR):** kaynak NASA modelleri Maya "blinn" malzemeleridir (metalik yok); `scene.js` içindeki tabloyla malzeme adına göre metalik/pürüzlülük verilir (altın folyo ≈ 0,55/0,36, gri metal 0,4/0,4, beyaz boya 0,05/0,45). Test, tablodaki adların GLB'lerde var olduğunu doğrular.
 * **Gölge:** araç her zaman kendi üstüne ve yüzeye gölge atar (±35 m kutu, 2048², Güneş yönünde 0,1 km); kamera 1 km'den uzaktaysa gölge haritası yenilenmez.
 * **Motor plümü** (`fx.js`): çıkıştan uca genişleyen kabuk (vakum plümü), üstel sönme, eksen boyunca akan gürültü, hafif şok elmasları, sıcak çekirdek → soğuk kenar renk geçişi (HDR; bloom'u besler), çıkışta HDR ışıma sprite'ı, kameraya 12 m'den yakında solma. LH2/LOX (S-IVB) soluk mavi, hipergolik (SPS, iniş motoru) sıcak. Gaz plümün boyunu ve ışımasını değiştirir. RCS iticileri aynı gölgelendiriciyle (kısa, mavi-beyaz), fizikteki görev oranıyla yanar. **Motor ışığı**: etkin motorun çıkışının 1 m altında nokta ışık (iniş aracında bacakları ve zemini turuncu aydınlatır).
+* **Okyanus Güneş parıltısı:** Dünya gölgelendiricisinde küçük, parlak bir çekirdek (`cos⁴⁰⁰`) ve ince bir hâle (`cos⁴⁰`); eskiden geniş ve patlak bir leke bloom ile büyüyor, kıyı ayrıntısını siliyordu.
 * **Ayrılma:** yeni kademe ayrıldığında ayrılma düzleminde bir parlama ve 70 puf (aracı izleyen eylemsiz çerçevede, 1–2 s).
 * **Ay tozu:** iniş motoru yüzeyin 48 m'sinden yakınken plümün yüzeyi vurduğu noktada ince parçacıklar (saniyede ≤ 4200) radyal olarak savrulur; parçacıklar iniş yerine bağlı çerçevede **balistik** (vakumda sürtünme yok, Ay çekimi 1,62 m/s²) uçar, yere düşünce kaybolur. *Sınır:* bu bir **görsel modeldir** (gerçek regolit püskürmesi ya da parçacık fiziği değildir); sayılar ve boyutlar görünüm için seçilmiştir.
 

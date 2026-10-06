@@ -81,6 +81,9 @@ check('Apollo iki kademe: dokuz bölüm, anma süre 110–150 s, açılış INS\
   check('pdi çekimi: ateşlemeye kalan süre/2,2 s (×40 … ×1,5; azalan), ateşlemeden sonra ilk 2,4 s ×1,2, sonra irtifaya göre',
     preMono && pre(1000) === 40 && Math.abs(pre(66) - 30) < 1e-9 && pre(0) === 1.5 && pdi.wf({}, { burnT: 1 }) === 1.2 && pdi.wf({ local: { p: [0, 0, 5] } }, { burnT: 5 }) > 20,
     `×${pre(66).toFixed(0)} @66 s, ×${pre(11).toFixed(1)} @11 s, ×${pre(2).toFixed(1)} @2 s`);
+  const apr = apollo2.S.find((s) => s.id === 'approach'), lowAlt = (km) => apr.until({ local: { p: [0, 0, km] } });
+  check('temas çekimi: sabit yer kamerası (iniş noktasına bakar, araç kadraja iner); yaklaşma çekimi aracı kadraja alacak irtifada (≤ 40 m) biter',
+    td.rig.type === 'ground' && td.rig.fixed === true && Array.isArray(td.rig.aimUp) && lowAlt(0.03) === true && lowAlt(0.05) === false, `yaklaşma 30 m'de ${lowAlt(0.03) ? 'biter' : 'bitmez'}, 50 m'de ${lowAlt(0.05) ? 'biter' : 'bitmez'}`);
 }
 
 // ---------------------------------------------------------------- 4) efektler (fx.js)
@@ -123,6 +126,9 @@ check('Apollo iki kademe: dokuz bölüm, anma süre 110–150 s, açılış INS\
   const rm = /@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*)\}\s*$/.exec(css);
   check('cinema.css: prefers-reduced-motion bloğu var ve açılış kaydırmasını/silmesini söndürür (letterbox geçişi, clip-path, ayrılma parlaması)', !!rm && /\.cine-bar \{ transition: none/.test(rm[1]) && /clip-path: none/.test(rm[1]) && /cine-flash\.go \{ animation: none/.test(rm[1]));
   check('cinema.css: eğriler tanımlı (--cine-out güçlü ease-out, --cine-io ease-in-out) ve yalnız onlar kullanılır', /--cine-out: cubic-bezier\(0\.23, 1, 0\.32, 1\)/.test(css) && /--cine-io: cubic-bezier\(0\.77, 0, 0\.175, 1\)/.test(css) && !/ease-in[^-o]/.test(css.replace(/ease-in-out/g, '')));
+  check('cinema.css: dar/dikey ve kısa ekran (telefon) düzenleri var; letterbox çubuğu dikey ekranda en çok %15; alt karartma yalnız opacity ile belirir',
+    /@media \(max-width: 700px\), \(max-aspect-ratio: 1\/1\)/.test(css) && /@media \(max-height: 520px\)/.test(css) && /--bar: clamp\(0px, calc\(\(100vh - 100vw \/ 2\.39\) \/ 2\), 15vh\)/.test(css)
+    && /\.cine-scrim \{[^}]*transition: opacity/.test(css) && !/\.cine-scrim \{[^}]*transform/.test(css));
   // cinemaui.js sınıfları CSS'te tanımlı
   const cls = new Set([...ui.matchAll(/class="([^"]+)"/g)].flatMap((m) => m[1].split(/\s+/)).filter((c) => /^(cine|cs-|ct-|cc-)/.test(c)));
   for (const c of ['cine-card', 'live', 'on', 'in', 'out', 'open', 'close', 'chapter', 'active', 'nostrip', 'paused']) cls.add(c);
@@ -143,6 +149,14 @@ check('Apollo iki kademe: dokuz bölüm, anma süre 110–150 s, açılış INS\
   check('scene.js PBR tablosu: her malzeme adı ilgili GLB\'de var; değerler [metalik, pürüzlülük] ∈ [0,1]', bad.length === 0 && Object.values(kinds).every((l) => l.length > 0) && [...m[1].matchAll(/\[(\d\.?\d*), (\d\.?\d*)\]/g)].every((x) => +x[1] <= 1 && +x[2] <= 1 && +x[2] >= 0.2), bad.join(', ') || `${Object.values(kinds).flat().length} malzeme`);
   check('scene.js: CINE kamera kipi (cine.rig), setCinematic (son işlem tembel yüklenir, piksel oranı sınırlı), işaretçi/çizgi gizleme, sinematik dolgu ışığı, IBL ortamı (updateEnv), parçacık efektleri (updateFx)',
     /c\.mode === 'CINE' && this\.cine\.rig/.test(sc) && /async setCinematic\(on/.test(sc) && /import\('\.\/post\.js'\)/.test(sc) && /applyCineVis\(\)/.test(sc) && /cineFill/.test(sc) && /updateEnv\(vehPos/.test(sc) && /updateFx\(/.test(sc) && /scene\.environmentRotation/.test(sc));
+  {
+    // dar/dikey pencerede sinematik görüş açısı genişler: dikey fov', yatay görüş alanı en-boy oranı 1,4'ün altında sabit kalacak biçimde büyütülür (scene.js cineFov ile aynı formül)
+    const m = /cineFov\(fov\) \{([\s\S]*?)\n  \}/.exec(sc), f = m && new Function('fov', 'camera', `const self = { camera }; return (function(fov){ ${m[1].replace(/this\./g, 'self.')} }).call(null, fov)`);
+    const hfov = (v, a) => 2 * Math.atan(Math.tan(v * Math.PI / 360) * a) * 180 / Math.PI;
+    const wide = f && f(40, { aspect: 2.39 }), phone = f && f(40, { aspect: 390 / 844 }), land = f && f(40, { aspect: 844 / 390 });
+    check('scene.js cineFov: geniş pencerede (en-boy ≥ 1,4) görüş açısı değişmez; dikey telefonda dikey açı büyür ve yatay görüş alanı korunur (≥ 1,4 en-boy eşdeğeri), sınırlı (≤ 2,2×)',
+      !!m && Math.abs(wide - 40) < 1e-9 && Math.abs(land - 40) < 1e-9 && phone > 40 && phone < 170 && hfov(phone, 390 / 844) > hfov(40, 1.0) && Math.tan(phone * Math.PI / 360) / Math.tan(40 * Math.PI / 360) <= 2.2 + 1e-9, `dikey: 40° → ${phone && phone.toFixed(1)}°`);
+  }
   check('post.js: MSAA\'lı HDR sahne → bloom → çizgi parlama → OutputPass → film geçişi; kalite kademeleri (yüksek/orta/düşük) ve gerçek kare süresiyle düşürme',
     /UnrealBloomPass/.test(post) && /OutputPass/.test(post) && /samples: high \? 4 : 0/.test(post) && /setLevel\(/.test(post) && /'medium'/.test(post) && /raw \* 1000/.test(post) && /vignette/.test(post) && /grain/.test(post));
   for (const f of ['EffectComposer', 'RenderPass', 'ShaderPass', 'UnrealBloomPass', 'OutputPass', 'MaskPass', 'Pass']) if (!fs.existsSync(new URL(`../lib/addons/postprocessing/${f}.js`, import.meta.url))) { check(`lib/addons/postprocessing/${f}.js var`, false); }
