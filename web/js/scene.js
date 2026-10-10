@@ -237,11 +237,11 @@ export class World {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.shadowMap.enabled = true; this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     // GPU bağlamı kaybolursa (sürücü sıfırlaması, bellek baskısı) ana dokular yeniden yüklenemez: çözülmüş bitmap'ler GPU'ya yüklenince bırakılır (bellek).
-    // Geri gelince sayfa bir kez yenilenir (30 sn içinde ikinci kayıpta döngüye girmesin diye yalnız bir kez)
+    // Geri gelince sayfa bir kez yenilenir; 30 sn içinde ikinci kayıpta döngüye girmesin diye yenilenmez, onContextProblem ile kullanıcıya bildirilir (dokular geri gelmez)
     canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.ctxLost = true; });
     canvas.addEventListener('webglcontextrestored', () => {
       let last = 0; try { last = +sessionStorage.getItem('ls19.ctxReload') || 0; sessionStorage.setItem('ls19.ctxReload', String(Date.now())); } catch (err) { /* depolama kapalı */ }
-      if (Date.now() - last > 30000) location.reload();
+      if (Date.now() - last > 30000) location.reload(); else if (this.onContextProblem) this.onContextProblem();
     });
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(50, 1, 1e-5, 1e11);

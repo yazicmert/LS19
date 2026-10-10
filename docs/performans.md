@@ -50,12 +50,13 @@ Eski akış: 9 büyük harita (8192×4096) `<img>` olarak iner, **ilk çizim kar
 
 ### 5.1 Doku hattı (`js/texload.js`, plan: `js/texplan.js`)
 
-- İndirme + çözme ana iş parçacığı dışında (`fetch` → `createImageBitmap`; `imageOrientation: 'flipY'`, alfa/renk dönüşümü kapalı: WebGL bu ayarları `ImageBitmap`te yok sayar). Tarayıcı `flipY` seçeneğini uygulamıyorsa (bazı tarayıcılar sessizce yok sayar) bir kez yoklanır ve eski `<img>` yoluna düşülür.
+- İndirme + çözme ana iş parçacığı dışında (`fetch` → `createImageBitmap`; `imageOrientation: 'flipY'`, alfa/renk dönüşümü kapalı: WebGL bu ayarları `ImageBitmap`te yok sayar). Tarayıcı `flipY` seçeneğini uygulamıyorsa (bazı tarayıcılar sessizce yok sayar) bir kez yoklanır ve eski `<img>` yoluna düşülür; yakınlaştıkça gelen NASA parçaları (`tiles.js`) aynı yoklamayı kullanır (eskiden `flipY`'yi yok sayan tarayıcıda parçalar ters çıkabilirdi).
 - **GPU yüklemesi yükleme ekranındayken**, doku başına ayrı görevde, aralarına bir boyama girerek (`renderer.initTexture`); yükleme çubuğu akar, ilk çizim kare donmaz. Çözülmüş bitmap yüklendikten sonra kapatılır.
 - Bulut ve özyansıma haritaları **tek kanallı (R8)**: gölgelendirici yalnız `.r` okur (testle doğrulanır). GPU belleği 1,06 GB → **0,91 GB**.
-- **Düşük bellek katmanı**: `navigator.deviceMemory ≤ 4` ya da mobil kullanıcı aracısında 8192×4096 haritalar 4096×2048'e (ve Ay normal haritası yarıya) çözülürken küçültülür → **0,28 GB**. `?lowmem=1/0` ile zorlanır. Yakınlaştıkça gelen NASA parçaları ayrıntıyı yine verir.
+- **Düşük bellek katmanı**: `navigator.deviceMemory ≤ 4` ya da mobil kullanıcı aracısında 8192×4096 haritalar 4096×2048'e (ve Ay normal haritası yarıya) küçültülür → **0,28 GB**. `?lowmem=1/0` ile zorlanır. Yakınlaştıkça gelen NASA parçaları ayrıntıyı yine verir. Katman **üç yolda** çalışır: `createImageBitmap(resize…)` ile çözme sırasında; tarayıcı resize seçeneğini yok sayarsa tuvalde küçültme; `<img>` yedek yolunda tuvalde küçültme (bu yol tam da iOS Safari gibi bellek darken kullanılabilir; ilk sürümde katman orada sessizce devre dışıydı, §11).
 - Gölgelendiriciler yükleme sırasında önceden derlenir (`compileAsync`; `KHR_parallel_shader_compile` varsa ana iş parçacığını tutmadan). Eşzamanlı hata denetimi paralel derlemeyi engellediğinden derleme sırasında kapatılır, ardından bağlama durumu toplu denetlenir (hata yine konsola düşer). Eklenti yoksa (SwiftShader, bazı tarayıcılar) eşzamanlı `compile` ile yine ilk çizim karesinden önce, yükleme ekranındayken derlenir. Gizli nesnelerin programları da derlendiğinden program sayısı 12 → ~22: ilk kullanımdaki takılma yükleme anına kaydı (bunun maliyeti gerçek GPU'da, paralel derlemeyle, ana iş parçacığını tutmadan ödenir).
-- Bağlam kaybı (`webglcontextlost/restored`): bitmap'ler bırakıldığından yeniden yükleme mümkün değildir; bağlam dönünce sayfa **bir kez** yenilenir (30 sn içinde ikinci kayıpta döngüye girmez).
+- R8 yüklemesi GL hatası verirse (sürücü/tarayıcı `ImageBitmap` → `RED` dönüşümünü reddederse) doku atılıp RGBA olarak yeniden yüklenir: bulut ve okyanus parıltısı sessizce kaybolmaz.
+- Bağlam kaybı (`webglcontextlost/restored`): bitmap'ler bırakıldığından yeniden yükleme mümkün değildir; bağlam dönünce sayfa **bir kez** yenilenir. 30 sn içinde ikinci kayıpta döngüye girmez; yükleme katmanı "Grafik bağlamı tekrar kayboldu … Sayfayı yenileyin" iletisi ve **Sayfayı yenile** düğmesiyle kullanıcıya bildirir (sessizce siyah gezegen yerine).
 
 ### 5.2 İniş arazisi (`js/terraingen.js`, `js/terrainwork.js`)
 
@@ -87,7 +88,7 @@ Arazi üretimi (263 bin köşe × 7 krater sınıfı, ~0,85 sn) saf sayısal kod
 
 ## 7. Çalışma zamanı denetleyicileri ve adres parametreleri
 
-- **Uyarlanır çözünürlük** (`js/perfgov.js`): kare süresinin medyanı sürekli > 24 ms ise piksel oranı 0,25'lik kademelerle (en düşük 1) düşer; ekran hızında ve kestirilen yeni süre eşiğin altındaysa geri çıkar. Salınmaz (bekleme süresi her düşüşte iki kat, yükselince yavaşlayan seviye 30 dk "tavan" sayılır). Nokta katmanlarının (uydu/asteroit) boyutu ekranda sabit kalır. Kapalı: `?adapt=0`, otomasyon (`navigator.webdriver`), sinematik kip (kendi kalitesini yönetir), tasarım ve gizli sekme.
+- **Uyarlanır çözünürlük** (`js/perfgov.js`): kare süresinin medyanı (40 karelik pencere) sürekli > 24 ms ise piksel oranı 0,25'lik kademelerle (en düşük 1) düşer. Kare süresi GPU maliyetini değil ekranın ritmini de yansıttığı ve darboğaz piksel olmayabileceği için üç korumalı: (1) **düşüşün faydası ölçülür**: sonraki pencerede kare süresi ≥ %5 iyileşmediyse darboğaz piksel değildir (yavaş CPU, köşe işi, iOS Düşük Güç Modu'nun 30 Hz sınırı) → eski oran geri verilir ve 5 dk daha düşürülmez; (2) **geri çıkış**: kare süresi ekran ritmine yakınsa bir kademe denenir, deneme yavaşlatırsa o seviye 30 dk "tavan" sayılır, tavan seviyesinde kare süresi ≥ %15 düşerse (hafif sahne, güç tasarrufu kalktı) tavan kalkar; tabanda takılı kalmaz ve salınmaz; (3) 250 ms'den uzun kareler de (çok yavaş cihaz) ölçülür, yalnız > 1,5 sn'lik duraklamalar ölçümü sıfırlar, birkaç kare sıçraması medyanı bozmaz. Nokta katmanlarının (uydu/asteroit) boyutu ekranda sabit kalır. Kapalı: `?adapt=0`, otomasyon (`navigator.webdriver`), sinematik kip (kendi kalitesini yönetir), tasarım ve gizli sekme.
 - Parametreler: `?lowmem=1|0` (düşük bellek dokuları), `?adapt=0` (uyarlanır çözünürlüğü kapat), `?bg=1` (arka planda da sürsün), `?prefetch=1` (gökyüzü katmanlarını hemen kur).
 
 ## 8. Yapılmayanlar ve nedenleri
@@ -120,6 +121,59 @@ cd web && python3 sunucu.py &                       # ya da: python3 -m http.ser
 node tools/perf_olcum.mjs yukleme   # açılış zaman çizelgesi, uzun görevler, ilk çizim kareleri
 node tools/perf_olcum.mjs cizim     # kamera kiplerine göre çizim çağrısı / üçgen / geometri / program
 node tools/perf_olcum.mjs kare      # kare başına JS (world.update + ui.hud)
+node tools/cihaz_emulasyonu.mjs     # telefon / Safari benzeri yedek yollar / R8 reddi / bağlam kaybı / uyarlanır çözünürlük emülasyonu (§11)
 ```
 
 Betik Playwright + Chromium ister (`npm i -g playwright-core`; tarayıcı yolu `CHROME=` ile verilir) ve varsayılan olarak yazılım çizimiyle (SwiftShader) çalışır, `--gpu` gerçek GPU kullanır. Önce/sonra karşılaştırması için iki ağacı iki kapıdan sunup komutu iki adresle çalıştırın. Testler: `cd web && for t in test/test_*.js; do node $t; done` (33 dosya; `test_profiles.js` ve `test_twostage.js` birkaç dakika sürer).
+
+## 11. Gerçek cihaz yerine emülasyon denetimi ve bulunan zayıflıklar
+
+§1'deki sınır geçerliydi: ölçümler yazılım çizimiyle yapılmıştı ve uyarlanır çözünürlük ile düşük bellek katmanı **gerçek bir ekran kartında ve telefonda denenmemişti**. Bu ortamda gerçek GPU ya da telefon yok. Bu yüzden gerçek cihazlarda karşılaşılabilecek bozulma biçimleri başsız Chromium'da **taklit edildi** (`tools/cihaz_emulasyonu.mjs`) ve mekanizmalar bu koşullarda sınandı. Bu, gerçek cihaz denemesinin yerine geçmez; ne sınandığı (§11.1), emülasyonda ne bulunup düzeltildiği (§11.2) ve neyin hâlâ sınanamadığı (§11.3) ayrı ayrı yazılıdır.
+
+### 11.1 Senaryolar (`node tools/cihaz_emulasyonu.mjs`)
+
+| Senaryo | Taklit edilen | Denetlenen |
+|---|---|---|
+| `telefon` | Pixel 7 kullanıcı aracısı, 412×915 CSS pikseli, DPR 2,625, dokunmatik, `deviceMemory = 4` | düşük bellek katmanı adres parametresi olmadan açılır; ana haritalar 4096×2048, Ay normal haritası 2880×1440, LOLA yükseklik haritası dokunulmaz; çizim tamponu = CSS × min(DPR, 2) = 824×1830; park görünümü ve panel ekran görüntüsünde gözle denetlendi (Dünya düz, bulut ve parıltı yerinde, panel ekrana sığıyor) |
+| `iphone` | iPhone Safari kullanıcı aracısı, 390×844, DPR 3 (`deviceMemory` yok: kullanıcı aracından) | aynı denetimler (780×1688 tampon) |
+| `resize-yok` | `createImageBitmap` resize seçeneklerini sessizce yok sayar | düşük bellek katmanı yine etkin (tuvalde küçültme, 4096×2048); görüntü tarayıcının kendi küçültmesiyle aynı |
+| `safari` | `imageOrientation: 'flipY'` yok sayılır (yoklama başarısız → `<img>` yolu) | doku ters değil, bulut RGBA, düşük bellek katmanı yine etkin; görüntü bitmap yoluyla aynı |
+| `r8-red` | R8 (`RED`) yüklemesi GL hatası verir (sürücü reddi) | doku RGBA olarak yeniden yüklenir; bulut ve okyanus parıltısı yerinde |
+| `baglam-kaybi` | `WEBGL_lose_context` ile kayıp + dönüş | ilk kayıpta bir kez yenileme; 30 sn içinde ikinci kayıpta döngü yok, kullanıcıya düğmeli ileti |
+| `uyarlanir`, `uyarlanir-2` | SwiftShader = çok yavaş GPU (araç yakın kamerası, 150–250 ms/kare); `navigator.webdriver` gizlenir (denetleyici otomasyonda kapalı) | oran [1, en çok] içinde; tampon = CSS × oran; salınım yok; yarar sağlamayan düşüş geri alınır |
+
+Görüntü denetimleri aynı görünümün (park yörüngesi, aydınlık Dünya yüzü) ekran görüntülerinin piksel farkıyla yapılır; eşikler ortalama |fark| < 3 ve farkı > 24 olan piksel oranı < %3 (R8 senaryosunda < 1).
+
+### 11.2 Emülasyonda bulunan zayıflıklar ve düzeltmeleri
+
+"Önce" = `b613108` (performans denetimi sürümü), aynı senaryolar.
+
+| # | Bulgu | Önce | Düzeltme | Sonra |
+|---|---|---|---|---|
+| 1 | Düşük bellek katmanı, `createImageBitmap` resize seçeneğini yok sayan tarayıcıda **sessizce devre dışıydı** | `lowMem = true` ama haritalar 8192×4096 (≈0,9 GB) | çözülen bitmap beklenen boyutta değilse tuvalde küçültülür | 4096×2048 / 2880×1440; görüntü başvuruyla aynı (ort. fark 0,14) |
+| 2 | Aynı katman `<img>` yedek yolunda hiç çalışmıyordu (bu yol tam da iOS Safari gibi bellek darken kullanılan yol) | `HTMLImageElement` 8192×4096 | tuvalde küçültme (`imageSmoothingQuality = 'high'`) | `HTMLCanvasElement` 4096×2048; görüntü bitmap yoluyla aynı (ort. fark 0,19) |
+| 3 | R8 yüklemesi GL hatası verirse (`INVALID_VALUE`) bulut ve okyanus parıltısı **sessizce** kayboluyordu | başvuruya göre piksellerin %4,24'ü farklı | `gl.getError()` denetimi; hata varsa doku atılıp RGBA yüklenir | piksellerin %0,03'ü farklı (gürültü düzeyi) |
+| 4 | Bağlam 30 sn içinde ikinci kez kaybolursa (yenileme döngüsünü önlemek için sayfa yenilenmez) kullanıcıya hiçbir şey söylenmiyordu: siyah gezegen | ileti yok | yükleme katmanında "Grafik bağlamı tekrar kayboldu … Sayfayı yenileyin" iletisi ve **Sayfayı yenile** düğmesi | ileti ve düğme görünür; döngü yok |
+| 5 | Uyarlanır çözünürlük, darboğaz piksel değilken (CPU/köşe işi, 30 Hz sınırı) kaliteyi **boşuna** düşürüyordu | 150 ms'lik, çözünürlükten bağımsız karelerde 2 → 1,75; kare süresi değişmedi (150 ms), hiç geri dönmedi | düşüşün yararı ölçülür: sonraki pencerede ≥ %5 iyileşme yoksa eski oran geri verilir ve 5 dk daha düşürülmez | 320×240 (DPR 2): 3 dk'da 2 / 1,75 / 1,5 arasında 4 değişiklik, kare süresi hep 150–200 ms, **sonda 2**; ilk koşuda 43. sn'de 1,75, 49. sn'de yarar yok → 2'ye döndü ve değişmedi |
+| 6 | Kısmen doldurma oranına bağlı sahnede (1280×720 tampon) düşüş, yarar varsa sürmeli | (yeni denetim) | — | Bir koşuda 2 → 1,75 → 1,5 → 1,25 → 1; kare süresi 233–250 → 167 ms (−%33); tabanda takılı kalıp salınmadı. Aynı senaryonun öteki koşusunda yarar çıkmadı: 2 → 1,75 → 2 geri alındı. SwiftShader'ın darboğazı iki durumun arasında olduğundan sonuç koşudan koşuya değişir; ikisi de tasarlanan davranıştır |
+| 7 | 250 ms'den uzun her kare ölçüm penceresini sıfırlıyordu: çok yavaş cihazda pencere hiç dolmayabilirdi | kod incelemesi | yalnız > 1,5 sn'lik duraklamalar sıfırlar | `test_perfgov.js`: 150 ms/piksel² sahnede en düşük orana iner |
+| 8 | Geri çıkış kararı doldurma oranını varsayıyordu (süre ≈ oran²); CPU'ya bağlı sahnede yanlış çıkar, hafif sahneye geçince de tavan 30 dk kilitli kalırdı | kod incelemesi + birim testi | deneme yükseltmesi ve geri alma; tavan seviyesinde kare süresi ≥ %15 düşerse tavan kalkar | `test_perfgov.js`: hafif sahneye geçince ~2 dk içinde en yükseğe döner; 25 dk'da ≤ 4 oran değişikliği |
+| 9 | `tiles.js` (yakınlaştıkça gelen NASA parçaları) `flipY` yoklamasını kullanmıyordu: seçeneği yok sayan tarayıcıda parçalar ters çıkabilirdi | kod incelemesi | `texload.bitmapSupported()` yoklaması paylaşıldı; başarısızsa `<img>` yolu | `test_texplan.js` sözleşme denetimi |
+
+Not (5. ve 6. satırlar): karelerin 16,7 ms'nin katlarına (vsync) sıçradığı, %10 gürültülü bu aşırı yavaş rejimde (≈6 kare/sn) ≥ %5 yarar şartı tesadüfen de sağlanabilir; bu yüzden geçici bir 1,5'e iniş görülebilir, ama geri alınır ve oran dalgalanması sınırlıdır (`test_perfgov.js`: CPU'ya bağlı 40 ms'lik sahnede 20 dk'da ≤ 10 değişiklik).
+
+### 11.3 Hâlâ sınanamayanlar (gerçek cihaz gerekir)
+
+- **Gerçek GPU kare süreleri, doldurma oranı ve ısıl kısılma.** SwiftShader CPU'da çizer; uyarlanır çözünürlüğün eşikleri (24 ms, 0,25 kademe, ≥ %5 yarar şartı, 40 karelik pencere) mantık olarak sınandı, gerçek GPU'larda **ayarlanmadı**. Bir telefonda uzun oturumda (ısınma) nasıl davrandığı bilinmiyor.
+- **Gerçek bellek baskısı.** 4096×2048 katmanın ≈0,28 GB'lık GPU belleği doku boyutlarından **hesaplanmış** değerdir; iOS Safari'nin sekmeyi bellek yüzünden yeniden yüklemesi ya da Android'in sekmeyi öldürmesi bu ortamda görülemez. Bağlam kaybı yalnız `WEBGL_lose_context` ile taklit edildi.
+- **R8 `ImageBitmap` yükleme maliyeti.** SwiftShader'da R8 85 ms, RGBA 206 ms ölçüldü; gerçek sürücülerde `ImageBitmap → RED` dönüşümü CPU'ya geri okuma gerektirebilir. Hata verirse RGBA'ya düşülür (§11.2/3), ama **yavaşlık** gerçek cihazda ölçülmeli.
+- **Safari ve Firefox'un kendisi.** Yalnız Chromium'da "seçenek yok sayıldı" ve "`<img>` yedek yolu" taklit edildi; Safari'nin `createImageBitmap` seçenek desteği, WebGL bellek sınırı ve `KHR_parallel_shader_compile` yolu (SwiftShader'da eklenti yok, eşzamanlı yol sınandı) gerçek tarayıcıda görülmeli.
+- **Düşük bellek buluşsallığı.** `deviceMemory` Safari/Firefox'ta yoktur; iPadOS'un "Macintosh" kullanıcı aracısı mobil sayılmaz ve sekme otomatik düşük bellek katmanına girmez (elle `?lowmem=1`). `deviceMemory` değeri de yuvarlak ve üst sınırlıdır (≤ 4 eşiği iyi bir telefonu da kapsayabilir).
+- **iOS Düşük Güç Modu (30 Hz) ve dokunmatik kullanım.** 30 Hz tavanı birim testinde simüle edildi (oran düşmez, düşerse geri alınır); gerçek telefonda parmakla kullanım, düzenin gerçek yoğunlukta okunabilirliği ve sanal klavye gözle denetlenmedi.
+
+### 11.4 Gerçek cihazda nasıl denenir
+
+1. Sayfayı açıp konsoldan (uzaktan hata ayıklama ya da masaüstü tarayıcıda cihaz kipi) şunlara bakın: `LS19.world.lowMem` (düşük bellek katmanı açık mı), `LS19.world.renderer.getPixelRatio()` (uyarlanır oran), `LS19.world.earthU.dayMap.value.userData.size` (Dünya haritası boyutu), `LS19.world.canvas.width/height`.
+2. Karşılaştırma için aynı sayfayı `?lowmem=0` ve `?lowmem=1`, ayrıca `?adapt=0` ile açın; uzaktan bakışta bir telefon ekranında fark beklenmez (görülürse not edin); yakınlaştıkça NASA parçaları ayrıntıyı yine verir.
+3. Araç yakın kamerasında (iniş kademesi) birkaç dakika bekleyip oranın kademeli düşüp düşmediğini ve **kare akışının gerçekten iyileşip iyileşmediğini** izleyin; iyileşmiyorsa oran geri verilmelidir (§7).
+4. Bulutlar ve okyanus parıltısı görünüyor mu, Dünya düz mü (ters değil mi), panel ekrana sığıyor mu, kontrol edin.

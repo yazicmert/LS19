@@ -8,6 +8,7 @@
 // kamera yaklaşırken bir sonraki seviye önceden istenir (boşta bant genişliğiyle) · gerekmeyen istekler iptal edilir ·
 // kare başına en çok MAX_PROMOTE yeni parça GPU'ya yüklenir (takılma olmasın) · başarısız parça 15 sn sonra yeniden denenir.
 import * as THREE from 'three';
+import { bitmapSupported } from './texload.js';
 
 const D2R = Math.PI / 180;
 const NSEG = 14;
@@ -158,15 +159,16 @@ export class TileLayer {
   }
   async trimCache(c) { try { const ks = await c.keys(); if (ks.length > 4000) for (const k of ks.slice(0, 1000)) await c.delete(k); } catch (err) { /* */ } }
   async decode(blob) {
-    try {                                                                                                     // çözme ana iş parçacığı dışında
-      const bm = await createImageBitmap(blob, { imageOrientation: 'flipY', premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
-      const t = new THREE.Texture(bm); t.flipY = false;
-      t.onUpdate = () => { t.onUpdate = null; bm.close(); };                                                   // GPU'ya yüklenince çözülmüş piksel belleği bırakılır (yüzlerce parça × 1 MB)
-      return t;
-    } catch (err) {
-      const img = new Image(); img.src = URL.createObjectURL(blob); await img.decode();
-      const t = new THREE.Texture(img); t.flipY = true; return t;
+    if (await bitmapSupported()) {                                                                            // tarayıcı flipY'yi uyguluyor (yoklama texload.js'te): çözme ana iş parçacığı dışında
+      try {
+        const bm = await createImageBitmap(blob, { imageOrientation: 'flipY', premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
+        const t = new THREE.Texture(bm); t.flipY = false;
+        t.onUpdate = () => { t.onUpdate = null; bm.close(); };                                                 // GPU'ya yüklenince çözülmüş piksel belleği bırakılır (yüzlerce parça × 1 MB)
+        return t;
+      } catch (err) { /* aşağıdaki <img> yoluna düş */ }
     }
+    const img = new Image(); img.src = URL.createObjectURL(blob); await img.decode();                       // yedek: flipY'yi sessizce yok sayan tarayıcılarda parçalar ters çıkmasın
+    const t = new THREE.Texture(img); t.flipY = true; return t;
   }
   pump(now) {
     // gerekmeyen istekleri at / sürenleri iptal et

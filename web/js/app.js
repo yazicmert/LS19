@@ -31,6 +31,11 @@ initTreeMenus();
 const $ = (s) => document.querySelector(s);
 const canvas = $('#view'), chkNbody = $('#chkNbody');
 const world = new World(canvas, $('#labels'));
+// GPU bağlamı 30 sn içinde ikinci kez kaybolursa dokular geri yüklenemez (bellek için bırakılmıştı) ve sayfa yenileme döngüye girerdi: kullanıcıya bildirilir
+world.onContextProblem = () => {
+  $('#loading').style.display = 'grid'; $('#loadBar').style.width = '100%'; $('#loadMsg').textContent = 'Grafik bağlamı tekrar kayboldu; dokular geri yüklenemedi. Sayfayı yenileyin.';
+  $('#loadBack').hidden = false; $('#loadBack').textContent = 'Sayfayı yenile'; $('#loadBack').onclick = () => location.reload();
+};
 let latest = null, lastFrame = performance.now(), running = false, autoPilot = true;
 const manual = { throttle: 0, mode: 'PRO' };
 
