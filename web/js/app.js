@@ -9,6 +9,8 @@ import { twoStageDesign } from './mission.js';
 import { SatLayer } from './satlayer.js';
 import { AsteroidLayer } from './asteroids.js';
 import { AstUI } from './astui.js';
+import { LabUI } from './labui.js';
+import { DeflectUI } from './deflectui.js';
 import { Updater } from './updater.js';
 import { Tracker } from './tracker.js';
 import { SkyUI, SkyClock } from './skyui.js';
@@ -21,9 +23,10 @@ import { Cinema } from './cinema.js';
 import { PixelGovernor } from './perfgov.js';
 
 const DEFAULT_DATE = '2026-10-13';
-let K = null, DESIGN = null, START_MS = 0, sats = null, asts = null, astui = null, updater = null, tracker = null, skyui = null, impactui = null;
-// iki bağımsız çalışma alanı: "mission" (Ay görevi: fizik motoru, görev saati) ve "sky" (Canlı Gökyüzü: gerçek saat, uydular, asteroitler)
-let MODE = 'mission', missionSrc = null, skySrc = null, skyT = 0, moonRange = null;
+let K = null, DESIGN = null, START_MS = 0, sats = null, asts = null, astui = null, deflect = null, updater = null, tracker = null, skyui = null, impactui = null;
+// iki bağımsız MOTOR: "mission" (Ay görevi: fizik motoru, görev saati) ve "sky" (gerçek saat, uydular, asteroitler).
+// Üç GÖRÜNÜM (arayüz alanı): mission, sky (Canlı Gökyüzü) ve lab (Laboratuvar: sky motorunu paylaşır, kendi paneliyle)
+let MODE = 'mission', VIEW = 'mission', missionSrc = null, skySrc = null, skyT = 0, moonRange = null;
 const clock = new SkyClock();
 applyIcons();
 initTreeMenus();
@@ -71,7 +74,8 @@ function initSky() {
   // canlı uydular ve asteroitler (yerel sunucu ya da bulut vekili üzerinden); 10 dakikada bir sürüm denetimi
   sats = new SatLayer(world.scene, $('#labels'), K.eo); ui.bindSats(sats);
   asts = new AsteroidLayer(world.scene, $('#labels'));
-  astui = new AstUI({ world, asts, ui, getT: curT, focusOn, setCam: setSkyCam });
+  astui = new AstUI({ world, asts, ui, getT: curT, focusOn, setCam: setSkyCam, openLab });
+  deflect = new DeflectUI({ world, asts, ui, getT: curT, setCam: setSkyCam }); astui.deflect = deflect; deflect.onCatalog();
   tracker = new Tracker(world.scene, $('#labels'), sats);
   skyui = new SkyUI({ clock, tracker, sats, asts, setSkyCam, lookAt: lookAtSat, follow: followSat });
   impactui = new ImpactUI({ sats, asts, astui, follow: followSat }); ui.onCarpma = () => impactui.open();
@@ -104,14 +108,11 @@ function withMission(fn) {
   if (MODE === 'sky' && missionSrc && skySrc) { E.setProvider(missionSrc.prov); try { fn(); } finally { E.setProvider(skySrc.prov); } } else fn();
 }
 const camStore = { mission: null, sky: { mode: 'EARTH', dist: 36000, el: 0.45, az: 0.6, auto: false, key: '' } };
-function setWorkspace(m, push = true) {
-  if (m === MODE && camStore[m]) return;
+function switchEngine(m) {                                       // mission ↔ sky motoru (lab görünümü sky motorunu kullanır)
   if (m === 'sky' && cinema.on) cinema.stop();
   if (m === 'sky') { cmpCancel = true; }
   camStore[MODE] = world.cam; MODE = m;
   world.cam = camStore[m] || world.cam;
-  document.body.dataset.mode = m;
-  document.querySelectorAll('[data-workspace]').forEach((b) => { const on = b.dataset.workspace === m; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
   ui.hidePick(); $('#hoverTip').hidden = true;
   if (m === 'sky') {
     initSky();
@@ -123,9 +124,27 @@ function setWorkspace(m, push = true) {
     E.setProvider(missionSrc.prov); world.live = missionSrc; world.resetDynamic && world.resetDynamic();
     world.setSkyMode(false);
   }
-  try { localStorage.setItem('ls19.mode', m); } catch (e) { /* özel pencere */ }
-  if (push) { const u = new URL(location.href); u.searchParams.set('mode', m); history.replaceState(null, '', u); }
+}
+function setWorkspace(view, push = true) {
+  const m = view === 'mission' ? 'mission' : 'sky';
+  if (view === VIEW && camStore[m]) return;
+  if (m !== MODE || !camStore[m]) switchEngine(m);
+  VIEW = view; document.body.dataset.mode = view;
+  document.querySelectorAll('[data-workspace]').forEach((b) => { const on = b.dataset.workspace === view; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+  if (view === 'lab' && narrowScreen()) $('#labPanel').classList.add('open');            // telefonda deney paneli ana içeriktir
+  try { localStorage.setItem('ls19.mode', view); } catch (e) { /* özel pencere */ }
+  if (push) { const u = new URL(location.href); u.searchParams.set('mode', view); if (view !== 'lab') u.searchParams.delete('exp'); history.replaceState(null, '', u); }
   resize();
+}
+const narrowScreen = () => window.matchMedia('(max-width: 760px)').matches;
+// Laboratuvar: deney merkezi; kısayollar ilgili çalışma alanına gider. openLab: saptırma deneyini bir asteroitle açar (pick kartı, Asteroitler/Çarpma sekmeleri)
+const labui = new LabUI({
+  openMission: () => { setWorkspace('mission'); ui.setTab('gorev'); if (narrowScreen()) $('#panel').classList.add('open'); },
+  openImpact: () => { setWorkspace('sky'); ui.setTab('carpma'); if (narrowScreen()) $('#skyPanel').classList.add('open'); },
+});
+function openLab(i, opts) {
+  setWorkspace('lab'); labui.show('saptirma');
+  if (deflect) deflect.setTarget(i, opts);
 }
 document.querySelectorAll('[data-workspace]').forEach((b) => b.addEventListener('click', () => setWorkspace(b.dataset.workspace)));
 function loadMoonSats(t) {
@@ -461,7 +480,7 @@ function handleClick(e) {
     const i = c.i; asts.fetchDetail(i);
     ui.showPick({ kind: 'ast', refresh: (tt) => asts.details(i, tt), card: (d) => astui.card(d),
       actions: [{ label: 'Yörüngesini göster', fn: () => asts.select(i) }, { label: 'Kamerayla izle', fn: () => astui.follow(i) },
-        { label: 'Saptırma analizi', fn: () => { ui.hidePick(); astui.openLab(i); } }] }, mx, my, t);
+        { label: 'Laboratuvarda dene', fn: () => { ui.hidePick(); astui.openLab(i); } }] }, mx, my, t);
   } else if (c.kind === 'msat') {
     const m = c.m;
     ui.showPick({ kind: 'msat', refresh: (tt) => sats.moonSatDetails(m, tt),
@@ -493,7 +512,7 @@ window.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
   const k = e.key.toLowerCase();
   if (k === 'escape') { ui.hidePick(); return; }
-  if (k === 'm') { setWorkspace(MODE === 'sky' ? 'mission' : 'sky'); return; }
+  if (k === 'm') { const order = ['mission', 'sky', 'lab']; setWorkspace(order[(order.indexOf(VIEW) + 1) % order.length]); return; }
   if (MODE === 'sky') {                                          // Canlı Gökyüzü: zaman ve kamera
     if (k === ' ') { e.preventDefault(); clock.pause(!clock.paused); skyui.syncClock(); }
     else if (k === 'n') { clock.live(); skyui.syncClock(); }
@@ -557,13 +576,14 @@ function applyUrlParams() {
   if (q.get('play') === '1' && !q.get('seek')) setPlay(true);
   if (q.get('tab')) ui.setTab(q.get('tab'));
   let m = q.get('mode'); if (!m) { try { m = localStorage.getItem('ls19.mode'); } catch (e) { m = null; } }
-  if (m === 'sky' || (q.get('tab') && ui.isSkyTab(q.get('tab')))) setWorkspace('sky', false);
+  if (m === 'lab' || q.get('tab') === 'saptirma') { setWorkspace('lab', false); labui.show(q.get('exp') || (q.get('tab') === 'saptirma' ? 'saptirma' : 'home')); }     // ?mode=lab&exp=saptirma
+  else if (m === 'sky' || (q.get('tab') && ui.isSkyTab(q.get('tab')))) setWorkspace('sky', false);
   if (q.get('skycam')) setSkyCam(q.get('skycam').toUpperCase());
   if (q.get('cine') && !q.get('seek')) setTimeout(() => cinema.start({ scale: Math.max(0.2, parseFloat(q.get('cine')) || 1) }), 800);       // ?cine=1: açılışta sinematik gösterim (sayı: süre ölçeği)
 }
 $('#btnPanel').onclick = () => $('#panel').classList.toggle('open');
-$('#btnSkyPanel').onclick = () => $('#skyPanel').classList.toggle('open');
-window.LS19 = { world, ui, send, setCam, setPlay, cinema, focusOn, setWorkspace, setSkyCam, clock, followSat, lookAtSat, get mode() { return MODE; }, get skyT() { return skyT; },
+$('#btnSkyPanel').onclick = () => (VIEW === 'lab' ? $('#labPanel') : $('#skyPanel')).classList.toggle('open');
+window.LS19 = { world, ui, send, setCam, setPlay, cinema, focusOn, setWorkspace, setSkyCam, clock, followSat, lookAtSat, labui, openLab, get mode() { return MODE; }, get view() { return VIEW; }, get skyT() { return skyT; }, get deflect() { return deflect; },
   get sats() { return sats; }, get asts() { return asts; }, get astui() { return astui; }, get updater() { return updater; }, get tracker() { return tracker; }, get skyui() { return skyui; } };
 window.ROCSIM = window.LS19;
 

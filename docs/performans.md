@@ -124,7 +124,7 @@ node tools/perf_olcum.mjs kare      # kare başına JS (world.update + ui.hud)
 node tools/cihaz_emulasyonu.mjs     # telefon / Safari benzeri yedek yollar / R8 reddi / bağlam kaybı / uyarlanır çözünürlük emülasyonu (§11)
 ```
 
-Betik Playwright + Chromium ister (`npm i -g playwright-core`; tarayıcı yolu `CHROME=` ile verilir) ve varsayılan olarak yazılım çizimiyle (SwiftShader) çalışır, `--gpu` gerçek GPU kullanır. Önce/sonra karşılaştırması için iki ağacı iki kapıdan sunup komutu iki adresle çalıştırın. Testler: `cd web && for t in test/test_*.js; do node $t; done` (33 dosya; `test_profiles.js` ve `test_twostage.js` birkaç dakika sürer).
+Betik Playwright + Chromium ister (`npm i -g playwright-core`; tarayıcı yolu `CHROME=` ile verilir) ve varsayılan olarak yazılım çizimiyle (SwiftShader) çalışır, `--gpu` gerçek GPU kullanır. Önce/sonra karşılaştırması için iki ağacı iki kapıdan sunup komutu iki adresle çalıştırın. Testler: `cd web && for t in test/test_*.js; do node $t; done` (34 dosya; `test_profiles.js` ve `test_twostage.js` birkaç dakika sürer).
 
 ## 11. Gerçek cihaz yerine emülasyon denetimi ve bulunan zayıflıklar
 

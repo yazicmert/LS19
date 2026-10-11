@@ -161,7 +161,7 @@ export class ImpactUI {
     const act = mk('div', 'daterow');
     if (i != null) {
       const b1 = mk('button', 'sm', 'Haritada izle'); b1.addEventListener('click', () => this.astui.follow(i));
-      const b2 = mk('button', 'sm', 'N-cisim taramasını aç (Saptırma lab.)'); b2.addEventListener('click', () => { this.astui.openLab(i); setTimeout(() => this.astui.scan(), 300); });
+      const b2 = mk('button', 'sm', 'Laboratuvarda dene (N-cisim taraması)'); b2.addEventListener('click', () => this.astui.openLab(i, { hypo: true }));        // sanal çarpıcı: "çarpacak olsaydı" senaryosuyla başlar
       act.append(b1, b2); this.asts.select(i);
     } else act.appendChild(mk('span', 'k small', 'Bu asteroit canlı katmanda yok (çok sönük/kısa yay).'));
     el.appendChild(act); el.hidden = false; this.renderAstList();

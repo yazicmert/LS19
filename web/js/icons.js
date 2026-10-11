@@ -26,6 +26,8 @@ const P = {
   gauge: '<path d="M4 17a8 8 0 1116 0"/><path d="M12 17l4-5"/>',
   chev: '<path d="M7 14l5-5 5 5"/>',
   film: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14M3 9.5h4M3 14.5h4M17 9.5h4M17 14.5h4"/>',
+  flask: '<path d="M9 3h6M10 3v6.5L4.6 18.2A2 2 0 006.3 21h11.4a2 2 0 001.7-2.8L14 9.5V3"/><path d="M7.5 15h9"/>',
+  shield: '<path d="M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6z"/><path d="M9 12l2.2 2.2L15.5 10"/>',
   telescope: '<path d="M4 15l12-6 2 4-12 6z"/><path d="M10 17l-2 5M12 16l2 6"/><path d="M16 9l3-1.5 1.5 3L18 12"/>',
 };
 export function icon(name, cls = '') {

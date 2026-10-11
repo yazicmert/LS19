@@ -12,13 +12,14 @@ saptırma laboratuvarı bir asteroide uygulanan itkinin Dünya yakın geçişini
 - Ya da Terminal'de bu klasörde: `python3 sunucu.py` ve tarayıcıda `http://localhost:8765`.
 - Dosyayı doğrudan (file://) açmak çalışmaz. Eski `python3 -m http.server` da site için yeterlidir ama uydular gelmez.
 - En hızlı çalışma için Safari ya da Chrome önerilir.
-- Adres parametreleri: `?date=1969-07-16`, `?profile=NRHO` (APOLLO, APOLLO11, NRHO, L2, L1), `?sats=0` (uyduları kapat), `?ast=0` (asteroitleri kapat), `?tab=saptirma`, `?lowmem=1` (düşük bellek dokuları; telefonda kendiliğinden), `?adapt=0` (uyarlanır çözünürlüğü kapat), `?bg=1` (sekme arka plandayken de oynat), `?prefetch=1` (gökyüzü katmanlarını hemen kur).
+- Adres parametreleri: `?date=1969-07-16`, `?profile=NRHO` (APOLLO, APOLLO11, NRHO, L2, L1), `?sats=0` (uyduları kapat), `?ast=0` (asteroitleri kapat), `?mode=lab&exp=saptirma` (Laboratuvar › Asteroit saptırma; eski `?tab=saptirma` da çalışır), `?lowmem=1` (düşük bellek dokuları; telefonda kendiliğinden), `?adapt=0` (uyarlanır çözünürlüğü kapat), `?bg=1` (sekme arka plandayken de oynat), `?prefetch=1` (gökyüzü katmanlarını hemen kur).
 - Bulutta (Vercel) aynı site `api/` işlevleriyle çalışır; kurulum için depo kökündeki README'ye bakın.
 
-## İki çalışma alanı
-- Üstteki anahtar (ya da **M**): **Ay Görevi** — değiştirilebilir, koşturulabilir fizik motoru ve görev saati;
-  **Canlı Gökyüzü** — gerçek saat, uydular, asteroitler, saptırma laboratuvarı. İkisi ayrı saat, efemeris ve kamerayla çalışır;
-  görev arka planda sürer, uydu ve asteroitler görev alanında çizilmez.
+## Üç çalışma alanı
+- Üstteki anahtar (ya da **M**, üçünde sırayla döner): **Ay Görevi** — değiştirilebilir, koşturulabilir fizik motoru ve görev saati;
+  **Canlı Gökyüzü** — gerçek saat, uydular, asteroitler, çarpma/yeniden giriş; **Laboratuvar** — "ya şöyle olsaydı?" denemeleri
+  (asteroit saptırma; Ay görevi ve çarpma riski için kısayollar). Ay Görevi ile Canlı Gökyüzü ayrı saat, efemeris ve kamerayla çalışır;
+  Laboratuvar gökyüzü motorunu paylaşır. Görev arka planda sürer, uydu ve asteroitler görev alanında çizilmez. Ayrıntı: `../docs/laboratuvar.md`.
 
 ## Canlı Gökyüzü
 - Saat: **Şimdi** (N) gerçek zamana döner, **Boşluk** duraklatır, **, .** hızı değiştirir (×1–×3600), ±1 saat düğmeleri.
@@ -66,15 +67,17 @@ saptırma laboratuvarı bir asteroide uygulanan itkinin Dünya yakın geçişini
 - Gruplar: Sentry risk listesi, potansiyel tehlikeli (PHA), NEO, Truvalılar, ana kuşak — açılıp kapanabilir; ad/numara ile ara.
 - Güneş sistemi kamerasında hepsi, diğer kameralarda yalnız Dünya'nın 0,05 AB yakınındakiler görünür.
 - Tıkla: bilgi kartı (sınıf, çap, albedo, dönme, a/e/i, MOID, uzaklıklar, sonraki yakın geçiş, Sentry olasılığı, keşif);
-  **Kamerayla izle** yakından temsili kaya modeli gösterir, **Saptırma analizi** laboratuvarı açar.
+  **Kamerayla izle** yakından temsili kaya modeli gösterir, **Laboratuvarda dene** saptırma deneyini bu asteroitle açar.
 
-## Saptırma laboratuvarı (Saptırma sekmesi)
-- Hedef seç → **Tara**: fizik motoru (Güneş, 8 gezegen, Ay, Plüton — JPL DE440 konumları — ve Güneş'in genel görelilik düzeltmesi, DOPRI5)
-  seçilen tarihten itibaren Dünya'ya 0,05 AB'den yakın geçişleri bulur (JPL CAD ile eşleşenler ✓ ile işaretlenir).
-- Yöntem: **kinetik çarpıcı** (araç kütlesi, çarpma hızı, β → Δv = β·m·U/(M+m)) ya da **sürekli kuvvet** (N × gün, iyon demeti/çekim traktörü gibi).
-- Sonuç: Δv, yörünge değişimi (Δa, ΔP), B-düzleminde kayma (ξ, ζ), yakın geçiş mesafesi önce/sonra, yakalama yarıçapı (çekim odaklaması dahil),
-  Dünya'yı bir yakalama yarıçapı kaydırmak için gereken Δv / çarpıcı kütlesi / kuvvet; B-düzlemi çizimi, önceden uyarı süresi eğrisi, 3B yollar.
-- "Çarpma rotasındaymış gibi" seçeneği gerçek yörüngeyi Dünya merkezine gidiyormuş gibi kabul eder: itki bu çarpışmayı önler mi?
+## Saptırma laboratuvarı (Laboratuvar › Asteroit saptırma)
+Dört adım; tamamlanan adım tek satırlık özete iner, sonraki adımlar önceki bitene dek kilitlidir:
+1. **Hedef** — hızlı seçim (Apophis, Bennu, Didymos, 2024 YR4) ya da arama; seçilince tarama kendiliğinden başlar.
+2. **Yakın geçiş** — fizik motoru (Güneş, 8 gezegen, Ay, Plüton — JPL DE440 konumları — ve Güneş'in genel görelilik düzeltmesi, DOPRI5) Dünya'ya 0,05 AB'den
+   yakın geçişleri bulur; her biri bir kart (tarih, mesafe, "Ay uzaklığının kaç katı", v∞; JPL CAD ile uyuşanlar ✓). Geçiş yoksa "Taramayı 120 yıla uzat" / "Başka hedef seç".
+3. **İtki** — yöntem: **kinetik çarpıcı** (araç kütlesi, çarpma hızı; β "Gelişmiş"te → Δv = β·m·U/(M+m)) ya da **sürekli kuvvet** (N × gün); ne zaman: geçişten 5 yıl / 2 yıl / 1 yıl / 3 ay önce;
+   senaryo: *Gerçek yörünge* ya da *Çarpacak olsaydı* (gerçek yörüngeyi Dünya merkezine gidiyormuş gibi kabul eder: bu itki çarpışmayı önler mi?).
+4. **Sonuç** — karar kartı ("Dünya kurtulur", "Bu itki yetmez", "Çarpma önlendi"…), "ne kadar gerekir" cümlesi, B-düzlemi çizimi, 3B yollar;
+   "Tüm ayrıntılar": Δv, yörünge değişimi (Δa, ΔP), B-düzleminde kayma (ξ, ζ), yakın geçiş mesafesi önce/sonra, yakalama yarıçapı (çekim odaklaması dahil), önceden uyarı süresi eğrisi.
 - Doğrulama: Apophis 13 Nisan 2029 yakın geçişi JPL CAD'e göre ~2 km farkla; DART/Dimorphos periyot değişimi.
 
 ## Kontrol paneli (Kontrol sekmesi, **K**)
@@ -126,6 +129,6 @@ Ay Görevi panelindeki **Kontrol** sekmesi aracın anlık durumunu canlı göste
 - `js/scene.js` Three.js görüntü · `js/ui.js` HUD ve paneller · `js/terrain.js` iniş bölgesi arazisi (geometri kurar) · `js/terraingen.js` + `js/terrainwork.js` arazi üretimi (saf kod, Web Worker'da)
 - Performans (`../docs/performans.md`): `js/format.js` önbellekli sayı/tarih biçimleyiciler · `js/texload.js` + `js/texplan.js` ana doku hattı (ImageBitmap, R8, aşamalı GPU yükleme, düşük bellek katmanı) · `js/meshmerge.js` model ağlarını malzemeye göre birleştirir · `js/pointstore.js` iz noktaları için düz Float64 depo · `js/perfgov.js` uyarlanır çizim çözünürlüğü · `js/nominalrun.js` nominal Δv koşusu (tarayıcı worker'ı ve üretici betik ortak)
 - `models/lander.glb`, `orb.glb`, `stage.glb` — araç modelleri: NASA 3D Resources'taki resmî Apollo modellerinden (LM, hizmet modülü, Saturn V S-IVB) türetilmiş, ~0,7 MB; yerleşim sayıları (motor çanı, RCS halkası, kademe boyu) dosyanın `extras` alanındadır; `../tools/apollo_modelleri.mjs` ile üretilir, ayrıntı ve lisans `../docs/modeller.md`
-- `js/asteroids.js`, `js/astwork.js` — canlı asteroitler · `js/deflect.js` — saptırma fizik motoru · `js/deflectwork.js`, `js/astui.js` — laboratuvar
+- `js/asteroids.js`, `js/astwork.js` — canlı asteroitler · `js/deflect.js` — saptırma fizik motoru · `js/deflectwork.js` — saptırma hesabı (iş parçacığı) · `js/labui.js`, `js/deflectui.js`, `js/labtext.js` — Laboratuvar arayüzü (deney merkezi, saptırma adımları, saf metin/karar mantığı) · `js/astui.js` — asteroit kataloğu
 - `js/updater.js` — 10 dakikalık güncelleme denetimi
 - `sunucu.py` — yerel sunucu + veri vekili · `../api/` — aynı vekilin bulut (Vercel) sürümü · `data/designs_default.json` — hazır tasarımlar

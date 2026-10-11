@@ -51,12 +51,12 @@
 <link rel="modulepreload" href="js/live.js">
 <link rel="modulepreload" href="js/jplkernel.js">
 <link rel="modulepreload" href="js/tiles.js">
+<link rel="modulepreload" href="js/texload.js">
+<link rel="modulepreload" href="js/texplan.js">
 <link rel="modulepreload" href="js/planets.js">
 <link rel="modulepreload" href="js/fx.js">
 <link rel="modulepreload" href="js/pointstore.js">
 <link rel="modulepreload" href="js/meshmerge.js">
-<link rel="modulepreload" href="js/texload.js">
-<link rel="modulepreload" href="js/texplan.js">
 <link rel="modulepreload" href="js/ui.js">
 <link rel="modulepreload" href="js/controlpanel.js">
 <link rel="modulepreload" href="js/telemetry.js">
@@ -74,6 +74,9 @@
 <link rel="modulepreload" href="js/asteroids.js">
 <link rel="modulepreload" href="js/deflect.js">
 <link rel="modulepreload" href="js/astui.js">
+<link rel="modulepreload" href="js/labtext.js">
+<link rel="modulepreload" href="js/labui.js">
+<link rel="modulepreload" href="js/deflectui.js">
 <link rel="modulepreload" href="js/updater.js">
 <link rel="modulepreload" href="js/tracker.js">
 <link rel="modulepreload" href="js/passes.js">
@@ -97,8 +100,9 @@
   <header id="modebar" aria-label="LS19">
     <span class="brand"><img src="favicon.svg" alt="" width="22" height="22"><b>LS19</b></span>
     <div class="seg" role="tablist" aria-label="Çalışma alanı (M)">
-      <button role="tab" data-workspace="mission" class="on" aria-selected="true"><i data-icon="rocket"></i><span>Ay Görevi</span></button>
-      <button role="tab" data-workspace="sky" aria-selected="false"><i data-icon="satellite"></i><span>Canlı Gökyüzü</span></button>
+      <button role="tab" data-workspace="mission" class="on" aria-selected="true" aria-label="Ay Görevi"><i data-icon="rocket"></i><span>Ay Görevi</span></button>
+      <button role="tab" data-workspace="sky" aria-selected="false" aria-label="Canlı Gökyüzü"><i data-icon="satellite"></i><span>Canlı Gökyüzü</span></button>
+      <button role="tab" data-workspace="lab" aria-selected="false" aria-label="Laboratuvar"><i data-icon="flask"></i><span>Laboratuvar</span></button>
     </div>
   </header>
 
@@ -309,7 +313,6 @@
       <button class="tab on" role="tab" data-tab="takip" aria-selected="true">Takip</button>
       <button class="tab" role="tab" data-tab="uydular" aria-selected="false" tabindex="-1">Uydular</button>
       <button class="tab" role="tab" data-tab="asteroit" aria-selected="false" tabindex="-1">Asteroitler</button>
-      <button class="tab" role="tab" data-tab="saptirma" aria-selected="false" tabindex="-1">Saptırma</button>
       <button class="tab" role="tab" data-tab="carpma" aria-selected="false" tabindex="-1">Çarpma</button>
     </nav>
     <div id="tab-takip" class="tabpage" role="tabpanel">
@@ -359,52 +362,9 @@
       <ul id="astResults" class="sresults"></ul>
       <div id="astSel" class="dinfo"></div>
       <div id="updStatus" class="dinfo small"></div>
-      <p class="note">Dünya'ya yakın tüm asteroitler (~42.500) ile büyük ana kuşak asteroitleri (H &lt; 13,5) ve Jüpiter Truvalıları. Konumlar JPL'in oskülatör öğelerinden Kepler çözümüyle hesaplanır. Güneş sistemi kamerasında hepsi, diğer kameralarda yalnız Dünya'nın 0,05 AB (≈19 Ay uzaklığı) yakınındakiler görünür. Bir asteroide tıkla: bilgi kartı; kartta yörünge, kamerayla izleme ve saptırma analizi.</p>
+      <p class="note">Dünya'ya yakın tüm asteroitler (~42.500) ile büyük ana kuşak asteroitleri (H &lt; 13,5) ve Jüpiter Truvalıları. Konumlar JPL'in oskülatör öğelerinden Kepler çözümüyle hesaplanır. Güneş sistemi kamerasında hepsi, diğer kameralarda yalnız Dünya'nın 0,05 AB (≈19 Ay uzaklığı) yakınındakiler görünür. Bir asteroide tıkla: bilgi kartı; kartta yörünge, kamerayla izleme ve Laboratuvar'da saptırma denemesi.</p>
     </div>
-    <div id="tab-saptirma" class="tabpage" role="tabpanel" hidden>
-      <h3>Saptırma laboratuvarı</h3>
-      <div class="daterow"><input id="dfSearch" type="search" placeholder="Hedef (ör. Apophis, Bennu, 2024 YR4)" aria-label="Hedef asteroit"></div>
-      <ul id="dfResults" class="sresults"></ul>
-      <div id="dfTarget" class="dinfo"></div>
-      <div class="frow3">
-        <label>Başlangıç<span><input id="dfStart" type="date" min="1850-01-01" max="2149-01-01"></span></label>
-        <label>Tarama<span><input id="dfYears" type="number" min="1" max="120" value="50"> yıl</span></label>
-        <span class="bcell"><button id="dfScan" class="sm">Tara</button></span>
-      </div>
-      <div id="dfScanStatus" class="k small"></div>
-      <table id="dfCas" class="tbl cas"><thead><tr><th></th><th>Yakın geçiş (TDB)</th><th class="num">Mesafe</th><th class="num">v∞</th></tr></thead><tbody></tbody></table>
-      <div class="fttl">Hedefin kütlesi</div>
-      <div class="frow3">
-        <label>Çap<span><input id="dfD" type="number" step="any" min="0.001"> km</span></label>
-        <label>Yoğunluk<span><input id="dfRho" type="number" step="50" min="300" max="8000"> kg/m³</span></label>
-        <span></span>
-      </div>
-      <div id="dfM" class="k small"></div>
-      <div class="fttl">İtki</div>
-      <div class="frow"><label for="dfMethod">Yöntem</label>
-        <select id="dfMethod"><option value="kinetic">Kinetik çarpıcı (DART gibi)</option><option value="thrust">Sürekli kuvvet (N × süre)</option></select></div>
-      <div class="frow3" id="dfKin">
-        <label>Araç<span><input id="dfMass" type="number" value="580" min="1" step="10"> kg</span></label>
-        <label>Çarpma hızı<span><input id="dfU" type="number" value="6.1" min="0.1" step="0.1"> km/s</span></label>
-        <label>β<span><input id="dfBeta" type="number" value="3.6" min="1" max="10" step="0.1"></span></label>
-      </div>
-      <div class="frow3" id="dfThr" hidden>
-        <label>Kuvvet<span><input id="dfF" type="number" value="1" min="0.001" step="any"> N</span></label>
-        <label>Süre<span><input id="dfDays" type="number" value="365" min="1" step="1"> gün</span></label>
-        <span></span>
-      </div>
-      <div class="frow"><label for="dfApply">İtki tarihi</label><input id="dfApply" type="date" min="1850-01-01" max="2149-01-01"></div>
-      <div class="frow"><label for="dfDir">Yön</label>
-        <select id="dfDir"><option value="along">Yörünge boyunca (ileri)</option><option value="anti">Yörünge boyunca (geri)</option><option value="best">En etkili yön (STM ile)</option><option value="radial">Radyal (Güneş'ten dışa)</option><option value="normal">Yörünge normali</option></select></div>
-      <label class="chk"><input id="dfHypo" type="checkbox"> Çarpma rotasındaymış gibi değerlendir (B = 0)</label>
-      <div class="daterow"><button id="dfRun" class="primary sm">Hesapla</button><button id="df3d" class="sm" disabled>3B'de göster</button><span id="dfStatus" class="k small"></span></div>
-      <div id="dfOut" class="dfout"></div>
-      <canvas id="dfBplane" class="chart sq"></canvas>
-      <canvas id="dfSweep" class="chart"></canvas>
-      <p class="note">Fizik motoru: asteroit, Güneş + 8 gezegen + Ay + Plüton çekimi (konumlar JPL DE440'tan) ve Güneş'in genel görelilik düzeltmesiyle DOPRI5 ile tümlenir. Yakın geçiş, Dünya'ya uzaklığın yerel en küçüğü olarak ikiye bölmeyle bulunur. Kaçırma, B-düzleminde (Öpik–Valsecchi ξ, ζ) ölçülür: Dünya'yı ıskalamak için kayma, çekim odaklamasıyla büyüyen yakalama yarıçapını (bE) aşmalıdır. İtkinin etkisi hem durum geçiş matrisiyle (doğrusal) hem tam tümlemeyle hesaplanır. Kinetik çarpıcı: Δv = β·m·U / (M + m). Yarkovsky etkisi ve öteki asteroitlerin çekimi modelde yok.</p>
-      <p id="dfDart" class="note"></p>
-    </div>
-      <div id="tab-carpma" class="tabpage" role="tabpanel" hidden>
+    <div id="tab-carpma" class="tabpage" role="tabpanel" hidden>
       <h3>Dünya'ya çarpma ve yeniden giriş</h3>
       <div id="cpMode" class="cpseg" role="tablist" aria-label="Cisim türü"><button data-m="sat" class="on" role="tab">Uydular</button><button data-m="ast" role="tab">Asteroitler</button></div>
       <div id="cpSat">
@@ -428,12 +388,132 @@
         <div class="daterow"><input id="cpAstQ" type="search" placeholder="Asteroit ara" aria-label="Asteroit ara"></div>
         <ul id="cpAstList" class="sresults cp-list"></ul>
         <div id="cpAstDet" hidden></div>
-        <p class="note">Kaynak: JPL Sentry (sanal çarpıcılar). Bir satırı seçince asteroit haritada işaretlenir; "N-cisim taramasını aç" bu asteroidin nominal yörüngesini Güneş, gezegenler ve Ay çekimiyle yıllarca ileri tümleyip Dünya'ya yakın geçişlerini listeler.</p>
+        <p class="note">Kaynak: JPL Sentry (sanal çarpıcılar). Bir satırı seçince asteroit haritada işaretlenir; "Laboratuvarda dene" bu asteroidin nominal yörüngesini Güneş, gezegenler ve Ay çekimiyle yıllarca ileri tümleyip Dünya'ya yakın geçişlerini listeler.</p>
       </div>
     </div>
   </aside>
 
-  <footer id="skyControls" class="dock" data-for="sky" aria-label="Zaman ve kamera">
+  <aside id="labPanel" class="panel" data-for="lab" aria-label="Laboratuvar paneli">
+    <header class="labhead">
+      <button id="labBack" class="sm back" type="button" hidden aria-label="Laboratuvara dön"><i data-icon="chev" class="chev-l"></i><span>Laboratuvar</span></button>
+      <div class="labtitles"><span id="labCrumb" class="k">LS19</span><h2 id="labTitle">Laboratuvar</h2></div>
+    </header>
+
+    <div id="lab-home" class="labpage">
+      <p class="labsub">Gerçek veriyle "ya şöyle olsaydı?" denemeleri. Bir deney seçin; sonuçlar 3B görünümde de izlenir.</p>
+      <ul class="labtree">
+        <li><div class="grp">Gök cisimleri</div>
+          <ul><li><button class="exp" type="button" data-exp="saptirma"><i data-icon="shield" class="ei"></i><span><b>Asteroit saptırma</b><small>Bir asteroidi itip Dünya'yı ıskalatmak için ne kadar itki gerekir? Hedefi seç, yakın geçişi seç, itkiyi dene.</small></span><i data-icon="chev" class="go"></i></button></li></ul></li>
+        <li><div class="grp">Görev tasarımı</div>
+          <ul><li><button class="exp" type="button" data-go="mission"><i data-icon="rocket" class="ei"></i><span><b>Ay görevi</b><small>Profil, araç ve iniş güdümünü değiştirip Δv bütçesini karşılaştır. Ay Görevi alanında açılır.</small></span><i data-icon="chev" class="go"></i></button></li></ul></li>
+        <li><div class="grp">Çarpma ve yeniden giriş</div>
+          <ul><li><button class="exp" type="button" data-go="impact"><i data-icon="target" class="ei"></i><span><b>Çarpma riski</b><small>Uyduların yeniden girişi ve Sentry sanal çarpıcıları. Canlı Gökyüzü'nde, Çarpma sekmesinde açılır.</small></span><i data-icon="chev" class="go"></i></button></li></ul></li>
+      </ul>
+    </div>
+
+    <div id="lab-saptirma" class="labpage" hidden>
+      <ol id="dfSteps" class="steps">
+        <li class="step open" data-step="1">
+          <button class="sh" type="button" aria-expanded="true" aria-controls="dfSb1"><span class="sn">1</span><span class="st">Hedef</span><span class="ss">Asteroit seçin</span></button>
+          <div class="sb" id="dfSb1">
+            <div class="daterow"><input id="dfSearch" type="search" placeholder="Asteroit ara (ad, numara ya da tanım)" aria-label="Hedef asteroit" autocomplete="off"></div>
+            <ul id="dfResults" class="sresults"></ul>
+            <div class="fttl">Hızlı seçim</div>
+            <div id="dfQuick" class="chips"></div>
+            <div id="dfCatalog" class="k small"></div>
+            <div id="dfTarget" class="dinfo"></div>
+          </div>
+        </li>
+        <li class="step locked" data-step="2">
+          <button class="sh" type="button" aria-expanded="false" aria-controls="dfSb2" disabled><span class="sn">2</span><span class="st">Yakın geçiş</span><span class="ss">Önce bir hedef seçin</span></button>
+          <div class="sb" id="dfSb2">
+            <p class="stepsub">Dünya'ya 0,05 AB'den (≈ 19 Ay uzaklığı) yaklaştığı anlar. Birini seçin: itki ona göre planlanır.</p>
+            <div id="dfScanStatus" class="k small" role="status" aria-live="polite"></div>
+            <ul id="dfCas" class="cas" role="radiogroup" aria-label="Yakın geçişler"></ul>
+            <div id="dfCasEmpty" class="labempty" hidden>
+              <p id="dfEmptyTxt"></p>
+              <div class="stepnav"><button id="dfLonger" class="sm" type="button">Taramayı 120 yıla uzat</button><button id="dfOther" class="sm" type="button">Başka hedef seç</button></div>
+            </div>
+            <details class="adv"><summary>Tarama aralığı</summary>
+              <div class="frow3">
+                <label>Başlangıç<span><input id="dfStart" type="date" min="1850-01-01" max="2149-01-01"></span></label>
+                <label>Süre<span><input id="dfYears" type="number" min="1" max="120" value="50"> yıl</span></label>
+                <span class="bcell"><button id="dfScan" class="sm" type="button">Yeniden tara</button></span>
+              </div>
+            </details>
+            <div class="stepnav"><button id="dfNext2" class="primary" type="button" disabled>Bu geçişle devam →</button></div>
+          </div>
+        </li>
+        <li class="step locked" data-step="3">
+          <button class="sh" type="button" aria-expanded="false" aria-controls="dfSb3" disabled><span class="sn">3</span><span class="st">İtki</span><span class="ss">Önce bir yakın geçiş seçin</span></button>
+          <div class="sb" id="dfSb3">
+            <div class="fttl">Nasıl itilsin?</div>
+            <div class="mseg" role="radiogroup" aria-label="Saptırma yöntemi">
+              <label class="mcard on"><input type="radio" name="dfMethod" value="kinetic" checked><span><b>Kinetik çarpıcı</b><small>Uzay aracı hızla çarpar (DART gibi)</small></span></label>
+              <label class="mcard"><input type="radio" name="dfMethod" value="thrust"><span><b>Sürekli itki</b><small>İyon motoru ya da çekim traktörü usulca iter</small></span></label>
+            </div>
+            <div class="frow3 two" id="dfKin">
+              <label>Araç kütlesi<span><input id="dfMass" type="number" value="580" min="1" step="10"> kg</span></label>
+              <label>Çarpma hızı<span><input id="dfU" type="number" value="6.1" min="0.1" step="0.1"> km/s</span></label>
+            </div>
+            <div class="frow3 two" id="dfThr" hidden>
+              <label>Kuvvet<span><input id="dfF" type="number" value="1" min="0.001" step="any"> N</span></label>
+              <label>Süre<span><input id="dfDays" type="number" value="365" min="1" step="1"> gün</span></label>
+            </div>
+            <div class="fttl">Ne zaman uygulansın?</div>
+            <div id="dfLeads" class="chips"></div>
+            <div id="dfApplyTxt" class="k small"></div>
+            <div class="fttl">Senaryo</div>
+            <div class="mseg" role="radiogroup" aria-label="Senaryo">
+              <label class="mcard on"><input type="radio" name="dfScn" value="real" checked><span><b>Gerçek yörünge</b><small>İtki nominal geçişi nasıl değiştirir?</small></span></label>
+              <label class="mcard"><input type="radio" name="dfScn" value="hypo"><span><b>Çarpacak olsaydı</b><small>Bu itki Dünya'yı kurtarmaya yeter mi? (B = 0)</small></span></label>
+            </div>
+            <details class="adv"><summary>Gelişmiş</summary>
+              <div class="frow3 two">
+                <label>Hedefin çapı<span><input id="dfD" type="number" step="any" min="0.001"> km</span></label>
+                <label>Yoğunluk<span><input id="dfRho" type="number" step="50" min="300" max="8000"> kg/m³</span></label>
+              </div>
+              <div id="dfM" class="k small"></div>
+              <div class="frow3 two">
+                <label>İtki tarihi<span><input id="dfApply" type="date" min="1850-01-01" max="2149-01-01"></span></label>
+                <label>β (itki artışı)<span><input id="dfBeta" type="number" value="3.6" min="1" max="10" step="0.1"></span></label>
+              </div>
+              <div class="frow"><label for="dfDir">Yön</label>
+                <select id="dfDir"><option value="along">Yörünge boyunca (ileri)</option><option value="anti">Yörünge boyunca (geri)</option><option value="best">En etkili yön (STM ile)</option><option value="radial">Radyal (Güneş'ten dışa)</option><option value="normal">Yörünge normali</option></select></div>
+            </details>
+            <div class="stepnav"><button id="dfRun" class="primary" type="button">Hesapla</button><span id="dfStatus" class="k small" role="status" aria-live="polite"></span></div>
+          </div>
+        </li>
+        <li class="step locked" data-step="4">
+          <button class="sh" type="button" aria-expanded="false" aria-controls="dfSb4" disabled><span class="sn">4</span><span class="st">Sonuç</span><span class="ss">Önce itkiyi hesaplayın</span></button>
+          <div class="sb" id="dfSb4">
+            <div id="dfRunning" class="k small" role="status" aria-live="polite" hidden></div>
+            <div id="dfStale" class="stale" hidden>Ayarlar değişti: aşağıdaki sonuç eski. <button id="dfRerun" class="sm" type="button">Yeniden hesapla</button></div>
+            <div id="dfResult" hidden>
+              <div id="dfVerdict" class="verdict info">
+                <div id="dfVT" class="vt"></div>
+                <div id="dfVD" class="vd"></div>
+                <div id="dfGauge" class="gauge" hidden><span class="gf"></span><span class="gm"></span></div>
+                <div id="dfGaugeTxt" class="k small"></div>
+              </div>
+              <p id="dfNeed" class="need"></p>
+              <canvas id="dfBplane" class="chart sq" role="img" aria-label="Dünya'ya göre geçiş noktası: nominal ve saptırılmış"></canvas>
+              <p class="note">Mavi daire Dünya; kesikli çember, çarpma bölgesinin sınırı (yakalama yarıçapı). Beyaz nokta nominal, turuncu nokta saptırılmış geçiş noktası.</p>
+              <div class="stepnav"><button id="df3d" class="sm" type="button" disabled>3B'de göster</button><button id="dfAgain" class="sm" type="button">İtkiyi değiştir</button></div>
+              <details class="adv"><summary>Tüm ayrıntılar</summary>
+                <div id="dfOut" class="dfout"></div>
+                <canvas id="dfSweep" class="chart" role="img" aria-label="Aynı hız değişimi için kayma, itki anına göre"></canvas>
+                <p id="dfDart" class="note"></p>
+                <p class="note">Fizik motoru: asteroit, Güneş + 8 gezegen + Ay + Plüton çekimi (konumlar JPL DE440'tan) ve Güneş'in genel görelilik düzeltmesiyle DOPRI5 ile tümlenir. Yakın geçiş, Dünya'ya uzaklığın yerel en küçüğü olarak ikiye bölmeyle bulunur. Kaçırma, B-düzleminde (Öpik–Valsecchi ξ, ζ) ölçülür: Dünya'yı ıskalamak için kayma, çekim odaklamasıyla büyüyen yakalama yarıçapını (bE) aşmalıdır. İtkinin etkisi hem durum geçiş matrisiyle (doğrusal) hem tam tümlemeyle hesaplanır. Kinetik çarpıcı: Δv = β·m·U / (M + m). Yarkovsky etkisi ve öteki asteroitlerin çekimi modelde yok.</p>
+              </details>
+            </div>
+          </div>
+        </li>
+      </ol>
+    </div>
+  </aside>
+
+  <footer id="skyControls" class="dock" data-for="sky lab" aria-label="Zaman ve kamera">
     <button id="skyNow" class="primary" title="Gerçek zamana dön (N)"><i data-icon="now"></i><span>Şimdi</span></button>
     <button id="skyPause" title="Saati duraklat (Boşluk)" aria-pressed="false"><i data-icon="pause"></i><span>Duraklat</span></button>
     <div class="tm">

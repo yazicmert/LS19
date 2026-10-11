@@ -11,7 +11,7 @@
 
 /* normal arayüz sinematik kipte kapanır (düğme, panel, HUD…) */
 body.cine-on #hud, body.cine-on #panel, body.cine-on #controls, body.cine-on #modebar, body.cine-on #manual, body.cine-on #pick, body.cine-on #hoverTip, body.cine-on #toasts,
-body.cine-on .tilemode, body.cine-on .tilestatus, body.cine-on #skyHud, body.cine-on #skyPanel, body.cine-on #skyControls {
+body.cine-on .tilemode, body.cine-on .tilestatus, body.cine-on #skyHud, body.cine-on #skyPanel, body.cine-on #labPanel, body.cine-on #skyControls {
   opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.4s var(--cine-out), visibility 0s linear 0.4s;
 }
 body.cine-on #view { cursor: none; }
