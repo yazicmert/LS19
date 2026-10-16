@@ -67,6 +67,12 @@ async function fetchOmm(url, kaynak = null) {
   if (!Array.isArray(omm) || !omm.length) throw new Error('boş yanıt');
   return { omm, kaynak: kaynak || decodeURIComponent(r.headers.get('X-LS19-Kaynak') || 'CelesTrak'), yas: +(r.headers.get('X-LS19-Yas') || 0) };
 }
+// tek CelesTrak grubu (ör. çöp bulutları): vekil, olmazsa tarayıcıdan doğrudan CelesTrak
+export async function fetchGroup(group) {
+  try { return await fetchOmm('api/gp?group=' + encodeURIComponent(group)); } catch (e) {
+    return fetchOmm(`https://celestrak.org/NORAD/elements/gp.php?GROUP=${encodeURIComponent(group)}&FORMAT=json`, 'CelesTrak (doğrudan)');
+  }
+}
 async function celestrakDirect() {
   let cache = null, hit = null;
   try { cache = await caches.open('ls19-celestrak'); hit = await cache.match(GP_URL); } catch (e) { cache = null; }

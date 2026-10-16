@@ -16,7 +16,7 @@ const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', .
 
 const UA_ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
 const UA_IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
-const DESK = { viewport: { width: 800, height: 450 } }, Q = '?sats=0&ast=0';
+const DESK = { viewport: { width: 800, height: 450 } }, Q = '?sats=0&ast=0&mode=mission';
 // sayfa yüklenmeden çalışan taklitler (tarayıcı davranışları)
 const ignoreOpts = (keys) => `(() => { const o = window.createImageBitmap; window.createImageBitmap = function (s, opt) { if (opt && typeof opt === 'object') { const c = { ...opt }; for (const k of ${JSON.stringify(keys)}) delete c[k]; return o.call(this, s, c); } return o.apply(this, arguments); }; })()`;
 const NOWEBDRIVER = '(() => { Object.defineProperty(Navigator.prototype, "webdriver", { get: () => false }); })()';

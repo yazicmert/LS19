@@ -23,7 +23,7 @@ await page.addInitScript(() => {
   document.addEventListener('DOMContentLoaded', () => { const el = document.querySelector('#loadMsg'); if (el) new MutationObserver(() => L.msgs.push([Math.round(performance.now()), el.textContent])).observe(el, { childList: true, characterData: true, subtree: true }); });
 });
 const t0 = Date.now();
-await page.goto(base + 'index.html?sats=0&ast=0', { waitUntil: 'domcontentloaded' });
+await page.goto(base + 'index.html?sats=0&ast=0&mode=mission', { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => { const l = document.querySelector('#loading'); return l && getComputedStyle(l).display === 'none'; }, null, { timeout: 280000 });
 const tClose = await page.evaluate(() => Math.round(performance.now()));
 

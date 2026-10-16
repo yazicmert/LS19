@@ -430,12 +430,14 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
 .mcard.on { border-color: var(--accent); background: rgba(59, 130, 246, .14); }
 .mcard input { margin: 2px 0 0; accent-color: var(--accent); flex: none; }
 .mcard b { display: block; font-size: 12.5px; } .mcard small { display: block; margin-top: 1px; font-size: 11.5px; line-height: 1.4; color: var(--text-muted); }
-#lab-saptirma .frow3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-#lab-saptirma .frow3.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-#lab-saptirma .frow3 label span input { width: 100%; }
-#lab-saptirma select, #lab-saptirma input:not([type=checkbox]):not([type=radio]):not([type=search]) { font: inherit; font-size: 12.5px; color: var(--text-primary); background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; color-scheme: dark; min-width: 0; }
-#lab-saptirma input[type=search] { flex: 1; min-width: 0; }
-#lab-saptirma .frow input[type=date] { flex: 1; }
+#labPanel .frow3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#labPanel .frow3.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#labPanel .frow3 label span input, #labPanel .frow3 label span select { width: 100%; }
+#labPanel select, #labPanel input:not([type=checkbox]):not([type=radio]):not([type=search]) { font: inherit; font-size: 12.5px; color: var(--text-primary); background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; color-scheme: dark; min-width: 0; }
+#labPanel input[type=search] { flex: 1; min-width: 0; font: inherit; font-size: 13px; color: var(--text-primary); background: var(--surface-2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 9px; }
+#labPanel .frow input[type=date] { flex: 1; }
+#labPanel .frow3 label[hidden] { display: none; }
+#labPanel input:invalid { border-color: rgba(248, 113, 113, .7); }
 .adv { margin: 10px 0 2px; border-top: 1px solid var(--line); padding-top: 6px; }
 .adv > summary { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); cursor: pointer; padding: 3px 0; }
 .adv[open] > summary { margin-bottom: 4px; }
@@ -452,4 +454,35 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
 .verdict.good .gauge .gf { background: var(--good); }
 .gauge .gm { position: absolute; top: -3px; bottom: -3px; left: calc(var(--mark) * 100%); width: 2px; margin-left: -1px; background: #fff; border-radius: 1px; }
 .need { margin: 10px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); }
+
+/* üst çubuk: Laboratuvar › Ay görevi */
+#modebar .mbcrumb { display: inline-flex; align-items: center; gap: 5px; margin-left: -6px; padding: 5px 12px 5px 2px; font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+#modebar .mbcrumb .ico:first-child { transform: rotate(90deg); color: var(--text-muted); width: 14px; height: 14px; }
+@media (max-width: 520px) { #modebar .mbcrumb span { display: none; } }
+
+/* Laboratuvar deneyleri: hedef seçici, sonuç tabloları, karşılaştırma */
+.picker { margin: 6px 0 2px; }
+.picker .chips { margin: 4px 0; }
+.picker .chip { padding: 3px 10px; font-size: 12px; }
+.pk-count { margin: 6px 0 4px; }
+.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 248px; overflow-y: auto; overscroll-behavior: contain; }
+.prow { display: grid; gap: 1px; justify-content: stretch; justify-items: start; width: 100%; text-align: left; padding: 6px 10px; border-radius: 9px; background: var(--surface-1); border: 1px solid var(--line-2); transition: border-color .15s var(--ease), background-color .15s var(--ease); }
+.prow:hover { background: var(--surface-2); }
+.prow.on { border-color: var(--accent); background: rgba(59, 130, 246, .14); }
+.prow .pn { font-size: 12.5px; font-weight: 600; color: var(--text-primary); overflow-wrap: anywhere; }
+.prow .pm { font: 11.5px var(--mono); color: var(--text-muted); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.badge.warn { background: var(--warn); } .badge.bad { background: var(--bad); }
+.dinfo .dname { font-size: 13.5px; font-weight: 700; color: var(--text-primary); margin: 8px 0 2px; }
+.dinfo:empty { display: none; }
+.tbl.kv2 td { font-size: 12px; padding: 5px 4px; vertical-align: top; }
+.tbl.kv2 td:first-child { color: var(--text-muted); width: 46%; }
+.tbl.kv2 td.num { white-space: normal; font-family: var(--mono); font-size: 11.5px; color: var(--text-primary); overflow-wrap: anywhere; }
+.tbl.kv2 tr.hl td.num { font-weight: 700; } .tbl.kv2 tr.good td.num { color: var(--good); } .tbl.kv2 tr.warn td.num { color: var(--warn); } .tbl.kv2 tr.bad td.num { color: var(--bad); }
+.tbl.kv2 tr[title] td:first-child { text-decoration: underline dotted rgba(255, 255, 255, .25); text-underline-offset: 3px; cursor: help; }
+.tbl.cmp { margin-top: 10px; } .tbl.cmp th, .tbl.cmp td { font-size: 12px; padding: 5px 4px; } .tbl.cmp td.num { font-family: var(--mono); font-size: 11.5px; }
+.tbl.radii td { font-size: 12px; }
+#labPanel .chart { height: 190px; }
+#labPanel .chart.sq { height: auto; }
+#labPanel .labpage > .labsub:first-child { margin-top: 0; }
+#labPanel .verdict + .hint, #labPanel .verdict + .tbl, #labPanel .verdict + .need { margin-top: 10px; }
 

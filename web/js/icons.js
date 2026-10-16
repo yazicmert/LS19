@@ -29,6 +29,10 @@ const P = {
   flask: '<path d="M9 3h6M10 3v6.5L4.6 18.2A2 2 0 006.3 21h11.4a2 2 0 001.7-2.8L14 9.5V3"/><path d="M7.5 15h9"/>',
   shield: '<path d="M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6z"/><path d="M9 12l2.2 2.2L15.5 10"/>',
   telescope: '<path d="M4 15l12-6 2 4-12 6z"/><path d="M10 17l-2 5M12 16l2 6"/><path d="M16 9l3-1.5 1.5 3L18 12"/>',
+  lander: '<path d="M8 9h8l1.5 5h-11z"/><path d="M10 9V6h4v3M6.5 14l-3 5.5M17.5 14l3 5.5M2 19.5h4M18 19.5h4M12 14v3"/>',
+  meteor: '<circle cx="8" cy="16" r="4"/><path d="M11 13l8.5-8.5M13.5 15.5L20 12M8.5 10.5L12 4"/>',
+  collide: '<circle cx="5.5" cy="12" r="2.5"/><circle cx="18.5" cy="12" r="2.5"/><path d="M12 6.5v2.5M12 15v2.5M9 9l1.6 1.6M15 9l-1.6 1.6M9 15l1.6-1.6M15 15l-1.6-1.6"/>',
+  flame: '<path d="M12 3c.8 3.6 5 5.3 5 10a5 5 0 01-10 0c0-2.6 1.4-4.2 2.5-5.2.3 2 1.2 3 2.4 3.6C11.4 9 11 6 12 3z"/>',
 };
 export function icon(name, cls = '') {
   return `<svg class="ico ${cls}" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${P[name] || ''}</svg>`;

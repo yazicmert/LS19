@@ -1,7 +1,8 @@
 // /api/gp?group=active — CelesTrak GP (OMM JSON). CelesTrak kuralı: aynı grup 2 saatten sık indirilmez -> CDN 2 sa tutar.
 // CelesTrak bulut IP'sini engellerse GitHub "data" dalındaki 2 saatlik kopyaya düşer (yalnız "active" grubu).
 import { send, fail, getText, celestrakOrMirror, PERIODS } from './_lib.js';
-const GROUPS = new Set(['active', 'stations', 'starlink', 'gps-ops', 'glo-ops', 'galileo', 'beidou', 'geo', 'weather', 'science', 'oneweb', 'last-30-days']);
+const GROUPS = new Set(['active', 'stations', 'starlink', 'gps-ops', 'glo-ops', 'galileo', 'beidou', 'geo', 'weather', 'science', 'oneweb', 'last-30-days',
+  'cosmos-2251-debris', 'iridium-33-debris', 'fengyun-1c-debris', 'cosmos-1408-debris']);          // çöp bulutları: Laboratuvar › Uydu ↔ uydu / çöp
 export async function GET(req) {
   const group = new URL(req.url).searchParams.get('group') || 'active';
   if (!GROUPS.has(group)) return fail('bilinmeyen grup', 400);

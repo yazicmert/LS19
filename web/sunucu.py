@@ -18,7 +18,8 @@ CACHE = os.path.join(ROOT, 'data', 'cache')
 os.makedirs(CACHE, exist_ok=True)
 PORT = int(os.environ.get('LS19_PORT', os.environ.get('ROCSIM_PORT', '8765')))
 UA = {'User-Agent': 'LS19/1.1 (Look Star 19 egitim simulasyonu)'}
-GROUPS = {'active', 'stations', 'starlink', 'gps-ops', 'glo-ops', 'galileo', 'beidou', 'geo', 'weather', 'science', 'oneweb', 'last-30-days'}
+GROUPS = {'active', 'stations', 'starlink', 'gps-ops', 'glo-ops', 'galileo', 'beidou', 'geo', 'weather', 'science', 'oneweb', 'last-30-days',
+          'cosmos-2251-debris', 'iridium-33-debris', 'fengyun-1c-debris', 'cosmos-1408-debris'}          # çöp bulutları (Laboratuvar)
 HZ_ALLOWED = re.compile(r"^(-?\d{1,7}|THEMIS-[BC]|[A-Za-z0-9 \-]{1,24})$")
 DES_OK = re.compile(r"^[A-Za-z0-9 ()/'\-]{1,40}$")
 LOCK = threading.Lock()

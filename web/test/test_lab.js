@@ -1,5 +1,6 @@
 // Laboratuvar arayüzü sınaması (Node): (1) labtext.js saf yardımcıları (biçim, itki zamanı, sonuç yargısı), (2) arayüz sözleşmesi:
-// JS'nin başvurduğu her kimlik index.html'de var, üç çalışma alanı ve ağaç yapısı tutarlı, Saptırma Canlı Gökyüzü'nden taşındı.
+// JS'nin başvurduğu her kimlik index.html'de var, üst düzey iki alan (Canlı Gökyüzü · Laboratuvar; Ay görevi Laboratuvar'ın altında), ağaç yapısı ve
+// tembel yüklenen deney modülleri (iniş, çarpma, yakın geçiş, yeniden giriş) tutarlı, Saptırma Canlı Gökyüzü'nden taşındı.
 // Tarayıcı akışı (adımlar, boş durum, 3B, telefon): tools/lab_deneme.mjs
 import fs from 'fs';
 import * as L from '../js/labtext.js';
@@ -9,6 +10,8 @@ let ok = true;
 const check = (c, m) => { console.log((c ? '  ✓ ' : '  ✗ ') + m); ok = ok && !!c; };
 const read = (f) => fs.readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 const html = read('index.html'), css = read('css/style.css'), app = read('js/app.js'), dui = read('js/deflectui.js'), lui = read('js/labui.js'), aui = read('js/astui.js'), iui = read('js/impactui.js'), icons = read('js/icons.js');
+const kit = read('js/labkit.js'), work = read('js/labwork.js'), tpk = read('js/targetpick.js'), gpApi = fs.readFileSync(new URL('../../api/gp.js', import.meta.url), 'utf8'), srv = read('sunucu.py');
+const EXP_MOD = { inis: 'landlab', carpma: 'impactlab', yakin: 'conjlab', giris: 'reentrylab' };
 
 // ---------------------------------------------------------------- 1. saf yardımcılar
 console.log('labtext.js');
@@ -47,7 +50,8 @@ for (const [name, src] of [['deflectui.js', dui], ['labui.js', lui], ['astui.js'
   check(miss.length === 0, `${name}: başvurulan tüm kimlikler index.html'de var (${refs(src).length})${miss.length ? ' — eksik: ' + miss.join(', ') : ''}`);
 }
 const ws = [...html.matchAll(/data-workspace="(\w+)"/g)].map((m) => m[1]);
-check(ws.join() === 'mission,sky,lab', 'üst çubukta üç çalışma alanı: ' + ws.join(' · '));
+check(ws.join() === 'sky,lab', 'üst çubukta iki üst düzey alan: ' + ws.join(' · '));
+check(/class="mbcrumb" data-for="mission"/.test(html) && /view === 'mission' \? 'lab' : view/.test(app), 'Ay görevi Laboratuvar\'ın alt alanı: üst çubukta Laboratuvar etkin + "› Ay görevi" kırıntısı');
 check(/<aside id="labPanel"[^>]*data-for="lab"/.test(html) && /id="skyControls"[^>]*data-for="sky lab"/.test(html), 'Laboratuvar paneli yalnız lab\'da; zaman/kamera çubuğu sky ve lab\'da');
 check(/body\[data-mode="lab"\] \[data-for\]:not\(\[data-for~="lab"\]\)/.test(css) && /body\[data-mode="sky"\] \[data-for\]:not\(\[data-for~="sky"\]\)/.test(css) && /body\[data-mode="mission"\] \[data-for\]:not\(\[data-for~="mission"\]\)/.test(css), 'CSS: üç çalışma alanı için data-for gizleme kuralı (boşlukla ayrılmış liste)');
 check(/#panel, #skyPanel, #labPanel \{ position: absolute/.test(css) && /#skyPanel\.open, #labPanel\.open/.test(css), 'CSS: lab paneli aynı yerleşim ve telefon düzeniyle');
@@ -55,18 +59,29 @@ const skyTabs = [...html.slice(html.indexOf('id="skyPanel"'), html.indexOf('id="
 check(skyTabs.join() === 'takip,uydular,asteroit,carpma' && !html.includes('id="tab-saptirma"'), 'Saptırma Canlı Gökyüzü\'nden çıktı; sekmeler: ' + skyTabs.join(', '));
 const exps = [...html.matchAll(/data-exp="(\w+)"/g)].map((m) => m[1]), gos = [...html.matchAll(/data-go="(\w+)"/g)].map((m) => m[1]);
 check(exps.every((e) => LAB_PAGES[e] && idSet.has('lab-' + e)), 'ağaçtaki her deney için sayfa (#lab-…) ve başlık var: ' + exps.join());
-check(gos.join() === 'mission,impact' && /openMission/.test(lui) && /openImpact/.test(lui), 'kısayol dalları: Ay görevi, Çarpma riski');
+check(gos.join() === 'mission' && /openMission/.test(lui) && !/openImpact/.test(lui), 'ağaçta Ay görevi dalı Ay görevi alanını açar');
+check(['inis', 'carpma', 'yakin', 'giris', 'saptirma'].every((e) => exps.includes(e)), 'ağaç: iniş tezgâhı, asteroit → Dünya, uydu ↔ uydu/çöp, yeniden giriş, saptırma');
+for (const [e, f] of Object.entries(EXP_MOD)) {
+  const src = read(`js/${f}.js`);
+  check(lui.includes(`${e}: () => import('./${f}.js')`) && /export default class \w+ \{\s*constructor\(root/.test(src) && /stepsHtml\(/.test(src) && /new Steps\(/.test(src), `${e}: ${f}.js tembel yüklenir (dinamik import), adım akordeonlu varsayılan sınıf`);
+}
+check(!new RegExp(Object.values(EXP_MOD).join('|')).test(html), 'deney modülleri modulepreload listesinde değil (ilk açılışı şişirmez)');
+check(/new Worker\(new URL\('\.\/labwork\.js'/.test(kit) && ['land', 'conj-pair', 'conj-screen', 'reentry'].every((k) => work.includes(`'${k}'`)), 'uzun hesaplar iş parçacığında (labwork.js): iniş, yakın geçiş (çift/tarama), yeniden giriş');
+check(/class SatPicker/.test(tpk) && /class AstPicker/.test(tpk) && /MAX_ROWS = 40/.test(tpk) && ['hpMin', 'haMax', 'iMin', 'iMax', 'otype', 'dMin', 'dMax', 'moidMax'].every((k) => tpk.includes(`data-pk="${k}"`)), 'hedef seçici: tüm katalog listelenmez (en çok 40 satır); ad/numara + yükseklik, eğim, yörünge türü, çap, MOID süzgeçleri');
+const deb = [...tpk.matchAll(/key: '([\w-]+-debris)'/g)].map((m) => m[1]);
+check(deb.length === 4 && deb.every((g) => gpApi.includes(`'${g}'`) && srv.includes(`'${g}'`)), 'çöp bulutu grupları vekilde izinli (api/gp.js ve sunucu.py): ' + deb.join(', '));
 const steps = html.slice(html.indexOf('id="dfSteps"'), html.indexOf('</ol>', html.indexOf('id="dfSteps"')));
 check((steps.match(/class="step[ "]/g) || []).length === 4 && (steps.match(/class="sh"/g) || []).length === 4 && (steps.match(/class="sn"/g) || []).length === 4 && (steps.match(/class="ss"/g) || []).length === 4, 'Saptırma: 4 adım (başlık, numara, özet, gövde)');
 check(/data-step="1"[^>]*>\s*<button class="sh"[^>]*aria-expanded="true"/.test(steps) && (steps.match(/aria-expanded="false"[^>]*disabled/g) || []).length === 3, 'yalnız 1. adım açık, 2–4 başlangıçta kilitli ve erişilebilir (aria-expanded, disabled)');
 check(/name="dfMethod"/.test(steps) && /name="dfScn"/.test(steps) && /<details class="adv">/.test(steps), 'yöntem ve senaryo seçimi görünür, ayrıntılar "Gelişmiş" altında katlı');
 check(/role="radiogroup"/.test(steps) && /aria-live="polite"/.test(steps), 'erişilebilirlik: radyo grupları ve canlı durum bölgeleri');
 check(!/\bnew Worker\b|deflectwork/.test(aui) && /new Worker\(new URL\('\.\/deflectwork\.js'/.test(dui), 'hesap iş parçacığı deflectui.js\'de; astui.js yalnız katalog ve bilgi kartı');
-check(/key === 'm'|k === 'm'/.test(app) && /\['mission', 'sky', 'lab'\]/.test(app) && /m === 'lab'/.test(app) && /q\.get\('exp'\)/.test(app), 'app.js: M kısayolu üç alanı döndürür; ?mode=lab&exp=saptirma');
+check(/k === 'm'\) \{ setWorkspace\(VIEW === 'sky' \? 'lab' : 'sky'\)/.test(app) && /m === 'lab'/.test(app) && /q\.get\('exp'\)/.test(app), 'app.js: M kısayolu Canlı Gökyüzü ↔ Laboratuvar; ?mode=lab&exp=…');
+check(/if \(m !== 'lab'\) m = 'sky'/.test(app) && /\['cam', 'seek', 'warp', 'play', 'cine', 'profile', 'date'\]/.test(app), 'açılış: görev adres parametreleri yoksa Canlı Gökyüzü (ya da son seçilen Laboratuvar)');
 check(/openLab, \{ hypo: true \}|openLab\(i, \{ hypo: true \}\)/.test(iui) && !/astui\.scan/.test(iui), 'Çarpma sekmesi sanal çarpıcıyı "çarpacak olsaydı" senaryosuyla Laboratuvar\'a gönderir');
 check(/label: 'Laboratuvarda dene'/.test(app), 'asteroit kartı: "Laboratuvarda dene" eylemi');
 const iconNames = new Set([...icons.matchAll(/^\s{2}(\w+): '/gm)].map((m) => m[1]));
 const used = [...new Set([...html.matchAll(/data-icon="(\w+)"/g)].map((m) => m[1]))];
-check(used.every((u) => iconNames.has(u)), `index.html'deki tüm simgeler tanımlı (${used.length}); yeni: flask, shield`);
+check(used.every((u) => iconNames.has(u)), `index.html'deki tüm simgeler tanımlı (${used.length}); yeni: lander, meteor, collide, flame`);
 check(/prefers-reduced-motion/.test(css) && /@keyframes stepIn/.test(css), 'adım geçişi animasyonu, azaltılmış hareket kuralıyla kapanır');
 console.log(ok ? 'TAMAM' : 'HATA'); process.exit(ok ? 0 : 1);

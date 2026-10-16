@@ -130,7 +130,8 @@ function setWorkspace(view, push = true) {
   if (view === VIEW && camStore[m]) return;
   if (m !== MODE || !camStore[m]) switchEngine(m);
   VIEW = view; document.body.dataset.mode = view;
-  document.querySelectorAll('[data-workspace]').forEach((b) => { const on = b.dataset.workspace === view; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+  const tab = view === 'mission' ? 'lab' : view;                                          // Ay görevi Laboratuvar'ın alt alanıdır (üst çubukta Laboratuvar › Ay görevi)
+  document.querySelectorAll('[data-workspace]').forEach((b) => { const on = b.dataset.workspace === tab; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
   if (view === 'lab' && narrowScreen()) $('#labPanel').classList.add('open');            // telefonda deney paneli ana içeriktir
   try { localStorage.setItem('ls19.mode', view); } catch (e) { /* özel pencere */ }
   if (push) { const u = new URL(location.href); u.searchParams.set('mode', view); if (view !== 'lab') u.searchParams.delete('exp'); history.replaceState(null, '', u); }
@@ -140,13 +141,13 @@ const narrowScreen = () => window.matchMedia('(max-width: 760px)').matches;
 // Laboratuvar: deney merkezi; kısayollar ilgili çalışma alanına gider. openLab: saptırma deneyini bir asteroitle açar (pick kartı, Asteroitler/Çarpma sekmeleri)
 const labui = new LabUI({
   openMission: () => { setWorkspace('mission'); ui.setTab('gorev'); if (narrowScreen()) $('#panel').classList.add('open'); },
-  openImpact: () => { setWorkspace('sky'); ui.setTab('carpma'); if (narrowScreen()) $('#skyPanel').classList.add('open'); },
+  ctx: () => ({ world, ui, clock, sats, asts, skyui, followSat, setSkyCam, focusOn, tOfUtcMs, curT }),
 });
 function openLab(i, opts) {
   setWorkspace('lab'); labui.show('saptirma');
   if (deflect) deflect.setTarget(i, opts);
 }
-document.querySelectorAll('[data-workspace]').forEach((b) => b.addEventListener('click', () => setWorkspace(b.dataset.workspace)));
+document.querySelectorAll('[data-workspace]').forEach((b) => b.addEventListener('click', () => { if (b.dataset.workspace === 'lab' && VIEW === 'lab') labui.show('home'); else setWorkspace(b.dataset.workspace); }));
 function loadMoonSats(t) {
   if (!sats) return;
   if (moonRange && t > moonRange[0] + 3600 && t < moonRange[1] - 3600) return;
@@ -512,7 +513,7 @@ window.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
   const k = e.key.toLowerCase();
   if (k === 'escape') { ui.hidePick(); return; }
-  if (k === 'm') { const order = ['mission', 'sky', 'lab']; setWorkspace(order[(order.indexOf(VIEW) + 1) % order.length]); return; }
+  if (k === 'm') { setWorkspace(VIEW === 'sky' ? 'lab' : 'sky'); return; }                     // üst düzey iki alan: Canlı Gökyüzü ↔ Laboratuvar
   if (MODE === 'sky') {                                          // Canlı Gökyüzü: zaman ve kamera
     if (k === ' ') { e.preventDefault(); clock.pause(!clock.paused); skyui.syncClock(); }
     else if (k === 'n') { clock.live(); skyui.syncClock(); }
@@ -575,9 +576,16 @@ function applyUrlParams() {
   if (q.get('warp')) setWarp(parseFloat(q.get('warp')));
   if (q.get('play') === '1' && !q.get('seek')) setPlay(true);
   if (q.get('tab')) ui.setTab(q.get('tab'));
-  let m = q.get('mode'); if (!m) { try { m = localStorage.getItem('ls19.mode'); } catch (e) { m = null; } }
-  if (m === 'lab' || q.get('tab') === 'saptirma') { setWorkspace('lab', false); labui.show(q.get('exp') || (q.get('tab') === 'saptirma' ? 'saptirma' : 'home')); }     // ?mode=lab&exp=saptirma
-  else if (m === 'sky' || (q.get('tab') && ui.isSkyTab(q.get('tab')))) setWorkspace('sky', false);
+  // açılış alanı: ?mode=…, yoksa görev adres parametreleri (cam, seek, warp, play, cine, profile, date, görev sekmesi) Ay görevini açar,
+  // yoksa son seçilen üst alan (Canlı Gökyüzü / Laboratuvar), o da yoksa Canlı Gökyüzü
+  const tab = q.get('tab'), missionHint = ['cam', 'seek', 'warp', 'play', 'cine', 'profile', 'date'].some((k) => q.has(k)) || (tab && tab !== 'saptirma' && !ui.isSkyTab(tab));
+  let m = q.get('mode');
+  if (!m && tab === 'saptirma') m = 'lab';
+  else if (!m && tab && ui.isSkyTab(tab)) m = 'sky';
+  else if (!m && missionHint) m = 'mission';
+  if (!m) { try { m = localStorage.getItem('ls19.mode'); } catch (e) { m = null; } if (m !== 'lab') m = 'sky'; }
+  if (m === 'lab') { setWorkspace('lab', false); labui.show(q.get('exp') || (tab === 'saptirma' ? 'saptirma' : 'home')); }     // ?mode=lab&exp=saptirma|inis|carpma|yakin|giris
+  else if (m === 'sky') setWorkspace('sky', false);                                         // Ay görevi: açılıştaki alan (değişiklik yok)
   if (q.get('skycam')) setSkyCam(q.get('skycam').toUpperCase());
   if (q.get('cine') && !q.get('seek')) setTimeout(() => cinema.start({ scale: Math.max(0.2, parseFloat(q.get('cine')) || 1) }), 800);       // ?cine=1: açılışta sinematik gösterim (sayı: süre ölçeği)
 }

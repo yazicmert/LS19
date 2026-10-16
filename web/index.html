@@ -100,10 +100,10 @@
   <header id="modebar" aria-label="LS19">
     <span class="brand"><img src="favicon.svg" alt="" width="22" height="22"><b>LS19</b></span>
     <div class="seg" role="tablist" aria-label="Çalışma alanı (M)">
-      <button role="tab" data-workspace="mission" class="on" aria-selected="true" aria-label="Ay Görevi"><i data-icon="rocket"></i><span>Ay Görevi</span></button>
       <button role="tab" data-workspace="sky" aria-selected="false" aria-label="Canlı Gökyüzü"><i data-icon="satellite"></i><span>Canlı Gökyüzü</span></button>
-      <button role="tab" data-workspace="lab" aria-selected="false" aria-label="Laboratuvar"><i data-icon="flask"></i><span>Laboratuvar</span></button>
+      <button role="tab" data-workspace="lab" class="on" aria-selected="true" aria-label="Laboratuvar"><i data-icon="flask"></i><span>Laboratuvar</span></button>
     </div>
+    <span class="mbcrumb" data-for="mission" aria-label="Laboratuvar içinde: Ay görevi"><i data-icon="chev"></i><i data-icon="rocket"></i><span>Ay görevi</span></span>
   </header>
 
   <section id="hud" class="card" data-for="mission" aria-label="Uçuş verileri">
@@ -400,16 +400,28 @@
     </header>
 
     <div id="lab-home" class="labpage">
-      <p class="labsub">Gerçek veriyle "ya şöyle olsaydı?" denemeleri. Bir deney seçin; sonuçlar 3B görünümde de izlenir.</p>
+      <p class="labsub">Gerçek veriyle mühendislik denemeleri: aracı tasarla, çarpışmayı ve çarpmayı benzet, sonucu bilimsel çıktılarla incele. Bir deney seçin.</p>
       <ul class="labtree">
-        <li><div class="grp">Gök cisimleri</div>
+        <li><div class="grp">Görev ve araç tasarımı</div>
+          <ul>
+            <li><button class="exp" type="button" data-go="mission"><i data-icon="rocket" class="ei"></i><span><b>Ay görevi</b><small>Dünya'dan Ay yüzeyine tam görev: profil, araç ve iniş güdümünü değiştirip Δv bütçesini karşılaştır (N-cisim fizik motoru, 3B).</small></span><i data-icon="chev" class="go"></i></button></li>
+            <li><button class="exp" type="button" data-exp="inis"><i data-icon="lander" class="ei"></i><span><b>Ay'a iniş tezgâhı</b><small>İniş aracını tasarla (kütle, yakıt, itki, Isp, kısma), başlangıç koşulunu ve güdüm yasasını seç; yakıt, Δv kaybı, temas hızları ve profilleri incele.</small></span><i data-icon="chev" class="go"></i></button></li>
+          </ul></li>
+        <li><div class="grp">Çarpışma ve çarpma</div>
+          <ul>
+            <li><button class="exp" type="button" data-exp="carpma"><i data-icon="meteor" class="ei"></i><span><b>Asteroit → Dünya</b><small>Katalogdan filtreyle ya da adla bir asteroit seç (veya elle tanımla): atmosferde parçalanma, krater, ısı, şok dalgası, deprem ve hasar yarıçapları.</small></span><i data-icon="chev" class="go"></i></button></li>
+            <li><button class="exp" type="button" data-exp="yakin"><i data-icon="collide" class="ei"></i><span><b>Uydu ↔ uydu / çöp</b><small>İki cisim seç ya da birini filtreli adaylara karşı tara: en yakın yaklaşma, RTN kaçırma, çarpışma olasılığı ve çarpışırsa parça bulutu.</small></span><i data-icon="chev" class="go"></i></button></li>
+            <li><button class="exp" type="button" data-exp="giris"><i data-icon="flame" class="ei"></i><span><b>Uydu yeniden girişi</b><small>Bir uydunun sürüklenmeyle yörünge ömrü (Güneş etkinliğine göre), yeniden giriş penceresi, enlem bandı ve atmosfere giriş yükleri.</small></span><i data-icon="chev" class="go"></i></button></li>
+          </ul></li>
+        <li><div class="grp">Gezegen savunması</div>
           <ul><li><button class="exp" type="button" data-exp="saptirma"><i data-icon="shield" class="ei"></i><span><b>Asteroit saptırma</b><small>Bir asteroidi itip Dünya'yı ıskalatmak için ne kadar itki gerekir? Hedefi seç, yakın geçişi seç, itkiyi dene.</small></span><i data-icon="chev" class="go"></i></button></li></ul></li>
-        <li><div class="grp">Görev tasarımı</div>
-          <ul><li><button class="exp" type="button" data-go="mission"><i data-icon="rocket" class="ei"></i><span><b>Ay görevi</b><small>Profil, araç ve iniş güdümünü değiştirip Δv bütçesini karşılaştır. Ay Görevi alanında açılır.</small></span><i data-icon="chev" class="go"></i></button></li></ul></li>
-        <li><div class="grp">Çarpma ve yeniden giriş</div>
-          <ul><li><button class="exp" type="button" data-go="impact"><i data-icon="target" class="ei"></i><span><b>Çarpma riski</b><small>Uyduların yeniden girişi ve Sentry sanal çarpıcıları. Canlı Gökyüzü'nde, Çarpma sekmesinde açılır.</small></span><i data-icon="chev" class="go"></i></button></li></ul></li>
       </ul>
     </div>
+
+    <div id="lab-inis" class="labpage" hidden></div>
+    <div id="lab-carpma" class="labpage" hidden></div>
+    <div id="lab-yakin" class="labpage" hidden></div>
+    <div id="lab-giris" class="labpage" hidden></div>
 
     <div id="lab-saptirma" class="labpage" hidden>
       <ol id="dfSteps" class="steps">
