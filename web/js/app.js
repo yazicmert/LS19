@@ -10,6 +10,7 @@ import { SatLayer } from './satlayer.js';
 import { AsteroidLayer } from './asteroids.js';
 import { AstUI } from './astui.js';
 import { LabUI, EXPERIMENTS, LAB_HOME, engineFor, resolveView } from './labui.js';
+import { AyUI } from './ayui.js';
 import { DeflectUI } from './deflectui.js';
 import { Updater } from './updater.js';
 import { Tracker } from './tracker.js';
@@ -49,6 +50,16 @@ window.addEventListener('resize', resize);
 const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
 const send = (m) => worker.postMessage(m);
 const ui = new UI(world, send);
+// Laboratuvar › Ay görevi: dört adımın özetleri ve sonuç kartı (ayui.js). Yalnız durumu okur; "Baştan uçur" görev çubuğundaki Baştan başlat ile aynı komuttur
+const ayui = new AyUI({ ui, restart: () => send({ cmd: 'restart' }) });
+function ayState() {
+  const key = DESIGN ? ui.profileKeyOf(DESIGN.cfg || ui.getConfig()) : ui.profileKeyOf(ui.getConfig());
+  return { profileName: PROFILES[key] ? PROFILES[key].name : 'Özel', dateISO: DESIGN && !designing ? E.utcString(DESIGN.LAUNCH.t_launch).slice(0, 10) : pendingDate,
+    designing, ready: !!DESIGN && !designing && !!latestSentInit, running, done: !!(latest && latest.done), result: latest ? latest.result : null,
+    met: latest && DESIGN ? latest.t - DESIGN.LAUNCH.t_launch : null, started: !!(latest && latest.t > ui.t0 + 1), vehicle: vehicleMode, landing: landingMode, optimalOk };
+}
+let lastAy = 0;
+const ayRefresh = () => { lastAy = performance.now(); ayui.update(ayState()); };
 // sinematik "fragman" gösterimi (cinema.js): görevi baştan oynatır; kamera, zaman hızı ve bindirmeleri yönetir
 const cinema = new Cinema({ world, send, ui, root: $('#app'), latest: () => latest, play: (on) => setPlay(on), running: () => running, landing: () => landingMode,
   onStart: () => { document.querySelectorAll('.tm-pop').forEach((p) => { p.hidden = true; }); ui.hidePick(); $('#hoverTip').hidden = true; },
@@ -227,6 +238,7 @@ async function startDesign(dateStr) {
   running = false; setBtn($('#btnPlay'), 'play', 'Başlat');
   $('#loading').style.display = 'grid'; $('#loadBar').style.width = '0%'; $('#loadBack').hidden = true;
   $('#loadMsg').textContent = 'Görev tasarlanıyor: ' + dateStr;
+  ayRefresh();
   const cfg = ui.getConfig(), pre = cachedDesign(ms, cfg);
   let msg;
   if (pre) {
@@ -285,7 +297,7 @@ function syncLanding() {
     const needs = b.dataset.landing !== 'zem'; b.disabled = needs && !optimalOk; b.classList.toggle('on', b.dataset.landing === (optimalOk ? landingMode : 'zem'));
   });
   document.querySelectorAll('[data-vehicle]').forEach((b) => b.classList.toggle('on', b.dataset.vehicle === vehicleMode));
-  refreshTreeMenus();
+  refreshTreeMenus(); ayRefresh();
 }
 function refreshNominal(preNominal, ce) {
   const key = nominalKey(), cached = key === 'zem' ? (preNominal || (ce && ce.nominal)) : (ce && ce.nominalBy && ce.nominalBy[key]);
@@ -338,6 +350,7 @@ worker.onmessage = (e) => {
     if (d.seek) { if (!running) setPlay(true); }
     else { running = false; setBtn($('#btnPlay'), 'play', 'Başlat'); }
     if (d.type === 'ready' && !urlApplied) { urlApplied = true; applyUrlParams(); idleInitSky(); }
+    ayRefresh();
   } else if (d.type === 'state') {
     latest = d;
     if (d.nbody !== undefined && chkNbody.checked !== d.nbody) chkNbody.checked = d.nbody;          // durum iletisi saniyede ~60: DOM sorgusu önbellekte
@@ -380,6 +393,7 @@ function frame(now) {
     if (asts) { asts.hideAll(); astui.update(null); }
     if (tracker) tracker.hideAll();
     ui.hud(latest, now);
+    if (now - lastAy > 500) ayRefresh();                          // Ay görevi adım özetleri: saniyede 2 kez yeter (değişmeyen metin yeniden yazılmaz)
   }
   if (!designing) world.render();                               // tasarım sırasında katman her şeyi örtüyor: işlemci tasarıma kalsın
   requestAnimationFrame(frame);

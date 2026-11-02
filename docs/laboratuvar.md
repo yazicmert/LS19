@@ -2,7 +2,7 @@
 
 Laboratuvar "ya şöyle olsaydı?" denemelerinin yeridir: bir şeyi ayarla, dene, sonucu gör. Başta yalnız asteroit saptırma buradaydı; Ay görevi üst çubukta ayrı bir dal olarak duruyor, Laboratuvar'daki "Ay görevi" kartı da kullanıcıyı Laboratuvar'dan çıkarıp o dala götürüyordu (aynı şey iki yerde). Ay görevinde profil, tarih, araç ve iniş güdümü seçilip Δv sonuçları karşılaştırıldığı için o da bir deneydir: artık Laboratuvar'ın içindedir ve üst çubuk iki dala indi. Bu belge yapıyı anlatır.
 
-Eski saptırma sekmesinin sorunları (tek sayfada hedef, tarama, tablo, kütle, itki, tarih, yön alt alta; 368 px'lik panelde 5 sekmeli dar çubuk; "0 yakın geçiş" boş tablosu) §3'teki dört adımla çözüldü.
+Eski saptırma sekmesinin sorunları (tek sayfada hedef, tarama, tablo, kütle, itki, tarih, yön alt alta; 368 px'lik panelde 5 sekmeli dar çubuk; "0 yakın geçiş" boş tablosu) §4'teki dört adımla çözüldü.
 
 ## 1. Gezinme ağacı
 
@@ -11,7 +11,7 @@ LS19
 ├─ Canlı Gökyüzü       gözlem: gerçek veri, gerçek saat (Takip · Uydular · Asteroitler · Çarpma)
 └─ Laboratuvar         deney: "ya şöyle olsaydı?"
     ├─ Görev tasarımı
-    │   └─ Ay görevi            görev motoru: profil, tarih, araç, güdüm; uçuş; Δv bütçesi (Görev · Kontrol · Δv · Grafik · Yörünge · Efemeris)
+    │   └─ Ay görevi            görev motoru: Görev → Araç ve güdüm → Uçuş → Sonuç
     └─ Gezegen savunması
         ├─ Asteroit saptırma    gökyüzü motoru: Hedef → Yakın geçiş → İtki → Sonuç
         └─ Çarpma riski         Canlı Gökyüzü ▸ Çarpma sekmesine kısayol
@@ -48,18 +48,36 @@ engineFor(view, exp, cur)   // 'sky' → 'sky'; Laboratuvar'da deneyin motoru; a
 | `#hud`, `#manual`, `#controls` (görev çubuğu) | `lab@mission` | Ay görevi (ve ondan dönülen ana sayfa) |
 | `#skyControls` (zaman/kamera) | `sky lab@sky` | Canlı Gökyüzü, saptırma (ve ondan dönülen ana sayfa) |
 
-- **Tek panel**: Ay görevinin sekmeleri (eski `#panel`) Laboratuvar panelinin `#lab-ay` sayfasıdır (`.labpage.labtabs`: sekme çubuğu sabit, sayfalar kendi içinde kayar). Başlık, geri düğmesi ve telefon davranışı her deneyde aynıdır. `ui.setTab` sekmeyi kendi grubunda değiştirir (sekme sayfasının ebeveyni: `#skyPanel` ya da `#lab-ay`), saptırma adımlarıyla karışmaz.
+- **Tek panel**: Ay görevi (eski `#panel`) Laboratuvar panelinin `#lab-ay` sayfasıdır (`.labpage.labtabs`: adım çubuğu sabit, sayfalar kendi içinde kayar). Başlık, geri düğmesi ve telefon davranışı her deneyde aynıdır. `ui.setTab` sekmeyi kendi grubunda değiştirir (sekme sayfasının ebeveyni: `#skyPanel`, `#lab-ay` ya da iç içe `#tab-ucus`); iç sayfa açılınca onu taşıyan adım da açılır. `ui.tab` görünen **yaprak** sayfadır (kare başına güncellenen Kontrol, Yörünge, Efemeris, Grafik buna bakar), saptırma adımlarıyla karışmaz.
 
 | Dosya | İş |
 |---|---|
 | `js/labui.js` | Deney kaydı (`EXPERIMENTS`), `engineFor`, `resolveView` (saf), deney merkezi (ağaç), başlık/geri düğmesi |
 | `js/app.js` | `setWorkspace(view, push, exp)` / `syncWorkspace()`: motor seçimi, `body` öznitelikleri, adres ve `localStorage` |
-| `js/ui.js` | Ay görevi sekmeleri (Görev, Kontrol, Δv, Grafik, Yörünge, Efemeris), HUD; fizik worker'ıyla konuşma değişmedi |
+| `js/ui.js` | Ay görevi sayfaları (yapılandırma, çizelge, Kontrol, Grafik, Yörünge, Efemeris, Δv), HUD, iç içe sekmeler; fizik worker'ıyla konuşma değişmedi |
+| `js/ayui.js` | Ay görevi deneyinin dört adımı: adım özetleri, tamam/yeni işaretleri, sonuç kartı, adımlar arası düğmeler. Yalnız durumu okur; worker'a komut göndermez |
+| `js/aytext.js` | Saf yardımcılar (DOM yok): adım özetleri, sonuç yargısı (temasın başarısı `mission.js` › `touchdown()` kararıdır, burada yeniden hesaplanmaz) |
 | `js/deflectui.js` | Saptırma deneyi: 4 adım, grafikler, 3B yollar (hesap `deflectwork.js`'te, değişmedi) |
 | `js/labtext.js` | Saf yardımcılar (DOM yok): düz dille biçim, itki zamanı seçenekleri, sonuç yargısı, adım özetleri |
 | `js/astui.js` | Yalnız asteroit kataloğu ve bilgi kartı; saptırmaya geçişi `openLab` ile yapar |
 
-## 3. Saptırma deneyi: dört adım
+## 3. Ay görevi deneyi: dört adım
+
+Saptırma deneyiyle aynı dil: numaralı adımlar, her adımın tek satırlık özeti, adımlar arası "Devam" düğmeleri. Farkı: Ay görevinde her zaman kurulu bir görev vardır (açılışta hazır tasarım yüklenir), bu yüzden adımlar kilitli değildir; adım çubuğu panelin üstünde sekme gibi durur ve uçuş aletleri büyük olduğu için akordeon yerine sayfa kullanılır. Etkin adım düğmesi genişler ki özeti okunsun; ötekilerin tam özeti üzerine gelince görünür.
+
+| Adım | İçerik | Özet örneği |
+|---|---|---|
+| **1 Görev** | Profil, görev tarihi (Bugün / Apollo 11 / Ekim 2026), **Tasarla**, tasarım bilgisi; yörünge ayrıntıları (park ve Ay bekleme yörüngesi) "gelişmiş" altında katlı | `Apollo · 13 Eki 2026` |
+| **2 Araç ve güdüm** | Araç kartları (İki kademe / Tek kademe; değişince görev önbellekteki tasarımla yeniden kurulur) ve iniş güdümü kartları (Optimal dengeli / serbest, ZEM/ZEV; uçuşta da değişir). Bunlar görev çubuğundaki **Uçuş ▾** menüsüyle aynı düğmelerdir (`data-vehicle`, `data-landing`): biri değişince öteki de değişir. Konik çözücü yüklenemezse not çıkar | `İki kademe · Optimal` |
+| **3 Uçuş** | Alet sekmeleri: **Çizelge** (görev çizelgesi + olay günlüğü; olaya tıkla → atla), **Kontrol** (K), **Grafik**, **Yörünge**, **Efemeris**. Oynatma görev çubuğundadır (Başlat, zaman hızı, kamera, sinematik) | `Hazır: Başlat`, `T+1g 04:12`, `Uçuş bitti` |
+| **4 Sonuç** | Sonuç kartı (İniş başarılı / Sert temas / Görev sona erdi; temas ölçüleri: iniş yerine uzaklık, dikey ve yatay hız, kalan yakıt, kullanılan Δv, nominale göre fark), **Başka profille dene**, **Güdümü değiştir**, **Baştan uçur**; altında Δv bütçesi ve profil karşılaştırması | `İniş ✓ · 304 kg yakıt` |
+
+- İniş olunca 4. adımın numarası "yeni sonuç" diye işaretlenir; adım açılınca işaret kalkar.
+- Sonuç kartındaki Δv toplamları Δv tablosuyla aynı tanımdır (yalnız nominali ve gerçekleşeni bilinen manevralar).
+- Güvenli temas sınırları (dikey < 3 m/s, yatay < 1,5 m/s) `mission.js`'tedir; `test_ayexp.js` metindeki sayıların oradakilerle aynı kaldığını denetler.
+- Eski sekme kimlikleri korunur: `?tab=gorev` 1. adımı, `?tab=kontrol|grafik|yorunge|efemeris` Uçuş adımını o aletle, `?tab=dv` Sonuç adımını açar.
+
+## 4. Saptırma deneyi: dört adım
 
 Her adım katlanabilir bir kutudur: tamamlanınca tek satırlık **özete** iner ("99942 Apophis · Ø 340 m"), yalnız etkin adım açıktır, sonraki adımlar önceki bitene dek kilitlidir. Önceki adıma dönmek için başlığa tıklanır; üstteki bir adımı değiştirmek aşağıdakileri sıfırlar ya da "eski" diye işaretler.
 
@@ -83,18 +101,19 @@ Her adım katlanabilir bir kutudur: tamamlanınca tek satırlık **özete** iner
 
 Çarpma sekmesindeki sanal çarpıcılar (Sentry) için "Laboratuvarda dene" düğmesi senaryoyu **Çarpacak olsaydı** olarak önceden seçer. Fizik değişmedi: hesap, motor ve sayılar eski Saptırma sekmesiyle aynıdır (`test_deflect.js`: Apophis 2029, JPL CAD ile ~2 km).
 
-## 4. Telefon düzeni
+## 5. Telefon düzeni
 
 Ana sayfa ya da saptırma açılınca panel kendiliğinden açılır (deney ana içeriktir); Ay görevinde açılmaz (3B uçuş ana içeriktir; görev çubuğundaki panel düğmesi açar/kapar, deney ağaçtan seçilirse panel açık kalır). Saptırmada "3B'de göster" paneli kapatır ki 3B görünüm örtülmesin; zaman/kamera çubuğundaki panel düğmesi geri açar. Adımlar tam genişlik, yatay taşma yoktur (tarayıcı denemesinde denetlenir).
 
-## 5. Doğrulama
+## 6. Doğrulama
 
+- `node test/test_ayexp.js` — Ay görevi deneyi: adım özetleri, sonuç yargısı (başarılı, sert temas, atmosfere giriş), güvenli temas sınırlarının `mission.js` ile aynılığı, arayüz sözleşmesi (dört adım ve aletler, eski sekme kimlikleri, panel ↔ menü araç/güdüm düğmeleri, `ayui.js` worker'a komut göndermez).
 - `node test/test_lab.js` — saf yardımcılar (itki zamanı seçenekleri, sonuç yargısı her senaryo için, metinler) ve arayüz sözleşmesi (JS'nin başvurduğu her kimlik index.html'de var, iki alan, deney kaydı ↔ ağaç ↔ sayfa uyumu, `data-for` kuralları, görünüm → motor eşlemesi, eski/yeni adresler, simgeler, erişilebilirlik öznitelikleri).
-- `node tools/lab_deneme.mjs` — başsız Chromium'da tam akış: iki dallı gezinme, deney → motor geçişleri (ana sayfa motoru değiştirmez; Ay görevi görev motorunu, saptırma gökyüzü motorunu açar), Ay görevi sekmeleri Laboratuvar panelinde, Esc/M/K kısayolları, Betulia boş durumu, Apophis 2029 (4 yakın geçiş, ilki 13 Nisan 2029, 38.013 km), itki, "çarpacak olsaydı", 3B yollar, çapraz bağlantılar, eski/yeni adres parametreleri (`?mode=mission`, `?tab=kontrol`), telefon (390×844; varsayılan açılışta panel kapalı). `api/*` istekleri gerçek bulut işlevleriyle `web/test/fixtures` yanıtlarından karşılanır: internet gerekmez.
+- `node tools/lab_deneme.mjs` — başsız Chromium'da tam akış: iki dallı gezinme, deney → motor geçişleri (ana sayfa motoru değiştirmez; Ay görevi görev motorunu, saptırma gökyüzü motorunu açar), Ay görevinin dört adımı (Devam düğmeleri, panelden güdüm seçimi menüyle eşlenir, Uçuş aletleri, K, inişe atlayıp sonuç kartı, Baştan uçur, `?tab=dv`), Esc/M/K kısayolları, Betulia boş durumu, Apophis 2029 (4 yakın geçiş, ilki 13 Nisan 2029, 38.013 km), itki, "çarpacak olsaydı", 3B yollar, çapraz bağlantılar, eski/yeni adres parametreleri (`?mode=mission`, `?tab=kontrol`), telefon (390×844; varsayılan açılışta panel kapalı). `api/*` istekleri gerçek bulut işlevleriyle `web/test/fixtures` yanıtlarından karşılanır: internet gerekmez.
 
 **Sınırlar:** tarayıcı denemesi yazılım çizimiyle (SwiftShader) ve sahte kaynak verisiyle yapıldı; ayrıntı (tam duyarlıklı JPL çözümü) yalnız Apophis için var, öteki hedefler katalog öğeleriyle çalışır. Gerçek JPL sunucusuyla, gerçek GPU'yla ve gerçek bir telefonda denenmedi.
 
-## 6. Yeni deney eklemek
+## 7. Yeni deney eklemek
 
 1. `index.html`'de `#labPanel` içine `<div id="lab-<ad>" class="labpage" hidden>…</div>` ekleyin (sekmeli bir deneyse `class="labpage labtabs"`, içinde `nav.tabs` ve `.tabpage`'ler).
 2. Merkez ağacına (`#lab-home`) bir dal ekleyin: `<button class="exp" data-exp="<ad>">`. Başka bir alana kısayolsa `data-go="…"` ve `labui.js`'te karşılığı.

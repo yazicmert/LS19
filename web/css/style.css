@@ -325,6 +325,30 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
 /* kontrol paneli (Laboratuvar › Ay görevi → Kontrol sekmesi) */
 #lab-ay .tabs { gap: 3px; padding: 8px 6px; }
 #lab-ay .tab { flex: 1 1 auto; padding: 6px 5px; font-size: 12px; }
+/* Laboratuvar › Ay görevi: dört adım (Görev → Araç ve güdüm → Uçuş → Sonuç). Adım düğmesi: numara, ad, tek satır özet (tamamı title'da) */
+#lab-ay .ays { flex-wrap: nowrap; gap: 4px; padding: 8px 6px; }
+#lab-ay .ays .tab { flex: 1 1 0; display: grid; grid-template-columns: 18px minmax(0, 1fr); column-gap: 6px; row-gap: 1px; align-items: center; text-align: left; padding: 5px 6px; }
+.ays .sn { grid-row: 1 / span 2; width: 18px; height: 18px; font-size: 10.5px; }
+.ays .st { font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ays .ss { grid-column: 2; font-size: 10.5px; font-weight: 500; }
+.ays .tab.done .sn { background: var(--good); color: #052e1d; }
+.ays .tab.on .sn { background: var(--accent); color: #fff; }
+#lab-ay .ays .tab.on { flex-grow: 1.8; }          /* etkin adımın özeti okunur kalsın; ötekiler kısalır (tamamı title'da) */
+.ays .tab.on .ss { color: var(--text-secondary); }
+.ays .tab.new .sn { box-shadow: 0 0 0 3px rgba(52, 211, 153, .4); animation: ayNew 1.6s var(--ease) 3; }
+@keyframes ayNew { 50% { box-shadow: 0 0 0 6px rgba(52, 211, 153, 0); } }
+.tabpage.tabgroup { padding: 0; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }       /* Uçuş adımı: alet sekmeleri sabit, sayfalar kendi içinde kayar */
+#lab-ay .subtabs { padding: 6px 8px; gap: 3px; border-bottom-style: dashed; }
+#lab-ay .subtabs .tab { padding: 4px 3px; font-size: 11.5px; }
+.ayprof { margin: 8px 0 4px; } .ayprof select { flex: 1; min-width: 0; }
+.optcards { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 4px; }
+.optcard { display: block; width: 100%; text-align: left; padding: 8px 10px; border-radius: 10px; background: var(--surface-1); border: 1px solid var(--line-2); transition: border-color .15s var(--ease), background-color .15s var(--ease); }
+.optcard:hover:not(:disabled) { background: var(--surface-2); }
+.optcard.on { border-color: var(--accent); background: rgba(59, 130, 246, .14); }
+.optcard:disabled { opacity: .45; cursor: not-allowed; }
+.optcard b { display: block; font-size: 12.5px; } .optcard small { display: block; margin-top: 2px; font-size: 11.5px; line-height: 1.4; color: var(--text-muted); }
+.ayres { margin-top: 8px; } .ayres td { font-size: 12.5px; padding: 3px 0; }
+#ayVerdict + .stepnav { margin: 8px 0 2px; }
 .kp { display: flex; flex-direction: column; gap: 8px; padding-top: 6px; }
 .kp-head { padding: 2px 2px 0; }
 .kp-phase { font-size: 15px; font-weight: 600; line-height: 1.25; }

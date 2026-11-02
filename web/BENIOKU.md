@@ -17,8 +17,8 @@ saptırma laboratuvarı bir asteroide uygulanan itkinin Dünya yakın geçişini
 
 ## İki çalışma alanı
 - Üstteki anahtar (ya da **M**): **Canlı Gökyüzü** — gözlem: gerçek saat, uydular, asteroitler, çarpma/yeniden giriş;
-  **Laboratuvar** — deney: "ya şöyle olsaydı?". Deneyler: **Ay görevi** (değiştirilebilir, koşturulabilir fizik motoru ve görev saati;
-  açılışta bu deney açılır) ve **Asteroit saptırma**; çarpma riski Canlı Gökyüzü'ne kısayoldur. **Esc** deneyden Laboratuvar ana sayfasına döner.
+  **Laboratuvar** — deney: "ya şöyle olsaydı?". Deneyler: **Ay görevi** dört adımda (Görev → Araç ve güdüm → Uçuş → Sonuç; değiştirilebilir,
+  koşturulabilir fizik motoru ve görev saati; açılışta bu deney açılır) ve **Asteroit saptırma**; çarpma riski Canlı Gökyüzü'ne kısayoldur. **Esc** deneyden Laboratuvar ana sayfasına döner.
   Her deney kendi motorunu çalıştırır (Ay görevi: görev motoru; saptırma: gökyüzü motoru); iki motor ayrı saat, efemeris ve kamerayla çalışır.
   Görev arka planda sürer, uydu ve asteroitler görev motorunda çizilmez. Ayrıntı: `../docs/laboratuvar.md`.
 
