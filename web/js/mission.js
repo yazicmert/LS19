@@ -738,7 +738,8 @@ export class Mission {
   touchdown(manual = false) {
     const P = this.P, { p, v } = this.localState();
     P.phase = 'INDI';
-    const vh = Math.hypot(v[0], v[1]) * 1000, vz = v[2] * 1000, ok = Math.abs(vz) < 3.0 && vh < 1.5;
+    // güvenli temas: Apollo LM iniş takımı tasarım sınırları, dikey 10 ft/s (3,05 m/s), yatay 4 ft/s (1,22 m/s; NASA TN D-6850, başta 5 ft/s idi)
+    const vh = Math.hypot(v[0], v[1]) * 1000, vz = v[2] * 1000, ok = Math.abs(vz) < 3.0 && vh < 1.22;
     this.result = { t: P.s.t, utc: E.utcString(P.s.t), posErr_m: [p[0] * 1000, p[1] * 1000], v_mps: [v[0] * 1000, v[1] * 1000, vz],
                     prop: this.veh.active.prop, ok, manual };
     P.lastThr = 0; if (P.att) P.att.snapTo(unit(siteIcrf(P.s.t)));          // temasta araç bacaklarının üstünde yerel dikeyde durur (kinematik olay)

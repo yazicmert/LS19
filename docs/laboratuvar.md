@@ -74,7 +74,7 @@ Saptırma deneyiyle aynı dil: numaralı adımlar, her adımın tek satırlık �
 
 - İniş olunca 4. adımın numarası "yeni sonuç" diye işaretlenir; adım açılınca işaret kalkar.
 - Sonuç kartındaki Δv toplamları Δv tablosuyla aynı tanımdır (yalnız nominali ve gerçekleşeni bilinen manevralar).
-- Güvenli temas sınırları (dikey < 3 m/s, yatay < 1,5 m/s) `mission.js`'tedir; `test_ayexp.js` metindeki sayıların oradakilerle aynı kaldığını denetler.
+- Güvenli temas sınırları (dikey < 3 m/s, yatay < 1,22 m/s: Apollo LM iniş takımı tasarım sınırları 10 ft/s ve 4 ft/s) `mission.js`'tedir; `test_ayexp.js` metindeki sayıların oradakilerle aynı kaldığını denetler.
 - Eski sekme kimlikleri korunur: `?tab=gorev` 1. adımı, `?tab=kontrol|grafik|yorunge|efemeris` Uçuş adımını o aletle, `?tab=dv` Sonuç adımını açar.
 
 ## 4. Saptırma deneyi: dört adım

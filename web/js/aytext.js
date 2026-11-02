@@ -15,7 +15,7 @@ export const AY_TOOLS = ['plan', 'kontrol', 'grafik', 'yorunge', 'efemeris'];
 export const VEHICLE_SHORT = { two: 'İki kademe', one: 'Tek kademe' };
 export const LANDING_SHORT = { opt: 'Optimal', free: 'Optimal (serbest)', zem: 'ZEM/ZEV' };
 // mission.js touchdown(): güvenli temas sınırları (anlatım için; karar result.ok'tan okunur)
-export const SAFE_VZ = 3.0, SAFE_VH = 1.5;
+export const SAFE_VZ = 3.0, SAFE_VH = 1.22;
 
 const AY = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 // '2026-10-13' → '13 Eki 2026'
@@ -71,7 +71,7 @@ export function verdict(result, { dvUsed = null, dvNominal = null, profileName =
   const rows = [
     ['İniş yerine uzaklık', pos < 1000 ? fmt(pos, 1) + ' m' : fmt(pos / 1000, 2) + ' km'],
     ['Dikey hız', fmt(Math.abs(vz), 2) + ' m/s' + (Math.abs(vz) < SAFE_VZ ? '' : ' (sınır ' + fmt(SAFE_VZ, 1) + ')')],
-    ['Yatay hız', fmt(vh, 2) + ' m/s' + (vh < SAFE_VH ? '' : ' (sınır ' + fmt(SAFE_VH, 1) + ')')],
+    ['Yatay hız', fmt(vh, 2) + ' m/s' + (vh < SAFE_VH ? '' : ' (sınır ' + fmt(SAFE_VH, 2) + ')')],
     ['Kalan yakıt', fmt(result.prop, 0) + ' kg'],
   ];
   if (Number.isFinite(dvUsed)) rows.push(['Kullanılan Δv', fmt(dvUsed, 1) + ' m/s']);
@@ -82,8 +82,8 @@ export function verdict(result, { dvUsed = null, dvNominal = null, profileName =
   const setup = [profileShort(profileName), VEHICLE_SHORT[vehicle], LANDING_SHORT[landing]].filter(Boolean).join(', ');
   if (result.ok) {
     return { kind: 'good', title: 'İniş başarılı', rows,
-      detail: `${setup ? setup + ': ' : ''}araç iniş yerine ${rows[0][1]} uzaklıkta, güvenli hızla (dikey < ${fmt(SAFE_VZ, 1)}, yatay < ${fmt(SAFE_VH, 1)} m/s) yere değdi${result.manual ? ' (elle iniş)' : ''}. Başka bir profil ya da güdümle karşılaştırın.` };
+      detail: `${setup ? setup + ': ' : ''}araç iniş yerine ${rows[0][1]} uzaklıkta, güvenli hızla (dikey < ${fmt(SAFE_VZ, 1)}, yatay < ${fmt(SAFE_VH, 2)} m/s) yere değdi${result.manual ? ' (elle iniş)' : ''}. Başka bir profil ya da güdümle karşılaştırın.` };
   }
   return { kind: 'bad', title: 'Sert temas', rows,
-    detail: `Temas hızı güvenli sınırı aştı (dikey < ${fmt(SAFE_VZ, 1)}, yatay < ${fmt(SAFE_VH, 1)} m/s). ${result.manual ? 'Elle inişte son yüz metrede itkiyi artırıp dikey hızı düşürün ya da otopilotla deneyin.' : 'Bozulma eklendiyse ya da yakıt yetmediyse görevi baştan uçurun ya da başka bir güdüm deneyin.'}` };
+    detail: `Temas hızı güvenli sınırı aştı (dikey < ${fmt(SAFE_VZ, 1)}, yatay < ${fmt(SAFE_VH, 2)} m/s). ${result.manual ? 'Elle inişte son yüz metrede itkiyi artırıp dikey hızı düşürün ya da otopilotla deneyin.' : 'Bozulma eklendiyse ya da yakıt yetmediyse görevi baştan uçurun ya da başka bir güdüm deneyin.'}` };
 }
