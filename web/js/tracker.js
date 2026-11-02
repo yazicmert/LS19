@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import * as E from './engine.js';
 import * as P from './passes.js';
+import * as EO from './earth.js';
 
 const LS_WATCH = 'ls19.watch.v1', LS_OBS = 'ls19.observer.v1', LS_NOTIFY = 'ls19.notify.v1';
 export const CITIES = [
@@ -50,9 +51,12 @@ export class Tracker {
     this.observer = { name: o.name || 'Özel konum', lat: +o.lat, lon: +o.lon, h: +(o.h || 0) }; save(LS_OBS, this.observer); this.passT = 0; this.changed();
   }
   setNotify(on) { this.notify = on; save(LS_NOTIFY, on); this.schedule(); }
-  // ICRF (motor çerçevesi) <- yaklaşık ECF (GMST) : önce ECF -> TEME, sonra TEME ≈ tarihin ekvatoru -> ICRF (presesyon-nütasyon)
-  ecfToIcrf(ecf, ms, t) { const g = P.gmst(ms), p = P.ecfToEci(ecf, g); return E.mtv(E.precession(t), p); }
+  // ICRF (motor çerçevesi) <- ECF (GMST'li PEF): önce ECF -> TEME, sonra TEME -> ICRF (ekinoks denklemi + presesyon-nütasyon; uydu worker'ıyla aynı)
+  ecfToIcrf(ecf, ms, t) { const g = P.gmst(ms), p = P.ecfToEci(ecf, g); return E.mv(EO.temeToIcrf(E.jdTdb(t)), p); }
   obsEcf() { return P.ecfFromGeodetic(this.observer.lat, this.observer.lon, this.observer.h || 0); }
+  // Gözlemci kamerası: gerçek konum (WGS-84 + yükseklik) ve jeodezik dikey, ICRF (passes.observerFrame; Dünya yönelimi earth.js)
+  obsTrue(t) { const o = this.observer; return P.observerFrame(o.lat, o.lon, o.h || 0, E.earthIcrfToItrf(t)); }
+  // Dünya küresi çizimindeki işaret için: küre üstünde (çizimle uyumlu) nokta
   obsIcrf(t, liftKm = 0) {
     const o = this.observer, f = o.lat * Math.PI / 180, l = o.lon * Math.PI / 180, R = E.R_E + liftKm;
     const Mi = E.earthIcrfToItrf(t);                          // küresel Dünya çizimiyle uyumlu nokta
@@ -63,7 +67,7 @@ export class Tracker {
   icrfOf(id, t) {
     const rec = this.sats.satrec(id); if (!rec) return null;
     const ms = E.utcMsFromT(t), pv = P.propagate(rec, ms); if (!pv) return null;
-    return E.mtv(E.precession(t), pv.p);
+    return E.mv(EO.temeToIcrf(E.jdTdb(t)), pv.p);
   }
   name(id) { const o = this.sats.recordOf(id); return o ? o.OBJECT_NAME : `NORAD ${id}`; }
 

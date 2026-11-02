@@ -96,6 +96,15 @@ export function icrfToItrf(jdTT) {
   return mm(Rz(gast(jdUT1, jdTT)), npb(jdTT).R);
 }
 export const truePole = (jdTT) => npb(jdTT).R[2];     // tarihin gerçek kutbu (ICRF'de)
+// SGP4'ün TEME çerçevesi -> GCRS(≈ICRF): r_TOD = R3(−Eq)·r_TEME (Eq: ekinoks denklemi; Vallado, "TEME"), r_GCRS = NPBᵀ·r_TOD. Matris (satırlar)
+export function temeToIcrf(jdTT) {
+  const n = npb(jdTT), R = n.R;
+  const eq = n.dpsi * Math.cos(n.epsa) + (0.00264096 * Math.sin(n.om) + 0.00006352 * Math.sin(2 * n.om)) * AS2R;
+  const c = Math.cos(-eq), s = Math.sin(-eq), R3 = [[c, s, 0], [-s, c, 0], [0, 0, 1]];
+  const M = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { let v = 0; for (let k = 0; k < 3; k++) v += R[k][i] * R3[k][j]; M[i][j] = v; }
+  return M;
+}
 
 // ---------------------------------------------------------------- hızlı sürüm: 1/8 gün düğümlerinde hesaplanıp doğrusal ara değer
 // (en kısa nütasyon terimleri ~5 gün, genlik < 0.1 mas: ara değer hatası µas düzeyinde)

@@ -195,8 +195,8 @@ function loadMoonSats(t) {
 }
 // gözlemci kamerası: küresel Dünya yüzeyinde (çizimle uyumlu), yerel doğu/başucu yönleri
 function obsPose(t) {
-  const o = tracker.observer, l = o.lon * Math.PI / 180, Mi = E.earthIcrfToItrf(t);
-  const eye = tracker.obsIcrf(t, 0.35), up = E.unit(eye), east = E.mtv(Mi, [-Math.sin(l), Math.cos(l), 0]);   // küre ağının kiriş sapmasının üstünde
+  // gerçek gözlemci: WGS-84 noktası ve jeodezik dikey (geçiş tablosunun az/el'iyle aynı geometri). Gözlemci kipinde Dünya küresi çizilmez.
+  const { eye, up, east } = tracker.obsTrue(t);
   return { eye, up, east };
 }
 const SKY_CAM = { EARTH: { dist: 36000, el: 0.45, az: 0.6 }, MOON: { dist: 9000, el: 0.35, az: 0.6 }, SYSTEM: { dist: 900000, el: 1.05, az: -1.2 },
