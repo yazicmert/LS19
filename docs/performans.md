@@ -177,3 +177,52 @@ Not (5. ve 6. satırlar): karelerin 16,7 ms'nin katlarına (vsync) sıçradığ�
 2. Karşılaştırma için aynı sayfayı `?lowmem=0` ve `?lowmem=1`, ayrıca `?adapt=0` ile açın; uzaktan bakışta bir telefon ekranında fark beklenmez (görülürse not edin); yakınlaştıkça NASA parçaları ayrıntıyı yine verir.
 3. Araç yakın kamerasında (iniş kademesi) birkaç dakika bekleyip oranın kademeli düşüp düşmediğini ve **kare akışının gerçekten iyileşip iyileşmediğini** izleyin; iyileşmiyorsa oran geri verilmelidir (§7).
 4. Bulutlar ve okyanus parıltısı görünüyor mu, Dünya düz mü (ters değil mi), panel ekrana sığıyor mu, kontrol edin.
+
+## 12. Ağ yükü: parçalı efemeris, WebP dokular, erken indirme ve önbellek
+
+İlk ziyarette en büyük maliyet koddan değil veriden geliyordu: açılışta iki tam JPL çekirdeği (de440s.bsp 32,7 MB + moon_pa_de440_200625.bpc 12,9 MB) ve dokuz ana doku (44,5 MB JPG/PNG) iniyordu. Telefon da aynı 8192×4096 dosyaları indirip cihazda küçültüyordu.
+
+### 12.1 Parçalı JPL çekirdekleri (`js/ephstore.js`, üretici `tools/efemeris_parcala.mjs`)
+
+- Canlı efemeris DE440'ı yalnız **başlangıç anında** okur (N-cisim tümlemesinin girdisi, `ephem.js`); Efemeris sekmesi görev süresince karşılaştırma için okur. Bir görev oturumu bu yüzden 1–2 yılın kaydına ihtiyaç duyar.
+- `web/data/eph/v1/`: `index.json` (segment düzeni, yıllık ızgara E0 + k·365,25 gün), `head.bin` (DAF dosya ve özet kayıtları, segment kuyrukları; 6,6 KB), `y0.bin … y300.bin` (o yıla değen Chebyshev kayıtları, ortalama 121 KB). Kayıtlar özgün dosyadaki **yerlerine** yazılır: `SPKKernel`/`PCKKernel` ve `ChebSegment` aynı tamponu okur, katsayılar **bayt bayt aynıdır**.
+- Yüklenmemiş bir kayda erişim sessizce sıfır okumaz: `ChebSegment.loaded` denetimi hata atar. Canlı Gökyüzü saati inmemiş bir yıla atlarsa kayıt indirilir ve o arada gökyüzü karesi atlanır.
+- Kullananlar: ana iş parçacığı (açılışta görev tarihinin ve bugünün yılı; `startDesign` başka tarihlerde), fizik worker'ı, nominal worker'ı, saptırma worker'ı (yalnız tarama aralığının yılları: 60 yıllık tarama ≈ 7 MB; eskiden her zaman 32,7 MB). Tam dosyalar yalnız Node testleri ve araçlar içindir; dağıtıma girmez (`.vercelignore`).
+- `test/test_ephstore.js`: 10.545 durum (14 gövde + Ay yönelimi, 1850–2150, parça sınırları dahil) parçalı depo = tam çekirdek, **fark 0**; `LiveEphemeris` başlangıç durumu iki kaynaktan bayt bayt aynı; yüklenmemiş kayıtta hata.
+
+### 12.2 WebP dokular ve önceden küçültülmüş düşük bellek dosyaları (`tools/doku_webp.py`, `js/texplan.js`)
+
+| Doku | Özgün | WebP | Yöntem | Düşük bellek (`_lo`) |
+|---|---|---|---|---|
+| earth_clouds | 11,3 MB | 9,9 MB | gri (tek kanal; özgünde R = G = B), kalite 90, PSNR 42,2 dB | 2,7 MB (4096×2048) |
+| moon_height | 8,8 MB | 5,3 MB | **kayıpsız** (çözülen pikseller özgünle aynı) | — |
+| moon_color | 7,4 MB | 6,1 MB | kalite 90, PSNR 42,1 dB | 1,5 MB |
+| earth_day | 4,5 MB | 2,2 MB | kalite 90, PSNR 41,4 dB | 0,7 MB |
+| moon_normal | 4,3 MB | 3,4 MB | kalite 92, PSNR 40,2 dB | 1,2 MB (2880×1440) |
+| earth_night | 3,1 MB | 1,1 MB | kalite 90, PSNR 41,1 dB | 0,4 MB |
+| earth_normal | 2,0 MB | 1,4 MB | **kayıpsız** | — |
+| stars | 1,9 MB | 0,5 MB | kalite 90, PSNR 50,7 dB | 0,2 MB |
+| earth_spec | 0,25 MB | 0,1 MB | **kayıpsız** | — |
+| **Toplam** | **44,5 MB** | **30,8 MB** | | **13,8 MB** |
+
+- Veri haritaları (yükseklik, normal, özyansıma) kayıpsızdır: gölgelendiricinin okuduğu değerler değişmez. Fotoğraf dokularında PSNR ≥ 40 dB (gözle ayırt edilmez; betik eşiği denetler).
+- Düşük bellekli cihaz (`?lowmem`, `deviceMemory ≤ 4`, mobil UA) artık önceden küçültülmüş dosyayı indirir; cihazda yeniden küçültme yapılmaz.
+- WebP çözülemezse (eski tarayıcı) ya da bellek darken eşzamanlı çözme düşerse: önce aynı dosya, önceki dokular GPU'ya geçtikten sonra bir kez daha çözülür; yine olmazsa özgün JPG/PNG indirilir (gerekirse cihazda küçültülür). Doku sessizce eksik kalmaz.
+
+### 12.3 Erken indirme, yazı tipi ve önbellek
+
+- `index.html` başındaki küçük betik (`#earlyFetch`), modül grafiği inerken ana dokuları ve efemeris dizinini `preload as=fetch crossorigin` ile indirmeye başlar (dokular `fetchpriority=low`: önce JS). Liste ve düşük bellek kuralı `texplan.js` ile aynıdır; `test_texplan.js` 24 durumda (?lowmem, deviceMemory, mobil UA) aynı dosyaların istendiğini denetler (aynı istek kipi: ikinci indirme yok).
+- Google Fonts stil sayfası artık boyamayı bekletmez (`media=print` → yüklenince `all`; `display=swap`).
+- `vercel.json`: `/data/eph/*` bir yıl `immutable` (içerik değişirse klasör adı `v1` değişir); dokular ve modeller 30 gün `immutable` (değişmedi).
+
+### 12.4 Ölçüm (yerel sunucu, başsız Chromium; ilk ziyaret, `?sats=0&ast=0`)
+
+| | Önce | Sonra |
+|---|---|---|
+| Açılışta inen JPL verisi | 45,6 MB (iki tam dosya; ayrıca fizik worker'ı aynısını ayrı ister) | ~0,5 MB (2 yıllık parça + dizin) |
+| Açılışta inen ana dokular, masaüstü | 44,5 MB | 30,8 MB |
+| Açılışta inen ana dokular, telefon | 44,5 MB (cihazda küçültülür) | 13,8 MB |
+| Toplam açılış (masaüstü / telefon) | ~92 MB / ~92 MB | 35,3 MB / 18,3 MB |
+| Saptırma deneyi (60 yıllık tarama) | +32,7 MB | +~7 MB |
+
+Sınır: ölçüm yerel sunucuda, ağ gecikmesi ve bant genişliği taklit edilmeden yapıldı; gerçek bağlantıda süre kazancı indirilen baytla orantılıdır (ör. 50 Mbit/sn'de ~92 MB ≈ 15 sn → 35 MB ≈ 6 sn masaüstü, 18 MB ≈ 3 sn telefon).

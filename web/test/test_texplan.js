@@ -5,16 +5,23 @@
 //  4) lowMemoryFrom doğruluk tablosu (?lowmem=1/0 her şeyden önce gelir)
 //  5) yükleme hattı sözleşmeleri: bitmap kapatma yalnız GPU yüklemesinden sonra, yedek yol, derleme zaman aşımı, bağlam kaybı, boyut userData'dan
 import fs from 'fs';
-import { TEX, lowMemoryFrom } from '../js/texplan.js';
+import { TEX, lowMemoryFrom, fileFor } from '../js/texplan.js';
 
 let fail = 0;
 const check = (name, ok, detail = '') => { console.log(`${ok ? 'TAMAM' : 'HATA '} ${name}${detail ? ' — ' + detail : ''}`); if (!ok) fail++; };
 const rd = (f) => fs.readFileSync(new URL(f, import.meta.url), 'utf8');
 const tex = (f) => new URL(`../textures/${f}`, import.meta.url);
 
-// görüntü boyutu: PNG IHDR / JPEG SOF
+// görüntü boyutu: PNG IHDR / JPEG SOF / WebP (VP8, VP8L, VP8X)
 function dims(file) {
   const b = fs.readFileSync(tex(file));
+  if (b.toString('latin1', 0, 4) === 'RIFF' && b.toString('latin1', 8, 12) === 'WEBP') {
+    const c = b.toString('latin1', 12, 16);
+    if (c === 'VP8 ') return [b.readUInt16LE(26) & 0x3fff, b.readUInt16LE(28) & 0x3fff];
+    if (c === 'VP8L') { const v = b.readUInt32LE(21); return [(v & 0x3fff) + 1, ((v >>> 14) & 0x3fff) + 1]; }
+    if (c === 'VP8X') return [1 + b.readUIntLE(24, 3), 1 + b.readUIntLE(27, 3)];
+    return null;
+  }
   if (b.readUInt32BE(0) === 0x89504e47) return [b.readUInt32BE(16), b.readUInt32BE(20)];
   for (let i = 2; i + 9 < b.length;) {
     if (b[i] !== 0xff) { i++; continue; }
@@ -41,6 +48,16 @@ function dims(file) {
     }
   }
   check('plan: düşük bellek boyutları en-boy oranını korur, küçültür ve ¼ alandan az değil', bad.length === 0, bad.join('; ') || info.slice(0, 2).join(', ') + '…');
+  // WebP ana dosyalar, önceden küçültülmüş düşük bellek dosyaları, özgün yedekler (tools/doku_webp.py)
+  const fbBad = TEX.filter((s) => !s.fb || !fs.existsSync(tex(s.fb)) || String(dims(s.fb)) !== String(dims(s.f))).map((s) => s.f);
+  check('plan: her WebP dokunun özgün yedeği (JPG/PNG) var ve aynı boyutta', fbBad.length === 0, fbBad.join(','));
+  const loBad = TEX.filter((s) => s.lo && (!s.flo || !fs.existsSync(tex(s.flo)) || String(dims(s.flo)) !== String(s.lo))).map((s) => s.flo || s.f);
+  check('plan: "lo" boyutlu her dokunun önceden küçültülmüş dosyası var, boyutu tam lo', loBad.length === 0 && TEX.every((s) => !s.flo || s.lo), loBad.join(','));
+  check('plan: tüm ana dosyalar WebP', TEX.every((s) => /\.webp$/.test(s.f)));
+  const p1 = fileFor(TEX[0], true), p2 = fileFor(TEX[0], false), p3 = fileFor(TEX[0], true, true), pm = fileFor(TEX.find((s) => s.key === 'mh'), true);
+  check('fileFor: düşük bellekte küçük dosya (yeniden küçültme yok), tam katmanda ana dosya, yedekte özgün dosya + cihazda küçültme', p1.file === TEX[0].flo && p1.spec.lo === null && p2.file === TEX[0].f && p2.spec === TEX[0] && p3.file === TEX[0].fb && p3.spec.lo === TEX[0].lo && pm.file === 'moon_height.webp');
+  const sz = (lo) => TEX.reduce((a, s) => a + fs.statSync(tex(fileFor(s, lo).file)).size, 0) / 1e6, szOld = TEX.reduce((a, s) => a + fs.statSync(tex(s.fb)).size, 0) / 1e6;
+  check('indirme: WebP masaüstünde özgünden ≥ %25, düşük bellekte ≥ %60 az', sz(false) <= 0.75 * szOld && sz(true) <= 0.4 * szOld, `özgün ${szOld.toFixed(1)} MB → masaüstü ${sz(false).toFixed(1)} MB, düşük bellek ${sz(true).toFixed(1)} MB`);
   // bellek: RGBA8 (+mip %33) varsayımıyla toplam GPU belleği; R8 ve düşük bellek katmanı belirgin düşürür
   const mem = (lo) => TEX.reduce((a, s) => { const d = lo && s.lo ? s.lo : dims(s.f); return a + d[0] * d[1] * (s.red ? 1 : 4) * (s.nearest ? 1 : 4 / 3); }, 0) / 1e6;
   const full = mem(false), low = mem(true);
@@ -87,7 +104,7 @@ function dims(file) {
 {
   const tl = rd('../js/texload.js'), sc = rd('../js/scene.js'), tiles = rd('../js/tiles.js');
   check('texload: createImageBitmap seçenekleri flipY + premultiplyAlpha none + colorSpaceConversion none (WebGL ImageBitmap\'te bu ayarları yok sayar)', /imageOrientation: 'flipY', premultiplyAlpha: 'none', colorSpaceConversion: 'none'/.test(tl) && /t\.flipY = false/.test(tl));
-  check('texload: tarayıcı flipY desteğini yoklar, desteklemiyorsa <img> yedeği (decodeImage)', /bitmapSupported/.test(tl) && /useBm \? await decodeBitmap/.test(tl) && /decodeImage/.test(tl));
+  check('texload: tarayıcı flipY desteğini yoklar, desteklemiyorsa <img> yedeği (decodeImage)', /bitmapSupported/.test(tl) && /useBm \? (await )?decodeBitmap/.test(tl) && /decodeImage/.test(tl));
   check('texload: çözülmüş piksel belleği (release: bitmap.close / tuval 0×0) yalnız initTexture başarılı olunca bırakılır; başarısızsa bırakılmaz (ilk çizimde yeniden denenir)', /try \{ renderer\.initTexture\(t\); \} catch \(e\) \{ return; \}[^\n]*\n\s*if \(red && gl\.getError\(\)/.test(tl) && /if \(t\.userData\.release\) t\.userData\.release\(\)/.test(tl) && /\(\) => b\.close\(\)/.test(tl) && /cv\.width = cv\.height = 0/.test(tl));
   check('texload: R8 yüklemesi GL hatası verirse (tarayıcı ImageBitmap → RED desteklemiyor) doku atılıp RGBA olarak yeniden yüklenir (bulut/özyansıma kaybolmaz)', /t\.dispose\(\); t\.format = THREE\.RGBAFormat; t\.needsUpdate = true;\s*\n?\s*try \{ renderer\.initTexture\(t\)/.test(tl) && /drain\(\)/.test(tl) && /getError\(\) !== gl\.NO_ERROR/.test(tl));
   check('texload: düşük bellek katmanı üç yolda da çalışır: resize destekli bitmap, resize\'ı yok sayan tarayıcı (tuvalle küçült), <img> yedek yolu (tuvalle küçült)', /opt\.resizeWidth = want\[0\]/.test(tl) && /bm\.width !== want\[0\] \|\| bm\.height !== want\[1\]/.test(tl) && /downscale\(bm, want\[0\], want\[1\]\)/.test(tl) && /downscale\(img, s\.lo\[0\], s\.lo\[1\]\)/.test(tl) && /decodeImage\(blob, s, lowmem\)/.test(tl));
@@ -100,6 +117,24 @@ function dims(file) {
   check('precompile: derleme sırasında checkShaderErrors kapalı (paralel derleme), sonra eski değer ve bağlama durumu denetimi; 10 sn zaman aşımı; eklenti yoksa eşzamanlı compile (uyarı yok)', /checkShaderErrors = false/.test(sc) && /finally \{ r\.debug\.checkShaderErrors = was; \}/.test(sc) && /LINK_STATUS/.test(sc) && /setTimeout\(res, 10000\)/.test(sc) && /extensions\.has\('KHR_parallel_shader_compile'\)/.test(sc) && /else r\.compile\(this\.scene, this\.camera\)/.test(sc));
   check('bağlam kaybı: webglcontextlost preventDefault; geri gelince bir kez yenile (30 sn içinde ikinci kayıpta döngü yok)', /webglcontextlost[^\n]*preventDefault/.test(sc) && /webglcontextrestored/.test(sc) && /ls19\.ctxReload/.test(sc) && /Date\.now\(\) - last > 30000/.test(sc));
   check('tiles: parça bitmap\'i GPU yüklemesinden sonra (onUpdate) ve atılırken kapatılır', /t\.onUpdate = \(\) => \{ t\.onUpdate = null; bm\.close\(\); \}/.test(tiles) && (tiles.match(/closeBitmap\(/g) || []).length >= 3);
+}
+
+// ---------------------------------------------------------------- 6) index.html erken indirme listesi = texplan.js (dosyalar ve düşük bellek kuralı)
+{
+  const html = rd('../index.html'), m = /<script id="earlyFetch">([\s\S]*?)<\/script>/.exec(html);
+  check('index.html: erken indirme betiği var, modül betiklerinden önce', !!m && html.indexOf('id="earlyFetch"') < html.indexOf('type="module"'));
+  const vm = await import('node:vm'), cases = [];
+  for (const search of ['', '?lowmem=1', '?lowmem=0']) for (const deviceMemory of [0, 2, 4, 8]) for (const ua of ['Mozilla/5.0 (X11; Linux x86_64) Chrome/130', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Mobile Safari']) cases.push({ search, deviceMemory, ua });
+  const bad = [];
+  for (const c of cases) {
+    const links = [], document = { head: { appendChild: (l) => links.push(l) }, createElement: () => ({ setAttribute(k, v) { this[k] = v; } }) };
+    vm.runInNewContext(m[1], { document, location: { search: c.search }, navigator: { deviceMemory: c.deviceMemory || undefined, userAgent: c.ua }, URLSearchParams });
+    const tex = links.filter((l) => l.href.startsWith('textures/')).map((l) => l.href.slice(9)), lowm = lowMemoryFrom(c), want = TEX.map((s) => fileFor(s, lowm).file);
+    if (JSON.stringify(tex) !== JSON.stringify(want) || !links.every((l) => l.rel === 'preload' && l.as === 'fetch' && l.crossOrigin === 'anonymous')) bad.push(JSON.stringify(c));
+    if (!links.some((l) => l.href === 'data/eph/v1/index.json') || !links.some((l) => l.href === 'data/eph/v1/head.bin')) bad.push('eph ' + JSON.stringify(c));
+  }
+  check(`erken indirme: ${cases.length} durumda (?lowmem, deviceMemory, mobil UA) dosya listesi texload.js'in indireceğiyle aynı; preload as=fetch crossorigin (aynı istek kipi: ikinci indirme yok)`, bad.length === 0, bad.slice(0, 2).join(' | '));
+  check('texload: dokular base + "textures/" + dosya adıyla istenir (erken indirme adresleriyle aynı)', /fetch\(base \+ 'textures\/' \+ f\)/.test(rd('../js/texload.js')) && /world\.load\('\.\/'/.test(rd('../js/app.js')));
 }
 
 console.log(fail ? `\n${fail} HATA` : '\nTüm denetimler geçti');

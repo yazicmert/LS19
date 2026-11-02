@@ -2,9 +2,14 @@
 //   target  : asteroidin öğeleri -> başlangıç durumu, yakın geçiş taraması (Dünya'ya < 0,05 AB)
 //   deflect : seçilen yakın geçiş için itki senaryosu -> doğrusal (STM) + doğrusal olmayan sonuç, önceden uyarı süresi eğrisi, 3B yollar
 import * as D from './deflect.js';
+import { EphStore } from './ephstore.js';
 
-let eng = null, T = null, busy = 0;
-const ready = fetch(new URL('../data/de440s.bsp', import.meta.url)).then((r) => r.arrayBuffer()).then((b) => { eng = new D.DeflectEngine(b); });
+// JPL çekirdeği parçalı depodan (ephstore.js): yalnız tarama aralığının yılları iner (60 yıllık tarama ≈ 7 MB; eskiden her zaman 32,7 MB'lık dosyanın tamamı).
+// Katsayılar tam dosyayla bit düzeyinde aynıdır (test/test_ephstore.js); aralık dışı bir kayda erişim sessizce yanlış değil, hata verir.
+let eng = null, store = null, T = null, busy = 0;
+const ready = EphStore.open(new URL('../data/eph/v1/', import.meta.url).href).then((s) => { store = s; eng = new D.DeflectEngine(s.spk); });
+// [a, b] (ET) aralığının kayıtları: tümleyicinin adım taşması ve yakın geçiş aramasının +40 günü için pay
+const need = (a, b) => store.ensure(a - 2 * D.DAY, b + 60 * D.DAY);
 const post = (m) => postMessage(m);
 
 function addV(y, dv) { const z = Float64Array.from(y); z[3] += dv[0]; z[4] += dv[1]; z[5] += dv[2]; return z; }
@@ -49,11 +54,14 @@ globalThis.onmessage = async (ev) => {
     if (d.cmd === 'target') {
       const el = d.el, etEp = D.etFromJd(el.epoch);
       if (!(d.etStart > D.ET_MIN && d.etStart < D.ET_MAX)) throw new Error('başlangıç tarihi 1850–2149 dışında');
+      const et1 = Math.min(D.ET_MAX, d.etStart + d.years * D.YEAR);
+      post({ type: 'progress', id, msg: 'Efemeris yükleniyor…', f: 0.01 });
+      await need(Math.min(etEp, d.etStart), Math.max(etEp, et1));
+      if (stopped()) return;
       const [r, v] = D.keplerHelio(el, etEp), [ps, vs] = eng.sun(etEp);
       const yEp = [r[0] + ps[0], r[1] + ps[1], r[2] + ps[2], v[0] + vs[0], v[1] + vs[1], v[2] + vs[2]];
       post({ type: 'progress', id, msg: 'Başlangıç anına taşınıyor…', f: 0.02 });
       const y0 = eng.integrate(etEp, yEp, d.etStart).y;
-      const et1 = Math.min(D.ET_MAX, d.etStart + d.years * D.YEAR);
       const T0 = performance.now();
       const sc = eng.scan(d.etStart, y0, et1, { maxDist: 0.05 * D.AU, stopped,
         onProgress: (f) => post({ type: 'progress', id, msg: `Yakın geçişler taranıyor… %${Math.round(100 * f)}`, f }) });
