@@ -169,13 +169,15 @@ export class UI {
   }
   setNominal(dv) { this.nominal = dv; this.renderDv(); }
   isSkyTab(t) { const pg = document.getElementById('tab-' + t); return !!(pg && pg.closest('#skyPanel')); }
-  // sekme yalnız kendi panelinde değişir (Ay Görevi paneli ve Canlı Gökyüzü paneli bağımsız)
+  isMissionTab(t) { const pg = document.getElementById('tab-' + t); return !!(pg && pg.closest('#lab-ay')); }
+  // sekme yalnız kendi sekme grubunda değişir (Laboratuvar › Ay görevi sekmeleri ve Canlı Gökyüzü paneli bağımsız). Grup: sekme sayfasının
+  // ebeveyni (sekme çubuğu ve sayfalar kardeştir): Canlı Gökyüzü'nde <aside id="skyPanel">, Ay görevinde <div id="lab-ay">
   setTab(t) {
-    const pg = document.getElementById('tab-' + t); if (!pg) return;
-    const panel = pg.closest('aside');
+    const pg = document.getElementById('tab-' + t); if (!pg || !pg.classList.contains('tabpage')) return;
+    const panel = pg.parentElement;
     if (panel.id === 'skyPanel') this.skyTab = t; else this.tab = t;
-    panel.querySelectorAll('.tab').forEach((b) => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; });
-    panel.querySelectorAll('.tabpage').forEach((p) => (p.hidden = p.id !== 'tab-' + t));
+    panel.querySelectorAll(':scope > .tabs .tab').forEach((b) => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; });
+    panel.querySelectorAll(':scope > .tabpage').forEach((p) => (p.hidden = p.id !== 'tab-' + t));
     if (t === 'grafik') this.charts.forEach((c) => { c._sig = null; c.draw(); });
     if (t === 'kontrol' && this.lastS) this.cp.update(this.lastS, this.cpCtx(this.lastS.t));
     if (t === 'carpma' && this.onCarpma) this.onCarpma();

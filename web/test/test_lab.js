@@ -1,14 +1,15 @@
 // Laboratuvar arayüzü sınaması (Node): (1) labtext.js saf yardımcıları (biçim, itki zamanı, sonuç yargısı), (2) arayüz sözleşmesi:
-// JS'nin başvurduğu her kimlik index.html'de var, üç çalışma alanı ve ağaç yapısı tutarlı, Saptırma Canlı Gökyüzü'nden taşındı.
+// JS'nin başvurduğu her kimlik index.html'de var, iki çalışma alanı (Canlı Gökyüzü · Laboratuvar), deney kaydı ↔ ağaç ↔ sayfa tutarlı,
+// Ay görevi Laboratuvar'ın içinde (görev motoru), Saptırma Canlı Gökyüzü'nden taşındı (gökyüzü motoru); görünüm → motor eşlemesi ve eski adresler (saf işlevler).
 // Tarayıcı akışı (adımlar, boş durum, 3B, telefon): tools/lab_deneme.mjs
 import fs from 'fs';
 import * as L from '../js/labtext.js';
-import { LAB_PAGES } from '../js/labui.js';
+import { LAB_PAGES, EXPERIMENTS, LAB_HOME, engineFor, resolveView } from '../js/labui.js';
 
 let ok = true;
 const check = (c, m) => { console.log((c ? '  ✓ ' : '  ✗ ') + m); ok = ok && !!c; };
 const read = (f) => fs.readFileSync(new URL('../' + f, import.meta.url), 'utf8');
-const html = read('index.html'), css = read('css/style.css'), app = read('js/app.js'), dui = read('js/deflectui.js'), lui = read('js/labui.js'), aui = read('js/astui.js'), iui = read('js/impactui.js'), icons = read('js/icons.js');
+const html = read('index.html'), css = read('css/style.css'), cine = read('css/cinema.css'), app = read('js/app.js'), uij = read('js/ui.js'), dui = read('js/deflectui.js'), lui = read('js/labui.js'), aui = read('js/astui.js'), iui = read('js/impactui.js'), icons = read('js/icons.js');
 
 // ---------------------------------------------------------------- 1. saf yardımcılar
 console.log('labtext.js');
@@ -47,22 +48,38 @@ for (const [name, src] of [['deflectui.js', dui], ['labui.js', lui], ['astui.js'
   check(miss.length === 0, `${name}: başvurulan tüm kimlikler index.html'de var (${refs(src).length})${miss.length ? ' — eksik: ' + miss.join(', ') : ''}`);
 }
 const ws = [...html.matchAll(/data-workspace="(\w+)"/g)].map((m) => m[1]);
-check(ws.join() === 'mission,sky,lab', 'üst çubukta üç çalışma alanı: ' + ws.join(' · '));
-check(/<aside id="labPanel"[^>]*data-for="lab"/.test(html) && /id="skyControls"[^>]*data-for="sky lab"/.test(html), 'Laboratuvar paneli yalnız lab\'da; zaman/kamera çubuğu sky ve lab\'da');
-check(/body\[data-mode="lab"\] \[data-for\]:not\(\[data-for~="lab"\]\)/.test(css) && /body\[data-mode="sky"\] \[data-for\]:not\(\[data-for~="sky"\]\)/.test(css) && /body\[data-mode="mission"\] \[data-for\]:not\(\[data-for~="mission"\]\)/.test(css), 'CSS: üç çalışma alanı için data-for gizleme kuralı (boşlukla ayrılmış liste)');
-check(/#panel, #skyPanel, #labPanel \{ position: absolute/.test(css) && /#skyPanel\.open, #labPanel\.open/.test(css), 'CSS: lab paneli aynı yerleşim ve telefon düzeniyle');
+check(ws.join() === 'sky,lab', 'üst çubukta iki çalışma alanı: ' + ws.join(' · '));
+check(/<body data-mode="lab" data-engine="mission" data-exp="ay">/.test(html) && /data-workspace="lab" class="on" aria-selected="true"/.test(html), 'varsayılan açılış Laboratuvar › Ay görevi (görev motoru); HTML ilk durumu JS ile aynı');
+check(/<aside id="labPanel"[^>]*data-for="lab"/.test(html) && /id="skyControls"[^>]*data-for="sky lab@sky"/.test(html), 'Laboratuvar paneli her deneyde; zaman/kamera çubuğu Canlı Gökyüzü\'nde ve Laboratuvar gökyüzü motorundayken');
+check(['hud', 'manual', 'controls'].every((id) => new RegExp(`id="${id}"[^>]*data-for="lab@mission"`).test(html)), 'uçuş göstergesi, elle kumanda ve görev çubuğu Laboratuvar\'da görev motoru çalışırken');
+check(!/data-for="mission"|data-for="[^"]*\bmission\b(?!")/.test(html.replace(/lab@mission/g, '')) && !html.includes('id="panel"'), 'eski "mission" alanı ve ayrı görev paneli (#panel) kaldırıldı');
+const lab = html.slice(html.indexOf('id="labPanel"'), html.indexOf('id="skyControls"'));
+check(['gorev', 'kontrol', 'dv', 'grafik', 'yorunge', 'efemeris'].every((t) => lab.includes(`id="tab-${t}"`) && lab.includes(`data-tab="${t}"`)) && /id="lab-ay" class="labpage labtabs"/.test(lab), 'Ay görevi sekmeleri (6) Laboratuvar panelinde, #lab-ay sayfasında');
+const ruleOk = (eng) => new RegExp(`body\\[data-mode="lab"\\]\\[data-engine="${eng}"\\] \\[data-for\\]:not\\(\\[data-for~="lab"\\]\\):not\\(\\[data-for~="lab@${eng}"\\]\\)`).test(css);
+check(/body\[data-mode="sky"\] \[data-for\]:not\(\[data-for~="sky"\]\)/.test(css) && ruleOk('mission') && ruleOk('sky'), 'CSS: data-for gizleme kuralı görünüm + motor (lab@mission, lab@sky)');
+check(!/#panel\b/.test(css) && !/#panel\b/.test(cine) && /#skyPanel, #labPanel \{ position: absolute/.test(css) && /#skyPanel\.open, #labPanel\.open/.test(css), 'CSS: #panel kuralları Laboratuvar paneline taşındı; aynı yerleşim ve telefon düzeni');
+check(/\.labpage\.labtabs \{[^}]*overflow: hidden[^}]*flex-direction: column/.test(css), 'sekmeli deney sayfası: sekme çubuğu sabit, sayfalar kendi içinde kayar');
 const skyTabs = [...html.slice(html.indexOf('id="skyPanel"'), html.indexOf('id="labPanel"')).matchAll(/data-tab="(\w+)"/g)].map((m) => m[1]);
 check(skyTabs.join() === 'takip,uydular,asteroit,carpma' && !html.includes('id="tab-saptirma"'), 'Saptırma Canlı Gökyüzü\'nden çıktı; sekmeler: ' + skyTabs.join(', '));
-const exps = [...html.matchAll(/data-exp="(\w+)"/g)].map((m) => m[1]), gos = [...html.matchAll(/data-go="(\w+)"/g)].map((m) => m[1]);
+const exps = [...html.matchAll(/class="exp"[^>]*data-exp="(\w+)"/g)].map((m) => m[1]), gos = [...html.matchAll(/data-go="(\w+)"/g)].map((m) => m[1]);
 check(exps.every((e) => LAB_PAGES[e] && idSet.has('lab-' + e)), 'ağaçtaki her deney için sayfa (#lab-…) ve başlık var: ' + exps.join());
-check(gos.join() === 'mission,impact' && /openMission/.test(lui) && /openImpact/.test(lui), 'kısayol dalları: Ay görevi, Çarpma riski');
+check(Object.keys(EXPERIMENTS).every((e) => exps.includes(e) && idSet.has('lab-' + e)) && exps.join() === 'ay,saptirma', 'deney kaydındaki her deney ağaçta ve sayfası var (Ay görevi, Asteroit saptırma)');
+check(Object.values(EXPERIMENTS).every((x) => x.title && (x.engine === 'mission' || x.engine === 'sky') && typeof x.phoneOpen === 'boolean') && EXPERIMENTS.ay.engine === 'mission' && EXPERIMENTS.saptirma.engine === 'sky', 'deney kaydı: başlık, motor, telefon davranışı (Ay görevi → görev motoru, saptırma → gökyüzü)');
+check(gos.join() === 'impact' && /openImpact/.test(lui) && !/openMission|data-go="mission"/.test(lui + html), 'tek kısayol dalı: Çarpma riski (Ay görevi artık kısayol değil, deney)');
+check(engineFor('sky', null, 'mission') === 'sky' && engineFor('lab', 'ay', 'sky') === 'mission' && engineFor('lab', 'saptirma', 'mission') === 'sky' && engineFor('lab', LAB_HOME, 'mission') === 'mission' && engineFor('lab', LAB_HOME, 'sky') === 'sky' && engineFor('lab', 'yok', 'sky') === 'sky', 'görünüm → motor: deney motoru seçer, ana sayfa motoru değiştirmez');
+const own = (t) => (['gorev', 'kontrol', 'dv', 'grafik', 'yorunge', 'efemeris'].includes(t) ? 'mission' : ['takip', 'uydular', 'asteroit', 'carpma'].includes(t) ? 'sky' : null);
+const rv = (o) => JSON.stringify(resolveView({ tabOwner: own, ...o }));
+check(rv({ mode: 'mission' }) === '{"view":"lab","exp":"ay"}' && rv({ mode: 'sky' }) === '{"view":"sky","exp":null}' && rv({ mode: 'lab' }) === '{"view":"lab","exp":"home"}' && rv({ mode: 'lab', exp: 'saptirma' }) === '{"view":"lab","exp":"saptirma"}' && rv({ mode: 'lab', exp: 'xyz' }) === '{"view":"lab","exp":"home"}', 'adresler: ?mode=mission (eski) → Ay görevi; ?mode=lab[&exp=…]; bilinmeyen deney → ana sayfa');
+check(rv({ tab: 'kontrol' }) === '{"view":"lab","exp":"ay","tab":"kontrol"}' && rv({ tab: 'carpma', mode: 'lab' }) === '{"view":"sky","exp":null,"tab":"carpma"}' && rv({ tab: 'saptirma' }) === '{"view":"lab","exp":"saptirma"}' && rv({}) === 'null', 'eski ?tab= bağlantıları kendi alanını açar; değer yoksa varsayılan açılış');
 const steps = html.slice(html.indexOf('id="dfSteps"'), html.indexOf('</ol>', html.indexOf('id="dfSteps"')));
 check((steps.match(/class="step[ "]/g) || []).length === 4 && (steps.match(/class="sh"/g) || []).length === 4 && (steps.match(/class="sn"/g) || []).length === 4 && (steps.match(/class="ss"/g) || []).length === 4, 'Saptırma: 4 adım (başlık, numara, özet, gövde)');
 check(/data-step="1"[^>]*>\s*<button class="sh"[^>]*aria-expanded="true"/.test(steps) && (steps.match(/aria-expanded="false"[^>]*disabled/g) || []).length === 3, 'yalnız 1. adım açık, 2–4 başlangıçta kilitli ve erişilebilir (aria-expanded, disabled)');
 check(/name="dfMethod"/.test(steps) && /name="dfScn"/.test(steps) && /<details class="adv">/.test(steps), 'yöntem ve senaryo seçimi görünür, ayrıntılar "Gelişmiş" altında katlı');
 check(/role="radiogroup"/.test(steps) && /aria-live="polite"/.test(steps), 'erişilebilirlik: radyo grupları ve canlı durum bölgeleri');
 check(!/\bnew Worker\b|deflectwork/.test(aui) && /new Worker\(new URL\('\.\/deflectwork\.js'/.test(dui), 'hesap iş parçacığı deflectui.js\'de; astui.js yalnız katalog ve bilgi kartı');
-check(/key === 'm'|k === 'm'/.test(app) && /\['mission', 'sky', 'lab'\]/.test(app) && /m === 'lab'/.test(app) && /q\.get\('exp'\)/.test(app), 'app.js: M kısayolu üç alanı döndürür; ?mode=lab&exp=saptirma');
+check(/k === 'm'\) \{ setWorkspace\(VIEW === 'sky' \? 'lab' : 'sky'\)/.test(app) && /resolveView\(/.test(app) && /q\.get\('exp'\)/.test(app) && /engineFor\(VIEW, exp, MODE\)/.test(app), 'app.js: M kısayolu iki alan arasında geçer; adres çözümü ve motor seçimi labui.js\'teki saf işlevlerle');
+check(/data-engine|dataset\.engine = MODE/.test(app) && /dataset\.exp = /.test(app) && /\$\('#btnPanel'\)\.onclick = \(\) => \$\('#labPanel'\)/.test(app) && !/\$\('#panel'\)/.test(app), 'app.js: body görünüm/motor/deney özniteliklerini taşır; görev çubuğundaki panel düğmesi Laboratuvar panelini açar');
+check(/pg\.parentElement/.test(uij) && /:scope > \.tabs \.tab/.test(uij) && /isMissionTab/.test(uij), 'ui.js: sekmeler kendi gruplarında değişir (Laboratuvar panelinde Ay görevi sekmeleri, saptırma adımlarıyla karışmaz)');
 check(/openLab, \{ hypo: true \}|openLab\(i, \{ hypo: true \}\)/.test(iui) && !/astui\.scan/.test(iui), 'Çarpma sekmesi sanal çarpıcıyı "çarpacak olsaydı" senaryosuyla Laboratuvar\'a gönderir');
 check(/label: 'Laboratuvarda dene'/.test(app), 'asteroit kartı: "Laboratuvarda dene" eylemi');
 const iconNames = new Set([...icons.matchAll(/^\s{2}(\w+): '/gm)].map((m) => m[1]));

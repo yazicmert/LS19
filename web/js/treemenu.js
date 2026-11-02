@@ -67,7 +67,7 @@ export function initTreeMenus(root = document) {
     syncVal(tm);
   });
   document.addEventListener('pointerdown', (e) => { if (openTm && !openTm.contains(e.target)) close(openTm); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && openTm) close(openTm, true); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && openTm) { e.preventDefault(); close(openTm, true); } });          // preventDefault: aynı Esc başka iş yapmasın (app.js: Laboratuvar ana sayfasına dönüş)
 }
 // kodla değiştirilen onay kutuları (ör. G kısayolu) change olayı üretmez: dışarıdan tazele
 export function refreshTreeMenus() { document.querySelectorAll('.tm').forEach(syncVal); }
