@@ -169,13 +169,28 @@ export class UI {
   }
   setNominal(dv) { this.nominal = dv; this.renderDv(); }
   isSkyTab(t) { const pg = document.getElementById('tab-' + t); return !!(pg && pg.closest('#skyPanel')); }
-  // sekme yalnız kendi panelinde değişir (Ay Görevi paneli ve Canlı Gökyüzü paneli bağımsız)
-  setTab(t) {
-    const pg = document.getElementById('tab-' + t); if (!pg) return;
-    const panel = pg.closest('aside');
-    if (panel.id === 'skyPanel') this.skyTab = t; else this.tab = t;
-    panel.querySelectorAll('.tab').forEach((b) => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; });
-    panel.querySelectorAll('.tabpage').forEach((p) => (p.hidden = p.id !== 'tab-' + t));
+  isMissionTab(t) { const pg = document.getElementById('tab-' + t); return !!(pg && pg.closest('#lab-ay')); }
+  // Sekme yalnız kendi grubunda değişir. Grup: sekme sayfasının ebeveyni (sekme çubuğu ve sayfalar kardeştir): Canlı Gökyüzü'nde <aside id="skyPanel">,
+  // Ay görevinde <div id="lab-ay"> (dört adım) ve iç içe <div id="tab-ucus"> (Uçuş adımının aletleri). İç sayfa açılınca onu taşıyan adım da açılır.
+  // this.tab / this.skyTab GÖRÜNEN yaprak sayfadır (kare başına güncellenen sekmeler buna bakar: kontrol, yorunge, efemeris, grafik).
+  _activate(pg) {
+    const g = pg.parentElement, t = pg.id.slice(4);
+    g.querySelectorAll(':scope > .tabs .tab').forEach((b) => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; });
+    g.querySelectorAll(':scope > .tabpage').forEach((p) => (p.hidden = p !== pg));
+  }
+  _leaf(g) {
+    for (;;) {
+      const on = [...g.children].find((c) => c.classList.contains('tabpage') && !c.hidden); if (!on) return null;
+      if (![...on.children].some((c) => c.classList.contains('tabpage'))) return on.id.slice(4);
+      g = on;
+    }
+  }
+  setTab(tab) {
+    const pg = document.getElementById('tab-' + tab); if (!pg || !pg.classList.contains('tabpage')) return;
+    for (let p = pg; p; p = p.parentElement.closest('.tabpage')) this._activate(p);
+    const sky = pg.closest('#skyPanel'), root = sky || pg.closest('#lab-ay') || pg.parentElement, t = this._leaf(root) || tab;
+    if (sky) this.skyTab = t; else this.tab = t;
+    if (this.onTab) this.onTab(t, tab);
     if (t === 'grafik') this.charts.forEach((c) => { c._sig = null; c.draw(); });
     if (t === 'kontrol' && this.lastS) this.cp.update(this.lastS, this.cpCtx(this.lastS.t));
     if (t === 'carpma' && this.onCarpma) this.onCarpma();

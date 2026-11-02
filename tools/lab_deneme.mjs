@@ -1,4 +1,5 @@
-// Laboratuvar arayüzü tarayıcı denemesi (başsız Chromium): üç dallı gezinme, Saptırma deneyinin 4 adımı (hedef → yakın geçiş → itki → sonuç),
+// Laboratuvar arayüzü tarayıcı denemesi (başsız Chromium): iki dallı gezinme (Canlı Gökyüzü · Laboratuvar), deney → motor eşlemesi (Ay görevi: görev motoru),
+// Ay görevinin dört adımı (Görev → Araç ve güdüm → Uçuş → Sonuç; inişe atlayıp sonuç kartı), Saptırma deneyinin 4 adımı (hedef → yakın geçiş → itki → sonuç),
 // "yakın geçiş yok" boş durumu, "çarpacak olsaydı" senaryosu, 3B yollar, çapraz bağlantılar ve telefon düzeni.
 // İnternet gerekmez: api/* istekleri, bulut işlevleriyle (api/*.js) web/test/fixtures içindeki kaynak yanıtlarından karşılanır.
 //   node tools/lab_deneme.mjs [adres] [--out=klasör] [--gpu]       (varsayılan adres http://127.0.0.1:8765/; web/ klasörü sunulmalı)
@@ -68,15 +69,16 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
 {
   const { ctx, page, errors } = await open({ viewport: { width: 1280, height: 800 } }, '?sats=0&mode=lab');
   await page.waitForFunction(() => window.LS19.asts && window.LS19.asts.n > 0, null, { timeout: 120000 });
-  check('üç dallı üst çubuk: Ay Görevi · Canlı Gökyüzü · Laboratuvar (Laboratuvar etkin)', await page.evaluate(() => { const b = [...document.querySelectorAll('#modebar [data-workspace]')]; return b.map((x) => x.dataset.workspace).join() === 'mission,sky,lab' && b[2].classList.contains('on') && document.body.dataset.mode === 'lab'; }));
-  check('Laboratuvar paneli görünür; Canlı Gökyüzü paneli ve saati gizli', (await vis(page, '#labPanel')) && !(await vis(page, '#skyPanel')) && !(await vis(page, '#skyHud')) && !(await vis(page, '#panel')));
-  check('zaman/kamera çubuğu laboratuvarda da var', await vis(page, '#skyControls'));
-  check('deney merkezi ağacı: 3 dal (Asteroit saptırma, Ay görevi, Çarpma riski)', await page.evaluate(() => [...document.querySelectorAll('#lab-home .exp')].map((b) => b.querySelector('b').textContent).join('|') === 'Asteroit saptırma|Ay görevi|Çarpma riski'));
+  check('iki dallı üst çubuk: Canlı Gökyüzü · Laboratuvar (Laboratuvar etkin)', await page.evaluate(() => { const b = [...document.querySelectorAll('#modebar [data-workspace]')]; return b.map((x) => x.dataset.workspace).join() === 'sky,lab' && b[1].classList.contains('on') && document.body.dataset.mode === 'lab'; }));
+  check('Laboratuvar paneli görünür; Canlı Gökyüzü paneli ve saati gizli', (await vis(page, '#labPanel')) && !(await vis(page, '#skyPanel')) && !(await vis(page, '#skyHud')));
+  check('ana sayfa motoru değiştirmez: açılıştaki görev motoru sürer, görev çubuğu görünür, zaman/kamera çubuğu gizli', await page.evaluate(() => window.LS19.mode === 'mission' && document.body.dataset.engine === 'mission') && (await vis(page, '#controls')) && !(await vis(page, '#skyControls')));
+  check('deney merkezi ağacı: 3 dal (Ay görevi, Asteroit saptırma, Çarpma riski)', await page.evaluate(() => [...document.querySelectorAll('#lab-home .exp')].map((b) => b.querySelector('b').textContent).join('|') === 'Ay görevi|Asteroit saptırma|Çarpma riski'));
   check('Saptırma artık Canlı Gökyüzü sekmelerinde değil (sekmeler: Takip, Uydular, Asteroitler, Çarpma)', await page.evaluate(() => [...document.querySelectorAll('#skyPanel .tab')].map((b) => b.dataset.tab).join() === 'takip,uydular,asteroit,carpma'));
   await shot(page, '1-merkez');
 
   await page.click('#lab-home [data-exp=saptirma]');
   check('deneye girince geri düğmesi ve başlık: Laboratuvar › Asteroit saptırma', (await vis(page, '#labBack')) && (await txt(page, '#labTitle')) === 'Asteroit saptırma' && (await stepOpen(page)) === 1);
+  check('saptırma gökyüzü motoruna geçirir: zaman/kamera çubuğu görünür; uçuş göstergesi ve görev çubuğu gizli; adres exp=saptirma', await page.evaluate(() => window.LS19.mode === 'sky' && document.body.dataset.engine === 'sky' && /exp=saptirma/.test(location.search)) && (await vis(page, '#skyControls')) && !(await vis(page, '#hud')) && !(await vis(page, '#controls')));
   check('2–4. adımlar kilitli (önce hedef seçilmeli)', await page.evaluate(() => [2, 3, 4].every((n) => document.querySelector(`#dfSteps .step[data-step="${n}"] .sh`).disabled)));
   check('hızlı seçim çipleri katalog gelince etkin (Apophis, Bennu, Didymos)', await page.evaluate(() => ['99942', '101955', '65803'].every((d) => !document.querySelector(`#dfQuick [data-des="${d}"]`).disabled)));
   await page.fill('#dfSearch', 'Betulia'); await page.waitForSelector('#dfResults li');
@@ -138,11 +140,18 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await shot(page, '9-3b');
 
   // ---- çapraz bağlantılar ve alan değiştirme
-  await page.click('#labBack'); check('geri düğmesi merkeze döner', (await txt(page, '#labTitle')) === 'Laboratuvar' && (await vis(page, '#lab-home')));
-  await page.click('#lab-home [data-go=mission]');
-  check('"Ay görevi" kısayolu Ay Görevi alanını ve Görev sekmesini açar', await page.evaluate(() => window.LS19.view === 'mission' && document.body.dataset.mode === 'mission' && !document.querySelector('#tab-gorev').hidden));
-  await page.keyboard.press('m'); check('M kısayolu alanlar arasında döner: Ay Görevi → Canlı Gökyüzü', await page.evaluate(() => window.LS19.view === 'sky'));
-  await page.keyboard.press('m'); check('… → Laboratuvar', await page.evaluate(() => window.LS19.view === 'lab' && !document.querySelector('#labPanel').hidden));
+  await page.click('#labBack'); check('geri düğmesi merkeze döner; ana sayfa gökyüzü motorunu bırakmaz', (await txt(page, '#labTitle')) === 'Laboratuvar' && (await vis(page, '#lab-home')) && await page.evaluate(() => window.LS19.mode === 'sky' && !/exp=/.test(location.search)));
+  await page.click('#lab-home [data-exp=ay]');
+  check('"Ay görevi" Laboratuvar içinde açılır: görev motoru, Görev sekmesi, uçuş göstergesi ve görev çubuğu; adres exp=ay', await page.evaluate(() => window.LS19.view === 'lab' && window.LS19.labui.page === 'ay' && window.LS19.mode === 'mission' && document.body.dataset.engine === 'mission' && !document.querySelector('#tab-gorev').hidden && document.querySelector('#labTitle').textContent === 'Ay görevi' && /exp=ay/.test(location.search)) && (await vis(page, '#hud')) && (await vis(page, '#controls')) && (await vis(page, '#lab-ay .tabs')) && !(await vis(page, '#skyControls')));
+  await page.click('#lab-ay [data-tab=dv]');
+  check('Ay görevi sekmeleri Laboratuvar panelinde çalışır (Δv sekmesi; saptırma sayfası gizli kalır)', await page.evaluate(() => !document.querySelector('#tab-dv').hidden && document.querySelector('#tab-gorev').hidden && document.querySelector('#lab-saptirma').hidden && window.LS19.ui.tab === 'dv'));
+  await shot(page, '10-ay-gorevi');
+  await page.mouse.click(5, 790); await page.keyboard.press('Escape');
+  check('Esc deneyden Laboratuvar ana sayfasına döner', await page.evaluate(() => window.LS19.labui.page === 'home'));
+  await page.keyboard.press('m'); check('M kısayolu: Laboratuvar → Canlı Gökyüzü', await page.evaluate(() => window.LS19.view === 'sky' && window.LS19.mode === 'sky'));
+  await page.keyboard.press('m'); check('… → Laboratuvar (açık sayfa korunur)', await page.evaluate(() => window.LS19.view === 'lab' && window.LS19.labui.page === 'home') && (await vis(page, '#labPanel')));
+  await page.click('#lab-home [data-exp=ay]'); await page.keyboard.press('k');
+  check('K kısayolu Ay görevinin Kontrol sekmesini açar', await page.evaluate(() => window.LS19.labui.page === 'ay' && !document.querySelector('#tab-kontrol').hidden));
   await page.click('[data-workspace=sky]'); await page.evaluate(() => window.LS19.ui.setTab('asteroit'));
   await page.evaluate(() => { const A = window.LS19.asts; A.select(A.index.get('99942')); });
   await page.waitForFunction(() => /Laboratuvarda dene/.test(document.querySelector('#astSel').textContent), null, { timeout: 30000 });
@@ -162,12 +171,61 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   check('eski adres ?tab=saptirma Laboratuvar › Asteroit saptırma\'yı açar', await page.evaluate(() => window.LS19.view === 'lab' && window.LS19.labui.page === 'saptirma'));
   await page.goto(base + 'index.html?sats=0&ast=0', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => { const l = document.querySelector('#loading'); return l && getComputedStyle(l).display === 'none'; }, null, { timeout: 280000 });
-  check('varsayılan açılış Ay Görevi: HUD ve panel görünür, Laboratuvar paneli gizli, düğme etkin', (await vis(page, '#hud')) && (await vis(page, '#panel')) && !(await vis(page, '#labPanel')) && await page.evaluate(() => document.querySelector('[data-workspace=mission]').classList.contains('on') && window.LS19.view === 'mission'));
+  check('varsayılan açılış Laboratuvar › Ay görevi: HUD, görev çubuğu ve Ay görevi sekmeleri görünür, düğme etkin', (await vis(page, '#hud')) && (await vis(page, '#controls')) && (await vis(page, '#lab-ay')) && !(await vis(page, '#lab-home')) && await page.evaluate(() => document.querySelector('[data-workspace=lab]').classList.contains('on') && window.LS19.view === 'lab' && window.LS19.labui.page === 'ay' && window.LS19.mode === 'mission'));
   await page.click('[data-workspace=sky]');
   check('Canlı Gökyüzü: saat ve panel görünür, Laboratuvar paneli gizli', (await vis(page, '#skyHud')) && (await vis(page, '#skyPanel')) && !(await vis(page, '#labPanel')));
   await page.click('[data-workspace=lab]'); await page.click('[data-workspace=sky]');
-  check('Laboratuvar ↔ Canlı Gökyüzü geçişi aynı gökyüzü motorunda kalır (motor yeniden kurulmaz)', await page.evaluate(() => window.LS19.mode === 'sky' && window.LS19.view === 'sky'));
+  await page.click('[data-workspace=lab]');
+  check('Canlı Gökyüzü → Laboratuvar: açık deney (Ay görevi) geri gelir, görev motoru yeniden seçilir', await page.evaluate(() => window.LS19.view === 'lab' && window.LS19.labui.page === 'ay' && window.LS19.mode === 'mission') && (await vis(page, '#hud')));
+  await page.evaluate(() => window.LS19.labui.show('home')); await page.click('[data-workspace=sky]'); await page.click('[data-workspace=lab]'); await page.click('[data-workspace=sky]');
+  check('Laboratuvar ana sayfası ↔ Canlı Gökyüzü geçişi aynı gökyüzü motorunda kalır (motor yeniden kurulmaz)', await page.evaluate(() => window.LS19.mode === 'sky' && window.LS19.view === 'sky'));
+  for (const [q, want, name] of [['mode=mission', 'ay', 'eski ?mode=mission'], ['tab=kontrol', 'ay', 'eski ?tab=kontrol']]) {
+    await page.goto(base + 'index.html?sats=0&ast=0&' + q, { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => { const l = document.querySelector('#loading'); return l && getComputedStyle(l).display === 'none'; }, null, { timeout: 280000 });
+    check(name + ' Laboratuvar › Ay görevi\'ni açar' + (q === 'tab=kontrol' ? ' (Kontrol sekmesi)' : ''), await page.evaluate(([w, k]) => window.LS19.view === 'lab' && window.LS19.labui.page === w && window.LS19.mode === 'mission' && (!k || !document.querySelector('#tab-kontrol').hidden), [want, q === 'tab=kontrol']));
+  }
   check('konsol hatası yok (alan geçişleri)', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await ctx.close();
+}
+
+// ================================================================= Laboratuvar › Ay görevi: dört adım (Görev → Araç ve güdüm → Uçuş → Sonuç)
+{
+  const { ctx, page, errors } = await open({ viewport: { width: 1280, height: 800 } }, '?sats=0&ast=0');
+  const stepOn = () => page.evaluate(() => (document.querySelector('#lab-ay > .tabs .tab.on') || {}).dataset?.tab);
+  check('Ay görevi dört adımla açılır: 1. adım (Görev) etkin, özetler dolu', (await stepOn()) === 'gorev' && await page.evaluate(() => ['gorev', 'arac', 'ucus', 'dv'].join() === [...document.querySelectorAll('#lab-ay > .tabs .tab')].map((b) => b.dataset.tab).join()
+    && /Eki 2026/.test(document.querySelector('#aySum-gorev').textContent) && document.querySelector('#aySum-arac').textContent === 'İki kademe · Optimal' && /Hazır|T\+/.test(document.querySelector('#aySum-ucus').textContent) && document.querySelector('#aySum-dv').textContent === 'İnişte belli olur'),
+    await page.evaluate(() => [...document.querySelectorAll('#lab-ay .ss')].map((e) => e.textContent).join(' | ')));
+  check('1. ve 2. adım tamam işaretli (görev kurulu)', await page.evaluate(() => ['gorev', 'arac'].every((t) => document.querySelector(`#lab-ay > .tabs .tab[data-tab="${t}"]`).classList.contains('done'))));
+  check('1. adım: profil ve tarih görünür, yörünge ayrıntıları katlı', (await vis(page, '#cfgProfile')) && (await vis(page, '#dateInput')) && !(await page.evaluate(() => document.querySelector('#cfgBox').open)));
+  await shot(page, 'a1-gorev');
+  await page.click('#tab-gorev [data-goto=arac]');
+  check('"Devam" 2. adımı açar: araç ve güdüm kartları, seçili olanlar işaretli', (await stepOn()) === 'arac' && await page.evaluate(() => document.querySelector('#tab-arac [data-vehicle="two"]').classList.contains('on') && document.querySelector('#tab-arac [data-landing="opt"]').classList.contains('on')));
+  await page.click('#tab-arac [data-landing="zem"]');
+  check('paneldeki güdüm seçimi görev çubuğu menüsüyle eşlenir ve özet güncellenir', await page.waitForFunction(() => document.querySelector('#controls [data-landing="zem"]').classList.contains('on') && document.querySelector('#aySum-arac').textContent === 'İki kademe · ZEM/ZEV', null, { timeout: 10000 }).then(() => true, () => false));
+  await page.click('#tab-arac [data-landing="opt"]');
+  await shot(page, 'a2-arac');
+  await page.click('#tab-arac [data-goto=ucus]');
+  check('3. adım (Uçuş): Çizelge açık, görev çizelgesi dolu', (await stepOn()) === 'ucus' && (await vis(page, '#tab-plan')) && await page.evaluate(() => document.querySelectorAll('#plan li').length > 5 && window.LS19.ui.tab === 'plan'));
+  await page.click('#tab-ucus [data-tab=kontrol]');
+  check('Uçuş aletleri: Kontrol sekmesi açılır, adım 3 etkin kalır, kare başına güncellenen sekme "kontrol"', (await stepOn()) === 'ucus' && (await vis(page, '#tab-kontrol')) && await page.evaluate(() => window.LS19.ui.tab === 'kontrol'));
+  await page.click('#lab-ay > .tabs [data-tab=gorev]'); await page.keyboard.press('k');
+  check('K kısayolu Uçuş adımını ve Kontrol aletini birlikte açar', (await stepOn()) === 'ucus' && await page.evaluate(() => !document.querySelector('#tab-kontrol').hidden));
+  await page.click('#tab-ucus [data-tab=plan]');
+  await shot(page, 'a3-ucus');
+  // inişe atla (fizik deterministik: olaya atlama görevi baştan, ekransız koşar)
+  await page.evaluate(() => { const p = window.LS19.ui.plan.find((q) => q.key === 'INDI'); window.LS19.send({ cmd: 'seek', t: p.t + 120 }); });
+  const landed = await page.waitForFunction(() => /İniş ✓|Sert temas/.test(document.querySelector('#aySum-dv').textContent), null, { timeout: 280000 }).then(() => true, () => false);
+  check('inişten sonra 4. adım özeti ve "yeni sonuç" işareti', landed && await page.evaluate(() => document.querySelector('#lab-ay > .tabs .tab[data-tab="dv"]').classList.contains('new') && document.querySelector('#aySum-ucus').textContent === 'Uçuş bitti'), await txt(page, '#aySum-dv'));
+  await page.click('#lab-ay > .tabs [data-tab=dv]');
+  const vr = await page.evaluate(() => ({ cls: document.querySelector('#ayVerdict').className, t: document.querySelector('#ayVT').textContent, d: document.querySelector('#ayVD').textContent, rows: [...document.querySelectorAll('#ayVTbl tr')].map((r) => r.textContent), isNew: document.querySelector('#lab-ay > .tabs .tab[data-tab="dv"]').classList.contains('new') }));
+  check('4. adım (Sonuç): iniş başarılı kartı, temas ölçüleri; işaret kalkar', /good/.test(vr.cls) && vr.t === 'İniş başarılı' && vr.rows.length >= 5 && vr.rows.some((r) => /Kalan yakıt/.test(r)) && !vr.isNew, vr.rows.join(' · '));
+  await shot(page, 'a4-sonuc');
+  await page.click('#ayRestart');
+  check('"Baştan uçur" görevi yeniden başlatır, Uçuş › Çizelge açılır, sonuç sıfırlanır', await page.waitForFunction(() => document.querySelector('#aySum-dv').textContent === 'İnişte belli olur' && !document.querySelector('#tab-plan').hidden && /info/.test(document.querySelector('#ayVerdict').className), null, { timeout: 60000 }).then(() => true, () => false));
+  await page.goto(base + 'index.html?sats=0&ast=0&tab=dv', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => { const l = document.querySelector('#loading'); return l && getComputedStyle(l).display === 'none'; }, null, { timeout: 280000 });
+  check('eski ?tab=dv Sonuç adımını açar (Δv bütçesi ve karşılaştırma orada)', (await stepOn()) === 'dv' && (await vis(page, '#dvtable')) && (await vis(page, '#cmptable')));
+  check('konsol hatası yok (Ay görevi adımları)', errors.length === 0, errors.slice(0, 3).join(' | '));
   await ctx.close();
 }
 
@@ -186,7 +244,20 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await page.click('#df3d'); await page.waitForTimeout(1500);
   check('telefon: "3B\'de göster" paneli kapatır (3B görünüm açık kalsın)', await page.evaluate(() => !document.querySelector('#labPanel').classList.contains('open') && !!window.LS19.deflect.paths));
   await shot(page, 'm5-3b');
+  await page.click('#btnSkyPanel'); await page.click('#labBack'); await page.click('#lab-home [data-exp=ay]');
+  check('telefon: Laboratuvar › Ay görevi görev motorunu açar, adım çubuğu panele sığar', await page.evaluate(() => window.LS19.mode === 'mission' && document.querySelector('#labPanel').classList.contains('open') && (() => { const t = document.querySelector('#lab-ay > .tabs'); return t.scrollWidth <= t.clientWidth + 1 && document.querySelector('#labPanel').scrollWidth <= document.querySelector('#labPanel').clientWidth + 1; })()));
+  await page.click('#btnPanel');
+  check('telefon: görev çubuğundaki panel düğmesi Laboratuvar panelini kapatır (3B uçuş görünür)', await page.evaluate(() => !document.querySelector('#labPanel').classList.contains('open')) && (await vis(page, '#controls')) && (await vis(page, '#hud')));
+  await shot(page, 'm6-ay-gorevi');
   check('konsol hatası yok (telefon)', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await ctx.close();
+}
+// ================================================================= telefon: varsayılan açılış (Ay görevi, panel kapalı)
+{
+  const { ctx, page, errors } = await open({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, '?sats=0&ast=0');
+  check('telefon: varsayılan açılışta panel kapalı (3B uçuş ana içerik), görev çubuğu ve üst çubuk sığar', await page.evaluate(() => { const m = document.querySelector('#modebar').getBoundingClientRect(); return !document.querySelector('#labPanel').classList.contains('open') && window.LS19.labui.page === 'ay' && m.right <= innerWidth + 0.5 && document.documentElement.scrollWidth <= innerWidth; }) && (await vis(page, '#controls')));
+  await shot(page, 'm0-acilis');
+  check('konsol hatası yok (telefon açılış)', errors.length === 0, errors.slice(0, 3).join(' | '));
   await ctx.close();
 }
 await browser.close();

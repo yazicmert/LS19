@@ -76,6 +76,8 @@
 <link rel="modulepreload" href="js/astui.js">
 <link rel="modulepreload" href="js/labtext.js">
 <link rel="modulepreload" href="js/labui.js">
+<link rel="modulepreload" href="js/ayui.js">
+<link rel="modulepreload" href="js/aytext.js">
 <link rel="modulepreload" href="js/deflectui.js">
 <link rel="modulepreload" href="js/updater.js">
 <link rel="modulepreload" href="js/tracker.js">
@@ -89,7 +91,7 @@
 <link rel="modulepreload" href="js/perfgov.js">
 <link rel="modulepreload" href="js/worker.js">
 </head>
-<body data-mode="mission">
+<body data-mode="lab" data-engine="mission" data-exp="ay">
 <div id="app">
   <canvas id="view"></canvas>
   <div id="labels"></div>
@@ -100,13 +102,12 @@
   <header id="modebar" aria-label="LS19">
     <span class="brand"><img src="favicon.svg" alt="" width="22" height="22"><b>LS19</b></span>
     <div class="seg" role="tablist" aria-label="Çalışma alanı (M)">
-      <button role="tab" data-workspace="mission" class="on" aria-selected="true" aria-label="Ay Görevi"><i data-icon="rocket"></i><span>Ay Görevi</span></button>
       <button role="tab" data-workspace="sky" aria-selected="false" aria-label="Canlı Gökyüzü"><i data-icon="satellite"></i><span>Canlı Gökyüzü</span></button>
-      <button role="tab" data-workspace="lab" aria-selected="false" aria-label="Laboratuvar"><i data-icon="flask"></i><span>Laboratuvar</span></button>
+      <button role="tab" data-workspace="lab" class="on" aria-selected="true" aria-label="Laboratuvar"><i data-icon="flask"></i><span>Laboratuvar</span></button>
     </div>
   </header>
 
-  <section id="hud" class="card" data-for="mission" aria-label="Uçuş verileri">
+  <section id="hud" class="card" data-for="lab@mission" aria-label="Uçuş verileri">
     <div class="hud-top">
       <div><span class="k">UTC</span> <span id="utc" class="v">—</span></div>
       <div><span class="k">Görev süresi</span> <span id="met" class="v">—</span></div>
@@ -126,105 +127,8 @@
     <div id="status" class="status" role="status" aria-live="polite"></div>
   </section>
 
-  <aside id="panel" class="panel" data-for="mission" aria-label="Ay görevi paneli">
-    <nav class="tabs" role="tablist" aria-label="Ay görevi sekmeleri">
-      <button class="tab on" role="tab" aria-selected="true" data-tab="gorev">Görev</button>
-      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="kontrol" title="Canlı uçuş kontrol paneli (K)">Kontrol</button>
-      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="dv">Δv</button>
-      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="grafik">Grafik</button>
-      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="yorunge">Yörünge</button>
-      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="efemeris">Efemeris</button>
-    </nav>
-    <div id="tab-gorev" class="tabpage">
-      <details id="cfgBox" class="cfg" open>
-        <summary>Görev yapılandırması</summary>
-        <div class="frow"><label for="cfgProfile">Profil</label>
-          <select id="cfgProfile">
-            <option value="APOLLO">Apollo, hızlı (LLO 110 km, 2 tur)</option>
-            <option value="APOLLO11">Apollo 11 gibi (LLO 110 km, 13 tur)</option>
-            <option value="NRHO">Artemis: NRHO 9:2 bekleme + LLO</option>
-            <option value="L2">L2 halo bekleme + LLO</option>
-            <option value="L1">L1 halo bekleme + LLO</option>
-            <option value="YUKSELTME">Yörünge yükseltmeli: 3 yakış (apoje 40.000 km) + LLO</option>
-            <option value="CUSTOM">Özel</option>
-          </select></div>
-        <div class="fttl">Dünya park yörüngesi</div>
-        <div class="frow3">
-          <label>İrtifa<span><input id="cfgEh" type="number" min="160" max="1000" step="5"> km</span></label>
-          <label>Eğim<span><input id="cfgEi" type="number" min="28.6" max="90" step="0.1"> °</span></label>
-          <label>Tur<span><input id="cfgEr" type="number" min="0.5" max="15.5" step="1"></span></label>
-        </div>
-        <div class="frow3" title="TLI öncesi park yörüngesinde apoje yükseltme yakışları: her yakış perijede, TLI yüksek elipsin perijesinde. 0 = park yörüngesinden doğrudan TLI.">
-          <label>Yükseltme yakışı<span><input id="cfgRn" type="number" min="0" max="4" step="1"></span></label>
-          <label>Son apoje<span><input id="cfgRa" type="number" min="1000" max="100000" step="500"> km</span></label>
-          <span></span>
-        </div>
-        <div class="fttl">Ay bekleme yörüngesi</div>
-        <div class="frow"><label for="cfgMt">Tür</label>
-          <select id="cfgMt"><option value="LLO">Alçak dairesel yörünge (LLO)</option><option value="HALO">Halo / NRHO (sonra LLO)</option></select></div>
-        <div class="frow" id="rowHalo"><label for="cfgHp">Halo</label>
-          <select id="cfgHp"><option value="NRHO92">NRHO 9:2 (L2 güney, Gateway)</option><option value="L2S13">L2 güney halo (Az 13.000 km)</option><option value="L1N10">L1 kuzey halo (Az 10.000 km)</option></select>
-          <label class="inl">Tur <input id="cfgHr" type="number" min="1" max="6" step="1"></label></div>
-        <div class="frow3">
-          <label>LLO irtifa<span><input id="cfgLh" type="number" min="30" max="500" step="5"> km</span></label>
-          <label>LLO tur<span><input id="cfgLr" type="number" min="1" max="40" step="1"></span></label>
-          <span></span>
-        </div>
-      </details>
-      <h3>Görev tarihi</h3>
-      <div class="daterow">
-        <input id="dateInput" type="date" min="1850-01-01" max="2149-12-01" aria-label="En erken fırlatma günü (UTC)">
-        <button id="btnDesign" class="primary sm">Tasarla</button>
-      </div>
-      <div class="daterow presets">
-        <button data-date="today">Bugün</button>
-        <button data-date="1969-07-16">Apollo 11 (1969)</button>
-        <button data-date="2026-10-13">Ekim 2026</button>
-      </div>
-      <div id="designInfo" class="dinfo"></div>
-      <details class="dlog"><summary>Tasarım günlüğü</summary><ul id="designLog"></ul></details>
-      <h3>Görev çizelgesi</h3>
-      <ul id="plan" class="plan"></ul>
-      <h3>Olay günlüğü</h3>
-      <ul id="log" class="log"></ul>
-    </div>
-    <div id="tab-kontrol" class="tabpage" hidden></div>
-    <div id="tab-dv" class="tabpage" hidden>
-      <h3>Δv bütçesi (m/s)</h3>
-      <table id="dvtable" class="tbl">
-        <thead><tr><th>Manevra</th><th class="num">Nominal</th><th class="num">Gerçekleşen</th><th class="num">Fark</th></tr></thead>
-        <tbody></tbody>
-        <tfoot><tr><td>Toplam nominal</td><td id="dvNom" class="num"></td><td></td><td></td></tr></tfoot>
-      </table>
-      <p class="note">Nominal: otopilotun bozulmasız uçuşu. Bozulma ya da elle yakış eklersen rota düzeltmeleri bunları telafi eder, fark burada görünür.</p>
-      <p class="note">Apollo 11 (planlanan, Press Kit): LOI 891 + 48, DOI 22.6, MCC-2 6.4 m/s.</p>
-      <h3>Profil karşılaştırması</h3>
-      <table id="cmptable" class="tbl cmp"><thead><tr><th>Profil</th><th class="num">Ay Δv</th><th class="num">Toplam</th><th class="num">Görev</th></tr></thead><tbody></tbody></table>
-      <div class="daterow"><button id="btnCompare" class="sm">Bu tarih için hesapla</button><span id="cmpStatus" class="k"></span></div>
-      <p class="note">Aynı iniş yeri için her profilin en az Δv'li tasarımı. "Ay Δv": Ay'a varıştan inişe kadar (iniş aracının taşıdığı). Satıra tıkla: o profil yüklenir.</p>
-    </div>
-    <div id="tab-grafik" class="tabpage" hidden>
-      <canvas id="chartAlt" class="chart"></canvas>
-      <canvas id="chartSpd" class="chart"></canvas>
-      <p class="note">İrtifa logaritmik ölçekte. Ay'ın etki küresinde değerler Ay'a (inişte iniş yerine) göre.</p>
-    </div>
-    <div id="tab-efemeris" class="tabpage" hidden>
-      <h3>Canlı efemeris</h3>
-      <table id="ephtable" class="tbl"><tbody></tbody></table>
-      <p class="note">Güneş, sekiz gezegen, Plüton, Dünya ve Ay burada kütle çekimiyle birlikte entegre ediliyor; JPL DE440 yalnız başlangıç durumunu veriyor. Dünya ile Ay ortak kütle merkezleri etrafında bu kuvvetlerle dönüyor. Ay'ın dönüşü Dünya ve Güneş torklarından Euler denklemleriyle hesaplanıyor; Dünya'nın yönelimi IAU 2006/2000A modeliyle. "DE440 farkı" satırları hesaplanan değerin resmi efemeristen ne kadar saptığını gösterir.</p>
-    </div>
-    <div id="tab-yorunge" class="tabpage" hidden>
-      <h3>Anlık yörünge elemanları</h3>
-      <table id="orbtable" class="tbl"><tbody></tbody></table>
-      <p class="note">Anlık (oskülatör) konik: o andaki konum ve hızdan, yalnız merkez cismin çekimiyle. Mavi elips, turuncu hiperbol, mor Ay merkezli.</p>
-      <h3>Kuvvet dökümü <span class="k">(m/s²)</span></h3>
-      <div id="forceFrame" class="k"></div>
-      <table id="forcetable" class="tbl forces"><thead><tr><th>Etki</th><th class="num">Doğrudan</th><th class="num">Etkin</th></tr></thead><tbody></tbody></table>
-      <p class="note">Doğrudan: cismin aracı tek başına çekmesi. Etkin: baskın cismin çerçevesinde harekete gerçekten etki eden kısım; baskın cisim için çekimin kendisi, diğerleri için gelgit (bozucu) etkisi (çekimi − baskın cisme çekimi). Güneş doğrudan ~6·10⁻³ çeker ama Dünya'yla birlikte düştüğü için etkisi ~10⁻⁷ kalır. Dünya J2 ve Ay J2/C22 şekil terimleridir. Çözücü N-cisimken Dünya, Ay ve Güneş aynı anda, etki küresi geçişi olmadan çeker.</p>
-    </div>
-  </aside>
 
-  <section id="manual" data-for="mission" hidden aria-label="Elle kontrol">
+  <section id="manual" data-for="lab@mission" hidden aria-label="Elle kontrol">
     <div class="mrow">
       <span class="k">İtki</span>
       <input id="thrSlider" type="range" min="0" max="100" value="0" aria-label="İtki yüzdesi">
@@ -243,7 +147,7 @@
     <div class="mrow hint"><kbd>Shift</kbd>/<kbd>Ctrl</kbd> itki ±, <kbd>Z</kbd> tam, <kbd>X</kbd> kes, <kbd>B</kbd> kademe ayır</div>
   </section>
 
-  <footer id="controls" class="dock" data-for="mission" aria-label="Görev denetimleri">
+  <footer id="controls" class="dock" data-for="lab@mission" aria-label="Görev denetimleri">
     <button id="btnPlay" class="primary" title="Oynat / duraklat (Boşluk)"><i data-icon="play"></i><span>Başlat</span></button>
     <div class="grp warpgrp" role="group" aria-label="Zaman hızı">
       <button id="btnSlow" title="Zaman hızı ÷2 (,)" aria-label="Yavaşlat">−</button>
@@ -395,20 +299,151 @@
 
   <aside id="labPanel" class="panel" data-for="lab" aria-label="Laboratuvar paneli">
     <header class="labhead">
-      <button id="labBack" class="sm back" type="button" hidden aria-label="Laboratuvara dön"><i data-icon="chev" class="chev-l"></i><span>Laboratuvar</span></button>
-      <div class="labtitles"><span id="labCrumb" class="k">LS19</span><h2 id="labTitle">Laboratuvar</h2></div>
+      <button id="labBack" class="sm back" type="button" aria-label="Laboratuvara dön"><i data-icon="chev" class="chev-l"></i><span>Laboratuvar</span></button>
+      <div class="labtitles"><span id="labCrumb" class="k" hidden>LS19</span><h2 id="labTitle">Ay görevi</h2></div>
     </header>
 
-    <div id="lab-home" class="labpage">
+    <div id="lab-home" class="labpage" hidden>
       <p class="labsub">Gerçek veriyle "ya şöyle olsaydı?" denemeleri. Bir deney seçin; sonuçlar 3B görünümde de izlenir.</p>
       <ul class="labtree">
-        <li><div class="grp">Gök cisimleri</div>
-          <ul><li><button class="exp" type="button" data-exp="saptirma"><i data-icon="shield" class="ei"></i><span><b>Asteroit saptırma</b><small>Bir asteroidi itip Dünya'yı ıskalatmak için ne kadar itki gerekir? Hedefi seç, yakın geçişi seç, itkiyi dene.</small></span><i data-icon="chev" class="go"></i></button></li></ul></li>
         <li><div class="grp">Görev tasarımı</div>
-          <ul><li><button class="exp" type="button" data-go="mission"><i data-icon="rocket" class="ei"></i><span><b>Ay görevi</b><small>Profil, araç ve iniş güdümünü değiştirip Δv bütçesini karşılaştır. Ay Görevi alanında açılır.</small></span><i data-icon="chev" class="go"></i></button></li></ul></li>
-        <li><div class="grp">Çarpma ve yeniden giriş</div>
-          <ul><li><button class="exp" type="button" data-go="impact"><i data-icon="target" class="ei"></i><span><b>Çarpma riski</b><small>Uyduların yeniden girişi ve Sentry sanal çarpıcıları. Canlı Gökyüzü'nde, Çarpma sekmesinde açılır.</small></span><i data-icon="chev" class="go"></i></button></li></ul></li>
+          <ul><li><button class="exp" type="button" data-exp="ay"><i data-icon="rocket" class="ei"></i><span><b>Ay görevi</b><small>Dünya park yörüngesinden Ay yüzeyine: profil, tarih, araç ve iniş güdümünü seç, görevi fizik motoruyla uçur, Δv bütçesini karşılaştır.</small></span><i data-icon="chev" class="go"></i></button></li></ul></li>
+        <li><div class="grp">Gezegen savunması</div>
+          <ul><li><button class="exp" type="button" data-exp="saptirma"><i data-icon="shield" class="ei"></i><span><b>Asteroit saptırma</b><small>Bir asteroidi itip Dünya'yı ıskalatmak için ne kadar itki gerekir? Hedefi seç, yakın geçişi seç, itkiyi dene.</small></span><i data-icon="chev" class="go"></i></button></li>
+            <li><button class="exp" type="button" data-go="impact"><i data-icon="target" class="ei"></i><span><b>Çarpma riski</b><small>Uyduların yeniden girişi ve Sentry sanal çarpıcıları. Canlı Gökyüzü'nde, Çarpma sekmesinde açılır.</small></span><i data-icon="chev" class="go"></i></button></li></ul></li>
       </ul>
+    </div>
+
+    <div id="lab-ay" class="labpage labtabs">
+      <nav class="tabs ays" role="tablist" aria-label="Ay görevi adımları">
+        <button class="tab on" role="tab" aria-selected="true" data-tab="gorev"><span class="sn">1</span><span class="st">Görev</span><span class="ss" id="aySum-gorev"></span></button>
+        <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="arac"><span class="sn">2</span><span class="st">Araç</span><span class="ss" id="aySum-arac"></span></button>
+        <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="ucus" title="Uçuş: çizelge, kontrol paneli (K), grafik, yörünge, efemeris"><span class="sn">3</span><span class="st">Uçuş</span><span class="ss" id="aySum-ucus"></span></button>
+        <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="dv"><span class="sn">4</span><span class="st">Sonuç</span><span class="ss" id="aySum-dv"></span></button>
+      </nav>
+      <div id="tab-gorev" class="tabpage" role="tabpanel">
+        <p class="stepsub">Görev profilini ve en erken fırlatma gününü seçin; Tasarla o tarihten sonraki ilk uygun pencere için en az Δv'li yolu kurar.</p>
+        <div class="frow ayprof"><label for="cfgProfile">Profil</label>
+          <select id="cfgProfile">
+            <option value="APOLLO">Apollo, hızlı (LLO 110 km, 2 tur)</option>
+            <option value="APOLLO11">Apollo 11 gibi (LLO 110 km, 13 tur)</option>
+            <option value="NRHO">Artemis: NRHO 9:2 bekleme + LLO</option>
+            <option value="L2">L2 halo bekleme + LLO</option>
+            <option value="L1">L1 halo bekleme + LLO</option>
+            <option value="YUKSELTME">Yörünge yükseltmeli: 3 yakış (apoje 40.000 km) + LLO</option>
+            <option value="CUSTOM">Özel</option>
+          </select></div>
+        <details id="cfgBox" class="cfg">
+          <summary>Yörünge ayrıntıları (gelişmiş)</summary>
+          <div class="fttl">Dünya park yörüngesi</div>
+          <div class="frow3">
+            <label>İrtifa<span><input id="cfgEh" type="number" min="160" max="1000" step="5"> km</span></label>
+            <label>Eğim<span><input id="cfgEi" type="number" min="28.6" max="90" step="0.1"> °</span></label>
+            <label>Tur<span><input id="cfgEr" type="number" min="0.5" max="15.5" step="1"></span></label>
+          </div>
+          <div class="frow3" title="TLI öncesi park yörüngesinde apoje yükseltme yakışları: her yakış perijede, TLI yüksek elipsin perijesinde. 0 = park yörüngesinden doğrudan TLI.">
+            <label>Yükseltme yakışı<span><input id="cfgRn" type="number" min="0" max="4" step="1"></span></label>
+            <label>Son apoje<span><input id="cfgRa" type="number" min="1000" max="100000" step="500"> km</span></label>
+            <span></span>
+          </div>
+          <div class="fttl">Ay bekleme yörüngesi</div>
+          <div class="frow"><label for="cfgMt">Tür</label>
+            <select id="cfgMt"><option value="LLO">Alçak dairesel yörünge (LLO)</option><option value="HALO">Halo / NRHO (sonra LLO)</option></select></div>
+          <div class="frow" id="rowHalo"><label for="cfgHp">Halo</label>
+            <select id="cfgHp"><option value="NRHO92">NRHO 9:2 (L2 güney, Gateway)</option><option value="L2S13">L2 güney halo (Az 13.000 km)</option><option value="L1N10">L1 kuzey halo (Az 10.000 km)</option></select>
+            <label class="inl">Tur <input id="cfgHr" type="number" min="1" max="6" step="1"></label></div>
+          <div class="frow3">
+            <label>LLO irtifa<span><input id="cfgLh" type="number" min="30" max="500" step="5"> km</span></label>
+            <label>LLO tur<span><input id="cfgLr" type="number" min="1" max="40" step="1"></span></label>
+            <span></span>
+          </div>
+        </details>
+        <h3>Görev tarihi</h3>
+        <div class="daterow">
+          <input id="dateInput" type="date" min="1850-01-01" max="2149-12-01" aria-label="En erken fırlatma günü (UTC)">
+          <button id="btnDesign" class="primary sm">Tasarla</button>
+        </div>
+        <div class="daterow presets">
+          <button data-date="today">Bugün</button>
+          <button data-date="1969-07-16">Apollo 11 (1969)</button>
+          <button data-date="2026-10-13">Ekim 2026</button>
+        </div>
+        <div id="designInfo" class="dinfo"></div>
+        <details class="dlog"><summary>Tasarım günlüğü</summary><ul id="designLog"></ul></details>
+        <div class="stepnav"><button class="primary sm" type="button" data-goto="arac">Devam: Araç ve güdüm</button></div>
+      </div>
+      <div id="tab-arac" class="tabpage" role="tabpanel" hidden>
+        <p class="stepsub">Yörünge tasarımı aynı kalır; araç ve iniş güdümü yakıtı ve inişin biçimini değiştirir. Etkisi Sonuç adımındaki Δv bütçesinin "Nominal" sütununda görünür.</p>
+        <div class="fttl">Araç <span class="k">(değişince görev yeniden kurulur)</span></div>
+        <div class="optcards" role="group" aria-label="Araç">
+          <button class="optcard" type="button" data-vehicle="two"><b>İki kademe</b><small>Ay yörünge kademesi (MCC, LOI, DOI) ve iniş kademesi. Yörünge kademesi 15 km irtifada, motorlu inişten önce atılır: ölü kütle inişe taşınmaz, kalan yakıt artar.</small></button>
+          <button class="optcard" type="button" data-vehicle="one"><b>Tek kademe</b><small>Rota düzeltmeleri, Ay yörüngesine giriş ve motorlu iniş aynı kademeyle yapılır. Toplam kütle ve itki aynıdır.</small></button>
+        </div>
+        <div class="fttl">İniş güdümü <span class="k">(uçuş sırasında da değişir)</span></div>
+        <div class="optcards" role="group" aria-label="İniş güdümü">
+          <button class="optcard" type="button" data-landing="opt"><b>Optimal (dengeli)</b><small>Yakıt-optimal güdüm (kayıpsız dışbükeyleştirme + koni programı), her 10 s'de yeniden çözülür. Son 100 s'de itki dikeyden ≤ 45°, hız yükseklikle sınırlı.</small></button>
+          <button class="optcard" type="button" data-landing="free"><b>Optimal (serbest)</b><small>Aynı çözücü, güvenlik koridoru gevşek: en az yakıt, daha agresif iniş profili.</small></button>
+          <button class="optcard" type="button" data-landing="zem"><b>ZEM/ZEV (Apollo)</b><small>Sıfır-çaba-ıskası/hızı güdümü: fren, yaklaşma ve son iniş aşamaları.</small></button>
+        </div>
+        <p id="ayOptNote" class="note" hidden>Konik çözücü yüklenemedi: optimal güdüm kullanılamıyor, iniş ZEM/ZEV ile uçulur.</p>
+        <div class="stepnav"><button class="primary sm" type="button" data-goto="ucus">Devam: Uçuş</button></div>
+      </div>
+      <div id="tab-ucus" class="tabpage tabgroup" role="tabpanel" hidden>
+        <nav class="tabs subtabs" role="tablist" aria-label="Uçuş aletleri">
+          <button class="tab on" role="tab" aria-selected="true" data-tab="plan">Çizelge</button>
+          <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="kontrol" title="Canlı uçuş kontrol paneli (K)">Kontrol</button>
+          <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="grafik">Grafik</button>
+          <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="yorunge">Yörünge</button>
+          <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="efemeris">Efemeris</button>
+        </nav>
+        <div id="tab-plan" class="tabpage" role="tabpanel">
+          <p class="stepsub">Alt çubuktaki <b>Başlat</b> görevi uçurur; zaman hızı ve olaya atlama uçuşu kısaltır. Çizelgedeki bir olaya tıklayınca oraya atlanır.</p>
+          <h3>Görev çizelgesi</h3>
+          <ul id="plan" class="plan"></ul>
+          <h3>Olay günlüğü</h3>
+          <ul id="log" class="log"></ul>
+        </div>
+        <div id="tab-kontrol" class="tabpage" role="tabpanel" hidden></div>
+        <div id="tab-grafik" class="tabpage" role="tabpanel" hidden>
+          <canvas id="chartAlt" class="chart"></canvas>
+          <canvas id="chartSpd" class="chart"></canvas>
+          <p class="note">İrtifa logaritmik ölçekte. Ay'ın etki küresinde değerler Ay'a (inişte iniş yerine) göre.</p>
+        </div>
+        <div id="tab-yorunge" class="tabpage" role="tabpanel" hidden>
+          <h3>Anlık yörünge elemanları</h3>
+          <table id="orbtable" class="tbl"><tbody></tbody></table>
+          <p class="note">Anlık (oskülatör) konik: o andaki konum ve hızdan, yalnız merkez cismin çekimiyle. Mavi elips, turuncu hiperbol, mor Ay merkezli.</p>
+          <h3>Kuvvet dökümü <span class="k">(m/s²)</span></h3>
+          <div id="forceFrame" class="k"></div>
+          <table id="forcetable" class="tbl forces"><thead><tr><th>Etki</th><th class="num">Doğrudan</th><th class="num">Etkin</th></tr></thead><tbody></tbody></table>
+          <p class="note">Doğrudan: cismin aracı tek başına çekmesi. Etkin: baskın cismin çerçevesinde harekete gerçekten etki eden kısım; baskın cisim için çekimin kendisi, diğerleri için gelgit (bozucu) etkisi (çekimi − baskın cisme çekimi). Güneş doğrudan ~6·10⁻³ çeker ama Dünya'yla birlikte düştüğü için etkisi ~10⁻⁷ kalır. Dünya J2 ve Ay J2/C22 şekil terimleridir. Çözücü N-cisimken Dünya, Ay ve Güneş aynı anda, etki küresi geçişi olmadan çeker.</p>
+        </div>
+        <div id="tab-efemeris" class="tabpage" role="tabpanel" hidden>
+          <h3>Canlı efemeris</h3>
+          <table id="ephtable" class="tbl"><tbody></tbody></table>
+          <p class="note">Güneş, sekiz gezegen, Plüton, Dünya ve Ay burada kütle çekimiyle birlikte entegre ediliyor; JPL DE440 yalnız başlangıç durumunu veriyor. Dünya ile Ay ortak kütle merkezleri etrafında bu kuvvetlerle dönüyor. Ay'ın dönüşü Dünya ve Güneş torklarından Euler denklemleriyle hesaplanıyor; Dünya'nın yönelimi IAU 2006/2000A modeliyle. "DE440 farkı" satırları hesaplanan değerin resmi efemeristen ne kadar saptığını gösterir.</p>
+        </div>
+      </div>
+      <div id="tab-dv" class="tabpage" role="tabpanel" hidden>
+        <div id="ayVerdict" class="verdict info" role="status" aria-live="polite">
+          <div id="ayVT" class="vt"></div>
+          <div id="ayVD" class="vd"></div>
+          <table id="ayVTbl" class="tbl ayres"><tbody></tbody></table>
+        </div>
+        <div class="stepnav"><button class="sm" type="button" data-goto="gorev">Başka profille dene</button><button class="sm" type="button" data-goto="arac">Güdümü değiştir</button><button id="ayRestart" class="sm" type="button">Baştan uçur</button></div>
+        <h3>Δv bütçesi (m/s)</h3>
+        <table id="dvtable" class="tbl">
+          <thead><tr><th>Manevra</th><th class="num">Nominal</th><th class="num">Gerçekleşen</th><th class="num">Fark</th></tr></thead>
+          <tbody></tbody>
+          <tfoot><tr><td>Toplam nominal</td><td id="dvNom" class="num"></td><td></td><td></td></tr></tfoot>
+        </table>
+        <p class="note">Nominal: otopilotun bozulmasız uçuşu. Bozulma ya da elle yakış eklersen rota düzeltmeleri bunları telafi eder, fark burada görünür.</p>
+        <p class="note">Apollo 11 (planlanan, Press Kit): LOI 891 + 48, DOI 22.6, MCC-2 6.4 m/s.</p>
+        <h3>Profil karşılaştırması</h3>
+        <table id="cmptable" class="tbl cmp"><thead><tr><th>Profil</th><th class="num">Ay Δv</th><th class="num">Toplam</th><th class="num">Görev</th></tr></thead><tbody></tbody></table>
+        <div class="daterow"><button id="btnCompare" class="sm">Bu tarih için hesapla</button><span id="cmpStatus" class="k"></span></div>
+        <p class="note">Aynı iniş yeri için her profilin en az Δv'li tasarımı. "Ay Δv": Ay'a varıştan inişe kadar (iniş aracının taşıdığı). Satıra tıkla: o profil yüklenir.</p>
+      </div>
     </div>
 
     <div id="lab-saptirma" class="labpage" hidden>
@@ -513,7 +548,7 @@
     </div>
   </aside>
 
-  <footer id="skyControls" class="dock" data-for="sky lab" aria-label="Zaman ve kamera">
+  <footer id="skyControls" class="dock" data-for="sky lab@sky" aria-label="Zaman ve kamera">
     <button id="skyNow" class="primary" title="Gerçek zamana dön (N)"><i data-icon="now"></i><span>Şimdi</span></button>
     <button id="skyPause" title="Saati duraklat (Boşluk)" aria-pressed="false"><i data-icon="pause"></i><span>Duraklat</span></button>
     <div class="tm">

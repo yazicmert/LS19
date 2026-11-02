@@ -12,14 +12,15 @@ saptırma laboratuvarı bir asteroide uygulanan itkinin Dünya yakın geçişini
 - Ya da Terminal'de bu klasörde: `python3 sunucu.py` ve tarayıcıda `http://localhost:8765`.
 - Dosyayı doğrudan (file://) açmak çalışmaz. Eski `python3 -m http.server` da site için yeterlidir ama uydular gelmez.
 - En hızlı çalışma için Safari ya da Chrome önerilir.
-- Adres parametreleri: `?date=1969-07-16`, `?profile=NRHO` (APOLLO, APOLLO11, NRHO, L2, L1), `?sats=0` (uyduları kapat), `?ast=0` (asteroitleri kapat), `?mode=lab&exp=saptirma` (Laboratuvar › Asteroit saptırma; eski `?tab=saptirma` da çalışır), `?lowmem=1` (düşük bellek dokuları; telefonda kendiliğinden), `?adapt=0` (uyarlanır çözünürlüğü kapat), `?bg=1` (sekme arka plandayken de oynat), `?prefetch=1` (gökyüzü katmanlarını hemen kur).
+- Adres parametreleri: `?date=1969-07-16`, `?profile=NRHO` (APOLLO, APOLLO11, NRHO, L2, L1), `?sats=0` (uyduları kapat), `?ast=0` (asteroitleri kapat), `?mode=lab&exp=ay` (Laboratuvar › Ay görevi; varsayılan açılış, eski `?mode=mission` da çalışır), `?mode=lab&exp=saptirma` (Laboratuvar › Asteroit saptırma; eski `?tab=saptirma` da çalışır), `?mode=sky` (Canlı Gökyüzü), `?lowmem=1` (düşük bellek dokuları; telefonda kendiliğinden), `?adapt=0` (uyarlanır çözünürlüğü kapat), `?bg=1` (sekme arka plandayken de oynat), `?prefetch=1` (gökyüzü katmanlarını hemen kur).
 - Bulutta (Vercel) aynı site `api/` işlevleriyle çalışır; kurulum için depo kökündeki README'ye bakın.
 
-## Üç çalışma alanı
-- Üstteki anahtar (ya da **M**, üçünde sırayla döner): **Ay Görevi** — değiştirilebilir, koşturulabilir fizik motoru ve görev saati;
-  **Canlı Gökyüzü** — gerçek saat, uydular, asteroitler, çarpma/yeniden giriş; **Laboratuvar** — "ya şöyle olsaydı?" denemeleri
-  (asteroit saptırma; Ay görevi ve çarpma riski için kısayollar). Ay Görevi ile Canlı Gökyüzü ayrı saat, efemeris ve kamerayla çalışır;
-  Laboratuvar gökyüzü motorunu paylaşır. Görev arka planda sürer, uydu ve asteroitler görev alanında çizilmez. Ayrıntı: `../docs/laboratuvar.md`.
+## İki çalışma alanı
+- Üstteki anahtar (ya da **M**): **Canlı Gökyüzü** — gözlem: gerçek saat, uydular, asteroitler, çarpma/yeniden giriş;
+  **Laboratuvar** — deney: "ya şöyle olsaydı?". Deneyler: **Ay görevi** dört adımda (Görev → Araç ve güdüm → Uçuş → Sonuç; değiştirilebilir,
+  koşturulabilir fizik motoru ve görev saati; açılışta bu deney açılır) ve **Asteroit saptırma**; çarpma riski Canlı Gökyüzü'ne kısayoldur. **Esc** deneyden Laboratuvar ana sayfasına döner.
+  Her deney kendi motorunu çalıştırır (Ay görevi: görev motoru; saptırma: gökyüzü motoru); iki motor ayrı saat, efemeris ve kamerayla çalışır.
+  Görev arka planda sürer, uydu ve asteroitler görev motorunda çizilmez. Ayrıntı: `../docs/laboratuvar.md`.
 
 ## Canlı Gökyüzü
 - Saat: **Şimdi** (N) gerçek zamana döner, **Boşluk** duraklatır, **, .** hızı değiştirir (×1–×3600), ±1 saat düğmeleri.
@@ -81,7 +82,7 @@ Dört adım; tamamlanan adım tek satırlık özete iner, sonraki adımlar önce
 - Doğrulama: Apophis 13 Nisan 2029 yakın geçişi JPL CAD'e göre ~2 km farkla; DART/Dimorphos periyot değişimi.
 
 ## Kontrol paneli (Kontrol sekmesi, **K**)
-Ay Görevi panelindeki **Kontrol** sekmesi aracın anlık durumunu canlı gösterir (saniyede ~10 güncelleme; zaman hızından ve duraklatmadan bağımsız doğru kalır).
+Laboratuvar › Ay görevi panelindeki **Kontrol** sekmesi aracın anlık durumunu canlı gösterir (saniyede ~10 güncelleme; zaman hızından ve duraklatmadan bağımsız doğru kalır).
 - **Üstte:** evre, rozetler (motor, otopilot/elle, çözücü, zaman hızı), sıradaki olay ve kalan süre, varsa uyarılar; dört ana gösterge (irtifa, hız, dikey hız, yakıt) ve gaz çubuğu.
 - **Δv bütçesi:** her kademe için *kalan Δv* (roket denklemi), *gerekli* (planlı manevraların kalanı) ve *pay*. Pay bozulmasız uçuşta (yönelimsiz modelde) sabittir; 6-DOF'ta RCS yakıtı kuru kütleden düştüğü için araç hafifler ve pay RCS tüketimiyle orantılı biraz artar (≈ +1 m/s / kg); bozulma, elle yakış ya da fazladan rota düzeltmesi onu azaltır (satırın üzerine gelince plan dışı harcama yazar).
 - **İniş** (iniş evrelerinde ve 30 km altında): iniş yeri irtifası, dikey/yatay hız, menzil, motor kesilirse çarpmaya kalan süre, tam gazla durma yüksekliği ve payı, askıda kalma gazı, hız sıfırlama alt sınırı; grafikte dikey hız–√irtifa faz düzlemi (kırmızı bölgede dikey hız artık sıfırlanamaz, yeşil kutu temas sınırı).
@@ -94,7 +95,7 @@ Ay Görevi panelindeki **Kontrol** sekmesi aracın anlık durumunu canlı göste
 ## Kontroller
 - **Boşluk**: başlat/duraklat · **. ,**: zaman hızı ×2 / ÷2 · "Otomatik hız" olaylara yaklaşırken yavaşlatır
 - **G**: otopilot aç/kapa · **P**: 2 m/s rastgele bozulma (rota düzeltmeleri telafi eder) · **K**: Kontrol paneli
-- **M**: çalışma alanı değiştir · **C**: **Sinematik gösterim** (alt çubukta film simgesi; adreste `?cine=1`): görevi baştan, NASA fragmanı gibi ~2 dakikada oynatır — **Esc** çık, **Boşluk** duraklat, **→** sonraki çekim, **R** yeniden izle (ayrıntı: `docs/sinematik.md`) · **Fare**: uydu, asteroit ya da gezegene gel → ad; tıkla → bilgi kartı
+- **M**: Canlı Gökyüzü ↔ Laboratuvar · **C**: **Sinematik gösterim** (alt çubukta film simgesi; adreste `?cine=1`): görevi baştan, NASA fragmanı gibi ~2 dakikada oynatır — **Esc** çık, **Boşluk** duraklat, **→** sonraki çekim, **R** yeniden izle (ayrıntı: `docs/sinematik.md`) · **Fare**: uydu, asteroit ya da gezegene gel → ad; tıkla → bilgi kartı
 - **Alt çubuk**: Başlat, zaman hızı (− ×N +) görünür; **Kamera ▾** ve **Uçuş ▾** (otopilot, otomatik hız, **N-cisim çözücü**, **Araç**, **İniş güdümü**, bozulma, baştan başlat) açılır ağaç menüdedir.
   *N-cisim çözücü* açıkken araç tek eylemsiz çerçevede Dünya + Ay + Güneş çekimiyle ilerler (etki küresi geçişi yok); kapalıyken iki merkez cisimli (etki küresi) çözücü kullanılır. Uçuş sırasında değiştirilebilir. **Yörünge** sekmesinde canlı kuvvet dökümü vardır.
   *Araç*: **İki kademe** (varsayılan) iniş aracını Ay yörünge kademesi (MCC, LOI/NRI, LLO, DOI) ve iniş kademesi (motorlu iniş) olarak böler; yörünge kademesi 15 km irtifada, motorlu inişten ~2–4 dk önce atılır ve ölü kütle inişe taşınmaz (kalan yakıt artar). **Tek kademe iniş aracı** eski tek kademeli araçtır. Seçim görevi yeniden kurar.

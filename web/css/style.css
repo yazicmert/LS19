@@ -51,8 +51,11 @@ select { font: inherit; font-size: 13px; color: var(--text-primary); background:
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 8px 30px rgba(0, 0, 0, .35); }
 .panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 8px 30px rgba(0, 0, 0, .35); }
 
-/* çalışma alanları: Ay Görevi / Canlı Gökyüzü / Laboratuvar (data-for: boşlukla ayrılmış liste) */
-body[data-mode="mission"] [data-for]:not([data-for~="mission"]), body[data-mode="sky"] [data-for]:not([data-for~="sky"]), body[data-mode="lab"] [data-for]:not([data-for~="lab"]) { display: none !important; }
+/* çalışma alanları: Canlı Gökyüzü / Laboratuvar. data-for boşlukla ayrılmış liste: "sky", "lab" (tüm Laboratuvar) ya da "lab@mission" / "lab@sky"
+   (Laboratuvar'da, o motor çalışırken: Ay görevi görev motorunu, Asteroit saptırma gökyüzü motorunu kullanır; ana sayfa motoru değiştirmez) */
+body[data-mode="sky"] [data-for]:not([data-for~="sky"]),
+body[data-mode="lab"][data-engine="mission"] [data-for]:not([data-for~="lab"]):not([data-for~="lab@mission"]),
+body[data-mode="lab"][data-engine="sky"] [data-for]:not([data-for~="lab"]):not([data-for~="lab@sky"]) { display: none !important; }
 #modebar { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 3; display: flex; align-items: center; gap: 10px; padding: 5px 6px 5px 12px;
   background: var(--card); border: 1px solid var(--line); border-radius: 999px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 8px 30px rgba(0, 0, 0, .35); }
 #modebar .brand { display: inline-flex; align-items: center; gap: 7px; font-weight: 700; letter-spacing: .08em; font-size: 14px; }
@@ -76,7 +79,7 @@ body[data-mode="mission"] [data-for]:not([data-for~="mission"]), body[data-mode=
 .fill.thr { background: #f08a3c; }
 .status { margin-top: 8px; min-height: 16px; font-size: 13px; color: var(--warn); }
 
-#panel, #skyPanel, #labPanel { position: absolute; top: 14px; right: 14px; bottom: 76px; width: 368px; display: flex; flex-direction: column; }
+#skyPanel, #labPanel { position: absolute; top: 14px; right: 14px; bottom: 76px; width: 368px; display: flex; flex-direction: column; }
 .tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px; border-bottom: 1px solid var(--line); }
 .tab { flex: 1 0 18%; padding: 6px 2px; font-size: 12.5px; min-width: 0; font-weight: 600; color: var(--text-secondary); background: transparent; border-color: transparent; }
 .tab:hover { color: var(--text-primary); background: var(--surface-2); }
@@ -223,12 +226,10 @@ input[type=search] { flex: 1; font: inherit; font-size: 13px; color: var(--text-
 
 
 @media (max-width: 1100px) {
-  #panel { width: 300px; }
+  body[data-engine="mission"] #labPanel { width: 300px; }
   #hud { width: 280px; }
 }
 @media (max-width: 760px) {
-  #panel { display: none; }
-  #panel.open { display: flex; left: 8px; right: 8px; width: auto; top: 8px; bottom: 120px; z-index: 4; }
   #btnPanel { display: inline-block; }
   #hud { width: calc(100% - 28px); }
 }
@@ -265,7 +266,7 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
 .lbl-watch { font-weight: 600; font-size: 12px; } .lbl-obs { color: #fff; font-size: 11.5px; }
 .seg { display: inline-flex; gap: 3px; } .seg button { padding: 6px 9px; font-family: var(--mono); font-size: 12px; }
 #btnSkyPanel { display: none; }
-@media (max-width: 1320px) { #hud, #skyHud { top: 64px; } #panel, #skyPanel, #labPanel { top: 64px; } }          /* ortalanmış üst çubuk (3 alan) 1320 px altında paneller ve saatle çakışır */
+@media (max-width: 1320px) { #hud, #skyHud { top: 64px; } #skyPanel, #labPanel { top: 64px; } }          /* ortalanmış üst çubuk dar pencerede paneller ve saatle çakışır */
 @media (max-width: 760px) {
   #skyPanel, #labPanel { display: none; }
   #skyPanel.open, #labPanel.open { display: flex; left: 8px; right: 8px; width: auto; top: 8px; bottom: 120px; z-index: 4; }
@@ -284,7 +285,7 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
   .warp { min-width: 44px; } .warpgrp button { padding: 6px 9px; }
   .tm { position: static; }
   .tm-pop { left: 8px; right: 8px; bottom: 62px; position: fixed; min-width: 0; }
-  #panel.open, #skyPanel.open, #labPanel.open { top: 60px; bottom: 64px; }
+  #skyPanel.open, #labPanel.open { top: 60px; bottom: 64px; }
 }
 @media (max-width: 520px) { #modebar .seg button:not(.on) span { display: none; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
@@ -321,9 +322,33 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
 .tbl.forces .fbar { display: block; height: 4px; margin-top: 3px; border-radius: 2px; background: var(--series-1); min-width: 1px; opacity: .85; }
 #forceFrame { margin: 0 0 6px; }
 
-/* kontrol paneli (Ay Görevi → Kontrol sekmesi) */
-#panel .tabs { gap: 3px; padding: 8px 6px; }
-#panel .tab { flex: 1 1 auto; padding: 6px 5px; font-size: 12px; }
+/* kontrol paneli (Laboratuvar › Ay görevi → Kontrol sekmesi) */
+#lab-ay .tabs { gap: 3px; padding: 8px 6px; }
+#lab-ay .tab { flex: 1 1 auto; padding: 6px 5px; font-size: 12px; }
+/* Laboratuvar › Ay görevi: dört adım (Görev → Araç ve güdüm → Uçuş → Sonuç). Adım düğmesi: numara, ad, tek satır özet (tamamı title'da) */
+#lab-ay .ays { flex-wrap: nowrap; gap: 4px; padding: 8px 6px; }
+#lab-ay .ays .tab { flex: 1 1 0; display: grid; grid-template-columns: 18px minmax(0, 1fr); column-gap: 6px; row-gap: 1px; align-items: center; text-align: left; padding: 5px 6px; }
+.ays .sn { grid-row: 1 / span 2; width: 18px; height: 18px; font-size: 10.5px; }
+.ays .st { font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ays .ss { grid-column: 2; font-size: 10.5px; font-weight: 500; }
+.ays .tab.done .sn { background: var(--good); color: #052e1d; }
+.ays .tab.on .sn { background: var(--accent); color: #fff; }
+#lab-ay .ays .tab.on { flex-grow: 1.8; }          /* etkin adımın özeti okunur kalsın; ötekiler kısalır (tamamı title'da) */
+.ays .tab.on .ss { color: var(--text-secondary); }
+.ays .tab.new .sn { box-shadow: 0 0 0 3px rgba(52, 211, 153, .4); animation: ayNew 1.6s var(--ease) 3; }
+@keyframes ayNew { 50% { box-shadow: 0 0 0 6px rgba(52, 211, 153, 0); } }
+.tabpage.tabgroup { padding: 0; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }       /* Uçuş adımı: alet sekmeleri sabit, sayfalar kendi içinde kayar */
+#lab-ay .subtabs { padding: 6px 8px; gap: 3px; border-bottom-style: dashed; }
+#lab-ay .subtabs .tab { padding: 4px 3px; font-size: 11.5px; }
+.ayprof { margin: 8px 0 4px; } .ayprof select { flex: 1; min-width: 0; }
+.optcards { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 4px; }
+.optcard { display: block; width: 100%; text-align: left; padding: 8px 10px; border-radius: 10px; background: var(--surface-1); border: 1px solid var(--line-2); transition: border-color .15s var(--ease), background-color .15s var(--ease); }
+.optcard:hover:not(:disabled) { background: var(--surface-2); }
+.optcard.on { border-color: var(--accent); background: rgba(59, 130, 246, .14); }
+.optcard:disabled { opacity: .45; cursor: not-allowed; }
+.optcard b { display: block; font-size: 12.5px; } .optcard small { display: block; margin-top: 2px; font-size: 11.5px; line-height: 1.4; color: var(--text-muted); }
+.ayres { margin-top: 8px; } .ayres td { font-size: 12.5px; padding: 3px 0; }
+#ayVerdict + .stepnav { margin: 8px 0 2px; }
 .kp { display: flex; flex-direction: column; gap: 8px; padding-top: 6px; }
 .kp-head { padding: 2px 2px 0; }
 .kp-phase { font-size: 15px; font-weight: 600; line-height: 1.25; }
@@ -373,6 +398,8 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
 .labtitles { display: flex; flex-direction: column; min-width: 0; }
 .labtitles h2 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: .01em; }
 .labpage { padding: 10px 12px 14px; overflow-y: auto; flex: 1; overscroll-behavior: contain; }
+.labpage.labtabs { padding: 0; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }          /* sekmeli deney (Ay görevi): sekme çubuğu sabit, sayfalar kendi içinde kayar */
+.labtabs > .tabpage { overscroll-behavior: contain; }
 .labsub { margin: 2px 0 12px; font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); }
 .labtree { list-style: none; margin: 0; padding: 0; }
 .labtree > li { margin: 0 0 12px; }
