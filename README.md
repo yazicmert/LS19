@@ -66,7 +66,7 @@ Tarayıcıda gerçek zamanlı çalışan bir uzay simülasyonu. Dünya park yör
 | 1 cm/s itki: doğrusal (STM) ve tam tümleme | Δζ 2276,6 / 2276,5 km |
 | DART/Dimorphos | başa baş Δv 2,99 mm/s; ölçülen 2,70 mm/s → periyot −32,8 dk (gözlenen −33,0 ± 1,0 dk) |
 | ISS geçişleri, İstanbul (3 gün) | Skyfield'a göre en büyük fark 0,6 s ve 0,007° |
-| Ay görevi profilleri (13 Ekim 2026) | Apollo 5928,2 m/s · NRHO 9:2 6676,1 m/s · L1 6489,9 · L2 7013,4 · yörünge yükseltmeli (3 yakış, 40.000 km) 5921,8 — hepsi temasla biter (6-DOF yönelim: RCS yakıtı ve ofsetli itki kinematik modele göre +1–5 m/s ekler) |
+| Ay görevi profilleri (13 Ekim 2026) | Apollo 5928,2 m/s · NRHO 9:2 6676,0 m/s · L1 6489,8 · L2 7013,3 · yörünge yükseltmeli (3 yakış, 40.000 km) 5921,8 — hepsi temasla biter (6-DOF yönelim: RCS yakıtı ve ofsetli itki kinematik modele göre +1–5 m/s ekler) |
 | N-cisim çözücü ↔ bağımsız barisentrik-tutarlı N-cisim entegrasyonu | TLI→MCC-1 (20 sa) 0,07 m · MCC-1→MCC-2 (52 sa) 0,17 m · MCC-2→LOI (22 sa, etki küresi dahil) 0,06 m · alçak Ay yörüngesi (3,6 sa) 1,4 cm |
 | Sonlu itki, boş uzay | Δv roket denklemine 1e-6 m/s içinde (h ≤ 1 s ve 0,25 s); yakıt bitince itki kesilir |
 | Yörünge yükseltme (3 yakış → 40.000 km apoje) | hedef apojeler ±0,1% içinde; TLI sonrası MCC-1 9,3 m/s (yükseltmesiz 7,9); park/yükseltme sırasında 1–10 m/s bozulmalarda iniş %100 (15/15; 6-DOF yönelimle yeniden doğrulandı) |

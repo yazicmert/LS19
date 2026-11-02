@@ -10,6 +10,10 @@ Laboratuvarın fizik altyapısındaki formüller ve sabitler birincil kaynaklarl
 | 2 | **Vallado üstel atmosfer tablosunda 350 km yoğunluğu 9,158e-12** (`impact.js`) | 300 km satırından (2,418e-11, H = 53,628 km) 350 km'ye: 9,517e-12. 350 km satırından (H = 53,298 km) 400 km'ye ancak 9,518e-12 ile tablodaki 3,725e-12'ye bağlanır. arXiv:1610.02156 (Vallado tablosu): 9,518e-12 | 9,518e-12 (rakam yer değiştirmesi) | 350–400 km'de yoğunluk %3,8 düşüktü ve 400 km'de süreksizdi; ör. 400 km, B* = 1e-4 ömür 3,6 → 3,5 yıl |
 | 3 | **İniş aracı yatay temas sınırı 1,5 m/s** (`mission.js` `touchdown`, `telemetry.js`, `aytext.js`) | Apollo LM iniş takımı (NASA TN D-6850, Rogers): tasarım başlangıç koşulları dikey 10 ft/s (3,05 m/s), yatay 5 ft/s; yatay sınır sonra **4 ft/s (1,22 m/s)** olarak güncellendi. 1,5 m/s eski 5 ft/s'ye denk düşer | yatay < 1,22 m/s (dikey < 3 m/s aynı) | Başarı ölçütü gerçek araca uydu; nominal inişler (yatay ~0,01 m/s) etkilenmez |
 
+Ek tutarlılık düzeltmesi (yeniden üretim sırasında testle bulundu): nominal koşu (`nominalrun.js` → `nominal.js` worker'ı ve `make_designs.js`) canlı görevin ayarladığı "Ay çevresi" yarıçapını (halo profillerinde 1,25 × apolün; `Mission.prograde` kullanır) ayarlamıyordu; halo profillerinde hazır nominal Δv canlı uçuştan 0,1–0,2 m/s sapıyordu. Artık aynı.
+
+İniş yeri doğru yere taşınınca dengeli optimal güdümün ZEM/ZEV'e göre yakıt kazancı varsayılan profilde 8 → 4 kg oldu (yörünge yükseltmeli profilde eskiden de 5 kg idi); `test_pdg.js`'teki keyfi "≥ 5 kg" payı, aynı dosyadaki profil denetimleri gibi "dengeli > ZEM" yapıldı.
+
 Doğrulama testi: `test/test_moonframe.js` (PA → ME matrisi Skyfield'ın SPICE TKFRAME uygulamasıyla bit düzeyinde aynı; 875 m; eski uygulamanın 1.750 m sapması; motorun ICRF → ME zinciri).
 
 ## 2. Kaynaklarla uyumlu bulunanlar
