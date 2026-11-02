@@ -1,12 +1,15 @@
 // Nominal koşu: seçilen tasarımın bozulmasız otopilot uçuşu (Δv panelinin "Nominal" sütunu). Tarayıcıdaki arka plan iş parçacığı (nominal.js) ve hazır tasarım
 // dosyasını üreten betik (test/make_designs.js) AYNI işlevi kullanır: önceden hesaplanan değer ile çalışma anında hesaplanan değer birbirinden sapamaz.
 // Çağıran, koşudan önce taze efemeris kurar (makeLive) ve iniş güdümü 'opt'/'free' ise konik çözücüyü yükler (initConic).
+import * as E from './engine.js';
 import { Mission } from './mission.js';
 import { dvFromEvents } from './dvbudget.js';
 import { conicReady } from './conic.js';
 
 // landing: 'zem' | 'opt' | 'free' (konik çözücü yüklü değilse 'zem'e düşer)
 export function flyNominal(design, landing = 'zem') {
+  // canlı görevle aynı "Ay çevresi" yarıçapı (worker.js setupDate): halo profillerinde 1,25 × halo apolünü; Mission.prograde bu sınırı kullanır
+  E.setMoonZone(design.profile === 'HALO' ? 1.25 * design.HALO.stats.raKm : E.SOI_M);
   const M = new Mission({ design, landing: conicReady() ? landing : 'zem' }); M.P.tLimit = Infinity;
   for (;;) { const r = M.gen.next(); if (r.done) break; }
   const td = M.events.find((x) => x.key === 'INDI');
