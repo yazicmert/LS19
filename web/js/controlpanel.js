@@ -32,7 +32,7 @@ const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) 
 const SECTIONS = [
   { id: 'inis', title: 'İniş', open: true, rows: [
     ['İrtifa (iniş yeri)', (t) => (t.land ? km(t.land.h) : '—')],
-    ['Dikey · yatay hız', (t, c) => (t.land ? [`${sg(t.land.vz, spd)} · ${spd(t.land.vh)}`, c.touchCls] : '—'), 'yüzeye göre; temas sınırları: dikey ≤ 3 m/s, yatay ≤ 1,5 m/s (görev başarı ölçütü)'],
+    ['Dikey · yatay hız', (t, c) => (t.land ? [`${sg(t.land.vz, spd)} · ${spd(t.land.vh)}`, c.touchCls] : '—'), 'yüzeye göre; temas sınırları: dikey ≤ 3 m/s, yatay ≤ 1,22 m/s (Apollo LM iniş takımı; görev başarı ölçütü)'],
     ['Menzil (yer yüzü)', (t) => (t.land && t.land.groundRange != null ? km(t.land.groundRange) : '—'), 'iniş yeri ile aracın alt noktası arasındaki büyük daire yayı'],
     ['Menzil · yan sapma', (t) => (t.land && t.land.down != null ? `${km(t.land.down)} · ${km(t.land.cross)}` : '—'), 'iniş yerine göre yerel çerçeve: x yaklaşma yönü, y yan'],
     ['Yerçekimi', (t) => `${fmt(t.g * 1000, 3)} m/s²`, 'g = μ/r²'],

@@ -23,7 +23,7 @@ export const OMEGA_EARTH = 7.2921150e-5;           // Dünya'nın yıldız dönm
 export const F_EARTH = 1 / 298.257223563;          // WGS-84 basıklığı
 export const R_SUN = 695700.0;                     // Güneş yarıçapı, km (IAU 2015)
 export const TWO_PI = 2 * Math.PI;
-export const LIMITS = { vz: 3.0, vh: 1.5 };        // temas sınırları, m/s (görev başarı ölçütü: mission.js touchdown)
+export const LIMITS = { vz: 3.0, vh: 1.22 };        // temas sınırları, m/s (görev başarı ölçütü: mission.js touchdown)
 export const LANDING_PHASES = new Set(['PDI', 'YAKLASMA', 'SON_INIS', 'INDI']);
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 const mod = (x, m) => ((x % m) + m) % m;

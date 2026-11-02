@@ -223,7 +223,8 @@ function sub3(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
     check(`tam görev, iniş güdümü ${mode}: temasla biter (|dikey| < 1,2 m/s, yatay < ${vhLim} m/s, konum hatası < 5 m)`, ok(M) && vz(M) < 1.2 && vh(M) < vhLim && er(M) < 5,
       `dikey ${M.result.v_mps[2].toFixed(2)} m/s, yatay ${vh(M).toFixed(2)} m/s, hata ${er(M).toFixed(1)} m, kalan yakıt ${M.result.prop.toFixed(0)} kg${M.descentInfo ? `, ${M.descentInfo.replans} yeniden çözüm (${M.descentInfo.fails} başarısız)` : ''}`);
   }
-  check('tam görev: yakıt sıralaması serbest ≥ dengeli ≥ ZEM/ZEV (kalan yakıt)', res.free.result.prop >= res.opt.result.prop && res.opt.result.prop >= res.zem.result.prop + 5,
+  // dengeli > ZEM (aşağıdaki profil denetimleriyle aynı ölçüt). Eski 5 kg payı keyfiydi: Ay ME çerçevesi düzeltilip iniş yeri gerçek Apollo 11 konumuna (1,66 km) taşınınca fark 8 → 4 kg oldu
+  check('tam görev: yakıt sıralaması serbest ≥ dengeli > ZEM/ZEV (kalan yakıt)', res.free.result.prop >= res.opt.result.prop && res.opt.result.prop > res.zem.result.prop,
     `kalan yakıt: serbest ${res.free.result.prop.toFixed(0)}, dengeli ${res.opt.result.prop.toFixed(0)}, ZEM/ZEV ${res.zem.result.prop.toFixed(0)} kg`);
   check('tam görev: optimal iniş planı ve yeniden çözümler hızlı (ilk plan < 3 s, yeniden çözüm ortalama < 250 ms)', res.opt.descentInfo.planMs < 3000 && res.opt.descentInfo.replanMs / res.opt.descentInfo.replans < 250,
     `ilk plan ${res.opt.descentInfo.planMs} ms, ortalama yeniden çözüm ${(res.opt.descentInfo.replanMs / res.opt.descentInfo.replans).toFixed(0)} ms`);

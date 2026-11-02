@@ -28,7 +28,7 @@ check(v.kind === 'good' && v.title === 'İniş başarılı' && row('İniş yerin
 check(row('Kullanılan Δv') === '6.680,2 m/s' && row('Nominale göre') === '+3,2 m/s' && /Artemis, İki kademe, Optimal/.test(v.detail), 'Δv ve nominale fark; yargı metni kurulumu söyler');
 check(A.verdict(res, { dvUsed: 100, dvNominal: 100 }).rows.find((r) => r[0] === 'Nominale göre')[1] === 'aynı' && !A.verdict(res, {}).rows.some((r) => r[0] === 'Nominale göre'), 'nominal yoksa fark satırı yok; eşitse "aynı"');
 v = A.verdict({ ok: false, prop: 0, posErr_m: [1200, 0], v_mps: [2, 0, -8], manual: true });
-check(v.kind === 'bad' && v.title === 'Sert temas' && /sınır 3,0/.test(v.rows[1][1]) && /sınır 1,5/.test(v.rows[2][1]) && v.rows[0][1] === '1,20 km' && /Elle/.test(v.detail), 'sert temas: aşılan sınırlar işaretli, elle inişe öneri');
+check(v.kind === 'bad' && v.title === 'Sert temas' && /sınır 3,0/.test(v.rows[1][1]) && /sınır 1,22/.test(v.rows[2][1]) && v.rows[0][1] === '1,20 km' && /Elle/.test(v.detail), 'sert temas: aşılan sınırlar işaretli, elle inişe öneri');
 check(A.verdict({ ok: false, reentry: true }).kind === 'bad' && /atmosfer/i.test(A.verdict({ ok: false, reentry: true }).detail), 'atmosfere giriş: görev sona erdi');
 check(new RegExp(`Math\\.abs\\(vz\\) < ${A.SAFE_VZ.toFixed(1)} && vh < ${A.SAFE_VH}`).test(mission), `güvenli temas sınırları mission.js touchdown() ile aynı (dikey < ${A.SAFE_VZ}, yatay < ${A.SAFE_VH} m/s)`);
 

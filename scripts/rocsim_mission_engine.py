@@ -100,7 +100,7 @@ def moon_icrf_to_pa(t):
 
 def moon_icrf_to_me(t):
     a1, a2, a3 = _EPH["me"]
-    return _R1(a3) @ _R2(a2) @ _R3(a1) @ moon_icrf_to_pa(t)
+    return _R1(-a3) @ _R2(-a2) @ _R3(-a1) @ moon_icrf_to_pa(t)     # PA -> ME: SPICE TKFRAME açılarının tersi (bkz. web/js/engine.js meMatrix)
 
 
 def jd_tdb(t):

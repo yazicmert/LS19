@@ -69,7 +69,7 @@ export function loadEphemeris(data) {
     JD0: data.JD0, ndays: data.ndays,
     moon: data.moon, sun: data.sun, pa: data.pa,
     moon_d: data.moon.map((seg) => seg.map(chebder)),
-    ME: mm(mm(R1(me[2]), R2(me[1])), R3(me[0])),
+    ME: mm(mm(R1(-me[2]), R2(-me[1])), R3(-me[0])),                 // PA -> ME (bkz. meMatrix)
   };
   PROV = tableProvider();
   return EPH;
@@ -95,8 +95,12 @@ function cheb(tab, t, span) {
 // 'table': Ekim–Aralık 2026 için önceden uydurulmuş DE440 tabloları (eski, doğrulama için)
 // 'live' : canlı N-cisim efemerisi (ephem.js) + IAU 2006/2000A Dünya yönelimi (earth.js)
 let PROV = null;
-const ME_DEFAULT_ARCSEC = [67.8526, 78.6944, 0.2785];     // moon_de440_250416.tf: PA -> ME (3-2-1)
-const meMatrix = (as) => { const me = as.map((a) => (a / 3600) * Math.PI / 180); return mm(mm(R1(me[2]), R2(me[1])), R3(me[0])); };
+// PA -> ME sabit dönüşümü (NAIF moon_de440_*.tf, TKFRAME AXES 3,2,1, ANGLES 67,8526″ 78,6944″ 0,2785″). SPICE TKFRAME açıları TK çerçevesinden (ME)
+// göreli çerçeveye (PA) dönüşümü tanımlar; PA -> ME bunun tersidir: ME = R1(−0,2785″)·R2(−78,6944″)·R3(−67,8526″)·PA (Rᵢ: çerçeve döndürmesi).
+// Doğrulama: açısal fark 0,02886° ≈ Ay yüzeyinde 875 m (NAIF'in verdiği değer); Skyfield aynı yönle Ay yüzeyindeki noktayı HORIZONS'a 101 m içinde uydurur.
+// (Eski sürüm açıları ters işaretle uyguluyordu: ME çerçevesi doğrusundan 0,0577° ≈ 1,75 km sapıyordu; test/test_moonframe.js)
+const ME_DEFAULT_ARCSEC = [67.8526, 78.6944, 0.2785];
+export const meMatrix = (as) => { const me = as.map((a) => (a / 3600) * Math.PI / 180); return mm(mm(R1(-me[2]), R2(-me[1])), R3(-me[0])); };
 const tableProvider = () => ({
   kind: 'table',
   moonPos: (t) => cheb(EPH.moon, t, 1.0), moonVel: (t) => scale(cheb(EPH.moon_d, t, 1.0), 2.0 / DAY), sunPos: (t) => cheb(EPH.sun, t, 8.0),
