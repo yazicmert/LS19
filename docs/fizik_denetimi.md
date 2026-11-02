@@ -1,4 +1,4 @@
-# Fizik denetimi: Laboratuvar (Ay görevi, asteroit saptırma, yeniden giriş)
+# Fizik denetimi: Laboratuvar ve Canlı Gökyüzü
 
 Laboratuvarın fizik altyapısındaki formüller ve sabitler birincil kaynaklarla ve mantık denetimleriyle (türetme, birim, süreklilik, büyüklük sırası) karşılaştırıldı. Üç sorun bulundu ve düzeltildi; geri kalan her şey kaynaklarla uyumlu çıktı.
 
@@ -42,3 +42,40 @@ Doğrulama testi: `test/test_moonframe.js` (PA → ME matrisi Skyfield'ın SPICE
 - NAIF, NTRS ve ALSJ belgeleri bu oturumda doğrudan açılamadı (ağ izni); 1 ve 3 numaralı bulgular arama özetleri, Skyfield kaynak kodu ve HORIZONS'a dayalı testi, sayısal tutarlılık (875 m) ve ikincil kaynaklarla doğrulandı.
 - DART'ın β ≈ 3,61 ve Δv_T = 2,70 mm/s değerleri kaynakta doğrulanamadı; yalnız ölçülen periyot değişimi (Thomas vd. 2023) doğrulandı.
 - Yarkovsky etkisi, öteki asteroitlerin çekimi ve Ay için B-düzleminde ikinci cisim modelde yoktur (belgelenmiş varsayımlar).
+
+## 4. Canlı Gökyüzü
+
+Canlı Gökyüzü'nün fiziği (Dünya yönelimi, canlı N-cisim efemerisi ve Ay dönmesi, uydular ve geçiş tahmini, gözlemci görünümü, asteroitler, gezegenlerin dönmesi) aynı yöntemle denetlendi.
+
+### 4.1 Düzeltilenler
+
+| # | Sorun | Kanıt | Düzeltme | Etki |
+|---|---|---|---|---|
+| 4 | **Gözlemci kamerası gözlemciyi elipsoid yerine küre üstüne koyuyordu** (`app.js` `obsPose` → `tracker.obsIcrf`: aynı jeodezik enlemle R = 6378 km'lik küre, dikey = radyal) | Küre ile WGS-84 noktası arası 41° enlemde 23 km (20°: 14 km, 60°: 24,5 km); 580 km'deki ISS'te ≈ 2,3° yön hatası. Geçiş tablosu (`passes.lookAngles`) gerçek elipsoidi kullandığından ekrandaki uydu tablodaki az/el'den sapıyordu; ISS'in 67° geçişinde ölçülen en büyük sapma **1,91°** | `passes.observerFrame`: WGS-84 noktası + jeodezik dikey (elipsoid normali), `earth.js` Dünya yönelimiyle ICRF'ye; `tracker.obsTrue`. Gözlemci kipinde Dünya küresi çizilmediği için görsel yan etkisi yoktur; küre üstündeki işaret (`obsIcrf`) Dünya görünümünde kalır | Kameradan görülen yükseklik geçiş tablosuyla aynı (fark 2e-14°) |
+| 5 | **Takip listesi ve "Gökte izle", TEME'yi tarihin gerçek ekvatoru sayıyordu** (`tracker.icrfOf`, `ecfToIcrf`: ekinoks denklemi atlanıyordu) | Vallado: r_TOD = R3(−Eq)·r_TEME; uydu worker'ı (`sats.js`) bunu yapıyordu, takip katmanı yapmıyordu (≤ 1,2″ tutarsızlık) | Dönüşüm `earth.temeToIcrf`'te tek yerde; worker, takip listesi ve "Gökte izle" aynısını kullanır | İki katman aynı çerçevede |
+| 6 | `passes.js` açıklaması "nütasyon/kutup hareketi ihmal, < 50 m" diyordu | TEME → PEF için GMST, Vallado'nun SGP4 için önerdiği standart dönüşümdür (nütasyon TEME'nin içinde); gerçek ihmaller UT1 yerine UTC (≤ 0,9 s) ve kutup hareketidir | Açıklama düzeltildi; ihmallerin büyüklüğü yazıldı | Yalnız belge |
+
+Çapraz denetim (`test/test_passes.js`): TEME → ICRF → ITRF (IAU 2006/2000A + ΔT tablosu) ile TEME → PEF (GMST) aynı yer noktasını 44,5 m içinde verir; beklenen değer UT1−UTC ihmalidir: 0,088 s × 465 m/s × (r/R) ≈ 43 m.
+
+### 4.2 Kaynaklarla uyumlu bulunanlar
+
+| Alan | Denetim | Sonuç |
+|---|---|---|
+| Fukushima–Williams presesyon açıları, IAU 2006 eğikliği, nut06a J2 uyarlaması (0,4697e-6, −2,7774e-6 t) | ERFA `pfw06`, `obl06`, `nut06a` | Katsayılar aynı |
+| ERA, GMST06, ekinoks denklemi (en büyük iki tamamlayıcı terim), Ay düğümü Ω | ERFA `era00`, `gmst06`, `ee06a`; IERS 2003 | Aynı (tamamlayıcı terimlerin geri kalanı µas mertebesinde) |
+| ΔT tablosu | IERS (UT1−UTC: 2020 −0,18 s, 2024 ≈ 0, 2026 ≈ +0,09 s) | Uyumlu |
+| Canlı efemeris: N-cisim + 1PN, Dünya J2 ↔ Ay (tepkili), Ay J2/C22 ↔ Dünya, MacCullagh torku N = 3GM s×(I s)/r⁵ | Standart | Doğru |
+| Ay eylemsizlik momentleri: A = C − J2 − 2C22, B = A + 4C22 (C/MR² = 0,393112) | J2 = (C − (A+B)/2)/MR², C22 = (B − A)/4MR² | Doğru |
+| 3-1-3 Euler açı hızlarından gövde ω'sı; PA açılarının geri çıkarılması (`paEuler`) | Türetme | Doğru |
+| Beşinci derece Hermite ara değeri ve türevleri | Temel fonksiyonlar | Doğru |
+| SGP4 → TEME → GCRS (`sats.js`) | Vallado | Doğru |
+| Geçiş tahmini: WGS-84, ENU bakış açıları, kapsama açısı λ = acos(R cos e/(R+h)) − e, Almanak Güneş formülü, görünürlük (uydu aydınlık, Güneş < −6°) | Skyfield (7/7 geçiş, 0,6 s, 0,007°) | Uyumlu |
+| Asteroitler: SBDB öğelerinden Kepler çözümü, ekliptik → ICRF, GPU'da kısa süreli ileri taşıma r + v·dt − ½GM r/r³ dt² | Standart | Doğru |
+| Ay yörüngesindeki uydular: HORIZONS vektörleri (Ay merkezli, ICRF, TDB), Hermite ara değeri, vis-viva periyodu | HORIZONS API parametreleri | Doğru |
+| Gezegen kutupları ve dönme fazları (W₀, Ẇ), yarıçaplar | IAU WGCCRE | Aynı |
+| Yeniden giriş tahmini (B*, Vallado yoğunluğu) | Bkz. §1 #2 | Düzeltildi |
+
+### 4.3 Sınırlar
+
+- Uydu gölgesi silindirik kabul edilir (yarı gölge yok); geçişlerin doğuş/batışı geometrik ufka göredir (kırılma yok: ufukta ≈ 0,57°, birkaç saniye).
+- Kutup hareketi ihmal edilir (≤ 15 m).

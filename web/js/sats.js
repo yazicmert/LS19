@@ -2,7 +2,6 @@
 import * as S from '../lib/satellite.esm.js';
 import * as EO from './earth.js';
 
-const AS2R = Math.PI / 180 / 3600;
 let recs = [], eoLoaded = false;
 
 // grup: 0 istasyon, 1 Starlink, 2 OneWeb, 3 GNSS, 4 yer sabit (GEO), 5 diğer
@@ -15,15 +14,8 @@ function classify(o) {
   if (mm > 0.95 && mm < 1.05 && +o.ECCENTRICITY < 0.05) return 4;
   return 5;
 }
-// TEME -> GCRS: r = NPBᵀ · R3(−eqeq) · r_TEME  (TEME ortalama ekinoks; ekinoks denklemi kadar döndür)
-function temeToIcrf(jdTT) {
-  const n = EO.npb(jdTT), R = n.R;
-  const eq = n.dpsi * Math.cos(n.epsa) + (0.00264096 * Math.sin(n.om) + 0.00006352 * Math.sin(2 * n.om)) * AS2R;
-  const c = Math.cos(-eq), s = Math.sin(-eq), R3 = [[c, s, 0], [-s, c, 0], [0, 0, 1]];
-  const M = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
-  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { let v = 0; for (let k = 0; k < 3; k++) v += R[k][i] * R3[k][j]; M[i][j] = v; }
-  return M;
-}
+// TEME -> GCRS: r = NPBᵀ · R3(−eqeq) · r_TEME (earth.js temeToIcrf; takip listesi ve "Gökte izle" de aynı dönüşümü kullanır)
+const temeToIcrf = EO.temeToIcrf;
 
 onmessage = (e) => {
   const d = e.data;

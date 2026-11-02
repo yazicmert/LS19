@@ -1,5 +1,6 @@
 // Uydu geçiş tahmini ve yer izi için saf hesaplar (tarayıcı ve Node'da çalışır; efemeris sağlayıcısından bağımsız).
-//   Konum: SGP4 (satellite.js) -> TEME; yer dönüşü GMST ile (TEME ≈ gerçek ekvator, yaklaşık ECF: nütasyon/kutup hareketi ihmal, < ~50 m).
+//   Konum: SGP4 (satellite.js) -> TEME; TEME -> PEF yer dönüşü GMST (IAU-82) ile: Vallado'nun SGP4 için önerdiği standart yol (nütasyon zaten TEME'nin içinde).
+//   İhmaller: UT1 yerine UTC (|UT1−UTC| ≤ 0,9 s; 2026'da ≈ 0,09 s → ekvatorda ≈ 40 m) ve kutup hareketi (≤ 0,5″ ≈ 15 m). Skyfield'a göre: test/test_passes.js.
 //   Güneş: düşük duyarlıklı analitik formül (Astronomical Almanac, ~0,01°) — gölge ve alacakaranlık için fazlasıyla yeterli.
 //   Gözlemci: WGS-84 elipsoidi.
 import * as S from '../lib/satellite.esm.js';
@@ -19,6 +20,13 @@ export function geodeticFromEcf(r) {                        // -> { lat, lon (de
   let lat = Math.atan2(z, p * (1 - E2)), h = 0;
   for (let k = 0; k < 6; k++) { const s = Math.sin(lat), N = R_E / Math.sqrt(1 - E2 * s * s); h = p / Math.cos(lat) - N; lat = Math.atan2(z, p * (1 - E2 * N / (N + h))); }
   return { lat: lat / D2R, lon: lon / D2R, h };
+}
+// Gözlemci kamerası için gerçek konum ve yerel dikey: WGS-84 elipsoidi üstünde nokta ve elipsoid normali (jeodezik dikey), dönüş M ile
+// (M: ECF -> hedef çerçeve satır matrisi; ECF için birim). Küre üstüne konan nokta 41° enlemde 23 km sapar: 580 km'deki ISS'te ≈ 2,3° yön hatası.
+export function observerFrame(lat, lon, h, M = null) {
+  const f = lat * D2R, l = lon * D2R, ecf = ecfFromGeodetic(lat, lon, h), n = [Math.cos(f) * Math.cos(l), Math.cos(f) * Math.sin(l), Math.sin(f)];
+  const tv = (v) => (M ? [M[0][0] * v[0] + M[1][0] * v[1] + M[2][0] * v[2], M[0][1] * v[0] + M[1][1] * v[1] + M[2][1] * v[2], M[0][2] * v[0] + M[1][2] * v[1] + M[2][2] * v[2]] : v);
+  return { eye: tv(ecf), up: tv(n), east: tv([-Math.sin(l), Math.cos(l), 0]) };
 }
 // gözlemciden bakış: azimut (kuzeyden saat yönü), yükseklik (derece), menzil (km)
 export function lookAngles(obs, ecf) {
