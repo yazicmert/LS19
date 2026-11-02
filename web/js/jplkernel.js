@@ -38,10 +38,13 @@ class ChebSegment {
     this.init = this.data[L - 4]; this.intlen = this.data[L - 3]; this.rsize = this.data[L - 2]; this.nrec = this.data[L - 1];
     this.ncomp = ncomp; this.ncoef = (this.rsize - 2) / ncomp;
     this.T = new Float64Array(this.ncoef); this.dT = new Float64Array(this.ncoef);
+    this.loaded = undefined;                                       // parçalı depoda kayıt başına 1/0 (ephstore.js); şekli sabit kalsın diye kurucuda tanımlı
   }
   eval(et, withRate = true) {
     let i = Math.floor((et - this.init) / this.intlen);
     if (i < 0) i = 0; if (i >= this.nrec) i = this.nrec - 1;
+    // parçalı depo (ephstore.js): kayıt henüz inmediyse tamponda sıfırlar vardır; sessizce yanlış durum vermek yerine hata. Tam dosyada loaded yoktur.
+    if (this.loaded !== undefined && this.loaded[i] !== 1) throw new Error('Efemeris kaydı yüklenmedi (ET ' + Math.round(et) + ' s): önce EphStore.ensure');
     const o = i * this.rsize, mid = this.data[o], rad = this.data[o + 1];
     const x = (et - mid) / rad, n = this.ncoef, T = this.T, dT = this.dT;
     T[0] = 1; T[1] = x; dT[0] = 0; dT[1] = 1;

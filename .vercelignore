@@ -13,3 +13,6 @@ web/sunucu.py
 **/__pycache__/
 .claude/
 skills-lock.json
+# tam JPL çekirdekleri tarayıcıda indirilmez: site parçalı depoyu (web/data/eph/v1, js/ephstore.js) kullanır; tam dosyalar yalnız Node testleri ve araçlar içindir
+web/data/de440s.bsp
+web/data/moon_pa_de440_200625.bpc

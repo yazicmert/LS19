@@ -2,7 +2,8 @@
 import * as E from './engine.js';
 import { World } from './scene.js';
 import { UI } from './ui.js';
-import { makeLive, makeLiveSource } from './live.js';
+import { makeLive, makeLiveSource, etOf } from './live.js';
+import { EphStore } from './ephstore.js';
 import * as EO from './earth.js';
 import { designMissionAsync, PROFILES, normalizeConfig } from './design.js';
 import { twoStageDesign } from './mission.js';
@@ -67,9 +68,17 @@ const cinema = new Cinema({ world, send, ui, root: $('#app'), latest: () => late
 
 async function boot() {
   resize();
-  const kp = Promise.all([fetch('data/de440s.bsp').then((r) => r.arrayBuffer()), fetch('data/moon_pa_de440_200625.bpc').then((r) => r.arrayBuffer()),
-    fetch('data/earth_orient.json').then((r) => r.json()), fetch('data/designs_default.json').then((r) => (r.ok ? r.json() : null)).catch(() => null)])
-    .then(([spk, pck, eo, defs]) => { K = { spk, pck, eo, defs }; EO.loadEarthOrientation(eo); });
+  // JPL çekirdekleri parçalı depodan (ephstore.js): yalnız gereken yılların kayıtları iner (~120 KB/yıl; eskiden 45,6 MB'lık iki dosyanın tamamı).
+  // Açılışta: varsayılan/istenen görev tarihinin ve bugünün (Canlı Gökyüzü saati) yılı. Başka tarihler startDesign / ensureSky'da gerektikçe.
+  const q0 = new URLSearchParams(location.search), d0 = Date.parse((q0.get('date') || DEFAULT_DATE) + 'T00:00:00Z');
+  const kp = Promise.all([EphStore.open(new URL('data/eph/v1/', location.href).href), fetch('data/earth_orient.json').then((r) => r.json()),
+    fetch('data/designs_default.json').then((r) => (r.ok ? r.json() : null)).catch(() => null)])
+    .then(async ([eph, eo, defs]) => {
+      EO.loadEarthOrientation(eo);
+      const now = etOf(tOfUtcMs(Date.now()));
+      await Promise.all([eph.ensure(now - 2 * 86400, now + 2 * 86400), Number.isFinite(d0) ? eph.ensure(...missionEtWindow(tOfUtcMs(d0) - 86400)) : null]);
+      K = { spk: eph.spk, pck: eph.pck, eph, eo, defs };
+    });
   await world.load('./', (f, name) => { $('#loadBar').style.width = (100 * f).toFixed(0) + '%'; $('#loadMsg').textContent = 'Yükleniyor: ' + name; });
   $('#loadMsg').textContent = 'JPL efemeris çekirdekleri yükleniyor…';
   await kp;
@@ -109,11 +118,20 @@ function idleInitSky() {
 // ------------------------------------------------------------------ çalışma alanları
 const curT = () => (MODE === 'sky' ? skyT : latest ? latest.t : 0);
 // Canlı Gökyüzü'nün kendi efemerisi: gerçek saatten 1 gün önce DE440 durumundan (Ay görevininkinden bağımsız)
+// Canlı Gökyüzü efemerisi: saat pencerenin dışına çıkınca yeniden kurulur. O yılın JPL kayıtları inmediyse indirilir ve kurulana dek
+// gökyüzü karesi atlanır (false döner): yüklenmemiş kayıt sessizce yanlış durum vermez, ChebSegment hata atar.
+let skyEphPending = null;
 function ensureSky(t) {
-  if (skySrc && t > skySrc.tStart - 30 * 86400 && t < skySrc.tStart + 400 * 86400) return;
+  if (skySrc && t > skySrc.tStart - 30 * 86400 && t < skySrc.tStart + 400 * 86400) return true;
+  const et = etOf(t - 86400);
+  if (!K.eph.has(et)) {
+    if (!skyEphPending) skyEphPending = K.eph.ensure(et - 86400, et + 2 * 86400).catch((err) => { if (skyui) skyui.toast('Efemeris parçası indirilemedi: ' + (err.message || err)); }).finally(() => { skyEphPending = null; });
+    return false;
+  }
   skySrc = makeLiveSource(K.spk, K.pck, K.eo, t - 86400);
   if (MODE === 'sky') { E.setProvider(skySrc.prov); world.live = skySrc; }
   world.resetDynamic && world.resetDynamic();
+  return true;
 }
 // görev mesajları (iz, grafik) görev efemerisiyle işlenmeli
 function withMission(fn) {
@@ -128,9 +146,9 @@ function switchEngine(m) {                                       // mission ↔ 
   ui.hidePick(); $('#hoverTip').hidden = true;
   if (m === 'sky') {
     initSky();
-    skyT = tOfUtcMs(clock.nowMs()); ensureSky(skyT);
-    E.setProvider(skySrc.prov); world.live = skySrc; world.resetDynamic && world.resetDynamic();
-    skyui.setCamButtons(world.cam.mode); loadMoonSats(skyT);
+    skyT = tOfUtcMs(clock.nowMs());
+    if (ensureSky(skyT)) { E.setProvider(skySrc.prov); world.live = skySrc; world.resetDynamic && world.resetDynamic(); loadMoonSats(skyT); }       // değilse: o yılın kayıtları iniyor, ensureSky kurunca sağlayıcıyı kendisi bağlar
+    skyui.setCamButtons(world.cam.mode);
     if (tracker) tracker.computePasses();
   } else if (missionSrc) {
     E.setProvider(missionSrc.prov); world.live = missionSrc; world.resetDynamic && world.resetDynamic();
@@ -221,6 +239,8 @@ function cachedDesign(ms, cfg) {
   }
   return null;
 }
+// görev için gereken çekirdek aralığı (ET): canlı efemeris başlangıcı (tStart) ve Efemeris sekmesinin görev boyunca karşılaştırması (en uzun profil < 60 gün)
+const missionEtWindow = (tStart) => [etOf(tStart) - 86400, etOf(tStart) + 120 * 86400];
 // UTC ms -> motor zamanı (TDB s); worker'daki ile aynı
 function tOfUtcMs(ms) { const jdU = ms / 86400000 + 2440587.5; return (jdU + EO.ttMinusUtc(jdU + 69 / 86400) / 86400 - E.jdTdb(0)) * 86400; }
 // tarih seç -> görev o tarih için tasarlanır (ana iş parçacığında, adım adım: bazı tarayıcılarda worker'lar
@@ -240,6 +260,9 @@ async function startDesign(dateStr) {
   $('#loadMsg').textContent = 'Görev tasarlanıyor: ' + dateStr;
   ayRefresh();
   const cfg = ui.getConfig(), pre = cachedDesign(ms, cfg);
+  try { await K.eph.ensure(...missionEtWindow(pre ? pre.tStart : tOfUtcMs(ms) - 86400)); }           // o yılın JPL kayıtları (önbellekteyse hemen)
+  catch (err) { if (id === designSeq) designFailed(String(err.message || err)); return; }
+  if (id !== designSeq) return;
   let msg;
   if (pre) {
     ui.designLog('Hazır tasarım yüklendi (' + pre.design.label + ')');
@@ -373,7 +396,22 @@ function frame(now) {
   const dtMs = now - lastFrame, dt = Math.min(0.1, dtMs / 1000); lastFrame = now;
   if (govOn && !cinema.on && !designing && !document.hidden) { const r = gov.tick(dtMs, now); if (r) applyPixelRatio(r); }
   if (MODE === 'sky' && K && skyui && !designing) {
-    const ms = clock.nowMs(); skyT = tOfUtcMs(ms); ensureSky(skyT);
+    const ms = clock.nowMs(); skyT = tOfUtcMs(ms);
+    if (ensureSky(skyT)) skyFrame(ms, now, dt);
+  } else if (latest) {
+    world.update(latest, { dtReal: dt, stage: latest.stage, debris: latest.debris, local: latest.local, drAxis: latest.drAxis });
+    // uydular ve asteroitler Ay görevi alanında çizilmez (yalnız Canlı Gökyüzü'nde)
+    if (sats && world.eye) { sats.obsView = false; sats.update(latest.t, world.eye, world.camera, canvas, false, false); }
+    if (asts) { asts.hideAll(); astui.update(null); }
+    if (tracker) tracker.hideAll();
+    ui.hud(latest, now);
+    if (now - lastAy > 500) ayRefresh();                          // Ay görevi adım özetleri: saniyede 2 kez yeter (değişmeyen metin yeniden yazılmaz)
+  }
+  if (!designing) world.render();                               // tasarım sırasında katman her şeyi örtüyor: işlemci tasarıma kalsın
+  requestAnimationFrame(frame);
+}
+// Canlı Gökyüzü karesi (efemeris kurulu iken)
+function skyFrame(ms, now, dt) {
     world.updateSky(skyT, { dtReal: dt });
     const t = skyT, full = !!world.full, eye = world.eye;
     if (eye) {
@@ -386,17 +424,6 @@ function frame(now) {
     if (now - lastSkyHud > 200) { lastSkyHud = now; skyui.hud(t, ms); ui.pickTick(t, now); tracker.computePasses(); }
     if (ui.skyTab === 'uydular' && now - lastSatTab > 400) { lastSatTab = now; ui.satTab(t); }
     if (updater && now - lastUpd > 5000) { lastUpd = now; astui.renderUpdater(updater); }
-  } else if (latest) {
-    world.update(latest, { dtReal: dt, stage: latest.stage, debris: latest.debris, local: latest.local, drAxis: latest.drAxis });
-    // uydular ve asteroitler Ay görevi alanında çizilmez (yalnız Canlı Gökyüzü'nde)
-    if (sats && world.eye) { sats.obsView = false; sats.update(latest.t, world.eye, world.camera, canvas, false, false); }
-    if (asts) { asts.hideAll(); astui.update(null); }
-    if (tracker) tracker.hideAll();
-    ui.hud(latest, now);
-    if (now - lastAy > 500) ayRefresh();                          // Ay görevi adım özetleri: saniyede 2 kez yeter (değişmeyen metin yeniden yazılmaz)
-  }
-  if (!designing) world.render();                               // tasarım sırasında katman her şeyi örtüyor: işlemci tasarıma kalsın
-  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 

@@ -3,16 +3,18 @@ import * as E from './engine.js';
 import * as EO from './earth.js';
 import { Mission, R_SITE, STAGES, LANDING_MODES } from './mission.js';
 import { initConic, conicReady } from './conic.js';
-import { makeLive } from './live.js';
+import { makeLive, etOf } from './live.js';
+import { EphStore } from './ephstore.js';
 import { designMission } from './design.js';
 
 let K = null, DESIGN = null, T_START = 0, LIVE = null, landingMode = 'opt', conicErr = null;     // landingMode: iniş güdümü (LANDING_MODES); konik çözücü yüklenemezse ZEM kullanılır
 async function loadKernels() {
   if (K) return K;
   const get = (f) => fetch(new URL('../data/' + f, import.meta.url)).then((r) => { if (!r.ok) throw new Error(f + ' yüklenemedi'); return r; });
-  const [spk, pck, eo, def] = await Promise.all([get('de440s.bsp').then((r) => r.arrayBuffer()), get('moon_pa_de440_200625.bpc').then((r) => r.arrayBuffer()),
+  // JPL çekirdekleri parçalı depodan (ephstore.js): yalnız görevin yılının kayıtları iner (setupDate), tam dosyalar değil
+  const [eph, eo, def] = await Promise.all([EphStore.open(new URL('../data/eph/v1/', import.meta.url).href),
     get('earth_orient.json').then((r) => r.json()), get('design_default.json').then((r) => r.json()).catch(() => null)]);
-  K = { spk, pck, eo, def }; EO.loadEarthOrientation(eo);
+  K = { spk: eph.spk, pck: eph.pck, eph, eo, def }; EO.loadEarthOrientation(eo);
   try { await initConic(); } catch (err) { conicErr = String(err.message || err); }
   return K;
 }
@@ -26,6 +28,7 @@ async function setupDate(d) {
   const startMs = d.startMs;
   const def = !d.design && K.def && Math.abs(K.def.startMs - startMs) < 1000 ? K.def : null;
   T_START = d.design ? d.tStart : def ? def.tStart : tOfUtcMs(startMs) - 86400;   // efemeris başlangıcı: seçilen günden 1 gün önce
+  await K.eph.ensure(etOf(T_START) - 86400, etOf(T_START) + 120 * 86400);       // efemeris başlangıcı + görev süresi (ana iş parçacığıyla aynı pencere)
   LIVE = makeLive(K.spk, K.pck, K.eo, T_START);
   let nominal = null;
   if (d.design) { DESIGN = d.design; nominal = d.nominal || null; }

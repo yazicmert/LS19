@@ -5,7 +5,7 @@
 // Tarayıcı farklarına karşı üç savunma (gerçek cihaz/Safari'de sınanamadığı için): flipY yoklaması (<img> yedeği), resize seçeneğini yok sayan tarayıcıda tuvalle küçültme,
 // R8 yüklemesi reddedilirse RGBA'ya dönüş. Düşük bellek katmanı üç yolda da çalışır (aksi halde tam da bellek darken devre dışı kalırdı).
 import * as THREE from 'three';
-import { TEX, lowMemoryFrom } from './texplan.js';
+import { TEX, lowMemoryFrom, fileFor } from './texplan.js';
 
 export const lowMemory = () => lowMemoryFrom({ search: location.search, deviceMemory: navigator.deviceMemory, ua: navigator.userAgent });
 
@@ -85,12 +85,25 @@ async function upload(renderer, t) {
 // { day, night, clouds, spec, enorm, mcol, mnorm, mh, stars } → THREE.Texture | null; tick(ad): ilerleme (doku başına 2 çağrı: çözüldü, GPU'da)
 export async function loadTextures(renderer, base, { specs = TEX, lowmem = false, tick = () => {}, conc = lowmem ? 2 : 3 } = {}) {
   const useBm = await bitmapSupported();
-  const blobs = specs.map((s) => fetch(base + 'textures/' + s.f).then((r) => (r.ok ? r.blob() : null)).catch(() => null));   // indirmeler birlikte başlar; çözme sınırlı eşzamanlı (tepe bellek)
+  // index.html'deki erken indirme (#earlyFetch) bu dosyayı başlattıysa aynı söz kullanılır (tek istek); başarısız indirme bir kez yeniden denenir
+  const early = (globalThis.LS19_EARLY && globalThis.LS19_EARLY.tex) || {};
+  const net = (f, n = 1) => fetch(base + 'textures/' + f).then((r) => (r.ok ? r.blob() : null)).catch((e) => {
+    if (n > 0) return new Promise((res) => setTimeout(res, 400)).then(() => net(f, n - 1));
+    console.warn(`Doku indirilemedi (${f}): ${e && e.message}`); return null;
+  });
+  const get = (f) => { const p = early[f]; delete early[f]; return p ? p.then((b) => b || net(f)) : net(f); };
+  const plans = specs.map((s) => fileFor(s, lowmem)), blobs = plans.map((p) => get(p.file));     // indirmeler birlikte başlar; çözme sınırlı eşzamanlı (tepe bellek)
+  const decode = (blob, s) => (useBm ? decodeBitmap(blob, s, lowmem) : decodeImage(blob, s, lowmem));
   const out = {}; let gpu = Promise.resolve(), next = 0;
   const worker = async () => {
     while (next < specs.length) {
       const i = next++, s = specs[i], blob = await blobs[i]; blobs[i] = null; let t = null;
-      if (blob) { try { t = useBm ? await decodeBitmap(blob, s, lowmem) : await decodeImage(blob, s, lowmem); } catch (e) { t = null; } }
+      if (blob) { try { t = await decode(blob, plans[i].spec); } catch (e) { t = null; console.warn(`Doku çözülemedi (${plans[i].file}): ${e && e.message}`); } }
+      if (!t && blob) { await gpu; try { t = await decode(blob, plans[i].spec); } catch (e) { t = null; } }          // bellek darken eşzamanlı çözme düşebilir: önceki dokular GPU'ya geçip bitmap belleği bırakılınca bir kez daha
+      if (!t && s.fb && s.fb !== plans[i].file) {                                // WebP çözülemedi (eski tarayıcı) ya da inmedi: özgün JPG/PNG, gerekirse cihazda küçültülür
+        const fb = fileFor(s, lowmem, true), b2 = await get(fb.file);
+        if (b2) { try { t = await decode(b2, fb.spec); } catch (e) { t = null; } }
+      }
       out[s.key] = t; tick(s.f + (t ? '' : ' (yok)'));
       if (t) gpu = gpu.then(() => upload(renderer, t)).then(() => tick(s.f + ' (GPU)')); else tick(s.f + ' (GPU, yok)');          // GPU yüklemeleri sıralı: tek GL bağlamı
     }
