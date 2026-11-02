@@ -127,14 +127,17 @@ function dims(file) {
   for (const search of ['', '?lowmem=1', '?lowmem=0']) for (const deviceMemory of [0, 2, 4, 8]) for (const ua of ['Mozilla/5.0 (X11; Linux x86_64) Chrome/130', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Mobile Safari']) cases.push({ search, deviceMemory, ua });
   const bad = [];
   for (const c of cases) {
-    const links = [], document = { head: { appendChild: (l) => links.push(l) }, createElement: () => ({ setAttribute(k, v) { this[k] = v; } }) };
-    vm.runInNewContext(m[1], { document, location: { search: c.search }, navigator: { deviceMemory: c.deviceMemory || undefined, userAgent: c.ua }, URLSearchParams });
-    const tex = links.filter((l) => l.href.startsWith('textures/')).map((l) => l.href.slice(9)), lowm = lowMemoryFrom(c), want = TEX.map((s) => fileFor(s, lowm).file);
-    if (JSON.stringify(tex) !== JSON.stringify(want) || !links.every((l) => l.rel === 'preload' && l.as === 'fetch' && l.crossOrigin === 'anonymous')) bad.push(JSON.stringify(c));
-    if (!links.some((l) => l.href === 'data/eph/v1/index.json') || !links.some((l) => l.href === 'data/eph/v1/head.bin')) bad.push('eph ' + JSON.stringify(c));
+    const links = [], fetched = [], document = { head: { appendChild: (l) => links.push(l) }, createElement: () => ({ setAttribute(k, v) { this[k] = v; } }) };
+    const fetch = (u, o) => { fetched.push([u, o]); return { then: () => ({ catch: () => null }) }; }, window = {};
+    vm.runInNewContext(m[1], { document, window, fetch, location: { search: c.search }, navigator: { deviceMemory: c.deviceMemory || undefined, userAgent: c.ua }, URLSearchParams });
+    window.fetch = fetch; fetched.length = 0; links.length = 0;
+    vm.runInNewContext(m[1], { document, window, fetch, location: { search: c.search }, navigator: { deviceMemory: c.deviceMemory || undefined, userAgent: c.ua }, URLSearchParams });
+    const tex = fetched.map(([u]) => u.slice(9)), lowm = lowMemoryFrom(c), want = TEX.map((s) => fileFor(s, lowm).file);
+    if (JSON.stringify(tex) !== JSON.stringify(want) || !fetched.every(([u, o]) => u.startsWith('textures/') && o.priority === 'low') || JSON.stringify(Object.keys(window.LS19_EARLY.tex)) !== JSON.stringify(want)) bad.push(JSON.stringify(c));
+    if (!links.some((l) => l.href === 'data/eph/v1/index.json') || !links.some((l) => l.href === 'data/eph/v1/head.bin') || links.some((l) => /textures\//.test(l.href))) bad.push('eph ' + JSON.stringify(c));
   }
-  check(`erken indirme: ${cases.length} durumda (?lowmem, deviceMemory, mobil UA) dosya listesi texload.js'in indireceğiyle aynı; preload as=fetch crossorigin (aynı istek kipi: ikinci indirme yok)`, bad.length === 0, bad.slice(0, 2).join(' | '));
-  check('texload: dokular base + "textures/" + dosya adıyla istenir (erken indirme adresleriyle aynı)', /fetch\(base \+ 'textures\/' \+ f\)/.test(rd('../js/texload.js')) && /world\.load\('\.\/'/.test(rd('../js/app.js')));
+  check(`erken indirme: ${cases.length} durumda (?lowmem, deviceMemory, mobil UA) dokular texload.js'in indireceğiyle aynı, fetch ile başlatılır (preload değil) ve sözler LS19_EARLY'de; efemeris dizini preload`, bad.length === 0, bad.slice(0, 2).join(' | '));
+  check('texload: erken sözü kullanır (tek istek), yoksa ya da boş dönerse base + "textures/" + dosya adıyla indirir, başarısızsa bir kez yeniden dener', /LS19_EARLY/.test(rd('../js/texload.js')) && /delete early\[f\]/.test(rd('../js/texload.js')) && /fetch\(base \+ 'textures\/' \+ f\)/.test(rd('../js/texload.js')) && /net\(f, n - 1\)/.test(rd('../js/texload.js')) && /world\.load\('\.\/'/.test(rd('../js/app.js')));
 }
 
 console.log(fail ? `\n${fail} HATA` : '\nTüm denetimler geçti');

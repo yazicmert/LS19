@@ -211,7 +211,7 @@ Not (5. ve 6. satırlar): karelerin 16,7 ms'nin katlarına (vsync) sıçradığ�
 
 ### 12.3 Erken indirme, yazı tipi ve önbellek
 
-- `index.html` başındaki küçük betik (`#earlyFetch`), modül grafiği inerken ana dokuları ve efemeris dizinini `preload as=fetch crossorigin` ile indirmeye başlar (dokular `fetchpriority=low`: önce JS). Liste ve düşük bellek kuralı `texplan.js` ile aynıdır; `test_texplan.js` 24 durumda (?lowmem, deviceMemory, mobil UA) aynı dosyaların istendiğini denetler (aynı istek kipi: ikinci indirme yok).
+- `index.html` başındaki küçük betik (`#earlyFetch`), modül grafiği inerken ana dokuları **doğrudan `fetch` ile** (`priority: 'low'`: önce JS) indirmeye başlar ve sözleri `window.LS19_EARLY`'de saklar; `texload.js` aynı sözü kullanır (tek istek). İlk sürüm `<link rel=preload as=fetch>` kullanıyordu: Chromium büyük bir preload yanıtını sonraki `fetch()` ile eşlerken ara sıra "Failed to fetch" verdi ve 11,6 MB'lık yedek JPG gereksiz indi (5 ölçümden 2'sinde); bu yüzden dokular için preload bırakıldı, yalnız küçük efemeris dizini (`index.json`, `head.bin`) preload ile gelir. Başarısız bir doku indirmesi bir kez yeniden denenir. Liste ve düşük bellek kuralı `texplan.js` ile aynıdır; `test_texplan.js` 24 durumda (?lowmem, deviceMemory, mobil UA) aynı dosyaların istendiğini denetler.
 - Google Fonts stil sayfası artık boyamayı bekletmez (`media=print` → yüklenince `all`; `display=swap`).
 - `vercel.json`: `/data/eph/*` bir yıl `immutable` (içerik değişirse klasör adı `v1` değişir); dokular ve modeller 30 gün `immutable` (değişmedi).
 

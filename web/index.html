@@ -5,18 +5,21 @@
   <link rel="preconnect" href="https://gibs.earthdata.nasa.gov" crossorigin>
   <link rel="preconnect" href="https://trek.nasa.gov" crossorigin>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- Erken indirme: ana dokular (~31 MB masaüstü / ~14 MB düşük bellek) ve efemeris dizini modül grafiği yüklenirken inmeye başlar; texload.js / ephstore.js
-     aynı adresleri aynı kipte (fetch, cors, same-origin) ister, ikinci kez inmez. Dosya listesi ve düşük bellek kuralı js/texplan.js ile aynı (test/test_preload.js denetler).
-     fetchpriority=low: önce JS modülleri insin. -->
+<!-- Erken indirme: ana dokular (~31 MB masaüstü / ~14 MB düşük bellek) ve efemeris dizini modül grafiği yüklenirken inmeye başlar.
+     Dokular <link rel=preload> ile DEĞİL, doğrudan fetch ile başlatılır ve söz window.LS19_EARLY'de saklanır; texload.js aynı sözü kullanır (tek istek).
+     (Chromium büyük bir preload yanıtını sonraki fetch() ile eşlerken ara sıra "Failed to fetch" veriyordu: yedek dosya gereksiz iniyordu.)
+     Dosya listesi ve düşük bellek kuralı js/texplan.js ile aynı (test/test_texplan.js denetler). priority=low: önce JS modülleri insin. -->
 <script id="earlyFetch">
 (function () {
   var q = new URLSearchParams(location.search).get('lowmem'), dm = navigator.deviceMemory || 0;
   var low = q === '1' ? true : q === '0' ? false : (dm > 0 && dm <= 4) || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
   var hi = ['earth_day.webp', 'earth_night.webp', 'earth_clouds.webp', 'earth_spec.webp', 'earth_normal.webp', 'moon_color.webp', 'moon_normal.webp', 'moon_height.webp', 'stars.webp'];
   var lo = ['earth_day_lo.webp', 'earth_night_lo.webp', 'earth_clouds_lo.webp', 'earth_spec.webp', 'earth_normal.webp', 'moon_color_lo.webp', 'moon_normal_lo.webp', 'moon_height.webp', 'stars_lo.webp'];
-  var add = function (href, pri) { var l = document.createElement('link'); l.rel = 'preload'; l.as = 'fetch'; l.crossOrigin = 'anonymous'; l.href = href; if (pri) l.setAttribute('fetchpriority', pri); document.head.appendChild(l); };
-  add('data/eph/v1/index.json'); add('data/eph/v1/head.bin');
-  (low ? lo : hi).forEach(function (f) { add('textures/' + f, 'low'); });
+  var early = window.LS19_EARLY = { tex: {} };
+  if (window.fetch) (low ? lo : hi).forEach(function (f) {
+    early.tex[f] = fetch('textures/' + f, { priority: 'low' }).then(function (r) { return r.ok ? r.blob() : null; }).catch(function () { return null; });
+  });
+  ['data/eph/v1/index.json', 'data/eph/v1/head.bin'].forEach(function (h) { var l = document.createElement('link'); l.rel = 'preload'; l.as = 'fetch'; l.crossOrigin = 'anonymous'; l.href = h; document.head.appendChild(l); });
 })();
 </script>
 <title>LS19 · Look Star 19 — Canlı Uzay Simülasyonu</title>
