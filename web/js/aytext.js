@@ -1,6 +1,8 @@
 // Laboratuvar › Ay görevi deneyinin saf yardımcıları (DOM yok, Node'da sınanır: test/test_ayexp.js): adım özetleri ve sonuç yargısı.
 // Fizik buradan hesaplanmaz: temasın başarılı sayılıp sayılmadığı mission.js'in touchdown() kararıdır (result.ok); burada yalnız düz dille anlatılır.
 import { fmt } from './format.js';
+import { ROCKETS } from './rockets.js';
+const rocketShort = (id) => (id && id !== 'GENEL' && ROCKETS[id] ? ROCKETS[id].short : '');
 
 // Ay görevi deneyinin dört adımı (index.html #lab-ay: sekme kimlikleri tab-<id>); "dv" eski ?tab=dv bağlantılarıyla uyum için Sonuç adımının kimliğidir
 export const AY_STEPS = [
@@ -35,9 +37,10 @@ export function sumGorev({ profileName, dateISO, designing }) {
   return [profileShort(profileName), dateShort(dateISO)].filter(Boolean).join(' · ');
 }
 // 2. adım özeti: araç · güdüm (konik çözücü yoksa optimal güdüm ZEM/ZEV'e düşer)
-export function sumArac({ vehicle, landing, optimalOk = true }) {
+//   rocket: rockets.js kimliği (genel kademe yazılmaz)
+export function sumArac({ vehicle, landing, optimalOk = true, rocket = null }) {
   const g = optimalOk ? landing : 'zem';
-  return `${VEHICLE_SHORT[vehicle] || vehicle} · ${LANDING_SHORT[g] || g}`;
+  return [rocketShort(rocket), VEHICLE_SHORT[vehicle] || vehicle, LANDING_SHORT[g] || g].filter(Boolean).join(' · ');
 }
 // 3. adım özeti: uçuşun durumu
 //   started: görev saati başlangıç anından ilerledi mi (görev park yörüngesinde, fırlatmadan dakikalar sonra başlar: met > 0 ama henüz uçulmadı)
@@ -63,7 +66,7 @@ export function durShort(s) {
 
 // Sonuç kartı: { kind: 'good'|'bad'|'info', title, detail, rows: [[ad, değer], …] }
 //   result: mission.js result (null: görev sürüyor); dvUsed: kullanılan toplam Δv (m/s); dvNominal: aynı görevin bozulmasız otopilot toplamı (m/s, yoksa null)
-export function verdict(result, { dvUsed = null, dvNominal = null, profileName = '', vehicle = 'two', landing = 'opt' } = {}) {
+export function verdict(result, { dvUsed = null, dvNominal = null, profileName = '', vehicle = 'two', landing = 'opt', rocket = null } = {}) {
   if (!result) return { kind: 'info', title: 'Görev sürüyor', detail: 'Sonuç Ay yüzeyine temasla belli olur. Uçuş adımında Başlat ile görevi uçurun; zaman hızı ya da çizelgedeki olaya atlama uçuşu kısaltır.', rows: [] };
   if (result.reentry) return { kind: 'bad', title: 'Görev sona erdi', detail: 'Araç Dünya atmosferine girdi: yörünge Ay\'a ulaşmadı. Elle yakışları ya da bozulmaları geri alıp görevi baştan uçurun.', rows: [] };
   const [ex, ey] = result.posErr_m || [NaN, NaN], [vx, vy, vz] = result.v_mps || [NaN, NaN, NaN];
@@ -79,7 +82,7 @@ export function verdict(result, { dvUsed = null, dvNominal = null, profileName =
     const d = dvUsed - dvNominal;
     rows.push(['Nominale göre', Math.abs(d) < 0.05 ? 'aynı' : (d > 0 ? '+' : '−') + fmt(Math.abs(d), 1) + ' m/s']);
   }
-  const setup = [profileShort(profileName), VEHICLE_SHORT[vehicle], LANDING_SHORT[landing]].filter(Boolean).join(', ');
+  const setup = [rocketShort(rocket), profileShort(profileName), VEHICLE_SHORT[vehicle], LANDING_SHORT[landing]].filter(Boolean).join(', ');
   if (result.ok) {
     return { kind: 'good', title: 'İniş başarılı', rows,
       detail: `${setup ? setup + ': ' : ''}araç iniş yerine ${rows[0][1]} uzaklıkta, güvenli hızla (dikey < ${fmt(SAFE_VZ, 1)}, yatay < ${fmt(SAFE_VH, 2)} m/s) yere değdi${result.manual ? ' (elle iniş)' : ''}. Başka bir profil ya da güdümle karşılaştırın.` };

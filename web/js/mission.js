@@ -138,6 +138,14 @@ export class Mission {
     this.halo = design.profile === 'HALO' ? new HaloRef(null, design.HALO.patches, design.HALO.tDep, design.HALO.tNri) : null;
     this.veh = new E.Vehicle(design.STAGES || STAGES);
     this.events = []; this.verbose = verbose; this.tliError = tliError;
+    // TLI kesme hatası: kapalı döngü güdüm hıza göre keser, hata bir Δv hatasıdır. Varsayılan kademede (100 kN) tliError saniyelik zamanlama hatasıdır;
+    // gerçek roketin kademesinde aynı Δv hatasını verecek süreye ölçeklenir (yüksek ivmeli kademede 0,05 s ~6 m/s olurdu: Falcon 9 ikinci kademesi TLI sonunda ~12 g)
+    const S0 = (design.STAGES || STAGES)[0];
+    if (S0 && S0.rocket && S0.rocket !== 'GENEL' && design.DV && design.DV.TLI) {
+      const pay = (design.STAGES || STAGES).slice(1).reduce((q, x) => q + x.dry + x.prop, 0), c = S0.isp * E.G0 * 1000;
+      const mCut = (S0.dry + S0.prop + pay) * Math.exp(-design.DV.TLI / c), aCut = S0.T * 1000 / mCut, aRef = STAGES[0].T * 1000 / (STAGES[0].dry + pay);
+      this.tliError = tliError * aRef / aCut;
+    }
     this.auto = true; this.status = ''; this.tNext = null; this.done = false; this.result = null;
     this.stageP = null; this.t_sep = null; this.local = null; this.drAxis = null;
     // park yörüngesinde TLI ateşlemesinden geriye: giriş anındaki durum (J2 dahil tutarlı)

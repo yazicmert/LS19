@@ -6,6 +6,7 @@ import { ControlPanel } from './controlpanel.js';
 import { etOf } from './live.js';
 import { BODIES, IS, IE, IM } from './ephem.js';
 import { sunElevationAtSite, PROFILES, normalizeConfig, configLabel } from './design.js';
+import { ROCKETS, ROCKET_IDS, DEFAULT_ROCKET, rocketOf, tliCapacity, parkPropellant } from './rockets.js';
 import { dvKeys, DV_NAMES, dvFromEvents } from './dvbudget.js';
 import { SAT_GROUPS } from './satlayer.js';
 import { fmtReentry, ageYears, controlNote } from './impact.js';
@@ -29,6 +30,16 @@ const PHASE_TR = { PARK: 'Park yörüngesi', YUKSELTME: 'Yörünge yükseltme: e
   TRANSFER: "LLO'ya iniş transferi" };
 const phaseName = (p) => PHASE_TR[p] || (/^SK-\d+$/.test(p) ? `İstasyon tutma yakışı (${p})` : /^RAISE-\d+$/.test(p) ? `Yörünge yükseltme yakışı ${p.slice(6)}` : p);
 const sameCfg = (a, b) => JSON.stringify(normalizeConfig(a)) === JSON.stringify(normalizeConfig(b));
+// roket kartı: ad, durum, rampa; TLI kademesi; türetilmiş TLI kapasitesi (rockets.js)
+function rocketCard(id) {
+  const r = ROCKETS[id], st = r.stage, cap = tliCapacity(id), b = document.createElement('button');
+  b.className = 'optcard'; b.type = 'button'; b.dataset.rocket = id;
+  const t = document.createElement('b'); t.textContent = r.name;
+  const sm = document.createElement('small');
+  sm.textContent = `${r.status} · ${r.pad}. TLI kademesi ${st.name}${st.engine ? ' (' + st.engine + ')' : ''}: ${fmt(st.T, 1)} kN, Isp ${fmt(st.isp, 1)} s, ${st.prop}` +
+    (cap ? ` · TLI kapasitesi ≈ ${fmt(cap / 1000, 1)} t` : ' · yakıt göreve göre boyutlanır');
+  b.append(t, sm); return b;
+}
 const DATE_MIN = '1850-01-01', DATE_MAX = '2149-12-01';        // de440s kapsamı (1849-12 … 2150-01) içinde, görev süresi payıyla
 const AU = 149597870.7, D2R = Math.PI / 180, R2AS = 180 / Math.PI * 3600;
 const ECL_POLE = [0, -0.3977771559, 0.9174820621];                // J2000 ekliptik kutbu (ICRF)
@@ -82,22 +93,48 @@ export class UI {
     for (const id of ['cfgEh', 'cfgEi', 'cfgEr', 'cfgRn', 'cfgRa', 'cfgMt', 'cfgHp', 'cfgHr', 'cfgLh', 'cfgLr'])
       $('#' + id).addEventListener('change', () => { this.syncProfileSel(); this.syncCfgVis(); });
     document.querySelectorAll('.cfg input').forEach((el) => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') go($('#dateInput').value); }));
+    // fırlatma aracı (roket): kartlar rockets.js'ten
+    this.rocket = DEFAULT_ROCKET;
+    const rc = $('#rocketCards');
+    if (rc) { for (const id of ROCKET_IDS) rc.append(rocketCard(id)); rc.addEventListener('click', (e) => { const b = e.target.closest('[data-rocket]'); if (b && this.onRocket) this.onRocket(b.dataset.rocket); }); }
+    this.setRocket(DEFAULT_ROCKET);
     this.setConfig(PROFILES.APOLLO.cfg);
     $('#btnCompare').addEventListener('click', () => this.onCompare && this.onCompare());
   }
   // ------------------------------------------------------------------ görev yapılandırması
   getConfig() {
     const n = (id) => parseFloat($('#' + id).value);
-    return normalizeConfig({ earth: { h: n('cfgEh'), inc: n('cfgEi'), revs: n('cfgEr'), raise: { n: n('cfgRn') || 0, ha: n('cfgRa') } },
+    return normalizeConfig({ rocket: this.rocket, earth: { h: n('cfgEh'), inc: n('cfgEi'), revs: n('cfgEr'), raise: { n: n('cfgRn') || 0, ha: n('cfgRa') } },
       moon: { type: $('#cfgMt').value, llo: { h: n('cfgLh'), revs: n('cfgLr') }, halo: { preset: $('#cfgHp').value, revs: n('cfgHr') } } });
   }
   setConfig(c) {
     const cfg = normalizeConfig(c), set = (id, v) => ($('#' + id).value = v);
     set('cfgEh', cfg.earth.h); set('cfgEi', cfg.earth.inc); set('cfgEr', cfg.earth.revs); set('cfgRn', cfg.earth.raise.n); set('cfgRa', cfg.earth.raise.ha); set('cfgMt', cfg.moon.type);
     set('cfgHp', cfg.moon.halo.preset); set('cfgHr', cfg.moon.halo.revs); set('cfgLh', cfg.moon.llo.h); set('cfgLr', cfg.moon.llo.revs);
+    if (c && 'rocket' in c) this.setRocket(c.rocket);                     // profiller roketi taşımaz: seçili roket kalır
     this.syncProfileSel(); this.syncCfgVis();
   }
-  profileKeyOf(cfg) { return Object.keys(PROFILES).find((k) => sameCfg(PROFILES[k].cfg, cfg)) || 'CUSTOM'; }
+  profileKeyOf(cfg) { const c = { ...cfg, rocket: undefined }; return Object.keys(PROFILES).find((k) => sameCfg(PROFILES[k].cfg, c)) || 'CUSTOM'; }
+  // roket seçimi (yalnız arayüz durumu; görevi app.js yeniden tasarlar). pay: iniş aracı kütlesi (kg; tasarım varsa ondan)
+  setRocket(id, msg = '') {
+    this.rocket = ROCKETS[id] ? id : DEFAULT_ROCKET;
+    document.querySelectorAll('[data-rocket]').forEach((b) => b.classList.toggle('on', b.dataset.rocket === this.rocket));
+    this.rocketInfo(msg);
+  }
+  rocketInfo(msg = '') {
+    const el = $('#rocketInfo'); if (!el) return;
+    const r = rocketOf(this.rocket), D = this.design, S = D && D.STAGES;
+    const pay = S ? S.slice(1).reduce((q, x) => q + x.dry + x.prop, 0) : null, prop = pay != null ? parkPropellant(this.rocket, pay) : null;
+    const st = S && S[0] && (S[0].rocket || DEFAULT_ROCKET) === this.rocket ? S[0] : null;
+    let t = r.note;
+    if (st && pay != null) {
+      const m0 = st.dry + st.prop + pay, c = st.isp * 9.80665, dv = D.DV && D.DV.TLI, mCut = dv ? m0 * Math.exp(-dv / c) : null;
+      t += ` Bu görevde: yük ${fmt(pay, 0)} kg, ${st.name} park yörüngesinde ${fmt(st.prop, 0)} kg yakıtla` + (mCut ? `, TLI ${fmt(dv, 0)} m/s, ~${fmt((m0 - mCut) / (st.T * 1000 / c), 0)} s yakış, kesmede ivme ${fmt(st.T * 1000 / mCut / 9.80665, 1)} g` : '') + '.';
+    } else if (prop != null) t += ` Park yörüngesindeki yakıt yükle değişir (bu yükle ≈ ${fmt(prop, 0)} kg).`;
+    if (r.ref) t += ` Başarım kaynağı: ${r.ref.src}.`;
+    el.textContent = (msg ? msg + ' ' : '') + t;
+    el.classList.toggle('warn', !!msg);
+  }
   syncProfileSel() { $('#cfgProfile').value = this.profileKeyOf(this.getConfig()); }
   syncCfgVis() { $('#rowHalo').style.display = $('#cfgMt').value === 'HALO' ? '' : 'none'; $('#cfgRa').disabled = !(parseFloat($('#cfgRn').value) > 0); }
   // profil karşılaştırma tablosu: rows = [{key, name, D (tasarım) | null, err, busy}]
@@ -132,6 +169,7 @@ export class UI {
   setDesign(D, startMs) {
     this.design = D;
     if (D.cfg) this.setConfig(D.cfg);
+    this.setRocket((D.STAGES && D.STAGES[0] && D.STAGES[0].rocket) || DEFAULT_ROCKET);   // tasarımı yapan roket (hazır tasarımlar: genel kademe)
     const day = new Date(startMs).toISOString().slice(0, 10), tl = D.LAUNCH.t_launch, tTouch = D.t_L - 1620;
     const wait = (tl - E.tFromUtcMs(startMs)) / 86400;
     const el = $('#designInfo'); el.replaceChildren();

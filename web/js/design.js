@@ -15,6 +15,7 @@
 //  Araç boyutlandırma: Δv bütçesinden iniş aracı ve TLI kademesi yakıtı (varsayılandan küçük olmaz).
 import * as E from './engine.js';
 import { STAGES as BASE_STAGES, siteIcrf, R_SITE } from './mission.js';
+import { ROCKETS, DEFAULT_ROCKET, stageRecord, parkPropellant, rocketOf } from './rockets.js';
 import { HALO_PRESETS, haloMember, ephemerisHalo } from './halo.js';
 import * as CR from './cr3bp.js';
 const { add, sub, scale, dot, cross, norm, unit, mtv } = E;
@@ -54,6 +55,8 @@ export function normalizeConfig(c) {
   out.earth.revs = Math.min(15.5, Math.max(0.5, +out.earth.revs));
   out.moon.llo.h = Math.min(500, Math.max(30, +out.moon.llo.h));
   out.moon.llo.revs = Math.min(40, Math.max(1, Math.round(+out.moon.llo.revs)));
+  // fırlatma aracı (rockets.js); varsayılan yazılmaz: hazır tasarımların önbellek anahtarı değişmesin
+  if (cfg.rocket && cfg.rocket !== DEFAULT_ROCKET && ROCKETS[cfg.rocket]) out.rocket = cfg.rocket;
   out.moon.halo.revs = Math.min(6, Math.max(1, Math.round(+out.moon.halo.revs)));
   if (!HALO_PRESETS[out.moon.halo.preset]) out.moon.halo.preset = 'NRHO92';
   if (out.moon.type !== 'HALO') out.moon.type = 'LLO';
@@ -64,7 +67,7 @@ export function configLabel(cfg) {
   const park = `Dünya park ${e.h} km, i ${e.inc}°, ${e.revs} tur` + (e.raise && e.raise.n ? ` + ${e.raise.n} yükseltme yakışı (apoje ${e.raise.ha} km)` : '');
   const moon = m.type === 'HALO' ? `${HALO_PRESETS[m.halo.preset].name}, ${m.halo.revs} tur + LLO ${m.llo.h} km, ${m.llo.revs} tur`
                                   : `LLO ${m.llo.h} km, ${m.llo.revs} tur`;
-  return `${park} · ${moon}`;
+  return (cfg.rocket ? rocketOf(cfg.rocket).name + ' · ' : '') + `${park} · ${moon}`;
 }
 
 // tasarım bağlamı: yapılandırmadan türetilen sabitler
@@ -77,7 +80,8 @@ function ctx(cfg, stages) {
   const RAISE = cfg.earth.raise || DEFAULT_RAISE, RA = RAISE.n ? E.R_E + RAISE.ha : R_PARK;
   const V_PRE = RAISE.n ? Math.sqrt(E.MU_E * (2 / R_PARK - 2 / (R_PARK + RA))) : Math.sqrt(E.MU_E / R_PARK);
   return { cfg, H_PARK, R_PARK, PARK_REVS: cfg.earth.revs, incList, H_LLO, R_LLO, N_LLOm, P_LLO, N_REV, VINF: 0.85, RAISE, RA, V_PRE,
-    STAGES: stages || BASE_STAGES.map((s) => ({ ...s })),
+    STAGES: stages || BASE_STAGES.map((s, i) => (i === 0 && cfg.rocket ? stageRecord(cfg.rocket) : { ...s })),
+    ROCKET: cfg.rocket || null,
     tLof: (tP) => tP + 700.0 + (N_REV + 0.5) * P_LLO, arrState: null };
 }
 
@@ -452,7 +456,18 @@ function sizeTli(K, dvTli) {
   prop = (pay + st.dry) * (Math.exp((dvTli + margin) / c) - 1);
   // yükseltmeli tasarımda burası yalnız TLI yakışının yakıtı (yükseltme yakışlarınınki raiseChain'de eklenir): taban yakıt uygulanmaz
   const floor = K.RAISE && K.RAISE.n ? 0 : BASE_STAGES[0].prop;
-  st.prop = Math.max(floor, Math.ceil(prop / 10) * 10);
+  if (!K.ROCKET) { st.prop = Math.max(floor, Math.ceil(prop / 10) * 10); return; }
+  // gerçek roket: üst kademenin park yörüngesindeki yakıtı roketin başarımından gelir (rockets.js); gereken yakıt sığmalı, artanı kademede kalır
+  const avail = parkPropellant(K.ROCKET, pay);
+  // yükseltmeli tasarımda kademe yükseltme yakışlarını da yapar: TLI başındaki yakıt x, yükseltme yakıtı (kuru + yük + x)(e^(Δv/c) − 1) (dürtüsel kestirim;
+  // gerçeği raiseChain'de sonlu yakışlarla eklenir), toplam = park yakıtı → x = (avail + kuru + yük)·e^(−Δv/c) − (kuru + yük)
+  const kR = K.RAISE && K.RAISE.n ? Math.exp((K.V_PRE - Math.sqrt(E.MU_E / K.R_PARK)) / c) : 1;
+  const x = (avail * (kR > 1 ? 0.99 : 1) + pay + st.dry) / kR - (pay + st.dry);                 // sonlu yakış kaybı için %1 pay (yalnız yükseltmede)
+  if (prop > x) {
+    const r = rocketOf(K.ROCKET);
+    throw new Error(`${r.name} bu aracı Ay'a gönderemez: TLI için ${Math.ceil(((pay + st.dry + prop) * kR - pay - st.dry) / 100) * 100} kg yakıt gerekir, ${r.stage.name} park yörüngesinde ${Math.floor(avail / 100) * 100} kg yakıtla kalır (yük ${pay.toFixed(0)} kg)`);
+  }
+  st.prop = Math.floor(x / 10) * 10;
 }
 
 // ---------------------------------------------------------------- ana giriş
@@ -476,9 +491,20 @@ function* designSteps(tFrom, progress, cfg0) {
   const cfg = normalizeConfig(cfg0), K = ctx(cfg);
   const log = (m, f) => progress(m, f);
   log('Yapılandırma: ' + configLabel(cfg), 0.01);
-  const D = cfg.moon.type === 'HALO' ? yield* designHalo(K, tFrom, log) : yield* designApollo(K, tFrom, log);
+  if (cfg.rocket) { const r = rocketOf(cfg.rocket), st = r.stage; log(`Fırlatma aracı: ${r.name} (${r.pad}); TLI kademesi ${st.name}: ${st.engine}, ${st.T} kN, Isp ${st.isp} s, kuru ${st.dry} kg`, 0.02); }
+  let D = null;
+  for (;;) {
+    try { D = cfg.moon.type === 'HALO' ? yield* designHalo(K, tFrom, log) : yield* designApollo(K, tFrom, log); break; }
+    catch (e) {
+      // uzun TLI yakışında (ör. ICPS ~13 dk) çözülen park düzlemi biraz döner; eğim KSC enleminin (28,57°) altına inerse rampa düzlemden geçmez.
+      // Gerçek roket seçiliyse sıradaki park eğimiyle yeniden denenir (varsayılan araçta davranış değişmez)
+      if (!(K.ROCKET && /fırlatma fırsatı/.test(e.message) && K.incList.length > 1)) throw e;
+      K.incList = K.incList.slice(1);
+      log(`  ${e.message}: park eğimi ${K.incList[0]}° ile yeniden deneniyor`, 0.3);
+    }
+  }
   D.cfg = cfg; D.STAGES = K.STAGES.map((s) => ({ ...s }));
-  if (D.RAISE) D.STAGES[0].prop += D.RAISE.propExtra;                        // TLI kademesi yükseltme yakışlarının yakıtını da taşır
+  if (D.RAISE) D.STAGES[0].prop = Math.round(D.STAGES[0].prop + D.RAISE.propExtra);   // TLI kademesi yükseltme yakışlarının yakıtını da taşır
   D.EARTH = { h: K.H_PARK, revs: K.PARK_REVS }; D.LLO = { ...(D.LLO || {}), h: K.H_LLO, revs: K.N_REV, P: K.P_LLO };
   D.sunElAtLanding = sunElevationAtSite(D.t_L - 1620);
   const m0 = D.STAGES.reduce((s, q) => s + q.dry + q.prop, 0);
