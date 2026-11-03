@@ -69,4 +69,11 @@ check(/id="btnAscent"/.test(html) && /id="ascBar"/.test(html) && /data-asc="end"
 check(/ascent\.tick\(dt\)/.test(app) && /cmd: 'seek', t: ui\.t0/.test(app) && /insState/.test(app), 'oynatma ana iş parçacığında; bitince görev girişten sürer');
 check(/setAscent\(/.test(scene) && /clippingPlanes/.test(scene) && /localClippingEnabled/.test(scene), 'sahne: tam roket, kademe ayrılması kesme düzlemiyle');
 check(['booster', 'fairing', 'las'].every((k) => new RegExp(`part = '${k}'`).test(rm)) && /key === 'generic'/.test(rm.slice(rm.indexOf('export function makeLaunchVehicle'))), 'ayrılabilir parçalar etiketli (iticiler, kaporta, LAS); genel roketin de modeli var');
+const ap = read('js/ascentplay.js');
+check(/loadPadGround/.test(scene) && /s2cloudless_3857/.test(scene) && /CC BY-SA 4\.0/.test(scene) && /models\/rockets\/ml\.glb/.test(scene) && fs.existsSync(new URL('../models/rockets/ml.glb', import.meta.url)),
+  'rampa: NASA Mobile Launcher (SLS), çevresi Sentinel-2 cloudless 2016 (atıflı, CC BY-SA 4.0); yüklenemezse gösterilmez');
+check(/PLUME_COL/.test(scene) && /pAmb/.test(scene) && /diamonds\.value = 0\.32 \* pr/.test(scene) && ['saturnv', 'sls', 'vulcan'].every((lv) => Object.values(ROCKETS).some((r) => r.ascent.lv === lv && r.ascent.props.length === r.ascent.veh.stages.length)),
+  'alev: ortam basıncıyla genişler, şok elmasları alçakta; renk o anki kademenin yakıtına göre (her kademenin yakıtı tanımlı)');
+check(/A\.sky/.test(scene) && /Math\.sqrt\(2 \* 6378/.test(scene) && /depthTest: true/.test(scene), 'gökyüzü: Güneş yüksekliğine göre renk, ölçek yüksekliğiyle sönüm; ufkun ötesinde derinlik testli kubbe');
+check(/propagate\(d, dt\)/.test(ap) && /atmosphere\(alt\)\.rho/.test(ap) && /debris\.push/.test(ap) && /applyAscent/.test(scene), 'ayrılan kademeler: ayrılma anındaki durumdan balistik (çekim + sürüklenme), takla atarak düşer');
 console.log(ok ? 'TAMAM' : 'HATA'); process.exit(ok ? 0 : 1);

@@ -318,3 +318,45 @@ Toplam Δv tüm fırsatlarda ~5.910 m/s, birkaç m/s farkla. Gerçek roketlerde 
 - Mevcut görevin havası uygun değilse hava kutusunda günün diğer fırsatlarına geçiş düğmesi çıkıyor.
 
 Örnek hava verisiyle tarayıcı denetimi: 11–13 UTC arası fırtına, 02 UTC'de 40 kt esinti. Önerilen 02:59 (45°) oldu; seçilince görev o fırsatla kuruldu.
+
+### 6.7 Kalkışın fiziksel modeli ve görselliği (§6.5'in yerine)
+
+**Çıkış benzetimi** (`ascentsim.js`):
+
+- Düzlemde nokta kütle; ters kare çekim.
+- U.S. Standard Atmosphere 1976 (NASA TM-X-74335); Dünya ile dönen hava; sürüklenme (kütleyle değişen balistik katsayı).
+- Kademeler: gerçek yanma süreleri, itki/ağırlık ve kütle oranları. Birinci kademenin itkisi basınç düştükçe artıyor (F-1: 6.770 → 7.770 kN).
+- Güdüm:
+  - Dikey yükseliş, kısa eğilme, sonra hücum açısı sıfır yerçekimi dönüşü.
+  - Üst kademelerde kapalı döngü uç güdüm: a_r = 6 (r₁ − r − v_r τ)/τ² + 2 v_r/τ. Bu, PEG/E-güdümünün düşey kanalı.
+- Çözüm: eğilme açısı, birinci kademe ayrılma irtifasına uyacak şekilde; itki ölçeği, giriş hızına uyacak şekilde seçiliyor. İkisi sönümlü Newton ile birlikte çözülüyor.
+- Kaynaklar: Wikipedia "Gravity turn"; arXiv 2008.13239; NASA NTRS 20180002035.
+
+**Apollo 11 karşılaştırması** (NASA SP-4029):
+
+| Olay | Model | Gerçek |
+|---|---|---|
+| S-IC kesme | 66,1 km (kalibre), 2,325 km/s | 66,1 km, 2,393 km/s (−%3) |
+| S-II kesme | 198 km, 6,508 km/s | 187,2 km, 6,513 km/s (+%6, −%0,1) |
+| Max-Q | T+79 s, 11 km | ~T+83 s |
+
+Altı roketin hepsinde max-Q 53–79 s'de ve 11 km civarında (tipik 10–15 km).
+
+Canlandırmada yol bu benzetimden geliyor: gerçek zaman canlandırma süresine ölçekleniyor, yay açısı ve irtifa görevin giriş noktasına oturtuluyor. Son %8'de hız görevin giriş hızıyla yumuşakça birleşiyor; fiziğe geçişte hız sıçraması yok (önce 85 m/s idi).
+
+**Görsellik:**
+
+- **Rampa:** SLS'te NASA 3D Resources **Mobile Launcher** modeli (116 m, platform 48 m; roket ekseni modelden ölçüldü). Diğer roketlerde beton platform ve yıldırım direkleri.
+- **Yer görüntüsü:** rampa çevresi, çalışma anında **Sentinel-2 cloudless 2016** (EOX, CC BY-SA 4.0; atıf ekranda). Web Mercator z = 13, 4 × 4 karo ≈ 17 km, kenarları yumuşak. Yüklenemezse gösterilmiyor.
+- **Alev:**
+  - Ortam basıncı düştükçe genişliyor ve uzuyor; şok elmasları alçakta belirgin.
+  - Rengi o anda yanan kademenin yakıtına göre: gazyağı turuncu, katı yakıt beyaz-sarı, hidrolox soluk mavi, metan mavi-mor. Örneğin Saturn V'de S-IC turuncu, S-II mavi.
+- **Gökyüzü:** Güneş'in araca göre yüksekliğine göre mavi ya da koyu; ölçek yüksekliğiyle (~7,5 km) sönüyor. Ufkun ötesinde, derinlik testli kubbe.
+- **Ayrılan kademeler:** ayrılma anındaki durumdan balistik düşüyor (çekim, dönen havada sürüklenme β ≈ 2000 kg/m², 4 m/s geriye ayrılma itişi, yavaş takla). Kesme düzlemleri ya da etiketli parçalarla çiziliyor.
+
+**Sınırlar:**
+
+- Kademe kütle oranları ve itki/ağırlık değerleri yaklaşık; itki ölçeği 0,89–1,17 arasında çıkıyor.
+- Model yükü gerçek görevden hafif (örneğin SLS'te 3,6 t'luk iniş aracı, Orion 26 t).
+- Hava yoğunluğu 86 km üstünde üstel.
+- Bu ortamın ağından EOX karolarına ve NASA GIBS'e erişilemediği için yer görüntüsü tarayıcıda sahte karoyla denendi.

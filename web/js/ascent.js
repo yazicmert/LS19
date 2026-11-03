@@ -50,7 +50,7 @@ export function buildAscent({ site, tLaunch, ins, icrfToItrf, rE = 6378.137, veh
       const dir = s.stage >= 0 ? add(scale(d, Math.sin(s.psi)), scale(et, Math.cos(s.psi))) : unit(v);
       return { r, v, vRel, up: d, h: R - R0, tau, dir: unit(add(scale(dir, 1 - w), scale(v1d, w))), q: s.q, tReal: tr, stage: s.stage };
     };
-    return { T, th1, h1, R0, at: atP, tLaunch, tIns: ins.t, sim: S, physical: true };
+    return { T, th1, h1, R0, at: atP, tLaunch, tIns: ins.t, sim: S, physical: true, padAt };
   }
   const geo = (tau) => {
     const th = th1 * Math.pow(tau, n), h = h1 * (1 - Math.pow(1 - Math.pow(tau, Q_ALT), P_ALT));
@@ -74,7 +74,7 @@ export function buildAscent({ site, tLaunch, ins, icrfToItrf, rE = 6378.137, veh
     const sp = norm(vRel), dir = sp > 0.02 ? unit(vRel) : g.d;     // itki yönü: atmosfere göre hız (başta dikey)
     return { r, v, vRel, up: g.d, h: g.h, tau, dir };
   };
-  return { T, th1, n, h1, R0, at, tLaunch, tIns: ins.t };
+  return { T, th1, n, h1, R0, at, tLaunch, tIns: ins.t, padAt };
 }
 // gerçek uçuş zamanlarını (s) canlandırma süresine ölçekle: events [{ t, … }], tInsReal → T
 export function scaleEvents(events, tInsReal, T) { return (events || []).map((e) => ({ ...e, tScaled: e.t * T / tInsReal })); }

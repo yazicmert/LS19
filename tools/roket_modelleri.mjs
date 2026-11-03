@@ -1,5 +1,7 @@
 // Roket bilgi kartlarındaki tam fırlatma aracı modellerini (web/models/rockets/<anahtar>.glb) resmî NASA 3D Resources modellerinden üretir:
 //   saturnv ← "3D Models/Saturn V/Saturn V.glb"
+//   ml      ← "3D Models/Mobile Launcher/Mobile Launcher (assembled).glb" (kalkış canlandırmasında SLS'in rampası; roket ekseni modelde x = −0,165, z = 0,03 birim,
+//             platform üstü y = 0,34 birim → metrede ×47,08: x −7,8 m, z 1,4 m, platform 16 m)
 //   (SLS Block 1: NASA 3D Resources'taki "Block 1 (GNC markings).blend" denendi; çekirdek kademe ve SRB'lerin ana kabukları dosyada yok —
 //    yalnız besleme boruları, bağlantılar, motorlar ve üst kısım var. SLS bu yüzden ölçüden çizilir: rocketmodels.js makeLaunchVehicle('sls').)
 // Çıktı: glTF Y-yukarı, roket ekseni +Y, taban y = 0, gerçek boy METRE (Saturn V 110,6 m); malzeme paletiyle birleştirilmiş,
@@ -15,7 +17,9 @@ import sharp from 'sharp';
 import fs from 'fs';
 await MeshoptEncoder.ready; await MeshoptSimplifier.ready;
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'draco3d.decoder': await draco3d.createDecoderModule(), 'meshopt.encoder': MeshoptEncoder });
-const SPEC = { saturnv: { height: 110.6, maxT: 60000, err: 0.01 } };
+const SPEC = { saturnv: { height: 110.6, maxT: 60000, err: 0.01 },
+  // NASA 3D Resources "Mobile Launcher (assembled)" (SLS ML-1): kule + platform, boy 116 m (380 ft); taban ortalanmaz (roketin yeri: aşağıya bakın)
+  ml: { height: 116, maxT: 40000, err: 0.01, keepXZ: true } };
 const only = process.argv.slice(2), out = {};
 fs.mkdirSync('out', { recursive: true });
 const tris = (doc) => doc.getRoot().listMeshes().flatMap((m) => m.listPrimitives()).reduce((s, p) => s + (p.getIndices() ? p.getIndices().getCount() : p.getAttribute('POSITION').getCount()) / 3, 0);
@@ -23,10 +27,11 @@ for (const [key, sp] of Object.entries(SPEC)) {
   if (only.length && !only.includes(key)) continue;
   if (!fs.existsSync(`raw_${key}.glb`)) { console.log(key, 'raw yok'); continue; }
   const doc = await io.read(`raw_${key}.glb`);
+  doc.getRoot().listExtensionsUsed().filter((e) => e.extensionName === 'KHR_draco_mesh_compression').forEach((e) => e.dispose());   // çözüldü; çıktı meshopt
   await doc.transform(dedup(), palette({ min: 2 }), dedup(), flatten(), join({ keepNamed: false }), weld());
   // ölçek ve konum: taban y = 0, eksen x = z = 0, boy = gerçek boy (m)
   const scene = doc.getRoot().getDefaultScene() || doc.getRoot().listScenes()[0], b = getBounds(scene), h = b.max[1] - b.min[1], k = sp.height / h;
-  const cx = (b.max[0] + b.min[0]) / 2, cz = (b.max[2] + b.min[2]) / 2;
+  const cx = sp.keepXZ ? 0 : (b.max[0] + b.min[0]) / 2, cz = sp.keepXZ ? 0 : (b.max[2] + b.min[2]) / 2;
   for (const node of doc.getRoot().listNodes()) {
     if (node.getParentNode()) continue;
     const t = node.getTranslation(), s = node.getScale();

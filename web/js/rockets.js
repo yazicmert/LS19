@@ -28,7 +28,7 @@ export const ROCKETS = {
     note: 'Varsayılan: yakıtı göreve göre boyutlanan küçük hidrolox kademe (hazır tasarımlar bununla).',
     stage: { name: 'TLI kademesi', dry: 2300, T: 100, isp: 450, engines: 1, prop: 'LH2/LOX' },
     model: 'generic', sized: true,
-    ascent: { tIns: 540, lv: 'generic', veh: { hSep: 62, beta: 60000, tVert: 10, tPitch: 6, stages: [{ t0: 0, t1: 160, twr: 1.35, mr: 3.2, alt: 0.1 }, { t0: 165, t1: 530, twr: 0.8, mr: 4.0 }] }, events: [{ t: 160, cut: 30.5, name: '1. kademe ayrıldı' }, { t: 200, part: 'fairing', name: 'Burun kaportası atıldı' }], approx: true },
+    ascent: { tIns: 540, lv: 'generic', props: ['kerolox', 'kerolox'], veh: { hSep: 62, beta: 60000, tVert: 10, tPitch: 6, stages: [{ t0: 0, t1: 160, twr: 1.35, mr: 3.2, alt: 0.1 }, { t0: 165, t1: 530, twr: 0.8, mr: 4.0 }] }, events: [{ t: 160, cut: 30.5, name: '1. kademe ayrıldı' }, { t: 200, part: 'fairing', name: 'Burun kaportası atıldı' }], approx: true },
     stageNote: 'Temsilî TLI kademesi (gerçek bir rokete ait değil; yakıtı göreve göre boyutlanır)',
   },
   SATURN_V: {
@@ -40,7 +40,7 @@ export const ROCKETS = {
     // Apollo 11 uçuş günlüğü: S-IC/S-II ayrılması T+2:42, S-II/S-IVB T+9:09, yörüngeye giriş T+11:49
     // veh (yaklaşık): kalkış 2.940 t, 5 × F-1 (deniz seviyesi 6.770 kN, vakum 7.770 kN) → itki/ağırlık 1,18; S-IC yakıtı 2.077 t (kütle oranı ~3,4);
     // S-II: 5 × J-2 (5.100 kN), ~680 t → 237 t; S-IVB 1. yakış: J-2 1.033 kN. β = m/(Cd·A), A = 80 m², Cd ≈ 0,5
-    ascent: { tIns: 709, lv: 'saturnv', veh: { hSep: 66.1, beta: 73500, tVert: 12, tPitch: 8, stages: [{ t0: 0, t1: 161.6, twr: 1.18, mr: 3.4, alt: 0.148 }, { t0: 164, t1: 548.2, twr: 0.77, mr: 2.87 }, { t0: 552, t1: 699, twr: 0.55, mr: 1.19 }] }, events: [{ t: 162, cut: 42.1, name: 'S-IC ayrıldı' }, { t: 549, cut: 67.0, name: 'S-II ayrıldı' }],
+    ascent: { tIns: 709, lv: 'saturnv', props: ['kerolox', 'hydrolox', 'hydrolox'], veh: { hSep: 66.1, beta: 73500, tVert: 12, tPitch: 8, stages: [{ t0: 0, t1: 161.6, twr: 1.18, mr: 3.4, alt: 0.148 }, { t0: 164, t1: 548.2, twr: 0.77, mr: 2.87 }, { t0: 552, t1: 699, twr: 0.55, mr: 1.19 }] }, events: [{ t: 162, cut: 42.1, name: 'S-IC ayrıldı' }, { t: 549, cut: 67.0, name: 'S-II ayrıldı' }],
       src: { t: 'Apollo 11 Flight Journal — Day 1: Launch and Reaching Earth Orbit', u: 'https://www.nasa.gov/history/afj/ap11fj/01launch.html' } },
     stageNote: 'S-IVB + IU — Saturn V\'nin 3. kademesi (S-IC ve S-II kalkışta ayrıldı; yörüngeye yalnız bu kademe ulaşır)',
   },
@@ -53,7 +53,7 @@ export const ROCKETS = {
     model: 'icps',
     // Artemis I: SRB ayrılması T+2:12, fırlatma iptal sistemi T+3:15, çekirdek kademe ayrılması T+8:16 (NASA basın kiti)
     // veh (yaklaşık): kalkış 2.610 t, 39.100 kN → 1,53; SRB'ler 128 s; çekirdek 4 × RS-25 (vakum 2.279 kN) 484 s'ye dek
-    ascent: { tIns: 496, lv: 'sls', veh: { hSep: 47, beta: 68000, tVert: 10, tPitch: 6, stages: [{ t0: 0, t1: 128, twr: 1.53, mr: 2.4, alt: 0.12 }, { t0: 132, t1: 484, twr: 1.05, mr: 5.3 }] }, events: [{ t: 132, part: 'booster', name: 'Katı yakıtlı iticiler ayrıldı' }, { t: 195, part: 'las', name: 'Fırlatma iptal sistemi atıldı' },
+    ascent: { tIns: 496, lv: 'sls', props: ['solid', 'hydrolox'], veh: { hSep: 47, beta: 68000, tVert: 10, tPitch: 6, stages: [{ t0: 0, t1: 128, twr: 1.53, mr: 2.4, alt: 0.12 }, { t0: 132, t1: 484, twr: 1.05, mr: 5.3 }] }, events: [{ t: 132, part: 'booster', name: 'Katı yakıtlı iticiler ayrıldı' }, { t: 195, part: 'las', name: 'Fırlatma iptal sistemi atıldı' },
       { t: 496, cut: 74.6, name: 'Çekirdek kademe ayrıldı' }], src: { t: 'NASA — Artemis I Press Kit (görev zaman çizelgesi)', u: 'https://www.nasa.gov/artemis-i-press-kit/' } },
     stageNote: 'ICPS — SLS\'in üst kademesi (çekirdek kademe ve katı iticiler kalkışta ayrıldı)',
   },
@@ -66,7 +66,7 @@ export const ROCKETS = {
     model: 'f9s2',
     // tipik Falcon 9 zaman çizelgesi (SpaceX yayınları): MECO ~T+2:30, ayrılma ~T+2:33, kaporta ~T+3:30, SECO-1 ~T+8:40
     // veh (yaklaşık): kalkış 549 t, 7.607 kN → 1,41; 1. kademe ~150 s (kütle oranı ~3; iniş yakıtı ayrılır); 2. kademe MVac 981 kN
-    ascent: { tIns: 520, lv: 'f9', veh: { hSep: 68, beta: 104600, tVert: 10, tPitch: 6, stages: [{ t0: 0, t1: 150, twr: 1.41, mr: 3.0, alt: 0.08 }, { t0: 158, t1: 515, twr: 0.8, mr: 5.0 }] }, events: [{ t: 153, cut: 47.9, name: '1. kademe ayrıldı' }, { t: 210, part: 'fairing', name: 'Burun kaportası atıldı' }], approx: true,
+    ascent: { tIns: 520, lv: 'f9', props: ['kerolox', 'kerolox'], veh: { hSep: 68, beta: 104600, tVert: 10, tPitch: 6, stages: [{ t0: 0, t1: 150, twr: 1.41, mr: 3.0, alt: 0.08 }, { t0: 158, t1: 515, twr: 0.8, mr: 5.0 }] }, events: [{ t: 153, cut: 47.9, name: '1. kademe ayrıldı' }, { t: 210, part: 'fairing', name: 'Burun kaportası atıldı' }], approx: true,
       src: { t: 'SpaceX — Falcon 9', u: 'https://www.spacex.com/vehicles/falcon-9/' } },
     stageNote: 'Falcon 9 ikinci kademesi (birinci kademe kalkışta ayrılıp geri indi)',
   },
@@ -79,7 +79,7 @@ export const ROCKETS = {
     model: 'f9s2',
     // tipik Falcon Heavy zaman çizelgesi: yan iticiler ~T+2:33, merkez çekirdek ~T+3:07, kaporta ~T+3:35, SECO-1 ~T+8:30
     // veh (yaklaşık): kalkış 1.420 t, 22.819 kN → 1,64; yan iticiler ~150 s, merkez çekirdek ~185 s, 2. kademe
-    ascent: { tIns: 510, lv: 'fh', veh: { hSep: 62, beta: 90000, tVert: 10, tPitch: 6, stages: [{ t0: 0, t1: 150, twr: 1.64, mr: 2.6, alt: 0.08 }, { t0: 153, t1: 185, twr: 1.0, mr: 1.5 }, { t0: 192, t1: 505, twr: 0.75, mr: 4.0 }] }, events: [{ t: 153, part: 'booster', name: 'Yan iticiler ayrıldı' }, { t: 187, cut: 47.9, name: 'Merkez çekirdek ayrıldı' }, { t: 215, part: 'fairing', name: 'Burun kaportası atıldı' }], approx: true,
+    ascent: { tIns: 510, lv: 'fh', props: ['kerolox', 'kerolox', 'kerolox'], veh: { hSep: 62, beta: 90000, tVert: 10, tPitch: 6, stages: [{ t0: 0, t1: 150, twr: 1.64, mr: 2.6, alt: 0.08 }, { t0: 153, t1: 185, twr: 1.0, mr: 1.5 }, { t0: 192, t1: 505, twr: 0.75, mr: 4.0 }] }, events: [{ t: 153, part: 'booster', name: 'Yan iticiler ayrıldı' }, { t: 187, cut: 47.9, name: 'Merkez çekirdek ayrıldı' }, { t: 215, part: 'fairing', name: 'Burun kaportası atıldı' }], approx: true,
       src: { t: 'SpaceX — Falcon Heavy', u: 'https://www.spacex.com/vehicles/falcon-heavy/' } },
     stageNote: 'Falcon Heavy ikinci kademesi (yan iticiler ve merkez çekirdek kalkışta ayrıldı)',
   },
@@ -92,7 +92,7 @@ export const ROCKETS = {
     model: 'centaur',
     // yaklaşık Vulcan VC2S zaman çizelgesi (Cert-1): katı iticiler ~T+1:41, kaporta ~T+3:45, 1. kademe ayrılması ~T+5:05
     // veh (yaklaşık): 2 × BE-4 (2.447 kN) + 2 × GEM 63XL; katı iticiler ~100 s, 1. kademe ~300 s, Centaur V
-    ascent: { tIns: 690, lv: 'vulcan', veh: { hSep: 38, beta: 80000, tVert: 10, tPitch: 6, stages: [{ t0: 0, t1: 100, twr: 1.5, mr: 1.7, alt: 0.1 }, { t0: 101, t1: 300, twr: 1.1, mr: 2.6 }, { t0: 310, t1: 680, twr: 0.45, mr: 1.9 }] }, events: [{ t: 101, part: 'booster', name: 'Katı yakıtlı iticiler ayrıldı' }, { t: 225, part: 'fairing', name: 'Burun kaportası atıldı' }, { t: 305, cut: 38.5, name: '1. kademe ayrıldı' }], approx: true,
+    ascent: { tIns: 690, lv: 'vulcan', props: ['solid', 'methalox', 'hydrolox'], veh: { hSep: 38, beta: 80000, tVert: 10, tPitch: 6, stages: [{ t0: 0, t1: 100, twr: 1.5, mr: 1.7, alt: 0.1 }, { t0: 101, t1: 300, twr: 1.1, mr: 2.6 }, { t0: 310, t1: 680, twr: 0.45, mr: 1.9 }] }, events: [{ t: 101, part: 'booster', name: 'Katı yakıtlı iticiler ayrıldı' }, { t: 225, part: 'fairing', name: 'Burun kaportası atıldı' }, { t: 305, cut: 38.5, name: '1. kademe ayrıldı' }], approx: true,
       src: { t: 'ULA — Vulcan', u: 'https://www.ulalaunch.com/rockets/vulcan-centaur' } },
     stageNote: 'Centaur V — Vulcan\'ın üst kademesi (birinci kademe ve katı iticiler kalkışta ayrıldı)',
   },
