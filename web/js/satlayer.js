@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import * as E from './engine.js';
 import * as S from '../lib/satellite.esm.js';
+import * as EO from './earth.js';
 import { DATA_RAW, SUP_FILES } from './config.js';
 import { SatModels, modelFor, MOON_MODELS, MODELS, showDist } from './satmodels.js';
 import { SatInstancer } from './satinstancer.js';
@@ -174,7 +175,7 @@ export class SatLayer {
     const rec = this.satrec(e.id); if (!rec) return null;
     let pv = null; try { pv = S.propagate(rec, new Date(E.utcMsFromT(t))); } catch (err) { return null; }
     if (!pv || !pv.position || !Number.isFinite(pv.position.x)) return null;
-    return E.mtv(E.precession(t), [pv.position.x, pv.position.y, pv.position.z]);
+    return E.mv(EO.temeToIcrf(E.jdTdb(t)), [pv.position.x, pv.position.y, pv.position.z]);     // uydu worker'ı ve kamera odağıyla aynı TEME -> ICRF
   }
   // sürüklenme (B*) için standart GP kaydı: operatör (SupGP) çözümleri yörünge konumu için daha iyi ama B* değerleri bozunma için güvenilir değil (ör. ISS ~10×)
   gpRecord(id) { if (!this.gp) return this.recordOf(id); if (!this.gpMap) this.gpMap = new Map(this.gp.map((o) => [+o.NORAD_CAT_ID, o])); return this.gpMap.get(+id) || this.recordOf(id); }
@@ -280,11 +281,9 @@ export class SatLayer {
     const o = this.selOmm, per = 1440 / o.MEAN_MOTION;
     return { name: this.names[this.sel], id: this.ids[this.sel], alt: r - E.R_E, v: Math.hypot(v.x, v.y, v.z), periodMin: per, inc: +o.INCLINATION, ecc: +o.ECCENTRICITY, epoch: o.EPOCH };
   }
-  selPos(t) {                                         // ICRF (TEME≈ICRF, çizim için yeterli)
+  selPos(t) {                                         // ICRF (earth.temeToIcrf: worker, model ve kamera odağıyla aynı dönüşüm)
     const pv = S.propagate(this.selRec, new Date(E.utcMsFromT(t))); if (!pv || !pv.position) return null;
-    const M = E.precession(t);                         // TEME -> ICRF yaklaşık: NPBᵀ (ekinoks denklemi ihmal)
-    const p = [pv.position.x, pv.position.y, pv.position.z];
-    return E.mtv(M, p);
+    return E.mv(EO.temeToIcrf(E.jdTdb(t)), [pv.position.x, pv.position.y, pv.position.z]);
   }
 
   // ---------------------------------------------------------------- fareyle tıklama: ekranda en yakın (Dünya'nın arkasında kalmayan) uydu
@@ -332,7 +331,7 @@ export class SatLayer {
       decay: assessSat(this.gpRecord(this.ids[i]) || o, Date.now(), false), model: modelFor(o.NORAD_CAT_ID, o.OBJECT_NAME), family: FAMILIES[this.famKeys && this.famKeys[i]] || null,
       source: o._sup ? `CelesTrak SupGP (${o._sup.src || o._sup.file}${o._sup.rms != null ? `, RMS ${o._sup.rms} km` : ''})` : 'CelesTrak GP' };
     if (pv && pv.position) {
-      const M = E.precession(t), p = E.mtv(M, [pv.position.x, pv.position.y, pv.position.z]);
+      const p = E.mv(EO.temeToIcrf(E.jdTdb(t)), [pv.position.x, pv.position.y, pv.position.z]);
       const r = Math.hypot(...p), itrf = E.mv(E.earthIcrfToItrf(t), p);
       out.alt = r - E.R_E; out.speed = Math.hypot(pv.velocity.x, pv.velocity.y, pv.velocity.z);
       out.lat = Math.asin(itrf[2] / r) * 180 / Math.PI; out.lon = Math.atan2(itrf[1], itrf[0]) * 180 / Math.PI;

@@ -51,7 +51,7 @@ saptırma laboratuvarı bir asteroide uygulanan itkinin Dünya yakın geçişini
   açılıp kapanabilir; ad ya da NORAD no ile ara, seçilen uydunun yörüngesi çizilir. Veri 2 saatte bir yenilenir.
   Uydu noktaları kameraya yaklaştıkça büyür (yakın plan görünümde kaybolmaz).
   Yörünge öğeleri çağından ±30 gün dışında (ör. 1969) gösterilmez.
-- Gerçek 3B modeller (NASA 3D Resources): ISS, Hubble, Chandra, GOES, TDRS, Landsat… 50'den fazla uydu. Model yalnız kamera o uyduya
+- Gerçek 3B modeller (NASA 3D Resources ve NASA Eyes on the Earth): ISS, Hubble, Chandra, GOES, TDRS, SWOT, NISAR, PACE, SMAP, NuSTAR, IXPE, Landsat 9, NOAA-20/21… 46 model, ~70 uydu. Model yalnız kamera o uyduya
   yaklaşınca (büyüklüğüne göre ~1,5–16 km) indirilir ve çizilir, aynı anda en fazla 3 model; uzaklaşınca kaldırılır. Kartta
   "3B model" satırı ve **3B modeli yakından gör** düğmesi vardır; modeli olmayan uydular yakından temsili modelle gösterilir.
 - Ay: LRO, Danuri (KPLO), Chandrayaan-2, ARTEMIS P1/P2, CAPSTONE — JPL Horizons vektörleri, yalnız verisi bulunan tarihlerde.
@@ -125,7 +125,7 @@ Laboratuvar › Ay görevi panelindeki **Kontrol** sekmesi aracın anlık durumu
 - `js/telemetry.js` — canlı uçuş telemetrisi (jeodezik irtifa, yüzeye göre hız, osküle elemanlar, Kepler süreleri, Tsiolkovsky Δv ve bütçe, tutulma, görüş hattı, uyarılar) · `js/controlpanel.js` — Kontrol sekmesi
 - `lib/motion.esm.js`, `lib/number-flow.esm.js`, `lib/torph.esm.js` (Motion, NumberFlow, torph; MIT) — hareket kütüphaneleri; `index.html`'deki importmap'te `motion`, `number-flow`, `torph` adlarıyla tanımlıdır (içe aktarılana kadar indirilmez, arayüz henüz kullanmıyor); `../tools/motion_paketle.mjs` ile üretilir, lisanslar `lib/*.LICENSE.md`
 - `js/sats.js`, `js/satlayer.js`, `lib/satellite.esm.js` (satellite.js, MIT) — canlı uydular
-- `js/satcatalog.js`, `js/satmodels.js`, `models/sats/` — gerçek 3B uydu modelleri (NASA 3D Resources, kamu malı), `lib/addons/libs/meshopt_decoder.module.js` (MIT)
+- `js/satcatalog.js`, `js/satmodels.js`, `models/sats/` — gerçek 3B uydu modelleri (NASA 3D Resources ve NASA Eyes on the Earth; kaynak her modelde `src`, kartta gösterilir), `lib/addons/libs/meshopt_decoder.module.js` (MIT)
 - `js/treemenu.js` — alt çubuktaki açılır ağaç menüler
 - `js/scene.js` Three.js görüntü · `js/ui.js` HUD ve paneller · `js/terrain.js` iniş bölgesi arazisi (geometri kurar) · `js/terraingen.js` + `js/terrainwork.js` arazi üretimi (saf kod, Web Worker'da)
 - Performans (`../docs/performans.md`): `js/ephstore.js` parçalı JPL çekirdekleri (yalnız gereken yıllar iner; `data/eph/v1`) · `js/format.js` önbellekli sayı/tarih biçimleyiciler · `js/texload.js` + `js/texplan.js` ana doku hattı (ImageBitmap, R8, aşamalı GPU yükleme, düşük bellek katmanı) · `js/meshmerge.js` model ağlarını malzemeye göre birleştirir · `js/pointstore.js` iz noktaları için düz Float64 depo · `js/perfgov.js` uyarlanır çizim çözünürlüğü · `js/nominalrun.js` nominal Δv koşusu (tarayıcı worker'ı ve üretici betik ortak)
