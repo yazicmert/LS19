@@ -65,7 +65,9 @@ const arac = html.slice(html.indexOf('id="tab-arac"'), html.indexOf('id="tab-ucu
 check(/id="rocketCards"/.test(arac) && /id="rocketInfo"/.test(arac), 'roket kartları 2. adımda (Araç ve güdüm)');
 check(/rocket: this\.rocket/.test(ui) && /'rocket' in c/.test(ui) && /rocket: undefined/.test(ui), 'ui: yapılandırma roketi taşır; profil seçimi roketi değiştirmez; profil eşleşmesi roketten bağımsız');
 check(/ui\.onRocket = /.test(app) && /startDesign\(/.test(app.slice(app.indexOf('ui.onRocket = '))) && /gönderemez/.test(app) && /rocketOk/.test(app), 'app: roket değişince yeniden tasarım; yakıt yetmezse önceki rokete dönülür');
-check(/setStageModel\(rocketOf\(/.test(scene) && /makeUpperStage/.test(scene) && /flameSx/.test(scene), 'sahne: tasarımdaki roketin üst kademesi (model, alev, çok motor)');
+check(/rocketOf\(D && D\.STAGES/.test(scene) && /setStageModel\(rk\.model\)/.test(scene) && /makeUpperStage/.test(scene) && /flameSx/.test(scene), 'sahne: tasarımdaki roketin üst kademesi (model, alev, çok motor)');
 for (const id of R.ROCKET_IDS) { const r = R.ROCKETS[id]; check(r.model === 'sivb' || new RegExp(`key === '${r.model}'`).test(rm), `${id}: 3B model "${r.model}"`); }
+check(R.ROCKET_IDS.every((id) => R.ROCKETS[id].stageNote) && R.ROCKETS.GENEL.model !== R.ROCKETS.SATURN_V.model && /3\. kademesi/.test(R.ROCKETS.SATURN_V.stageNote), 'araç görünümü: her roketin kademe etiketi var; genel kademe S-IVB modelini kullanmaz (Saturn V ile karışmaz)');
+check(/'stagetag'/.test(scene) && /stageNote/.test(scene), 'sahne: yakın planda TLI kademesi etiketi');
 for (const id of ['SLS1', 'F9', 'VULCAN']) { const d = R.ROCKETS[id].stage.dims; check(d && d.D > 3 && d.L > 10 && d.bell.exitD > 1 && d.bell.len < d.L / 2, `${id}: çizim ölçüleri (çap ${d.D} m, boy ${d.L} m, çan ${d.bell.exitD} m)`); }
 console.log(ok ? 'TAMAM' : 'HATA'); process.exit(ok ? 0 : 1);

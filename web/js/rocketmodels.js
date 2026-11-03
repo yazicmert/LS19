@@ -73,6 +73,14 @@ export function makeUpperStage(key) {
     lathe(g, [[2.0, zA - 0.9], [1.4, zA - 1.4]], K.dark);                                      // itki yapısı
     const x = 1.05; for (const sx of [x, -x]) engine(g, sx, 0, zA - 1.6, { bell: s.bell }, K, false);
     place = { exitZ: zA - 1.6 - s.bell.len, exitR: s.bell.exitD / 2, len: s.L, rcsZ: -1.0, rcsR: R + 0.12, engines: [[x, 0], [-x, 0]] };
+  } else if (key === 'generic') {
+    // genel (temsilî) TLI kademesi: ~6,2 t LH2/LOX'a yetecek hacim (≈ 17 m³) — 3,0 m çaplı kısa tank, altın MLI kuşağı, tek RL10 sınıfı motor; S-IVB'den ayırt edilsin diye gri-mavi
+    const R = 1.5, blue = M({ color: 0x8fa3b8, metalness: 0.2, roughness: 0.5 }), gold = M({ color: 0xc9983a, metalness: 1.0, roughness: 0.32 });
+    lathe(g, [[R + 0.03, 0], [R + 0.03, -0.3]], K.alu);
+    lathe(g, [[R, -0.3], [R, -4.2], ...dome(R, -4.2, 0.7).slice(1)], blue);
+    lathe(g, [[R + 0.02, -1.6], [R + 0.02, -2.6]], gold);
+    engine(g, 0, 0, -4.6, { bell: { exitD: 1.2, len: 1.9 } }, K, false);
+    place = { exitZ: -6.5, exitR: 0.6, len: 6.5, rcsZ: -0.8, rcsR: R + 0.12, engines: [[0, 0]] };
   } else return null;
   g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   g.scale.setScalar(1e-3);

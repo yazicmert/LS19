@@ -554,3 +554,7 @@ body.rs-open { overflow: hidden; }
 .wintbl tr.best td:first-child { box-shadow: inset 3px 0 0 var(--good); }
 .wintbl td.worse { color: var(--warn); } .wintbl td.better { color: var(--good); }
 @media (max-width: 760px) { .wx-checks li { grid-template-columns: 96px 1fr auto; } }
+
+/* araç görünümünde TLI kademesi etiketi (hangi roketin hangi kademesi) */
+.lbl-stagetag { white-space: normal; width: max-content; max-width: 280px; text-align: center; font-size: 11.5px; line-height: 1.35; color: var(--text-primary);
+  background: rgba(8, 10, 16, .62); border: 1px solid var(--line-2); padding: 4px 9px; border-radius: 9px; pointer-events: none; }

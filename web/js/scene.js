@@ -457,7 +457,7 @@ export class World {
       this.planets.push(pl);
     }
     // etiketler
-    for (const [k, txt] of [['earth', 'Dünya'], ['moon', 'Ay'], ['veh', 'Araç'], ['site', 'Apollo 11 iniş yeri'], ['emb', 'Dünya–Ay kütle merkezi'], ['lp', 'L1'], ['lp2', 'L2']]) {
+    for (const [k, txt] of [['stagetag', ''], ['earth', 'Dünya'], ['moon', 'Ay'], ['veh', 'Araç'], ['site', 'Apollo 11 iniş yeri'], ['emb', 'Dünya–Ay kütle merkezi'], ['lp', 'L1'], ['lp2', 'L2']]) {
       const d = document.createElement('div'); d.className = 'lbl lbl-' + k; d.textContent = txt; this.labelsEl.appendChild(d); this.labels[k] = d;
     }
   }
@@ -575,7 +575,9 @@ export class World {
   setDesign(D) {
     this.haloPts = null;
     this.nStages = D && D.STAGES ? D.STAGES.length : 2;
-    this.setStageModel(rocketOf(D && D.STAGES && D.STAGES[0] ? D.STAGES[0].rocket : null).model);
+    const rk = rocketOf(D && D.STAGES && D.STAGES[0] ? D.STAGES[0].rocket : null);
+    this.setStageModel(rk.model);
+    if (this.labels.stagetag) this.labels.stagetag.textContent = rk.stageNote || '';     // yakın planda TLI kademesinin ne olduğu
     if (D && D.profile === 'HALO' && D.HALO && D.HALO.patches) {
       const ref = new HaloRef(null, D.HALO.patches, D.HALO.tDep, D.HALO.tNri);
       this.haloPts = ref.sample(Math.max(600, D.HALO.T / 400)).map((q) => q.r);
@@ -840,6 +842,12 @@ export class World {
     this.placeLabel('earth', [0, 0, E.R_E * 1.08], norm(eye) > 30000 && !solarV, 0);
     this.placeLabel('moon', add(rm, [0, 0, E.R_M * 1.12]), norm(sub(rm, eye)) > 9000 && !solarV, 0);
     this.placeLabel('veh', x.r, dCamVeh > 1.5 && !solarV, 14);
+    // yakın planda (araç görünümü) TLI kademesinin etiketi: kademe takılıyken, kademenin ortasında
+    if (this.labels.stagetag) {
+      const on = this.stackStage.visible && dCamVeh < 0.6 && !this.cine.on && !!this.labels.stagetag.textContent;
+      if (on) { const off = new THREE.Vector3(0, 0, this.stackStage.position.z - this.place.stage.len * KM * 0.5).applyQuaternion(this.attQ); this.placeLabel('stagetag', add(x.r, [off.x, off.y, off.z]), true, -10); }
+      else this.labels.stagetag.style.display = 'none';
+    }
     // ayrılan kademelerin işaretçileri ve etiketleri: her biri kendi adıyla (TLI kademesi, Ay yörünge kademesi); yakındayken (model görünür) işaretçi çizilmez
     const seenMk = new Set();
     for (const d of extra.debris || []) {

@@ -27,7 +27,8 @@ export const ROCKETS = {
     name: 'Genel TLI kademesi', short: 'Genel', year: '—', pad: 'KSC LC-39B', status: 'Örnek',
     note: 'Varsayılan: yakıtı göreve göre boyutlanan küçük hidrolox kademe (hazır tasarımlar bununla).',
     stage: { name: 'TLI kademesi', dry: 2300, T: 100, isp: 450, engines: 1, prop: 'LH2/LOX' },
-    model: 'sivb', sized: true,
+    model: 'generic', sized: true,
+    stageNote: 'Temsilî TLI kademesi (gerçek bir rokete ait değil; yakıtı göreve göre boyutlanır)',
   },
   SATURN_V: {
     name: 'Saturn V', short: 'Saturn V', year: '1967–1973', pad: 'KSC LC-39A', status: 'Tarihî (Apollo)',
@@ -35,6 +36,7 @@ export const ROCKETS = {
     stage: { name: 'S-IVB + IU', dry: 13500 + 2041, tank: 106400, T: 1033.1, isp: 421, engines: 1, prop: 'LH2/LOX', engine: 'J-2' },
     ref: { kind: 'TLI', P: 46768, src: 'Apollo 17 TLI yükü: CSM 30.320 kg + LM 16.448 kg (NASA PDS)' },
     model: 'sivb',
+    stageNote: 'S-IVB + IU — Saturn V\'nin 3. kademesi (S-IC ve S-II kalkışta ayrıldı; yörüngeye yalnız bu kademe ulaşır)',
   },
   SLS1: {
     name: 'SLS Block 1', short: 'SLS', year: '2022–', pad: 'KSC LC-39B', status: 'Etkin (Artemis)',
@@ -43,6 +45,7 @@ export const ROCKETS = {
       dims: { D: 5.1, L: 13.7, bell: { exitD: 2.15, len: 4.15 } } },
     ref: { kind: 'TLI', P: 27000, src: 'NASA SLS bilgi notu: Block 1 mürettebatlı yapılandırma > 27 t TLI' },
     model: 'icps',
+    stageNote: 'ICPS — SLS\'in üst kademesi (çekirdek kademe ve katı iticiler kalkışta ayrıldı)',
   },
   F9: {
     name: 'Falcon 9 Block 5', short: 'Falcon 9', year: '2018–', pad: 'CCSFS SLC-40', status: 'Etkin (CLPS: IM-1, IM-2, Blue Ghost)',
@@ -51,6 +54,7 @@ export const ROCKETS = {
       dims: { D: 3.66, L: 13.8, bell: { exitD: 3.3, len: 4.4 } } },
     ref: { kind: 'GTO', P: 5500, src: 'GTO 5,5 t (birinci kademe kurtarılır; SpaceX 8,3 t harcanabilir)' },
     model: 'f9s2',
+    stageNote: 'Falcon 9 ikinci kademesi (birinci kademe kalkışta ayrılıp geri indi)',
   },
   FH: {
     name: 'Falcon Heavy', short: 'Falcon Heavy', year: '2018–', pad: 'KSC LC-39A', status: 'Etkin',
@@ -59,6 +63,7 @@ export const ROCKETS = {
       dims: { D: 3.66, L: 13.8, bell: { exitD: 3.3, len: 4.4 } } },
     ref: { kind: 'GTO', P: 8000, src: 'GTO ~8 t (yan iticiler kurtarılır; 26,7 t tümü harcanabilir)' },
     model: 'f9s2',
+    stageNote: 'Falcon Heavy ikinci kademesi (yan iticiler ve merkez çekirdek kalkışta ayrıldı)',
   },
   VULCAN: {
     name: 'Vulcan Centaur VC2S', short: 'Vulcan', year: '2024–', pad: 'CCSFS SLC-41', status: 'Etkin (Peregrine)',
@@ -67,6 +72,7 @@ export const ROCKETS = {
       dims: { D: 5.4, L: 11.7, bell: { exitD: 1.45, len: 2.2 } } },
     ref: { kind: 'TLI', P: 6200, src: 'VC2 TLI 6,2 t (ULA başarım tablosu, ikincil)' },
     model: 'centaur',
+    stageNote: 'Centaur V — Vulcan\'ın üst kademesi (birinci kademe ve katı iticiler kalkışta ayrıldı)',
   },
 };
 export const ROCKET_IDS = Object.keys(ROCKETS);
