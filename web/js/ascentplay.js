@@ -29,7 +29,7 @@ export class AscentPlayer {
     const L = D.LAUNCH, rk = rocketOf(D.STAGES && D.STAGES[0] ? D.STAGES[0].rocket : null), A = rk.ascent;
     if (!A) return false;
     const site = { lat: L.lat ?? LEGACY_SITE.lat, lon: L.lon ?? LEGACY_SITE.lon };
-    this.path = buildAscent({ site, tLaunch: L.t_launch, ins, icrfToItrf: this.E.earthIcrfToItrf, rE: this.E.R_E });
+    this.path = buildAscent({ site, tLaunch: L.t_launch, ins, icrfToItrf: this.E.earthIcrfToItrf, rE: this.E.R_E, veh: A.veh, tInsReal: A.tIns, inc: D.inc });
     this.events = scaleEvents(A.events, A.tIns, this.path.T); this.A = A; this.rk = rk; this.base = base;
     this.t = L.t_launch - 10; this.lastMsg = '';
     this.send({ cmd: 'pause', on: true });
@@ -50,7 +50,9 @@ export class AscentPlayer {
     const thr = met >= 0 ? 1 : 0;
     this.world.ascentFrame(cut, hidden, thr);
     const msg = met < 0 ? `${this.rk.name} rampada · T−${Math.ceil(-met)} s` : `${this.rk.name} · gerçek zaman ${fmtMet(real)}${last ? ` · ${last.name} (${fmtMet(last.t)})` : ''}`;
-    if (msg !== this.lastMsg) { this.txt.textContent = msg + ` · irtifa ${s.h.toFixed(0)} km`; this.lastMsg = msg; }
+    const mq = P.sim && P.sim.maxQ, nearQ = mq && Math.abs(real - mq.t) < 6 ? ` · MAX-Q ${(mq.q / 1000).toFixed(0)} kPa` : '';
+    const full = msg + ` · irtifa ${s.h.toFixed(s.h < 10 ? 1 : 0)} km` + (s.q != null && met > 0 && s.h < 100 ? ` · q ${(s.q / 1000).toFixed(1)} kPa` : '') + nearQ;
+    if (full !== this.lastMsg) { this.txt.textContent = full; this.lastMsg = full; }
     const x = { ...this.base, t: this.t, r: s.r, v: s.v, q: quatZto(s.dir), k: 0, thr: 0, phase: 'KALKIS', debris: [], local: null, att: null };
     // sahnede Dünya küre (R_E) olarak çizilir, rampa ise WGS-84 elipsoidinde: çizim konumu alçakta küre yüzeyine yaslanır (20 km'de söner); telemetri gerçek konumu kullanır
     const lift = (this.E.R_E - this.path.R0) * Math.max(0, 1 - s.h / 20), u = Math.hypot(...s.r);

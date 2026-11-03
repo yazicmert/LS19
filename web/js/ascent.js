@@ -1,5 +1,7 @@
-// Kalkış canlandırması (Ay görevi): rampadan park yörüngesine giriş noktasına KİNEMATİK yol. Görev fiziği değişmez — fizik yörüngeye girişte başlar;
+// Kalkış canlandırması (Ay görevi): rampadan park yörüngesine giriş noktasına yol. Görev fiziği değişmez — fizik yörüngeye girişte başlar;
 // bu modül yalnız t_launch → t_ins arasını çizmek için konum/hız/yönelim üretir (saf; Node'da sınanır: test/test_ascent.js).
+// Roketin çıkış verisi (veh) verilirse yol FİZİKSELDİR (ascentsim.js: yerçekimi dönüşü, atmosfer, sürüklenme, kademeler, uç güdüm; gerçek zamanla
+// benzetilir, canlandırma süresine ölçeklenir; yay açısı ve irtifa görevin giriş noktasına tam oturacak biçimde ölçeklenir). Yoksa aşağıdaki kinematik yol.
 //
 // Yol: kalkış anındaki rampa noktası p0 ile giriş noktası r1 (ICRF) arasındaki büyük çember düzleminde,
 //   açı θ(τ) = θ1 · τⁿ  (n, varışta yatay hız giriş hızına eşit olacak biçimde: θ1·n/T · (R+h1) = |v1|; dikey yükselişle başlar),
@@ -9,6 +11,7 @@
 // Gerçek bir çıkış güdümü (yerçekimi dönüşü, atmosfer, kademe itkileri) değildir; zaman çizelgesindeki kademe ayrılmaları roketin gerçek uçuş
 // zamanlarından (rockets.js ascent) T'ye ölçeklenir.
 
+import { solveAscent, sampleAt } from './ascentsim.js';
 const OMEGA = 7.2921159e-5;                                       // rad/s
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -23,7 +26,7 @@ export const P_ALT = 2.2, Q_ALT = 1.3;
 const A_E = 6378.137, F_E = 1 / 298.257223563, E2 = F_E * (2 - F_E);
 
 // site: { lat, lon } (°); ins: { t, r, v } (ICRF km, km/s); icrfToItrf(t) → 3×3 (engine.earthIcrfToItrf); rE: Dünya yarıçapı (km)
-export function buildAscent({ site, tLaunch, ins, icrfToItrf, rE = 6378.137 }) {
+export function buildAscent({ site, tLaunch, ins, icrfToItrf, rE = 6378.137, veh = null, tInsReal = null, inc = 28.5 }) {
   const la = site.lat * Math.PI / 180, lo = site.lon * Math.PI / 180, N = A_E / Math.sqrt(1 - E2 * Math.sin(la) ** 2);
   const ecefKm = [N * Math.cos(la) * Math.cos(lo), N * Math.cos(la) * Math.sin(lo), N * (1 - E2) * Math.sin(la)], R0 = norm(ecefKm), ecef = unit(ecefKm);
   const padAt = (t) => mtv(icrfToItrf(t), ecef);                  // rampanın ICRF birim vektörü (Dünya ile döner)
@@ -32,6 +35,23 @@ export function buildAscent({ site, tLaunch, ins, icrfToItrf, rE = 6378.137 }) {
   const nrm = unit(cross(d0, d1)), e0 = d0, e1 = cross(nrm, d0);   // düzlem tabanı: e0 (rampa), e1 (uçuş yönü)
   const vt = norm(sub(ins.v, scale(d1, dot(ins.v, d1))));          // girişteki yatay hız
   const n = Math.max(1.2, (vt * T) / (r1 * th1));                  // varışta yatay hız = giriş hızı
+  if (veh && tInsReal) {
+    const S = solveAscent(veh, { r0: R0, r1, v1: norm(ins.v), inc, tEnd: tInsReal }), last = S.samples[S.samples.length - 1];
+    const kTh = th1 / last.th, kH = (r1 - R0) / ((last.r - R0) || 1), v1d = unit(ins.v);
+    const atP = (t) => {
+      const tau = Math.max(0, Math.min(1, (t - tLaunch) / T));
+      if (tau <= 0) { const d = padAt(t), r = scale(d, R0), v = cross([0, 0, OMEGA], r); return { r, v, vRel: [0, 0, 0], up: d, h: 0, tau: 0, dir: d, q: 0, tReal: (t - tLaunch) * tInsReal / T, stage: 0 }; }
+      const tr = tau * tInsReal, s = sampleAt(S.samples, tr), th = s.th * kTh, R = R0 + (s.r - R0) * kH;
+      const d = add(scale(e0, Math.cos(th)), scale(e1, Math.sin(th))), et = cross(nrm, d);
+      let v = add(scale(d, s.vr), scale(et, s.vt));
+      const w = tau < 0.92 ? 0 : ((tau - 0.92) / 0.08) ** 2 * (3 - 2 * (tau - 0.92) / 0.08);   // son %8'de görevin giriş hızına yumuşak birleşme
+      v = add(scale(v, 1 - w), scale(ins.v, w));
+      const r = scale(d, R), vRel = sub(v, cross([0, 0, OMEGA], r));
+      const dir = s.stage >= 0 ? add(scale(d, Math.sin(s.psi)), scale(et, Math.cos(s.psi))) : unit(v);
+      return { r, v, vRel, up: d, h: R - R0, tau, dir: unit(add(scale(dir, 1 - w), scale(v1d, w))), q: s.q, tReal: tr, stage: s.stage };
+    };
+    return { T, th1, h1, R0, at: atP, tLaunch, tIns: ins.t, sim: S, physical: true };
+  }
   const geo = (tau) => {
     const th = th1 * Math.pow(tau, n), h = h1 * (1 - Math.pow(1 - Math.pow(tau, Q_ALT), P_ALT));
     return { d: add(scale(e0, Math.cos(th)), scale(e1, Math.sin(th))), R: R0 + h, th, h };
