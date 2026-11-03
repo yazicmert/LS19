@@ -12,8 +12,10 @@ export const R_EQ = 6378.137;                        // km (WGS-84)
 export const V_EQ = OMEGA_E * R_EQ;                  // 0,4651 km/s: ekvatordaki dönüş hızı
 export const REF_INC = 28.5;                          // yayımlanmış başarımların başvuru eğimi (°, Florida doğu fırlatması)
 
-// Eski varsayılan fırlatma noktası (hazır tasarımlar bununla; LL2'deki gerçek LC-39B ~6 km kuzeyde: 28,6271° K, 80,6210° B)
-export const LEGACY_SITE = { id: 0, name: 'Kennedy Uzay Merkezi LC-39B', short: 'KSC LC-39B', lat: 28.5729, lon: -80.6490, legacy: true, az: [35, 120] };
+// Varsayılan fırlatma rampası: KSC LC-39B (LL2 kimliği 4; koordinat LL2'den). Yapılandırmaya yazılmaz (site yok = bu rampa); hazır tasarımlar bununla.
+// (Eski sürümlerdeki nokta 28,5729° K, 80,6490° B idi: gerçek rampanın ~6 km güneyi.)
+export const DEFAULT_PAD_ID = 4;
+export const LEGACY_SITE = { id: 0, name: 'Kennedy Uzay Merkezi LC-39B', short: 'KSC LC-39B', lat: 28.62711, lon: -80.62102, legacy: true, az: [35, 120] };
 
 // Roketlerin gerçekte fırlatıldığı rampalar (LL2 kimlikleri): gerçek roket yalnız bunlardan seçilebilir; genel kademe her rampadan
 //   Saturn V: LC-39A (12 uçuş), LC-39B (Apollo 10) · SLS: LC-39B · Falcon 9: SLC-40, LC-39A, SLC-4E (Vandenberg) · Falcon Heavy: LC-39A · Vulcan: SLC-41
@@ -59,7 +61,7 @@ export function launchAzimuth(latDeg, incDeg) {
 // pads.json → kimliğe göre harita; site kaydı (tasarım yapılandırması) üretir
 export function padIndex(json) { const m = new Map(); for (const p of (json && json.pads) || []) m.set(p.id, p); return m; }
 export function siteOf(p) {
-  if (!p || p.legacy) return null;
+  if (!p || p.legacy || p.id === DEFAULT_PAD_ID) return null;                 // varsayılan rampa: yapılandırmaya yazılmaz
   const r = rangeOf(p.loc);
   return { id: p.id, name: `${p.loc.replace(/,.*$/, '')} ${p.name}`.trim(), lat: +p.lat, lon: +p.lon, ...(r ? { az: r.az.slice() } : {}) };
 }

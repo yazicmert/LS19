@@ -98,6 +98,8 @@
 <link rel="modulepreload" href="js/rocketsheet.js">
 <link rel="modulepreload" href="js/launchui.js">
 <link rel="modulepreload" href="js/weather.js">
+<link rel="modulepreload" href="js/ascentplay.js">
+<link rel="modulepreload" href="js/ascent.js">
 <link rel="modulepreload" href="js/asteroids.js">
 <link rel="modulepreload" href="js/deflect.js">
 <link rel="modulepreload" href="js/astui.js">
@@ -368,7 +370,7 @@
           <div class="fttl">Dünya park yörüngesi</div>
           <div class="frow3">
             <label>İrtifa<span><input id="cfgEh" type="number" min="160" max="1000" step="5"> km</span></label>
-            <label>Eğim<span><input id="cfgEi" type="number" min="28.6" max="90" step="0.1"> °</span></label>
+            <label>Eğim<span><input id="cfgEi" type="number" min="28.7" max="90" step="0.1"> °</span></label>
             <label>Tur<span><input id="cfgEr" type="number" min="0.5" max="15.5" step="1"></span></label>
           </div>
           <div class="frow3" title="TLI öncesi park yörüngesinde apoje yükseltme yakışları: her yakış perijede, TLI yüksek elipsin perijesinde. 0 = park yörüngesinden doğrudan TLI.">
@@ -436,6 +438,7 @@
         </nav>
         <div id="tab-plan" class="tabpage" role="tabpanel">
           <p class="stepsub">Alt çubuktaki <b>Başlat</b> görevi uçurur; zaman hızı ve olaya atlama uçuşu kısaltır. Çizelgedeki bir olaya tıklayınca oraya atlanır.</p>
+          <div class="daterow"><button id="btnAscent" class="sm" type="button">▶ Kalkışı izle</button><span class="note">Seçili roket rampada tam boyuyla; kademeler gerçek uçuş zamanlarına göre ayrılır. Kinematik canlandırma: görev fiziği yörüngeye girişte başlar.</span></div>
           <h3>Görev çizelgesi</h3>
           <ul id="plan" class="plan"></ul>
           <h3>Olay günlüğü</h3>
@@ -620,6 +623,7 @@
   <div id="loading"><div class="lbox"><div class="ltitle">LS19 <span class="lsub">Look Star 19</span></div><div id="loadMsg">Dokular yükleniyor…</div><div class="track"><div id="loadBar" class="fill"></div></div><button id="loadBack" hidden>Varsayılan tarihe dön</button></div></div>
 </div>
 <script type="module" src="js/app.js"></script>
+<div id="ascBar" class="ascbar" hidden role="status"><span id="ascTxt"></span><span class="ascbtns"><button type="button" data-asc="1">×1</button><button type="button" data-asc="10">×10</button><button type="button" data-asc="50">×50</button><button type="button" data-asc="end">Yörüngeye atla</button></span></div>
 <div id="rocketSheet" class="rsheet" hidden role="dialog" aria-modal="true" aria-labelledby="rsTitle">
   <div class="rs-box">
     <header class="rs-head"><div><h2 id="rsTitle"></h2><span class="rs-status"></span></div><button class="rs-close" type="button" aria-label="Kapat">×</button></header>

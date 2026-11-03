@@ -8,7 +8,8 @@ import * as EO from './earth.js';
 import { designMissionAsync, PROFILES, normalizeConfig } from './design.js';
 import { RocketSheet } from './rocketsheet.js';
 import { LaunchUI } from './launchui.js';
-import { inclRange, minIncl } from './pads.js';
+import { AscentPlayer } from './ascentplay.js';
+import { inclRange, minIncl, LEGACY_SITE } from './pads.js';
 import { launchWeather } from './weather.js';
 import { twoStageDesign } from './mission.js';
 import { SatLayer } from './satlayer.js';
@@ -355,14 +356,24 @@ let rocketOk = 'GENEL';
 try { const r = localStorage.getItem('ls19.rocket'); if (r) ui.setRocket(r); } catch (e) { /* özel pencere */ }
 const rocketSheet = new RocketSheet(document.getElementById('rocketSheet'), { onFly: (id) => ui.onRocket(id) });
 ui.onRocketInfo = (id) => rocketSheet.open(id);
+// kalkış canlandırması (ascentplay.js): rampadan yörüngeye girişe; bitince görev girişten sürer
+let insState = null;
+const ascent = new AscentPlayer({ world, E, send, getDesign: () => DESIGN, getIns: () => insState, getState: () => latest,
+  onEnd: () => { send({ cmd: 'seek', t: ui.t0 }); } });
+$('#btnAscent').addEventListener('click', async () => {
+  if (designing || ascent.active) return;
+  if (!insState) { send({ cmd: 'seek', t: ui.t0 }); await new Promise((r) => setTimeout(r, 400)); }
+  if (running) setPlay(false);
+  if (!(await ascent.start())) ui.designMsg && ui.designMsg('Kalkış canlandırması başlatılamadı (görev henüz hazır değil).');
+});
 // fırlatma rampası (dünyadaki yörüngesel rampalar) ve fırlatma pencereleri tarayıcısı (launchui.js)
-const siteIncl = (st) => (st ? (st.az ? inclRange(st.lat, st.az) : [minIncl(st.lat), 90]) : [28.6, 90]);
+const siteIncl = (st) => (st ? (st.az ? inclRange(st.lat, st.az) : [minIncl(st.lat), 90]) : inclRange(LEGACY_SITE.lat, LEGACY_SITE.az));
 const launch = new LaunchUI({
   getRocket: () => ui.rocket,
   onSite: (st) => {
     if (designing) { launch.setSite(ui.site); return; }
     // park eğimi eski rampanın en küçüğündeyse yeni rampanın en küçüğüne taşınır (ör. Baykonur 46,0° → Kourou'da da 46° kalmasın)
-    const c = ui.getConfig(), lo0 = (siteIncl(ui.site) || [28.6])[0], ir = siteIncl(st);
+    const c = ui.getConfig(), lo0 = (siteIncl(ui.site) || [28.7])[0], ir = siteIncl(st);
     ui.site = st;
     if (ir && Math.abs(c.earth.inc - lo0) < 0.05) c.earth.inc = ir[0];
     ui.setConfig({ ...c, site: st || null }); $('#cfgEi').min = String(ir ? ir[0] : 0);
@@ -396,7 +407,7 @@ async function scanWindows(N = 4) {
         row.cost = pay + (D.TLI_NEED ?? D.STAGES[0].prop);
         row.margin = D.STAGES[0].rocket ? D.STAGES[0].prop - D.TLI_NEED : null;
         const L = D.LAUNCH;
-        launchWeather(L.lat ?? 28.5729, L.lon ?? -80.649, E.utcMsFromT(L.t_launch)).then((w) => { row.wx = w; if (!scanning) launch.setScan(rows, ''); });
+        launchWeather(L.lat ?? LEGACY_SITE.lat, L.lon ?? LEGACY_SITE.lon, E.utcMsFromT(L.t_launch)).then((w) => { row.wx = w; if (!scanning) launch.setScan(rows, ''); });
         tFrom = L.t_launch + 86400;
       } catch (err) { row.busy = false; row.err = String(err.message || err).slice(0, 90); break; }
     }
@@ -409,8 +420,8 @@ ui.onRocket = (id) => {
   if (designing || id === ui.rocket) return;
   ui.setRocket(id);
   try { localStorage.setItem('ls19.rocket', ui.rocket); } catch (e) { /* özel pencere */ }
-  const p = launch.padFor(id);                                                  // gerçek roket yalnız kendi rampalarından: gerekirse ilkine geçilir
-  if (p) { const c = ui.getConfig(), lo0 = (siteIncl(ui.site) || [28.6])[0], ir = siteIncl(p); ui.site = p; if (ir && Math.abs(c.earth.inc - lo0) < 0.05) c.earth.inc = ir[0]; ui.setConfig({ ...c, site: p }); ui.setRocket(id, `Rampa ${p.name} olarak değiştirildi (roketin gerçek rampası).`); }
+  const p = launch.padFor(id);                                                  // gerçek roket yalnız kendi rampalarından: gerekirse ilkine geçilir (null = varsayılan LC-39B)
+  if (p !== undefined) { const c = ui.getConfig(), lo0 = (siteIncl(ui.site) || [28.7])[0], ir = siteIncl(p); ui.site = p; if (ir && Math.abs(c.earth.inc - lo0) < 0.05) c.earth.inc = ir[0]; ui.setConfig({ ...c, site: p }); ui.setRocket(id, `Rampa ${p ? p.name : LEGACY_SITE.short} olarak değiştirildi (roketin gerçek rampası).`); }
   launch.syncRocket();
   cmpCancel = true; scanCancel = true;
   startDesign($('#dateInput').value || pendingDate || DEFAULT_DATE);
@@ -428,6 +439,7 @@ worker.onmessage = (e) => {
   if (d.type === 'error') { designFailed(d.msg); return; }
   if (designing && d.type === 'state') return;                  // yeni tasarım kurulurken eski görevin durumları
   if (d.type === 'ready') {
+    insState = null;                                              // yeni görev: giriş durumu ilk durum iletisinden yeniden alınır
     designing = false;
     // ana iş parçacığı da aynı başlangıçtan aynı canlı efemerisi kurar (deterministik: worker ile birebir)
     const lv = makeLive(K.spk, K.pck, K.eo, d.tStart);
@@ -452,6 +464,7 @@ worker.onmessage = (e) => {
     ayRefresh();
   } else if (d.type === 'state') {
     latest = d;
+    if (!insState && Math.abs(d.t - ui.t0) < 1) insState = { t: d.t, r: d.r.slice(), v: d.v.slice() };   // yörüngeye giriş durumu (kalkış canlandırmasının varış noktası)
     if (d.nbody !== undefined && chkNbody.checked !== d.nbody) chkNbody.checked = d.nbody;          // durum iletisi saniyede ~60: DOM sorgusu önbellekte
     if (d.trail && (d.trail.length || d.trailReset)) withMission(() => { world.addTrail(d.trail, d.trailReset); ui.addSamples(d.trail, d.trailReset); });
     if (d.events && d.events.length) ui.addEvents(d.events);
@@ -474,6 +487,9 @@ function frame(now) {
   if (MODE === 'sky' && K && skyui && !designing) {
     const ms = clock.nowMs(); skyT = tOfUtcMs(ms);
     if (ensureSky(skyT)) skyFrame(ms, now, dt);
+  } else if (ascent.active && latest) {                          // kalkış canlandırması: worker duraklatılmış, ana iş parçacığı oynatır
+    const x = ascent.tick(dt);
+    if (x) { world.update(x, { dtReal: dt, stage: 0, debris: [], local: null, drAxis: null }); ui.hud(ascent.hud || x, now); }
   } else if (latest) {
     world.update(latest, { dtReal: dt, stage: latest.stage, debris: latest.debris, local: latest.local, drAxis: latest.drAxis });
     // uydular ve asteroitler Ay görevi alanında çizilmez (yalnız Canlı Gökyüzü'nde)

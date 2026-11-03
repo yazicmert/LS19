@@ -29,7 +29,7 @@ const D2R = Math.PI / 180;
 // ---------------------------------------------------------------- yapılandırma
 export const DEFAULT_RAISE = { n: 0, ha: 20000 };            // yörünge yükseltme: TLI öncesi apoje yükseltme yakışı sayısı (0 = yok) ve son apoje irtifası (km)
 export const DEFAULT_CONFIG = {
-  earth: { h: 185, inc: 28.6, revs: 1.5, raise: DEFAULT_RAISE },   // Dünya park yörüngesi: irtifa (km), eğim (°), tur (yükseltmeden önce park yörüngesinde)
+  earth: { h: 185, inc: 28.7, revs: 1.5, raise: DEFAULT_RAISE },   // Dünya park yörüngesi: irtifa (km), eğim (°), tur (yükseltmeden önce park yörüngesinde)
   moon: { type: 'LLO', llo: { h: 110, revs: 2 }, halo: { preset: 'NRHO92', revs: 1 } },
 };
 export const PROFILES = {
@@ -38,7 +38,7 @@ export const PROFILES = {
   NRHO: { name: 'Artemis: NRHO 9:2 bekleme (1 tur) + LLO', cfg: { earth: DEFAULT_CONFIG.earth, moon: { type: 'HALO', llo: { h: 100, revs: 2 }, halo: { preset: 'NRHO92', revs: 1 } } } },
   L2: { name: 'L2 halo bekleme + LLO', cfg: { earth: DEFAULT_CONFIG.earth, moon: { type: 'HALO', llo: { h: 100, revs: 2 }, halo: { preset: 'L2S13', revs: 1 } } } },
   L1: { name: 'L1 halo bekleme + LLO', cfg: { earth: DEFAULT_CONFIG.earth, moon: { type: 'HALO', llo: { h: 100, revs: 2 }, halo: { preset: 'L1N10', revs: 1 } } } },
-  YUKSELTME: { name: 'Yörünge yükseltmeli: 3 yakış (apoje 40.000 km) + TLI + LLO', cfg: { earth: { h: 185, inc: 28.6, revs: 1.5, raise: { n: 3, ha: 40000 } }, moon: DEFAULT_CONFIG.moon } },
+  YUKSELTME: { name: 'Yörünge yükseltmeli: 3 yakış (apoje 40.000 km) + TLI + LLO', cfg: { earth: { h: 185, inc: 28.7, revs: 1.5, raise: { n: 3, ha: 40000 } }, moon: DEFAULT_CONFIG.moon } },
 };
 export const HALO_OPTIONS = Object.fromEntries(Object.entries(HALO_PRESETS).map(([k, v]) => [k, v.name]));
 const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -59,7 +59,7 @@ export function normalizeConfig(c) {
     if (Array.isArray(st.az) && st.az.length === 2 && st.az.every(Number.isFinite)) out.site.az = [+st.az[0], +st.az[1]];   // menzil güvenliği azimut aralığı (pads.js)
   }
   // menzilin izinli azimutlarıyla ulaşılabilen eğim aralığı (yoksa yalnız enlem sınırı)
-  const ir = out.site ? (out.site.az ? inclRange(out.site.lat, out.site.az) : [minIncl(out.site.lat), 90]) : [28.6, 90];
+  const ir = out.site ? (out.site.az ? inclRange(out.site.lat, out.site.az) : [minIncl(out.site.lat), 90]) : inclRange(LEGACY_SITE.lat, LEGACY_SITE.az);   // varsayılan: LC-39B, 28,7°–59,7°
   out.earth.inc = Math.min(ir ? ir[1] : 90, Math.max(ir ? ir[0] : minIncl(out.site.lat), +out.earth.inc));
   out.earth.revs = Math.min(15.5, Math.max(0.5, +out.earth.revs));
   out.moon.llo.h = Math.min(500, Math.max(30, +out.moon.llo.h));
@@ -84,7 +84,7 @@ function ctx(cfg, stages) {
   const H_PARK = cfg.earth.h, R_PARK = E.R_E + H_PARK;
   const H_LLO = cfg.moon.llo.h, R_LLO = E.R_M + H_LLO, N_LLOm = Math.sqrt(E.MU_M / R_LLO ** 3), P_LLO = 2 * Math.PI / N_LLOm;
   const N_REV = cfg.moon.llo.revs;
-  const incList = Math.abs(cfg.earth.inc - 28.6) < 1e-9 ? [28.6, 30, 32.5, 35, 40] : [cfg.earth.inc, cfg.earth.inc + 2, cfg.earth.inc + 4, cfg.earth.inc + 7, cfg.earth.inc + 11].filter((x) => x <= 90);
+  const incList = Math.abs(cfg.earth.inc - 28.7) < 1e-9 ? [28.7, 30, 32.5, 35, 40] : [cfg.earth.inc, cfg.earth.inc + 2, cfg.earth.inc + 4, cfg.earth.inc + 7, cfg.earth.inc + 11].filter((x) => x <= 90);
   // TLI öncesi yörünge: yükseltme yoksa dairesel park yörüngesi; varsa perijesi R_PARK, apojesi RA olan elips (TLI perijede başlar)
   const RAISE = cfg.earth.raise || DEFAULT_RAISE, RA = RAISE.n ? E.R_E + RAISE.ha : R_PARK;
   const V_PRE = RAISE.n ? Math.sqrt(E.MU_E * (2 / R_PARK - 2 / (R_PARK + RA))) : Math.sqrt(E.MU_E / R_PARK);
