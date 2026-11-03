@@ -402,6 +402,10 @@
         </div>
         <div id="designInfo" class="dinfo"></div>
         <div id="wxBox" class="wx" aria-live="polite"></div>
+        <h3>Günlük fırlatma penceresi</h3>
+        <p class="note">Aynı gün, fırlatma azimutu (park eğimi) değiştikçe farklı saatlerde fırsat açılır; iniş aynı gün kalır. Menzilin izin verdiği eğimlerle günün fırsatları tasarlanır, her birinin fırlatma anındaki hava değerlendirilir. Önerilen (★): hava uygun olanlar arasında en az yakıtlı. Satıra tıklayınca görev o fırsatla kurulur.</p>
+        <div class="daterow"><button id="btnDay" class="sm" type="button">Günün fırsatlarını havayla değerlendir</button><span id="dayMsg" class="note"></span></div>
+        <div class="tblwrap"><table id="daytable" class="tbl wintbl"><thead><tr><th>Fırlatma (UTC)</th><th>Az.</th><th>Eğim</th><th>İniş Güneşi</th><th>Yakıt (kg)</th><th>TLI payı</th><th>Hava</th></tr></thead><tbody></tbody></table></div>
         <h3>Fırlatma pencereleri</h3>
         <p class="note">Seçili rampa, roket ve profille sonraki dört pencere tasarlanır (her biri bir öncekinin ertesi gününden aranır). Yakıt = iniş aracı yakıtı + TLI için gereken yakıt; "Fark" en ucuz pencereye göre. Satıra tıklayınca görev o pencereyle kurulur.</p>
         <div class="daterow"><button id="btnScan" class="sm" type="button">Sonraki 4 pencereyi tara</button><span id="winMsg" class="note"></span></div>

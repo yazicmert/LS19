@@ -288,3 +288,33 @@ Bu bir **kinematik canlandırma**. Görev fiziği ve Δv hesapları değişmiyor
 Ayrılma, modelde bir kesme düzlemiyle (alt kısım çizilmiyor) ve etiketli parçaların gizlenmesiyle gösteriliyor: iticiler, kaporta, LAS.
 
 Alev rengi birinci kademenin yakıtına göre: gazyağı turuncu, katı yakıt beyaz-sarı. Atmosfer etkileri ve düşen kademeler çizilmiyor.
+
+### 6.6 Günlük fırlatma penceresi ve hava
+
+Ay görevlerinde fırlatma günü kaydırılamıyor: bir günlük erteleme inişi de ~1,3 gün kaydırıyor ve iniş anında Güneş 15,7°'den 32,1°'ye çıkıyor (ölçüm: varsayılan Apollo görevi). Bu, Apollo'nun aydınlatma sınırlarının dışında. Apollo da bu yüzden ertelemede iniş yerini değiştiriyordu.
+
+Gerçek **günlük pencere** fırlatma azimutunun değişmesiyle oluşuyor: aynı gün farklı park eğimleriyle farklı saatlerde fırsat açılıyor, iniş aynı gün kalıyor. Apollo'da azimut 72°–108° arasında değişiyor ve birkaç saatlik bir pencere oluşuyordu.
+
+Ölçüm (13 Ekim 2026, LC-39B, Apollo profili):
+
+| Eğim | Fırlatma (UTC) | Azimut | İniş Güneşi |
+|---|---|---|---|
+| 28,7° | 12:36 | 88° | 15,7° |
+| 30° | 12:00 | 81° | 15,8° |
+| 35° | 11:47 | 69° | 17,9° |
+| 40° | 03:54 | 61° | 10,6° |
+| 45° | 02:59 | 54° | 11,1° |
+| 50° | 02:18 | 47° | 12,1° |
+
+Toplam Δv tüm fırsatlarda ~5.910 m/s, birkaç m/s farkla. Gerçek roketlerde fark eğim cezasıyla (§6.2) kalan yakıta yansıyor.
+
+**Günlük fırlatma penceresi (1. adım):**
+
+- Menzilin izin verdiği aralıkta aday eğimler tasarlanıyor: en küçük eğim + 0; 1,3; 3,8; 6,3; 11,3; 16,3; 21,3°.
+- ±10 dk içinde aynı fırsata düşenlerden yalnız en az yakıtlısı kalıyor.
+- Her fırsatın fırlatma anındaki hava değerlendiriliyor (§6.4).
+- **Önerilen fırsat** (`weather.js pickLaunch`): hava "uygun" olanlar arasında en az yakıtlı. Uygun yoksa riskli olanlar arasında en az yakıtlı. Hepsi "uygun değil" ise öneri yapılmıyor ("sonraki pencereyi deneyin"). Hava verisi yoksa en az yakıtlı.
+- Satıra tıklayınca görev o eğimle kuruluyor.
+- Mevcut görevin havası uygun değilse hava kutusunda günün diğer fırsatlarına geçiş düğmesi çıkıyor.
+
+Örnek hava verisiyle tarayıcı denetimi: 11–13 UTC arası fırtına, 02 UTC'de 40 kt esinti. Önerilen 02:59 (45°) oldu; seçilince görev o fırsatla kuruldu.
