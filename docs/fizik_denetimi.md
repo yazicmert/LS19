@@ -135,7 +135,7 @@ Park yörüngesindeki yakıt, roketin yayımlanmış başarımından roket denkl
 
 | Roket | TLI kademesi | Kaynak başarım | Türetilen TLI kapasitesi | 3,6 t araçla TLI yakışı |
 |---|---|---|---|---|
-| Saturn V (tarihî) | S-IVB + IU, J-2 1033 kN, Isp 421 s | Apollo 17 yığını 48,6 t | 48,6 t | ~4,5 dk |
+| Saturn V (tarihî) | S-IVB + IU, J-2 1033 kN, Isp 421 s | Apollo 17 TLI yükü 46,8 t (NASA PDS: CSM + LM) | 46,8 t | ~4,5 dk |
 | SLS Block 1 | ICPS, RL10B-2 110 kN, Isp 462 s | NASA: > 27 t TLI | 25,2 t (ICPS tankı sınırlar) | ~12,5 dk |
 | Falcon 9 Block 5 | 2. kademe, MVac 981 kN, Isp 348 s | GTO 5,5 t (kurtarmalı) | 3,8 t | ~41 s (kesmede ~13 g) |
 | Falcon Heavy | aynı 2. kademe | GTO ~8 t (yan iticiler kurtarılır) | 5,8 t | ~51 s |
@@ -143,7 +143,7 @@ Park yörüngesindeki yakıt, roketin yayımlanmış başarımından roket denkl
 
 **Denetimler.**
 
-- Apollo 17 yüküyle S-IVB park yörüngesinde ~73 t yakıtla kalıyor ve TLI'da tükeniyor. Gerçekte ~70 t idi.
+- Apollo 17 yüküyle S-IVB park yörüngesinde ~71 t yakıtla kalıyor ve TLI'da tükeniyor. Gerçekte ~70 t idi.
 - Yayımlanan TLI yükleri park kütlesinden geri elde ediliyor (`test_rockets.js`).
 - Denenen birleşimlerin hepsi Ay'a güvenle iniyor: beş roket Apollo profilinde; SLS, Vulcan ve Falcon Heavy NRHO'da; Falcon 9, Falcon Heavy, Saturn V ve SLS yörünge yükseltmeli profilde. Tek istisna Falcon 9 + NRHO: iniş aracı ~4,2 t, Falcon 9'un türetilmiş kapasitesi ~3,8 t. Tasarım bunu anlaşılır bir hatayla söylüyor ve arayüz önceki rokete dönüyor.
 
@@ -158,3 +158,29 @@ Park yörüngesindeki yakıt, roketin yayımlanmış başarımından roket denkl
 - Rampalar Florida'da ve birbirine ~10 km uzaklıkta. Tasarım LC-39B koordinatlarını kullanıyor.
 
 **3B modeller.** S-IVB resmî NASA modeli. ICPS, Falcon ikinci kademesi ve Centaur V'nin kamu malı resmî modeli yok; bunlar yayımlanmış ölçülerden dönel yüzeylerle çizildi (`rocketmodels.js`): çap, boy, çan çıkış çapı ve boyu, motor sayısı. Hidrolox alevleri soluk mavi, kerolox alevi turuncu.
+
+### 5.4 Roket bilgi kartları (`rocketinfo.js`, `rocketsheet.js`)
+
+Ay görevinin 2. adımındaki her gerçek roketin kartında bir ⓘ düğmesi var. Düğme bir bilgi kartı açar. Kartın içeriği:
+
+- 3B görünüm (sürükle: döndür, tekerlek ya da iki parmak: yakınlaş; ölçek için 1,8 m'lik insan).
+- Teknik özellikler.
+- Kademeler ve yakıtlar.
+- Tarihçe.
+- Ay ve derin uzay görevleri.
+- Simülasyondaki TLI kademesinin verisi.
+- Numaralı kaynaklar.
+
+Her bilgi bir kaynak numarasına bağlı; `test_rocketinfo.js` her numaranın geçerli olduğunu ve her kaynağın en az bir bilgiye bağlandığını denetliyor. Görev listeleri 3 Kasım 2026 itibarıyla güncel. Örnekler: Artemis II (1 Nisan 2026, Ay yakın geçişi), Vulcan'ın Şubat 2026 itici anomalisinden sonraki duraklaması, Griffin Mission One (planlanıyor).
+
+**3B modeller.**
+
+| Roket | Model | Kaynak |
+|---|---|---|
+| Saturn V | Resmî NASA 3D Resources modeli, 110,6 m'ye ölçeklenmiş, 227 kB | `tools/roket_modelleri.mjs` |
+| SLS Block 1 | Yayımlanmış ölçülerden çizim | NASA 3D Resources'taki `.blend` dosyası tank kabuklarını içermiyor (yalnız besleme boruları, bağlantılar, motorlar ve üst kısım); parça yükseklikleri o modelden alındı |
+| Falcon 9, Falcon Heavy, Vulcan | Yayımlanmış ölçülerden çizim | Kamu malı resmî model yok |
+
+Görüntüleyici tembel yükleniyor: kart açılınca ayrı bir WebGL bağlamı oluşuyor, kapanınca serbest bırakılıyor. Böylece ilk açılış yavaşlamıyor.
+
+Saturn V'nin TLI başarımı NASA PDS kaydına göre düzeltildi: Apollo 17'de CSM 30.320 kg + LM 16.448 kg = 46,8 t (önce 48,6 t kullanılıyordu). Park yörüngesindeki S-IVB yakıtı ~71 t çıkıyor; gerçekte ~70 t idi.

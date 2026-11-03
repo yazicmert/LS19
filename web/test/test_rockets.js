@@ -27,7 +27,7 @@ for (const id of ['SATURN_V', 'VULCAN']) {
   const dv = s.isp * R.G0 * Math.log((s.dry + r.ref.P + prop) / (s.dry + r.ref.P)) / 1000;
   check(Math.abs(dv - R.DV_REF.TLI) < 1e-9 && Math.abs(R.tliCapacity(id) - r.ref.P) < 1, `${id}: yayımlanan TLI yükü (${r.ref.P} kg) park kütlesinden geri elde edilir`);
 }
-const ap17 = R.parkMass('SATURN_V') - R.ROCKETS.SATURN_V.stage.dry - 48600;
+const ap17 = R.parkMass('SATURN_V') - R.ROCKETS.SATURN_V.stage.dry - R.ROCKETS.SATURN_V.ref.P;
 check(ap17 > 65000 && ap17 < 80000, `Apollo 17 denetimi: S-IVB park yörüngesinde ${(ap17 / 1000).toFixed(1)} t yakıtla (gerçek ~70 t)`);
 check(Math.abs(R.tliCapacity('SLS1') / 27000 - 1) < 0.1, `SLS Block 1 türetilmiş TLI kapasitesi ${(R.tliCapacity('SLS1') / 1000).toFixed(1)} t ~ yayımlanan 27 t (±%10; ICPS tankı sınırlar)`);
 const f9 = R.tliCapacity('F9');

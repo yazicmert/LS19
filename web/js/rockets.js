@@ -6,7 +6,7 @@
 //            M_park = (m_kuru + P_ref) · exp(Δv_ref / (Isp g0))          (Δv_ref: 200 km dairesel park yörüngesinden TLI ya da GTO'ya, dürtüsel)
 //          Park yörüngesine konan kütle roketin alt kademelerince belirlenir; yük hafifse fark üst kademede yakıt olarak kalır (1:1 takas):
 //            yakıt_park = min(tank, M_park − m_kuru − yük)
-//          Denetim: Apollo 17 yüküyle S-IVB park yörüngesinde ~73 t yakıtla kalır ve TLI'da tükenir (gerçek: ~70 t, yakış 5,9 dk; burada ~4,9 dk).
+//          Denetim: Apollo 17 yüküyle S-IVB park yörüngesinde ~71 t yakıtla kalır ve TLI'da tükenir (gerçek: ~70 t, yakış 5,9 dk; burada ~4,8 dk).
 //          SLS'te türetilmiş TLI kapasitesi 25,2 t'dur (yayımlanan 27 t: ICPS gerçekte 200 km dairesel değil, daha yüksek eliptik yörüngeden başlar).
 // Rampalar Florida'dadır (KSC / Cape Canaveral, birbirine ~10 km): görev tasarımı LC-39B koordinatlarını kullanır, 28,6°+ eğimli park yörüngesi hepsi için geçerlidir.
 // Kaynaklar: NASA SLS bilgi notu (27 t TLI), Wikipedia (ICPS/DCSS, S-IVB, J-2, Centaur, Vulcan, Falcon 9) ve SpaceX Capabilities & Services.
@@ -33,7 +33,7 @@ export const ROCKETS = {
     name: 'Saturn V', short: 'Saturn V', year: '1967–1973', pad: 'KSC LC-39A', status: 'Tarihî (Apollo)',
     note: 'Apollo görevlerinde TLI\'ı S-IVB yaptı (J-2 motoru yeniden ateşlendi). Kuru kütleye araç aygıt birimi (IU, 2.041 kg) dahil.',
     stage: { name: 'S-IVB + IU', dry: 13500 + 2041, tank: 106400, T: 1033.1, isp: 421, engines: 1, prop: 'LH2/LOX', engine: 'J-2' },
-    ref: { kind: 'TLI', P: 48600, src: 'Apollo 17 uzay aracı yığını (CSM + LM), 48,6 t' },
+    ref: { kind: 'TLI', P: 46768, src: 'Apollo 17 TLI yükü: CSM 30.320 kg + LM 16.448 kg (NASA PDS)' },
     model: 'sivb',
   },
   SLS1: {
