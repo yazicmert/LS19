@@ -8,7 +8,7 @@ import * as EO from './earth.js';
 import { designMissionAsync, PROFILES, normalizeConfig } from './design.js';
 import { RocketSheet } from './rocketsheet.js';
 import { LaunchUI } from './launchui.js';
-import { inclRange, minIncl } from './pads.js';
+import { inclRange, minIncl, LEGACY_SITE } from './pads.js';
 import { launchWeather } from './weather.js';
 import { twoStageDesign } from './mission.js';
 import { SatLayer } from './satlayer.js';
@@ -356,13 +356,13 @@ try { const r = localStorage.getItem('ls19.rocket'); if (r) ui.setRocket(r); } c
 const rocketSheet = new RocketSheet(document.getElementById('rocketSheet'), { onFly: (id) => ui.onRocket(id) });
 ui.onRocketInfo = (id) => rocketSheet.open(id);
 // fırlatma rampası (dünyadaki yörüngesel rampalar) ve fırlatma pencereleri tarayıcısı (launchui.js)
-const siteIncl = (st) => (st ? (st.az ? inclRange(st.lat, st.az) : [minIncl(st.lat), 90]) : [28.6, 90]);
+const siteIncl = (st) => (st ? (st.az ? inclRange(st.lat, st.az) : [minIncl(st.lat), 90]) : inclRange(LEGACY_SITE.lat, LEGACY_SITE.az));
 const launch = new LaunchUI({
   getRocket: () => ui.rocket,
   onSite: (st) => {
     if (designing) { launch.setSite(ui.site); return; }
     // park eğimi eski rampanın en küçüğündeyse yeni rampanın en küçüğüne taşınır (ör. Baykonur 46,0° → Kourou'da da 46° kalmasın)
-    const c = ui.getConfig(), lo0 = (siteIncl(ui.site) || [28.6])[0], ir = siteIncl(st);
+    const c = ui.getConfig(), lo0 = (siteIncl(ui.site) || [28.7])[0], ir = siteIncl(st);
     ui.site = st;
     if (ir && Math.abs(c.earth.inc - lo0) < 0.05) c.earth.inc = ir[0];
     ui.setConfig({ ...c, site: st || null }); $('#cfgEi').min = String(ir ? ir[0] : 0);
@@ -396,7 +396,7 @@ async function scanWindows(N = 4) {
         row.cost = pay + (D.TLI_NEED ?? D.STAGES[0].prop);
         row.margin = D.STAGES[0].rocket ? D.STAGES[0].prop - D.TLI_NEED : null;
         const L = D.LAUNCH;
-        launchWeather(L.lat ?? 28.5729, L.lon ?? -80.649, E.utcMsFromT(L.t_launch)).then((w) => { row.wx = w; if (!scanning) launch.setScan(rows, ''); });
+        launchWeather(L.lat ?? LEGACY_SITE.lat, L.lon ?? LEGACY_SITE.lon, E.utcMsFromT(L.t_launch)).then((w) => { row.wx = w; if (!scanning) launch.setScan(rows, ''); });
         tFrom = L.t_launch + 86400;
       } catch (err) { row.busy = false; row.err = String(err.message || err).slice(0, 90); break; }
     }
@@ -409,8 +409,8 @@ ui.onRocket = (id) => {
   if (designing || id === ui.rocket) return;
   ui.setRocket(id);
   try { localStorage.setItem('ls19.rocket', ui.rocket); } catch (e) { /* özel pencere */ }
-  const p = launch.padFor(id);                                                  // gerçek roket yalnız kendi rampalarından: gerekirse ilkine geçilir
-  if (p) { const c = ui.getConfig(), lo0 = (siteIncl(ui.site) || [28.6])[0], ir = siteIncl(p); ui.site = p; if (ir && Math.abs(c.earth.inc - lo0) < 0.05) c.earth.inc = ir[0]; ui.setConfig({ ...c, site: p }); ui.setRocket(id, `Rampa ${p.name} olarak değiştirildi (roketin gerçek rampası).`); }
+  const p = launch.padFor(id);                                                  // gerçek roket yalnız kendi rampalarından: gerekirse ilkine geçilir (null = varsayılan LC-39B)
+  if (p !== undefined) { const c = ui.getConfig(), lo0 = (siteIncl(ui.site) || [28.7])[0], ir = siteIncl(p); ui.site = p; if (ir && Math.abs(c.earth.inc - lo0) < 0.05) c.earth.inc = ir[0]; ui.setConfig({ ...c, site: p }); ui.setRocket(id, `Rampa ${p ? p.name : LEGACY_SITE.short} olarak değiştirildi (roketin gerçek rampası).`); }
   launch.syncRocket();
   cmpCancel = true; scanCancel = true;
   startDesign($('#dateInput').value || pendingDate || DEFAULT_DATE);

@@ -41,7 +41,7 @@ export const ARRIVAL = { t_P: 1434826.340426953, rP: [-440.1209747319318, -1534.
   vP: [-2.366133402092828, 0.6559758280060041, 0.03731590606260471],
   uP: 233.8652293328464, beta: -10.747537919560603, vp: 2.4556636659511857 };
 export const LAUNCH = { t_launch: 1082571.0725359619, t_ins: 1083171.0725359619, az: 88.60848745290069,
-  site: 'Kennedy Uzay Merkezi LC-39B (28.5729°K, 80.6490°B)' };
+  site: 'Kennedy Uzay Merkezi LC-39B (28.6271°K, 80.6210°B)' };
 const TLI_DUR_ERROR = 0.05, PDI_ANGLE = 9.0 * Math.PI / 180, H_PDI = 15.0, TF_BRAKE = 310.0, TF_APPROACH = 45.0;
 const GATE_HI = { x: -0.700, z: 1.500, vx: 0.045, vz: -0.035 }, GATE_LO = { x: 0.0, z: 0.250, vx: 0.0, vz: -0.018 };
 const V_TOUCH = -0.001, TILT_MAX_LOW = 40 * Math.PI / 180;

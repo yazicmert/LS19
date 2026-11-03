@@ -166,8 +166,8 @@ const mkState = (t, r, v, over = {}) => ({ t, r, v, m: 3000, prop: 1500, k: 1, t
 {
   live();
   const t = 1100000;
-  // Dünya: KSC'de yüzeyde duran nokta (yerküre ile birlikte döner)
-  const lat = 28.5729 * D2R, lon = -80.6490 * D2R, a = E.R_E, e2 = T.F_EARTH * (2 - T.F_EARTH), N = a / Math.sqrt(1 - e2 * Math.sin(lat) ** 2);
+  // Dünya: KSC LC-39B'de yüzeyde duran nokta (yerküre ile birlikte döner)
+  const lat = 28.62711 * D2R, lon = -80.62102 * D2R, a = E.R_E, e2 = T.F_EARTH * (2 - T.F_EARTH), N = a / Math.sqrt(1 - e2 * Math.sin(lat) ** 2);
   const ecef = [N * Math.cos(lat) * Math.cos(lon), N * Math.cos(lat) * Math.sin(lon), N * (1 - e2) * Math.sin(lat)];
   const Mi = E.earthIcrfToItrf(t), r = E.mtv(Mi, ecef), om = scale(Mi[2], T.OMEGA_EARTH), v = cross(om, r);
   const tel = T.computeTelemetry(mkState(t, r, v, { k: 0, prop: 6200, m: 12100 }), O);

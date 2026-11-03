@@ -224,7 +224,7 @@ Genel kademe her rampadan fırlayabiliyor. Roket değişince rampa gerekirse rok
 - Baykonur (46,0°, azimut 86,8°), Kourou ELA-4 (azimut 61,7°) ve Vandenberg SLC-4E (60,1°, azimut 142,6°): cos i = cos φ sin A ilişkisi 0,1° içinde tutuyor ve Ay'a güvenli iniş sağlanıyor.
 - Falcon 9 Baykonur'dan seçilince tasarım anlaşılır bir hatayla duruyor.
 
-**Bilinen sınır:** Varsayılan "KSC LC-39B" noktası (28,5729° K, 80,6490° B) LL2'deki gerçek LC-39B'den (28,6271° K, 80,6210° B) ~6 km güneyde. Hazır tasarımlar ve 28,6° eğimli profiller bu noktaya göre. Listeden LC-39B seçilince gerçek koordinat kullanılıyor ve eğim en az 28,7° oluyor.
+**Varsayılan rampa düzeltildi:** Eski varsayılan "KSC LC-39B" noktası (28,5729° K, 80,6490° B) gerçek LC-39B'den (LL2: 28,6271° K, 80,6210° B) ~6 km güneydeydi. Varsayılan artık gerçek koordinat; doğrudan fırlatmada en küçük park eğimi 28,7°. Profillerin varsayılan eğimi 28,6° → 28,7° oldu. Hazır tasarımlar (`designs_default.json`; APOLLO kopyası `design_default.json`) `test/make_designs.js` ile yeniden üretildi. Altı profilin hepsi Ay'a iniyor; pencereler aynı kaldı, fırlatma anları birkaç dakika kaydı. Listedeki LC-39B (LL2 4) varsayılanın kendisi olduğu için ayrıca listelenmiyor.
 
 ### 6.3 Fırlatma pencereleri tarayıcısı
 

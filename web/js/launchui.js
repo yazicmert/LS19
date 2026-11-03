@@ -1,6 +1,6 @@
 // Ay görevi › 1. adım: fırlatma rampası seçimi (dünyadaki yörüngesel rampalar, data/pads.json), rampa bilgisi (menzil, eğim aralığı, kalkış maliyeti),
 // fırlatma anının hava durumu (weather.js) ve fırlatma penceresi tarayıcısının tablosu. Görevi app.js tasarlar; bu modül yalnız arayüzdür.
-import { padIndex, siteOf, padShort, padAllowed, rangeOf, inclRange, minIncl, ROCKET_PADS, LEGACY_SITE, V_EQ } from './pads.js';
+import { padIndex, siteOf, padShort, padAllowed, rangeOf, inclRange, minIncl, ROCKET_PADS, LEGACY_SITE, V_EQ, DEFAULT_PAD_ID } from './pads.js';
 import { launchWeather, STATUS_TR, WX_SOURCES } from './weather.js';
 import { fmt } from './format.js';
 import { utcMsFromT } from './engine.js';
@@ -23,6 +23,7 @@ export class LaunchUI {
   fill() {
     const sel = this.sel; sel.replaceChildren();
     const def = el('option', null, `${LEGACY_SITE.short} — varsayılan (hazır tasarımlar)`); def.value = '0'; sel.append(def);
+    // listedeki LC-39B (LL2 4) varsayılanın kendisi: ayrıca listelenmez
     const groups = new Map();
     for (const p of this.pads.values()) {
       const g = COUNTRY_TR[p.cc] || p.country || p.cc || '—';
@@ -31,6 +32,7 @@ export class LaunchUI {
     for (const g of [...groups.keys()].sort((a, b) => a.localeCompare(b, 'tr'))) {
       const og = document.createElement('optgroup'); og.label = g;
       for (const p of groups.get(g).sort((a, b) => b.n - a.n)) {
+        if (p.id === DEFAULT_PAD_ID) continue;
         const o = el('option', null, `${p.loc.replace(/,.*$/, '')} · ${padShort(p.name)} (${p.n} fırlatma${p.active ? '' : ', etkin değil'})`); o.value = String(p.id); og.append(o);
       }
       sel.append(og);
@@ -43,11 +45,11 @@ export class LaunchUI {
     for (const o of this.sel.querySelectorAll('option')) { const id = +o.value; o.disabled = !!(id && rk && !padAllowed(rk, id)); }
     this.renderInfo();
   }
-  // roket için uygun rampa (geçerli uygun değilse ilk gerçek rampası)
+  // roket için rampa değişikliği: undefined = gerek yok; yoksa roketin ilk gerçek rampası (null = varsayılan LC-39B)
   padFor(rocket) {
     const cur = this.site ? this.site.id : 0;
-    if (padAllowed(rocket, cur)) return null;
-    const p = this.pads.get((ROCKET_PADS[rocket] || [])[0]); return p ? siteOf(p) : null;
+    if (padAllowed(rocket, cur)) return undefined;
+    const p = this.pads.get((ROCKET_PADS[rocket] || [])[0]); return p ? siteOf(p) : undefined;
   }
   setSite(site) {
     this.site = site && site.id ? site : null;
@@ -60,7 +62,7 @@ export class LaunchUI {
     const ir = s.az ? inclRange(s.lat, s.az) : [minIncl(s.lat), 90];
     const lat = `${Math.abs(s.lat).toFixed(3)}° ${s.lat >= 0 ? 'K' : 'G'}`, lon = `${Math.abs(s.lon).toFixed(3)}° ${s.lon >= 0 ? 'D' : 'B'}`;
     const t = [];
-    t.push(`${p ? `${p.loc} · ${p.name}` : LEGACY_SITE.name + ' (eski varsayılan nokta; LL2\'deki gerçek rampa ~6 km kuzeyde)'} — ${lat}, ${lon}.`);
+    t.push(`${p ? `${p.loc} · ${p.name}` : LEGACY_SITE.name + ' (varsayılan)'} — ${lat}, ${lon}.`);
     t.push(r ? `${r.name}: izinli azimut ${r.az[0]}°–${r.az[1]}° → park eğimi ${ir ? `${fmt(ir[0], 1)}°–${fmt(ir[1], 1)}°` : 'yok'}.` : `Menzil güvenliği sınırı verisi yok: yalnız enlem sınırı (eğim ≥ ${fmt(minIncl(s.lat), 1)}°).`);
     t.push(`Dünya dönüşünün katkısı ${fmt(V_EQ * 1000, 0)}·cos i m/s; en düşük eğimde ${fmt(V_EQ * 1000 * Math.cos((ir ? ir[0] : minIncl(s.lat)) * Math.PI / 180), 0)} m/s (Florida 28,5° için ${fmt(V_EQ * 1000 * Math.cos(28.5 * Math.PI / 180), 0)} m/s).`);
     this.info.replaceChildren(document.createTextNode(t.join(' ')));

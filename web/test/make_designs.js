@@ -1,4 +1,4 @@
-// data/designs_default.json üretir: varsayılan tarih için tüm hazır profillerin tasarımı + nominal Δv (bozulmasız otopilot koşusu).
+// data/designs_default.json (ve APOLLO kopyası data/design_default.json) üretir: varsayılan tarih için tüm hazır profillerin tasarımı + nominal Δv (bozulmasız otopilot koşusu).
 // Tarayıcıdakiyle birebir aynı yol: aynı efemeris başlangıcı (seçilen günden 1 gün önce), aynı tasarım kodu, aynı koşu işlevi (js/nominalrun.js).
 //   nominal   : tek kademe + ZEM güdümü (eski Δv sütunu)
 //   nominalBy : öteki güdüm/araç birleşimleri (zem+2, opt, opt+2, free, free+2); varsayılan açılış (opt + iki kademe) ~5 s'lik nominal koşusunu artık çalıştırmaz
@@ -47,3 +47,6 @@ for (const [key, P] of Object.entries(PROFILES)) {
 }
 fs.writeFileSync(FILE, JSON.stringify(out));
 console.log('yazıldı:', (JSON.stringify(out).length / 1024).toFixed(0), 'KB');
+// data/design_default.json: varsayılan profilin (APOLLO) kopyası — worker ve testler bunu yükler
+const A = out.profiles.APOLLO;
+if (A) { fs.writeFileSync(new URL('../data/design_default.json', import.meta.url), JSON.stringify({ startMs, tStart, label: A.design.label, design: A.design, nominal: A.nominal })); console.log('yazıldı: design_default.json'); }
