@@ -100,7 +100,7 @@ export class UI {
       $('#' + id).addEventListener('change', () => { this.syncProfileSel(); this.syncCfgVis(); });
     document.querySelectorAll('.cfg input').forEach((el) => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') go($('#dateInput').value); }));
     // fırlatma aracı (roket): kartlar rockets.js'ten
-    this.rocket = DEFAULT_ROCKET;
+    this.rocket = DEFAULT_ROCKET; this.site = null;
     const rc = $('#rocketCards');
     if (rc) { for (const id of ROCKET_IDS) rc.append(rocketCard(id)); rc.addEventListener('click', (e) => {
       const inf = e.target.closest('[data-rocket-info]'); if (inf) { this.onRocketInfo && this.onRocketInfo(inf.dataset.rocketInfo); return; }
@@ -113,7 +113,7 @@ export class UI {
   // ------------------------------------------------------------------ görev yapılandırması
   getConfig() {
     const n = (id) => parseFloat($('#' + id).value);
-    return normalizeConfig({ rocket: this.rocket, earth: { h: n('cfgEh'), inc: n('cfgEi'), revs: n('cfgEr'), raise: { n: n('cfgRn') || 0, ha: n('cfgRa') } },
+    return normalizeConfig({ rocket: this.rocket, site: this.site || undefined, earth: { h: n('cfgEh'), inc: n('cfgEi'), revs: n('cfgEr'), raise: { n: n('cfgRn') || 0, ha: n('cfgRa') } },
       moon: { type: $('#cfgMt').value, llo: { h: n('cfgLh'), revs: n('cfgLr') }, halo: { preset: $('#cfgHp').value, revs: n('cfgHr') } } });
   }
   setConfig(c) {
@@ -121,9 +121,11 @@ export class UI {
     set('cfgEh', cfg.earth.h); set('cfgEi', cfg.earth.inc); set('cfgEr', cfg.earth.revs); set('cfgRn', cfg.earth.raise.n); set('cfgRa', cfg.earth.raise.ha); set('cfgMt', cfg.moon.type);
     set('cfgHp', cfg.moon.halo.preset); set('cfgHr', cfg.moon.halo.revs); set('cfgLh', cfg.moon.llo.h); set('cfgLr', cfg.moon.llo.revs);
     if (c && 'rocket' in c) this.setRocket(c.rocket);                     // profiller roketi taşımaz: seçili roket kalır
+    if (c && 'site' in c) { this.site = c.site || null; this.onSiteSync && this.onSiteSync(this.site); }   // rampa da (profiller taşımaz)
     this.syncProfileSel(); this.syncCfgVis();
   }
-  profileKeyOf(cfg) { const c = { ...cfg, rocket: undefined }; return Object.keys(PROFILES).find((k) => sameCfg(PROFILES[k].cfg, c)) || 'CUSTOM'; }
+  // profil eşleşmesi roketten bağımsız; rampa profilin eğimini kendi sınırına çekiyorsa (ör. Baykonur ≥ 46°) yine aynı profil sayılır
+  profileKeyOf(cfg) { const c = { ...cfg, rocket: undefined }; return Object.keys(PROFILES).find((k) => sameCfg({ ...PROFILES[k].cfg, site: cfg.site }, c)) || 'CUSTOM'; }
   // roket seçimi (yalnız arayüz durumu; görevi app.js yeniden tasarlar). pay: iniş aracı kütlesi (kg; tasarım varsa ondan)
   setRocket(id, msg = '') {
     this.rocket = ROCKETS[id] ? id : DEFAULT_ROCKET;
@@ -177,7 +179,7 @@ export class UI {
   }
   setDesign(D, startMs) {
     this.design = D;
-    if (D.cfg) this.setConfig(D.cfg);
+    if (D.cfg) this.setConfig({ ...D.cfg, site: D.cfg.site || null });          // tasarımın rampası (varsayılan: null)
     this.setRocket((D.STAGES && D.STAGES[0] && D.STAGES[0].rocket) || DEFAULT_ROCKET);   // tasarımı yapan roket (hazır tasarımlar: genel kademe)
     const day = new Date(startMs).toISOString().slice(0, 10), tl = D.LAUNCH.t_launch, tTouch = D.t_L - 1620;
     const wait = (tl - E.tFromUtcMs(startMs)) / 86400;
@@ -189,7 +191,7 @@ export class UI {
     };
     line([[`${day} sonrası ilk uygun pencere` + (wait > 1 ? ` (${fmt(wait, 0)} gün sonra)` : '')]]);
     line([['Fırlatma: '], [utcShort(tl), true]]);
-    line([[`KSC LC-39B · azimut ${fmt(D.LAUNCH.az, 1)}° · park eğimi ${fmt(D.inc, 1)}°`]]);
+    line([[`${(D.LAUNCH.site || 'KSC LC-39B').replace(/\s*\(.*$/, '')} · azimut ${fmt(D.LAUNCH.az, 1)}° · park eğimi ${fmt(D.inc, 1)}°`]]);
     if (D.RAISE) {
       const R = D.RAISE;
       line([[`Yörünge yükseltme: ${R.n} yakış (${R.burns.map((b) => `${fmt(b.dur, 0)} s`).join(' + ')}), apoje ${R.burns.map((b) => fmt(b.apo, 0)).join(' → ')} km; park yörüngesi ${fmt(R.leo.alt, 0)} km`]]);

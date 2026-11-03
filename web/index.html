@@ -84,6 +84,7 @@
 <link rel="modulepreload" href="js/dvbudget.js">
 <link rel="modulepreload" href="js/format.js">
 <link rel="modulepreload" href="js/design.js">
+<link rel="modulepreload" href="js/pads.js">
 <link rel="modulepreload" href="js/rocketinfo.js">
 <link rel="modulepreload" href="js/satlayer.js">
 <link rel="modulepreload" href="lib/satellite.esm.js">
@@ -95,6 +96,8 @@
 <link rel="modulepreload" href="js/impact.js">
 <link rel="modulepreload" href="js/ephstore.js">
 <link rel="modulepreload" href="js/rocketsheet.js">
+<link rel="modulepreload" href="js/launchui.js">
+<link rel="modulepreload" href="js/weather.js">
 <link rel="modulepreload" href="js/asteroids.js">
 <link rel="modulepreload" href="js/deflect.js">
 <link rel="modulepreload" href="js/astui.js">
@@ -357,6 +360,9 @@
             <option value="YUKSELTME">Yörünge yükseltmeli: 3 yakış (apoje 40.000 km) + LLO</option>
             <option value="CUSTOM">Özel</option>
           </select></div>
+        <h3>Fırlatma rampası</h3>
+        <div class="frow"><label for="padSel">Rampa</label><select id="padSel"><option value="0">KSC LC-39B — varsayılan</option></select></div>
+        <p id="padInfo" class="note"></p>
         <details id="cfgBox" class="cfg">
           <summary>Yörünge ayrıntıları (gelişmiş)</summary>
           <div class="fttl">Dünya park yörüngesi</div>
@@ -393,6 +399,11 @@
           <button data-date="2026-10-13">Ekim 2026</button>
         </div>
         <div id="designInfo" class="dinfo"></div>
+        <div id="wxBox" class="wx" aria-live="polite"></div>
+        <h3>Fırlatma pencereleri</h3>
+        <p class="note">Seçili rampa, roket ve profille sonraki dört pencere tasarlanır (her biri bir öncekinin ertesi gününden aranır). Yakıt = iniş aracı yakıtı + TLI için gereken yakıt; "Fark" en ucuz pencereye göre. Satıra tıklayınca görev o pencereyle kurulur.</p>
+        <div class="daterow"><button id="btnScan" class="sm" type="button">Sonraki 4 pencereyi tara</button><span id="winMsg" class="note"></span></div>
+        <div class="tblwrap"><table id="wintable" class="tbl wintbl"><thead><tr><th>Fırlatma (UTC)</th><th>Az.</th><th>Eğim</th><th>Δv (m/s)</th><th>Yakıt (kg)</th><th>Fark</th><th>TLI payı</th><th>Hava</th></tr></thead><tbody></tbody></table></div>
         <details class="dlog"><summary>Tasarım günlüğü</summary><ul id="designLog"></ul></details>
         <div class="stepnav"><button class="primary sm" type="button" data-goto="arac">Devam: Araç ve güdüm</button></div>
       </div>

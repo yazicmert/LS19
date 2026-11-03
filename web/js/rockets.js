@@ -90,10 +90,13 @@ export function tliCapacity(id) {
   return P;
 }
 // yük (kg) için park yörüngesinde üst kademede kalan yakıt (kg); null: roketin yakıtı göreve göre boyutlanır (GENEL)
-export function parkPropellant(id, payload) {
+// yük (kg) için park yörüngesinde üst kademede kalan yakıt (kg); null: roketin yakıtı göreve göre boyutlanır (GENEL).
+// dvPen (km/s): başvuru eğiminden farklı park eğiminin ek Δv'si (pads.js incPenalty); üst kademe karşılar → park kütlesi exp(−dvPen/c) ile azalır
+export function parkPropellant(id, payload, dvPen = 0) {
   const r = rocketOf(id);
   if (r.sized || !r.ref) return null;
-  return Math.max(0, Math.min(r.stage.tank, parkMass(id) - r.stage.dry - payload));
+  const M = parkMass(id) * Math.exp(-dvPen * 1000 / (r.stage.isp * G0));
+  return Math.max(0, Math.min(r.stage.tank, M - r.stage.dry - payload));
 }
 // görev tasarımının kademe kaydı (mission.js STAGES[0] biçimi); prop tasarımda belirlenir
 export function stageRecord(id) {

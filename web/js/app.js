@@ -7,6 +7,9 @@ import { EphStore } from './ephstore.js';
 import * as EO from './earth.js';
 import { designMissionAsync, PROFILES, normalizeConfig } from './design.js';
 import { RocketSheet } from './rocketsheet.js';
+import { LaunchUI } from './launchui.js';
+import { inclRange, minIncl } from './pads.js';
+import { launchWeather } from './weather.js';
 import { twoStageDesign } from './mission.js';
 import { SatLayer } from './satlayer.js';
 import { AsteroidLayer } from './asteroids.js';
@@ -352,11 +355,64 @@ let rocketOk = 'GENEL';
 try { const r = localStorage.getItem('ls19.rocket'); if (r) ui.setRocket(r); } catch (e) { /* özel pencere */ }
 const rocketSheet = new RocketSheet(document.getElementById('rocketSheet'), { onFly: (id) => ui.onRocket(id) });
 ui.onRocketInfo = (id) => rocketSheet.open(id);
+// fırlatma rampası (dünyadaki yörüngesel rampalar) ve fırlatma pencereleri tarayıcısı (launchui.js)
+const siteIncl = (st) => (st ? (st.az ? inclRange(st.lat, st.az) : [minIncl(st.lat), 90]) : [28.6, 90]);
+const launch = new LaunchUI({
+  getRocket: () => ui.rocket,
+  onSite: (st) => {
+    if (designing) { launch.setSite(ui.site); return; }
+    // park eğimi eski rampanın en küçüğündeyse yeni rampanın en küçüğüne taşınır (ör. Baykonur 46,0° → Kourou'da da 46° kalmasın)
+    const c = ui.getConfig(), lo0 = (siteIncl(ui.site) || [28.6])[0], ir = siteIncl(st);
+    ui.site = st;
+    if (ir && Math.abs(c.earth.inc - lo0) < 0.05) c.earth.inc = ir[0];
+    ui.setConfig({ ...c, site: st || null }); $('#cfgEi').min = String(ir ? ir[0] : 0);
+    cmpCancel = true; scanCancel = true;
+    startDesign($('#dateInput').value || pendingDate || DEFAULT_DATE);
+  },
+  onScan: () => scanWindows(),
+  onPick: (d) => { if (!designing) { scanCancel = true; $('#dateInput').value = d; startDesign(d); } },
+});
+ui.onSiteSync = (st) => { launch.setSite(st); const ir = siteIncl(st); $('#cfgEi').min = String(ir ? ir[0] : 0); };
+// sonraki N pencere: her biri bir öncekinin fırlatmasından 1 gün sonrasından aranır; ana iş parçacığının efemeris kaynağı tarama sonunda geri yüklenir
+let scanning = false, scanCancel = false;
+async function scanWindows(N = 4) {
+  if (scanning || designing || !K) return;
+  scanning = true; scanCancel = false;
+  const cfg = ui.getConfig(), prov0 = E.getProvider(), rows = [];
+  let tFrom = tOfUtcMs(Date.parse(($('#dateInput').value || DEFAULT_DATE) + 'T00:00:00Z'));
+  try {
+    for (let k = 0; k < N && !scanCancel; k++) {
+      const row = { from: E.utcString(tFrom).slice(0, 10), busy: true }; rows.push(row); launch.setScan(rows, `${k + 1}/${N} tasarlanıyor…`, true);
+      try {
+        const tStart = tFrom - 86400;
+        await K.eph.ensure(...missionEtWindow(tStart));
+        makeLive(K.spk, K.pck, K.eo, tStart);
+        const D = await designMissionAsync(tFrom, (m) => launch.setScan(rows, `${k + 1}/${N}: ${m.slice(0, 50)}`, true), () => scanCancel || designing, cfg);
+        if (!D) break;
+        // yakıt: iniş aracının ve TLI'ın gerektirdiği (tasarım tabanları olmadan) — pencereler arasındaki gerçek fark
+        const pay = D.LANDER_NEED ?? D.STAGES.slice(1).reduce((q, x) => q + x.prop, 0);
+        row.D = D; row.busy = false;
+        row.dvTot = Object.values(D.DV || {}).reduce((q, x) => q + x, 0);
+        row.cost = pay + (D.TLI_NEED ?? D.STAGES[0].prop);
+        row.margin = D.STAGES[0].rocket ? D.STAGES[0].prop - D.TLI_NEED : null;
+        const L = D.LAUNCH;
+        launchWeather(L.lat ?? 28.5729, L.lon ?? -80.649, E.utcMsFromT(L.t_launch)).then((w) => { row.wx = w; if (!scanning) launch.setScan(rows, ''); });
+        tFrom = L.t_launch + 86400;
+      } catch (err) { row.busy = false; row.err = String(err.message || err).slice(0, 90); break; }
+    }
+  } finally {
+    E.setProvider(prov0); scanning = false;
+    launch.setScan(rows, scanCancel ? 'Tarama durduruldu.' : '', false);
+  }
+}
 ui.onRocket = (id) => {
   if (designing || id === ui.rocket) return;
   ui.setRocket(id);
   try { localStorage.setItem('ls19.rocket', ui.rocket); } catch (e) { /* özel pencere */ }
-  cmpCancel = true;
+  const p = launch.padFor(id);                                                  // gerçek roket yalnız kendi rampalarından: gerekirse ilkine geçilir
+  if (p) { const c = ui.getConfig(), lo0 = (siteIncl(ui.site) || [28.6])[0], ir = siteIncl(p); ui.site = p; if (ir && Math.abs(c.earth.inc - lo0) < 0.05) c.earth.inc = ir[0]; ui.setConfig({ ...c, site: p }); ui.setRocket(id, `Rampa ${p.name} olarak değiştirildi (roketin gerçek rampası).`); }
+  launch.syncRocket();
+  cmpCancel = true; scanCancel = true;
   startDesign($('#dateInput').value || pendingDate || DEFAULT_DATE);
 };
 document.querySelectorAll('[data-vehicle]').forEach((b) => b.addEventListener('click', () => setVehicle(b.dataset.vehicle)));
@@ -376,7 +432,7 @@ worker.onmessage = (e) => {
     // ana iş parçacığı da aynı başlangıçtan aynı canlı efemerisi kurar (deterministik: worker ile birebir)
     const lv = makeLive(K.spk, K.pck, K.eo, d.tStart);
     missionSrc = lv; ui.live = lv;
-    if (MODE === 'sky' && skySrc) { E.setProvider(skySrc.prov); world.live = skySrc; } else world.live = lv; DESIGN = d.design; ui.setDesign(d.design, d.startMs); goodDate = pendingDate; rocketOk = ui.rocket;
+    if (MODE === 'sky' && skySrc) { E.setProvider(skySrc.prov); world.live = skySrc; } else world.live = lv; DESIGN = d.design; ui.setDesign(d.design, d.startMs); goodDate = pendingDate; rocketOk = ui.rocket; launch.syncRocket(); launch.showDesign(DESIGN);
     E.setMoonZone(DESIGN.profile === 'HALO' ? 1.25 * DESIGN.HALO.stats.raKm : E.SOI_M);
     world.resetDynamic && world.resetDynamic(); world.setDesign(DESIGN);
     const ce = designCache.get(cacheKey(d.startMs, DESIGN.cfg || ui.getConfig()));
