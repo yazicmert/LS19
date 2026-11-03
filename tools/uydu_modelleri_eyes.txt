@@ -1,0 +1,17 @@
+swot|sc_swot_v2/swot.gltf
+nisar|sc_nisar/Nisar.gltf
+pace|sc_pace/pace.gltf
+smap|sc_smap/SMAP.gltf
+nustar|sc_nustar/nustar.gltf
+ixpe|sc_ixpe/ixpe.gltf
+spherex|sc_spherex/spherex.gltf
+starling|sc_starling/starling.gltf
+prefire|sc_prefire/prefire.gltf
+acs3|sc_acs3/acs3.gltf
+tempo|sc_tempo/tempo.gltf
+landsat9|sc_landsat_9/Landsat9.gltf
+noaa20|sc_noaa_20/noaa20.gltf
+noaa21|sc_noaa_21/noaa21.gltf
+gracefo|sc_grace_fo/graceFO.gltf
+polar|sc_polar/polar.gltf
+image|sc_image/image.gltf

@@ -1,4 +1,4 @@
-// Gerçek 3B uydu modelleri (NASA 3D Resources, kamu malı — github.com/nasa/NASA-3D-Resources).
+// Gerçek 3B uydu modelleri (NASA 3D Resources ve NASA Eyes on the Earth; kaynaklar ve lisans: satcatalog.js).
 // Binlerce uydunun hepsi nokta olarak çizilir; model yalnız kamera o uyduya yaklaştığında (uydunun boyuna göre birkaç km)
 // yüklenir ve çizilir, aynı anda en fazla MAX_ON tane. Dosyalar meshopt ile sıkıştırıldı (tools: gltf-transform), dokular WebP.
 import * as THREE from 'three';

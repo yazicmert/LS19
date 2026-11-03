@@ -3,6 +3,8 @@
 //   npm i @gltf-transform/core @gltf-transform/extensions @gltf-transform/functions draco3dgltf meshoptimizer sharp
 //   uydu_modelleri.txt'deki her satır için (anahtar|klasör/dosya):
 //     curl -o raw_<anahtar>.glb "https://raw.githubusercontent.com/nasa/NASA-3D-Resources/master/3D%20Models/<klasör/dosya (URL kodlu)>.glb"
+//   NASA Eyes on the Earth modelleri (uydu_modelleri_eyes.txt, anahtar|yol): çok dosyalı glTF klasörü raw_<anahtar>/ olarak
+//     https://eyes.nasa.gov/assets/static/models/<yol> (+ .gltf'nin buffers/images adresleri) raw_<anahtar>/ içine indirilir
 //   node uydu_modelleri.mjs [anahtar …]   -> out/<anahtar>.glb
 // Adımlar: Draco çöz, tekrarları birleştir, ≥80 bin üçgende sadeleştir, dokular en çok 1024 px WebP, meshopt sıkıştırma + nicemleme.
 import { NodeIO } from '@gltf-transform/core';
@@ -28,9 +30,12 @@ function patchGlb(buf) {
 const MAXT = +(process.env.MAXT || 80000);
 fs.mkdirSync('out', { recursive: true });
 const only = process.argv.slice(2);
-for (const f of fs.readdirSync('.').filter((f) => f.startsWith('raw_') && f.endsWith('.glb'))) {
-  const key = f.slice(4, -4); if (only.length && !only.includes(key)) continue;
-  const doc = await io.readBinary(patchGlb(fs.readFileSync(f)));
+const inputs = fs.readdirSync('.').filter((f) => f.startsWith('raw_') && (f.endsWith('.glb') || fs.statSync(f).isDirectory()));
+for (const f of inputs) {
+  const dir = !f.endsWith('.glb'), key = dir ? f.slice(4) : f.slice(4, -4); if (only.length && !only.includes(key)) continue;
+  const gltf = dir ? fs.readdirSync(f).find((x) => x.endsWith('.gltf')) : null;
+  const doc = dir ? await io.read(`${f}/${gltf}`) : await io.readBinary(patchGlb(fs.readFileSync(f)));
+  const inKB = dir ? fs.readdirSync(f).reduce((a, x) => a + fs.statSync(`${f}/${x}`).size, 0) / 1024 : fs.statSync(f).size / 1024;
   if (key === 'iss') for (const n of doc.getRoot().listNodes()) if (/^(bendedtru|pCylinder)/.test(n.getName())) n.dispose();   // modelden kopuk, istasyonun 40 m üstünde duran parça yığını
   doc.getRoot().listExtensionsUsed().filter((e) => e.extensionName === 'KHR_draco_mesh_compression').forEach((e) => e.dispose());
   let tris = 0; const count = () => { tris = 0; for (const m of doc.getRoot().listMeshes()) for (const p of m.listPrimitives()) { const i = p.getIndices(); tris += (i ? i.getCount() : p.getAttribute('POSITION').getCount()) / 3; } return tris; };
@@ -41,5 +46,5 @@ for (const f of fs.readdirSync('.').filter((f) => f.startsWith('raw_') && f.ends
   doc.createExtension(EXTMeshoptCompression).setRequired(true).setEncoderOptions({ method: EXTMeshoptCompression.EncoderMethod.FILTER });
   const b = getBounds(doc.getRoot().listScenes()[0]);
   await io.write('out/' + key + '.glb', doc);
-  console.log(key.padEnd(10), 'tris', Math.round(t0), '->', Math.round(count()), 'kB', Math.round(fs.statSync(f).size / 1024), '->', Math.round(fs.statSync('out/' + key + '.glb').size / 1024), 'bb', b.max.map((m, i) => +(m - b.min[i]).toFixed(2)).join('x'));
+  console.log(key.padEnd(10), 'tris', Math.round(t0), '->', Math.round(count()), 'kB', Math.round(inKB), '->', Math.round(fs.statSync('out/' + key + '.glb').size / 1024), 'bb', b.max.map((m, i) => +(m - b.min[i]).toFixed(2)).join('x'));
 }

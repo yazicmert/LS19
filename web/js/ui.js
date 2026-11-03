@@ -10,6 +10,7 @@ import { dvKeys, DV_NAMES, dvFromEvents } from './dvbudget.js';
 import { SAT_GROUPS } from './satlayer.js';
 import { fmtReentry, ageYears, controlNote } from './impact.js';
 import { fmt } from './format.js';
+import { srcOf } from './satcatalog.js';
 
 const $ = (s) => document.querySelector(s);
 // aynı değeri yeniden yazma: textContent / style atamak, değer aynı olsa da düğümü yeniler ve stil/düzen geçersiz kılar (HUD saniyede 10 kez güncellenir)
@@ -378,7 +379,7 @@ export class UI {
         ['Öğelerin yaşı', `${fmt(d.epochAgeDays, 1)} gün`], ['Yörünge verisi', d.source || 'CelesTrak GP']);
       rows.push(['Tahmini yeniden giriş', fmtReentry(d.decay)]);
       rows.push(['Kontrol durumu', controlNote(d.decay && d.decay.age, d.group === SAT_GROUPS[0].name)]);
-      rows.push(['3B model', d.model ? `${d.model.note || d.model.title} · NASA 3D Resources (~${fmt(d.model.size, 0)} m)` : d.family ? `${d.family.title} · temsili aile modeli (${d.family.note})` : 'nokta']);
+      rows.push(['3B model', d.model ? `${d.model.note || d.model.title} · ${srcOf(d.model)} (~${fmt(d.model.size, d.model.size < 10 ? 1 : 0)} m)` : d.family ? `${d.family.title} · temsili aile modeli (${d.family.note})` : 'nokta']);
       if (d.obsEl != null) rows.push([`${d.obsName}'dan`, d.obsEl > 0 ? `gökte ${fmt(d.obsEl, 1)}° · az ${fmt(d.obsAz, 0)}° · ${fmt(d.obsRange, 0)} km` : 'ufkun altında']);
       if (d.nextPass) { const p = d.nextPass, tt = new Date(p.rise.ms);
         rows.push(['Sonraki geçiş', `${tt.toLocaleString('tr-TR', { weekday: 'short', hour: '2-digit', minute: '2-digit' })} · en yüksek ${fmt(p.max.el, 0)}°${p.visible ? ' · görünür' : ''}`]); }
@@ -386,7 +387,7 @@ export class UI {
       ttl.append(mk('div', 'pt', d.name), mk('div', 'ps', 'Ay yörüngesinde · JPL Horizons'));
       rows.push(["İrtifa (Ay'a göre)", km(d.alt)], ['Hız', fmt(d.speed, 3) + ' km/s'],
         ['Periyot (anlık)', Number.isFinite(d.periodMin) ? (d.periodMin > 180 ? fmt(d.periodMin / 60, 2) + ' sa' : fmt(d.periodMin, 1) + ' dk') : '—']);
-      if (d.model) rows.push(['3B model', `${d.model.title} · NASA 3D Resources`]);
+      if (d.model) rows.push(['3B model', `${d.model.title} · ${srcOf(d.model)}`]);
     } else if (P.kind === 'planet') {
       ttl.append(mk('div', 'pt', d.name), mk('div', 'ps', 'Canlı efemeris (DE440 başlangıçlı N-cisim)'));
       rows.push(['Yarıçap', fmt(d.R, 0) + ' km'], ["Güneş'e uzaklık", fmt(d.dSun, 4) + ' AB'],

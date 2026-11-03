@@ -20,6 +20,7 @@ import { applyIcons, setBtn } from './icons.js';
 import { initTreeMenus, refreshTreeMenus } from './treemenu.js';
 import * as PS from './passes.js';
 import { MODELS, MOON_MODELS } from './satmodels.js';
+import { srcOf } from './satcatalog.js';
 import { ImpactUI } from './impactui.js';
 import { Cinema } from './cinema.js';
 import { PixelGovernor } from './perfgov.js';
@@ -100,7 +101,7 @@ function initSky() {
   tracker = new Tracker(world.scene, $('#labels'), sats);
   skyui = new SkyUI({ clock, tracker, sats, asts, setSkyCam, lookAt: lookAtSat, follow: followSat });
   impactui = new ImpactUI({ sats, asts, astui, follow: followSat }); ui.onCarpma = () => impactui.open();
-  sats.models.onLoad = (e, st) => { if (st === 'start') skyui.toast(`${e.name}: gerçek 3B model yükleniyor (NASA 3D Resources)…`); else if (st === 'error') skyui.toast(`${e.name}: 3B model yüklenemedi, temsili model gösteriliyor.`); };
+  sats.models.onLoad = (e, st) => { if (st === 'start') skyui.toast(`${e.name}: gerçek 3B model yükleniyor (${srcOf(MODELS[e.key])})…`); else if (st === 'error') skyui.toast(`${e.name}: 3B model yüklenemedi, temsili model gösteriliyor.`); };
   sats.onData = () => { if (tracker) tracker.computePasses(true); };
   world.obsPose = obsPose;
   if (gov.r !== gov.max) { sats.setPixelScale(gov.r / world.prMax); asts.setPixelScale(gov.r / world.prMax); }          // oran önceden düşmüşse yeni katmanlar da aynı ölçekte
