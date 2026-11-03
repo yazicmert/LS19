@@ -97,8 +97,9 @@ const latheY = (g, prof, mat, x = 0, z = 0) => { const m = new THREE.Mesh(new TH
 const cylY = (g, r, y0, y1, mat, x = 0, z = 0) => latheY(g, [[0, y0], [r, y0], [r, y1], [0, y1]], mat, x, z);
 // ogive burun: taban yarıçapı r, y0'dan L boyunca (teğet ogive)
 const ogive = (r, y0, L, n = 16) => { const R = (r * r + L * L) / (2 * r); return Array.from({ length: n + 1 }, (_, i) => { const y = (i / n) * L; return [Math.sqrt(R * R - y * y) - (R - r), y0 + y]; }); };
-function f9Core(g, K, x, top) {                                   // top: 'stack' (2. kademe + kaporta) | 'nose' (yan itici burnu)
-  const R = 1.83;
+function f9Core(g0, K, x, top) {                                  // top: 'stack' (2. kademe + kaporta) | 'nose' (yan itici burnu)
+  const R = 1.83, g = new THREE.Group(); g0.add(g);
+  if (top === 'nose') g.userData.part = 'booster';                // kalkış canlandırması: yan iticiler birlikte ayrılır
   cylY(g, R, 0.9, 41.2, K.white, x);                                                            // 1. kademe
   for (let i = 0; i < 9; i++) {                                                                  // octaweb: 8 çevrede + 1 merkez
     const a = (i / 8) * 2 * Math.PI, rr = i === 8 ? 0 : 1.2, px = x + rr * Math.cos(a), pz = rr * Math.sin(a);
@@ -113,7 +114,7 @@ function f9Core(g, K, x, top) {                                   // top: 'stack
   if (top === 'stack') {
     cylY(g, R, 41.2, 47.9, K.dark, x);                                                          // ara kademe (karbon kompozit, siyah)
     cylY(g, R, 47.9, 57.2, K.white, x);                                                         // 2. kademe
-    latheY(g, [[R, 57.2], [2.6, 57.9], [2.6, 63.6], ...ogive(2.6, 63.6, 6.4).slice(1)], K.white, x);     // kaporta 5,2 m × 13,1 m (y 57,2 → 70)
+    latheY(g, [[R, 57.2], [2.6, 57.9], [2.6, 63.6], ...ogive(2.6, 63.6, 6.4).slice(1)], K.white, x).userData.part = 'fairing';     // kaporta 5,2 m × 13,1 m (y 57,2 → 70)
   } else {
     cylY(g, R, 41.2, 47.0, K.dark, x);
     latheY(g, ogive(R, 47.0, 5.0), K.white, x);                                                 // yan itici burun konisi (y ~52)
@@ -133,12 +134,19 @@ export function makeLaunchVehicle(key) {
     for (const sx of [1.0, -1.0]) latheY(g, [[0.35, 1.6], [0.3, 1.2], [0.85, 0]], K.nb, sx, 0);    // 2 × BE-4
     cylY(g, R, 33.3, 38.5, K.white);                                                            // ara kademe
     cylY(g, R, 38.5, 46.1, K.steel);                                                            // Centaur V (görünen kısım)
-    latheY(g, [[R, 46.1], [R, 52.0], ...ogive(R, 52.0, 9.6).slice(1)], K.white);                 // 5,4 m kaporta (y 46,1 → 61,6)
+    latheY(g, [[R, 46.1], [R, 52.0], ...ogive(R, 52.0, 9.6).slice(1)], K.white).userData.part = 'fairing';   // 5,4 m kaporta (y 46,1 → 61,6)
     for (const sz of [1, -1]) {                                                                  // 2 × GEM 63XL: 1,6 m × ~22 m
       const z = sz * (R + 0.8);
-      latheY(g, [[0, 2.0], [0.8, 2.0], [0.8, 21.5], ...ogive(0.8, 21.5, 2.5).slice(1)], K.white, 0, z);
-      latheY(g, [[0.3, 2.0], [0.55, 0.9]], K.dark, 0, z);
+      latheY(g, [[0, 2.0], [0.8, 2.0], [0.8, 21.5], ...ogive(0.8, 21.5, 2.5).slice(1)], K.white, 0, z).userData.part = 'booster';
+      latheY(g, [[0.3, 2.0], [0.55, 0.9]], K.dark, 0, z).userData.part = 'booster';
     }
+  } else if (key === 'generic') {
+    // genel (temsilî) fırlatma aracı: iki kademeli, 3,4 m çaplı, ~54 m; üstte genel TLI kademesi + iniş aracı kaportanın içinde
+    const R = 1.7;
+    for (let i = 0; i < 5; i++) { const a = (i / 4) * 2 * Math.PI, rr = i === 4 ? 0 : 1.0; latheY(g, [[0.25, 0.9], [0.18, 0.65], [0.42, 0]], K.nb, rr * Math.cos(a), rr * Math.sin(a)); }
+    cylY(g, R, 0.9, 30.5, K.white); cylY(g, R + 0.01, 28.5, 30.5, K.dark);
+    cylY(g, R, 30.5, 41.0, K.paint);
+    latheY(g, [[R, 41.0], [2.3, 41.8], [2.3, 47.0], ...ogive(2.3, 47.0, 7.0).slice(1)], K.white).userData.part = 'fairing';
   } else if (key === 'sls') {
     // SLS Block 1 (98,1 m): 8,4 m turuncu çekirdek (SOFI) + 4 × RS-25, 2 × 5 segmentli SRB (3,71 m × ~54 m), LVSA konisi, ICPS, Orion kademe adaptörü,
     // hizmet modülü kaportaları, Orion + fırlatma iptal sistemi (LAS). Yükseklikler NASA 3D Resources SLS modelindeki parça konumlarından (ana kabuklar o modelde yok)
@@ -147,15 +155,15 @@ export function makeLaunchVehicle(key) {
     cylY(g, R, 3.2, 66.2, orange); cylY(g, R + 0.02, 3.2, 4.6, K.white); cylY(g, R + 0.02, 41.0, 42.4, K.dark);        // çekirdek; motor bölümü; ara tank
     for (const sx of [1, -1]) {                                                                                     // SRB'ler
       const x = sx * (R + 1.855 + 0.45);
-      latheY(g, [[2.6, 0.2], [1.9, 3.2], [1.855, 3.4], [1.855, 50.0], ...ogive(1.855, 50.0, 4.7).slice(1)], K.white, x, 0);
-      latheY(g, [[0.9, 0.2], [1.25, -0.6]], K.dark, x, 0);
-      for (const y of [12.5, 22.5, 32.5]) cylY(g, 1.875, y, y + 0.35, K.alu, x, 0);                              // segment bağlantıları
+      latheY(g, [[2.6, 0.2], [1.9, 3.2], [1.855, 3.4], [1.855, 50.0], ...ogive(1.855, 50.0, 4.7).slice(1)], K.white, x, 0).userData.part = 'booster';
+      latheY(g, [[0.9, 0.2], [1.25, -0.6]], K.dark, x, 0).userData.part = 'booster';
+      for (const y of [12.5, 22.5, 32.5]) cylY(g, 1.875, y, y + 0.35, K.alu, x, 0).userData.part = 'booster';      // segment bağlantıları
     }
     latheY(g, [[R, 66.2], [2.55, 74.6]], K.white);                                                                    // LVSA
     cylY(g, 2.55, 74.6, 77.9, K.paint); cylY(g, 2.6, 77.9, 79.4, K.white);                                           // ICPS, Orion kademe adaptörü
     cylY(g, 2.62, 79.4, 84.0, K.white); cylY(g, 2.64, 80.6, 81.0, K.dark);                                           // hizmet modülü kaportaları
     latheY(g, [[2.6, 84.0], [1.0, 88.6], [0.62, 88.8]], K.white);                                                    // Orion üstündeki LAS kaportası
-    cylY(g, 0.62, 88.8, 96.4, K.white); cylY(g, 0.66, 91.0, 91.6, K.dark); latheY(g, ogive(0.62, 96.4, 1.7), K.white);   // LAS kulesi
+    for (const m of [cylY(g, 0.62, 88.8, 96.4, K.white), cylY(g, 0.66, 91.0, 91.6, K.dark), latheY(g, ogive(0.62, 96.4, 1.7), K.white)]) m.userData.part = 'las';   // LAS kulesi
   } else return null;
   g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   return g;

@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
-import { makeUpperStage } from './rocketmodels.js';
+import { makeUpperStage, makeLaunchVehicle } from './rocketmodels.js';
 import { rocketOf } from './rockets.js';
 import * as E from './engine.js';
 import { loadTerrain, terrainBasis, HOLE_R } from './terrain.js';
@@ -558,6 +558,53 @@ export class World {
     for (const m of this.debrisMeshes.values()) this.scene.remove(m);
     this.debrisMeshes.clear();
   }
+  // ------------------------------------------------------------------ kalkış canlandırması (ascent.js): tam fırlatma aracı
+  // spec: { lv: 'saturnv' | 'sls' | 'f9' | 'fh' | 'vulcan' | 'generic', prop: 'hydrolox' | 'kerolox' } → araç grubundaki iniş aracı/kademeler gizlenir, roket gösterilir.
+  // Model birimi metre, roket ekseni +Y, taban y = 0 → gövde çerçevesi (+z itki ekseni). Kademe ayrılması: kesme düzlemiyle (cut, m) alt kısım çizilmez; parça etiketli
+  // olanlar (booster, fairing, las) gizlenir. null: kalkış biter, araç geri gelir.
+  async setAscent(spec) {
+    const veh = this.vehicle;
+    if (this.asc) { veh.remove(this.asc.root); this.asc = null; }
+    for (const c of veh.children) if (c.userData.ascHidden !== undefined) { c.visible = c.userData.ascHidden; delete c.userData.ascHidden; }
+    this.renderer.localClippingEnabled = false;
+    if (!spec) return;
+    let model = null;
+    if (spec.lv === 'saturnv') {
+      this._lvCache = this._lvCache || {};
+      model = this._lvCache.saturnv || (this._lvCache.saturnv = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(this.base + 'models/rockets/saturnv.glb').then((g) => g.scene).catch(() => null));
+      model = model ? model.clone(true) : null;
+    } else model = makeLaunchVehicle(spec.lv);
+    if (!model) return;
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    model.traverse((o) => {
+      if (!o.isMesh) return;
+      o.material = (Array.isArray(o.material) ? o.material.map((m) => m.clone()) : o.material.clone());
+      for (const m of [].concat(o.material)) { m.clippingPlanes = [plane]; m.side = THREE.DoubleSide; }
+    });
+    const inner = new THREE.Group(); inner.rotation.x = Math.PI / 2; inner.add(model);
+    const root = new THREE.Group(); root.add(inner); root.scale.setScalar(KM);
+    for (const c of veh.children) { c.userData.ascHidden = c.visible; c.visible = false; }
+    veh.add(root);
+    const C = (r, g, b) => new THREE.Color(r, g, b), ker = spec.prop !== 'hydrolox', sol = spec.prop === 'solid';
+    const plumeR = spec.lv === 'saturnv' ? 4.5 : spec.lv === 'sls' ? 4.0 : spec.lv === 'fh' ? 5.0 : spec.lv === 'vulcan' ? 2.4 : 1.7;
+    const holder = new THREE.Group(); root.add(holder);
+    // alev rengi: gazyağı turuncu, katı yakıt (alüminyum) parlak beyaz-sarı, hidrolox soluk
+    const hot = sol ? C(3.2, 2.8, 2.2) : ker ? C(2.6, 1.7, 0.9) : C(1.9, 2.2, 3.2), cool = sol ? C(0.9, 0.6, 0.35) : ker ? C(0.7, 0.32, 0.12) : C(0.12, 0.24, 1.3);
+    const flame = this._addPlume(holder, { exitZ: 0, exitR: plumeR }, plumeR * 14, hot, cool, 0.9, { widen: 2.4, diamonds: 0.3, kS: 3.0 }, sol ? C(2.0, 1.7, 1.2) : ker ? C(1.7, 1.0, 0.5) : C(0.8, 1.0, 1.7), 3.0);
+    this.asc = { root, inner, model, plane, holder, flame, cut: 0, spec };
+    this.renderer.localClippingEnabled = true;
+  }
+  // kalkış karesi: cut (m, kesme yüksekliği), hidden (gizlenecek parça etiketleri), thr (0/1)
+  ascentFrame(cut, hidden, thr) {
+    const A = this.asc; if (!A) return;
+    A.cut = cut;
+    A.model.traverse((o) => { if (o.isMesh || o.isGroup) { const p = o.userData.part; if (p) o.visible = !hidden.has(p); } });
+    A.root.updateMatrixWorld(true);
+    const base = A.inner.localToWorld(new THREE.Vector3(0, cut, 0)), tip = A.inner.localToWorld(new THREE.Vector3(0, cut + 1, 0));
+    A.plane.setFromNormalAndCoplanarPoint(tip.sub(base).normalize(), base);
+    A.holder.position.set(0, 0, cut);                                                     // alev kalan yığının tabanında (gövde çerçevesi, m)
+    setPlume(A.flame, thr); const g = A.flame.userData.glow; if (g) { g.visible = thr > 0.01; g.material.color.copy(g.userData.col).multiplyScalar(thr); }
+  }
   // gimbal: alev (−z yönünde uzanır) motorun gövdeye göre sapmasıyla (x, y teğet) döner
   setNozzle(flame, g) {
     if (!g) { flame.quaternion.identity(); return; }
@@ -790,6 +837,7 @@ export class World {
     this.engineLight.position.z = (k === last ? this.place.lander.exitZ : k === 0 ? -stackTop + this.place.stage.exitZ : -3.05 + this.place.orb.exitZ) - 1.0;
     this.engineLight.color.set(k === 0 ? 0xa8c4ff : 0xffb070);
     this.engineLight.intensity = dCamVeh < 2 ? 3.0e-5 * (this.thrS.S || 0) * (k === 0 ? 3 : 0) + 3.5e-5 * Math.max(this.thrS.L || 0, this.thrS.O || 0) : 0;
+    if (this.asc) { for (const c of this.vehicle.children) if (c !== this.asc.root) c.visible = false; this.engineLight.intensity = 0; }   // kalkış: yalnız tam roket
     // ayrılan kademeler: her biri kendi modeliyle (TLI kademesi ya da Ay yörünge kademesi), kendi yörüngesinde ve ayrıldığı andaki eylemsiz yönelimiyle çizilir; görev boyunca kalır
     const seenDebris = new Set();
     for (const d of extra.debris || []) {

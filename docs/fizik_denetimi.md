@@ -256,3 +256,35 @@ Kurallar NASA'nın Artemis I hava kriterleri bilgi notundan ve 45. Hava Filosu f
 | Sıcaklık | — | < 5,2°C | 41,4°F, kriyojenik yakıt doldurma |
 
 Hiç veri yoksa sonuç "veri yok" oluyor; yanıltıcı "uygun" ya da "uygun değil" yazılmıyor. Resmî kurallardaki elektrik alanı, anvil ve debris bulutu mesafeleri modelde yok.
+
+### 6.5 Kalkış canlandırması (`ascent.js`, `ascentplay.js`)
+
+Uçuş adımındaki **▶ Kalkışı izle** düğmesi, seçili roketi seçili rampada tam boyuyla gösterir ve yörüngeye girişe kadar oynatır. Bitince görev girişten sürer.
+
+Bu bir **kinematik canlandırma**. Görev fiziği ve Δv hesapları değişmiyor; fizik yine yörüngeye girişte başlıyor.
+
+**Yol:**
+
+- Fırlatma anındaki rampa noktasından giriş noktasına, ikisinin büyük çember düzleminde ilerliyor.
+- Açı θ(τ) = θ₁ τⁿ. n, varışta yatay hızın giriş hızına eşit olacağı biçimde seçiliyor; böylece yol dikey yükselişle başlıyor.
+- İrtifa h(τ) = h₁ (1 − (1 − τ^1,3)^2,2). Varışta dikey hız 0; birinci kademe ayrılmasında (τ ≈ 0,3) ~76 km (tipik ~70 km).
+- Rampa WGS-84 elipsoidinde; rampadayken Dünya ile dönüyor (≈ 408 m/s).
+- Sahnede Dünya küre olarak çizildiği için çizim konumu alçak irtifada küre yüzeyine yaslanıyor (20 km'de söner). Telemetri gerçek konumu kullanıyor.
+
+**Denetimler** (`test_ascent.js`, varsayılan tasarımla):
+
+- Rampada jeodezik irtifa 0.
+- Girişte konum 8 m içinde birleşiyor; hız büyüklüğü %0,07 içinde.
+- Hız yönünde ~0,6° (85 m/s) fark kalıyor: canlandırmadan fiziğe geçerken hız vektörü bu kadar sıçrıyor.
+
+**Kademe ayrılmaları** roketlerin gerçek uçuş zamanlarından canlandırma süresine (tasarımın 600 s'lik çıkışı) ölçekleniyor:
+
+| Roket | Olaylar | Kaynak |
+|---|---|---|
+| Saturn V | S-IC T+2:42, S-II T+9:09, giriş T+11:49 | Apollo 11 uçuş günlüğü |
+| SLS | SRB T+2:12, LAS T+3:15, çekirdek kademe T+8:16 | Artemis I basın kiti |
+| Falcon 9, Falcon Heavy, Vulcan | — | Tipik/yaklaşık zaman çizelgeleri |
+
+Ayrılma, modelde bir kesme düzlemiyle (alt kısım çizilmiyor) ve etiketli parçaların gizlenmesiyle gösteriliyor: iticiler, kaporta, LAS.
+
+Alev rengi birinci kademenin yakıtına göre: gazyağı turuncu, katı yakıt beyaz-sarı. Atmosfer etkileri ve düşen kademeler çizilmiyor.
