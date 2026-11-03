@@ -86,14 +86,15 @@
  "101955": {
   "key": "bennu",
   "req_km": 0.24588,
-  "tris": 2692,
+  "tris": 8458,
   "dims": [
-   2.304,
-   2.18,
-   2.069
+   2.275,
+   2.2,
+   2.013
   ],
-  "kaynak": "Nolan vd. radar modeli",
-  "yontem": "radar"
+  "kaynak": "NASA Eyes · OSIRIS-REx (Barnouin vd. 2019)",
+  "yontem": "uzay",
+  "tex": true
  },
  "21": {
   "key": "lutetia",
@@ -134,38 +135,41 @@
  "25143": {
   "key": "itokawa",
   "req_km": 0.16193,
-  "tris": 7999,
+  "tris": 2646,
   "dims": [
-   3.469,
-   1.883,
-   1.503
+   3.472,
+   1.884,
+   1.501
   ],
-  "kaynak": "Gaskell Hayabusa modeli",
-  "yontem": "uzay"
+  "kaynak": "NASA Eyes · Hayabusa (Gaskell vd. 2008)",
+  "yontem": "uzay",
+  "tex": true
  },
  "4": {
   "key": "vesta",
   "req_km": 261.50226,
-  "tris": 8000,
+  "tris": 20000,
   "dims": [
-   2.154,
-   2.175,
-   1.784
+   2.192,
+   2.127,
+   1.77
   ],
-  "kaynak": "Dawn modeli",
-  "yontem": "uzay"
+  "kaynak": "NASA Eyes · Dawn (Preusker vd. 2016)",
+  "yontem": "uzay",
+  "tex": true
  },
  "433": {
   "key": "eros",
   "req_km": 8.42657,
-  "tris": 7999,
+  "tris": 1536,
   "dims": [
-   3.876,
+   3.884,
    2.002,
-   1.419
+   1.412
   ],
-  "kaynak": "Gaskell NEAR modeli",
-  "yontem": "uzay"
+  "kaynak": "NASA Eyes · NEAR Shoemaker (Gaskell 2008)",
+  "yontem": "uzay",
+  "tex": true
  },
  "4179": {
   "key": "toutatis",
@@ -346,5 +350,57 @@
   ],
   "kaynak": "Busch vd. radar modeli",
   "yontem": "radar"
+ },
+ "162173": {
+  "key": "ryugu",
+  "req_km": 0.448,
+  "tris": 17974,
+  "dims": [
+   2.267,
+   2.268,
+   2.148
+  ],
+  "kaynak": "NASA Eyes · Hayabusa2 (Watanabe vd. 2019)",
+  "yontem": "uzay",
+  "tex": true
+ },
+ "16": {
+  "key": "psyche",
+  "req_km": 111.0,
+  "tris": 7848,
+  "dims": [
+   2.445,
+   2.095,
+   1.708
+  ],
+  "kaynak": "NASA Eyes · Shepard vd. 2021 radar + uyarlamalı optik şekli; yüzey dokusu temsilî",
+  "yontem": "radar",
+  "tex": true
+ },
+ "65803": {
+  "key": "didymos",
+  "req_km": 0.3805,
+  "tris": 7954,
+  "dims": [
+   2.115,
+   2.133,
+   2.005
+  ],
+  "kaynak": "NASA Eyes · DART/DRACO (Daly vd. 2023)",
+  "yontem": "uzay",
+  "tex": true
+ },
+ "951": {
+  "key": "gaspra",
+  "req_km": 6.1,
+  "tris": 1908,
+  "dims": [
+   2.126,
+   3.048,
+   1.748
+  ],
+  "kaynak": "NASA Eyes · Galileo (Thomas vd. 1994)",
+  "yontem": "uzay",
+  "tex": true
  }
 }

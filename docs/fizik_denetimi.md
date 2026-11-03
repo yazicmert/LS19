@@ -79,3 +79,46 @@ Canlı Gökyüzü'nün fiziği (Dünya yönelimi, canlı N-cisim efemerisi ve Ay
 
 - Uydu gölgesi silindirik kabul edilir (yarı gölge yok); geçişlerin doğuş/batışı geometrik ufka göredir (kırılma yok: ufukta ≈ 0,57°, birkaç saniye).
 - Kutup hareketi ihmal edilir (≤ 15 m).
+
+## 5. Gerçek 3B modeller: asteroitler ve araçlar
+
+### 5.1 Asteroit şekil modelleri (NASA Eyes, dokulu)
+
+Uzay aracıyla görüntülenmiş sekiz asteroit artık NASA Eyes'ın renk ve normal dokulu modelleriyle çizilir (`tools/asteroit_eyes.mjs`): Bennu, Ryugu, Itokawa, Eros, Vesta, Didymos, Psyche ve Gaspra. Modeller önceki PDS modelleriyle aynı sözleşmeye çevrilir: hacim merkezi orijinde, birim hacim-eşdeğeri yarıçap, dönme ekseni glTF +Y. Hacim ve merkez imzalı dörtyüzlülerle hesaplanır.
+
+| Denetim | Sonuç |
+|---|---|
+| Dönme ekseni, PDS (Gaskell) modeliyle karşılaştırma (24 eksen dönüşü, ortalama en yakın nokta uzaklığı) | Itokawa, Bennu ve Vesta: +Y. Eros'un Eyes modelinde kutup +Z'de (0,027 req uzaklıkla eşleşir); araç çevirir. |
+| En büyük eylemsizlik ekseni ile +Y arasındaki açı (∫xxᵀdV, Jacobi) | Bennu 2,4°, Ryugu 0,7°, Itokawa 1,0°, Eros 0,3°, Vesta 0,5°, Didymos 2,5°, Psyche 6,4°, Gaspra 10,7° |
+| Normalize boyutlar, PDS ile | Eros 3,884/1,412 (PDS 3,876/1,419), Itokawa 3,472/1,501 (3,469/1,503), Vesta 2,192/1,770 (2,154/1,784) |
+| Modelin kendi ölçeği | Bennu 243 m, Didymos 388 m, Itokawa 154 m, Eros 8,39 km, Gaspra 6,08 km, Vesta 261,5 km: literatürle uyumlu |
+
+Yarıçap her zaman katalogdan gelir. Değiştirilen cisimler PDS modelinden hesaplanmış değeri korur. Yeni cisimlerin yarıçapları literatürden alınır: Ryugu 0,448 km (Watanabe vd. 2019), Didymos 0,3805 km (Daly vd. 2023), Psyche 111 km (Shepard vd. 2021), Gaspra 6,1 km (Thomas vd. 1994).
+
+İki model kullanılmadı ya da kapsam dışında kaldı:
+
+- **Apophis.** Eyes modeli gövde çerçevesinde değil: en büyük eylemsizlik ekseni +Y'ye 89,6° açılı ve PDS modeliyle eşleşmiyor. Bu yüzden Brozović vd. 2018 radar modeli kaldı.
+- **Psyche.** Henüz ziyaret edilmediği için yüzey dokusu temsilî; şekil radar ve uyarlamalı optikten geliyor.
+
+Psyche ve Gaspra artık katalogda olduğundan DAMIT dizininden çıkarıldı.
+
+Gölgelendirici, normal haritası için teğet çerçevesini türevlerden kurar (three.js getTangentFrame). Türev teğetlerle glTF normal haritasının y bileşeni ters çevrilir; GLTFLoader da aynı işlemi yapar. Işık, asteroitten Güneş'e doğru olan yönden gelir.
+
+### 5.2 Araç (roket) modelleri
+
+Ay görevi araçları zaten resmî NASA 3D Resources modelleridir (`tools/apollo_modelleri.mjs`):
+
+- Apollo LM: iniş aracı.
+- Apollo CSM'nin hizmet modülü: Ay yörünge kademesi.
+- Saturn V S-IVB ve IU: TLI kademesi.
+
+Diğer resmî kaynaklar araştırıldı:
+
+| Kaynak | Bulunan | Kullanım |
+|---|---|---|
+| Smithsonian 3D (CC0) | Apollo 11 komuta modülü, Shuttle Discovery | Kullanılan kademelerin taraması yok |
+| NASA Science 3D | 3D Resources ile aynı dosyalar | Yeni bir şey yok |
+| NASA Eyes | Fırlatma aracı modeli yok | — |
+| NASA 3D Resources "SLS Block 1" (.blend, 3,3 M üçgen) | Fırlatma düzeni | Kullanılamaz (aşağıya bakın) |
+
+SLS Block 1 modeli fırlatma düzeninde: ICPS, LVSA kabuğunun; Orion hizmet modülü de panellerin altında. Modelde yalnız dış yüzeyler var, bu yüzden uzayda ayrı kademe olarak kullanılamaz.
