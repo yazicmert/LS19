@@ -78,3 +78,77 @@ export function makeUpperStage(key) {
   g.scale.setScalar(1e-3);
   return { group: g, place, plume };
 }
+
+// ------------------------------------------------------------------ tam fırlatma araçları (bilgi kartı görüntüleyicisi; rocketviewer.js)
+// Resmî kamu malı modeli olmayan roketler yayımlanmış ölçülerle çizilir: birim metre, roket ekseni +Y, taban y = 0.
+//   Falcon 9: 70 m × 3,66 m; 1. kademe ~41,2 m, ara kademe ~6,7 m (siyah), 2. kademe görünen kısmı, kaporta 13,1 m × 5,2 m; 9 Merlin, 4 ızgara kanat, 4 iniş bacağı
+//   Falcon Heavy: üç çekirdek yan yana, toplam genişlik 12,2 m; yan iticiler burun konili
+//   SLS Block 1: 98,1 m; çekirdek 8,4 m, SRB 3,71 m (NASA 3D Resources'taki SLS modeli yalnız ayrıntı parçalarını içerir, tank kabukları yoktur)
+//   Vulcan VC2S: 61,6 m × 5,4 m; 1. kademe ~33,3 m (turuncu köpük yalıtım), Centaur V, 15,5 m kaporta; 2 × GEM 63XL (1,6 m × 22 m), 2 × BE-4
+const latheY = (g, prof, mat, x = 0, z = 0) => { const m = new THREE.Mesh(new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(Math.max(r, 1e-4), y)), 48), mat); m.position.set(x, 0, z); g.add(m); return m; };
+const cylY = (g, r, y0, y1, mat, x = 0, z = 0) => latheY(g, [[0, y0], [r, y0], [r, y1], [0, y1]], mat, x, z);
+// ogive burun: taban yarıçapı r, y0'dan L boyunca (teğet ogive)
+const ogive = (r, y0, L, n = 16) => { const R = (r * r + L * L) / (2 * r); return Array.from({ length: n + 1 }, (_, i) => { const y = (i / n) * L; return [Math.sqrt(R * R - y * y) - (R - r), y0 + y]; }); };
+function f9Core(g, K, x, top) {                                   // top: 'stack' (2. kademe + kaporta) | 'nose' (yan itici burnu)
+  const R = 1.83;
+  cylY(g, R, 0.9, 41.2, K.white, x);                                                            // 1. kademe
+  for (let i = 0; i < 9; i++) {                                                                  // octaweb: 8 çevrede + 1 merkez
+    const a = (i / 8) * 2 * Math.PI, rr = i === 8 ? 0 : 1.2, px = x + rr * Math.cos(a), pz = rr * Math.sin(a);
+    latheY(g, [[0.25, 0.9], [0.18, 0.65], [0.46, 0]], K.nb, px, pz);
+  }
+  for (let i = 0; i < 4; i++) {                                                                  // iniş bacakları (katlı) ve ızgara kanatları
+    const a = Math.PI / 4 + (i / 4) * 2 * Math.PI, leg = new THREE.Mesh(new THREE.BoxGeometry(0.5, 9.5, 0.25), K.dark);
+    leg.position.set(x + Math.cos(a) * (R + 0.12), 5.4, Math.sin(a) * (R + 0.12)); leg.rotation.y = -a; g.add(leg);
+    const b = (i / 4) * 2 * Math.PI, fin = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.5, 0.1), K.dark);
+    fin.position.set(x + Math.cos(b) * (R + 0.6), top === 'stack' ? 46.6 : 40.4, Math.sin(b) * (R + 0.6)); fin.rotation.y = -b + Math.PI / 2; g.add(fin);
+  }
+  if (top === 'stack') {
+    cylY(g, R, 41.2, 47.9, K.dark, x);                                                          // ara kademe (karbon kompozit, siyah)
+    cylY(g, R, 47.9, 57.2, K.white, x);                                                         // 2. kademe
+    latheY(g, [[R, 57.2], [2.6, 57.9], [2.6, 63.6], ...ogive(2.6, 63.6, 6.4).slice(1)], K.white, x);     // kaporta 5,2 m × 13,1 m (y 57,2 → 70)
+  } else {
+    cylY(g, R, 41.2, 47.0, K.dark, x);
+    latheY(g, ogive(R, 47.0, 5.0), K.white, x);                                                 // yan itici burun konisi (y ~52)
+  }
+}
+export function makeLaunchVehicle(key) {
+  const K = mats(), g = new THREE.Group();
+  if (key === 'f9') f9Core(g, K, 0, 'stack');
+  else if (key === 'fh') {
+    const d = (12.2 - 3.66) / 2;
+    f9Core(g, K, 0, 'stack'); f9Core(g, K, d, 'nose'); f9Core(g, K, -d, 'nose');
+    for (const s of [d, -d]) { const st = new THREE.Mesh(new THREE.BoxGeometry(Math.abs(s) - 3.66, 0.4, 0.4), K.alu); st.position.set(s / 2, 40.0, 0); g.add(st); }   // bağlantı kirişleri
+  } else if (key === 'vulcan') {
+    const R = 2.7, orange = M({ color: 0xc9773a, metalness: 0, roughness: 0.85 });
+    cylY(g, R, 1.6, 33.3, orange);                                                               // 1. kademe (sprey köpük yalıtım)
+    cylY(g, R + 0.01, 1.6, 3.0, K.white); cylY(g, R + 0.01, 31.8, 33.3, K.white);
+    for (const sx of [1.0, -1.0]) latheY(g, [[0.35, 1.6], [0.3, 1.2], [0.85, 0]], K.nb, sx, 0);    // 2 × BE-4
+    cylY(g, R, 33.3, 38.5, K.white);                                                            // ara kademe
+    cylY(g, R, 38.5, 46.1, K.steel);                                                            // Centaur V (görünen kısım)
+    latheY(g, [[R, 46.1], [R, 52.0], ...ogive(R, 52.0, 9.6).slice(1)], K.white);                 // 5,4 m kaporta (y 46,1 → 61,6)
+    for (const sz of [1, -1]) {                                                                  // 2 × GEM 63XL: 1,6 m × ~22 m
+      const z = sz * (R + 0.8);
+      latheY(g, [[0, 2.0], [0.8, 2.0], [0.8, 21.5], ...ogive(0.8, 21.5, 2.5).slice(1)], K.white, 0, z);
+      latheY(g, [[0.3, 2.0], [0.55, 0.9]], K.dark, 0, z);
+    }
+  } else if (key === 'sls') {
+    // SLS Block 1 (98,1 m): 8,4 m turuncu çekirdek (SOFI) + 4 × RS-25, 2 × 5 segmentli SRB (3,71 m × ~54 m), LVSA konisi, ICPS, Orion kademe adaptörü,
+    // hizmet modülü kaportaları, Orion + fırlatma iptal sistemi (LAS). Yükseklikler NASA 3D Resources SLS modelindeki parça konumlarından (ana kabuklar o modelde yok)
+    const orange = M({ color: 0xc9773a, metalness: 0, roughness: 0.85 }), R = 4.2;
+    for (const [x, z] of [[2.05, 2.05], [-2.05, 2.05], [2.05, -2.05], [-2.05, -2.05]]) latheY(g, [[0.45, 3.4], [0.35, 3.0], [1.15, 0.2]], K.nb, x, z);   // RS-25
+    cylY(g, R, 3.2, 66.2, orange); cylY(g, R + 0.02, 3.2, 4.6, K.white); cylY(g, R + 0.02, 41.0, 42.4, K.dark);        // çekirdek; motor bölümü; ara tank
+    for (const sx of [1, -1]) {                                                                                     // SRB'ler
+      const x = sx * (R + 1.855 + 0.45);
+      latheY(g, [[2.6, 0.2], [1.9, 3.2], [1.855, 3.4], [1.855, 50.0], ...ogive(1.855, 50.0, 4.7).slice(1)], K.white, x, 0);
+      latheY(g, [[0.9, 0.2], [1.25, -0.6]], K.dark, x, 0);
+      for (const y of [12.5, 22.5, 32.5]) cylY(g, 1.875, y, y + 0.35, K.alu, x, 0);                              // segment bağlantıları
+    }
+    latheY(g, [[R, 66.2], [2.55, 74.6]], K.white);                                                                    // LVSA
+    cylY(g, 2.55, 74.6, 77.9, K.paint); cylY(g, 2.6, 77.9, 79.4, K.white);                                           // ICPS, Orion kademe adaptörü
+    cylY(g, 2.62, 79.4, 84.0, K.white); cylY(g, 2.64, 80.6, 81.0, K.dark);                                           // hizmet modülü kaportaları
+    latheY(g, [[2.6, 84.0], [1.0, 88.6], [0.62, 88.8]], K.white);                                                    // Orion üstündeki LAS kaportası
+    cylY(g, 0.62, 88.8, 96.4, K.white); cylY(g, 0.66, 91.0, 91.6, K.dark); latheY(g, ogive(0.62, 96.4, 1.7), K.white);   // LAS kulesi
+  } else return null;
+  g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  return g;
+}

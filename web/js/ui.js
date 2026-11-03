@@ -7,6 +7,7 @@ import { etOf } from './live.js';
 import { BODIES, IS, IE, IM } from './ephem.js';
 import { sunElevationAtSite, PROFILES, normalizeConfig, configLabel } from './design.js';
 import { ROCKETS, ROCKET_IDS, DEFAULT_ROCKET, rocketOf, tliCapacity, parkPropellant } from './rockets.js';
+import { ROCKET_INFO } from './rocketinfo.js';
 import { dvKeys, DV_NAMES, dvFromEvents } from './dvbudget.js';
 import { SAT_GROUPS } from './satlayer.js';
 import { fmtReentry, ageYears, controlNote } from './impact.js';
@@ -32,13 +33,18 @@ const phaseName = (p) => PHASE_TR[p] || (/^SK-\d+$/.test(p) ? `İstasyon tutma y
 const sameCfg = (a, b) => JSON.stringify(normalizeConfig(a)) === JSON.stringify(normalizeConfig(b));
 // roket kartı: ad, durum, rampa; TLI kademesi; türetilmiş TLI kapasitesi (rockets.js)
 function rocketCard(id) {
-  const r = ROCKETS[id], st = r.stage, cap = tliCapacity(id), b = document.createElement('button');
-  b.className = 'optcard'; b.type = 'button'; b.dataset.rocket = id;
+  const r = ROCKETS[id], st = r.stage, cap = tliCapacity(id), w = document.createElement('div'), b = document.createElement('button');
+  w.className = 'rcard'; b.className = 'optcard'; b.type = 'button'; b.dataset.rocket = id;
   const t = document.createElement('b'); t.textContent = r.name;
   const sm = document.createElement('small');
   sm.textContent = `${r.status} · ${r.pad}. TLI kademesi ${st.name}${st.engine ? ' (' + st.engine + ')' : ''}: ${fmt(st.T, 1)} kN, Isp ${fmt(st.isp, 1)} s, ${st.prop}` +
     (cap ? ` · TLI kapasitesi ≈ ${fmt(cap / 1000, 1)} t` : ' · yakıt göreve göre boyutlanır');
-  b.append(t, sm); return b;
+  b.append(t, sm); w.append(b);
+  if (ROCKET_INFO[id]) {                                                   // bilgi kartı (3B, tarihçe, görevler, kaynaklar)
+    const i = document.createElement('button'); i.className = 'rinfo'; i.type = 'button'; i.dataset.rocketInfo = id; i.textContent = 'ⓘ';
+    i.title = `${r.name}: 3B model, tarihçe, görevler ve kaynaklar`; i.setAttribute('aria-label', i.title); w.append(i);
+  }
+  return w;
 }
 const DATE_MIN = '1850-01-01', DATE_MAX = '2149-12-01';        // de440s kapsamı (1849-12 … 2150-01) içinde, görev süresi payıyla
 const AU = 149597870.7, D2R = Math.PI / 180, R2AS = 180 / Math.PI * 3600;
@@ -96,7 +102,10 @@ export class UI {
     // fırlatma aracı (roket): kartlar rockets.js'ten
     this.rocket = DEFAULT_ROCKET;
     const rc = $('#rocketCards');
-    if (rc) { for (const id of ROCKET_IDS) rc.append(rocketCard(id)); rc.addEventListener('click', (e) => { const b = e.target.closest('[data-rocket]'); if (b && this.onRocket) this.onRocket(b.dataset.rocket); }); }
+    if (rc) { for (const id of ROCKET_IDS) rc.append(rocketCard(id)); rc.addEventListener('click', (e) => {
+      const inf = e.target.closest('[data-rocket-info]'); if (inf) { this.onRocketInfo && this.onRocketInfo(inf.dataset.rocketInfo); return; }
+      const b = e.target.closest('[data-rocket]'); if (b && this.onRocket) this.onRocket(b.dataset.rocket);
+    }); }
     this.setRocket(DEFAULT_ROCKET);
     this.setConfig(PROFILES.APOLLO.cfg);
     $('#btnCompare').addEventListener('click', () => this.onCompare && this.onCompare());

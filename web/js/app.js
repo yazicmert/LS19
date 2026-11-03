@@ -6,6 +6,7 @@ import { makeLive, makeLiveSource, etOf } from './live.js';
 import { EphStore } from './ephstore.js';
 import * as EO from './earth.js';
 import { designMissionAsync, PROFILES, normalizeConfig } from './design.js';
+import { RocketSheet } from './rocketsheet.js';
 import { twoStageDesign } from './mission.js';
 import { SatLayer } from './satlayer.js';
 import { AsteroidLayer } from './asteroids.js';
@@ -349,6 +350,8 @@ function setVehicle(mode) {
 // tasarım hata verir: önceki rokete dönülür ve neden gösterilir
 let rocketOk = 'GENEL';
 try { const r = localStorage.getItem('ls19.rocket'); if (r) ui.setRocket(r); } catch (e) { /* özel pencere */ }
+const rocketSheet = new RocketSheet(document.getElementById('rocketSheet'), { onFly: (id) => ui.onRocket(id) });
+ui.onRocketInfo = (id) => rocketSheet.open(id);
 ui.onRocket = (id) => {
   if (designing || id === ui.rocket) return;
   ui.setRocket(id);
