@@ -3,6 +3,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { makeUpperStage } from './rocketmodels.js';
+import { rocketOf } from './rockets.js';
 import * as E from './engine.js';
 import { loadTerrain, terrainBasis, HOLE_R } from './terrain.js';
 import { R_SITE, SITE_LAT, SITE_LON, siteIcrf, siteMe } from './mission.js';
@@ -382,7 +384,10 @@ export class World {
       const g = makeGlow(C(1, 1, 1), ex.exitR * glowK); g.position.set(0, 0, -0.15); g.userData.col = glowC; f.add(g); f.userData.glow = g; return f;
     };
     this.flameL = addPlume(this.landerModel, ML, 10, C(2.6, 2.0, 1.2), C(0.35, 0.45, 1.5), 0.7, { widen: 1.9, diamonds: 0.35, kS: 3.2 }, C(1.4, 1.0, 0.6), 4.5);
-    this.flameS = addPlume(this.stackStage, MS, 24, C(1.9, 2.2, 3.2), C(0.12, 0.24, 1.3), 0.8, { widen: 1.9, diamonds: 0.12, kS: 3.0 }, C(0.8, 1.0, 1.7), 4.2);     // LH2/LOX: soluk mavi
+    this._addPlume = addPlume;
+    this.stageKey = 'sivb'; this.stageModels = { sivb: { group: this.stageModel, place: { ...MS, engines: [[0, 0]] }, plume: 'hydrolox' } };
+    this.flameSx = [];
+    this.flameS = this.makeStagePlume(this.stackStage, MS);
     this.flameO = addPlume(this.orbStage, MO, 13, C(2.6, 2.0, 1.2), C(0.35, 0.45, 1.5), 0.65, { widen: 1.8, kS: 3.2 }, C(1.4, 1.0, 0.6), 4.2);
     this.engineLight = new THREE.PointLight(0xffb070, 0, 0.1, 2); this.engineLight.position.set(0, 0, ML.exitZ - 1.0); this.landerModel.add(this.engineLight);
     this.rcsSets = { lander: this.makeRcsPlumes(ML.rcsZ, ML.rcsR), orb: this.makeRcsPlumes(-3.05 + MO.rcsZ, MO.rcsR), tli: this.makeRcsPlumes(-3.05 + MS.rcsZ, MS.rcsR) };      // iticiler (gövde z, yarıçap; m); tli halkası yığın düzenine göre update'te kaydırılır
@@ -528,6 +533,31 @@ export class World {
     set.grp.visible = true;
     for (const j of set.jets) { const d = duty ? duty[j.axis] * j.sign : 0; setPlume(j.m, d > 0.02 ? Math.min(1, d) : 0); }
   }
+  // TLI kademesinin motor alevi: hidrolox (LH2/LOX) soluk mavi, kerolox (RP-1/LOX) turuncu; çok motorlu kademede ek alevler birincinin durumunu izler (flameSx)
+  makeStagePlume(parent, MS, kind = 'hydrolox', engines = [[0, 0]]) {
+    const C = (r, g, b) => new THREE.Color(r, g, b), ker = kind === 'kerolox';
+    const mk = () => this._addPlume(parent, MS, 24, ker ? C(2.6, 1.7, 0.9) : C(1.9, 2.2, 3.2), ker ? C(0.7, 0.32, 0.12) : C(0.12, 0.24, 1.3), 0.8, { widen: 1.9, diamonds: ker ? 0.2 : 0.12, kS: 3.0 },
+      ker ? C(1.7, 1.0, 0.5) : C(0.8, 1.0, 1.7), 4.2);
+    const fs = engines.map(([x, y]) => { const f = mk(); f.position.x = x; f.position.y = y; return f; });
+    this.flameSx = fs.slice(1);
+    return fs[0];
+  }
+  // Tasarımdaki roketin TLI kademesini kullan (rockets.js model anahtarı): S-IVB resmî NASA modeli, diğerleri ölçüden çizim (rocketmodels.js).
+  // Yığındaki kademe, alevi, iticileri ve ayrılan kademe enkazı şablonu değişir.
+  setStageModel(key) {
+    if (!this.stageModels || key === this.stageKey) return;
+    let e = this.stageModels[key];
+    if (!e) { const m = makeUpperStage(key); if (!m) return; e = this.stageModels[key] = m; }
+    this.stageKey = key; this.stageModel = e.group; Object.assign(this.place.stage, e.place);
+    const MS = this.place.stage;
+    this.vehicle.remove(this.stackStage);
+    this.stackStage = e.group.clone(); this.stackStage.position.set(0, 0, -3.05 * KM); this.vehicle.add(this.stackStage);
+    this.flameS = this.makeStagePlume(this.stackStage, MS, e.plume, e.place.engines || [[0, 0]]);
+    this.vehicle.remove(this.rcsSets.tli.grp);
+    this.rcsSets.tli = this.makeRcsPlumes(-3.05 + MS.rcsZ, MS.rcsR); this.vehicle.add(this.rcsSets.tli.grp); this.rcsSets.tli.grp.visible = false;
+    for (const m of this.debrisMeshes.values()) this.scene.remove(m);
+    this.debrisMeshes.clear();
+  }
   // gimbal: alev (−z yönünde uzanır) motorun gövdeye göre sapmasıyla (x, y teğet) döner
   setNozzle(flame, g) {
     if (!g) { flame.quaternion.identity(); return; }
@@ -545,6 +575,7 @@ export class World {
   setDesign(D) {
     this.haloPts = null;
     this.nStages = D && D.STAGES ? D.STAGES.length : 2;
+    this.setStageModel(rocketOf(D && D.STAGES && D.STAGES[0] ? D.STAGES[0].rocket : null).model);
     if (D && D.profile === 'HALO' && D.HALO && D.HALO.patches) {
       const ref = new HaloRef(null, D.HALO.patches, D.HALO.tDep, D.HALO.tNri);
       this.haloPts = ref.sample(Math.max(600, D.HALO.T / 400)).map((q) => q.r);
@@ -748,9 +779,9 @@ export class World {
     const sm = (key, target) => { const a = 1 - Math.exp(-Math.min(0.1, extra.dtReal || 0.016) / 0.3); const v = (this.thrS[key] ?? 0) + (target - (this.thrS[key] ?? 0)) * a; this.thrS[key] = target === 0 && v < 0.01 ? 0 : v; return this.thrS[key]; };
     plumeTick(Math.min(0.1, extra.dtReal || 0.016));
     const pl = (f, v) => { setPlume(f, v); const g = f.userData.glow, c = g.userData.col; g.visible = v > 0.004; g.material.color.setRGB(c.r * v, c.g * v, c.b * v); };
-    pl(this.flameS, sm('S', k === 0 ? thr : 0)); pl(this.flameO, sm('O', nSt > 2 && k === 1 ? thr : 0)); pl(this.flameL, sm('L', k === last ? thr : 0));
+    pl(this.flameS, sm('S', k === 0 ? thr : 0)); for (const f of this.flameSx) pl(f, this.thrS.S || 0); pl(this.flameO, sm('O', nSt > 2 && k === 1 ? thr : 0)); pl(this.flameL, sm('L', k === last ? thr : 0));
     const A = x.att, gim = A && A.g && thr > 0 ? A.g : null;                               // 6-DOF: gimbal (gövde x, y teğetleri) ve RCS görev oranı fizikten gelir
-    this.setNozzle(this.flameS, k === 0 ? gim : null); this.setNozzle(this.flameO, nSt > 2 && k === 1 ? gim : null); this.setNozzle(this.flameL, k === last ? gim : null);
+    this.setNozzle(this.flameS, k === 0 ? gim : null); for (const f of this.flameSx) this.setNozzle(f, k === 0 ? gim : null); this.setNozzle(this.flameO, nSt > 2 && k === 1 ? gim : null); this.setNozzle(this.flameL, k === last ? gim : null);
     this.showRcs(A ? (k === last ? this.rcsSets.lander : nSt > 2 && k === 1 ? this.rcsSets.orb : k === 0 ? this.rcsSets.tli : null) : null, A ? A.duty : null);
     const dCamVeh = norm(sub(vehPos, eye));
     // motor ışığı: etkin motorun çıkışının 1 m altında; ışık yakındaki gövdeyi ve (inişte) zemini turuncu aydınlatır (Ay'da gölge kenarları, bacaklar)

@@ -47,7 +47,7 @@ export class AyUI {
     if (!has) this.markSeen();
     this.hadResult = has;
     const tot = has ? this.dvTotals() : { used: null, nom: null };
-    const v = verdict(has ? st.result : null, { dvUsed: tot.used, dvNominal: tot.nom, profileName: st.profileName, vehicle: st.vehicle, landing: st.optimalOk ? st.landing : 'zem' });
+    const v = verdict(has ? st.result : null, { dvUsed: tot.used, dvNominal: tot.nom, profileName: st.profileName, vehicle: st.vehicle, landing: st.optimalOk ? st.landing : 'zem', rocket: st.rocket });
     const vsig = JSON.stringify(v);
     if (vsig === this.vsig) return; this.vsig = vsig;
     $('#ayVerdict').className = 'verdict ' + v.kind;

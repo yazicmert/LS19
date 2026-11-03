@@ -58,7 +58,8 @@ function ayState() {
   const key = DESIGN ? ui.profileKeyOf(DESIGN.cfg || ui.getConfig()) : ui.profileKeyOf(ui.getConfig());
   return { profileName: PROFILES[key] ? PROFILES[key].name : 'Özel', dateISO: DESIGN && !designing ? E.utcString(DESIGN.LAUNCH.t_launch).slice(0, 10) : pendingDate,
     designing, ready: !!DESIGN && !designing && !!latestSentInit, running, done: !!(latest && latest.done), result: latest ? latest.result : null,
-    met: latest && DESIGN ? latest.t - DESIGN.LAUNCH.t_launch : null, started: !!(latest && latest.t > ui.t0 + 1), vehicle: vehicleMode, landing: landingMode, optimalOk };
+    met: latest && DESIGN ? latest.t - DESIGN.LAUNCH.t_launch : null, started: !!(latest && latest.t > ui.t0 + 1), vehicle: vehicleMode, landing: landingMode, optimalOk,
+    rocket: DESIGN && DESIGN.STAGES && DESIGN.STAGES[0] ? DESIGN.STAGES[0].rocket : null };
 }
 let lastAy = 0;
 const ayRefresh = () => { lastAy = performance.now(); ayui.update(ayState()); };
@@ -291,6 +292,10 @@ async function startDesign(dateStr) {
   send({ cmd: latestSentInit ? 'design' : 'init', ...msg, landing: landingMode }); latestSentInit = true;
 }
 function designFailed(m) {
+  if (/gönderemez/.test(m) && ui.rocket !== rocketOk) {                     // roketin yakıtı yetmedi: önceki rokete dön (Geri dön düğmesi onunla tasarlar)
+    ui.setRocket(rocketOk, m + '.');
+    try { localStorage.setItem('ls19.rocket', ui.rocket); } catch (e) { /* özel pencere */ }
+  }
   $('#loadMsg').textContent = 'Tasarım başarısız: ' + m; $('#loadBack').hidden = false;
   $('#loadBack').textContent = goodDate && goodDate !== pendingDate ? goodDate + ' tarihine dön' : 'Varsayılan tarihe dön';
   ui.designMsg('Bu tarih için tasarım başarısız: ' + m);
@@ -340,6 +345,17 @@ function setVehicle(mode) {
   syncLanding();
   if (latestSentInit && pendingDate) startDesign(pendingDate);               // araç değişince görev (önbellekteki tasarımla) yeniden kurulur
 }
+// roket: TLI kademesini (itki, Isp, park yörüngesindeki yakıt) değiştirir → görev yeniden tasarlanır. Roket bu aracı Ay'a gönderemezse (yakıt yetmez)
+// tasarım hata verir: önceki rokete dönülür ve neden gösterilir
+let rocketOk = 'GENEL';
+try { const r = localStorage.getItem('ls19.rocket'); if (r) ui.setRocket(r); } catch (e) { /* özel pencere */ }
+ui.onRocket = (id) => {
+  if (designing || id === ui.rocket) return;
+  ui.setRocket(id);
+  try { localStorage.setItem('ls19.rocket', ui.rocket); } catch (e) { /* özel pencere */ }
+  cmpCancel = true;
+  startDesign($('#dateInput').value || pendingDate || DEFAULT_DATE);
+};
 document.querySelectorAll('[data-vehicle]').forEach((b) => b.addEventListener('click', () => setVehicle(b.dataset.vehicle)));
 document.querySelectorAll('[data-landing]').forEach((b) => b.addEventListener('click', () => setLanding(b.dataset.landing)));
 
@@ -357,7 +373,7 @@ worker.onmessage = (e) => {
     // ana iş parçacığı da aynı başlangıçtan aynı canlı efemerisi kurar (deterministik: worker ile birebir)
     const lv = makeLive(K.spk, K.pck, K.eo, d.tStart);
     missionSrc = lv; ui.live = lv;
-    if (MODE === 'sky' && skySrc) { E.setProvider(skySrc.prov); world.live = skySrc; } else world.live = lv; DESIGN = d.design; ui.setDesign(d.design, d.startMs); goodDate = pendingDate;
+    if (MODE === 'sky' && skySrc) { E.setProvider(skySrc.prov); world.live = skySrc; } else world.live = lv; DESIGN = d.design; ui.setDesign(d.design, d.startMs); goodDate = pendingDate; rocketOk = ui.rocket;
     E.setMoonZone(DESIGN.profile === 'HALO' ? 1.25 * DESIGN.HALO.stats.raKm : E.SOI_M);
     world.resetDynamic && world.resetDynamic(); world.setDesign(DESIGN);
     const ce = designCache.get(cacheKey(d.startMs, DESIGN.cfg || ui.getConfig()));
@@ -596,8 +612,9 @@ window.addEventListener('keydown', (e) => {
 ui.onSeek = (t) => send({ cmd: 'seek', t });
 // ------------------------------------------------------------------ profil karşılaştırması (yörünge optimizasyonu görünümü)
 let comparing = false, cmpCancel = false;
+const pcfg = (key) => ({ ...PROFILES[key].cfg, rocket: ui.rocket });          // profil + seçili roket
 function compareRows() {
-  return Object.entries(PROFILES).map(([key, p]) => { const c = cachedDesign(START_MS, p.cfg); return { key, name: p.name, D: c ? c.design : null }; });
+  return Object.entries(PROFILES).map(([key, p]) => { const c = cachedDesign(START_MS, pcfg(key)); return { key, name: p.name, D: c ? c.design : null }; });
 }
 function refreshCompare(status) { if (!comparing) ui.setCompare(compareRows(), status ?? ''); }
 ui.onCompare = async () => {
@@ -608,9 +625,9 @@ ui.onCompare = async () => {
     if (r.D) continue;
     r.busy = true; ui.setCompare(rows, `${r.name} hesaplanıyor…`);
     try {
-      const D = await designMissionAsync(tFrom, (m) => ui.setCompare(rows, `${r.name}: ${m.slice(0, 60)}`), () => cmpCancel || designing, PROFILES[r.key].cfg);
+      const D = await designMissionAsync(tFrom, (m) => ui.setCompare(rows, `${r.name}: ${m.slice(0, 60)}`), () => cmpCancel || designing, pcfg(r.key));
       if (!D) break;
-      r.D = D; designCache.set(cacheKey(START_MS, PROFILES[r.key].cfg), { tStart, design: D, nominal: null });
+      r.D = D; designCache.set(cacheKey(START_MS, pcfg(r.key)), { tStart, design: D, nominal: null });
     } catch (err) { r.err = 'tasarım başarısız: ' + String(err.message || err).slice(0, 60); }
     r.busy = false; ui.setCompare(rows, '');
   }

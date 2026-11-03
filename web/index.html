@@ -56,6 +56,8 @@
 <link rel="modulepreload" href="lib/addons/loaders/GLTFLoader.js">
 <link rel="modulepreload" href="lib/addons/utils/BufferGeometryUtils.js">
 <link rel="modulepreload" href="lib/addons/libs/meshopt_decoder.module.js">
+<link rel="modulepreload" href="js/rocketmodels.js">
+<link rel="modulepreload" href="js/rockets.js">
 <link rel="modulepreload" href="js/terrain.js">
 <link rel="modulepreload" href="js/terraingen.js">
 <link rel="modulepreload" href="js/mission.js">
@@ -393,7 +395,10 @@
         <div class="stepnav"><button class="primary sm" type="button" data-goto="arac">Devam: Araç ve güdüm</button></div>
       </div>
       <div id="tab-arac" class="tabpage" role="tabpanel" hidden>
-        <p class="stepsub">Yörünge tasarımı aynı kalır; araç ve iniş güdümü yakıtı ve inişin biçimini değiştirir. Etkisi Sonuç adımındaki Δv bütçesinin "Nominal" sütununda görünür.</p>
+        <p class="stepsub">Roket, Ay'a aktarma yakışını (TLI) yapan üst kademeyi belirler: itki, Isp ve park yörüngesinde kalan yakıt gerçek roketin başarımından gelir. Araç ve iniş güdümü yakıtı ve inişin biçimini değiştirir; etkisi Sonuç adımındaki Δv bütçesinin "Nominal" sütununda görünür.</p>
+        <div class="fttl">Roket <span class="k">(değişince görev yeniden tasarlanır)</span></div>
+        <div id="rocketCards" class="optcards" role="group" aria-label="Roket"></div>
+        <p id="rocketInfo" class="note" aria-live="polite"></p>
         <div class="fttl">Araç <span class="k">(değişince görev yeniden kurulur)</span></div>
         <div class="optcards" role="group" aria-label="Araç">
           <button class="optcard" type="button" data-vehicle="two"><b>İki kademe</b><small>Ay yörünge kademesi (MCC, LOI, DOI) ve iniş kademesi. Yörünge kademesi 15 km irtifada, motorlu inişten önce atılır: ölü kütle inişe taşınmaz, kalan yakıt artar.</small></button>

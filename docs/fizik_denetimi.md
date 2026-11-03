@@ -122,3 +122,39 @@ Diğer resmî kaynaklar araştırıldı:
 | NASA 3D Resources "SLS Block 1" (.blend, 3,3 M üçgen) | Fırlatma düzeni | Kullanılamaz (aşağıya bakın) |
 
 SLS Block 1 modeli fırlatma düzeninde: ICPS, LVSA kabuğunun; Orion hizmet modülü de panellerin altında. Modelde yalnız dış yüzeyler var, bu yüzden uzayda ayrı kademe olarak kullanılamaz.
+
+### 5.3 Ay görevinde roket seçimi (`web/js/rockets.js`)
+
+Simülasyon Dünya park yörüngesinde başlar. Roket seçimi, Ay'a aktarma yakışını (TLI) yapan **üst kademeyi** belirler: kuru kütle, vakum itkisi, Isp ve park yörüngesinde kalan yakıt.
+
+Park yörüngesindeki yakıt, roketin yayımlanmış başarımından roket denklemiyle türetilir. Park yörüngesine konan toplam kütle alt kademelerce belirlenir; yük hafifse fark üst kademede yakıt olarak kalır:
+
+- M_park = (m_kuru + P_ref) · exp(Δv_ref / (Isp·g0))
+- yakıt = min(tank, M_park − m_kuru − yük)
+- Δv_ref 200 km dairesel yörüngeden hesaplanır: TLI (C3 = −2 km²/s²) için 3,133 km/s, GTO için 2,455 km/s.
+
+| Roket | TLI kademesi | Kaynak başarım | Türetilen TLI kapasitesi | 3,6 t araçla TLI yakışı |
+|---|---|---|---|---|
+| Saturn V (tarihî) | S-IVB + IU, J-2 1033 kN, Isp 421 s | Apollo 17 yığını 48,6 t | 48,6 t | ~4,5 dk |
+| SLS Block 1 | ICPS, RL10B-2 110 kN, Isp 462 s | NASA: > 27 t TLI | 25,2 t (ICPS tankı sınırlar) | ~12,5 dk |
+| Falcon 9 Block 5 | 2. kademe, MVac 981 kN, Isp 348 s | GTO 5,5 t (kurtarmalı) | 3,8 t | ~41 s (kesmede ~13 g) |
+| Falcon Heavy | aynı 2. kademe | GTO ~8 t (yan iticiler kurtarılır) | 5,8 t | ~51 s |
+| Vulcan Centaur VC2S | Centaur V, 2 × RL10C 204 kN, Isp 453,8 s | VC2 TLI 6,2 t | 6,2 t | ~5 dk |
+
+**Denetimler.**
+
+- Apollo 17 yüküyle S-IVB park yörüngesinde ~73 t yakıtla kalıyor ve TLI'da tükeniyor. Gerçekte ~70 t idi.
+- Yayımlanan TLI yükleri park kütlesinden geri elde ediliyor (`test_rockets.js`).
+- Denenen birleşimlerin hepsi Ay'a güvenle iniyor: beş roket Apollo profilinde; SLS, Vulcan ve Falcon Heavy NRHO'da; Falcon 9, Falcon Heavy, Saturn V ve SLS yörünge yükseltmeli profilde. Tek istisna Falcon 9 + NRHO: iniş aracı ~4,2 t, Falcon 9'un türetilmiş kapasitesi ~3,8 t. Tasarım bunu anlaşılır bir hatayla söylüyor ve arayüz önceki rokete dönüyor.
+
+**İki düzeltme.**
+
+- **TLI kesme hatası.** Görev, kesmede 0,05 s'lik bir zamanlama hatası modelliyordu. Bu hata 13 g'lik kademede ~6 m/s'lik Δv hatasına dönüşür ve MCC-1 49 m/s çıkar. Gerçek üst kademeler hıza göre kestiği için hata Δv eşdeğerine ölçeklendi: her kademede genel kademeyle aynı Δv hatası (MCC-1 5–10 m/s). Genel kademede davranış değişmedi.
+- **Uzun yakışta park eğimi.** ICPS'in ~13 dakikalık yakışında çözülen park düzlemi biraz dönüyor. Eğim KSC enleminin (28,57°) altına inince rampa düzlemden geçmiyor. Gerçek roket seçiliyse tasarım bir sonraki eğimle (30°) yeniden deneniyor.
+
+**Belirsizlikler.**
+
+- SpaceX ve ULA kademe kuru kütlelerini yayımlamıyor: Falcon ikinci kademesi 4,0 t ve Centaur V 7,1 t ikincil kaynaklardan. 1 t'luk hata park yakıtını ~1 t değiştirir.
+- Rampalar Florida'da ve birbirine ~10 km uzaklıkta. Tasarım LC-39B koordinatlarını kullanıyor.
+
+**3B modeller.** S-IVB resmî NASA modeli. ICPS, Falcon ikinci kademesi ve Centaur V'nin kamu malı resmî modeli yok; bunlar yayımlanmış ölçülerden dönel yüzeylerle çizildi (`rocketmodels.js`): çap, boy, çan çıkış çapı ve boyu, motor sayısı. Hidrolox alevleri soluk mavi, kerolox alevi turuncu.
