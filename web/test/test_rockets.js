@@ -5,6 +5,7 @@ import fs from 'fs';
 import * as E from '../js/engine.js';
 import { makeLive } from '../js/live.js';
 import * as R from '../js/rockets.js';
+import { incPenalty } from '../js/pads.js';
 import { designMission, normalizeConfig, PROFILES } from '../js/design.js';
 import { Mission, twoStageDesign } from '../js/mission.js';
 
@@ -46,7 +47,7 @@ const design = (rocket, prof = 'APOLLO') => { E.setProvider(null); makeLive(spkB
 const res = {};
 for (const id of ['SATURN_V', 'SLS1', 'F9', 'VULCAN']) {
   const D = design(id), s0 = D.STAGES[0], st = R.ROCKETS[id].stage;
-  const pay = D.STAGES.slice(1).reduce((q, x) => q + x.dry + x.prop, 0), avail = R.parkPropellant(id, pay);
+  const pay = D.STAGES.slice(1).reduce((q, x) => q + x.dry + x.prop, 0), avail = R.parkPropellant(id, pay, incPenalty(D.inc));     // park eğimi cezasıyla (pads.js)
   check(s0.rocket === id && s0.T === st.T && s0.isp === st.isp && s0.dry === st.dry && Math.abs(s0.prop - avail) <= 10, `${id}: TLI kademesi ${s0.name}, park yakıtı ${s0.prop} kg (roketin başarımından)`);
   const M = new Mission({ design: twoStageDesign(D) }); M.P.tLimit = Infinity;
   for (;;) { const r = M.gen.next(); if (r.done) break; }

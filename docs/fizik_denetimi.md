@@ -184,3 +184,75 @@ Her bilgi bir kaynak numarasına bağlı; `test_rocketinfo.js` her numaranın ge
 Görüntüleyici tembel yükleniyor: kart açılınca ayrı bir WebGL bağlamı oluşuyor, kapanınca serbest bırakılıyor. Böylece ilk açılış yavaşlamıyor.
 
 Saturn V'nin TLI başarımı NASA PDS kaydına göre düzeltildi: Apollo 17'de CSM 30.320 kg + LM 16.448 kg = 46,8 t (önce 48,6 t kullanılıyordu). Park yörüngesindeki S-IVB yakıtı ~71 t çıkıyor; gerçekte ~70 t idi.
+
+## 6. Fırlatma rampası, kalkış maliyeti, pencereler ve hava durumu
+
+### 6.1 Rampalar (`web/data/pads.json`, `web/js/pads.js`)
+
+The Space Devs Launch Library 2'den en az bir yörüngesel fırlatma denemesi olan **193 rampa** derlendi (`tools/rampa_derle.mjs`; `ordering=id` ile kararlı sayfalama). Rampa Ay görevinin 1. adımında seçiliyor ve görev tasarımı KSC yerine seçilen rampanın koordinatlarıyla çalışıyor: fırlatma fırsatı, rampanın hedef yörünge düzleminden geçtiği an.
+
+Gerçek roketler yalnız gerçekte kullandıkları rampalardan seçilebiliyor:
+
+| Roket | Rampalar |
+|---|---|
+| Saturn V | LC-39A, LC-39B |
+| SLS | LC-39B |
+| Falcon 9 | SLC-40, LC-39A, SLC-4E |
+| Falcon Heavy | LC-39A |
+| Vulcan | SLC-41 |
+
+Genel kademe her rampadan fırlayabiliyor. Roket değişince rampa gerekirse roketin ilk gerçek rampasına geçiyor.
+
+### 6.2 Kalkış fiziği
+
+- **Eğim–azimut ilişkisi:** cos i = cos φ · sin A. Doğrudan fırlatmada eğim enlemden küçük olamaz (i ≥ |φ|). Köpek bacağı manevrası modellenmiyor.
+- **Dünya dönüşünün katkısı:** rampanın eylemsiz hızının yörünge yönündeki bileşeni ω R cos φ sin A = **V_EQ · cos i** (V_EQ = 465,1 m/s). Katkı enlemden bağımsız, yalnız eğime bağlı.
+- **Eğim cezası:** başvuru eğimine (Florida, 28,5°) göre ek Δv = V_EQ (cos 28,5° − cos i). Örnekler: 51,6° → +119,8 m/s; Baykonur 46° → +85,7 m/s; Kourou 5,3° → −54 m/s (kazanç). Gerçek roketlerde bu ek Δv'yi üst kademe karşılıyor sayılıyor ve park yörüngesine ulaşan kütle exp(−Δv / Isp g0) ile azalıyor. Bu birinci derece bir yaklaşım: çıkış kayıpları aynı kabul ediliyor.
+- **Menzil güvenliği:** kaynağı olan menzillerde izinli fırlatma azimutları uygulanıyor; izin dışındaki fırsatlar atılıyor ve park eğimi bu aralığa çekiliyor.
+
+| Menzil | İzinli azimut | Kaynak | Park eğimi aralığı |
+|---|---|---|---|
+| Doğu Menzili (Cape Canaveral / KSC) | 35°–120° | Firefly CCSFS; Wikipedia "Eastern Range" (bazı kaynaklar 37°–114°) | 28,6°–59,7° |
+| Batı Menzili (Vandenberg) | 140°–260° | Firefly VSFB | ≥ 58,1° (güneye fırlatma) |
+| Kourou | −10,5°–93,5° | İkincil kaynak | ≥ 5,3° |
+| Diğer rampalar | Veri yok | — | Yalnız enlem sınırı |
+
+- **Uzun yakış:** eğim KSC enleminin altına inince fırlatma fırsatı bulunamıyor. Bu durumda tasarım bir sonraki park eğimiyle yeniden deniyor (§5.3); bu artık seçili rampada da geçerli.
+
+**Denetimler** (`test_pads.js`):
+
+- Baykonur (46,0°, azimut 86,8°), Kourou ELA-4 (azimut 61,7°) ve Vandenberg SLC-4E (60,1°, azimut 142,6°): cos i = cos φ sin A ilişkisi 0,1° içinde tutuyor ve Ay'a güvenli iniş sağlanıyor.
+- Falcon 9 Baykonur'dan seçilince tasarım anlaşılır bir hatayla duruyor.
+
+**Bilinen sınır:** Varsayılan "KSC LC-39B" noktası (28,5729° K, 80,6490° B) LL2'deki gerçek LC-39B'den (28,6271° K, 80,6210° B) ~6 km güneyde. Hazır tasarımlar ve 28,6° eğimli profiller bu noktaya göre. Listeden LC-39B seçilince gerçek koordinat kullanılıyor ve eğim en az 28,7° oluyor.
+
+### 6.3 Fırlatma pencereleri tarayıcısı
+
+Sonraki dört pencere tasarlanıyor; her biri bir öncekinin fırlatmasından bir gün sonrasından aranıyor. İniş yerinde uygun güneş açısı gerektiği için pencereler yaklaşık ayda bir.
+
+Tabloda her pencere için şunlar var:
+
+- Fırlatma anı, azimut, eğim, toplam Δv.
+- Gereken yakıt: iniş aracı + TLI, tasarım tabanları olmadan; böylece pencereler arasındaki gerçek fark görünüyor.
+- En ucuz pencereye göre fark.
+- Gerçek roketlerde TLI yakıt payı.
+- Hava durumu.
+
+Tarama sırasında ana iş parçacığının efemeris kaynağı değişiyor; sonunda geri yükleniyor.
+
+### 6.4 Hava durumu (`web/js/weather.js`)
+
+Veri Open-Meteo'dan geliyor: 16 güne kadar tahmin, 92 güne kadar geçmiş. İstek ziyaretçinin tarayıcısından gidiyor (anahtarsız, CORS açık); böylece her ziyaretçinin kendi günlük kotası oluyor. Bu bulut ortamının paylaşılan IP'si kotayı doldurduğu için testler örnek yanıtla yapıldı.
+
+Kurallar NASA'nın Artemis I hava kriterleri bilgi notundan ve 45. Hava Filosu fırlatma tahminlerinden. Saatlik model verisiyle **yaklaşık göstergeler**:
+
+| Ölçüt | Uygun değil | Riskli | Not |
+|---|---|---|---|
+| Yağış | ≥ 0,2 mm/sa | Olasılık ≥ %40 | |
+| Yıldırım | WMO 95–99, ±1 saat | CAPE ≥ 1000 J/kg | |
+| Kalkış rüzgârı (120 m ya da 10 m esintisi) | ≥ 34 kt | ≥ 25 kt | Artemis I: 132,5 ft'te 29–39 kt |
+| Kalın bulut | — | ≥ %90 | Katman kalınlığı modelde yok |
+| 250 hPa rüzgârı | — | ≥ 100 kt | |
+| Sıcaklık | — | < 5,2°C | 41,4°F, kriyojenik yakıt doldurma |
+
+Hiç veri yoksa sonuç "veri yok" oluyor; yanıltıcı "uygun" ya da "uygun değil" yazılmıyor. Resmî kurallardaki elektrik alanı, anvil ve debris bulutu mesafeleri modelde yok.

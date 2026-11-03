@@ -111,6 +111,7 @@ const tableProvider = () => ({
   ttMinusUtc: () => TT_UTC,
 });
 export function setProvider(p) { PROV = p; }
+export function getProvider() { return PROV; }
 export const provider = () => PROV;
 
 // canlı sağlayıcı: LiveEphemeris (SSB) + earth.js

@@ -527,3 +527,30 @@ body.rs-open { overflow: hidden; }
   .rs-info { overflow: visible; }
   .rs-missions li { grid-template-columns: 1fr auto; } .rs-missions time { grid-column: 1 / 3; } .rs-missions .rs-note, .rs-missions sup { grid-column: 1 / 3; }
 }
+
+/* fırlatma rampası, hava durumu ve pencere tarayıcı (Ay görevi › 1. adım) */
+#padSel { max-width: 100%; }
+#padInfo a { color: var(--accent-2); margin-left: 4px; }
+#padInfo small { color: var(--text-muted); }
+.wx { margin: 8px 0 4px; font-size: 12.5px; color: var(--text-secondary); line-height: 1.45; }
+.wx:empty { display: none; }
+.wx-head b, .wx-line b { color: var(--text-primary); font-weight: 600; }
+.wx-line { margin-top: 4px; }
+.wx-badge { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 999px; margin-left: 4px; white-space: nowrap; }
+.wx-badge.go { background: rgba(52, 211, 153, .15); color: var(--good); }
+.wx-badge.risk { background: rgba(245, 185, 58, .15); color: var(--warn); }
+.wx-badge.nogo { background: rgba(248, 113, 113, .15); color: var(--bad); }
+.wx-badge.na { background: var(--surface-2); color: var(--text-muted); }
+.wx-checks { list-style: none; margin: 6px 0 4px; padding: 0; display: grid; gap: 2px; }
+.wx-checks li { display: grid; grid-template-columns: 120px 1fr auto; gap: 8px; padding: 2px 0; border-top: 1px solid var(--line); }
+.wx-checks .k { color: var(--text-muted); } .wx-checks .r { font-size: 11px; }
+.wx-checks .st-go .r { color: var(--good); } .wx-checks .st-risk .r { color: var(--warn); } .wx-checks .st-nogo .r { color: var(--bad); } .wx-checks .st-na .r { color: var(--text-muted); }
+.wx-src { display: block; color: var(--text-muted); font-size: 11px; } .wx-src a { color: var(--text-secondary); }
+.tblwrap { overflow-x: auto; }
+.wintbl { font-size: 12px; width: 100%; }
+.wintbl th { font-weight: 500; color: var(--text-muted); text-align: left; white-space: nowrap; }
+.wintbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.wintbl tr.pick { cursor: pointer; } .wintbl tr.pick:hover { background: var(--surface-2); }
+.wintbl tr.best td:first-child { box-shadow: inset 3px 0 0 var(--good); }
+.wintbl td.worse { color: var(--warn); } .wintbl td.better { color: var(--good); }
+@media (max-width: 760px) { .wx-checks li { grid-template-columns: 96px 1fr auto; } }

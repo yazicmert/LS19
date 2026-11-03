@@ -263,7 +263,7 @@ export class Mission {
   // ---------------------------------------------------------------- görev programı
   *run() {
     const P = this.P, { TLI, ARRIVAL, LAUNCH } = this.D;
-    this.log(`Yörüngeye giriş (fırlatma ${E.utcString(LAUNCH.t_launch)}, KSC, azimut ${LAUNCH.az.toFixed(1)}°) — ${(this.D.RAISE ? this.D.RAISE.leo.alt : this.hPark).toFixed(0)} km park yörüngesi`, 'INS');
+    this.log(`Yörüngeye giriş (fırlatma ${E.utcString(LAUNCH.t_launch)}, ${(LAUNCH.site || 'KSC').replace(/\s*\(.*$/, '')}, azimut ${LAUNCH.az.toFixed(1)}°) — ${(this.D.RAISE ? this.D.RAISE.leo.alt : this.hPark).toFixed(0)} km park yörüngesi`, 'INS');
     let tTli = TLI.t_ign;
     if (this.D.RAISE) {
       yield* this.raiseBurns();

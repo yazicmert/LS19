@@ -16,11 +16,11 @@
 import * as E from './engine.js';
 import { STAGES as BASE_STAGES, siteIcrf, R_SITE } from './mission.js';
 import { ROCKETS, DEFAULT_ROCKET, stageRecord, parkPropellant, rocketOf } from './rockets.js';
+import { LEGACY_SITE, minIncl, incPenalty, padAllowed, inclRange, azInRange } from './pads.js';
 import { HALO_PRESETS, haloMember, ephemerisHalo } from './halo.js';
 import * as CR from './cr3bp.js';
 const { add, sub, scale, dot, cross, norm, unit, mtv } = E;
 
-const KSC_LAT = 28.5729 * Math.PI / 180, KSC_LON = -80.6490 * Math.PI / 180;
 const ASCENT_T = 600.0, ASCENT_ARC = 16.0 * Math.PI / 180;
 const SUN_EL_TARGET = 12.0;                      // derece (Apollo 11: 10.8°)
 const dummy = () => E.dummyVehicle();
@@ -51,7 +51,16 @@ export function normalizeConfig(c) {
   out.moon.llo = { ...d.moon.llo, ...((cfg.moon || {}).llo || {}) };
   out.moon.halo = { ...d.moon.halo, ...((cfg.moon || {}).halo || {}) };
   out.earth.h = Math.min(1000, Math.max(160, +out.earth.h));
-  out.earth.inc = Math.min(90, Math.max(28.6, +out.earth.inc));
+  // fırlatma rampası (pads.js siteOf): yoksa eski varsayılan KSC noktası (yazılmaz: hazır tasarımların önbellek anahtarı değişmesin).
+  // Doğrudan fırlatmada park eğimi rampa enleminden küçük olamaz (köpek bacağı manevrası modellenmez)
+  const st = cfg.site;
+  if (st && Number.isFinite(+st.lat) && Number.isFinite(+st.lon) && Math.abs(st.lat) <= 90) {
+    out.site = { id: st.id | 0, name: String(st.name || 'Rampa').slice(0, 80), lat: +(+st.lat).toFixed(5), lon: +(+st.lon).toFixed(5) };
+    if (Array.isArray(st.az) && st.az.length === 2 && st.az.every(Number.isFinite)) out.site.az = [+st.az[0], +st.az[1]];   // menzil güvenliği azimut aralığı (pads.js)
+  }
+  // menzilin izinli azimutlarıyla ulaşılabilen eğim aralığı (yoksa yalnız enlem sınırı)
+  const ir = out.site ? (out.site.az ? inclRange(out.site.lat, out.site.az) : [minIncl(out.site.lat), 90]) : [28.6, 90];
+  out.earth.inc = Math.min(ir ? ir[1] : 90, Math.max(ir ? ir[0] : minIncl(out.site.lat), +out.earth.inc));
   out.earth.revs = Math.min(15.5, Math.max(0.5, +out.earth.revs));
   out.moon.llo.h = Math.min(500, Math.max(30, +out.moon.llo.h));
   out.moon.llo.revs = Math.min(40, Math.max(1, Math.round(+out.moon.llo.revs)));
@@ -67,7 +76,7 @@ export function configLabel(cfg) {
   const park = `Dünya park ${e.h} km, i ${e.inc}°, ${e.revs} tur` + (e.raise && e.raise.n ? ` + ${e.raise.n} yükseltme yakışı (apoje ${e.raise.ha} km)` : '');
   const moon = m.type === 'HALO' ? `${HALO_PRESETS[m.halo.preset].name}, ${m.halo.revs} tur + LLO ${m.llo.h} km, ${m.llo.revs} tur`
                                   : `LLO ${m.llo.h} km, ${m.llo.revs} tur`;
-  return (cfg.rocket ? rocketOf(cfg.rocket).name + ' · ' : '') + `${park} · ${moon}`;
+  return (cfg.rocket ? rocketOf(cfg.rocket).name + ' · ' : '') + (cfg.site ? cfg.site.name + ' · ' : '') + `${park} · ${moon}`;
 }
 
 // tasarım bağlamı: yapılandırmadan türetilen sabitler
@@ -81,7 +90,8 @@ function ctx(cfg, stages) {
   const V_PRE = RAISE.n ? Math.sqrt(E.MU_E * (2 / R_PARK - 2 / (R_PARK + RA))) : Math.sqrt(E.MU_E / R_PARK);
   return { cfg, H_PARK, R_PARK, PARK_REVS: cfg.earth.revs, incList, H_LLO, R_LLO, N_LLOm, P_LLO, N_REV, VINF: 0.85, RAISE, RA, V_PRE,
     STAGES: stages || BASE_STAGES.map((s, i) => (i === 0 && cfg.rocket ? stageRecord(cfg.rocket) : { ...s })),
-    ROCKET: cfg.rocket || null,
+    ROCKET: cfg.rocket || null, SITE: cfg.site || null,
+    site: cfg.site || LEGACY_SITE,
     tLof: (tP) => tP + 700.0 + (N_REV + 0.5) * P_LLO, arrState: null };
 }
 
@@ -266,7 +276,7 @@ function designAt(K, tP, x0, incT, log) {
   if (!sb) return null;
   const pg = sb.a.pst, phat = unit(pg.r), hhat = unit(cross(pg.r, pg.v));
   const vc = K.V_PRE, dvImp = norm(pg.v) - vc;                        // TLI öncesi perije hızı (dairesel ya da yükseltilmiş elips)
-  sizeTli(K, dvImp);
+  sizeTli(K, dvImp, incT);
   const st = K.STAGES[0], m0 = K.STAGES.reduce((s, q) => s + q.dry + q.prop, 0);
   const mdot = st.T / (st.isp * E.G0), tb = (m0 * (1 - Math.exp(-dvImp / (st.isp * E.G0)))) / mdot;
   const ref = { t_ign: pg.t - tb / 2, phat, hhat };
@@ -406,7 +416,12 @@ function raiseOutput(K, chain, tIns) {
 }
 
 // ---------------------------------------------------------------- KSC fırlatma fazlaması
-function kscIcrf(t) { const x = [Math.cos(KSC_LAT) * Math.cos(KSC_LON), Math.cos(KSC_LAT) * Math.sin(KSC_LON), Math.sin(KSC_LAT)]; return mtv(E.earthIcrfToItrf(t), x); }
+const siteText = (s) => `${s.name} (${Math.abs(s.lat).toFixed(4)}°${s.lat >= 0 ? 'K' : 'G'}, ${Math.abs(s.lon).toFixed(4)}°${s.lon >= 0 ? 'D' : 'B'})`;
+// fırlatma rampasının ICRF birim vektörü (küresel Dünya; jeodezik/jeosentrik enlem farkı ~0,2° — azimut ve faz için ihmal edilir)
+function siteIcrfOf(site, t) {
+  const la = site.lat * D2R, lo = site.lon * D2R, x = [Math.cos(la) * Math.cos(lo), Math.cos(la) * Math.sin(lo), Math.sin(la)];
+  return mtv(E.earthIcrfToItrf(t), x);
+}
 const rotz = (a, v) => [Math.cos(a) * v[0] - Math.sin(a) * v[1], Math.sin(a) * v[0] + Math.cos(a) * v[1], v[2]];
 // ref: ilk manevranın (TLI ya da ilk yükseltme yakışı) başlangıç durumu {t, r, v}; verilmezse TLI başlangıcındaki dairesel park durumu
 function phasingShift(K, sol, ref = null) {
@@ -416,6 +431,7 @@ function phasingShift(K, sol, ref = null) {
   const inc = Math.acos(dot(h0, E.precession(tRef)[2]));
   const dOm = -1.5 * n * E.J2_E * (E.R_E / Rpk) ** 2 * Math.cos(inc);
   const hz = (t) => rotz(dOm * (t - tRef), h0);
+  const kscIcrf = (t) => siteIcrfOf(K.site, t);
   const f = (t) => dot(kscIcrf(t), hz(t));
   const cands = [];
   const span = (K.PARK_REVS + 1) * Tp + 30 * 3600;
@@ -434,7 +450,7 @@ function phasingShift(K, sol, ref = null) {
     let coast = ang / n; while (coast < (K.PARK_REVS - 0.5) * Tp) coast += Tp;
     const east = unit(cross([0, 0, 1], k)), north = cross(k, east), d = cross(h, k);
     return { t_launch: tc, t_ins: tIns, coast, delta: tIns + coast - tRef, az: Math.atan2(dot(d, east), dot(d, north)) * 180 / Math.PI };
-  });
+  }).filter((o) => !K.site.az || azInRange(o.az, K.site.az));              // menzil güvenliği: izinli azimut dışındaki fırsatlar atılır
 }
 
 // ---------------------------------------------------------------- araç boyutlandırma
@@ -445,10 +461,11 @@ function doiDv(K) {                              // LLO -> 15 km perilünlü eli
 }
 function sizeLander(K, lunarDv) {
   const st = K.STAGES[1], c = st.isp * E.G0, dv = (MCC_RES + lunarDv + doiDv(K) + PDI_DV) * MARGIN;
-  st.prop = Math.max(BASE_STAGES[1].prop, Math.ceil(st.dry * (Math.exp(dv / c) - 1) / 10) * 10);
+  K.LANDER_NEED = Math.ceil(st.dry * (Math.exp(dv / c) - 1) / 10) * 10;             // gereken (tabansız; pencere karşılaştırması için)
+  st.prop = Math.max(BASE_STAGES[1].prop, K.LANDER_NEED);
   return dv;
 }
-function sizeTli(K, dvTli) {
+function sizeTli(K, dvTli, incT = 28.5) {
   const st = K.STAGES[0], c = st.isp * E.G0, pay = K.STAGES[1].dry + K.STAGES[1].prop;
   // sonlu yakış yerçekimi kaybı payı: yakış süresinin karesiyle büyür (varsayılan araçta ~20 m/s)
   let prop = (pay + st.dry) * (Math.exp((dvTli + 0.02) / c) - 1);
@@ -456,9 +473,11 @@ function sizeTli(K, dvTli) {
   prop = (pay + st.dry) * (Math.exp((dvTli + margin) / c) - 1);
   // yükseltmeli tasarımda burası yalnız TLI yakışının yakıtı (yükseltme yakışlarınınki raiseChain'de eklenir): taban yakıt uygulanmaz
   const floor = K.RAISE && K.RAISE.n ? 0 : BASE_STAGES[0].prop;
-  if (!K.ROCKET) { st.prop = Math.max(floor, Math.ceil(prop / 10) * 10); return; }
+  K.ASCENT = { inc: incT, dvPen: incPenalty(incT) * 1000 };                       // başvuru eğimine (28,5°) göre kalkışın ek Δv'si (m/s; bilgi)
+  if (!K.ROCKET) { st.prop = Math.max(floor, Math.ceil(prop / 10) * 10); K.TLI_NEED = Math.ceil(prop / 10) * 10; return; }   // TLI_NEED: tabansız gereken
   // gerçek roket: üst kademenin park yörüngesindeki yakıtı roketin başarımından gelir (rockets.js); gereken yakıt sığmalı, artanı kademede kalır
-  const avail = parkPropellant(K.ROCKET, pay);
+  // park eğimi başvurudan (28,5°) yüksekse Dünya dönüşünün katkısı azalır: üst kademe ek Δv'yi karşılar, park yörüngesine daha az kütle ulaşır (pads.js)
+  const pen = incPenalty(incT), avail = parkPropellant(K.ROCKET, pay, pen);
   // yükseltmeli tasarımda kademe yükseltme yakışlarını da yapar: TLI başındaki yakıt x, yükseltme yakıtı (kuru + yük + x)(e^(Δv/c) − 1) (dürtüsel kestirim;
   // gerçeği raiseChain'de sonlu yakışlarla eklenir), toplam = park yakıtı → x = (avail + kuru + yük)·e^(−Δv/c) − (kuru + yük)
   const kR = K.RAISE && K.RAISE.n ? Math.exp((K.V_PRE - Math.sqrt(E.MU_E / K.R_PARK)) / c) : 1;
@@ -468,6 +487,7 @@ function sizeTli(K, dvTli) {
     throw new Error(`${r.name} bu aracı Ay'a gönderemez: TLI için ${Math.ceil(((pay + st.dry + prop) * kR - pay - st.dry) / 100) * 100} kg yakıt gerekir, ${r.stage.name} park yörüngesinde ${Math.floor(avail / 100) * 100} kg yakıtla kalır (yük ${pay.toFixed(0)} kg)`);
   }
   st.prop = Math.floor(x / 10) * 10;
+  K.TLI_NEED = Math.ceil(((pay + st.dry + prop) * kR - pay - st.dry) / 10) * 10;                 // gereken (yükseltme dahil); st.prop − TLI_NEED: yakıt payı
 }
 
 // ---------------------------------------------------------------- ana giriş
@@ -491,6 +511,7 @@ function* designSteps(tFrom, progress, cfg0) {
   const cfg = normalizeConfig(cfg0), K = ctx(cfg);
   const log = (m, f) => progress(m, f);
   log('Yapılandırma: ' + configLabel(cfg), 0.01);
+  if (cfg.rocket && cfg.site && !padAllowed(cfg.rocket, cfg.site.id)) throw new Error(`${rocketOf(cfg.rocket).name} ${cfg.site.name} rampasından fırlatılmıyor (gerçek rampaları dışında seçilemez; her rampa için genel TLI kademesini seçin)`);
   if (cfg.rocket) { const r = rocketOf(cfg.rocket), st = r.stage; log(`Fırlatma aracı: ${r.name} (${r.pad}); TLI kademesi ${st.name}: ${st.engine}, ${st.T} kN, Isp ${st.isp} s, kuru ${st.dry} kg`, 0.02); }
   let D = null;
   for (;;) {
@@ -498,13 +519,16 @@ function* designSteps(tFrom, progress, cfg0) {
     catch (e) {
       // uzun TLI yakışında (ör. ICPS ~13 dk) çözülen park düzlemi biraz döner; eğim KSC enleminin (28,57°) altına inerse rampa düzlemden geçmez.
       // Gerçek roket seçiliyse sıradaki park eğimiyle yeniden denenir (varsayılan araçta davranış değişmez)
-      if (!(K.ROCKET && /fırlatma fırsatı/.test(e.message) && K.incList.length > 1)) throw e;
+      if (!((K.ROCKET || K.SITE) && /fırlatma fırsatı/.test(e.message) && K.incList.length > 1)) throw e;
       K.incList = K.incList.slice(1);
       log(`  ${e.message}: park eğimi ${K.incList[0]}° ile yeniden deneniyor`, 0.3);
     }
   }
   D.cfg = cfg; D.STAGES = K.STAGES.map((s) => ({ ...s }));
   if (D.RAISE) D.STAGES[0].prop = Math.round(D.STAGES[0].prop + D.RAISE.propExtra);   // TLI kademesi yükseltme yakışlarının yakıtını da taşır
+  if (K.ASCENT) D.ASCENT = K.ASCENT;
+  if (K.TLI_NEED != null) D.TLI_NEED = K.TLI_NEED;
+  if (K.LANDER_NEED != null) D.LANDER_NEED = K.LANDER_NEED;
   D.EARTH = { h: K.H_PARK, revs: K.PARK_REVS }; D.LLO = { ...(D.LLO || {}), h: K.H_LLO, revs: K.N_REV, P: K.P_LLO };
   D.sunElAtLanding = sunElevationAtSite(D.t_L - 1620);
   const m0 = D.STAGES.reduce((s, q) => s + q.dry + q.prop, 0);
@@ -541,7 +565,7 @@ function* designApollo(K, tFrom, log) {
     if (K.RAISE.n && !chain) throw new Error('Yörünge yükseltme zinciri çözülemedi');
     if (chain) { log(`  yükseltme: ${chain.burns.map((b) => `${b.dur.toFixed(0)} s (apoje ${b.apoAfter.toFixed(0)} km)`).join(' → ')}; park ${chain.leoAlt.toFixed(0)} km`, 0.2 + it * 0.07); yield; }
     const opts = phasingShift(K, sol, chain && { t: chain.S1.t, r: chain.S1.r, v: chain.S1.v }).filter((o) => o.delta > -3 * 3600).sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta));
-    if (!opts.length) throw new Error('KSC fırlatma fırsatı bulunamadı');
+    if (!opts.length) throw new Error(`${K.site.short || K.site.name}: fırlatma fırsatı bulunamadı`);
     opt = opts[0];
     log(`Fazlama ${it + 1}: fırlatma ${E.utcString(opt.t_launch)}, azimut ${opt.az.toFixed(1)}°, kaydırma ${(opt.delta / 60).toFixed(2)} dk`, 0.25 + it * 0.07); yield;
     if (Math.abs(opt.delta) < 1.0) break;
@@ -551,7 +575,7 @@ function* designApollo(K, tFrom, log) {
     profile: 'APOLLO',
     TLI: { x: sol.x, t_ign: sol.t_ign, phat: sol.phat, hhat: sol.hhat },
     ARRIVAL: { t_P: sol.t_P, rP: sol.rP, vP: sol.vP, uP: sol.xArr[0], beta: sol.xArr[1], vp, kind: 'peri' },
-    LAUNCH: { t_launch: opt.t_launch, t_ins: opt.t_ins, az: opt.az, coast: opt.coast, site: 'Kennedy Uzay Merkezi LC-39B (28.5729°K, 80.6490°B)' },
+    LAUNCH: { t_launch: opt.t_launch, t_ins: opt.t_ins, az: opt.az, coast: opt.coast, site: siteText(K.site), siteId: K.site.id, lat: K.site.lat, lon: K.site.lon },
     t_L: K.tLof(sol.t_P), inc: incT, label: E.utcString(opt.t_launch),
     DV: { ...(chain ? { RAISE: chain.dv * 1000 } : {}), TLI: sol.dvTli * 1000, LOI: loiDv * 1000, DOI: doiDv(K) * 1000, PDI: PDI_DV * 1000 },
     ...(chain ? raiseOutput(K, chain, opt.t_ins) : {}),
@@ -720,7 +744,7 @@ function* designHaloInner(K, tFrom, log) {
     // varış halo boyunca kayabilir: halo ve iniş zamanlaması sabit kalır
     const lo = ref.t0 + 3600 - tA, hi = Math.min(tNriP + (fLim + 0.05) * Ts, dep.tD - 0.15 * Ts) - tA;
     const all = phasingShift(K, sol, chain && { t: chain.S1.t, r: chain.S1.r, v: chain.S1.v }), opts = all.filter((o) => o.delta > lo && o.delta < hi).sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta));
-    if (!opts.length) throw new Error('KSC fırlatma fırsatı bulunamadı');
+    if (!opts.length) throw new Error(`${K.site.short || K.site.name}: fırlatma fırsatı bulunamadı`);
     opt = opts[0];
     log(`Fazlama ${it + 1}: fırlatma ${E.utcString(opt.t_launch)}, azimut ${opt.az.toFixed(1)}°, varış kaydırma ${(opt.delta / 60).toFixed(2)} dk`, 0.58 + it * 0.04); yield;
     if (Math.abs(opt.delta) < 1.0) break;
@@ -732,7 +756,7 @@ function* designHaloInner(K, tFrom, log) {
     profile: 'HALO',
     TLI: { x: sol.x, t_ign: sol.t_ign, phat: sol.phat, hhat: sol.hhat },
     ARRIVAL: { t_P: sol.t_P, rP: sol.rP, vP: sol.vP, th: sol.xArr[0], ph: sol.xArr[1], kind: 'halo', vHalo: vH },
-    LAUNCH: { t_launch: opt.t_launch, t_ins: opt.t_ins, az: opt.az, coast: opt.coast, site: 'Kennedy Uzay Merkezi LC-39B (28.5729°K, 80.6490°B)' },
+    LAUNCH: { t_launch: opt.t_launch, t_ins: opt.t_ins, az: opt.az, coast: opt.coast, site: siteText(K.site), siteId: K.site.id, lat: K.site.lat, lon: K.site.lon },
     HALO: { preset: hc.preset, name: preset.name, revs: hc.revs, T: Ts, stats: st, stability: orb.stability,
       patches: ref.patches, tNri: sol.t_P, tDep: dep.tD, depFrom: dep.opt },
     DEP: { t: dep.tD, dv: sub(dep.v0, dep.vD), tP2, rP2: dep.tgt.r, vP2: dep.tgt.v, h: dep.tgt.h, uP: dep.uP, beta: dep.beta, from: dep.opt },
