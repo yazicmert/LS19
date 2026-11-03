@@ -91,10 +91,10 @@ export class AstUI {
     rows.push(['Yörünge belirsizliği (U)', `${d.cc || '—'} (0 en iyi, 9 en kötü)`], ['Gözlem yayı', d.arc ? `${fmt(d.arc, 0)} gün` : '—'],
       ['Öğelerin yaşı', `${fmt(d.epochAgeDays, 0)} gün (JPL SBDB)`]);
     if (d.shape) {
-      const sh = d.shape, yon = sh.yontem === 'uzay' ? ['Uzay aracı görüntüleme', 'Çok yüksek: yüzey ayrıntıları (krater, kaya) çözülmüş'] : sh.yontem === 'radar' ? ['Radar görüntüleme', 'Yüksek: onlarca metre ayrıntı, çukurlar dahil'] :
+      const sh = d.shape, yon = sh.yontem === 'uzay' ? ['Uzay aracı görüntüleme', 'Çok yüksek: yüzey ayrıntıları (krater, kaya) çözülmüş'] : sh.yontem === 'radar' && sh.req_km > 20 ? ['Radar ve uyarlamalı optik', 'Orta: kilometre ölçeğinde genel biçim (büyük çukurlar dahil)'] : sh.yontem === 'radar' ? ['Radar görüntüleme', 'Yüksek: onlarca metre ayrıntı, çukurlar dahil'] :
         ['Işık eğrisi tersine çevirme', sh.nonconvex ? 'Orta: dışbükey olmayan model, ince yüzey ayrıntısı yok' : 'Düşük: dışbükey şekil, çukur ve yüzey ayrıntısı yok (boyut, dönme ve genel biçim güvenilir)'];
       rows.push(['Şekil yöntemi', yon[0]], ['Şekil doğruluğu', yon[1]],
-        ['3B şekil modeli', `gerçek şekil (${sh.kaynak})${sh.damit ? ' · dönme ekseni ve fazı modelden' : ' · NASA PDS Küçük Cisimler Düğümü'} · hacim eşdeğeri yarıçap ${fmt(sh.req_km, sh.req_km < 1 ? 3 : 1)} km`]);
+        ['3B şekil modeli', `gerçek şekil (${sh.kaynak})${sh.damit ? ' · dönme ekseni ve fazı modelden' : sh.tex ? ' · renk ve normal dokulu' : ' · NASA PDS Küçük Cisimler Düğümü'} · hacim eşdeğeri yarıçap ${fmt(sh.req_km, sh.req_km < 1 ? 3 : 1)} km`]);
     }
     if (d.detailLoading) rows.push(['Ayrıntılar', 'JPL SBDB’den alınıyor…']);
     if (d.detailErr) rows.push(['Ayrıntılar', 'alınamadı (' + String(d.detailErr).replace(/<[^>]*>/g, '').slice(0, 60) + ')']);

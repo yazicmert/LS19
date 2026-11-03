@@ -3,6 +3,7 @@
 // Tıklanan asteroidin ayrıntıları (fiziksel özellikler, keşif, Dünya yakın geçişleri, Sentry çarpma riski) istek üzerine alınır.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as E from './engine.js';
 import { keplerHelio, etFromJd, AU, helioElements } from './deflect.js';
 
@@ -66,6 +67,34 @@ const FS_ROCK = `#include <common>
     gl_FragColor = vec4(color * (0.07 + 1.1 * pow(l, 0.9)), 1.0);
   }`;
 
+// dokulu yakın plan modeli (uzay aracı görüntülerinden NASA Eyes modelleri): renk dokusu + teğet uzayı normal haritası.
+// Teğet çerçevesi türevlerden (three.js getTangentFrame ile aynı); glTF normal haritası türev teğetlerle y'si ters (GLTFLoader de normalScale.y'yi çevirir).
+// Aydınlatma düz kayadakiyle aynı Güneş yönü (asteroitten Güneş'e), sRGB doku doğrusal uzayda, çıktı ton eşleme + renk uzayı.
+const VS_TROCK = `#include <common>
+  #include <logdepthbuf_pars_vertex>
+  varying vec3 vN, vP; varying vec2 vUv;
+  void main() { vUv = uv; vN = normalize(mat3(modelMatrix) * normal); vec4 w = modelMatrix * vec4(position, 1.0); vP = w.xyz;
+  gl_Position = projectionMatrix * viewMatrix * w;
+  #include <logdepthbuf_vertex>
+  }`;
+const FS_TROCK = `#include <common>
+  #include <logdepthbuf_pars_fragment>
+  uniform sampler2D map, nmap; uniform float hasN; uniform vec3 sunDir; varying vec3 vN, vP; varying vec2 vUv;
+  void main() {
+    #include <logdepthbuf_fragment>
+    vec3 N = normalize(vN);
+    if (hasN > 0.5) {
+      vec3 q0 = dFdx(vP), q1 = dFdy(vP); vec2 s0 = dFdx(vUv), s1 = dFdy(vUv);
+      vec3 q1p = cross(q1, N), q0p = cross(N, q0), T = q1p * s0.x + q0p * s1.x, B = q1p * s0.y + q0p * s1.y;
+      float d = max(dot(T, T), dot(B, B)); vec3 m = texture2D(nmap, vUv).xyz * 2.0 - 1.0; m.y = -m.y;
+      if (d > 0.0) N = normalize(mat3(T * inversesqrt(d), B * inversesqrt(d), N) * m);
+    }
+    float l = max(dot(N, sunDir), 0.0) * smoothstep(-0.05, 0.1, dot(normalize(vN), sunDir));
+    gl_FragColor = vec4(texture2D(map, vUv).rgb * (0.03 + 1.6 * pow(l, 0.9)), 1.0);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+  }`;
+
 export class AsteroidLayer {
   constructor(scene, labelsEl) {
     this.scene = scene; this.labelsEl = labelsEl;
@@ -94,6 +123,7 @@ export class AsteroidLayer {
       vertexShader: VS_ROCK, fragmentShader: FS_ROCK }));
     this.rock.visible = false; scene.add(this.rock);
     // gerçek şekil modeli bilinen asteroitler (NASA PDS, uzay aracı ve radar): models/ast/<anahtar>.glb, birim hacim-eşdeğeri yarıçap
+    this.texSun = { value: new THREE.Vector3(1, 0, 0) }; this.rockObj = this.rock;
     this.rockDefault = this.rock.geometry; this.rockKey = null; this.shapeGeo = new Map(); this.shapes = null;
     fetch('models/ast/katalog.json').then((r) => (r.ok ? r.json() : null)).then((j) => { this.shapes = j; }).catch(() => {});
     // DAMIT (ışık eğrisi tersine çevirme, CC BY 4.0): ~4400 asteroit için şekil + dönme ekseni; parçalar gzip'li, seçilince indirilir
@@ -233,7 +263,18 @@ export class AsteroidLayer {
         const pos = new Float32Array(nv * 3); for (let k = 0; k < pos.length; k++) pos[k] = v16[k] / q;
         const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setIndex(new THREE.BufferAttribute(f16, 1)); g.computeVertexNormals(); e.geo = g;
       }).catch(() => {});
-      else new GLTFLoader().loadAsync(`models/ast/${sh.key}.glb`).then((g) => { g.scene.traverse((o) => { if (o.isMesh && !e.geo) e.geo = o.geometry; }); }).catch(() => {});
+      else new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(`models/ast/${sh.key}.glb`).then((g) => {
+        if (!sh.tex) { g.scene.traverse((o) => { if (o.isMesh && !e.geo) e.geo = o.geometry; }); return; }
+        // dokulu model: her malzeme için renk + normal haritalı gölgelendirici (Güneş yönü ortak uniform)
+        g.scene.traverse((o) => {
+          if (!o.isMesh) return;
+          const m = o.material, map = m.map, nm = m.normalMap;
+          o.material = new THREE.ShaderMaterial({ uniforms: { map: { value: map }, nmap: { value: nm || map }, hasN: { value: nm ? 1 : 0 }, sunDir: this.texSun },
+            vertexShader: VS_TROCK, fragmentShader: FS_TROCK });
+          o.frustumCulled = false; m.dispose();
+        });
+        g.scene.visible = false; this.scene.add(g.scene); e.obj = g.scene; e.geo = this.rockDefault;
+      }).catch(() => {});
     }
     return e.geo;
   }
@@ -303,7 +344,7 @@ export class AsteroidLayer {
   }
 
   hideAll() {
-    this.points.visible = false; this.selLine.visible = false; this.selRing.visible = false; this.rock.visible = false;
+    this.points.visible = false; this.selLine.visible = false; this.selRing.visible = false; this.rockObj.visible = false;
     this.selLabel.style.display = 'none'; for (const b of this.bigLabels) b.el.style.display = 'none';
   }
   // ---------------------------------------------------------------- her kare
@@ -345,18 +386,22 @@ export class AsteroidLayer {
       if (nearOk) place(this.selLabel, p); else this.selLabel.style.display = 'none';
       const sh = this.shapeOf(this.sel), shGeo = sh ? this.shapeGeometry(sh) : null;
       const key = shGeo ? sh.key : null;
-      if (key !== this.rockKey) { this.rock.geometry = shGeo || this.rockDefault; this.rockKey = key; }
-      const R = (sh && shGeo ? (sh.damit && this.C.D[this.sel] > 0 ? this.C.D[this.sel] / 2 : sh.req_km) : this.diam(this.sel) / 2), dCam = Math.hypot(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]);
-      this.rock.visible = dCam < 600 * R;
-      this.selRing.visible = nearOk && !this.rock.visible;
-      this.selRing.position.set(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]);
-      if (this.rock.visible) {
-        this.rock.position.set(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]); this.rock.scale.setScalar(R);
-        if (sh && shGeo && sh.damit) this.rock.quaternion.setFromRotationMatrix(damitMatrix(sh, 2451545 + et / 86400));   // gerçek kutup ve faz (DAMIT: λ, β, P, φ0)
-        else this.rock.rotation.set(0.4, (et / 3600 / ((this.C.rot[this.sel] || 6))) * 2 * Math.PI % (2 * Math.PI), 0.2);
-        const sd = [-r[0], -r[1], -r[2]], n = Math.hypot(...sd); this.rock.material.uniforms.sunDir.value.set(sd[0] / n, sd[1] / n, sd[2] / n);
+      if (key !== this.rockKey) {
+        const e = key && this.shapeGeo.get(key), obj = (e && e.obj) || this.rock;
+        this.rock.geometry = shGeo || this.rockDefault; this.rockKey = key;
+        if (obj !== this.rockObj) { this.rockObj.visible = false; this.rockObj = obj; }
       }
-    } else { this.selLine.visible = false; this.selLabel.style.display = 'none'; this.selRing.visible = false; this.rock.visible = false; }
+      const R = (sh && shGeo ? (sh.damit && this.C.D[this.sel] > 0 ? this.C.D[this.sel] / 2 : sh.req_km) : this.diam(this.sel) / 2), dCam = Math.hypot(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]);
+      const rk = this.rockObj; rk.visible = dCam < 600 * R;
+      this.selRing.visible = nearOk && !rk.visible;
+      this.selRing.position.set(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]);
+      if (rk.visible) {
+        rk.position.set(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]); rk.scale.setScalar(R);
+        if (sh && shGeo && sh.damit) rk.quaternion.setFromRotationMatrix(damitMatrix(sh, 2451545 + et / 86400));   // gerçek kutup ve faz (DAMIT: λ, β, P, φ0)
+        else rk.rotation.set(0.4, (et / 3600 / ((this.C.rot[this.sel] || 6))) * 2 * Math.PI % (2 * Math.PI), 0.2);
+        const sd = [-r[0], -r[1], -r[2]], n = Math.hypot(...sd); this.rock.material.uniforms.sunDir.value.set(sd[0] / n, sd[1] / n, sd[2] / n); this.texSun.value.copy(this.rock.material.uniforms.sunDir.value);
+      }
+    } else { this.selLine.visible = false; this.selLabel.style.display = 'none'; this.selRing.visible = false; this.rockObj.visible = false; }
   }
 }
 // DAMIT dönüşümü: gövde -> ekliptik = Rz(λ) Ry(90°−β) Rz(φ), φ = φ0 + 360°·(JD−JD0)/P; sonra ekliptik -> ICRF (J2000 eğikliği)
