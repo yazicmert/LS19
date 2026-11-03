@@ -1,6 +1,7 @@
 // Fırlatma hava durumu (Node): cd web && node test/test_weather.js
 // Kurallar (NASA Artemis I hava kriterleri, 45. Hava Filosu) örnek Open-Meteo yanıtlarıyla; kapsam (16 gün ileri, 92 gün geri); istek adresi; önbellek ve hata.
-import { evaluate, hourAt, coverage, weatherUrl, launchWeather, HOURLY, WX_SOURCES } from '../js/weather.js';
+import { evaluate, hourAt, coverage, weatherUrl, launchWeather, HOURLY, WX_SOURCES, pickLaunch } from '../js/weather.js';
+import { dailyIncls } from '../js/pads.js';
 
 let ok = true;
 const check = (c, m) => { console.log((c ? '  ✓ ' : '  ✗ ') + m); ok = ok && !!c; };
@@ -33,5 +34,12 @@ const bad = await launchWeather(10, 10, now + 3600e3, { nowMs: now, fetchFn: asy
 check(bad.status === 'na' && /limit/.test(bad.why), `hata (ör. kota): "veri yok" + neden ("${bad.why}")`);
 const far = await launchWeather(10, 10, now + 40 * 86400e3, { nowMs: now, fetchFn: fake });
 check(far.status === 'na' && /16 gün/.test(far.why), 'tahmin aralığı dışında: istek atılmaz, neden söylenir');
+// günlük fırlatma penceresi: önerilen fırsat
+const R = (t, cost, status) => ({ t, cost, wx: { status } });
+check(pickLaunch([R(1, 100, 'nogo'), R(2, 120, 'go'), R(3, 110, 'go')]).index === 2 && pickLaunch([R(1, 100, 'nogo'), R(2, 120, 'risk')]).index === 1, 'önerilen: hava uygun olanlar arasında en az yakıt; yoksa riskli olanlar');
+check(pickLaunch([R(1, 100, 'nogo'), R(2, 90, 'nogo')]).index === -1 && /sonraki pencere/.test(pickLaunch([R(1, 100, 'nogo')]).why), 'hepsi uygun değilse öneri yok: sonraki pencere');
+check(pickLaunch([R(5, 100, 'na'), R(2, 100, 'na')]).index === 1 && /verisi yok/.test(pickLaunch([R(5, 100, 'na')]).why) && pickLaunch([null, R(1, 50, 'go')]).index === 1, 'hava verisi yoksa en az yakıt (eşitse en erken); boş satırlar atlanır');
+const di = dailyIncls(28.7, 59.7), dv = dailyIncls(58.1, 90);
+check(di[0] === 28.7 && di.includes(32.5) && di.every((i) => i <= 59.7) && di.length === 7 && dv[0] === 58.1 && dv.every((i) => i <= 90), `günlük pencerenin aday eğimleri (Florida: ${di.join(', ')})`);
 check(WX_SOURCES.length >= 3 && WX_SOURCES.every((s) => /^https:\/\//.test(s.u)), 'kural kaynakları (NASA, 45. Hava Filosu, Open-Meteo)');
 console.log(ok ? 'TAMAM' : 'HATA'); process.exit(ok ? 0 : 1);

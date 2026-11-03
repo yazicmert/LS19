@@ -63,4 +63,7 @@ const html = read('index.html'), app = read('js/app.js'), lui = read('js/launchu
 check(/id="padSel"/.test(html) && /id="padInfo"/.test(html) && /id="wxBox"/.test(html) && /id="btnScan"/.test(html) && /id="wintable"/.test(html), '1. adım: rampa seçimi, rampa bilgisi, hava kutusu, pencere tarayıcı');
 check(/launch\.padFor\(id\)/.test(app) && /E\.setProvider\(prov0\)/.test(app) && /scanCancel/.test(app), 'roket değişince uygun rampaya geçilir; tarama efemeris kaynağını geri yükler ve iptal edilebilir');
 check(/padAllowed\(rk, id\)/.test(lui) && /optgroup/.test(lui), 'rampa listesi ülkelere göre gruplu; seçili roketin uçmadığı rampalar devre dışı');
+check(/id="btnDay"/.test(html) && /id="daytable"/.test(html) && /async function dayWindow/.test(app) && /pickLaunch\(/.test(app) && /dailyIncls\(/.test(app) && /onPickInc/.test(app),
+  'günlük fırlatma penceresi: aday eğimler tasarlanır, hava değerlendirilir, önerilen seçilir; satır görevi o eğimle kurar');
+check(/Günün diğer fırsatlarını havayla değerlendir/.test(lui), 'hava uygun değilse hava kutusunda günün diğer fırsatlarına geçiş');
 console.log(ok ? 'TAMAM' : 'HATA'); process.exit(ok ? 0 : 1);

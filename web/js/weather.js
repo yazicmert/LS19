@@ -64,6 +64,18 @@ export function evaluate(h) {
   const status = c.every((x) => x.st === 'na') ? 'na' : c.reduce((s, x) => (RANK[x.st] > RANK[s] ? x.st : s), 'go');   // hiç veri yoksa: veri yok
   return { status, checks: c };
 }
+// Günlük fırlatma penceresinde önerilen fırsat: önce hava (uygun > riskli; uygun değil önerilmez), sonra en az yakıt, sonra en erken.
+// rows: [{ t, cost, wx: { status } }] → { index, why } (index −1: önerilecek fırsat yok)
+export function pickLaunch(rows) {
+  const ok = rows.map((r, i) => ({ r, i })).filter(({ r }) => r && Number.isFinite(r.cost));
+  if (!ok.length) return { index: -1, why: 'fırsat yok' };
+  const by = (arr) => arr.sort((a, b) => a.r.cost - b.r.cost || a.r.t - b.r.t)[0].i;
+  const go = ok.filter(({ r }) => r.wx && r.wx.status === 'go'), risk = ok.filter(({ r }) => r.wx && r.wx.status === 'risk');
+  if (go.length) return { index: by(go), why: 'hava uygun, en az yakıt' };
+  if (risk.length) return { index: by(risk), why: 'uygun fırsat yok; riskli olanlar arasında en az yakıt' };
+  if (ok.every(({ r }) => !r.wx || r.wx.status === 'na')) return { index: by(ok), why: 'hava verisi yok; en az yakıt' };
+  return { index: -1, why: 'günün bütün fırsatlarında hava uygun değil: sonraki pencereyi deneyin' };
+}
 export const STATUS_TR = { go: 'Uygun', risk: 'Riskli', nogo: 'Uygun değil', na: 'Veri yok' };
 
 // tarayıcı: rampa + an için değerlendirme (aynı rampa/gün için bellek önbelleği). Dönüş: { status, checks, time, kind } | { status: 'na', why }

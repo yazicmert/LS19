@@ -47,6 +47,10 @@ export function inclRange(latDeg, az) {
   }
   return lo > hi ? null : [Math.ceil(Math.max(lo, Math.abs(latDeg)) * 10 - 1e-9) / 10, Math.floor(hi * 10 + 1e-9) / 10];
 }
+// günlük fırlatma penceresinin aday park eğimleri (°): menzilin izin verdiği aralıkta, en küçükten başlayarak (Apollo: azimut 72°–108° ↔ eğim ~32,5°'ye kadar)
+export function dailyIncls(lo, hi) {
+  return [0, 1.3, 3.8, 6.3, 11.3, 16.3, 21.3].map((d) => Math.round((lo + d) * 10) / 10).filter((i) => i <= Math.min(hi, 90));
+}
 // eğim i (°) için dönüşün katkısı (km/s)
 export const rotationBoost = (incDeg) => V_EQ * Math.cos(incDeg * D2R);
 // başvuru eğimine göre ek Δv (km/s; negatif = kazanç)
