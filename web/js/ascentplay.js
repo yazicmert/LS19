@@ -119,7 +119,8 @@ export class AscentPlayer {
     const shot = directShot({ met: real, h, events: this.A.events, maxQ: P.sim && P.sim.maxQ, user: this.camUser });
     if (!this.userWarp) { const w = autoWarp(real, shot.slow); if (w !== this.warp) { this.warp = w; this.syncBar(); } }
     const vRel = s.vRel ? Math.hypot(...s.vRel) : 0;
-    this.updTele(real, h, vRel, met < 0 ? 'GERİ SAYIM' : `${st + 1}. KADEME`, shot.shot);
+    const nSep = (this.A.events || []).filter((e) => e.cut != null && real >= e.t).length;                // kademe süzülmesinde de doğru kademe
+    this.updTele(real, h, vRel, met < 0 ? 'GERİ SAYIM' : `${nSep + 1}. KADEME`, shot.shot);
     this.world.ascentFrame({ cut, hidden, thr: thrNow, h, pAmb: atmosphere(h).p, sunUp, prop: (this.A.props || [])[st], shot, met: real, dtFlight: dts * k0, q: s.q || 0,
       sunDir: sd.map((c) => c / sn), upV: up,
       pad: { pos: pu.map((c) => c * this.E.R_E), east, north, up: pu, dr: east.map((c, i) => c * this.drEN[0] + north[i] * this.drEN[1]) },
