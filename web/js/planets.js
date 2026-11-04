@@ -3,6 +3,15 @@
 // gerçek dokusu / gölgesi. Dokular gezegene yaklaşılınca indirilir (ilk açılışa eklenmez).
 import * as THREE from 'three';
 
+// gezegen yarıçapları (km), renk, IAU kutup yönü (RA, Dec derece), bant belirginliği, halka (iç, dış km)
+export const PLANETS = {
+  1: { name: 'Merkür', R: 2439.7, c: 0x9a9591, pole: [281.01, 61.41] }, 2: { name: 'Venüs', R: 6051.8, c: 0xe8d8a8, pole: [272.76, 67.16] },
+  5: { name: 'Mars', R: 3389.5, c: 0xc1623f, pole: [317.68, 52.89] }, 6: { name: 'Jüpiter', R: 69911, c: 0xd9b98a, pole: [268.06, 64.50], bands: 1.0 },
+  7: { name: 'Satürn', R: 58232, c: 0xe3cf9b, pole: [40.59, 83.54], bands: 0.55, ring: [74500, 140220] },
+  8: { name: 'Uranüs', R: 25362, c: 0x9fdbe3, pole: [257.31, -15.18], bands: 0.1 }, 9: { name: 'Neptün', R: 24622, c: 0x4a6fe0, pole: [299.36, 43.46], bands: 0.3 },
+  10: { name: 'Plüton', R: 1188.3, c: 0xc8b49a, pole: [132.99, -6.16] } };
+export const poleVec = ([ra, de]) => { const a = ra * Math.PI / 180, d = de * Math.PI / 180; return new THREE.Vector3(Math.cos(d) * Math.cos(a), Math.cos(d) * Math.sin(a), Math.sin(d)); };
+
 const D2R = Math.PI / 180;
 // W: IAU yön parametreleri (başlangıç meridyeni, derece ve derece/gün, J2000'den); bump: kabartma yüksekliği (km); limb: kenar kararması;
 // term: terminatör yumuşaklığı; atm: [renk, güç, üs, kabuk kalınlığı (R oranı)]; gain: parlaklık

@@ -2,6 +2,8 @@
 import * as THREE from 'three';
 import { sub, scale, dot, cross, norm, unit } from './vec3.js';
 
+export const SUN_I = 1.6;                       // tonlamadan önce Güneş aydınlığı (Ay, araç, arazi)
+
 export function sphereGeometry(R, nLon, nLat) {
   // dizin sayısı kesin bilinir (kutup şeritlerinde tek üçgen): düz tipli dizi, ara JS dizisi (3 milyon eleman) ve boyut dönüşümü yok
   const n = (nLon + 1) * (nLat + 1), pos = new Float32Array(n * 3), uv = new Float32Array(n * 2), idx = new (n > 65535 ? Uint32Array : Uint16Array)(6 * nLon * (nLat - 1));
