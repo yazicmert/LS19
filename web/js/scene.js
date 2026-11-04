@@ -803,11 +803,13 @@ export class World {
       const mid = add(info.vehPos, scale(info.axis, L * 0.5));                             // roketin ortası (kalan yığın)
       const up = P.up, dr = P.dr || P.east, side = cross(up, dr), D = 1.4;
       const g = add(add(P.pos, scale(side, -D)), add(scale(dr, -0.3 * D), scale(up, 0.012)));      // uçuş yönü kadrajın sağına akar
-      const dG = norm(sub(mid, g)), fovG = Math.min(50, Math.max(2.5, 2 * Math.atan(L / 0.5 / 2 / dG) * 180 / Math.PI));
+      // kadraj: roketin tepesinden aşağıda rampaya (yükseldikçe en çok 2,5 roket boyu aşağıya) kadar — rampa ve ufuk kalkışta kadrajda kalır, sonra roket izlenir
+      const a = Math.max(0, dot(sub(info.vehPos, P.pos), up)), top = add(info.vehPos, scale(info.axis, L * 1.05)), bot = sub(info.vehPos, scale(up, Math.min(a + 0.012, 2.5 * L)));
+      const tG = scale(add(top, bot), 0.5), span = norm(sub(top, bot)), dG = norm(sub(tG, g)), fovG = Math.min(50, Math.max(2.5, 2 * Math.atan(span * 0.62 / dG) * 180 / Math.PI));
       const z = unit(x.r), hv = sub(x.v, scale(z, dot(x.v, z))), xx = norm(hv) > 1e-6 ? unit(hv) : dr, y = cross(z, xx);
       const eC = add(mid, scale(fromBasis([xx, y, z], sph(c.az, c.el)), c.dist));
       const u = Math.max(0, Math.min(1, (h - 1.5) / 3)), w = u * u * (3 - 2 * u);
-      return { eye: add(scale(g, 1 - w), scale(eC, w)), target: mid, up: unit(add(scale(up, 1 - w), scale(z, w))), fov: fovG + (50 - fovG) * w };
+      return { eye: add(scale(g, 1 - w), scale(eC, w)), target: add(scale(tG, 1 - w), scale(mid, w)), up: unit(add(scale(up, 1 - w), scale(z, w))), fov: fovG + (50 - fovG) * w };
     }
     // VEHICLE: merkez cisme göre yerel dikey çerçeve (x: hızın yatay izdüşümü). Motorlu inişte x, yaklaşma ekseni (iniş yerine bağlı, sabit) olur: yüzeye göre hız sıfıra yaklaşırken
     // eylemsiz hızın yönü oynar (Ay'ın dönmesi ~4,6 m/s, yatay hız bundan küçük); hıza bağlı çerçeve kamerayı aracın çevresinde döndürür, arazi sallanır.
@@ -897,7 +899,7 @@ export class World {
     else this.attQ.copy(this.fallbackAttitude(x, central, rm, t));          // yönelimsiz fizik (uyumluluk kipi): kaba ideal yönelim
     const zNow = new THREE.Vector3(0, 0, 1).applyQuaternion(this.attQ);
     // model başvuru noktası: fiziksel nokta = iniş ayakları; model orijini gövde z boyunca 2.9 m yukarıda
-    const vehPos = add(x.r, [zNow.x * 0.0029, zNow.y * 0.0029, zNow.z * 0.0029]);
+    const vehPos = this.asc ? x.r.slice() : add(x.r, [zNow.x * 0.0029, zNow.y * 0.0029, zNow.z * 0.0029]);     // kalkışta roket tabanı = fiziksel nokta (rampaya oturur)
     const info = { rm, central, vehPos, drAxis: extra.drAxis, local: extra.local, axis: [zNow.x, zNow.y, zNow.z] };
     this.autoCamera(x, info);
     const pose = this.blendedPose(x, info, extra.dtReal || 0.016);
@@ -984,7 +986,7 @@ export class World {
     } else this.cineFill.intensity = 0;
     const sc = this.sunLight.shadow.camera; sc.left = -0.035; sc.right = 0.035; sc.top = 0.035; sc.bottom = -0.035; sc.near = 0.03; sc.far = 0.17; sc.updateProjectionMatrix();
     // işaretçiler (uzakta sabit ekran boyu)
-    this.vehMarker.visible = dCamVeh > 1.5; rel(x.r, this.vehMarker.position);
+    this.vehMarker.visible = !this.asc && dCamVeh > 1.5; rel(x.r, this.vehMarker.position);          // kalkışta (yer kamerası uzakta) işaret halkası yok
     this.beacon.visible = this.cine.on && !!this.cine.beacon && dCamVeh > 0.8; rel(x.r, this.beacon.position);
     // geniş çekimlerde Dünya ve Ay çok küçükse (< ~9 piksel yarıçap) ışıltı işaretleri: yer imi gibi, cisimler büyütülmez
     const pxOf = (R, c) => { const d = norm(sub(c, eye)); return (R / d) * (this.canvas.clientHeight / 2) / Math.tan(this.camera.fov * Math.PI / 360); };
@@ -998,7 +1000,7 @@ export class World {
     const solarV = this.cam.mode === 'SOLAR';                 // Güneş sistemi görünümünde gezegen etiketleri yeterli
     this.placeLabel('earth', [0, 0, E.R_E * 1.08], norm(eye) > 30000 && !solarV, 0);
     this.placeLabel('moon', add(rm, [0, 0, E.R_M * 1.12]), norm(sub(rm, eye)) > 9000 && !solarV, 0);
-    this.placeLabel('veh', x.r, dCamVeh > 1.5 && !solarV, 14);
+    this.placeLabel('veh', x.r, dCamVeh > 1.5 && !solarV && !this.asc, 14);
     // yakın planda (araç görünümü) TLI kademesinin etiketi: kademe takılıyken, kademenin ortasında
     if (this.labels.stagetag) {
       const on = this.stackStage.visible && dCamVeh < 0.6 && !this.cine.on && !!this.labels.stagetag.textContent;
@@ -1280,12 +1282,12 @@ export class World {
     const no = conicEach(el, r, mu, central === 'M' ? 60000 : 1.2e6, 721, (i, px, py, pz) => { oa[i * 3] = px + cen[0] - eye[0]; oa[i * 3 + 1] = py + cen[1] - eye[1]; oa[i * 3 + 2] = pz + cen[2] - eye[2]; });
     this.osc.geometry.setDrawRange(0, no); this.upload(this.osc.geometry.attributes.position, no);
     this.osc.material.color.set(central === 'M' ? 0xc88cff : (el.e < 1 ? 0x49b6ff : 0xff8a3d));
-    this.osc.visible = x.phase !== 'INDI' && !(extra.local && extra.local.p[2] < 20);
+    this.osc.visible = !this.asc && x.phase !== 'INDI' && !(extra.local && extra.local.p[2] < 20);        // kalkışta anlık yörünge elipsi yanıltıcı (yer altına inen balistik yay)
     this.oscEl = { ...el, central };
     // iz: Dünya merkezli ve Ay merkezli ayrı (Ay yörüngesi Ay'la birlikte taşınır); noktalar fizik worker'ından gelir
     const T = this.trail;
     if (T.E.n > 39000) T.E.dropFirst(1000); if (T.M.n > 39000) T.M.dropFirst(1000);
-    const nearGround = extra.local && extra.local.p[2] < 20;
+    const nearGround = !!this.asc || (extra.local && extra.local.p[2] < 20);             // kalkışta görev izi (yörüngeye girişten sonrası) çizilmez: yatay hareket izlenimi vermesin
     const trailsOn = !nearGround && (!this.cine.on || !!this.cine.lines);                 // görünmeyecek iz tamponları doldurulmaz/yüklenmez
     this.trailLineM.visible = !nearGround; this.trailLineE.visible = !nearGround;
     const fill = (line, st, off, own) => {
