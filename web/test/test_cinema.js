@@ -8,6 +8,7 @@
 //  6) scene.js: PBR tablosundaki malzeme adları GLB'lerde var; CINE kipi ve sinematik kip yöntemleri; post.js bileşenleri
 import fs from 'fs';
 import { register } from 'node:module';
+import { sceneSrc } from './scenesrc.js';
 register('./importmap_loader.mjs', import.meta.url);
 const E = await import('../js/engine.js');
 const EO = await import('../js/earth.js');
@@ -141,7 +142,7 @@ check('Apollo iki kademe: dokuz bölüm, anma süre 110–150 s, açılış INS\
 
 // ---------------------------------------------------------------- 6) sahne, modeller ve son işlem
 {
-  const sc = rd('../js/scene.js'), post = rd('../js/post.js');
+  const sc = sceneSrc(), post = rd('../js/post.js');
   const m = /const PBR = \{([\s\S]*?)\n\};/.exec(sc);
   const kinds = {}; for (const k of ['lander', 'orb', 'stage']) { const mm = new RegExp(k + ': \\{([^}]*)\\}').exec(m[1]); kinds[k] = [...mm[1].matchAll(/'([^']+)':/g)].map((x) => x[1]); }
   const names = (n) => { const b = fs.readFileSync(new URL(`../models/${n}.glb`, import.meta.url)), jl = b.readUInt32LE(12), j = JSON.parse(b.subarray(20, 20 + jl).toString('utf8')); return j.materials.map((x) => x.name); };

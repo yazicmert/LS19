@@ -7,6 +7,7 @@
 //  6) app.js bağlantıları: webdriver/?adapt=0/sinematik/tasarım/gizli sekmede kapalı; noktalar ekranda aynı boyda kalır (setPixelScale); gizli sekmede duraklat/sürdür
 import fs from 'fs';
 import { PixelGovernor } from '../js/perfgov.js';
+import { sceneSrc } from './scenesrc.js';
 
 let fail = 0;
 const check = (name, ok, detail = '') => { console.log(`${ok ? 'TAMAM' : 'HATA '} ${name}${detail ? ' — ' + detail : ''}`); if (!ok) fail++; };
@@ -86,7 +87,7 @@ check('oran 2 ise etkin, başlangıç oranı = max', new PixelGovernor({ max: 2 
 
 // ---------------------------------------------------------------- 6) kablolama
 {
-  const app = rd('../js/app.js'), sat = rd('../js/satlayer.js'), ast = rd('../js/asteroids.js'), sc = rd('../js/scene.js');
+  const app = rd('../js/app.js'), sat = rd('../js/satlayer.js'), ast = rd('../js/asteroids.js'), sc = sceneSrc();
   check('app.js: denetleyici webdriver, ?adapt=0, sinematik kip, tasarım ve gizli sekmede çalışmaz', /const govOn = !navigator\.webdriver && new URLSearchParams\(location\.search\)\.get\('adapt'\) !== '0'/.test(app) && /if \(govOn && !cinema\.on && !designing && !document\.hidden\)/.test(app));
   check('app.js: oran değişince çizim tamponu ve nokta katmanları (uydu/asteroit) ölçeklenir; sonradan kurulan katman da', /world\.setPixelRatio\(r\)/.test(app) && /sats\.setPixelScale\(k\)/.test(app) && /asts\.setPixelScale\(k\)/.test(app) && /if \(gov\.r !== gov\.max\)/.test(app));
   check('katmanlar: setPixelScale px uniform\'unu devicePixelRatio × k yapar (k = 1 iken değişiklik yok)', /setPixelScale\(k\) \{ this\.mat\.uniforms\.px\.value = \(window\.devicePixelRatio \|\| 1\) \* k; \}/.test(sat) && /setPixelScale\(k\) \{ this\.mat\.uniforms\.px\.value = \(window\.devicePixelRatio \|\| 1\) \* k; \}/.test(ast));
