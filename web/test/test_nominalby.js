@@ -68,7 +68,7 @@ const total = (n) => Object.entries(n).filter(([k, v]) => v != null && k !== 'LL
   const boot = app.slice(app.indexOf('async function boot()'), app.indexOf('let skyInit = false;')), init = app.slice(app.indexOf('function initSky()'), app.indexOf('function idleInitSky()'));
   check('gökyüzü katmanları (SatLayer, AsteroidLayer, Updater, Tracker, SkyUI…) açılışta kurulmaz', !/new (SatLayer|AsteroidLayer|Updater|Tracker|SkyUI|AstUI|ImpactUI)\(/.test(boot) && /new SatLayer\(/.test(init) && /new AsteroidLayer\(/.test(init) && /updater\.start\(\)/.test(init));
   check('gökyüzü çalışma alanı açılınca (setWorkspace) ve görev hazır + boşta (requestIdleCallback) kurulur; ?prefetch=1 hemen', /if \(m === 'sky'\) \{\s*initSky\(\);/.test(app) && /applyUrlParams\(\); idleInitSky\(\);/.test(app) && /requestIdleCallback\(initSky, \{ timeout: 8000 \}\)/.test(app) && /get\('prefetch'\) === '1'/.test(app));
-  check('initSky tek seferlik (skyInit) ve efemeris çekirdekleri hazırken', /if \(skyInit \|\| !K\) return; skyInit = true;/.test(app));
+  check('initSky tek seferlik (skyInit) ve efemeris çekirdekleri hazırken', /if \(skyInit \|\| !S\.K\) return; skyInit = true;/.test(app));
   const tr = rd('../js/tracker.js');
   check('tracker: geçiş taraması zaman dilimli (findPassesIter, ≤ 8 ms dilim, jeton ile iptal), etiket metni yalnız değişince yazılır', /findPassesIter/.test(tr) && /performance\.now\(\) - t0 < 8/.test(tr) && /tok !== this\.passTok/.test(tr) && /it\.nm !== nm/.test(tr));
 }

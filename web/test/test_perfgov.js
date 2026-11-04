@@ -88,11 +88,11 @@ check('oran 2 ise etkin, başlangıç oranı = max', new PixelGovernor({ max: 2 
 // ---------------------------------------------------------------- 6) kablolama
 {
   const app = rd('../js/app.js'), sat = rd('../js/satlayer.js'), ast = rd('../js/asteroids.js'), sc = sceneSrc();
-  check('app.js: denetleyici webdriver, ?adapt=0, sinematik kip, tasarım ve gizli sekmede çalışmaz', /const govOn = !navigator\.webdriver && new URLSearchParams\(location\.search\)\.get\('adapt'\) !== '0'/.test(app) && /if \(govOn && !cinema\.on && !designing && !document\.hidden\)/.test(app));
+  check('app.js: denetleyici webdriver, ?adapt=0, sinematik kip, tasarım ve gizli sekmede çalışmaz', /const govOn = !navigator\.webdriver && new URLSearchParams\(location\.search\)\.get\('adapt'\) !== '0'/.test(app) && /if \(govOn && !cinema\.on && !S\.designing && !document\.hidden\)/.test(app));
   check('app.js: oran değişince çizim tamponu ve nokta katmanları (uydu/asteroit) ölçeklenir; sonradan kurulan katman da', /world\.setPixelRatio\(r\)/.test(app) && /sats\.setPixelScale\(k\)/.test(app) && /asts\.setPixelScale\(k\)/.test(app) && /if \(gov\.r !== gov\.max\)/.test(app));
   check('katmanlar: setPixelScale px uniform\'unu devicePixelRatio × k yapar (k = 1 iken değişiklik yok)', /setPixelScale\(k\) \{ this\.mat\.uniforms\.px\.value = \(window\.devicePixelRatio \|\| 1\) \* k; \}/.test(sat) && /setPixelScale\(k\) \{ this\.mat\.uniforms\.px\.value = \(window\.devicePixelRatio \|\| 1\) \* k; \}/.test(ast));
   check('scene: setPixelRatio tamponu yeniden boyutlar; prMax en yüksek oran', /setPixelRatio\(r\) \{ this\.renderer\.setPixelRatio\(r\); this\.resize\(/.test(sc) && /this\.prMax = Math\.min\(window\.devicePixelRatio, 2\)/.test(sc));
-  check('app.js: gizli sekmede oynayan görev duraklar, dönünce (kendisi duraklatmadıysa) sürer; ?bg=1 ile kapatılır', /document\.addEventListener\('visibilitychange'/.test(app) && /get\('bg'\) === '1'/.test(app) && /if \(running && !designing\) \{ bgPaused = true; setPlay\(false\); \}/.test(app) && /else if \(bgPaused\) \{ bgPaused = false; setPlay\(true\); \}/.test(app));
+  check('app.js: gizli sekmede oynayan görev duraklar, dönünce (kendisi duraklatmadıysa) sürer; ?bg=1 ile kapatılır', /document\.addEventListener\('visibilitychange'/.test(app) && /get\('bg'\) === '1'/.test(app) && /if \(S\.running && !S\.designing\) \{ bgPaused = true; setPlay\(false\); \}/.test(app) && /else if \(bgPaused\) \{ bgPaused = false; setPlay\(true\); \}/.test(app));
   check('app.js: durum iletisi işleyicisinde karedeki DOM sorgusu yok (chkNbody önbellekte)', !/\$\('#chkNbody'\)\.checked/.test(app) && /const canvas = \$\('#view'\), chkNbody = \$\('#chkNbody'\)/.test(app));
 }
 
