@@ -24,7 +24,7 @@ for (const c of sc.list) {
   console.log('  CA JD', jd.toFixed(6), 'mesafe', c.dist.toFixed(1), 'km  vrel', c.vrel.toFixed(3));
 }
 const ca = sc.list.reduce((a, b) => (a.dist < b.dist ? a : b));
-const dt = (D.jdFromEt(ca.et) - +(cad.jd || 0)) * 86400;
+const _dt = (D.jdFromEt(ca.et) - +(cad.jd || 0)) * 86400;
 console.log('  JPL CAD', cad.cd, (+cad.dist * D.AU).toFixed(1), 'km; fark', (ca.dist - cad.dist * D.AU).toFixed(1), 'km');
 const bp = eng.bplaneAt(ca);
 console.log('  B-düzlemi b', bp.b.toFixed(0), 'ξ', bp.xi.toFixed(0), 'ζ', bp.zeta.toFixed(0), 'bE', bp.bE.toFixed(0), 'rp', bp.rp.toFixed(1), 'vinf', bp.vinf.toFixed(3));
@@ -32,14 +32,14 @@ console.log('  B-düzlemi b', bp.b.toFixed(0), 'ξ', bp.xi.toFixed(0), 'ζ', bp.
 const etA = D.etFromJd(2461406.5), stA = eng.integrate(s.et, s.y, etA).y;
 T = performance.now();
 const tr = eng.stm(etA, stA, ca.et - 3 * 86400);                              // CA'dan 3 gün önceye kadar STM
-const nom = eng.integrate(ca.et - 3 * 86400, tr[0].y, ca.et);                   // (kontrol)
+const _nom = eng.integrate(ca.et - 3 * 86400, tr[0].y, ca.et);                   // (kontrol)
 console.log('  STM', ((performance.now() - T) / 1000).toFixed(2), 's');
 // STM'yi CA'ya uzat
 const tr2 = eng.stm(etA, stA, ca.et);
 const Phi = tr2[0].Phi, { J } = eng.bplanePartials(ca);
 const vdir = unit(stA.slice(3, 6)), dvm = 0.01e-3;                          // 1 cm/s
 const dx = Phi.map((row) => row[3] * vdir[0] + row[4] * vdir[1] + row[5] * vdir[2]);
-const [pE] = eng.earth(ca.et);
+const [_pE] = eng.earth(ca.et);
 const dXi = J[0].reduce((s2, jk, k) => s2 + jk * dx[k], 0) * dvm, dZeta = J[1].reduce((s2, jk, k) => s2 + jk * dx[k], 0) * dvm;
 // doğrusal olmayan
 const y1 = stA.slice(); for (let k = 0; k < 3; k++) y1[3 + k] += vdir[k] * dvm;

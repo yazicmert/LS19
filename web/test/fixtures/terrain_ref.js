@@ -1,3 +1,4 @@
+/* global document */                                      // tuval dokusu yalnız tarayıcıda üretilir (Node testleri bu işlevi çağırmaz)
 // REFERANS (eski) uygulama: iniş arazisinin ana iş parçacığında, THREE.BufferGeometry.computeVertexNormals ve tuval dokusuyla üretildiği özgün sürüm.
 // js/terraingen.js (worker'da çalışan saf sayısal kod) bunun çıktısıyla bit düzeyinde aynı olmalı: test/test_terrain.js karşılaştırır. Özgün kodda değişiklik yok.
 // İniş bölgesi arazisi: Apollo 11 iniş yeri çevresinde 60 km yarıçaplı yama.

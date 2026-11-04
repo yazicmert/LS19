@@ -11,7 +11,7 @@
 import fs from 'fs';
 import * as E from '../js/engine.js';
 import * as EO from '../js/earth.js';
-import { qMul, qRot, qConj, qAngle, qAxisAngle, qNormalize, vAngle, Z_AXIS, D2R } from '../js/attitude.js';
+import { qMul, qRot, qConj, qAngle, qNormalize, vAngle, Z_AXIS, D2R } from '../js/attitude.js';
 import { massProps, stageSpec, rk4Rot, freeRot, ggTorque, angMomentum, rotEnergy, ROLES, Z_FEET, GAP } from '../js/rigidbody.js';
 import { Dyn6, CTL } from '../js/attctl.js';
 import { makeLive } from '../js/live.js';
@@ -107,7 +107,7 @@ const relErr = (a, b) => Math.abs(a - b) / Math.max(Math.abs(b), 1e-300);
   // dairesel yörünge: r̂(t) = [cos nt, sin nt, 0]; yerel dikeyde (r̂) duran, simetri ekseni z olan çubuk gövde (Iz < It): yunuslama titreşimi (yörünge normali etrafında)
   // frekansı n√(3(It−Iz)/It). Gövde z ekseni r̂'ya hizalı başlar ve 2° saptırılır; yörünge çerçevesine göre hız sıfır.
   const mu = E.MU_E, a = 7000, n = Math.sqrt(mu / a ** 3), It = 5000, Iz = 1000, I = [It, It, Iz], dt = 0.5;
-  const axisFrom = (zAxis, ref) => { const z = unit(zAxis), x = unit(sub(ref, scale(z, dot(ref, z)))), y = cross(z, x); const m = [x, y, z]; /* sütunlar */
+  const axisFrom = (zAxis, ref) => { const z = unit(zAxis), x = unit(sub(ref, scale(z, dot(ref, z)))), y = cross(z, x); const _m = [x, y, z]; /* sütunlar */
     const m11 = x[0], m12 = y[0], m13 = z[0], m21 = x[1], m22 = y[1], m23 = z[1], m31 = x[2], m32 = y[2], m33 = z[2], tr = m11 + m22 + m33; const s = 0.5 / Math.sqrt(tr + 1); return [(m32 - m23) * s, (m13 - m31) * s, (m21 - m12) * s, 0.25 / s]; };
   const tilt = 2 * D2R; let q = axisFrom([Math.cos(tilt), Math.sin(tilt), 0], [0, 0, 1]);
   let w = qRot(qConj(q), [0, 0, n]);                                                         // yörünge çerçevesine göre durağan: gövde ω = Rᵀ·(n ẑ)
@@ -128,7 +128,7 @@ function slew(kind, angDeg, thrFrac = 0, tEnd = 150, o = {}) {
   const veh = new E.Vehicle(mkStages(kind)), st = veh.active; if (o.mutate) o.mutate(veh);
   const D = new Dyn6([1, 0, 0], [0, 0, 1]), a = angDeg * D2R, cmd = [Math.cos(a), 0, Math.sin(a)], h = o.h || veh.active && stageSpec(st).ctl.dt;
   const mp0 = massProps(veh.stages, 0), sp = mp0.sp, T = thrFrac * st.T, rec = { maxW: 0, maxTau: [0, 0, 0], tSet: null, maxErrAfter: 0, jt: [0, 0, 0], dm0: st.dry, maxG: 0, maxGrate: 0, impulse: [0, 0, 0], L0: null, t: 0 };
-  let t = 0, g0 = [0, 0], sumDm = 0, inBand = false; const Lbody0 = angMomentum(D.q, D.w, mp0.I);
+  let t = 0, _g0 = [0, 0], sumDm = 0, inBand = false; const Lbody0 = angMomentum(D.q, D.w, mp0.I);
   for (let i = 0; i < Math.round(tEnd / h); i++) {
     const mp = massProps(veh.stages, 0), P = D.plan({ cmd, t, T, mp, rcsLeft: Math.max(0, sp.rcs.prop - (st.rcsUsed || 0)), fast: !!o.fast });
     if (P.hold) { D.holdCommit(P, cmd, h, t + h); } else {
@@ -177,11 +177,11 @@ function slew(kind, angDeg, thrFrac = 0, tEnd = 150, o = {}) {
     }
     check('açısal momentum bilançosu: ∫R(q)·τ dt = ΔL (eylemsiz); hızlanırken 2e-3\'ten iyi, tutma kipine geçişte yok sayılan ≤ 0,3°/s kalan hız kadar fark', okAll && Lpeak > 800 && nDyn > 100 && D.err < 0.5 * D2R, rows.join(' | ') + `, en büyük |L| ${Lpeak.toFixed(0)} N·m·s`); }
   // (d) gimbal: açı ve hız sınırı, birinci derece gecikme; itki geometrisi r×F; kırpma = c/ℓ − sapma
-  { const veh = new E.Vehicle(mkStages('lander')), st = veh.active, mp = massProps(veh.stages, 0), sp = mp.sp, D = new Dyn6([0, 0, 1], [1, 0, 0]);
+  { const veh = new E.Vehicle(mkStages('lander')), _st = veh.active, mp = massProps(veh.stages, 0), sp = mp.sp, D = new Dyn6([0, 0, 1], [1, 0, 0]);
     // gimbal basamak komutu (+8°): hız ve açı sınırı; sonra geometriyi bağımsız hesapla
     D.gi = [0.2, -0.2]; const P0 = D.plan({ cmd: [0, 0, 1], t: 0, T: 8, mp, rcsLeft: 30 }); P0.gcmd = [Math.tan(8 * D2R), 0]; P0.tauRcs = [0, 0, 0];
-    let g = D.g.slice(), maxRate = 0, maxG = 0, t = 0;
-    for (let i = 0; i < 100; i++) { const R = D.integrate(P0, 0.05, {}); maxRate = Math.max(maxRate, Math.hypot(R.g1[0] - g[0], R.g1[1] - g[1]) / 0.05); maxG = Math.max(maxG, Math.hypot(...R.g1)); D.g = R.g1.slice(); g = R.g1; t += 0.05; }
+    let g = D.g.slice(), maxRate = 0, maxG = 0;
+    for (let i = 0; i < 100; i++) { const R = D.integrate(P0, 0.05, {}); maxRate = Math.max(maxRate, Math.hypot(R.g1[0] - g[0], R.g1[1] - g[1]) / 0.05); maxG = Math.max(maxG, Math.hypot(...R.g1)); D.g = R.g1.slice(); g = R.g1; }
     check('gimbal: açı sınırı (±5°) ve hız sınırı aşılmaz, +8° komutla sınıra oturur', maxG <= Math.tan(sp.tvc.max * D2R) * (1 + 1e-12) && maxRate <= sp.tvc.rate * D2R * (1 + 1e-9) && maxG > Math.tan(sp.tvc.max * D2R) * 0.999,
       `azami açı ${(Math.atan(maxG) * DEG).toFixed(3)}°, azami hız ${(maxRate * DEG).toFixed(1)}°/s (sınır ${sp.tvc.rate}°/s)`);
     // itki geometrisi: q = birim, gimbal (gx, gy), sapma ve kütle merkezi ofseti → u = R·d, τ = r × F
@@ -224,7 +224,7 @@ const ALL = JSON.parse(fs.readFileSync(new URL('../data/designs_default.json', i
   // (b) hizalı yakış: itki gerçek eksen boyunca (gimbal sapması, kırpma yakınsarken), Δv büyüklüğü roket denklemine uyar
   const C = mk(new Dyn6([0, 1, 0], [1, 0, 0])), N = mk(null); const dir = [0, 1, 0], burn = () => [1.0, dir];
   C.runUntil(t0 + 60, burn); N.runUntil(t0 + 60, burn);
-  const dvC = sub(C.s.v, A.s.v), dvN = sub(N.s.v, A.s.v), mdv = (P) => 0;
+  const dvC = sub(C.s.v, A.s.v), dvN = sub(N.s.v, A.s.v), _mdv = (P) => 0;
   const veh0 = veh(), st0 = veh0.active, c = st0.isp * E.G0, m0 = veh0.mass(), dvIdeal = c * Math.log(m0 / (m0 - st0.T / c * 60)) ;
   check('60 s yakış: 6-DOF itkisi roket denklemi Δv\'sine uyar (sayaç) ve yönü komuttan < 1,5° (gimbal kırpması)', Math.abs(C.dvUsed - dvIdeal) / dvIdeal < 1e-3 && vAngle(dvC, dvN) < 1.5 * D2R && relErr(norm(dvC), norm(dvN)) < 0.01,
     `Δv ${(C.dvUsed * 1000).toFixed(3)} m/s (roket ${(dvIdeal * 1000).toFixed(3)}), yön farkı ${(vAngle(dvC, dvN) * DEG).toFixed(3)}°`);

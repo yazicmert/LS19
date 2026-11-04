@@ -109,7 +109,7 @@ export class AscentPlayer {
     }
     for (const d of this.debris) { this.propagate(d, dts); d.age += dts; }
     this.debris = this.debris.filter((d) => !d.gone && d.age < 900);
-    const thr = met >= 0 ? 1 : 0, up = s.up, h = s.h;
+    const up = s.up, h = s.h;
     // rampa çerçevesi (Dünya ile döner) ve Güneş'in araca göre yüksekliği
     const pu = P.padAt(this.t), east = (() => { const e = [-pu[1], pu[0], 0], n = Math.hypot(...e); return e.map((c) => c / n); })(), north = [pu[1] * east[2] - pu[2] * east[1], pu[2] * east[0] - pu[0] * east[2], pu[0] * east[1] - pu[1] * east[0]];
     const sun = this.E.sunPos(this.t), sd = [sun[0] - s.r[0], sun[1] - s.r[1], sun[2] - s.r[2]], sn = Math.hypot(...sd), sunUp = (sd[0] * up[0] + sd[1] * up[1] + sd[2] * up[2]) / sn;

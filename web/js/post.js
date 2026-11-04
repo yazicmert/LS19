@@ -25,7 +25,7 @@ const FILM = {
 
 export class Post {
   static async create(renderer, scene, camera, opts = {}) {
-    const [EC, RP, SP, UB, OP, PS, CS] = await Promise.all([import('three/addons/postprocessing/EffectComposer.js'), import('three/addons/postprocessing/RenderPass.js'), import('three/addons/postprocessing/ShaderPass.js'),
+    const [EC, SP, UB, OP, PS, CS] = await Promise.all([import('three/addons/postprocessing/EffectComposer.js'), import('three/addons/postprocessing/ShaderPass.js'),
       import('three/addons/postprocessing/UnrealBloomPass.js'), import('three/addons/postprocessing/OutputPass.js'), import('three/addons/postprocessing/Pass.js'), import('three/addons/shaders/CopyShader.js')]);
     return new Post({ EffectComposer: EC.EffectComposer, ShaderPass: SP.ShaderPass, UnrealBloomPass: UB.UnrealBloomPass, OutputPass: OP.OutputPass, Pass: PS.Pass, FullScreenQuad: PS.FullScreenQuad, CopyShader: CS.CopyShader }, renderer, scene, camera, opts);
   }

@@ -14,7 +14,7 @@ import { ROLES } from '../web/js/rigidbody.js';
 import { CTL } from '../web/js/attctl.js';
 import { initConic } from '../web/js/conic.js';
 
-const { Mission, twoStageDesign, siteIcrf, TERM, OPT_DESCENT, CMD } = MI;
+const { Mission, twoStageDesign, _siteIcrf, TERM, OPT_DESCENT, CMD } = MI;
 const NS = { ROLES, CTL, TERM, OPT_DESCENT, CMD }, DEG = 180 / Math.PI;
 const rd = (f) => { const b = fs.readFileSync(new URL(`../web/data/${f}`, import.meta.url)); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); };
 await initConic();

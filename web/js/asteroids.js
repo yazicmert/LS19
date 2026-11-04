@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as E from './engine.js';
-import { keplerHelio, etFromJd, AU, helioElements } from './deflect.js';
+import { keplerHelio, AU, helioElements } from './deflect.js';
 
 export const AST_GROUPS = [
   { name: 'Sentry risk listesi', color: 0xff4fd8, size: 2.0 },
@@ -203,7 +203,7 @@ export class AsteroidLayer {
       this.etProp = d.et; this.pending = false;
       // Dünya'nın 0,05 AB yakınındaki asteroit sayısı (Güneş sistemi dışındaki kameralarda yalnız bunlar görünür)
       const s = this.sunGeoAt ? this.sunGeoAt(d.et) : null;
-      if (s) { let n = 0, L2 = (0.05 * AU) ** 2; const P = d.pos || this.geo.attributes.position.array;
+      if (s) { let n = 0, L2 = (0.05 * AU) ** 2;
         const A = this.geo.attributes.position.array;
         for (let i = 0; i < this.n; i++) { const x = A[3 * i] + s[0], y = A[3 * i + 1] + s[1], z = A[3 * i + 2] + s[2]; if (x * x + y * y + z * z < L2) n++; }
         if (n !== this.nearCount) { this.nearCount = n; this.changed(); } }

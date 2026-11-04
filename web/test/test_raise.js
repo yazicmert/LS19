@@ -21,7 +21,7 @@ const tOf = (ms) => { const jdU = ms / 86400000 + 2440587.5; return (jdU + EO.tt
 const ms = Date.parse('2026-10-13T00:00:00Z'), tStart = tOf(ms) - 86400;
 const cfgOf = (base, n, ha) => { const c = JSON.parse(JSON.stringify(base)); c.earth.raise = { n, ha }; return c; };
 const design = (cfg) => { makeLive(SPK, PCK, eo, tStart); return designMission(tOf(ms), () => {}, cfg); };
-const maxApo = (M) => Math.max(...M.events.filter((e) => /^RAISE-\d+_CUT$/.test(e.key)).map((e) => +/apoje (\d+)/.exec(e.msg)[1]));
+const _maxApo = (M) => Math.max(...M.events.filter((e) => /^RAISE-\d+_CUT$/.test(e.key)).map((e) => +/apoje (\d+)/.exec(e.msg)[1]));
 // görevi uçur; bozulma: { t, dv, dir }; duvar saati sınırı aşılırsa timeout
 function fly(D, { nbody = true, pert = null, wallMs = 30000 } = {}) {
   makeLive(SPK, PCK, eo, tStart);

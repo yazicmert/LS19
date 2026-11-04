@@ -51,7 +51,7 @@ function sliceDoc(doc, ax, val, keep, capMat, center, meshNames = null) {
   for (const mesh of doc.getRoot().listMeshes()) for (const prim of mesh.listPrimitives()) {
     if (meshNames && !meshNames.includes(mesh.getName())) continue;
     const pos = prim.getAttribute('POSITION'), idx = prim.getIndices(), n = idx ? idx.getCount() : pos.getCount();
-    const have = ATTR.filter((a) => prim.getAttribute(a)), V = [];                         // V: { a: { POSITION: [...], … } }
+    const have = ATTR.filter((a) => prim.getAttribute(a)), _V = [];                         // V: { a: { POSITION: [...], … } }
     const vert = (i) => { const r = {}; for (const a of have) { const acc = prim.getAttribute(a), e = acc.getElement(i, []); r[a] = e; } return r; };
     const lerp = (A, B, t) => { const r = {}; for (const a of have) r[a] = A[a].map((x, k) => x + (B[a][k] - x) * t); if (r.NORMAL) { const l = Math.hypot(...r.NORMAL) || 1; r.NORMAL = r.NORMAL.map((x) => x / l); } return r; };
     const polys = [];
@@ -152,7 +152,7 @@ if (want('stage')) {
   // dönüşüm: gövde ağı (üst yüz y = 0) ve F-1 çanı (J-2 yerine, kademenin kıç ucuna, ölçeklenmiş)
   const L = (Y_TOP - Y_BOT) * SB, SF = 4.0;                                 // F-1: 4,0 m/birim → çan ≈ 1,8 m çap, 2,3 m yükseklik (J-2: 2,0 m)
   const f1 = doc.getRoot().listMeshes().find((m) => m.getName() === 'polySurfa1'), body = doc.getRoot().listMeshes().find((m) => m.getName() === 'pCylinder1');
-  const only = (mesh) => { const d = { getRoot: () => ({ listMeshes: () => [mesh], listNodes: () => [] }) }; return d; };
+  const _only = (mesh) => { const d = { getRoot: () => ({ listMeshes: () => [mesh], listNodes: () => [] }) }; return d; };
   const bb = (mesh) => { const b = { min: [9e9, 9e9, 9e9], max: [-9e9, -9e9, -9e9] }, v = [0, 0, 0]; for (const p of mesh.listPrimitives()) { const pos = p.getAttribute('POSITION'); for (let i = 0; i < pos.getCount(); i++) { pos.getElement(i, v); for (let k = 0; k < 3; k++) { b.min[k] = Math.min(b.min[k], v[k]); b.max[k] = Math.max(b.max[k], v[k]); } } } return b; };
   const fb = bb(f1), fcx = (fb.min[0] + fb.max[0]) / 2, fcz = (fb.min[2] + fb.max[2]) / 2, fTopY = -L + 0.85;     // çanın sivri enjektör külahı kademenin içinde (kapak onu gizler), nervürlü çan kıç yüzün altında görünür
   const DARK = mat(doc, 'Motor_Cani', [0.34, 0.35, 0.38], 0.85, 0.42); for (const p of f1.listPrimitives()) p.setMaterial(DARK);          // çan koyu metal (J-2 çanı gibi)

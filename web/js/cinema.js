@@ -344,7 +344,6 @@ export class Cinema {
     const up = unit(sub(info.vehPos, info.central === 'M' ? info.rm : [0, 0, 0]));
     const c = { W, x, info, q: this.q, f: { up }, alt: this.alt(x, info), rE: norm(x.r) };
     let r = s.rig; if (s.rigs) { r = s.rigs[s.rigs.length - 1].rig; for (const q of s.rigs) { if (tau <= q.to) { r = q.rig; break; } } }
-    const local = r.type === 'lvlh' || r.type === 'body' || r.type === 'ground' || r.type === 'ots' ? tau : tau;
     let k = e; if (s.rigs) { let lo = 0; for (const q of s.rigs) { if (tau <= q.to) { k = smooth((tau - lo) / Math.max(1e-6, q.to - lo)); break; } lo = q.to; } }
     const pose = RIG[r.type](c, r, k);
     const yaw = Array.isArray(r.yaw) ? lerp(r.yaw[0], r.yaw[1], k) : (r.yaw || 0);
@@ -454,7 +453,7 @@ export class Cinema {
   closingCard(x) {
     const ui = this.ui, r = x.result || {}, ok = r.ok !== false;
     (async () => {
-      const dvUsed = (x.dv || 0) * 1000, mass = x.m || 0, met = x.t - (this.h.ui.tLaunch || 0);
+      const dvUsed = (x.dv || 0) * 1000, met = x.t - (this.h.ui.tLaunch || 0);
       const stats = await ui.summary([
         { label: 'Görev süresi', text: 'T+' + fmtDur(met) },
         { label: 'Kullanılan Δv', value: dvUsed, unit: 'm/s', format: { maximumFractionDigits: 0 } },

@@ -6,7 +6,7 @@ import fs from 'fs';
 import path from 'path';
 
 const root = new URL('../', import.meta.url).pathname;
-const IMPORTMAP = { three: 'lib/three.module.js', 'three/addons/': 'lib/addons/', motion: 'lib/motion.esm.js', 'number-flow': 'lib/number-flow.esm.js', torph: 'lib/torph.esm.js' };
+const _IMPORTMAP = { three: 'lib/three.module.js', 'three/addons/': 'lib/addons/', motion: 'lib/motion.esm.js', 'number-flow': 'lib/number-flow.esm.js', torph: 'lib/torph.esm.js' };
 let fail = 0;
 const check = (name, ok, detail = '') => { console.log(`${ok ? 'TAMAM' : 'HATA '} ${name}${detail ? ' — ' + detail : ''}`); if (!ok) fail++; };
 

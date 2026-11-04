@@ -146,7 +146,7 @@ export class Tracker {
     // ECF (yaklaşık) -> ICRF: ITRF'ye çok yakın; çizimde Dünya'yla birlikte döner
     const toIcrf = (q) => E.mtv(Mi, q);
     const keep = new Set(this.watch);
-    for (const [id, it] of this.items) if (!keep.has(id)) this.remove(id);
+    for (const id of this.items.keys()) if (!keep.has(id)) this.remove(id);
     for (const id of this.watch) {
       const it = this.item(id), rec = this.sats.satrec(id);
       const pv = rec ? P.propagate(rec, ms) : null;

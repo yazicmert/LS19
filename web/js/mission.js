@@ -170,7 +170,6 @@ export class Mission {
       { key: 'MCC-1', name: 'MCC-1', t: TLI.t_ign + TLI.x[1] + 1800 + 20 * 3600 },
       { key: 'MCC-2', name: 'MCC-2', t: ARRIVAL.t_P - 22 * 3600 }];
     if (this.halo) {
-      const H = design.HALO;
       this.plan.push({ key: 'NRI', name: 'Halo girişi (NRI)', t: ARRIVAL.t_P - 60 });
       this.skTimes().forEach((sk, i) => this.plan.push({ key: 'SK-' + (i + 1), name: `İstasyon tutma ${i + 1}`, t: sk.t }));
       this.plan.push({ key: 'DEP', name: "Halo'dan ayrılış", t: design.DEP.t - 90 }, { key: 'LOI', name: 'LLO girişi', t: design.LLO.tP - 84 });
@@ -383,7 +382,7 @@ export class Mission {
     P.phase = 'HALO'; P.hMaxCoast = 1800;
   }
   *haloOps() {
-    const P = this.P, D = this.D, refFn = (t) => this.haloRefGeo(t);
+    const D = this.D, refFn = (t) => this.haloRefGeo(t);
     const sks = this.skTimes();
     for (let i = 0; i < sks.length; i++) {
       yield* this.mcc(sks[i].t, sks[i].tTgt, refFn, 'SK-' + (i + 1), 'pos', 0.01, 'HALO');

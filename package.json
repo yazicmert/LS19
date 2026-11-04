@@ -3,6 +3,16 @@
   "private": true,
   "description": "LS19 (Look Star 19) — canlı uzay simülasyonu",
   "type": "module",
-  "engines": { "node": ">=20" },
-  "scripts": { "test": "cd web && node test/test_deflect.js && node test/test_api.js" }
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "lint": "eslint",
+    "test": "cd web && for t in test/test_*.js; do echo \"== $t\"; out=$(node \"$t\" 2>&1) || { echo \"$out\" | grep -v '^TAMAM' | tail -30; exit 1; }; done && echo 'Tüm testler geçti'",
+    "test:quick": "cd web && node test/test_deflect.js && node test/test_api.js"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.1",
+    "globals": "^15.15.0"
+  }
 }

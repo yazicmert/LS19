@@ -6,7 +6,6 @@
 //  3) belirleyicilik: bir profilin iki birleşimi yeniden uçurulur, dosyadaki değerle bit düzeyinde aynı
 //  4) kablolama: app.js önbellek/nominalBy, nominal.js ve make_designs.js aynı işlevi kullanır; gökyüzü katmanları açılışta kurulmaz, gökyüzü açılınca ya da boşta kurulur
 import fs from 'fs';
-import * as E from '../js/engine.js';
 import * as EO from '../js/earth.js';
 import { makeLive } from '../js/live.js';
 import { twoStageDesign } from '../js/mission.js';

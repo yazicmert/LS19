@@ -374,7 +374,7 @@ export class SatLayer {
       if (p) {
         if (this.suppressLabel && this.suppressLabel(+this.ids[this.sel])) this.selLabel.style.display = 'none'; else place(this.selLabel, p);
         if (this.selOrbitT === null || Math.abs(t - this.selOrbitT) > 60) {
-          this.selOrbitT = t; const per = 1440 / this.selOmm.MEAN_MOTION * 60, a = this.selLine.geometry.attributes.position.array;
+          this.selOrbitT = t; const per = 1440 / this.selOmm.MEAN_MOTION * 60;
           this.selOrbitPts = []; for (let k = 0; k <= 360; k++) { const q = this.selPos(t + (k / 360 - 0.5) * per); if (q) this.selOrbitPts.push(q); }
         }
         const a = this.selLine.geometry.attributes.position.array, P = this.selOrbitPts;
