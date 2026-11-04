@@ -5,9 +5,9 @@ import { buildAscent, scaleEvents, fmtMet } from './ascent.js';
 import { rocketOf } from './rockets.js';
 import { LEGACY_SITE } from './pads.js';
 import { atmosphere } from './ascentsim.js';
+import { qMul } from './attitude.js';
 import { directShot, autoWarp, timeline, SHOT_NAMES } from './launchcam.js';
 import { MU_E as MU, OMEGA_E as OMEGA } from './geo.js';
-const qmul = (a, b) => [a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1], a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0], a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3], a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2]];
 
 const $ = (s) => document.querySelector(s);
 // (0,0,1) → d döndüren birim kuaterniyon [x, y, z, w]
@@ -124,7 +124,7 @@ export class AscentPlayer {
     this.world.ascentFrame({ cut, hidden, thr: thrNow, h, pAmb: atmosphere(h).p, sunUp, prop: (this.A.props || [])[st], shot, met: real, dtFlight: dts * k0, q: s.q || 0,
       sunDir: sd.map((c) => c / sn), upV: up,
       pad: { pos: pu.map((c) => c * this.E.R_E), east, north, up: pu, dr: east.map((c, i) => c * this.drEN[0] + north[i] * this.drEN[1]) },
-      debris: this.debris.map((d) => ({ id: d.id, lo: d.lo, hi: d.hi, part: d.part, hidden: d.hidden, r: this.drawR(d.r), q: qmul(d.q0, half(d.spin * d.age * 0.02)) })) });
+      debris: this.debris.map((d) => ({ id: d.id, lo: d.lo, hi: d.hi, part: d.part, hidden: d.hidden, r: this.drawR(d.r), q: qMul(d.q0, half(d.spin * d.age * 0.02)) })) });
     const msg = met < 0 ? `${this.rk.name} rampada · T−${Math.ceil(-met)} s` : `${this.rk.name} · gerçek zaman ${fmtMet(real)}${last ? ` · ${last.name} (${fmtMet(last.t)})` : ''}`;
     const mq = P.sim && P.sim.maxQ, nearQ = mq && Math.abs(real - mq.t) < 6 ? ` · MAX-Q ${(mq.q / 1000).toFixed(0)} kPa` : '';
     const full = msg + ` · irtifa ${h.toFixed(h < 10 ? 1 : 0)} km` + (s.q != null && met > 0 && h < 100 ? ` · q ${(s.q / 1000).toFixed(1)} kPa` : '') + nearQ;
