@@ -4,11 +4,11 @@ import * as THREE from 'three';
 import * as E from './engine.js';
 import { BODIES } from './ephem.js';
 import { etOf } from './live.js';
-import { PLANETS, PLANET_VIS, planetQuaternion, loadPlanetTextures } from './planets.js';
+import { PLANETS, planetQuaternion, loadPlanetTextures } from './planets.js';
 import { conicPoints, m3ToQuat, unit3, SUN_I } from './scenegeom.js';
 import * as CR from './cr3bp.js';
 import { K_EMB } from './camerarig.js';
-import { add, sub, scale, dot, cross, norm, unit } from './vec3.js';
+import { add, sub, scale, dot, norm, unit } from './vec3.js';
 
 export class SkyView {
   planetGeo(i, t) { const L = this.live.L, et = etOf(t); return sub(L.body(i, et)[0], L.body(3, et)[0]); }

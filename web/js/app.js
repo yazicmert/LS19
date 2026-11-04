@@ -8,9 +8,11 @@ import * as EO from './earth.js';
 import { designMissionAsync, PROFILES, normalizeConfig } from './design.js';
 import { RocketSheet } from './rocketsheet.js';
 import { LaunchUI } from './launchui.js';
+import { WindowScanner } from './windowscan.js';
+import { ProfileCompare } from './profilecompare.js';
+import { attachCanvasInput } from './canvasinput.js';
 import { AscentPlayer } from './ascentplay.js';
-import { inclRange, minIncl, LEGACY_SITE, dailyIncls } from './pads.js';
-import { launchWeather, pickLaunch } from './weather.js';
+import { inclRange, minIncl, LEGACY_SITE } from './pads.js';
 import { twoStageDesign } from './mission.js';
 import { SatLayer } from './satlayer.js';
 import { AsteroidLayer } from './asteroids.js';
@@ -24,7 +26,7 @@ import { SkyUI, SkyClock } from './skyui.js';
 import { applyIcons, setBtn } from './icons.js';
 import { initTreeMenus, refreshTreeMenus } from './treemenu.js';
 import * as PS from './passes.js';
-import { MODELS, MOON_MODELS } from './satmodels.js';
+import { MODELS } from './satmodels.js';
 import { srcOf } from './satcatalog.js';
 import { ImpactUI } from './impactui.js';
 import { Cinema } from './cinema.js';
@@ -147,7 +149,7 @@ function withMission(fn) {
 const camStore = { mission: null, sky: { mode: 'EARTH', dist: 36000, el: 0.45, az: 0.6, auto: false, key: '' } };
 function switchEngine(m) {                                       // mission ↔ sky motoru (lab görünümü sky motorunu kullanır)
   if (m === 'sky' && cinema.on) cinema.stop();
-  if (m === 'sky') { cmpCancel = true; }
+  if (m === 'sky') { compare.cancel(); }
   camStore[MODE] = world.cam; MODE = m;
   world.cam = camStore[m] || world.cam;
   ui.hidePick(); $('#hoverTip').hidden = true;
@@ -377,85 +379,21 @@ const launch = new LaunchUI({
     ui.site = st;
     if (ir && Math.abs(c.earth.inc - lo0) < 0.05) c.earth.inc = ir[0];
     ui.setConfig({ ...c, site: st || null }); $('#cfgEi').min = String(ir ? ir[0] : 0);
-    cmpCancel = true; scanCancel = true;
+    compare.cancel(); scanner.cancel();
     startDesign($('#dateInput').value || pendingDate || DEFAULT_DATE);
   },
-  onScan: () => scanWindows(),
-  onDay: () => dayWindow(),
+  onScan: () => scanner.scan(),
+  onDay: () => scanner.day(),
   onPickInc: (inc) => {                                                           // günlük penceredeki fırsat: aynı gün, o park eğimiyle
-    if (designing) return; scanCancel = true;
+    if (designing) return; scanner.cancel();
     const c = ui.getConfig(); c.earth.inc = inc; ui.setConfig(c);
     startDesign($('#dateInput').value || pendingDate || DEFAULT_DATE);
   },
-  onPick: (d) => { if (!designing) { scanCancel = true; $('#dateInput').value = d; startDesign(d); } },
+  onPick: (d) => { if (!designing) { scanner.cancel(); $('#dateInput').value = d; startDesign(d); } },
 });
+const scanner = new WindowScanner({ ui, launch, getK: () => K, getDesign: () => DESIGN, isDesigning: () => designing, siteIncl, tOfUtcMs, missionEtWindow,
+  dateStr: () => $('#dateInput').value || DEFAULT_DATE });
 ui.onSiteSync = (st) => { launch.setSite(st); const ir = siteIncl(st); $('#cfgEi').min = String(ir ? ir[0] : 0); };
-// günlük fırlatma penceresi: aynı gün, menzilin izin verdiği park eğimleriyle (farklı azimut → farklı saat) fırsatlar; her birinin fırlatma anındaki hava;
-// önerilen: hava uygun olanlar arasında en az yakıt (weather.js pickLaunch)
-async function dayWindow() {
-  if (scanning || designing || !K || !DESIGN) return;
-  scanning = true; scanCancel = false;
-  const cfg0 = ui.getConfig(), st = cfg0.site || LEGACY_SITE, ir = siteIncl(cfg0.site) || [minIncl(st.lat), 90];
-  const incs = dailyIncls(Math.max(ir[0], minIncl(st.lat)), ir[1]), prov0 = E.getProvider(), rows = incs.map((inc) => ({ inc, busy: true }));
-  const tFrom = tOfUtcMs(Date.parse(($('#dateInput').value || DEFAULT_DATE) + 'T00:00:00Z')), tStart = tFrom - 86400;
-  const render = (msg, busy) => { launch.setDay(rows, msg, busy, busy ? null : pickLaunch(rows.map((r) => (r.D ? { t: r.D.LAUNCH.t_launch, cost: r.cost, wx: r.wx } : null)))); };
-  try {
-    await K.eph.ensure(...missionEtWindow(tStart));
-    for (let k = 0; k < rows.length && !scanCancel; k++) {
-      const row = rows[k]; render(`${k + 1}/${rows.length}: eğim ${row.inc}° tasarlanıyor…`, true);
-      try {
-        makeLive(K.spk, K.pck, K.eo, tStart);
-        const cfg = JSON.parse(JSON.stringify(cfg0)); cfg.earth.inc = row.inc;
-        const D = await designMissionAsync(tFrom, () => {}, () => scanCancel || designing, cfg);
-        if (!D) break;
-        row.D = D; row.busy = false;
-        row.cost = (D.LANDER_NEED ?? D.STAGES.slice(1).reduce((q, x) => q + x.prop, 0)) + (D.TLI_NEED ?? D.STAGES[0].prop);
-        row.margin = D.STAGES[0].rocket && D.STAGES[0].rocket !== 'GENEL' ? D.STAGES[0].prop - D.TLI_NEED : null;
-        row.wx = await launchWeather(D.LAUNCH.lat ?? LEGACY_SITE.lat, D.LAUNCH.lon ?? LEGACY_SITE.lon, E.utcMsFromT(D.LAUNCH.t_launch));
-      } catch (err) { row.busy = false; row.err = String(err.message || err).slice(0, 80); }
-    }
-    // aynı fırsata düşen eğimler (±10 dk): yalnız en az yakıtlı kalır; saate göre sırala
-    const ok = rows.filter((r) => r.D).sort((a, b) => a.D.LAUNCH.t_launch - b.D.LAUNCH.t_launch), uniq = [];
-    for (const r of ok) { const prev = uniq[uniq.length - 1]; if (prev && Math.abs(prev.D.LAUNCH.t_launch - r.D.LAUNCH.t_launch) < 600) { if (r.cost < prev.cost) uniq[uniq.length - 1] = r; } else uniq.push(r); }
-    rows.length = 0; rows.push(...uniq);
-  } finally {
-    E.setProvider(prov0); scanning = false;
-    const p = pickLaunch(rows.map((r) => ({ t: r.D.LAUNCH.t_launch, cost: r.cost, wx: r.wx })));
-    render(scanCancel ? 'Durduruldu.' : rows.length ? `${rows.length} fırsat · ${p.index >= 0 ? 'önerilen ★: ' : ''}${p.why}` : 'Fırsat bulunamadı.', false);
-  }
-}
-// sonraki N pencere: her biri bir öncekinin fırlatmasından 1 gün sonrasından aranır; ana iş parçacığının efemeris kaynağı tarama sonunda geri yüklenir
-let scanning = false, scanCancel = false;
-async function scanWindows(N = 4) {
-  if (scanning || designing || !K) return;
-  scanning = true; scanCancel = false;
-  const cfg = ui.getConfig(), prov0 = E.getProvider(), rows = [];
-  let tFrom = tOfUtcMs(Date.parse(($('#dateInput').value || DEFAULT_DATE) + 'T00:00:00Z'));
-  try {
-    for (let k = 0; k < N && !scanCancel; k++) {
-      const row = { from: E.utcString(tFrom).slice(0, 10), busy: true }; rows.push(row); launch.setScan(rows, `${k + 1}/${N} tasarlanıyor…`, true);
-      try {
-        const tStart = tFrom - 86400;
-        await K.eph.ensure(...missionEtWindow(tStart));
-        makeLive(K.spk, K.pck, K.eo, tStart);
-        const D = await designMissionAsync(tFrom, (m) => launch.setScan(rows, `${k + 1}/${N}: ${m.slice(0, 50)}`, true), () => scanCancel || designing, cfg);
-        if (!D) break;
-        // yakıt: iniş aracının ve TLI'ın gerektirdiği (tasarım tabanları olmadan) — pencereler arasındaki gerçek fark
-        const pay = D.LANDER_NEED ?? D.STAGES.slice(1).reduce((q, x) => q + x.prop, 0);
-        row.D = D; row.busy = false;
-        row.dvTot = Object.values(D.DV || {}).reduce((q, x) => q + x, 0);
-        row.cost = pay + (D.TLI_NEED ?? D.STAGES[0].prop);
-        row.margin = D.STAGES[0].rocket ? D.STAGES[0].prop - D.TLI_NEED : null;
-        const L = D.LAUNCH;
-        launchWeather(L.lat ?? LEGACY_SITE.lat, L.lon ?? LEGACY_SITE.lon, E.utcMsFromT(L.t_launch)).then((w) => { row.wx = w; if (!scanning) launch.setScan(rows, ''); });
-        tFrom = L.t_launch + 86400;
-      } catch (err) { row.busy = false; row.err = String(err.message || err).slice(0, 90); break; }
-    }
-  } finally {
-    E.setProvider(prov0); scanning = false;
-    launch.setScan(rows, scanCancel ? 'Tarama durduruldu.' : '', false);
-  }
-}
 ui.onRocket = (id) => {
   if (designing || id === ui.rocket) return;
   ui.setRocket(id);
@@ -463,7 +401,7 @@ ui.onRocket = (id) => {
   const p = launch.padFor(id);                                                  // gerçek roket yalnız kendi rampalarından: gerekirse ilkine geçilir (null = varsayılan LC-39B)
   if (p !== undefined) { const c = ui.getConfig(), lo0 = (siteIncl(ui.site) || [28.7])[0], ir = siteIncl(p); ui.site = p; if (ir && Math.abs(c.earth.inc - lo0) < 0.05) c.earth.inc = ir[0]; ui.setConfig({ ...c, site: p }); ui.setRocket(id, `Rampa ${p ? p.name : LEGACY_SITE.short} olarak değiştirildi (roketin gerçek rampası).`); }
   launch.syncRocket();
-  cmpCancel = true; scanCancel = true;
+  compare.cancel(); scanner.cancel();
   startDesign($('#dateInput').value || pendingDate || DEFAULT_DATE);
 };
 document.querySelectorAll('[data-vehicle]').forEach((b) => b.addEventListener('click', () => setVehicle(b.dataset.vehicle)));
@@ -610,88 +548,9 @@ function focusOn(focus, dist) {
 }
 document.querySelectorAll('[data-cam]').forEach((b) => b.addEventListener('click', () => setCam(b.dataset.cam)));
 // fare: sürükle döndür, tekerlek yakınlaştır
-let drag = null, press = null;
-canvas.addEventListener('pointerdown', (e) => { $('#hoverTip').hidden = true; drag = { x: e.clientX, y: e.clientY }; press = { x: e.clientX, y: e.clientY, t: performance.now() }; canvas.setPointerCapture(e.pointerId); });
-canvas.addEventListener('pointerup', (e) => {
-  drag = null;
-  // sürüklemeden kısa tıklama: gezegen / uydu seçimi
-  if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 5 && performance.now() - press.t < 450) handleClick(e);
-  press = null;
-});
-function pickAt(e) {
-  const rect = canvas.getBoundingClientRect(), mx = e.clientX - rect.left, my = e.clientY - rect.top;
-  const cands = [];
-  const pp = world.pickPlanet(mx, my); if (pp) cands.push({ ...pp, d2: pp.d * pp.d });
-  if (MODE === 'sky') {
-    if (sats && world.eye) { const sp = sats.pick(mx, my, world.camera, world.eye, canvas, curT()); if (sp) cands.push(sp); }
-    if (asts && world.eye) { const ap = asts.pick(mx, my, world.camera, world.eye, canvas, curT()); if (ap) cands.push(ap); }
-  }
-  cands.sort((a, b) => a.d2 - b.d2);
-  return cands[0] ? { ...cands[0], mx, my } : null;
-}
-// fareyle üzerine gelince: imleç ve ad ipucu
-let hoverT = 0;
-function hover(e) {
-  const tip = $('#hoverTip');
-  const c = (MODE === 'sky' || latest) && !designing ? pickAt(e) : null;
-  canvas.style.cursor = c ? 'pointer' : '';
-  if (!c) { tip.hidden = true; return; }
-  tip.textContent = c.kind === 'sat' ? sats.names[c.i] : c.kind === 'msat' ? c.m.name : c.kind === 'ast' ? asts.label(c.i) : c.i === 3 ? 'Dünya–Ay' : world.planetName(c.i);
-  tip.hidden = false; tip.style.transform = `translate(${c.mx + 12}px, ${c.my - 22}px)`;
-}
-function handleClick(e) {
-  if (MODE !== 'sky' && !latest) return;
-  const c = pickAt(e), t = curT();
-  if (!c) { ui.hidePick(); return; }
-  const mx = c.mx, my = c.my;
-  if (c.kind === 'planet' && c.i === 3) { ui.hidePick(); if (MODE === 'sky') setSkyCam('SYSTEM'); else setCam('SYSTEM'); return; }
-  if (c.kind === 'planet') {
-    const R = world.planetInfo(c.i, t).R;
-    ui.showPick({ kind: 'planet', refresh: (tt) => world.planetInfo(c.i, tt),
-      actions: [{ label: 'Yakınlaş', fn: () => focusOn({ kind: 'planet', i: c.i }, 6 * R) }] }, mx, my, t);
-  } else if (c.kind === 'sat') {
-    const id = +sats.ids[c.i];
-    const watchAct = () => (tracker.has(id) ? { label: 'Takipten çıkar', fn: () => { tracker.remove(id); ui.hidePick(); } } : { label: 'Takibe al', fn: () => { tracker.add(id); tracker.computePasses(true); ui.hidePick(); skyui.toast(`${sats.names[c.i]} takip listesine eklendi (Takip sekmesi).`); } });
-    const mdl = sats.modelOf(id);
-    ui.showPick({ kind: 'sat', refresh: (tt) => {
-      const d = sats.satDetails(c.i, tt); if (!d) return d;
-      const s = tracker.state(id, E.utcMsFromT(tt)); if (s) { d.obsName = tracker.observer.name; d.obsEl = s.el; d.obsAz = s.az; d.obsRange = s.range; }
-      const np = tracker.passes.find((p) => p.id === id && p.rise && p.set.ms > Date.now()); if (np) d.nextPass = np;
-      return d; },
-    actions: [watchAct(), { label: 'Yörüngesini göster', fn: () => sats.select(c.i) }, { label: 'Kamerayla izle', fn: () => followSat(id) },
-      { label: '3B modeli yakından gör', fn: () => followSat(id, (mdl ? mdl.size : sats.familySizeM(id) || 10) * 2.4 / 1000) },
-      { label: 'Gökte izle', fn: () => lookAtSat(id) }] }, mx, my, t);
-  } else if (c.kind === 'ast') {
-    const i = c.i; asts.fetchDetail(i);
-    ui.showPick({ kind: 'ast', refresh: (tt) => asts.details(i, tt), card: (d) => astui.card(d),
-      actions: [{ label: 'Yörüngesini göster', fn: () => asts.select(i) }, { label: 'Kamerayla izle', fn: () => astui.follow(i) },
-        { label: 'Laboratuvarda dene', fn: () => { ui.hidePick(); astui.openLab(i); } }] }, mx, my, t);
-  } else if (c.kind === 'msat') {
-    const m = c.m;
-    ui.showPick({ kind: 'msat', refresh: (tt) => sats.moonSatDetails(m, tt),
-      actions: [{ label: 'Kamerayla izle', fn: () => focusOn({ kind: 'msat', fn: (tt) => { const r = sats.moonState(m, tt); return r ? E.add(E.moonPos(tt), r) : null; } }, 300) },
-        ...(MOON_MODELS[m.name] ? [{ label: '3B modeli yakından gör', fn: () => focusOn({ kind: 'msat', fn: (tt) => { const r = sats.moonState(m, tt); return r ? E.add(E.moonPos(tt), r) : null; } }, MODELS[MOON_MODELS[m.name]].size * 2.4 / 1000) }] : [])] }, mx, my, t);
-  }
-}
-canvas.addEventListener('pointermove', (e) => {
-  if (!drag) { const now = performance.now(); if (now - hoverT > 120) { hoverT = now; hover(e); } return; }
-  const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag = { x: e.clientX, y: e.clientY };
-  if (world.cam.mode === 'SITE') return;
-  if (world.cam.mode === 'OBS') {                               // gözlemci: bakış yönü (sürükleyince hedef izleme bırakılır)
-    world.cam.lookFn = null; world.cam.az -= dx * 0.004 * (world.camera.fov / 70); world.cam.el = Math.max(-0.25, Math.min(1.56, world.cam.el + dy * 0.004 * (world.camera.fov / 70))); return;
-  }
-  if (world.cam.auto) { world.cam.auto = false; document.querySelectorAll('[data-cam]').forEach((b) => b.classList.toggle('on', b.dataset.cam === world.cam.mode)); }
-  world.cam.az -= dx * 0.005; world.cam.el = Math.max(-1.5, Math.min(1.5, world.cam.el + dy * 0.005));
-});
-canvas.addEventListener('wheel', (e) => {
-  e.preventDefault();
-  if (world.cam.mode === 'SITE' || world.cam.mode === 'OBS') { world.cam.userFov = true; world.camera.fov = Math.max(2, Math.min(world.cam.mode === 'OBS' ? 100 : 70, world.camera.fov * Math.exp(e.deltaY * 0.001))); world.camera.updateProjectionMatrix(); return; }
-  const f = world.cam.focus;
-  const minD = world.cam.mode === 'FOCUS' ? (f && f.kind === 'planet' ? world.planetInfo(f.i, curT()).R * 1.15 : f && (f.kind === 'ast' || f.R) ? Math.max(0.004, f.R * 1.3) : 0.004)
-    : { VEHICLE: 0.012, LAUNCH: 0.03, EARTH: E.R_E * 1.05, MOON: E.R_M * 1.03, SYSTEM: 50000, EMB: 9000, SOLAR: 2e6 }[world.cam.mode] || 0.01;
-  const maxD = world.cam.mode === 'SOLAR' || world.cam.mode === 'FOCUS' ? 1e10 : 3e6;
-  world.cam.dist = Math.max(minD, Math.min(maxD, world.cam.dist * Math.exp(e.deltaY * 0.0012)));
-}, { passive: false });
+attachCanvasInput(canvas, { world, ui, curT, focusOn, followSat, lookAtSat, setCam, setSkyCam,
+  get MODE() { return MODE; }, get latest() { return latest; }, get designing() { return designing; },
+  get sats() { return sats; }, get asts() { return asts; }, get astui() { return astui; }, get tracker() { return tracker; }, get skyui() { return skyui; } });
 // klavye
 window.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
@@ -726,31 +585,12 @@ window.addEventListener('keydown', (e) => {
 // olaya atla: görev baştan, hedef ana kadar hızlı (ekransız) koşulur — fizik deterministik
 ui.onSeek = (t) => send({ cmd: 'seek', t });
 // ------------------------------------------------------------------ profil karşılaştırması (yörünge optimizasyonu görünümü)
-let comparing = false, cmpCancel = false;
-const pcfg = (key) => ({ ...PROFILES[key].cfg, rocket: ui.rocket });          // profil + seçili roket
-function compareRows() {
-  return Object.entries(PROFILES).map(([key, p]) => { const c = cachedDesign(START_MS, pcfg(key)); return { key, name: p.name, D: c ? c.design : null }; });
-}
-function refreshCompare(status) { if (!comparing) ui.setCompare(compareRows(), status ?? ''); }
-ui.onCompare = async () => {
-  if (comparing || designing) return;
-  comparing = true; cmpCancel = false;
-  const rows = compareRows(), tFrom = tOfUtcMs(START_MS), tStart = tOfUtcMs(START_MS) - 86400;
-  for (const r of rows) {
-    if (r.D) continue;
-    r.busy = true; ui.setCompare(rows, `${r.name} hesaplanıyor…`);
-    try {
-      const D = await designMissionAsync(tFrom, (m) => ui.setCompare(rows, `${r.name}: ${m.slice(0, 60)}`), () => cmpCancel || designing, pcfg(r.key));
-      if (!D) break;
-      r.D = D; designCache.set(cacheKey(START_MS, pcfg(r.key)), { tStart, design: D, nominal: null });
-    } catch (err) { r.err = 'tasarım başarısız: ' + String(err.message || err).slice(0, 60); }
-    r.busy = false; ui.setCompare(rows, '');
-  }
-  comparing = false; refreshCompare('');
-};
+const compare = new ProfileCompare({ ui, getStartMs: () => START_MS, isDesigning: () => designing, cachedDesign, designCache, cacheKey, tOfUtcMs });
+const refreshCompare = (status) => compare.refresh(status);
+ui.onCompare = () => compare.run();
 ui.onProfile = (key) => {
   if (!PROFILES[key] || designing) return;
-  cmpCancel = true;
+  compare.cancel();
   ui.setConfig(PROFILES[key].cfg);
   startDesign($('#dateInput').value || DEFAULT_DATE);
 };

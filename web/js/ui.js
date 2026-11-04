@@ -1,25 +1,22 @@
 // LS19 arayüzü: HUD, görev paneli (olaylar, Δv bütçesi, grafikler, yörünge elemanları)
 import * as E from './engine.js';
-import * as EO from './earth.js';
 import { R_SITE, STAGES, siteIcrf } from './mission.js';
 import { ControlPanel } from './controlpanel.js';
-import { etOf } from './live.js';
-import { BODIES, IS, IE, IM } from './ephem.js';
-import { sunElevationAtSite, PROFILES, normalizeConfig, configLabel } from './design.js';
+import { sunElevationAtSite, PROFILES, normalizeConfig } from './design.js';
 import { ROCKETS, ROCKET_IDS, DEFAULT_ROCKET, rocketOf, tliCapacity, parkPropellant } from './rockets.js';
 import { ROCKET_INFO } from './rocketinfo.js';
 import { dvKeys, DV_NAMES, dvFromEvents } from './dvbudget.js';
-import { SAT_GROUPS } from './satlayer.js';
-import { fmtReentry, ageYears, controlNote } from './impact.js';
 import { fmt, fmtDur } from './format.js';
-export { fmtDur };
-import { srcOf } from './satcatalog.js';
-import { ellipsoidAlt } from './geo.js';
 
-const $ = (s) => document.querySelector(s);
-// aynı değeri yeniden yazma: textContent / style atamak, değer aynı olsa da düğümü yeniler ve stil/düzen geçersiz kılar (HUD saniyede 10 kez güncellenir)
-const setText = (el, t) => { if (el._t !== t) { el._t = t; el.textContent = t; } };
-const setWidth = (el, w) => { if (el._w !== w) { el._w = w; el.style.width = w; } };
+import { ellipsoidAlt } from './geo.js';
+import { $, setText, setWidth, utcShort } from './uiutil.js';
+import { mixin } from './mixin.js';
+import { PickCard } from './pickcard.js';
+import { SatPanel } from './satpanel.js';
+import { FlightTools } from './flighttools.js';
+import { LineChart } from './linechart.js';
+export { fmtDur };
+
 const PHASE_TR = { KALKIS: 'Kalkış (canlandırma; fizik yörüngeye girişte başlar)', PARK: 'Park yörüngesi', YUKSELTME: 'Yörünge yükseltme: eliptik park yörüngesi', TLI: "Ay'a transfer yakışı (TLI)", SUZULME: 'Serbest süzülme', 'MCC-1': 'Orta rota düzeltmesi 1',
   'MCC-2': 'Orta rota düzeltmesi 2', 'MCC-3': 'Orta rota düzeltmesi 3', LOI: 'Ay yörüngesine giriş (LOI)', AY_YORUNGESI: 'Ay yörüngesi',
   DOI: 'İniş yörüngesine geçiş (DOI)', INIS_SUZULME: "15 km'ye alçalış", PDI: 'Motorlu iniş: frenleme', YAKLASMA: 'Motorlu iniş: yaklaşma',
@@ -43,27 +40,6 @@ function rocketCard(id) {
   return w;
 }
 const DATE_MIN = '1850-01-01', DATE_MAX = '2149-12-01';        // de440s kapsamı (1849-12 … 2150-01) içinde, görev süresi payıyla
-const AU = 149597870.7, D2R = Math.PI / 180, R2AS = 180 / Math.PI * 3600;
-const ECL_POLE = [0, -0.3977771559, 0.9174820621];                // J2000 ekliptik kutbu (ICRF)
-const K_EMB = BODIES[IM].gm / (BODIES[IE].gm + BODIES[IM].gm);   // Dünya–Ay kütle merkezinin Ay'a doğru kesri
-const utcShort = (t) => E.utcString(t).slice(0, 16) + ' UTC';
-const hms = (x) => { const s = ((x % 86400) + 86400) % 86400; return fmtDur(s).replace(/^.*?(\d\d:\d\d:\d\d)$/, '$1'); };
-const dms = (as) => { const a = Math.abs(as), d = Math.floor(a / 3600), m = Math.floor((a % 3600) / 60), s = a % 60;
-  return (as < 0 ? '−' : '') + (d ? `${d}° ` : '') + `${m}′ ${fmt(s, 1)}″`; };
-// 3-1-3 Euler (φ, θ, ψ) -> ICRF->PA matrisi (DE440 PCK kuralı, ephem.paEuler'in tersi)
-function paFromEuler([phi, th, psi]) {
-  const Rz = (a) => { const c = Math.cos(a), s = Math.sin(a); return [[c, s, 0], [-s, c, 0], [0, 0, 1]]; };
-  const Rx = (a) => { const c = Math.cos(a), s = Math.sin(a); return [[1, 0, 0], [0, c, s], [0, -s, c]]; };
-  const mm = (A, B) => A.map((r) => [0, 1, 2].map((j) => r[0] * B[0][j] + r[1] * B[1][j] + r[2] * B[2][j]));
-  return mm(mm(Rz(psi), Rx(th)), Rz(phi));
-}
-// iki dönüş matrisi arasındaki açı (küçük açılarda hassas: çarpık-simetrik kısımdan)
-function rotAngle(A, B) {
-  const C = [0, 1, 2].map((i) => [0, 1, 2].map((j) => A[i][0] * B[j][0] + A[i][1] * B[j][1] + A[i][2] * B[j][2]));
-  const s = 0.5 * Math.hypot(C[2][1] - C[1][2], C[0][2] - C[2][0], C[1][0] - C[0][1]), c = 0.5 * (C[0][0] + C[1][1] + C[2][2] - 1);
-  return Math.atan2(s, c);
-}
-const mv = E.mv;
 
 export class UI {
   constructor(world, send) {
@@ -382,322 +358,10 @@ export class UI {
     if (this.tab === 'grafik') this.charts.forEach((c, i) => { c.set(this.series.t, i === 0 ? this.series.alt : this.series.spd); c.draw(); });
   }
 
-  // ------------------------------------------------------------------ tıklanan cisim bilgisi (gezegen / uydu)
-  showPick(obj, mx, my, t) {
-    this.pick = obj; this.lastPick = 0;
-    const el = $('#pick'), app = $('#app'), W = app.clientWidth, H = app.clientHeight;
-    el.hidden = false; this.pickAnchor = [mx, my];
-    el.style.left = Math.min(W - 308, Math.max(8, mx + 14)) + 'px';
-    $('#pick').replaceChildren();
-    this.renderPick(t, true);
-  }
-  // kart ekrana sığsın: alt çubuğa (≈88 px) binmesin, uzunsa kendi içinde kaydırılsın; içerik değişince (tazeleme) yeniden hizalanır
-  placePick() {
-    const el = $('#pick'), app = $('#app'), H = app.clientHeight, A = this.pickAnchor || [0, 80], bottom = 88, top0 = 8;
-    el.style.maxHeight = Math.max(160, H - top0 - bottom) + 'px';
-    const h = el.offsetHeight;
-    el.style.top = Math.max(top0, Math.min(A[1] - 20, H - bottom - h)) + 'px';
-  }
-  hidePick() { this.pick = null; $('#pick').hidden = true; }
-  renderPick(t, full = false) {
-    const P = this.pick; if (!P) return;
-    const root = $('#pick');
-    let el = root.querySelector('.pbody'); if (!el) { el = document.createElement('div'); el.className = 'pbody'; root.prepend(el); }
-    const d = P.refresh(t); el.replaceChildren();
-    const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
-    const head = mk('div', 'ph'), ttl = mk('div');
-    const x = mk('button', 'px', '×'); x.title = 'Kapat (Esc)'; x.addEventListener('click', () => this.hidePick());
-    if (!d) { ttl.append(mk('div', 'pt', 'Veri yok'), mk('div', 'ps', 'Bu an için durum hesaplanamadı')); head.append(ttl, x); el.appendChild(head); return; }
-    const rows = [];
-    const km = (v) => (Math.abs(v) >= 10000 ? fmt(v, 0) : fmt(v, 1)) + ' km';
-    if (P.card) {
-      const c = P.card(d); ttl.append(mk('div', 'pt', c.title), mk('div', 'ps', c.sub)); rows.push(...c.rows);
-    } else if (P.kind === 'sat') {
-      ttl.append(mk('div', 'pt', d.name), mk('div', 'ps', `NORAD ${d.norad} · COSPAR ${d.cospar}${d.launchYear ? ` · fırlatma ${d.launchYear}` : ''}`));
-      rows.push(['Grup', d.group], ['Yörünge türü', d.orbitType]);
-      if (d.alt != null) rows.push(['İrtifa', km(d.alt)], ['Hız', fmt(d.speed, 3) + ' km/s'],
-        ['Yer izi', `${fmt(Math.abs(d.lat), 2)}° ${d.lat >= 0 ? 'K' : 'G'}, ${fmt(Math.abs(d.lon), 2)}° ${d.lon >= 0 ? 'D' : 'B'}`],
-        ['Aydınlanma', d.sunlit ? 'Güneş ışığında' : "Dünya'nın gölgesinde"]);
-      rows.push(['Periyot', d.periodMin > 180 ? fmt(d.periodMin / 60, 2) + ' sa' : fmt(d.periodMin, 1) + ' dk'], ['Eğim', fmt(d.inc, 2) + '°'],
-        ['Perije / apoje', `${fmt(d.perigee, 0)} / ${fmt(d.apogee, 0)} km`], ['Dış merkezlik', fmt(d.ecc, 5)],
-        ['Öğelerin yaşı', `${fmt(d.epochAgeDays, 1)} gün`], ['Yörünge verisi', d.source || 'CelesTrak GP']);
-      rows.push(['Tahmini yeniden giriş', fmtReentry(d.decay)]);
-      rows.push(['Kontrol durumu', controlNote(d.decay && d.decay.age, d.group === SAT_GROUPS[0].name)]);
-      rows.push(['3B model', d.model ? `${d.model.note || d.model.title} · ${srcOf(d.model)} (~${fmt(d.model.size, d.model.size < 10 ? 1 : 0)} m)` : d.family ? `${d.family.title} · temsili aile modeli (${d.family.note})` : 'nokta']);
-      if (d.obsEl != null) rows.push([`${d.obsName}'dan`, d.obsEl > 0 ? `gökte ${fmt(d.obsEl, 1)}° · az ${fmt(d.obsAz, 0)}° · ${fmt(d.obsRange, 0)} km` : 'ufkun altında']);
-      if (d.nextPass) { const p = d.nextPass, tt = new Date(p.rise.ms);
-        rows.push(['Sonraki geçiş', `${tt.toLocaleString('tr-TR', { weekday: 'short', hour: '2-digit', minute: '2-digit' })} · en yüksek ${fmt(p.max.el, 0)}°${p.visible ? ' · görünür' : ''}`]); }
-    } else if (P.kind === 'msat') {
-      ttl.append(mk('div', 'pt', d.name), mk('div', 'ps', 'Ay yörüngesinde · JPL Horizons'));
-      rows.push(["İrtifa (Ay'a göre)", km(d.alt)], ['Hız', fmt(d.speed, 3) + ' km/s'],
-        ['Periyot (anlık)', Number.isFinite(d.periodMin) ? (d.periodMin > 180 ? fmt(d.periodMin / 60, 2) + ' sa' : fmt(d.periodMin, 1) + ' dk') : '—']);
-      if (d.model) rows.push(['3B model', `${d.model.title} · ${srcOf(d.model)}`]);
-    } else if (P.kind === 'planet') {
-      ttl.append(mk('div', 'pt', d.name), mk('div', 'ps', 'Canlı efemeris (DE440 başlangıçlı N-cisim)'));
-      rows.push(['Yarıçap', fmt(d.R, 0) + ' km'], ["Güneş'e uzaklık", fmt(d.dSun, 4) + ' AB'],
-        ["Dünya'ya uzaklık", `${fmt(d.dEarth, 4)} AB (ışık ${fmt(d.lightMin, 1)} dk)`], ['Yörünge hızı', fmt(d.v, 2) + ' km/s'],
-        ['Yörünge periyodu', d.periodDays > 1000 ? fmt(d.periodDays / 365.25, 2) + ' yıl' : fmt(d.periodDays, 1) + ' gün'],
-        ['Yarı büyük eksen / e', `${fmt(d.a, 4)} AB / ${fmt(d.e, 4)}`]);
-    }
-    head.append(ttl, x); el.appendChild(head);
-    const tb = mk('table');
-    for (const [k, v] of rows) { const tr = mk('tr'); tr.append(mk('td', null, k), mk('td', 'num', v)); tb.appendChild(tr); }
-    el.appendChild(tb);
-    if (full && P.actions && P.actions.length) {                // düğmeler bir kez kurulur (tazelemede tıklama kaybolmasın)
-      const pa = mk('div', 'pa');
-      for (const a of P.actions) { const b = mk('button', null, a.label); b.addEventListener('click', () => { a.fn(); }); pa.appendChild(b); }
-      root.appendChild(pa);
-    }
-    this.placePick();
-  }
 
-  // ------------------------------------------------------------------ uydular
-  bindSats(L) {
-    this.sats = L;
-    $('#chkSats').addEventListener('change', (e) => { L.enabled = e.target.checked; });
-    $('#chkMoonSats').addEventListener('change', (e) => { L.moonEnabled = e.target.checked; });
-    let tmr = null;
-    $('#satSearch').addEventListener('input', (e) => { clearTimeout(tmr); tmr = setTimeout(() => this.satSearch(e.target.value), 150); });
-    $('#satSearch').addEventListener('keydown', (e) => e.stopPropagation());
-    L.onChange = () => this.renderSats();
-    this.renderSats();
-  }
-  renderSats() {
-    const L = this.sats; if (!L) return;
-    const st = $('#satStatus'); st.replaceChildren();
-    const line = (txt) => { const d = document.createElement('div'); d.textContent = txt; st.appendChild(d); };
-    if (L.n > 0) {
-      const ep = new Date(L.epochMs).toISOString().slice(0, 16).replace('T', ' ');
-      line(`${fmt(L.n, 0)} aktif uydu · kaynak: ${L.src ? L.src.kaynak : '—'}${L.src && L.src.yas ? ` (${fmt(L.src.yas / 3600, 1)} sa önce)` : ''}`);
-      line(`Yörünge öğeleri çağı: ~${ep} UTC`);
-    } else line(L.info.status);
-    const ul = $('#satGroups'); ul.replaceChildren();
-    if (L.counts) SAT_GROUPS.forEach((g, i) => {
-      const li = document.createElement('li');
-      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!L.mask[i]; cb.addEventListener('change', () => L.setMask(i, cb.checked));
-      const sw = document.createElement('span'); sw.className = 'sw'; sw.style.background = '#' + g.color.toString(16).padStart(6, '0');
-      const nm = document.createElement('span'); nm.textContent = g.name;
-      const c = document.createElement('span'); c.className = 'v'; c.textContent = fmt(L.counts[i], 0);
-      li.append(cb, sw, nm, c); ul.appendChild(li);
-    });
-    this.renderMoonSats();
-  }
-  satSearch(q) {
-    const L = this.sats, ul = $('#satResults'); ul.replaceChildren();
-    for (const i of L.search(q)) {
-      const li = document.createElement('li'); li.textContent = `${L.names[i]} (${L.ids[i]})`;
-      li.addEventListener('click', () => { L.select(i); ul.replaceChildren(); $('#satSearch').value = L.names[i]; });
-      ul.appendChild(li);
-    }
-    if (!q) L.select(-1);
-  }
-  renderMoonSats(t = null) {
-    const L = this.sats, tb = $('#moonSatTable tbody'); tb.replaceChildren();
-    for (const m of L.moonSats) {
-      const tr = document.createElement('tr'), a = document.createElement('td'), b = document.createElement('td'); b.className = 'num';
-      a.textContent = m.name;
-      const r = m.cur || (t != null && m.rows ? L.moonState(m, t) : null);
-      b.textContent = r ? `irtifa ${fmt(Math.hypot(...r) - E.R_M, 0)} km` : m.status;
-      tr.append(a, b); tb.appendChild(tr);
-    }
-  }
-  satTab(t) {
-    const L = this.sats; if (!L) return;
-    const inf = L.selInfo(t), el = $('#satSel'); el.replaceChildren();
-    if (inf) {
-      const add = (txt, b) => { const d = document.createElement(b ? 'b' : 'div'); d.textContent = txt; el.appendChild(d); };
-      add(`${inf.name} (NORAD ${inf.id})`, true);
-      add(`İrtifa ${fmt(inf.alt, 0)} km · hız ${fmt(inf.v, 2)} km/s`);
-      add(`Periyot ${fmt(inf.periodMin, 1)} dk · eğim ${fmt(inf.inc, 1)}° · dış merkezlik ${fmt(inf.ecc, 4)}`);
-    }
-    if (!L.validAt(t) && L.n > 0) { const d = document.createElement('div'); d.textContent = 'Simülasyon tarihi yörünge öğelerinin çağından 30 günden uzak: Dünya uyduları gizlendi.'; el.appendChild(d); }
-    this.renderMoonSats(t);
-  }
 
-  orbitTab(s) {
-    const t = s.t, rm = E.moonPos(t), nearM = E.norm(E.sub(s.r, rm)) < E.MOON_ZONE;
-    const cen = nearM ? rm : [0, 0, 0], vc = nearM ? E.moonVel(t) : [0, 0, 0], mu = nearM ? E.MU_M : E.MU_E, Rb = nearM ? E.R_M : E.R_E;
-    const r = E.sub(s.r, cen), v = E.sub(s.v, vc), el = E.elements(r, v, mu);
-    // eğim: Dünya için tarihin ekvatoruna, Ay için Ay ekvatoruna (ME)
-    const pole = nearM ? E.mtv(E.moonIcrfToMe(t), [0, 0, 1]) : E.precession(t)[2];
-    const inc = Math.acos(E.dot(E.unit(el.h), pole)) * 180 / Math.PI;
-    const period = el.e < 1 ? 2 * Math.PI * Math.sqrt(el.a ** 3 / mu) : NaN;
-    const rows = [['Merkez cisim', nearM ? 'Ay' : 'Dünya'], ['Tür', el.e < 1 ? 'elips' : 'hiperbol'],
-      ['Yarı büyük eksen', Number.isFinite(el.a) ? fmt(el.a, 0) + ' km' : '—'], ['Dış merkezlik', fmt(el.e, 5)],
-      ['Eğim (ekvatora göre)', fmt(inc, 2) + '°'], ['Periapsis irtifası', fmt(el.rp - Rb, 1) + ' km'],
-      ['Apoapsis irtifası', el.e < 1 ? fmt(el.ra - Rb, 1) + ' km' : '∞'], ['Periyot', Number.isFinite(period) ? fmtDur(period) : '—'],
-      ['Özgül enerji', fmt(el.energy, 4) + ' km²/s²']];
-    this.fillRows($('#orbtable tbody'), rows);
-  }
-  // etiket/değer satırlarını yerinde güncelle: yapı (etiketler ve bölüm başlıkları) değişmedikçe düğümler yeniden kurulmaz, yalnız değişen değer metinleri yazılır
-  fillRows(tb, rows) {
-    const sig = rows.map((r) => (r.sec ? '§' + r.sec : r[0])).join('|');
-    let S = tb._rows;
-    if (!S || S.sig !== sig) {
-      tb.replaceChildren(); const cells = [];
-      for (const r of rows) {
-        const tr = document.createElement('tr');
-        if (r.sec) { tr.className = 'sec'; const th = document.createElement('th'); th.colSpan = 2; th.textContent = r.sec; tr.appendChild(th); cells.push(null); }
-        else { const a = document.createElement('td'); a.textContent = r[0]; const b = document.createElement('td'); b.className = 'num'; tr.append(a, b); cells.push(b); }
-        tb.appendChild(tr);
-      }
-      S = tb._rows = { sig, cells };
-    }
-    rows.forEach((r, i) => { if (!r.sec) setText(S.cells[i], r[1]); });
-  }
 
-  // kuvvet dökümü: Dünya, Ay, Güneş (+gezegenler), şekil terimleri ve itki; çubuklar logaritmik (10⁻⁹ … 10¹ m/s²)
-  forceTab(s) {
-    const f = s.forces; if (!f) return;
-    const fx = (x) => (x > 0 ? x.toExponential(2).replace('.', ',').replace('e+', '·10^').replace('e-', '·10^−') : '—');
-    const sup = (t) => t.replace(/\^(−?)(\d+)/, (m, sg, d) => (sg ? '⁻' : '') + d.split('').map((c) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[+c]).join(''));
-    const rows = [['Dünya', f.earth, f.earthEff], ['Ay', f.moon, f.moonEff], ['Güneş', f.sun, f.sunEff], ['Gezegenler (toplam)', null, f.planets],
-      ['Dünya J2 (basıklık)', null, f.earthJ2], ['Ay J2/C22 (şekil)', null, f.moonFig], ['İtki', null, f.thrust]];
-    const eff = rows.map((r) => r[2] || 0), top = Math.max(...eff.slice(0, 3)), tb = $('#forcetable tbody');
-    setText($('#forceFrame'), `Baskın cisim: ${f.frame === 'M' ? 'Ay' : 'Dünya'} · Ay'a ${fmt(f.moonDist, 0)} km, Dünya'ya ${fmt(f.earthDist, 0)} km · çözücü: ${s.nbody ? 'N-cisim (tek çerçeve)' : 'etki küresi (iki merkez cisim)'}`);
-    let S = tb._force;
-    if (!S) {                                                    // satırlar sabit: bir kez kurulur, sonra yalnız metin/çubuk genişliği güncellenir
-      tb.replaceChildren(); S = tb._force = rows.map((r) => {
-        const tr = document.createElement('tr'), a = document.createElement('td'), b = document.createElement('td'), c = document.createElement('td'), bar = document.createElement('span'), tn = document.createTextNode('');
-        a.textContent = r[0]; b.className = 'num'; c.className = 'num'; bar.className = 'fbar'; c.append(tn, bar); tr.append(a, b, c); tb.appendChild(tr);
-        return { tr, b, tn, bar, cls: '' };
-      });
-    }
-    rows.forEach((r, i) => {
-      const o = S[i], cls = i < 3 && r[2] === top ? 'hl' : '';
-      if (o.cls !== cls) { o.cls = cls; o.tr.className = cls; }
-      setText(o.b, r[1] != null ? sup(fx(r[1])) : '');
-      const txt = sup(fx(r[2] || 0)); if (o.tn.nodeValue !== txt) o.tn.nodeValue = txt;
-      setWidth(o.bar, Math.max(0, Math.min(100, ((Math.log10(Math.max(r[2] || 0, 1e-12)) + 9) / 10) * 100)).toFixed(1) + '%');
-    });
-  }
 
-  // ------------------------------------------------------------------ canlı efemeris sekmesi
-  ephTab(t) {
-    const lv = this.live; if (!lv) return;
-    const L = lv.L, et = etOf(t), { add, sub, scale, norm, unit, dot } = E;
-    const [pE, vE] = L.body(IE, et), [pM, vM] = L.body(IM, et), [pS, vS] = L.body(IS, et);
-    const rEM = sub(pM, pE), vEM = sub(vM, vE), d = norm(rEM);
-    const pB = add(scale(pE, 1 - K_EMB), scale(pM, K_EMB)), vB = add(scale(vE, 1 - K_EMB), scale(vM, K_EMB));
-    // resmi efemerise (DE440) göre fark: konum ve Ay yönelimi
-    let dMoon = null, dEarth = null, dPA = null;
-    try {
-      const m = lv.spk.rel(3, 301, et)[0], e = lv.spk.rel(3, 399, et)[0];
-      dMoon = norm(sub(sub(m, e), rEM)) * 1000;
-      dEarth = norm(sub(lv.spk.ssb(399, et)[0], pE));
-      dPA = rotAngle(paFromEuler(lv.pck.angles(et)[0]), E.moonIcrfToPa(t)) * R2AS;
-    } catch (err) { /* çekirdek aralığı dışı */ }
-    // Dünya yönelimi (IAU 2006/2000A)
-    const jdTT = E.jdTdb(t), dT = EO.deltaT(jdTT), jdUT1 = jdTT - dT / 86400;
-    const n = EO.npb(jdTT), gst = EO.gast(jdUT1, jdTT), era = EO.era(jdUT1);
-    // Ay dönüşü (Euler denklemleri): açısal hız, Dünya'dan görülen libration, ekvator eğimi
-    const { w } = L.moonAttitude(et), wDeg = norm(w) * 86400 / D2R;
-    const Me = E.moonIcrfToMe(t), u = mv(Me, unit(scale(rEM, -1)));
-    const libLat = Math.asin(u[2]) / D2R, libLon = Math.atan2(u[1], u[0]) / D2R;
-    const moonEclInc = Math.acos(dot(Me[2], ECL_POLE)) / D2R;
-    const fwd = L.fwd[L.fwd.length - 1].t, bwd = L.bwd[L.bwd.length - 1].t;
-    const sec = (title) => ({ sec: title });
-    const rows = [
-      sec('Dünya–Ay çifti (ortak kütle merkezi)'),
-      ['Dünya–Ay uzaklığı', fmt(d, 0) + ' km'],
-      ['Kütle merkezinin Dünya merkezine uzaklığı', fmt(K_EMB * d, 0) + ' km'],
-      ['… Dünya yüzeyinin altında', fmt(E.R_E - K_EMB * d, 0) + ' km'],
-      ["Dünya'nın kütle merkezi etrafında hızı", fmt(K_EMB * norm(vEM) * 1000, 1) + ' m/s'],
-      ["Ay'ın kütle merkezi etrafında hızı", fmt((1 - K_EMB) * norm(vEM), 3) + ' km/s'],
-      ["Kütle merkezinin Güneş'e uzaklığı", fmt(norm(sub(pB, pS)) / AU, 5) + ' AB'],
-      ["Kütle merkezinin Güneş etrafında hızı", fmt(norm(sub(vB, vS)), 3) + ' km/s'],
-      ['Ay konumu: DE440 farkı', dMoon == null ? '—' : dMoon < 1000 ? fmt(dMoon, 1) + ' m' : fmt(dMoon / 1000, 2) + ' km'],
-      ['Dünya konumu (Güneş sistemi merkezine göre): DE440 farkı', dEarth == null ? '—' : dEarth < 1 ? fmt(dEarth * 1000, 1) + ' m' : fmt(dEarth, 2) + ' km'],
-      sec('Dünya dönüşü (IAU 2006/2000A)'),
-      ['Greenwich görünür yıldız zamanı', hms(gst / (2 * Math.PI) * 86400)],
-      ['Dünya dönüş açısı (ERA)', fmt(era / D2R, 4) + '°'],
-      ['Dönüş hızı', '360,98561°/gün'],
-      ['Yıldız günü', '23 sa 56 dk 4,1 s'],
-      ['Nütasyon Δψ / Δε', `${fmt(n.dpsi * R2AS, 3)}″ / ${fmt(n.deps * R2AS, 3)}″`],
-      ['Ekseninin eğikliği (gerçek)', fmt((n.epsa + n.deps) / D2R, 5) + '°'],
-      ['Kutbun J2000 yönünden sapması (presesyon)', dms(Math.acos(Math.min(1, n.R[2][2])) * R2AS)],
-      ['ΔT = TT − UT1', fmt(dT, 2) + ' s'],
-      sec('Ay dönüşü (tork + Euler denklemleri)'),
-      ['Açısal hız', fmt(wDeg, 4) + '°/gün'],
-      ['Dönüş periyodu', fmt(360 / wDeg, 3) + ' gün'],
-      ['Dünya\'dan görünen libration (enlem / boylam)', `${fmt(libLat, 2)}° / ${fmt(libLon, 2)}°`],
-      ['Ay ekvatorunun ekliptiğe eğimi', fmt(moonEclInc, 3) + '°'],
-      ['İniş yerinde Güneş yüksekliği', fmt(sunElevationAtSite(t), 2) + '°'],
-      ['Yönelim: DE440 farkı', dPA == null ? '—' : fmt(dPA, 3) + '″'],
-      sec('Entegratör'),
-      ['Cisimler', '11 (Güneş, 8 gezegen, Plüton, Ay)'],
-      ['Başlangıç (DE440 durumu)', utcShort(L.et0 - etOf(0))],
-      ['Hesaplanan aralık', `${fmt((fwd - bwd) / 86400, 2)} gün · ${L.steps ?? L.fwd.length + L.bwd.length} adım`],
-    ];
-    this.fillRows($('#ephtable tbody'), rows);
-  }
 }
 
-// ------------------------------------------------------------------ çizgi grafiği (tek seri, çapraz imleçli)
-class LineChart {
-  constructor(canvas, title, unit, log) {
-    this.c = canvas; this.title = title; this.unit = unit; this.log = log; this.x = []; this.y = []; this.hover = null;
-    canvas.addEventListener('pointermove', (e) => { const r = canvas.getBoundingClientRect(); this.hover = e.clientX - r.left; this.redraw(); });
-    canvas.addEventListener('pointerleave', () => { this.hover = null; this.redraw(); });
-  }
-  set(x, y) { this.x = x; this.y = y; }
-  redraw() { if (this._raf) return; this._raf = requestAnimationFrame(() => { this._raf = 0; this.draw(); }); }      // imleç olayları (yüksek hızlı fare) kare başına tek çizime indirgenir
-  // tema renkleri: getComputedStyle stil hesabını zorlar; renkler 1 sn önbelleklenir (tema değişimi yine görünür)
-  colors() {
-    const now = performance.now();
-    if (!this._cols || now - this._colT > 1000) {
-      const cs = getComputedStyle(document.documentElement), g = (n) => cs.getPropertyValue(n).trim();
-      const cols = { ink2: g('--text-secondary'), grid: g('--grid'), ser: g('--series-1'), s1: g('--surface-1'), s2: g('--surface-2'), ink: g('--text-primary') };
-      cols.sig = Object.values(cols).join('|'); this._cols = cols; this._colT = now;
-    }
-    return this._cols;
-  }
-  draw() {
-    const c = this.c, dpr = window.devicePixelRatio || 1, W = c.clientWidth, H = c.clientHeight;
-    if (!W || !H) return;
-    // yeni örnek, boyut, imleç ya da renk değişmedikçe yeniden çizilmez (HUD her 100 ms'de çağırır)
-    const C = this.colors(), n0 = this.x.length, sig = `${n0}:${n0 ? this.x[n0 - 1] : ''}:${n0 ? this.y[n0 - 1] : ''}:${W}x${H}:${dpr}:${this.hover}:${C.sig}`;
-    if (sig === this._sig) return; this._sig = sig;
-    if (c.width !== W * dpr) { c.width = W * dpr; c.height = H * dpr; }
-    const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
-    const ink2 = C.ink2, grid = C.grid, ser = C.ser;
-    const L = 60, R = 12, T = 22, B = 22;
-    g.font = '12px system-ui, sans-serif'; g.fillStyle = ink2; g.textBaseline = 'alphabetic';
-    g.fillText(`${this.title} (${this.unit})`, L, 14);
-    const n = this.x.length; if (n < 2) return;
-    const x0 = this.x[0], x1 = this.x[n - 1] || x0 + 1;
-    const fy = this.log ? (v) => Math.log10(Math.max(v, 1e-3)) : (v) => v;
-    let ymin = Infinity, ymax = -Infinity; for (const v of this.y) { const f = fy(v); ymin = Math.min(ymin, f); ymax = Math.max(ymax, f); }
-    if (this.log) { ymin = Math.floor(ymin); ymax = Math.ceil(ymax); } else { ymin = 0; ymax = ymax * 1.08 || 1; }
-    const px = (v) => L + ((v - x0) / (x1 - x0 || 1)) * (W - L - R), py = (f) => T + (1 - (f - ymin) / (ymax - ymin || 1)) * (H - T - B);
-    // ızgara + eksen etiketleri
-    g.strokeStyle = grid; g.lineWidth = 1; g.fillStyle = ink2; g.textAlign = 'right';
-    const ticks = this.log ? Array.from({ length: ymax - ymin + 1 }, (_, i) => ymin + i) : [0, 0.25, 0.5, 0.75, 1].map((k) => ymin + k * (ymax - ymin));
-    for (const f of ticks) {
-      const y = Math.round(py(f)) + 0.5; g.beginPath(); g.moveTo(L, y); g.lineTo(W - R, y); g.stroke();
-      const v = this.log ? 10 ** f : f; g.fillText(this.log ? (v >= 1 ? fmt(v, 0) : String(v)) : fmt(v, v < 10 ? 1 : 0), L - 6, y + 4);
-    }
-    g.textAlign = 'center';
-    for (let k = 0; k <= 4; k++) { const xv = x0 + (k / 4) * (x1 - x0); g.fillText(fmt(xv, xv < 10 ? 1 : 0) + ' sa', px(xv), H - 6); }
-    // seri
-    g.strokeStyle = ser; g.lineWidth = 2; g.lineJoin = 'round'; g.lineCap = 'round'; g.beginPath();
-    for (let i = 0; i < n; i++) { const X = px(this.x[i]), Y = py(fy(this.y[i])); if (i) g.lineTo(X, Y); else g.moveTo(X, Y); }
-    g.stroke();
-    // uç noktası
-    const lx = px(this.x[n - 1]), ly = py(fy(this.y[n - 1]));
-    g.fillStyle = C.s1; g.beginPath(); g.arc(lx, ly, 6, 0, 7); g.fill();
-    g.fillStyle = ser; g.beginPath(); g.arc(lx, ly, 4, 0, 7); g.fill();
-    // çapraz imleç + araç ipucu
-    if (this.hover != null && this.hover >= L && this.hover <= W - R) {
-      const xv = x0 + ((this.hover - L) / (W - L - R)) * (x1 - x0);
-      let j = 0; while (j < n - 1 && this.x[j + 1] < xv) j++;
-      const X = px(this.x[j]); g.strokeStyle = ink2; g.lineWidth = 1; g.beginPath(); g.moveTo(Math.round(X) + 0.5, T); g.lineTo(Math.round(X) + 0.5, H - B); g.stroke();
-      const val = this.y[j], lab = `${fmt(val, val < 10 ? 3 : 0)} ${this.unit}`, sub = `T+${fmt(this.x[j], 2)} sa`;
-      g.font = '600 12px system-ui, sans-serif'; const w = Math.max(g.measureText(lab).width, g.measureText(sub).width) + 16;
-      const bx = Math.min(W - R - w, Math.max(L, X + 8)), by = T + 4;
-      g.fillStyle = C.s2; g.fillRect(bx, by, w, 38);
-      g.fillStyle = C.ink; g.textAlign = 'left'; g.fillText(lab, bx + 8, by + 16);
-      g.font = '12px system-ui, sans-serif'; g.fillStyle = ink2; g.fillText(sub, bx + 8, by + 31);
-    }
-  }
-}
+mixin(UI, PickCard, SatPanel, FlightTools);
