@@ -13,15 +13,13 @@
 
 import { solveAscent, sampleAt } from './ascentsim.js';
 import { dot, sub, add, scale, norm, unit, cross, mtv } from './vec3.js';
-const OMEGA = 7.2921159e-5;                                       // rad/s
+import { OMEGA_E as OMEGA, ecfFromGeodetic } from './geo.js';
 
 export const P_ALT = 2.2, Q_ALT = 1.3;
-const A_E = 6378.137, F_E = 1 / 298.257223563, E2 = F_E * (2 - F_E);
 
 // site: { lat, lon } (°); ins: { t, r, v } (ICRF km, km/s); icrfToItrf(t) → 3×3 (engine.earthIcrfToItrf); rE: Dünya yarıçapı (km)
 export function buildAscent({ site, tLaunch, ins, icrfToItrf, rE = 6378.137, veh = null, tInsReal = null, inc = 28.5 }) {
-  const la = site.lat * Math.PI / 180, lo = site.lon * Math.PI / 180, N = A_E / Math.sqrt(1 - E2 * Math.sin(la) ** 2);
-  const ecefKm = [N * Math.cos(la) * Math.cos(lo), N * Math.cos(la) * Math.sin(lo), N * (1 - E2) * Math.sin(la)], R0 = norm(ecefKm), ecef = unit(ecefKm);
+  const ecefKm = ecfFromGeodetic(site.lat, site.lon, 0), R0 = norm(ecefKm), ecef = unit(ecefKm);
   const padAt = (t) => mtv(icrfToItrf(t), ecef);                  // rampanın ICRF birim vektörü (Dünya ile döner)
   const T = ins.t - tLaunch, d0 = padAt(tLaunch), r1 = norm(ins.r), d1 = unit(ins.r), h1 = r1 - R0;
   const th1 = Math.acos(Math.max(-1, Math.min(1, dot(d0, d1))));

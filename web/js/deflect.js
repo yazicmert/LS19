@@ -7,6 +7,7 @@
 // Birimler: km, s, TDB saniye (J2000'den), ICRF (SSB). Asteroidin kendi kütlesi yörüngesini etkilemez (test parçacığı).
 import { SPKKernel } from './jplkernel.js';
 import { dot, cross, norm, unit, sub, scale } from './vec3.js';
+import { DP_A, DP_C, DP_E } from './dopri.js';
 
 export const AU = 149597870.7, DAY = 86400, YEAR = 365.25 * 86400;
 export const GM_SUN = 132712440041.279419, MU_E = 398600.435507, R_E = 6378.1363;
@@ -79,10 +80,7 @@ const matMul6 = (A, B) => A.map((r) => B[0].map((_, j) => r.reduce((s, a, k) => 
 const phiOf = (y) => Array.from({ length: 6 }, (_, i) => Array.from({ length: 6 }, (_, j) => y[6 + i * 6 + j]));
 
 // ---------------------------------------------------------------- motor
-const A5 = [[], [1 / 5], [3 / 40, 9 / 40], [44 / 45, -56 / 15, 32 / 9], [19372 / 6561, -25360 / 2187, 64448 / 6561, -212 / 729],
-  [9017 / 3168, -355 / 33, 46732 / 5247, 49 / 176, -5103 / 18656], [35 / 384, 0, 500 / 1113, 125 / 192, -2187 / 6784, 11 / 84]];
-const C5 = [0, 1 / 5, 3 / 10, 4 / 5, 8 / 9, 1, 1];
-const E5 = [71 / 57600, 0, -71 / 16695, 71 / 1920, -17253 / 339200, 22 / 525, -1 / 40];
+const A5 = DP_A, C5 = DP_C, E5 = DP_E;                        // Dormand–Prince 5(4) tablosu (dopri.js)
 
 export class DeflectEngine {
   constructor(spk) {
@@ -255,7 +253,6 @@ export function massOf(p) {
   const D = p.D > 0 ? p.D : 1329 / Math.sqrt(p.albedo > 0 ? p.albedo : 0.14) * Math.pow(10, -p.H / 5);
   return (Math.PI / 6) * (D * 1000) ** 3 * (p.rho || 2000);
 }
-export function diameterOf(p) { return p.D > 0 ? p.D : 1329 / Math.sqrt(p.albedo > 0 ? p.albedo : 0.14) * Math.pow(10, -p.H / 5); }
 // kinetik çarpıcı: Δv = β m U / (M + m)  (m/s); β: momentum artış çarpanı (DART: ≈3,6)
 export const kineticDv = (m, U_kms, beta, M) => beta * m * U_kms * 1000 / (M + m);
 // itki yönü (ICRF birim vektör) — y: güneş merkezli olmayan SSB durumu, sunY: Güneş durumu

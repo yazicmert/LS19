@@ -7,6 +7,7 @@
 // Dünya ile Ay, ortak kütle merkezleri etrafında bu kuvvetlerle döner; Dünya'nın barisentrik salınımı kendiliğinden çıkar.
 import * as EO from './earth.js';
 import { mT } from './vec3.js';
+import { DP_A, DP_C, DP_E } from './dopri.js';
 
 export const BODIES = [
   { id: 10, name: 'Güneş', gm: 132712440041.279419 }, { id: 1, name: 'Merkür', gm: 22031.868551 },
@@ -129,10 +130,7 @@ export class LiveEphemeris {
 
   // ---------------------------------------------------------------- DOPRI5 adımı (FSAL)
   step(node, h) {
-    const A = [[], [1 / 5], [3 / 40, 9 / 40], [44 / 45, -56 / 15, 32 / 9], [19372 / 6561, -25360 / 2187, 64448 / 6561, -212 / 729],
-      [9017 / 3168, -355 / 33, 46732 / 5247, 49 / 176, -5103 / 18656], [35 / 384, 0, 500 / 1113, 125 / 192, -2187 / 6784, 11 / 84]];
-    const C = [0, 1 / 5, 3 / 10, 4 / 5, 8 / 9, 1, 1];
-    const E = [71 / 57600, 0, -71 / 16695, 71 / 1920, -17253 / 339200, 22 / 525, -1 / 40];   // B5 - B4
+    const A = DP_A, C = DP_C, E = DP_E;                            // Dormand–Prince 5(4) tablosu (dopri.js)
     for (;;) {
       const k = [node.f], y = node.y;
       let y5 = null;

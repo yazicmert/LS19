@@ -5,6 +5,8 @@
 // Birimler: km, s; durumlar Ay merkezli ICRF.
 import * as E from './engine.js';
 import * as C from './cr3bp.js';
+import { dpIntegrate } from './dopri.js';
+import { solve } from './linalg.js';
 const { add, sub, scale, dot, cross, norm, unit } = E;
 
 // ---------------------------------------------------------------- aile üyeleri (önbellekli)
@@ -71,13 +73,6 @@ export function toInertial(s, t, F = frameAt(t)) {
   const v = add(add(scale(p, F.ldot / F.l), scale(vr, F.l * F.w)), cross(scale(F.z, F.w), p));
   return [p, v];
 }
-export function toRotating(r, v, t, F = frameAt(t)) {
-  const mu = C.MU;
-  const pr = [dot(r, F.x), dot(r, F.y), dot(r, F.z)].map((c) => c / F.l);
-  const vin = sub(sub(v, scale(r, F.ldot / F.l)), cross(scale(F.z, F.w), r));
-  const vr = [dot(vin, F.x), dot(vin, F.y), dot(vin, F.z)].map((c) => c / (F.l * F.w));
-  return [pr[0] + 1 - mu, pr[1], pr[2], vr[0], vr[1], vr[2]];
-}
 
 // ---------------------------------------------------------------- nokta kütle modeli (Ay merkezli) + varyasyon denklemleri
 // Ay J2 + C22 (motorla aynı model; NRHO perilününde ~4e-8 km/s², günde ~10 km etkiler)
@@ -114,48 +109,13 @@ function pmDeriv(t, Y, stm) {
   }
   return d;
 }
-const A = [[], [1 / 5], [3 / 40, 9 / 40], [44 / 45, -56 / 15, 32 / 9], [19372 / 6561, -25360 / 2187, 64448 / 6561, -212 / 729],
-  [9017 / 3168, -355 / 33, 46732 / 5247, 49 / 176, -5103 / 18656], [35 / 384, 0, 500 / 1113, 125 / 192, -2187 / 6784, 11 / 84]];
-const Cc = [0, 1 / 5, 3 / 10, 4 / 5, 8 / 9, 1, 1];
-const B5 = [35 / 384, 0, 500 / 1113, 125 / 192, -2187 / 6784, 11 / 84, 0];
-const B4 = [5179 / 57600, 0, 7571 / 16695, 393 / 640, -92097 / 339200, 187 / 2100, 1 / 40];
 // Y (6 ya da 42) t0 -> t1
 export function pmPropagate(Y0, t0, t1, stm = false, onStep = null) {
-  let Y = Float64Array.from(Y0), t = t0, h = Math.sign(t1 - t0) * 60;
-  const n = Y.length, f = (tt, YY) => pmDeriv(tt, YY, stm);
-  while ((t1 - t) * Math.sign(h) > 1e-9) {
-    if (Math.abs(h) > Math.abs(t1 - t)) h = t1 - t;
-    const K = [];
-    for (let i = 0; i < 7; i++) {
-      const Yi = new Float64Array(Y);
-      for (let j = 0; j < i; j++) { const a = A[i][j]; if (a) for (let q = 0; q < n; q++) Yi[q] += h * a * K[j][q]; }
-      K.push(f(t + Cc[i] * h, Yi));
-    }
-    const y5 = new Float64Array(Y); let err = 0;
-    for (let q = 0; q < n; q++) {
-      let s5 = 0, s4 = 0; for (let i = 0; i < 7; i++) { s5 += B5[i] * K[i][q]; s4 += B4[i] * K[i][q]; }
-      y5[q] += h * s5;
-      if (q < 6) { const sc = (q < 3 ? 1e-6 : 1e-10) + 1e-12 * Math.max(Math.abs(Y[q]), Math.abs(y5[q])); err = Math.max(err, Math.abs(h * (s5 - s4)) / sc); }
-    }
-    if (err > 1) { h *= Math.max(0.2, 0.9 * err ** -0.2); continue; }
-    t += h; Y = y5; if (onStep) onStep(t, Y);
-    h = Math.sign(h) * Math.min(Math.abs(h) * Math.min(5, 0.9 * Math.max(err, 1e-10) ** -0.2), 6 * 3600);
-  }
-  return Y;
+  const errScale = (q, y0, y5) => (q < 3 ? 1e-6 : 1e-10) + 1e-12 * Math.max(Math.abs(y0), Math.abs(y5));
+  return dpIntegrate((tt, YY) => pmDeriv(tt, YY, stm), Float64Array.from(Y0), t0, t1, { h0: 60, hmax: 6 * 3600, errScale, nErr: 6, onStep, tol: 1e-9 }).Y;
 }
 
 // ---------------------------------------------------------------- çoklu atış
-function solveN(M_, b) {
-  const n = b.length, M = M_.map((r, i) => { const a = new Float64Array(n + 1); a.set(r); a[n] = b[i]; return a; });
-  for (let c = 0; c < n; c++) {
-    let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
-    const tmp = M[c]; M[c] = M[p]; M[p] = tmp;
-    for (let r = c + 1; r < n; r++) { const f = M[r][c] / M[c][c]; if (f) for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k]; }
-  }
-  const x = new Float64Array(n);
-  for (let r = n - 1; r >= 0; r--) { let s = M[r][n]; for (let k = r + 1; k < n; k++) s -= M[r][k] * x[k]; x[r] = s / M[r][r]; }
-  return x;
-}
 // patches: [{t, X:[6]}]; döner: düzeltilmiş patches + en büyük süreksizlik
 export function multipleShoot(patches, { iters = 25, tolPos = 1e-3, tolVel = 1e-8, log = null } = {}) {
   const K = patches.length - 1;
@@ -194,7 +154,7 @@ export function multipleShoot(patches, { iters = 25, tolPos = 1e-3, tolVel = 1e-
         for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) { JJ[6 * k + i][6 * (k + 1) + j] = -Pn[j][i]; JJ[6 * (k + 1) + j][6 * k + i] = -Pn[j][i]; }
       }
     }
-    const y = solveN(JJ, F), dX = [];
+    const y = solve(JJ, F), dX = [];
     for (let k = 0; k <= K; k++) {
       const d = [0, 0, 0, 0, 0, 0];
       if (k < K) for (let j = 0; j < 6; j++) for (let i = 0; i < 6; i++) d[j] += Phis[k][i][j] * y[6 * k + i];

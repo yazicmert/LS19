@@ -5,6 +5,8 @@
 //  - y=0 düzlem geçişinde vx = vz = 0 simetri koşuluyla diferansiyel düzeltme (durum geçiş matrisiyle)
 //  - aile boyunca süreklilik ve hedef üyeye (periyot ya da genlik) Newton ile oturtma
 import * as E from './engine.js';
+import { dpStep, dpIntegrate } from './dopri.js';
+import { solve } from './linalg.js';
 
 export const MU = E.MU_M / (E.MU_E + E.MU_M);
 export const N_SID = 2 * Math.PI / (27.321661 * 86400);                     // Ay'ın yıldız ayı açısal hızı (rad/s)
@@ -46,42 +48,13 @@ function deriv(t, Y, mu, stm) {
   return d;
 }
 
-// ---------------------------------------------------------------- DOPRI5 (genel boyut)
-const A = [[], [1 / 5], [3 / 40, 9 / 40], [44 / 45, -56 / 15, 32 / 9], [19372 / 6561, -25360 / 2187, 64448 / 6561, -212 / 729],
-  [9017 / 3168, -355 / 33, 46732 / 5247, 49 / 176, -5103 / 18656], [35 / 384, 0, 500 / 1113, 125 / 192, -2187 / 6784, 11 / 84]];
-const C = [0, 1 / 5, 3 / 10, 4 / 5, 8 / 9, 1, 1];
-const B5 = [35 / 384, 0, 500 / 1113, 125 / 192, -2187 / 6784, 11 / 84, 0];
-const B4 = [5179 / 57600, 0, 7571 / 16695, 393 / 640, -92097 / 339200, 187 / 2100, 1 / 40];
-function rkStep(t, Y, h, f) {
-  const n = Y.length, K = [];
-  for (let i = 0; i < 7; i++) {
-    const Yi = new Float64Array(Y);
-    for (let j = 0; j < i; j++) { const a = A[i][j]; if (a) { const kj = K[j]; for (let q = 0; q < n; q++) Yi[q] += h * a * kj[q]; } }
-    K.push(f(t + C[i] * h, Yi));
-  }
-  const y5 = new Float64Array(Y); let err = 0;
-  for (let q = 0; q < n; q++) {
-    let s5 = 0, s4 = 0;
-    for (let i = 0; i < 7; i++) { s5 += B5[i] * K[i][q]; s4 += B4[i] * K[i][q]; }
-    y5[q] += h * s5;
-    if (q < 6) { const sc = 1e-13 + 1e-12 * Math.max(Math.abs(Y[q]), Math.abs(y5[q])); err = Math.max(err, Math.abs(h * (s5 - s4)) / sc); }
-  }
-  return [y5, err];
-}
+// ---------------------------------------------------------------- DOPRI5 (dopri.js)
+const errSc = (q, y0, y5) => 1e-13 + 1e-12 * Math.max(Math.abs(y0), Math.abs(y5));
+const rkStep = (t, Y, h, f) => dpStep(f, t, Y, h, errSc, 6);
 // t0'dan tEnd'e (işaretli) ya da stop(t, Y, Yprev) doğru olana kadar
 export function integrate(Y0, t0, tEnd, { mu = MU, stm = false, stop = null, hmax = 0.05, onStep = null } = {}) {
   const f = (t, Y) => deriv(t, Y, mu, stm);
-  let Y = Y0, t = t0, h = Math.sign(tEnd - t0) * 1e-3;
-  while ((tEnd - t) * Math.sign(h) > 1e-14) {
-    if (Math.abs(h) > Math.abs(tEnd - t)) h = tEnd - t;
-    const [Yn, err] = rkStep(t, Y, h, f);
-    if (err > 1) { h *= Math.max(0.2, 0.9 * err ** -0.2); continue; }
-    const tn = t + h;
-    if (stop && stop(tn, Yn, Y, t)) return { t, Y, tn, Yn, stopped: true, f };
-    t = tn; Y = Yn; if (onStep) onStep(t, Y);
-    h = Math.sign(h) * Math.min(Math.abs(h) * Math.min(5, 0.9 * Math.max(err, 1e-10) ** -0.2), hmax);
-  }
-  return { t, Y, stopped: false, f };
+  return { ...dpIntegrate(f, Y0, t0, tEnd, { h0: 1e-3, hmax, errScale: errSc, nErr: 6, stop, onStep }), f };
 }
 const withStm = (X) => { const Y = new Float64Array(42); for (let i = 0; i < 6; i++) Y[i] = X[i]; for (let i = 0; i < 6; i++) Y[6 + i * 6 + i] = 1; return Y; };
 
@@ -147,19 +120,6 @@ export function richardson(L, Az_km, south, mu = MU) {
   return { X0: [xL(L, mu) + sgn * g * x, 0, g * z, 0, sgn * g * vy, 0], halfT: Math.PI / w, Ax: Ax * g * L_CR, Az: Az * g * L_CR };
 }
 
-// ---------------------------------------------------------------- küçük doğrusal cebir
-function solveN(A_, b) {
-  const n = b.length, M = A_.map((r, i) => [...r, b[i]]);
-  for (let c = 0; c < n; c++) {
-    let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
-    [M[c], M[p]] = [M[p], M[c]];
-    for (let r = c + 1; r < n; r++) { const f = M[r][c] / M[c][c]; for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k]; }
-  }
-  const x = new Array(n).fill(0);
-  for (let r = n - 1; r >= 0; r--) { let s = M[r][n]; for (let k = r + 1; k < n; k++) s -= M[r][k] * x[k]; x[r] = s / M[r][r]; }
-  return x;
-}
-
 // ---------------------------------------------------------------- diferansiyel düzeltme
 // Serbest değişkenler: x0, z0, vy0 (indeks 0, 2, 4). Kısıtlar: geçişte vx = vz = 0 (+ isteğe bağlı ek kısıt).
 // extra: { fn(X0, cr) -> değer, grad(X0, cr, Phi, dYf) -> [d/dx0, d/dz0, d/dvy0] } ya da sabit tutulacak indeks (fix)
@@ -186,42 +146,13 @@ export function correct(X0in, { mu = MU, fix = 2, target = null, tMin = 0.2, ite
     rows.push(third);
     const err = Math.max(Math.abs(F[0]), Math.abs(F[1]), Math.abs(F[2]));
     if (err < tol) return { X0, halfT: cr.t, cross: Array.from(cr.Y.slice(0, 6)), iters: it };
-    const d = solveN(rows, F.map((v) => -v));
+    const d = Array.from(solve(rows, F.map((v) => -v)));
     const sn = Math.hypot(...d), lim = 0.02; const s = sn > lim ? lim / sn : 1;
     FREE.forEach((j, c) => (X0[j] += s * d[c]));
   }
   return null;
 }
 
-// ---------------------------------------------------------------- aile boyunca süreklilik
-// Başlangıç: düzeltilmiş üye; adım: sabit tutulan parametre (x0 ya da z0) boyunca, önceki iki üyeden doğrusal tahmin.
-// hedef(m) işaret değiştirince (periyot, genlik vb.) secant ile tam üyeye oturtulur.
-export function continueTo(start, { mu = MU, param = 2, dp = -0.002, metric, targetValue, maxSteps = 400, tMin = 0.2 } = {}) {
-  let prev = null, cur = start, mCur = metric(cur);
-  for (let step = 0; step < maxSteps; step++) {
-    const guess = cur.X0.slice();
-    if (prev) for (const j of FREE) guess[j] += (cur.X0[j] - prev.X0[j]) * (dp / (cur.X0[param] - prev.X0[param] || dp));
-    guess[param] = cur.X0[param] + dp;
-    let nxt = correct(guess, { mu, fix: param, target: { kind: 'fix', value: guess[param] }, tMin });
-    if (!nxt) { dp /= 2; if (Math.abs(dp) < 1e-6) return null; continue; }
-    const mN = metric(nxt);
-    if ((mCur - targetValue) * (mN - targetValue) <= 0) {
-      // secant: parametreyi hedef metriğe göre ara değerle, sonra yeniden düzelt
-      let pa = cur.X0[param], ma = mCur, pb = nxt.X0[param], mb = mN, best = nxt;
-      for (let k = 0; k < 30; k++) {
-        const p = pb + (targetValue - mb) * (pb - pa) / (mb - ma || 1e-30);
-        const g2 = best.X0.slice(); g2[param] = p;
-        const sol = correct(g2, { mu, fix: param, target: { kind: 'fix', value: p }, tMin }); if (!sol) break;
-        const m = metric(sol); best = sol;
-        if (Math.abs(m - targetValue) < 1e-9 * Math.max(1, Math.abs(targetValue))) break;
-        pa = pb; ma = mb; pb = p; mb = m;
-      }
-      return best;
-    }
-    prev = cur; cur = nxt; mCur = mN;
-  }
-  return null;
-}
 
 // ---------------------------------------------------------------- yörünge örnekleme ve özellikler
 export function sampleOrbit(orb, n = 400, mu = MU) {
@@ -241,9 +172,4 @@ export function orbitStats(orb, mu = MU) {
   }
   const Tdays = 2 * orb.halfT * T_CR / 86400;
   return { periodDays: Tdays, rpKm: rp * L_CR, raKm: ra * L_CR, AzKm: zmax * L_CR, tPeri: tp, tApo: ta, stability: null };
-}
-// Jacobi sabiti
-export function jacobi(s, mu = MU) {
-  const [x, y, z, vx, vy, vz] = s, r1 = Math.hypot(x + mu, y, z), r2 = Math.hypot(x - 1 + mu, y, z);
-  return x * x + y * y + 2 * (1 - mu) / r1 + 2 * mu / r2 - (vx * vx + vy * vy + vz * vz);
 }

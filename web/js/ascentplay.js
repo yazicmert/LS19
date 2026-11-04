@@ -6,7 +6,7 @@ import { rocketOf } from './rockets.js';
 import { LEGACY_SITE } from './pads.js';
 import { atmosphere } from './ascentsim.js';
 import { directShot, autoWarp, timeline, SHOT_NAMES } from './launchcam.js';
-const MU = 398600.4418, OMEGA = 7.2921159e-5;
+import { MU_E as MU, OMEGA_E as OMEGA } from './geo.js';
 const qmul = (a, b) => [a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1], a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0], a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3], a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2]];
 
 const $ = (s) => document.querySelector(s);

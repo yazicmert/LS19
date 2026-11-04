@@ -7,8 +7,8 @@
 // Roketin yayımlanmış başarımı bir başvuru eğimi için (Florida: 28,5°); başka eğimde gereken ek Δv = V_EQ (cos i_ref − cos i).
 // Bu ek Δv'yi üst kademe karşılar sayılır: park yörüngesine ulaşan kütle M · exp(−Δv / (Isp g0)) (birinci derece yaklaşım; çıkış kayıpları aynı kabul edilir).
 
-export const OMEGA_E = 7.2921159e-5;                 // rad/s (IERS)
-export const R_EQ = 6378.137;                        // km (WGS-84)
+import { OMEGA_E, WGS84_A as R_EQ } from './geo.js';
+export { OMEGA_E, R_EQ };                             // rad/s, km (geo.js)
 export const V_EQ = OMEGA_E * R_EQ;                  // 0,4651 km/s: ekvatordaki dönüş hızı
 export const REF_INC = 28.5;                          // yayımlanmış başarımların başvuru eğimi (°, Florida doğu fırlatması)
 

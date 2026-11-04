@@ -4,23 +4,15 @@
 //   Güneş: düşük duyarlıklı analitik formül (Astronomical Almanac, ~0,01°) — gölge ve alacakaranlık için fazlasıyla yeterli.
 //   Gözlemci: WGS-84 elipsoidi.
 import * as S from '../lib/satellite.esm.js';
+import { WGS84_A, WGS84_F, ecfFromGeodetic, geodeticFromEcf } from './geo.js';
 
-export const R_E = 6378.137, F_E = 1 / 298.257223563, AU = 149597870.7;
-const D2R = Math.PI / 180, E2 = F_E * (2 - F_E);
+export const R_E = WGS84_A, F_E = WGS84_F, AU = 149597870.7;
+const D2R = Math.PI / 180;
 
 export function gmst(ms) { return S.gstime(new Date(ms)); }
 export function eciToEcf(p, g) { const c = Math.cos(g), s = Math.sin(g); return [c * p[0] + s * p[1], -s * p[0] + c * p[1], p[2]]; }
 export function ecfToEci(p, g) { const c = Math.cos(g), s = Math.sin(g); return [c * p[0] - s * p[1], s * p[0] + c * p[1], p[2]]; }
-export function ecfFromGeodetic(lat, lon, h) {           // derece, derece, km
-  const f = lat * D2R, l = lon * D2R, sf = Math.sin(f), N = R_E / Math.sqrt(1 - E2 * sf * sf);
-  return [(N + h) * Math.cos(f) * Math.cos(l), (N + h) * Math.cos(f) * Math.sin(l), (N * (1 - E2) + h) * sf];
-}
-export function geodeticFromEcf(r) {                        // -> { lat, lon (derece), h (km) }
-  const [x, y, z] = r, p = Math.hypot(x, y), lon = Math.atan2(y, x);
-  let lat = Math.atan2(z, p * (1 - E2)), h = 0;
-  for (let k = 0; k < 6; k++) { const s = Math.sin(lat), N = R_E / Math.sqrt(1 - E2 * s * s); h = p / Math.cos(lat) - N; lat = Math.atan2(z, p * (1 - E2 * N / (N + h))); }
-  return { lat: lat / D2R, lon: lon / D2R, h };
-}
+export { ecfFromGeodetic, geodeticFromEcf };                // geo.js
 // Gözlemci kamerası için gerçek konum ve yerel dikey: WGS-84 elipsoidi üstünde nokta ve elipsoid normali (jeodezik dikey), dönüş M ile
 // (M: ECF -> hedef çerçeve satır matrisi; ECF için birim). Küre üstüne konan nokta 41° enlemde 23 km sapar: 580 km'deki ISS'te ≈ 2,3° yön hatası.
 export function observerFrame(lat, lon, h, M = null) {

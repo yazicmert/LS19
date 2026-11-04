@@ -182,7 +182,7 @@ animate(el, { opacity: [0, 1], y: [8, 0] }, { duration: 0.2, ease: 'easeOut' });
 | `.claude/skills/`, `skills-lock.json` | Claude Code becerileri (UI UX Pro Max, Emil Kowalski) ve sürüm özetleri; siteye girmez |
 | `api/` | Vercel sunucusuz işlevleri (canlı veri vekili) |
 | `scripts/` | Blender sürümü (Adım 1–5): görev motoru ve sahne betikleri |
-| `kernels/` | JPL DE440s, Ay yönelim çekirdeği, efemeris tablosu |
+| `kernels/` | Ay çerçeve tanımı (`moon_de440_250416.tf`); JPL DE440s, Ay yönelim çekirdeği ve efemeris tablosu tek kopya olarak `web/data/`'dadır |
 
 ## Veri kaynakları ve lisanslar
 

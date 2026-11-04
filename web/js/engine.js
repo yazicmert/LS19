@@ -28,6 +28,7 @@ export function setMoonZone(r) { MOON_ZONE = r; }
 
 // ------------------------------------------------------------------ küçük vektör/matris yardımcıları
 import { add, sub, scale, dot, cross, norm, unit, mv, mtv, mm, mT } from './vec3.js';
+import { DP_A, DP_C, DP_B5, DP_B4 } from './dopri.js';
 export { add, sub, scale, dot, cross, norm, unit, mv, mtv, mm, mT };
 const R1 = (a) => { const c = Math.cos(a), s = Math.sin(a); return [[1, 0, 0], [0, c, s], [0, -s, c]]; };
 const R2 = (a) => { const c = Math.cos(a), s = Math.sin(a); return [[c, 0, -s], [0, 1, 0], [s, 0, c]]; };
@@ -56,7 +57,6 @@ export function loadEphemeris(data) {
   PROV = tableProvider();
   return EPH;
 }
-export const ephemeris = () => EPH;
 
 function cheb(tab, t, span) {
   const d = t / DAY;
@@ -272,13 +272,7 @@ export class State {
 }
 
 // ------------------------------------------------------------------ DOPRI5
-const A = [[], [1 / 5], [3 / 40, 9 / 40], [44 / 45, -56 / 15, 32 / 9],
-  [19372 / 6561, -25360 / 2187, 64448 / 6561, -212 / 729],
-  [9017 / 3168, -355 / 33, 46732 / 5247, 49 / 176, -5103 / 18656],
-  [35 / 384, 0, 500 / 1113, 125 / 192, -2187 / 6784, 11 / 84]];
-const Cc = [0, 1 / 5, 3 / 10, 4 / 5, 8 / 9, 1, 1];
-const B5 = [35 / 384, 0, 500 / 1113, 125 / 192, -2187 / 6784, 11 / 84, 0];
-const B4 = [5179 / 57600, 0, 7571 / 16695, 393 / 640, -92097 / 339200, 187 / 2100, 1 / 40];
+const A = DP_A, Cc = DP_C, B5 = DP_B5, B4 = DP_B4;              // Dormand–Prince 5(4) tablosu (dopri.js)
 export const TOL = { ATOL_R: 1e-5, ATOL_V: 1e-8, RTOL: 1e-12 };
 
 // thrust: null | [ax, ay, az] (sabit itki ivmesi, km/s²) | { u, T, m, mdot } (birim yön, itki kN, adım başı kütle kg, kütle akışı kg/s):
