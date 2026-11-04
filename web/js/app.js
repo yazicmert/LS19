@@ -9,6 +9,7 @@ import { designMissionAsync, PROFILES, normalizeConfig } from './design.js';
 import { RocketSheet } from './rocketsheet.js';
 import { LaunchUI } from './launchui.js';
 import { WindowScanner } from './windowscan.js';
+import { ProfileCompare } from './profilecompare.js';
 import { AscentPlayer } from './ascentplay.js';
 import { inclRange, minIncl, LEGACY_SITE } from './pads.js';
 import { twoStageDesign } from './mission.js';
@@ -147,7 +148,7 @@ function withMission(fn) {
 const camStore = { mission: null, sky: { mode: 'EARTH', dist: 36000, el: 0.45, az: 0.6, auto: false, key: '' } };
 function switchEngine(m) {                                       // mission ↔ sky motoru (lab görünümü sky motorunu kullanır)
   if (m === 'sky' && cinema.on) cinema.stop();
-  if (m === 'sky') { cmpCancel = true; }
+  if (m === 'sky') { compare.cancel(); }
   camStore[MODE] = world.cam; MODE = m;
   world.cam = camStore[m] || world.cam;
   ui.hidePick(); $('#hoverTip').hidden = true;
@@ -377,7 +378,7 @@ const launch = new LaunchUI({
     ui.site = st;
     if (ir && Math.abs(c.earth.inc - lo0) < 0.05) c.earth.inc = ir[0];
     ui.setConfig({ ...c, site: st || null }); $('#cfgEi').min = String(ir ? ir[0] : 0);
-    cmpCancel = true; scanner.cancel();
+    compare.cancel(); scanner.cancel();
     startDesign($('#dateInput').value || pendingDate || DEFAULT_DATE);
   },
   onScan: () => scanner.scan(),
@@ -399,7 +400,7 @@ ui.onRocket = (id) => {
   const p = launch.padFor(id);                                                  // gerçek roket yalnız kendi rampalarından: gerekirse ilkine geçilir (null = varsayılan LC-39B)
   if (p !== undefined) { const c = ui.getConfig(), lo0 = (siteIncl(ui.site) || [28.7])[0], ir = siteIncl(p); ui.site = p; if (ir && Math.abs(c.earth.inc - lo0) < 0.05) c.earth.inc = ir[0]; ui.setConfig({ ...c, site: p }); ui.setRocket(id, `Rampa ${p ? p.name : LEGACY_SITE.short} olarak değiştirildi (roketin gerçek rampası).`); }
   launch.syncRocket();
-  cmpCancel = true; scanner.cancel();
+  compare.cancel(); scanner.cancel();
   startDesign($('#dateInput').value || pendingDate || DEFAULT_DATE);
 };
 document.querySelectorAll('[data-vehicle]').forEach((b) => b.addEventListener('click', () => setVehicle(b.dataset.vehicle)));
@@ -662,31 +663,12 @@ window.addEventListener('keydown', (e) => {
 // olaya atla: görev baştan, hedef ana kadar hızlı (ekransız) koşulur — fizik deterministik
 ui.onSeek = (t) => send({ cmd: 'seek', t });
 // ------------------------------------------------------------------ profil karşılaştırması (yörünge optimizasyonu görünümü)
-let comparing = false, cmpCancel = false;
-const pcfg = (key) => ({ ...PROFILES[key].cfg, rocket: ui.rocket });          // profil + seçili roket
-function compareRows() {
-  return Object.entries(PROFILES).map(([key, p]) => { const c = cachedDesign(START_MS, pcfg(key)); return { key, name: p.name, D: c ? c.design : null }; });
-}
-function refreshCompare(status) { if (!comparing) ui.setCompare(compareRows(), status ?? ''); }
-ui.onCompare = async () => {
-  if (comparing || designing) return;
-  comparing = true; cmpCancel = false;
-  const rows = compareRows(), tFrom = tOfUtcMs(START_MS), tStart = tOfUtcMs(START_MS) - 86400;
-  for (const r of rows) {
-    if (r.D) continue;
-    r.busy = true; ui.setCompare(rows, `${r.name} hesaplanıyor…`);
-    try {
-      const D = await designMissionAsync(tFrom, (m) => ui.setCompare(rows, `${r.name}: ${m.slice(0, 60)}`), () => cmpCancel || designing, pcfg(r.key));
-      if (!D) break;
-      r.D = D; designCache.set(cacheKey(START_MS, pcfg(r.key)), { tStart, design: D, nominal: null });
-    } catch (err) { r.err = 'tasarım başarısız: ' + String(err.message || err).slice(0, 60); }
-    r.busy = false; ui.setCompare(rows, '');
-  }
-  comparing = false; refreshCompare('');
-};
+const compare = new ProfileCompare({ ui, getStartMs: () => START_MS, isDesigning: () => designing, cachedDesign, designCache, cacheKey, tOfUtcMs });
+const refreshCompare = (status) => compare.refresh(status);
+ui.onCompare = () => compare.run();
 ui.onProfile = (key) => {
   if (!PROFILES[key] || designing) return;
-  cmpCancel = true;
+  compare.cancel();
   ui.setConfig(PROFILES[key].cfg);
   startDesign($('#dateInput').value || DEFAULT_DATE);
 };
