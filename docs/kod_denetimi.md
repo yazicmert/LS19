@@ -55,11 +55,35 @@ Sonuç:
 - **`impact.js` R = 6378,135 km:** SGP4'ün WGS-72 değeri. Bilinçli olarak farklı.
 - **İç kullanımda olan ama gereksiz yere dışa aktarılan ~90 ad:** zararsız. Davranış kazancı yok, yalnız gürültü azalır. Ayrı bir küçük temizlik olarak bırakıldı.
 
-## 5. Sonraki temel işleri (öneri)
+## 5. `scene.js`'in bölünmesi
+
+`scene.js` 1.448 satırdı. Çizim, kamera, kalkış sahnesi, gök cisimleri ve yüzey karoları aynı dosyadaydı. Altı adımda bölündü; her adımda testler yeniden çalıştırıldı.
+
+- `World` sınıfı ve dışa açık arayüzü (`app.js`'in kullandığı yöntemler) aynı kaldı.
+- Ayrılan yöntem grupları `mixin(World, …)` ile prototipe eklenir.
+- Kaynağı okuyan sözleşme testleri parçaları tek metin olarak görür (`test/scenesrc.js`).
+
+| Modül | Satır | İçerik |
+|---|---|---|
+| `scene.js` | 677 | `World`: kurulum, yükleme, araç ve kademe modelleri, kare güncellemesi, çizgiler, sinematik kip |
+| `bodyshaders.js` | 151 | Dünya, Ay ve atmosfer gölgelendiricileri |
+| `scenegeom.js` | ~85 | küre geometrisi, yönelim matrisleri, ışıltı/halka dokuları, konik örnekleme, `mixin` |
+| `ascentview.js` | 218 | kalkış sahnesi: roket, rampa, gökyüzü, alev ışığı, bulut, ayrılan kademeler, yayın kamerası |
+| `camerarig.js` | 134 | kamera kiplerinin pozları, yumuşak geçiş, otomatik kamera |
+| `skyview.js` | 181 | Canlı Gökyüzü, gezegenler, Dünya–Ay kütle merkezi, gezegen seçme |
+| `surfaceview.js` | 70 | yüzey karo katmanları, kaplama düğmesi, iniş arazisi yerleşimi |
+
+`PLANETS` tablosu `planets.js`'e taşındı (gezegen verisinin geri kalanıyla birlikte).
+
+Her adımdan sonra bir ad çözümleme denetimi çalıştırıldı: her parça, özgün `scene.js`'in üst düzey adlarından kullandıklarını ya içe aktarıyor ya da tanımlıyor. Ardından kaynağı okuyan 9 test ve ön yükleme listesi denetlendi. Sonda tarayıcıda şunlar çalıştırıldı:
+- tam laboratuvar akışı (`tools/lab_deneme.mjs`),
+- kalkış yayını çekimleri,
+- yüzey karosu akışı.
+
+## 6. Sonraki temel işleri (öneri)
 
 | Öncelik | İş | Neden |
 |---|---|---|
-| 1 | `scene.js`'i (1.448 satır) bölmek: kalkış sahnesi, yüzey karoları, gezegenler, kamera pozları ayrı modüllere | Tek dosyada çizim, kamera, kalkış, karo ve gezegen sorumlulukları birlikte |
-| 2 | `app.js` (778) ve `ui.js` (708): görünüm/durum ayrımı | Laboratuvar deneyim merkezine dönüşürken en çok değişecek dosyalar |
-| 3 | Gereksiz dışa aktarımları kaldırmak (knip listesi) | Modüllerin gerçek arayüzü görünür olur |
-| 4 | Araç betiklerindeki ortak GLB dönüştürme kodu (`tools/*_modelleri.mjs`, 4 kopya) | Aynı 8 satırlık yükleyici dört betikte |
+| 1 | `app.js` (778) ve `ui.js` (708): görünüm/durum ayrımı | Laboratuvar deneyim merkezine dönüşürken en çok değişecek dosyalar |
+| 2 | Gereksiz dışa aktarımları kaldırmak (knip listesi) | Modüllerin gerçek arayüzü görünür olur |
+| 3 | Araç betiklerindeki ortak GLB dönüştürme kodu (`tools/*_modelleri.mjs`, 4 kopya) | Aynı 8 satırlık yükleyici dört betikte |
