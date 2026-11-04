@@ -109,10 +109,35 @@ Klavye kısayolları `app.js`'te kaldı (uygulama çapında komut haritası).
 - `no-unused-vars` ile bölünen dosyalarda kullanılmayan **111 içe aktarma** kaldırıldı.
 - Bu, bölmede gözden kaçan bir eksik içe aktarmayı da yakaladı (`surfaceview.js`: `add is not defined`). Hatayı ilk tarayıcı testi göstermişti.
 
-## 7. Sonraki temel işleri (öneri)
+## 7. Kalıcı denetim ve ortak durum
+
+**ESLint artık deponun parçası.** Yapılandırma `eslint.config.mjs`'te.
+- Kurallar: tanımsız ad hatadır (`no-undef`); kullanılmayan değişken ve içe aktarma hatadır (`no-unused-vars`, `_` önekli adlar hariç).
+- Ortamlar: site kodu tarayıcı + worker'da, API işlevleri ve testler Node'da çalışır. Playwright araçlarında ikisi birlikte geçerli, çünkü `page.evaluate` gövdeleri tarayıcıda koşar.
+- `npm run lint` denetimi çalıştırır.
+- `npm test` artık tüm testleri koşar (önceden yalnız iki testi koşuyordu); hızlı alt küme `npm run test:quick`'te.
+- `.github/workflows/denetim.yml` her PR'da ve main'e her gönderimde lint ve testleri çalıştırır. Yalnız denetler, hiçbir şey yazmaz.
+- Vercel kurulum yapmadığı için (`installCommand: ""`) geliştirme bağımlılıkları yayını etkilemez.
+
+İlk çalıştırmada 46 bulgu çıktı, hepsi giderildi:
+- **Ölü kod:**
+  - `ascentsim.solve3`: dördüncü bir Gauss çözücü, hiç çağrılmıyordu.
+  - `design.js`'teki `STRICT_PERIGEE`: atanıyor ama hiç okunmuyordu.
+  - `cinema.js`'teki `… ? tau : tau` ifadesi: anlamsızdı.
+  - `post.js`: kullanılmayan `RenderPass` içe aktarması.
+  - Kullanılmayan yerel değişkenler: `worker.js` `LIVE`, `deflect.js` `st`, `halo.js` `fa`/`fb` ve diğerleri.
+- **`conic.js`:** Node denetimi `globalThis.process?.versions?.node` biçimine geçti.
+- **Testler ve araçlar:** kullanılmayan bağlar `_` önekiyle işaretlendi. Test mantığı değişmedi; yan etkili çağrılar korundu.
+
+**Ortak durum tek nesnede (`appstate.js`).**
+- `app.js`'in modül düzeyindeki 13 ortak değişkeni artık belgeli `S` nesnesinde: `K`, `DESIGN`, `START_MS`, `MODE`, `VIEW`, `latest`, `designing`, `running` ve Canlı Gökyüzü katmanları.
+- Zamanlayıcı ve sayaç gibi yerel defter tutma `app.js`'te kaldı.
+- Ayrılan modüller (`windowscan`, `profilecompare`, `canvasinput`) artık getter çantası almıyor, `S`'yi doğrudan okuyor. Böylece kimin hangi duruma bağlı olduğu içe aktarmalardan görünüyor.
+- Değişiklik 217 başvuruyu mekanik olarak `S.` altına taşıdı. Yalnız kod kısımları dönüştürüldü (dizgiler ve yorumlar korundu); nesne kısaltmaları (`{ designing }` → `{ designing: S.designing }`) `node --check` ile tek tek bulundu.
+
+## 8. Sonraki temel işleri (öneri)
 
 | Öncelik | İş | Neden |
 |---|---|---|
-| 1 | `app.js`'in ortak durumunu (`DESIGN`, `latest`, `MODE`…) küçük bir durum nesnesine toplamak | Deneyim merkezinde birden çok deneyim aynı durumu okuyacak; açık bir durum nesnesi bağımlılıkları görünür kılar |
-| 2 | Gereksiz dışa aktarımları kaldırmak (knip listesi); ESLint'i depoya kalıcı bir denetim olarak eklemek | Modüllerin gerçek arayüzü görünür olur; bölmelerde yakalanan türden hatalar baştan önlenir |
-| 3 | Araç betiklerindeki ortak GLB dönüştürme kodu (`tools/*_modelleri.mjs`, 4 kopya) | Aynı 8 satırlık yükleyici dört betikte |
+| 1 | Gereksiz dışa aktarımları kaldırmak (knip listesi) | Modüllerin gerçek arayüzü görünür olur |
+| 2 | Araç betiklerindeki ortak GLB dönüştürme kodu (`tools/*_modelleri.mjs`, 4 kopya) | Aynı 8 satırlık yükleyici dört betikte |
