@@ -3,31 +3,31 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
-import { makeUpperStage, makeLaunchVehicle } from './rocketmodels.js';
+import { makeUpperStage } from './rocketmodels.js';
 import { rocketOf } from './rockets.js';
 import * as E from './engine.js';
 import { loadTerrain, terrainBasis, HOLE_R } from './terrain.js';
 import { R_SITE, SITE_LAT, SITE_LON, siteIcrf, siteMe } from './mission.js';
 import { BODIES } from './ephem.js';
-import { etOf } from './live.js';
 import { HaloRef } from './halo.js';
-import { TileLayer } from './tiles.js';
 import { AscentView } from './ascentview.js';
-import { CameraRig, K_EMB } from './camerarig.js';
+import { CameraRig } from './camerarig.js';
 import { SkyView } from './skyview.js';
 import { SurfaceView } from './surfaceview.js';
 import { VS_BODY, FS_EARTH, VS_ATM, FS_ATM, FS_MOON } from './bodyshaders.js';
-import { sphereGeometry, m3ToQuat, bodyMatrix, glowTexture, ringTexture, unit3, conicEach, conicPoints, mixin, SUN_I } from './scenegeom.js';
+import { sphereGeometry, m3ToQuat, glowTexture, ringTexture, unit3, conicEach, conicPoints, SUN_I } from './scenegeom.js';
+import { mixin } from './mixin.js';
+
 export { conicEach, conicPoints };
-import { PLANETS, poleVec, PLANET_VIS, planetMaterial, atmosphereMesh, ringMaterial, loadPlanetTextures, planetQuaternion } from './planets.js';
+import { PLANETS, poleVec, PLANET_VIS, planetMaterial, atmosphereMesh, ringMaterial } from './planets.js';
 import { makeSpaceEnv, ENV_HALF_DEG, makePlume, plumeGeometry, setPlume, plumeTick, makeGlow, Particles } from './fx.js';
 import { PointStore } from './pointstore.js';
 import { mergeByMaterial } from './meshmerge.js';
 import { loadTextures, lowMemory } from './texload.js';
 import { TEX } from './texplan.js';
-import * as CR from './cr3bp.js';
 
-const { add, sub, scale, dot, cross, norm, unit, mv, mtv } = E;
+
+const { add, sub, scale, dot, cross, norm, unit } = E;
 const EARTH_I = 1.15;                    // Dünya (bulutlar ve okyanus yansıması parlak olduğundan düşük)
 const KM = 0.001;                        // m -> km
 // model malzemelerinin PBR değerleri [metalik, pürüzlülük] (kaynak: NASA modellerindeki Maya "blinn" malzemeleri, adlarıyla)
