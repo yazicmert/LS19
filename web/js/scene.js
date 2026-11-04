@@ -12,6 +12,8 @@ import { BODIES } from './ephem.js';
 import { etOf } from './live.js';
 import { HaloRef } from './halo.js';
 import { TileLayer } from './tiles.js';
+import { LaunchSmoke } from './launchfx.js';
+import { shake as camShake } from './launchcam.js';
 import { GLSL_NOISE, PLANET_VIS, planetMaterial, atmosphereMesh, ringMaterial, loadPlanetTextures, planetQuaternion } from './planets.js';
 import { makeSpaceEnv, ENV_HALF_DEG, makePlume, plumeGeometry, setPlume, plumeTick, makeGlow, Particles } from './fx.js';
 import { PointStore } from './pointstore.js';
@@ -586,7 +588,7 @@ export class World {
   // olanlar (booster, fairing, las) gizlenir. null: kalkış biter, araç geri gelir.
   async setAscent(spec) {
     const veh = this.vehicle;
-    if (this.asc) { veh.remove(this.asc.root); if (this.asc.world) { this.scene.remove(this.asc.world); this.asc.world.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); } this.asc = null; }
+    if (this.asc) { veh.remove(this.asc.root); if (this.asc.smoke) this.asc.smoke.dispose(); if (this.asc.world) { this.scene.remove(this.asc.world); this.asc.world.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); } this.asc = null; }
     for (const c of veh.children) if (c.userData.ascHidden !== undefined) { c.visible = c.userData.ascHidden; delete c.userData.ascHidden; }
     this.renderer.localClippingEnabled = false;
     if (!spec) return;
@@ -611,10 +613,12 @@ export class World {
     // alev rengi: gazyağı turuncu, katı yakıt (alüminyum) parlak beyaz-sarı, hidrolox soluk
     const hot = sol ? C(3.2, 2.8, 2.2) : ker ? C(2.6, 1.7, 0.9) : C(1.9, 2.2, 3.2), cool = sol ? C(0.9, 0.6, 0.35) : ker ? C(0.7, 0.32, 0.12) : C(0.12, 0.24, 1.3);
     const flame = this._addPlume(holder, { exitZ: 0, exitR: plumeR }, plumeR * 14, hot, cool, 0.9, { widen: 2.4, diamonds: 0.3, kS: 3.0 }, sol ? C(2.0, 1.7, 1.2) : ker ? C(1.7, 1.0, 0.5) : C(0.8, 1.0, 1.7), 3.0);
+    // alevin ışığı: roket gövdesini, rampayı ve kalkış bulutunu turuncu aydınlatır (alevin 3 çap altında; mesafeyle kare azalır)
+    const plumeLight = new THREE.PointLight(0xffb070, 0, 0, 2); plumeLight.position.set(0, 0, -plumeR * 3); holder.add(plumeLight);
     // dünya nesneleri (kameraya göre konumlanır): gökyüzü kubbesi, rampa + yer görüntüsü, ayrılan kademeler
     const world = new THREE.Group(); this.scene.add(world);
     // gökyüzü kubbesi: derinlik testiyle (rampa, roket ve Dünya önünde kalır); yarıçap ufkun ötesine (ascentFrame) — yalnız ufkun üstünde görünür
-    const sky = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24), new THREE.MeshBasicMaterial({ color: 0x5f8fd8, side: THREE.BackSide, transparent: true, opacity: 0, depthWrite: false, depthTest: true, toneMapped: false, fog: false }));
+    const sky = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24), await this.skyMaterial());
     sky.scale.setScalar(80); sky.renderOrder = -9; sky.frustumCulled = false; world.add(sky);
     const pad = new THREE.Group(); pad.scale.setScalar(KM); pad.matrixAutoUpdate = false; world.add(pad);
     if (spec.pad === 'ml') {
@@ -627,9 +631,30 @@ export class World {
       for (const [x, z] of [[-26, -26], [26, 26]]) { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 1.0, 90, 8), new THREE.MeshLambertMaterial({ color: 0xb8b6b0 })); t.position.set(x, 45, z); pad.add(t); }   // yıldırım direkleri
     }
     const len = new THREE.Box3().setFromObject(template).getSize(new THREE.Vector3()).y;      // roket boyu (m, +Y): kalkış kamerasının kadrajı
-    this.asc = { root: L.root, inner: L.inner, model: L.model, plane: L.planes[0], holder, flame, cut: 0, spec, template, prep, world, sky, pad, debris: new Map(), state: null, credit: '', len };
+    const radius = { saturnv: 5.05, sls: 4.2, fh: 1.83, f9: 1.83, vulcan: 2.7 }[spec.lv] || 2.0;     // gövde yarıçapı (m): araç üstü kameranın yeri
+    const big = spec.lv === 'saturnv' || spec.lv === 'sls' || spec.lv === 'fh';
+    const smoke = new LaunchSmoke(pad, KM, { scale: big ? 1 : 0.65, trenchDir: [0, 0, 1] });             // alev çukuru kuzey–güney (LC-39A/B gibi)
+    this.asc = { root: L.root, inner: L.inner, model: L.model, plane: L.planes[0], holder, flame, plumeLight, smoke, cut: 0, spec, template, prep, world, sky, pad, debris: new Map(), state: null, credit: '', len, radius };
     if (spec.site) this.loadPadGround(spec.site, pad).then((ok) => { if (ok && this.asc && this.asc.pad === pad) this.asc.credit = 'Yer görüntüsü: Sentinel-2 cloudless 2016 — s2maps.eu, EOX IT Services GmbH (değiştirilmiş Copernicus Sentinel verisi) · CC BY-SA 4.0'; });
     this.renderer.localClippingEnabled = true;
+  }
+  // kalkış gökyüzü: three.js resmî Sky eklentisi (Preetham analitik gün ışığı modeli: Rayleigh + Mie saçılması, Güneş konumuna göre renk, ufukta beyazlaşma).
+  // Sahnenin logaritmik derinliğine uyarlanır (uzak düzleme itilmez: ufuk mesafesindeki kubbe yıldızları örter, Dünya'yı örtmez) ve irtifayla saydamlaşır (skyFade).
+  // Eklenti yüklenemezse düz renkli kubbe.
+  async skyMaterial() {
+    try {
+      const { Sky } = await import('three/addons/objects/Sky.js'), S = Sky.SkyShader;
+      const vs = '#include <common>\n#include <logdepthbuf_pars_vertex>\n' + S.vertexShader.replace('gl_Position.z = gl_Position.w; // set z to camera.far', '#include <logdepthbuf_vertex>');
+      const fs = '#include <logdepthbuf_pars_fragment>\nuniform float skyFade, skyGain;\n' + S.fragmentShader.replace('vec3 direction = normalize( vWorldPosition - cameraPosition );', '#include <logdepthbuf_fragment>\n\t\t\tvec3 direction = normalize( vWorldPosition - cameraPosition );')
+        .replace('gl_FragColor = vec4( retColor, 1.0 );', 'gl_FragColor = vec4( retColor * skyGain, skyFade );');
+      if (!vs.includes('logdepthbuf_vertex') || !fs.includes('skyFade );')) throw new Error('Sky gölgelendiricisi beklenen biçimde değil');
+      const u = THREE.UniformsUtils.clone(S.uniforms); Object.assign(u, { skyFade: { value: 0 }, skyGain: { value: 0.8 } });
+      u.turbidity.value = 2.6; u.rayleigh.value = 1.3; u.mieCoefficient.value = 0.005; u.mieDirectionalG.value = 0.8;
+      const m = new THREE.ShaderMaterial({ name: 'LS19Sky', uniforms: u, vertexShader: vs, fragmentShader: fs, side: THREE.BackSide, transparent: true, depthWrite: false });
+      m.userData.preetham = true; return m;
+    } catch (e) {
+      return new THREE.MeshBasicMaterial({ color: 0x5f8fd8, side: THREE.BackSide, transparent: true, opacity: 0, depthWrite: false, toneMapped: false, fog: false });
+    }
   }
   // rampa çevresinin uydu görüntüsü: EOX Sentinel-2 cloudless 2016 (CC BY-SA 4.0), Web Mercator z=13 karoları (~17 m/piksel), 4 × 4 karo ≈ 17 km;
   // kenarları yumuşak geçişli; yüklenemezse (ağ, engelleyici) yama gösterilmez
@@ -669,7 +694,11 @@ export class World {
     A.sky.scale.setScalar(Math.max(80, 1.3 * Math.sqrt(2 * 6378 * Math.max(0.3, o.h))));                 // ufuk uzaklığı √(2 R h) ötesi
     // alev rengi o anda yanan kademenin yakıtına göre (ör. Saturn V: S-IC gazyağı → S-II/S-IVB hidrolox)
     if (o.prop && o.prop !== A.propNow) { A.propNow = o.prop; const c = PLUME_COL[o.prop] || PLUME_COL.kerolox; const u = A.flame.material.uniforms; u.hot.value.copy(c[0]); u.cool.value.copy(c[1]); const gl = A.flame.userData.glow; if (gl) gl.userData.col.copy(c[2]); }
-    A.sky.material.opacity = Math.min(0.97, op); A.sky.material.color.setRGB(0.04 + 0.30 * day, 0.06 + 0.50 * day, 0.12 + 0.82 * day);
+    const SM = A.sky.material;
+    if (SM.userData.preetham) { SM.uniforms.skyFade.value = Math.min(0.985, Math.exp(-o.h / 9) * (0.35 + 0.65 * day)); if (o.sunDir) SM.uniforms.sunPosition.value.set(...o.sunDir); if (o.upV) SM.uniforms.up.value.set(...o.upV); }
+    else { SM.opacity = Math.min(0.97, op); SM.color.setRGB(0.04 + 0.30 * day, 0.06 + 0.50 * day, 0.12 + 0.82 * day); }
+    // alev ışığı: itkiyle, yakıt rengine göre (gece kalkışında gövde ve bulut belirgin turuncu)
+    if (A.plumeLight) { const c = (PLUME_COL[o.prop] || PLUME_COL.kerolox)[2]; A.plumeLight.color.setRGB(c.r, c.g, c.b).multiplyScalar(1 / Math.max(c.r, c.g, c.b)); A.plumeLight.intensity = 0.006 * o.thr * (1 + 0.6 * (1 - day)); }
   }
   // update() içinden: kameraya göre konumlar (rel) — rampa, kademe parçaları, gökyüzü
   applyAscent(rel) {
@@ -681,6 +710,10 @@ export class World {
     if (o.pad) {
       const P = o.pad, p = rel(P.pos), E3 = new THREE.Vector3(...P.east), U = new THREE.Vector3(...P.up), S = new THREE.Vector3(...P.north).multiplyScalar(-1);
       A.pad.matrix.makeBasis(E3, U, S).scale(new THREE.Vector3(KM, KM, KM)).setPosition(p); A.pad.matrixWorldNeedsUpdate = true;
+      if (A.smoke) {                                                                       // kalkış bulutu rampa çerçevesinde (m): roket tabanı ve kamera oraya taşınır
+        const inv = A.pad.matrix.clone().invert(), rb = base.clone().applyMatrix4(inv), cm = new THREE.Vector3().applyMatrix4(inv);
+        A.smoke.update(o.met ?? 0, o.dtFlight ?? 0, { rocket: [rb.x, rb.y, rb.z], thr: o.thr, sunUp: o.sunUp, cam: [cm.x, cm.y, cm.z] });
+      }
     }
     const seen = new Set();
     for (const d of o.debris || []) {
@@ -799,17 +832,42 @@ export class World {
     // objektifle roketi izler (roket kadraj yüksekliğinin ~yarısı); dikey kalkış rampaya ve ufka göre görünür, yunuslama (pitch) yandan, profilden izlenir.
     // İrtifa 1,5 → 4,5 km arasında yumuşakça TAKİP kamerasına geçer: roketin arkasından (cam.az/el/dist; sürüklenebilir), yerel dikey yukarı, ufuk kadrajda.
     if (c.mode === 'LAUNCH' && this.asc && this.asc.state && this.asc.state.pad && info.axis) {
-      const P = this.asc.state.pad, h = this.asc.state.h || 0, L = (this.asc.len || 60) / 1000;
-      const mid = add(info.vehPos, scale(info.axis, L * 0.5));                             // roketin ortası (kalan yığın)
-      const up = P.up, dr = P.dr || P.east, side = cross(up, dr), D = 1.4;
-      const g = add(add(P.pos, scale(side, -D)), add(scale(dr, -0.3 * D), scale(up, 0.012)));      // uçuş yönü kadrajın sağına akar
-      // kadraj: roketin tepesinden aşağıda rampaya (yükseldikçe en çok 2,5 roket boyu aşağıya) kadar — rampa ve ufuk kalkışta kadrajda kalır, sonra roket izlenir
-      const a = Math.max(0, dot(sub(info.vehPos, P.pos), up)), top = add(info.vehPos, scale(info.axis, L * 1.05)), bot = sub(info.vehPos, scale(up, Math.min(a + 0.03, 2.5 * L)));
-      const tG = scale(add(top, bot), 0.5), span = norm(sub(top, bot)), dG = norm(sub(tG, g)), fovG = Math.min(50, Math.max(2.5, 2 * Math.atan(span * 0.62 / dG) * 180 / Math.PI));
+      const o = this.asc.state, P = o.pad, h = o.h || 0, L = (this.asc.len || 60) / 1000, shot = (o.shot && o.shot.shot) || 'track', met = o.met || 0;
+      const cutK = (o.cut || 0) / 1000, base = add(info.vehPos, scale(info.axis, cutK)), mid = add(info.vehPos, scale(info.axis, (cutK + L) / 2));   // kalan yığının tabanı ve ortası
+      const up = P.up, dr = P.dr || P.east, side = cross(up, dr);
       const z = unit(x.r), hv = sub(x.v, scale(z, dot(x.v, z))), xx = norm(hv) > 1e-6 ? unit(hv) : dr, y = cross(z, xx);
+      const key = o.shot ? o.shot.key : shot; if (key !== this.ascShotKey) { this.ascShotKey = key; this.ascAim = null; }       // kesme: operatör gecikmesi sıfırlanır
+      const sh = (eye, dist) => add(eye, camShake(shot, met, { thr: o.thr, q: o.q || 0, dist }));
+      // yer kameraları: operatör roketi biraz gecikmeli izler (tele objektifte roket kadrajda hafif kayar)
+      const aimLag = (eye, tgt, tau) => {
+        const d = unit(sub(tgt, eye)), k = 1 - Math.exp(-(this._dtCam || 0.016) / tau);
+        this.ascAim = this.ascAim ? unit(add(scale(this.ascAim, 1 - k), scale(d, k))) : d; return add(eye, scale(this.ascAim, norm(sub(tgt, eye))));
+      };
+      const fovFit = (span, d, lo = 2.5, hi = 55) => Math.min(hi, Math.max(lo, 2 * Math.atan(span * 0.62 / d) * 180 / Math.PI));
+      if (shot === 'wide') {                                                               // geri sayım: 3 km'den rampa ve roket, hafif kayan kamera
+        const drift = Math.sin(met * 0.05) * 0.15, g = add(add(P.pos, scale(side, -3.0)), add(scale(dr, -0.9 + drift), scale(up, 0.035)));
+        const tg = add(P.pos, scale(up, L * 0.55)), d = norm(sub(tg, g));
+        return { eye: g, target: tg, up, fov: fovFit(L * 2.6, d) };
+      }
+      if (shot === 'pad') {                                                                // rampa dibi: 160 m'den, yerden 3 m, motorlara ve aleve yukarı bakan geniş açı
+        const g = add(add(P.pos, scale(side, -0.13)), add(scale(dr, 0.09), scale(up, 0.003))), tg = add(info.vehPos, scale(info.axis, L * 0.38));
+        return { eye: sh(g, 0.16), target: aimLag(g, tg, 0.12), up, fov: 46 };
+      }
+      if (shot === 'onboard') {                                                            // araç üstü: gövdenin yanında, aşağı (geriye) bakar; Dünya ve alev, ayrılan kademe
+        const q = this.attQ, rad = new THREE.Vector3(1, 0, 0).applyQuaternion(q), rd = [rad.x, rad.y, rad.z], ax = info.axis;
+        const R = (this.asc.radius || 2) / 1000, m = o.shot.mount != null ? o.shot.mount / 1000 : L * 0.62;
+        const e = add(add(info.vehPos, scale(ax, m)), scale(rd, R + 0.0012));
+        const tg = add(add(e, scale(ax, -0.08)), scale(rd, 0.0035));
+        return { eye: sh(e, 1), target: tg, up: rd, fov: 62 };
+      }
+      const g = add(add(P.pos, scale(side, -1.4)), add(scale(dr, -0.42), scale(up, 0.012)));      // yer izleme: uçuş yönü kadrajın sağına akar
+      // kadraj: roketin tepesinden aşağıda rampaya (yükseldikçe en çok 2,5 roket boyu aşağıya) kadar — rampa ve ufuk kalkışta kadrajda kalır, sonra roket izlenir
+      const a = Math.max(0, dot(sub(base, P.pos), up)), top = add(info.vehPos, scale(info.axis, L * 1.05)), bot = sub(base, scale(up, Math.min(a + 0.03, 2.5 * L)));
+      const tG = scale(add(top, bot), 0.5), span = norm(sub(top, bot)), dG = norm(sub(tG, g)), fovG = fovFit(span, dG, 2.5, 50);
       const eC = add(mid, scale(fromBasis([xx, y, z], sph(c.az, c.el)), c.dist));
-      const u = Math.max(0, Math.min(1, (h - 1.5) / 3)), w = u * u * (3 - 2 * u);
-      return { eye: add(scale(g, 1 - w), scale(eC, w)), target: add(scale(tG, 1 - w), scale(mid, w)), up: unit(add(scale(up, 1 - w), scale(z, w))), fov: fovG + (50 - fovG) * w };
+      if (shot === 'chase') return { eye: sh(eC, 1), target: mid, up: z, fov: 50 };
+      const u = Math.max(0, Math.min(1, (h - 1.5) / 3)), w = u * u * (3 - 2 * u), tgL = aimLag(g, tG, 0.35);
+      return { eye: add(scale(sh(g, dG), 1 - w), scale(eC, w)), target: add(scale(tgL, 1 - w), scale(mid, w)), up: unit(add(scale(up, 1 - w), scale(z, w))), fov: fovG + (50 - fovG) * w };
     }
     // VEHICLE: merkez cisme göre yerel dikey çerçeve (x: hızın yatay izdüşümü). Motorlu inişte x, yaklaşma ekseni (iniş yerine bağlı, sabit) olur: yüzeye göre hız sıfıra yaklaşırken
     // eylemsiz hızın yönü oynar (Ay'ın dönmesi ~4,6 m/s, yatay hız bundan küçük); hıza bağlı çerçeve kamerayı aracın çevresinde döndürür, arazi sallanır.
@@ -823,6 +881,7 @@ export class World {
 
   // kamera pozu; otomatik kamera yakın kipler arasında (araç ↔ iniş yeri) geçerken önceki ve yeni poz süre boyunca yumuşak (smoothstep) harmanlanır, görüş açısı da.
   blendedPose(x, info, dt) {
+    this._dtCam = Math.min(0.1, dt || 0.016);
     let pose = this.cameraPose(x, info);
     const b = this.camBlend;
     if (b) {
