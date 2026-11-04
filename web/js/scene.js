@@ -804,7 +804,7 @@ export class World {
       const up = P.up, dr = P.dr || P.east, side = cross(up, dr), D = 1.4;
       const g = add(add(P.pos, scale(side, -D)), add(scale(dr, -0.3 * D), scale(up, 0.012)));      // uçuş yönü kadrajın sağına akar
       // kadraj: roketin tepesinden aşağıda rampaya (yükseldikçe en çok 2,5 roket boyu aşağıya) kadar — rampa ve ufuk kalkışta kadrajda kalır, sonra roket izlenir
-      const a = Math.max(0, dot(sub(info.vehPos, P.pos), up)), top = add(info.vehPos, scale(info.axis, L * 1.05)), bot = sub(info.vehPos, scale(up, Math.min(a + 0.012, 2.5 * L)));
+      const a = Math.max(0, dot(sub(info.vehPos, P.pos), up)), top = add(info.vehPos, scale(info.axis, L * 1.05)), bot = sub(info.vehPos, scale(up, Math.min(a + 0.03, 2.5 * L)));
       const tG = scale(add(top, bot), 0.5), span = norm(sub(top, bot)), dG = norm(sub(tG, g)), fovG = Math.min(50, Math.max(2.5, 2 * Math.atan(span * 0.62 / dG) * 180 / Math.PI));
       const z = unit(x.r), hv = sub(x.v, scale(z, dot(x.v, z))), xx = norm(hv) > 1e-6 ? unit(hv) : dr, y = cross(z, xx);
       const eC = add(mid, scale(fromBasis([xx, y, z], sph(c.az, c.el)), c.dist));

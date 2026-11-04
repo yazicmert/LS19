@@ -360,3 +360,20 @@ Canlandırmada yol bu benzetimden geliyor: gerçek zaman canlandırma süresine 
 - Model yükü gerçek görevden hafif (örneğin SLS'te 3,6 t'luk iniş aracı, Orion 26 t).
 - Hava yoğunluğu 86 km üstünde üstel.
 - Bu ortamın ağından EOX karolarına ve NASA GIBS'e erişilemediği için yer görüntüsü tarayıcıda sahte karoyla denendi.
+
+#### 6.7.1 Kalkış kamerası
+
+Kullanıcı kalkışın "yatay gibi" göründüğünü bildirdi. Ölçüm: rampada roket ekseni ile yerel dikey arası **0,0°**; eğilme Apollo 11'e uygun (Saturn V dikeyden T+60 s'de 17°, T+120 s'de 52°). Sorun kameradaydı.
+
+- Kamera roketin 320 m yanına kilitliydi ve onunla birlikte yükseliyordu. Rampa ve ufuk ilk saniyede kadrajdan çıkıyordu; canlandırma ×10 başladığından yunuslama hemen geliyordu.
+- Görev yörüngesi çizgileri (anlık yörünge elipsi, turuncu görev izi) roketin içinden yatay geçiyordu.
+
+Düzeltme (`scene.js` `LAUNCH` kipi, `ascentplay.js`):
+
+1. **Yer kamerası.** Rampanın yanında, uçuş yönüne dik, 1,4 km uzakta ve 12 m yükseklikte durur; tele objektifle izler. Kadraj roketin tepesinden rampaya kadar uzanır; roket yükseldikçe en çok 2,5 roket boyu aşağısını kapsar. Dikey kalkış rampaya ve ufka göre görünür, yunuslama yandan izlenir (uçuş yönü kadrajın sağına akar).
+2. **Takip kamerasına geçiş.** 1,5–4,5 km irtifada roketin arkasındaki takip kamerasına yumuşak geçer: yerel dikey yukarı, ufuk kadrajda. Sürükleme ve tekerlek çalışır.
+3. **Hız.** Kalkış ×1 hızda başlar; T+20 s'den sonra ×10 olur (kullanıcı hız seçtiyse dokunulmaz).
+4. **Kalkışta gizlenenler.** Yörünge çizgileri, "Araç" işareti ve iniş ayağı ofseti (2,9 m) kalkışta yok; roket rampaya oturur.
+5. **İrtifa göstergesi.** Rampada 11,6 m gösteriyordu (yaklaşık elipsoid formülü); artık canlandırmanın WGS-84 irtifasını gösterir.
+
+Doğrulama: başsız Chromium'da açılar ölçüldü. T+8 s'de ekran dikeyi ile yerel dikey arası 3°; geçiş sonrası ufuk kadrajda. Gölgelendirici hatası görülmedi.

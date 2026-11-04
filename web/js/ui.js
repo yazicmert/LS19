@@ -353,7 +353,7 @@ export class UI {
     setText(H.phase, this.phaseLabel(s.phase));
     // Dünya: WGS-84 elipsoidine göre (yaklaşık), Ay: iniş yakınında iniş yeri yüzeyine, değilse ortalama yarıçapa göre
     const rE = E.norm(s.r), sphi = s.r[2] / rE, Rell = E.R_E * (1 - (1 / 298.257) * sphi * sphi);
-    let alt = nearM ? (s.local ? s.local.p[2] : rs - E.R_M) : rE - Rell;
+    let alt = s.altKm != null ? s.altKm : nearM ? (s.local ? s.local.p[2] : rs - E.R_M) : rE - Rell;          // altKm: kalkış canlandırmasının WGS-84 irtifası (yaklaşık formül rampada ~12 m sapar)
     if (Math.abs(alt) < 5e-5) alt = 0;                          // yüzeyde "−0,0 m" görünmesin
     const surf = nearM && s.local && s.local.p[2] < 50;
     const vRelVec = nearM ? E.sub(s.v, E.moonVel(t)) : s.v;

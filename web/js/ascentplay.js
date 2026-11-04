@@ -100,7 +100,7 @@ export class AscentPlayer {
     if (full !== this.lastMsg) { this.txt.textContent = full; this.lastMsg = full; }
     const cr = this.world.asc && h < 40 ? this.world.asc.credit : ''; if (this.credit && this.credit.textContent !== cr) this.credit.textContent = cr;
     const x = { ...this.base, t: this.t, r: s.r, v: s.v, q, k: 0, thr: 0, phase: 'KALKIS', debris: [], local: null, att: null };
-    this.hud = x; return { ...x, r: this.drawR(s.r) };
+    this.hud = { ...x, altKm: h }; return { ...x, r: this.drawR(s.r) };
   }
   async stop() {
     if (!this.active) return;
