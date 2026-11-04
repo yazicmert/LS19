@@ -9,7 +9,7 @@ import { LAB_PAGES, EXPERIMENTS, LAB_HOME, engineFor, resolveView } from '../js/
 let ok = true;
 const check = (c, m) => { console.log((c ? '  ✓ ' : '  ✗ ') + m); ok = ok && !!c; };
 const read = (f) => fs.readFileSync(new URL('../' + f, import.meta.url), 'utf8');
-const html = read('index.html'), css = read('css/style.css'), cine = read('css/cinema.css'), app = read('js/app.js'), uij = read('js/ui.js'), dui = read('js/deflectui.js'), lui = read('js/labui.js'), aui = read('js/astui.js'), iui = read('js/impactui.js'), icons = read('js/icons.js');
+const html = read('index.html'), css = read('css/style.css'), cine = read('css/cinema.css'), app = read('js/app.js') + '\n' + read('js/canvasinput.js') + '\n' + read('js/windowscan.js') + '\n' + read('js/profilecompare.js'), uij = read('js/ui.js'), dui = read('js/deflectui.js'), lui = read('js/labui.js'), aui = read('js/astui.js'), iui = read('js/impactui.js'), icons = read('js/icons.js');
 
 // ---------------------------------------------------------------- 1. saf yardımcılar
 console.log('labtext.js');
