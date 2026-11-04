@@ -24,4 +24,6 @@ check('zaman çizgisi sıralı, Max-Q ve yörüngeyi içerir', tl[0].name === 'M
 const sc = fs.readFileSync(new URL('../js/scene.js', import.meta.url), 'utf8'), Sky = fs.readFileSync(new URL('../lib/addons/objects/Sky.js', import.meta.url), 'utf8');
 check('Sky eklentisi (three r170) yamalanacak satırları içerir', Sky.includes('gl_Position.z = gl_Position.w; // set z to camera.far') && Sky.includes('gl_FragColor = vec4( retColor, 1.0 );') && Sky.includes('vec3 direction = normalize( vWorldPosition - cameraPosition );'));
 check('scene.js: kalkışta Sky, alev ışığı, bulut ve çekimler bağlı', /skyMaterial\(\)/.test(sc) && /plumeLight/.test(sc) && /new LaunchSmoke\(/.test(sc) && /shot === 'onboard'/.test(sc));
+import { execFileSync } from 'child_process';
+for (const f of ['scene.js', 'ascentplay.js', 'launchfx.js', 'launchcam.js']) { let ok = true; try { execFileSync(process.execPath, ['--check', new URL('../js/' + f, import.meta.url).pathname], { stdio: 'pipe' }); } catch (e) { ok = false; } check(`${f}: sözdizimi geçerli`, ok); }
 console.log(fail ? `\n${fail} denetim BAŞARISIZ` : '\nTüm denetimler geçti'); process.exit(fail ? 1 : 0);
