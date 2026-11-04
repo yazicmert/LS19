@@ -80,10 +80,39 @@ Her adımdan sonra bir ad çözümleme denetimi çalıştırıldı: her parça, 
 - kalkış yayını çekimleri,
 - yüzey karosu akışı.
 
-## 6. Sonraki temel işleri (öneri)
+## 6. `app.js` ve `ui.js`'in bölünmesi
+
+**`app.js`** (778 → 618 satır) uygulamanın bileşim kökü: parçaları modül düzeyindeki ortak durumla (`DESIGN`, `latest`, `MODE`…) birbirine bağlıyor. Körlemesine bölmek bu bağımlılığı uzun parametre listelerine taşırdı. Bu yüzden yalnız kendi içinde tutarlı ve dış arayüzü küçük olan üç parça ayrıldı. Her birinin dokunduğu ortak durum ESLint `no-undef` ile çıkarıldı ve açıkça (getter'larla) verildi:
+
+| Modül | Satır | Arayüz |
+|---|---|---|
+| `windowscan.js` | 81 | `WindowScanner`: `day()`, `scan(N)`, `cancel()`: günlük fırlatma penceresi ve pencere taraması |
+| `profilecompare.js` | 30 | `ProfileCompare`: `run()`, `refresh()`, `cancel()`: profil karşılaştırması |
+| `canvasinput.js` | 93 | `attachCanvasInput(canvas, ctx)`: kamera sürükleme ve yakınlaşma, ipucu, tıklayarak seçme ve bilgi kartı |
+
+Klavye kısayolları `app.js`'te kaldı (uygulama çapında komut haritası).
+
+**`ui.js`** (703 → 367 satır) `scene.js` gibi `mixin` ile bölündü. `UI` sınıfının arayüzü değişmedi:
+
+| Modül | Satır | İçerik |
+|---|---|---|
+| `pickcard.js` | 77 | tıklanan cismin bilgi kartı |
+| `satpanel.js` | 70 | Uydular sekmesi |
+| `flighttools.js` | 148 | Yörünge ve Canlı efemeris sekmeleri |
+| `linechart.js` | 71 | görev grafikleri |
+| `uiutil.js` | 8 | ortak küçük yardımcılar (`$`, `setText`, `setWidth`, `utcShort`) |
+
+`mixin` artık kendi modülünde (`mixin.js`). Hem `World` hem `UI` onu kullanıyor.
+
+**ESLint ile ek temizlik:**
+- `no-undef` tüm `web/js`'te temiz. Tek uyarı `conic.js`'teki `typeof process` korumalı Node denetimi; bu kasıtlı.
+- `no-unused-vars` ile bölünen dosyalarda kullanılmayan **111 içe aktarma** kaldırıldı.
+- Bu, bölmede gözden kaçan bir eksik içe aktarmayı da yakaladı (`surfaceview.js`: `add is not defined`). Hatayı ilk tarayıcı testi göstermişti.
+
+## 7. Sonraki temel işleri (öneri)
 
 | Öncelik | İş | Neden |
 |---|---|---|
-| 1 | `app.js` (778) ve `ui.js` (708): görünüm/durum ayrımı | Laboratuvar deneyim merkezine dönüşürken en çok değişecek dosyalar |
-| 2 | Gereksiz dışa aktarımları kaldırmak (knip listesi) | Modüllerin gerçek arayüzü görünür olur |
+| 1 | `app.js`'in ortak durumunu (`DESIGN`, `latest`, `MODE`…) küçük bir durum nesnesine toplamak | Deneyim merkezinde birden çok deneyim aynı durumu okuyacak; açık bir durum nesnesi bağımlılıkları görünür kılar |
+| 2 | Gereksiz dışa aktarımları kaldırmak (knip listesi); ESLint'i depoya kalıcı bir denetim olarak eklemek | Modüllerin gerçek arayüzü görünür olur; bölmelerde yakalanan türden hatalar baştan önlenir |
 | 3 | Araç betiklerindeki ortak GLB dönüştürme kodu (`tools/*_modelleri.mjs`, 4 kopya) | Aynı 8 satırlık yükleyici dört betikte |
