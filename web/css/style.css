@@ -567,26 +567,24 @@ body.rs-open { overflow: hidden; }
 .ascbtns button { padding: 3px 8px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--surface-2); color: var(--text-secondary); font-size: 12px; }
 .ascbtns button.on { border-color: var(--accent); color: var(--text-primary); }
 
-/* kalkış telemetri bandı (yayın tarzı): üstte ortada; sayılar sabit genişlikli */
-.asctele { position: fixed; left: 50%; top: 74px; transform: translateX(-50%); z-index: 39; width: min(980px, calc(100vw - 32px)); display: grid; grid-template-columns: auto 1fr auto; gap: 18px; align-items: center;
-  padding: 8px 16px; border-radius: 12px; background: linear-gradient(180deg, rgba(6, 8, 14, .72), rgba(6, 8, 14, .5)); border: 1px solid rgba(255, 255, 255, .08); color: #fff; pointer-events: none;
-  font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+/* kalkış telemetri bandı (yayın tarzı): alt ortada, kontrol çubuğunun üstünde; iki satır (sayılar · olay zaman çizgisi); sayılar sabit genişlikli */
+.asctele { position: fixed; left: 50%; bottom: 178px; transform: translateX(-50%); z-index: 39; width: min(640px, calc(100vw - 32px)); padding: 8px 16px 4px; border-radius: 12px;
+  background: linear-gradient(180deg, rgba(6, 8, 14, .66), rgba(6, 8, 14, .5)); border: 1px solid rgba(255, 255, 255, .08); color: #fff; pointer-events: none; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 .asctele[hidden] { display: none; }
-.asctele .at-l, .asctele .at-r { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
-.asctele .at-st { font-size: 11px; font-weight: 700; color: var(--accent); margin-right: 8px; }
-.asctele .at-k { font-size: 10px; color: rgba(255, 255, 255, .55); margin-left: 6px; }
+.asctele .at-row { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.asctele .at-st { font-size: 11px; font-weight: 700; color: var(--accent); margin-right: 6px; }
+.asctele .at-k { font-size: 10px; color: rgba(255, 255, 255, .55); margin-left: 8px; }
 .asctele b { font-size: 20px; font-weight: 600; min-width: 3.2ch; text-align: right; }
 .asctele .at-u { font-size: 10.5px; color: rgba(255, 255, 255, .6); }
-.asctele .at-c { display: flex; align-items: center; gap: 14px; min-width: 0; }
-.asctele #atT { font-size: 20px; min-width: 6.5ch; }
-.asctele .at-line { position: relative; flex: 1; height: 2px; background: rgba(255, 255, 255, .22); margin: 14px 0 16px; }
+.asctele .at-t { margin-left: auto; min-width: 6.5ch; }
+.asctele .at-cam { font-size: 10.5px; color: rgba(255, 255, 255, .6); margin-left: 10px; min-width: 9em; text-align: right; }
+.asctele .at-line { position: relative; height: 2px; background: rgba(255, 255, 255, .22); margin: 16px 6px 18px; }
 .asctele .at-line i { position: absolute; left: 0; top: 0; bottom: 0; background: #fff; }
 .asctele .at-ev { position: absolute; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; border: 1.5px solid #fff; background: rgba(6, 8, 14, .9); }
 .asctele .at-ev.done { background: #fff; }
 .asctele .at-ev.at-zero { width: 2px; height: 10px; margin: -5px 0 0 -1px; border: 0; border-radius: 0; background: rgba(255, 255, 255, .7); }
-.asctele .at-ev em { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); font-style: normal; font-size: 9.5px; color: rgba(255, 255, 255, .7); white-space: nowrap; }
-.asctele .at-ev:nth-child(odd) em { top: auto; bottom: 12px; }
-.asctele .at-r span:last-child { font-size: 11.5px; }
-@media (max-width: 760px) { .asctele { grid-template-columns: 1fr; gap: 4px; top: 64px; padding: 6px 10px; } .asctele .at-r { display: none; } .asctele b, .asctele #atT { font-size: 16px; } .asctele .at-ev em { display: none; } }
+.asctele .at-ev em { position: absolute; top: 11px; left: 50%; transform: translateX(-50%); font-style: normal; font-size: 9.5px; color: rgba(255, 255, 255, .7); white-space: nowrap; }
+.asctele .at-ev:nth-child(odd) em { top: auto; bottom: 11px; }
+@media (max-width: 760px) { .asctele { bottom: 200px; padding: 6px 10px 2px; } .asctele b { font-size: 16px; } .asctele .at-cam { display: none; } .asctele .at-ev em { display: none; } .asctele .at-line { margin: 10px 4px 10px; } }
 .asccredit { flex-basis: 100%; text-align: center; font-size: 10.5px; color: var(--text-muted); }
 .asccredit:empty { display: none; }

@@ -377,3 +377,50 @@ Düzeltme (`scene.js` `LAUNCH` kipi, `ascentplay.js`):
 5. **İrtifa göstergesi.** Rampada 11,6 m gösteriyordu (yaklaşık elipsoid formülü); artık canlandırmanın WGS-84 irtifasını gösterir.
 
 Doğrulama: başsız Chromium'da açılar ölçüldü. T+8 s'de ekran dikeyi ile yerel dikey arası 3°; geçiş sonrası ufuk kadrajda. Gölgelendirici hatası görülmedi.
+
+#### 6.7.2 Yayın kalitesinde kalkış
+
+Hedef: NASA ve SpaceX canlı yayınlarının çekim dili ve ekran düzeni. Yayını "gerçek" gösteren şeylerin çoğu kamera ve grafik dilidir; tam fotoğraf gerçekçiliği (hacimsel duman, küresel aydınlatma) gerçek zamanlı web için hedeflenmedi.
+
+**Kamera kurgusu** (`js/launchcam.js`, saf, `test_launchcam.js` ile sınanır):
+
+| Zaman | Çekim |
+|---|---|
+| T−10 → T−3 | Geniş rampa çekimi: 3 km'den, yavaşça kayar |
+| T−3 → T+7 | Rampa kamerası: 160 m'den, yerden 3 m; motorlara ve aleve bakar; kalkışın ses basıncıyla sarsılır |
+| T+7 → 4,5 km | Yer izleme: 1,4 km'den tele objektif; operatör gecikmesi (0,35 s) |
+| 4,5 km sonrası | Takip kamerası: ufuk kadrajda |
+| Max-Q ve her ayrılma | Araç üstü kamera: gövdenin yanından aşağı bakar, ayrılan kademe görünür |
+
+- Ayrılmalarda kamera üst kademeye geçer (kesme + 12 m).
+- Kalkış ×1 hızda başlar, ayrılmalar ×2 yavaş çekim, arada ×10. Kullanıcı hızı ya da kamerayı seçerse kurgu ona uyar (Kurgu / Yer / Takip / Araç üstü).
+- Sarsıntı deterministiktir (sinüs toplamı). Yer kameralarında kalkıştaki ses basıncı uzaklıkla azalır ve sönümlenir; araç üstünde dinamik basınca bağlıdır.
+
+**Telemetri bandı:** aşama, yere göre hız (km/sa), irtifa, T± saati ve olay zaman çizgisi (Max-Q, ayrılmalar, yörünge). Yayındaki alt şerit gibidir ve ~11 Hz'de güncellenir.
+
+**Gökyüzü:** three.js r170'in resmî `Sky` eklentisi (Preetham analitik gün ışığı modeli, Rayleigh + Mie; `lib/addons/objects/Sky.js`, MIT). Sahnenin logaritmik derinliğine uyarlandı:
+- Kubbe ufuk uzaklığında kalır; yıldızları örter, Dünya'yı örtmez.
+- İrtifayla saydamlaşır: 15 km'de koyu mavi, ~60 km üstünde siyah.
+- Güneş'in araca göre yönü güncel efemeristen alınır.
+
+**Alevin ışığı:** nokta ışık alevin altında durur, yakıt rengindedir ve itkiye göre yanar. Gövdeyi, rampayı ve bulutu aydınlatır; gece güçlenir.
+
+**Kalkış bulutu** (`js/launchfx.js`): örneklenmiş, kameraya dönük dörtgenlerle tek çizim çağrısı, en çok 900 parçacık, uzaktan yakına sıralı. Üç kaynak:
+- Alev çukurundan iki yana fışkıran sıcak duman
+- T−8 s'den itibaren su püskürtme buharı
+- Roketin alçakta bıraktığı egzoz sütunu (3 km üstünde incelir)
+
+Renk Güneş yüksekliğine göre gri-beyazdır, aleve yakın kısım turuncudur.
+
+**Değerlendirilen kütüphaneler:**
+
+| Kütüphane | Karar | Neden |
+|---|---|---|
+| three.js resmî eklentileri (Sky, EffectComposer/UnrealBloom) | Kullanıldı | Sürümle uyumlu, bakımlı, MIT |
+| three.quarks (MIT, parçacık sistemi, ~200 KB) | Kullanılmadı | Tek bir bulut etkisi için gereksiz; aynı teknik doğrudan yazıldı |
+| pmndrs/postprocessing | Kullanılmadı | Mevcut sinematik hat (`post.js`, resmî eklentiler) yetiyor; ikinci bir son işlem zinciri boyut ve bakım yükü getirirdi |
+
+**Bilinen sınırlar:**
+- Duman hacimsel değildir (ışığı kırmaz).
+- Rampa yapıları basittir; LC-39 kulesi yok, SLS'te Mobile Launcher var.
+- Uzaktaki yer, uydu görüntüsünün çözünürlüğündedir.

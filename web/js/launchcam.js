@@ -12,7 +12,7 @@ export const SHOT_NAMES = { wide: 'Geniş rampa çekimi', pad: 'Rampa kamerası'
 export function onboardWindows(events, maxQ) {
   const w = [];
   if (maxQ && maxQ.t > 20) w.push({ t0: maxQ.t - 4, t1: maxQ.t + 10, mount: null, key: 'maxq', slow: false });
-  for (const e of events || []) if (e.cut != null || e.part === 'booster') w.push({ t0: e.t - ONBOARD_PRE, t1: e.t + ONBOARD_POST, mount: e.cut != null ? e.cut + 6 : null, key: 'sep' + e.t, slow: true });
+  for (const e of events || []) if (e.cut != null || e.part === 'booster') w.push({ t0: e.t - ONBOARD_PRE, t1: e.t + ONBOARD_POST, mount: e.cut != null ? e.cut + 12 : null, key: 'sep' + e.t, slow: true });
   w.sort((a, b) => a.t0 - b.t0);
   for (let i = 1; i < w.length; i++) if (w[i].t0 < w[i - 1].t1) { if (w[i].slow) w[i - 1].t1 = w[i].t0; else w.splice(i--, 1); }   // çakışan: ayrılma öncelikli
   return w;
@@ -22,7 +22,7 @@ export function directShot({ met, h, events, maxQ, user = 'auto' }) {
   if (user === 'ground') return { shot: met < -3 ? 'wide' : 'track', mount: null, key: 'u-ground', slow: false };
   if (user === 'chase') return { shot: 'chase', mount: null, key: 'u-chase', slow: false };
   if (user === 'onboard') {
-    let mount = null; for (const e of events || []) if (e.cut != null && met >= e.t) mount = e.cut + 6;   // ayrılmadan sonra üst kademede
+    let mount = null; for (const e of events || []) if (e.cut != null && met >= e.t) mount = e.cut + 12;   // ayrılmadan sonra üst kademede
     return { shot: 'onboard', mount, key: 'u-onboard' + mount, slow: false };
   }
   if (met < -3) return { shot: 'wide', mount: null, key: 'wide', slow: false };

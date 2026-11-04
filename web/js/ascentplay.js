@@ -36,9 +36,9 @@ export class AscentPlayer {
     const T = this.tele; if (!T) return;
     const tl = this.tl = timeline(this.A.events, this.path.sim && this.path.sim.maxQ, this.A.tIns), tEnd = this.A.tIns, t0 = -10;
     const x = (t) => ((t - t0) / (tEnd - t0) * 100).toFixed(2) + '%';
-    T.innerHTML = `<div class="at-l"><span class="at-st" id="atSt"></span><span class="at-k">HIZ</span><b id="atV">0</b><span class="at-u">km/sa</span><span class="at-k">İRTİFA</span><b id="atH">0</b><span class="at-u">km</span></div>`
-      + `<div class="at-c"><b id="atT">T−00:10</b><div class="at-line"><i id="atFill"></i>${tl.map((e, i) => `<span class="at-ev at-${e.kind}" style="left:${x(e.t)}" data-i="${i}"><em>${e.name}</em></span>`).join('')}<span class="at-ev at-zero" style="left:${x(0)}"></span></div></div>`
-      + `<div class="at-r"><span class="at-k">KAMERA</span><span id="atCam"></span></div>`;
+    T.innerHTML = `<div class="at-row"><span class="at-st" id="atSt"></span><span class="at-k">HIZ</span><b id="atV">0</b><span class="at-u">km/sa</span><span class="at-k">İRTİFA</span><b id="atH">0</b><span class="at-u">km</span>`
+      + `<b id="atT" class="at-t">T−00:10</b><span class="at-cam" id="atCam"></span></div>`
+      + `<div class="at-line"><i id="atFill"></i>${tl.map((e, i) => `<span class="at-ev at-${e.kind}" style="left:${x(e.t)}" data-i="${i}"><em>${e.name}</em></span>`).join('')}<span class="at-ev at-zero" style="left:${x(0)}"></span></div>`;
     this.teleEl = { st: T.querySelector('#atSt'), v: T.querySelector('#atV'), h: T.querySelector('#atH'), t: T.querySelector('#atT'), fill: T.querySelector('#atFill'), ev: [...T.querySelectorAll('[data-i]')], cam: T.querySelector('#atCam') };
     this.teleX = x; this.teleLast = 0; T.hidden = false;
   }

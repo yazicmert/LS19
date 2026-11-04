@@ -695,7 +695,7 @@ export class World {
     // alev rengi o anda yanan kademenin yakıtına göre (ör. Saturn V: S-IC gazyağı → S-II/S-IVB hidrolox)
     if (o.prop && o.prop !== A.propNow) { A.propNow = o.prop; const c = PLUME_COL[o.prop] || PLUME_COL.kerolox; const u = A.flame.material.uniforms; u.hot.value.copy(c[0]); u.cool.value.copy(c[1]); const gl = A.flame.userData.glow; if (gl) gl.userData.col.copy(c[2]); }
     const SM = A.sky.material;
-    if (SM.userData.preetham) { SM.uniforms.skyFade.value = Math.min(0.985, Math.exp(-o.h / 9) * (0.35 + 0.65 * day)); if (o.sunDir) SM.uniforms.sunPosition.value.set(...o.sunDir); if (o.upV) SM.uniforms.up.value.set(...o.upV); }
+    if (SM.userData.preetham) { SM.uniforms.skyFade.value = Math.min(0.985, Math.exp(-o.h / 22) * (0.35 + 0.65 * day));          // 15 km'de koyu mavi, ~60 km üstünde siyah if (o.sunDir) SM.uniforms.sunPosition.value.set(...o.sunDir); if (o.upV) SM.uniforms.up.value.set(...o.upV); }
     else { SM.opacity = Math.min(0.97, op); SM.color.setRGB(0.04 + 0.30 * day, 0.06 + 0.50 * day, 0.12 + 0.82 * day); }
     // alev ışığı: itkiyle, yakıt rengine göre (gece kalkışında gövde ve bulut belirgin turuncu)
     if (A.plumeLight) { const c = (PLUME_COL[o.prop] || PLUME_COL.kerolox)[2]; A.plumeLight.color.setRGB(c.r, c.g, c.b).multiplyScalar(1 / Math.max(c.r, c.g, c.b)); A.plumeLight.intensity = 0.006 * o.thr * (1 + 0.6 * (1 - day)); }
@@ -856,8 +856,8 @@ export class World {
       if (shot === 'onboard') {                                                            // araç üstü: gövdenin yanında, aşağı (geriye) bakar; Dünya ve alev, ayrılan kademe
         const q = this.attQ, rad = new THREE.Vector3(1, 0, 0).applyQuaternion(q), rd = [rad.x, rad.y, rad.z], ax = info.axis;
         const R = (this.asc.radius || 2) / 1000, m = o.shot.mount != null ? o.shot.mount / 1000 : L * 0.62;
-        const e = add(add(info.vehPos, scale(ax, m)), scale(rd, R + 0.0012));
-        const tg = add(add(e, scale(ax, -0.08)), scale(rd, 0.0035));
+        const e = add(add(info.vehPos, scale(ax, m)), scale(rd, R + 0.0028));                 // gövdeden 2,8 m dışarıda, ~9° dışa eğik
+        const tg = add(add(e, scale(ax, -0.08)), scale(rd, 0.0125));
         return { eye: sh(e, 1), target: tg, up: rd, fov: 62 };
       }
       const g = add(add(P.pos, scale(side, -1.4)), add(scale(dr, -0.42), scale(up, 0.012)));      // yer izleme: uçuş yönü kadrajın sağına akar
