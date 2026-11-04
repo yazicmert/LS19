@@ -626,7 +626,8 @@ export class World {
       const trench = new THREE.Mesh(new THREE.BoxGeometry(12, 2.2, 40), new THREE.MeshLambertMaterial({ color: 0x3a3936 })); trench.position.set(0, -0.95, 14); pad.add(trench);
       for (const [x, z] of [[-26, -26], [26, 26]]) { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 1.0, 90, 8), new THREE.MeshLambertMaterial({ color: 0xb8b6b0 })); t.position.set(x, 45, z); pad.add(t); }   // yıldırım direkleri
     }
-    this.asc = { root: L.root, inner: L.inner, model: L.model, plane: L.planes[0], holder, flame, cut: 0, spec, template, prep, world, sky, pad, debris: new Map(), state: null, credit: '' };
+    const len = new THREE.Box3().setFromObject(template).getSize(new THREE.Vector3()).y;      // roket boyu (m, +Y): kalkış kamerasının kadrajı
+    this.asc = { root: L.root, inner: L.inner, model: L.model, plane: L.planes[0], holder, flame, cut: 0, spec, template, prep, world, sky, pad, debris: new Map(), state: null, credit: '', len };
     if (spec.site) this.loadPadGround(spec.site, pad).then((ok) => { if (ok && this.asc && this.asc.pad === pad) this.asc.credit = 'Yer görüntüsü: Sentinel-2 cloudless 2016 — s2maps.eu, EOX IT Services GmbH (değiştirilmiş Copernicus Sentinel verisi) · CC BY-SA 4.0'; });
     this.renderer.localClippingEnabled = true;
   }
@@ -794,6 +795,20 @@ export class World {
       const hdir = unit(dh), tdir = add(scale(hdir, Math.cos(Math.min(lookEl, elev))), scale(up, Math.sin(Math.min(lookEl, elev))));
       return { eye: obs, target: add(obs, tdir), up, fov };
     }
+    // LAUNCH (kalkış canlandırması): yayınlardaki gibi önce YER kamerası — rampanın yanında (uçuş yönüne dik, ~1,4 km), yerden ~12 m yukarıda, tele
+    // objektifle roketi izler (roket kadraj yüksekliğinin ~yarısı); dikey kalkış rampaya ve ufka göre görünür, yunuslama (pitch) yandan, profilden izlenir.
+    // İrtifa 1,5 → 4,5 km arasında yumuşakça TAKİP kamerasına geçer: roketin arkasından (cam.az/el/dist; sürüklenebilir), yerel dikey yukarı, ufuk kadrajda.
+    if (c.mode === 'LAUNCH' && this.asc && this.asc.state && this.asc.state.pad && info.axis) {
+      const P = this.asc.state.pad, h = this.asc.state.h || 0, L = (this.asc.len || 60) / 1000;
+      const mid = add(info.vehPos, scale(info.axis, L * 0.5));                             // roketin ortası (kalan yığın)
+      const up = P.up, dr = P.dr || P.east, side = cross(up, dr), D = 1.4;
+      const g = add(add(P.pos, scale(side, -D)), add(scale(dr, -0.3 * D), scale(up, 0.012)));      // uçuş yönü kadrajın sağına akar
+      const dG = norm(sub(mid, g)), fovG = Math.min(50, Math.max(2.5, 2 * Math.atan(L / 0.5 / 2 / dG) * 180 / Math.PI));
+      const z = unit(x.r), hv = sub(x.v, scale(z, dot(x.v, z))), xx = norm(hv) > 1e-6 ? unit(hv) : dr, y = cross(z, xx);
+      const eC = add(mid, scale(fromBasis([xx, y, z], sph(c.az, c.el)), c.dist));
+      const u = Math.max(0, Math.min(1, (h - 1.5) / 3)), w = u * u * (3 - 2 * u);
+      return { eye: add(scale(g, 1 - w), scale(eC, w)), target: mid, up: unit(add(scale(up, 1 - w), scale(z, w))), fov: fovG + (50 - fovG) * w };
+    }
     // VEHICLE: merkez cisme göre yerel dikey çerçeve (x: hızın yatay izdüşümü). Motorlu inişte x, yaklaşma ekseni (iniş yerine bağlı, sabit) olur: yüzeye göre hız sıfıra yaklaşırken
     // eylemsiz hızın yönü oynar (Ay'ın dönmesi ~4,6 m/s, yatay hız bundan küçük); hıza bağlı çerçeve kamerayı aracın çevresinde döndürür, arazi sallanır.
     const cen = info.central === 'M' ? rm : [0, 0, 0], vcen = info.central === 'M' ? E.moonVel(t) : [0, 0, 0];
@@ -829,7 +844,7 @@ export class World {
   }
 
   autoCamera(x, info) {
-    if (this.cam.mode !== 'SITE' && this.cam.mode !== 'OBS' && this.cam.mode !== 'CINE' && this.camera.fov !== 50 && !this.camBlend) { this.camera.fov = 50; this.camera.updateProjectionMatrix(); }
+    if (this.cam.mode !== 'SITE' && this.cam.mode !== 'OBS' && this.cam.mode !== 'CINE' && this.cam.mode !== 'LAUNCH' && this.camera.fov !== 50 && !this.camBlend) { this.camera.fov = 50; this.camera.updateProjectionMatrix(); }
     if (!this.cam.auto) { this.camBlend = null; return; }
     const ph = x.phase, burning = x.thr > 0, rE = norm(x.r), rs = norm(sub(x.r, info.rm));
     let key, set;
@@ -883,7 +898,7 @@ export class World {
     const zNow = new THREE.Vector3(0, 0, 1).applyQuaternion(this.attQ);
     // model başvuru noktası: fiziksel nokta = iniş ayakları; model orijini gövde z boyunca 2.9 m yukarıda
     const vehPos = add(x.r, [zNow.x * 0.0029, zNow.y * 0.0029, zNow.z * 0.0029]);
-    const info = { rm, central, vehPos, drAxis: extra.drAxis, local: extra.local };
+    const info = { rm, central, vehPos, drAxis: extra.drAxis, local: extra.local, axis: [zNow.x, zNow.y, zNow.z] };
     this.autoCamera(x, info);
     const pose = this.blendedPose(x, info, extra.dtReal || 0.016);
     const eye = pose.eye;

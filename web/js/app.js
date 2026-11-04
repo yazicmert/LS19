@@ -688,7 +688,7 @@ canvas.addEventListener('wheel', (e) => {
   if (world.cam.mode === 'SITE' || world.cam.mode === 'OBS') { world.cam.userFov = true; world.camera.fov = Math.max(2, Math.min(world.cam.mode === 'OBS' ? 100 : 70, world.camera.fov * Math.exp(e.deltaY * 0.001))); world.camera.updateProjectionMatrix(); return; }
   const f = world.cam.focus;
   const minD = world.cam.mode === 'FOCUS' ? (f && f.kind === 'planet' ? world.planetInfo(f.i, curT()).R * 1.15 : f && (f.kind === 'ast' || f.R) ? Math.max(0.004, f.R * 1.3) : 0.004)
-    : { VEHICLE: 0.012, EARTH: E.R_E * 1.05, MOON: E.R_M * 1.03, SYSTEM: 50000, EMB: 9000, SOLAR: 2e6 }[world.cam.mode] || 0.01;
+    : { VEHICLE: 0.012, LAUNCH: 0.03, EARTH: E.R_E * 1.05, MOON: E.R_M * 1.03, SYSTEM: 50000, EMB: 9000, SOLAR: 2e6 }[world.cam.mode] || 0.01;
   const maxD = world.cam.mode === 'SOLAR' || world.cam.mode === 'FOCUS' ? 1e10 : 3e6;
   world.cam.dist = Math.max(minD, Math.min(maxD, world.cam.dist * Math.exp(e.deltaY * 0.0012)));
 }, { passive: false });
@@ -771,7 +771,7 @@ function applyUrlParams() {
 }
 $('#btnPanel').onclick = () => $('#labPanel').classList.toggle('open');
 $('#btnSkyPanel').onclick = () => (VIEW === 'lab' ? $('#labPanel') : $('#skyPanel')).classList.toggle('open');
-window.LS19 = { world, ui, send, setCam, setPlay, cinema, focusOn, setWorkspace, setSkyCam, clock, followSat, lookAtSat, labui, openLab, get mode() { return MODE; }, get view() { return VIEW; }, get skyT() { return skyT; }, get deflect() { return deflect; },
+window.LS19 = { world, ui, send, ascent, setCam, setPlay, cinema, focusOn, setWorkspace, setSkyCam, clock, followSat, lookAtSat, labui, openLab, get mode() { return MODE; }, get view() { return VIEW; }, get skyT() { return skyT; }, get deflect() { return deflect; },
   get sats() { return sats; }, get asts() { return asts; }, get astui() { return astui; }, get updater() { return updater; }, get tracker() { return tracker; }, get skyui() { return skyui; } };
 window.ROCSIM = window.LS19;
 

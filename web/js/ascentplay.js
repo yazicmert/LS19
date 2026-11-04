@@ -22,7 +22,7 @@ export class AscentPlayer {
     this.active = false; this.warp = 10; this.bar = $('#ascBar'); this.txt = $('#ascTxt'); this.credit = $('#ascCredit');
     this.bar.addEventListener('click', (e) => {
       const b = e.target.closest('[data-asc]'); if (!b) return;
-      const v = b.dataset.asc; if (v === 'end') this.stop(); else { this.warp = +v; this.syncBar(); }
+      const v = b.dataset.asc; if (v === 'end') this.stop(); else { this.warp = +v; this.userWarp = true; this.syncBar(); }
     });
   }
   syncBar() { this.bar.querySelectorAll('[data-asc]').forEach((b) => b.classList.toggle('on', b.dataset.asc === String(this.warp))); }
@@ -37,7 +37,14 @@ export class AscentPlayer {
     this.t = L.t_launch - 10; this.lastMsg = '';
     this.send({ cmd: 'pause', on: true });
     const cam = this.world.cam; this.camPrev = { mode: cam.mode, auto: cam.auto, dist: cam.dist, el: cam.el, az: cam.az };
-    Object.assign(cam, { auto: false, mode: 'VEHICLE', dist: rk.ascent.lv === 'saturnv' || rk.ascent.lv === 'sls' ? 0.32 : 0.22, el: 0.15, az: -2.3 });
+    // kamera: yerden izleme → takip (scene.js LAUNCH); takipte roketin arkasında, biraz yanda ve üstte
+    Object.assign(cam, { auto: false, mode: 'LAUNCH', dist: rk.ascent.lv === 'saturnv' || rk.ascent.lv === 'sls' || rk.ascent.lv === 'fh' ? 0.34 : 0.24, el: 0.12, az: Math.PI + 0.45 });
+    // uçuş yönü (rampada yatay, doğu/kuzey bileşenleriyle): yer kamerası buna dik durur; rampa Dünya ile döndükçe aynı bileşenlerle yeniden kurulur
+    { const d0 = this.path.padAt(L.t_launch), d1 = ins.r.map((c) => c / Math.hypot(...ins.r)), k = d0[0] * d1[0] + d0[1] * d1[1] + d0[2] * d1[2], hz = d1.map((c, i) => c - k * d0[i]);
+      const e = [-d0[1], d0[0], 0], en = Math.hypot(...e), ea = e.map((c) => c / en), na = [d0[1] * ea[2] - d0[2] * ea[1], d0[2] * ea[0] - d0[0] * ea[2], d0[0] * ea[1] - d0[1] * ea[0]];
+      const ke = hz[0] * ea[0] + hz[1] * ea[1] + hz[2] * ea[2], kn = hz[0] * na[0] + hz[1] * na[1] + hz[2] * na[2], kk = Math.hypot(ke, kn) || 1; this.drEN = [ke / kk, kn / kk]; }
+    // kalkış gerçek hızda (×1) izlenir; T+20 s'den sonra ×10 (kullanıcı hız seçtiyse dokunulmaz)
+    this.warp = 1; this.userWarp = false;
     // kalkıştaki alev: birinci kademenin yakıtı (Saturn V S-IC, Falcon: gazyağı; SLS, Vulcan: katı iticiler baskın)
     // rampa: SLS'te NASA Mobile Launcher, diğerlerinde beton platform; çevresi Sentinel-2 görüntüsü
     await this.world.setAscent({ lv: A.lv, prop: { saturnv: 'kerolox', f9: 'kerolox', fh: 'kerolox', generic: 'kerolox', sls: 'solid', vulcan: 'solid' }[A.lv] || 'kerolox', pad: A.lv === 'sls' ? 'ml' : 'concrete', site });
@@ -60,7 +67,9 @@ export class AscentPlayer {
   }
   // kare: canlandırma durumu (scene.update'e giden x)
   tick(dt) {
-    const P = this.path, dts = dt * this.warp; this.t += dts;
+    const P = this.path;
+    if (!this.userWarp && this.warp === 1 && this.t - P.tLaunch > 20) { this.warp = 10; this.syncBar(); }
+    const dts = dt * this.warp; this.t += dts;
     if (this.t >= P.tIns) { this.stop(); return null; }
     const s = P.at(this.t), met = this.t - P.tLaunch, real = met * this.A.tIns / P.T, q = quatZto(s.dir);
     let cut = 0; const hidden = new Set(); let last = null;
@@ -83,7 +92,7 @@ export class AscentPlayer {
     const half = (a) => [Math.sin(a / 2), 0, 0, Math.cos(a / 2)];
     const st = s.stage != null && s.stage >= 0 ? s.stage : 0, thrNow = met >= 0 && (s.stage == null || s.stage >= 0) ? 1 : 0;   // kademe arası süzülmede motor sönük
     this.world.ascentFrame({ cut, hidden, thr: thrNow, h, pAmb: atmosphere(h).p, sunUp, prop: (this.A.props || [])[st],
-      pad: { pos: pu.map((c) => c * this.E.R_E), east, north, up: pu },
+      pad: { pos: pu.map((c) => c * this.E.R_E), east, north, up: pu, dr: east.map((c, i) => c * this.drEN[0] + north[i] * this.drEN[1]) },
       debris: this.debris.map((d) => ({ id: d.id, lo: d.lo, hi: d.hi, part: d.part, hidden: d.hidden, r: this.drawR(d.r), q: qmul(d.q0, half(d.spin * d.age * 0.02)) })) });
     const msg = met < 0 ? `${this.rk.name} rampada · T−${Math.ceil(-met)} s` : `${this.rk.name} · gerçek zaman ${fmtMet(real)}${last ? ` · ${last.name} (${fmtMet(last.t)})` : ''}`;
     const mq = P.sim && P.sim.maxQ, nearQ = mq && Math.abs(real - mq.t) < 6 ? ` · MAX-Q ${(mq.q / 1000).toFixed(0)} kPa` : '';
