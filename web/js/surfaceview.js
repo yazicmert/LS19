@@ -4,6 +4,9 @@ import * as THREE from 'three';
 import * as E from './engine.js';
 import { TileLayer } from './tiles.js';
 import { VS_BODY, FS_EARTH, FS_MOON } from './bodyshaders.js';
+import { add, sub, norm, mtv } from './vec3.js';
+
+const TERRAIN_FAR_KM = 25000;            // iniş arazisi yamasının (60 km yarıçap) çizildiği en büyük kamera uzaklığı
 
 export class SurfaceView {
   // eu, mu: Dünya ve Ay küresinin gölgelendirici değişkenleri (parçalar aynı gölgelendiriciyi ve ışığı paylaşır)
