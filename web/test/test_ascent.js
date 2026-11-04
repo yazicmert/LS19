@@ -9,6 +9,7 @@ import { buildAscent, scaleEvents } from '../js/ascent.js';
 import { solveAscent, sampleAt, atmosphere } from '../js/ascentsim.js';
 import { ROCKETS, ROCKET_IDS } from '../js/rockets.js';
 import { LEGACY_SITE } from '../js/pads.js';
+import { sceneSrc } from './scenesrc.js';
 
 let ok = true;
 const check = (c, m) => { console.log((c ? '  ✓ ' : '  ✗ ') + m); ok = ok && !!c; };
@@ -64,7 +65,7 @@ const PP = buildAscent({ site, tLaunch: D.LAUNCH.t_launch, ins, icrfToItrf: E.ea
 const e1 = PP.at(ins.t - 1e-3), e0 = PP.at(D.LAUNCH.t_launch + 0.3);
 check(PP.physical && norm(sub(e1.r, ins.r)) < 0.05 && norm(sub(e1.v, ins.v)) < 0.005 && Math.abs(geodH(e0.r, D.LAUNCH.t_launch + 0.3)) < 0.05, `fiziksel yol görevin giriş durumuna oturur: konum farkı ${(norm(sub(e1.r, ins.r)) * 1000).toFixed(1)} m, hız farkı ${(norm(sub(e1.v, ins.v)) * 1000).toFixed(2)} m/s`);
 check(dot(PP.at(D.LAUNCH.t_launch + 5).dir, PP.at(D.LAUNCH.t_launch + 5).up) > 0.999, 'fiziksel yol: dikey yükselişle başlar');
-const html = read('index.html'), app = read('js/app.js'), scene = read('js/scene.js'), rm = read('js/rocketmodels.js');
+const html = read('index.html'), app = read('js/app.js'), scene = sceneSrc(), rm = read('js/rocketmodels.js');
 check(/id="btnAscent"/.test(html) && /id="ascBar"/.test(html) && /data-asc="end"/.test(html), 'Uçuş adımında "Kalkışı izle"; oynatma çubuğu (hız, yörüngeye atla)');
 check(/ascent\.tick\(dt\)/.test(app) && /cmd: 'seek', t: ui\.t0/.test(app) && /insState/.test(app), 'oynatma ana iş parçacığında; bitince görev girişten sürer');
 check(/setAscent\(/.test(scene) && /clippingPlanes/.test(scene) && /localClippingEnabled/.test(scene), 'sahne: tam roket, kademe ayrılması kesme düzlemiyle');
@@ -74,6 +75,7 @@ check(/loadPadGround/.test(scene) && /s2cloudless_3857/.test(scene) && /CC BY-SA
   'rampa: NASA Mobile Launcher (SLS), çevresi Sentinel-2 cloudless 2016 (atıflı, CC BY-SA 4.0); yüklenemezse gösterilmez');
 check(/PLUME_COL/.test(scene) && /pAmb/.test(scene) && /diamonds\.value = 0\.32 \* pr/.test(scene) && ['saturnv', 'sls', 'vulcan'].every((lv) => Object.values(ROCKETS).some((r) => r.ascent.lv === lv && r.ascent.props.length === r.ascent.veh.stages.length)),
   'alev: ortam basıncıyla genişler, şok elmasları alçakta; renk o anki kademenin yakıtına göre (her kademenin yakıtı tanımlı)');
-check(/A\.sky/.test(scene) && /Math\.sqrt\(2 \* 6378/.test(scene) && /depthTest: true/.test(scene), 'gökyüzü: Güneş yüksekliğine göre renk, ölçek yüksekliğiyle sönüm; ufkun ötesinde derinlik testli kubbe');
+check(/A\.sky/.test(scene) && /Math\.sqrt\(2 \* 6378/.test(scene) && /skyFade/.test(scene) && /logdepthbuf_vertex/.test(scene) && !/depthTest: false/.test(scene.slice(scene.indexOf('async skyMaterial'), scene.indexOf('async loadPadGround'))),
+  'gökyüzü: Preetham (three Sky), Güneş konumuna göre renk, irtifayla sönüm; ufkun ötesinde derinlik testli kubbe (log derinlik)');
 check(/propagate\(d, dt\)/.test(ap) && /atmosphere\(alt\)\.rho/.test(ap) && /debris\.push/.test(ap) && /applyAscent/.test(scene), 'ayrılan kademeler: ayrılma anındaki durumdan balistik (çekim + sürüklenme), takla atarak düşer');
 console.log(ok ? 'TAMAM' : 'HATA'); process.exit(ok ? 0 : 1);

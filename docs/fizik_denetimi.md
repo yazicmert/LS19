@@ -360,3 +360,67 @@ Canlandırmada yol bu benzetimden geliyor: gerçek zaman canlandırma süresine 
 - Model yükü gerçek görevden hafif (örneğin SLS'te 3,6 t'luk iniş aracı, Orion 26 t).
 - Hava yoğunluğu 86 km üstünde üstel.
 - Bu ortamın ağından EOX karolarına ve NASA GIBS'e erişilemediği için yer görüntüsü tarayıcıda sahte karoyla denendi.
+
+#### 6.7.1 Kalkış kamerası
+
+Kullanıcı kalkışın "yatay gibi" göründüğünü bildirdi. Ölçüm: rampada roket ekseni ile yerel dikey arası **0,0°**; eğilme Apollo 11'e uygun (Saturn V dikeyden T+60 s'de 17°, T+120 s'de 52°). Sorun kameradaydı.
+
+- Kamera roketin 320 m yanına kilitliydi ve onunla birlikte yükseliyordu. Rampa ve ufuk ilk saniyede kadrajdan çıkıyordu; canlandırma ×10 başladığından yunuslama hemen geliyordu.
+- Görev yörüngesi çizgileri (anlık yörünge elipsi, turuncu görev izi) roketin içinden yatay geçiyordu.
+
+Düzeltme (`scene.js` `LAUNCH` kipi, `ascentplay.js`):
+
+1. **Yer kamerası.** Rampanın yanında, uçuş yönüne dik, 1,4 km uzakta ve 12 m yükseklikte durur; tele objektifle izler. Kadraj roketin tepesinden rampaya kadar uzanır; roket yükseldikçe en çok 2,5 roket boyu aşağısını kapsar. Dikey kalkış rampaya ve ufka göre görünür, yunuslama yandan izlenir (uçuş yönü kadrajın sağına akar).
+2. **Takip kamerasına geçiş.** 1,5–4,5 km irtifada roketin arkasındaki takip kamerasına yumuşak geçer: yerel dikey yukarı, ufuk kadrajda. Sürükleme ve tekerlek çalışır.
+3. **Hız.** Kalkış ×1 hızda başlar; T+20 s'den sonra ×10 olur (kullanıcı hız seçtiyse dokunulmaz).
+4. **Kalkışta gizlenenler.** Yörünge çizgileri, "Araç" işareti ve iniş ayağı ofseti (2,9 m) kalkışta yok; roket rampaya oturur.
+5. **İrtifa göstergesi.** Rampada 11,6 m gösteriyordu (yaklaşık elipsoid formülü); artık canlandırmanın WGS-84 irtifasını gösterir.
+
+Doğrulama: başsız Chromium'da açılar ölçüldü. T+8 s'de ekran dikeyi ile yerel dikey arası 3°; geçiş sonrası ufuk kadrajda. Gölgelendirici hatası görülmedi.
+
+#### 6.7.2 Yayın kalitesinde kalkış
+
+Hedef: NASA ve SpaceX canlı yayınlarının çekim dili ve ekran düzeni. Yayını "gerçek" gösteren şeylerin çoğu kamera ve grafik dilidir; tam fotoğraf gerçekçiliği (hacimsel duman, küresel aydınlatma) gerçek zamanlı web için hedeflenmedi.
+
+**Kamera kurgusu** (`js/launchcam.js`, saf, `test_launchcam.js` ile sınanır):
+
+| Zaman | Çekim |
+|---|---|
+| T−10 → T−3 | Geniş rampa çekimi: 3 km'den, yavaşça kayar |
+| T−3 → T+7 | Rampa kamerası: 160 m'den, yerden 3 m; motorlara ve aleve bakar; kalkışın ses basıncıyla sarsılır |
+| T+7 → 4,5 km | Yer izleme: 1,4 km'den tele objektif; operatör gecikmesi (0,35 s) |
+| 4,5 km sonrası | Takip kamerası: ufuk kadrajda |
+| Max-Q ve her ayrılma | Araç üstü kamera: gövdenin yanından aşağı bakar, ayrılan kademe görünür |
+
+- Ayrılmalarda kamera üst kademeye geçer (kesme + 12 m).
+- Kalkış ×1 hızda başlar, ayrılmalar ×2 yavaş çekim, arada ×10. Kullanıcı hızı ya da kamerayı seçerse kurgu ona uyar (Kurgu / Yer / Takip / Araç üstü).
+- Sarsıntı deterministiktir (sinüs toplamı). Yer kameralarında kalkıştaki ses basıncı uzaklıkla azalır ve sönümlenir; araç üstünde dinamik basınca bağlıdır.
+
+**Telemetri bandı:** aşama, yere göre hız (km/sa), irtifa, T± saati ve olay zaman çizgisi (Max-Q, ayrılmalar, yörünge). Yayındaki alt şerit gibidir ve ~11 Hz'de güncellenir.
+
+**Gökyüzü:** three.js r170'in resmî `Sky` eklentisi (Preetham analitik gün ışığı modeli, Rayleigh + Mie; `lib/addons/objects/Sky.js`, MIT). Sahnenin logaritmik derinliğine uyarlandı:
+- Kubbe ufuk uzaklığında kalır; yıldızları örter, Dünya'yı örtmez.
+- İrtifayla saydamlaşır: 15 km'de koyu mavi, ~60 km üstünde siyah.
+- Güneş'in araca göre yönü güncel efemeristen alınır.
+
+**Alevin ışığı:** nokta ışık alevin altında durur, yakıt rengindedir ve itkiye göre yanar. Gövdeyi, rampayı ve bulutu aydınlatır; gece güçlenir.
+
+**Kalkış bulutu** (`js/launchfx.js`): örneklenmiş, kameraya dönük dörtgenlerle tek çizim çağrısı, en çok 900 parçacık, uzaktan yakına sıralı. Üç kaynak:
+- Alev çukurundan iki yana fışkıran sıcak duman
+- T−8 s'den itibaren su püskürtme buharı
+- Roketin alçakta bıraktığı egzoz sütunu (3 km üstünde incelir)
+
+Renk Güneş yüksekliğine göre gri-beyazdır, aleve yakın kısım turuncudur.
+
+**Değerlendirilen kütüphaneler:**
+
+| Kütüphane | Karar | Neden |
+|---|---|---|
+| three.js resmî eklentileri (Sky, EffectComposer/UnrealBloom) | Kullanıldı | Sürümle uyumlu, bakımlı, MIT |
+| three.quarks (MIT, parçacık sistemi, ~200 KB) | Kullanılmadı | Tek bir bulut etkisi için gereksiz; aynı teknik doğrudan yazıldı |
+| pmndrs/postprocessing | Kullanılmadı | Mevcut sinematik hat (`post.js`, resmî eklentiler) yetiyor; ikinci bir son işlem zinciri boyut ve bakım yükü getirirdi |
+
+**Bilinen sınırlar:**
+- Duman hacimsel değildir (ışığı kırmaz).
+- Rampa yapıları basittir; LC-39 kulesi yok, SLS'te Mobile Launcher var.
+- Uzaktaki yer, uydu görüntüsünün çözünürlüğündedir.

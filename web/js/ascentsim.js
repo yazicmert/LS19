@@ -8,7 +8,8 @@
 // Kaynaklar: Wikipedia "Gravity turn"; arXiv 2008.13239 (eğilme programı); NASA NTRS 20180002035 (SLS PEG / doğrusal teğet güdüm);
 //            U.S. Standard Atmosphere 1976 (NASA TM-X-74335).
 
-const MU = 398600.4418, G0 = 9.80665e-3, OMEGA = 7.2921159e-5;   // km³/s², km/s², rad/s
+import { MU_E as MU, OMEGA_E as OMEGA } from './geo.js';
+const G0 = 9.80665e-3;                                            // km/s²
 // ---------------------------------------------------------------- U.S. Standard Atmosphere 1976 (0–86 km; üstü üstel)
 const LAYERS = [[0, 288.15, -6.5, 101325], [11, 216.65, 0, 22632.06], [20, 216.65, 1.0, 5474.889], [32, 228.65, 2.8, 868.0187],
   [47, 270.65, 0, 110.9063], [51, 270.65, -2.8, 66.93887], [71, 214.65, -2.0, 3.956420]];

@@ -11,19 +11,15 @@ import { ROCKET_INFO } from './rocketinfo.js';
 import { dvKeys, DV_NAMES, dvFromEvents } from './dvbudget.js';
 import { SAT_GROUPS } from './satlayer.js';
 import { fmtReentry, ageYears, controlNote } from './impact.js';
-import { fmt } from './format.js';
+import { fmt, fmtDur } from './format.js';
+export { fmtDur };
 import { srcOf } from './satcatalog.js';
+import { ellipsoidAlt } from './geo.js';
 
 const $ = (s) => document.querySelector(s);
 // aynı değeri yeniden yazma: textContent / style atamak, değer aynı olsa da düğümü yeniler ve stil/düzen geçersiz kılar (HUD saniyede 10 kez güncellenir)
 const setText = (el, t) => { if (el._t !== t) { el._t = t; el.textContent = t; } };
 const setWidth = (el, w) => { if (el._w !== w) { el._w = w; el.style.width = w; } };
-export function fmtDur(s) {
-  const neg = s < 0; s = Math.abs(s);
-  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60);
-  const z = (x) => String(x).padStart(2, '0');
-  return (neg ? '−' : '') + (d ? `${d}g ` : '') + `${z(h)}:${z(m)}:${z(sec)}`;
-}
 const PHASE_TR = { KALKIS: 'Kalkış (canlandırma; fizik yörüngeye girişte başlar)', PARK: 'Park yörüngesi', YUKSELTME: 'Yörünge yükseltme: eliptik park yörüngesi', TLI: "Ay'a transfer yakışı (TLI)", SUZULME: 'Serbest süzülme', 'MCC-1': 'Orta rota düzeltmesi 1',
   'MCC-2': 'Orta rota düzeltmesi 2', 'MCC-3': 'Orta rota düzeltmesi 3', LOI: 'Ay yörüngesine giriş (LOI)', AY_YORUNGESI: 'Ay yörüngesi',
   DOI: 'İniş yörüngesine geçiş (DOI)', INIS_SUZULME: "15 km'ye alçalış", PDI: 'Motorlu iniş: frenleme', YAKLASMA: 'Motorlu iniş: yaklaşma',
@@ -67,7 +63,7 @@ function rotAngle(A, B) {
   const s = 0.5 * Math.hypot(C[2][1] - C[1][2], C[0][2] - C[2][0], C[1][0] - C[0][1]), c = 0.5 * (C[0][0] + C[1][1] + C[2][2] - 1);
   return Math.atan2(s, c);
 }
-const mv = (M, v) => M.map((r) => r[0] * v[0] + r[1] * v[1] + r[2] * v[2]);
+const mv = E.mv;
 
 export class UI {
   constructor(world, send) {
@@ -324,7 +320,7 @@ export class UI {
         const vs = E.sub(q.v, E.moonVel(q.t));
         alt = rs - R_SITE;
         vv = alt < 50 ? E.norm(E.sub(vs, E.cross(E.omegaMoon(q.t), rsv))) : E.norm(vs);
-      } else { const rE = E.norm(q.r), sp = q.r[2] / rE; alt = rE - E.R_E * (1 - sp * sp / 298.257); vv = E.norm(q.v); }
+      } else { alt = ellipsoidAlt(q.r); vv = E.norm(q.v); }
       this.series.t.push((q.t - this.tLaunch) / 3600); this.series.alt.push(Math.max(alt, 0.001)); this.series.spd.push(vv);
     }
     if (this.series.t.length > 8000) for (const k of ['t', 'alt', 'spd']) this.series[k].splice(0, 2000);
@@ -352,8 +348,7 @@ export class UI {
     setText(H.met, met < 0 ? 'T−' + fmtDur(-met) : 'T+' + fmtDur(met));
     setText(H.phase, this.phaseLabel(s.phase));
     // Dünya: WGS-84 elipsoidine göre (yaklaşık), Ay: iniş yakınında iniş yeri yüzeyine, değilse ortalama yarıçapa göre
-    const rE = E.norm(s.r), sphi = s.r[2] / rE, Rell = E.R_E * (1 - (1 / 298.257) * sphi * sphi);
-    let alt = nearM ? (s.local ? s.local.p[2] : rs - E.R_M) : rE - Rell;
+    let alt = s.altKm != null ? s.altKm : nearM ? (s.local ? s.local.p[2] : rs - E.R_M) : ellipsoidAlt(s.r);          // altKm: kalkış canlandırmasının WGS-84 irtifası (yaklaşık formül rampada ~12 m sapar)
     if (Math.abs(alt) < 5e-5) alt = 0;                          // yüzeyde "−0,0 m" görünmesin
     const surf = nearM && s.local && s.local.p[2] < 50;
     const vRelVec = nearM ? E.sub(s.v, E.moonVel(t)) : s.v;

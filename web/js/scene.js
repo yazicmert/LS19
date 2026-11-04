@@ -12,30 +12,24 @@ import { BODIES } from './ephem.js';
 import { etOf } from './live.js';
 import { HaloRef } from './halo.js';
 import { TileLayer } from './tiles.js';
-import { GLSL_NOISE, PLANET_VIS, planetMaterial, atmosphereMesh, ringMaterial, loadPlanetTextures, planetQuaternion } from './planets.js';
+import { AscentView } from './ascentview.js';
+import { CameraRig, K_EMB } from './camerarig.js';
+import { SkyView } from './skyview.js';
+import { SurfaceView } from './surfaceview.js';
+import { VS_BODY, FS_EARTH, VS_ATM, FS_ATM, FS_MOON } from './bodyshaders.js';
+import { sphereGeometry, m3ToQuat, bodyMatrix, glowTexture, ringTexture, unit3, conicEach, conicPoints, mixin, SUN_I } from './scenegeom.js';
+export { conicEach, conicPoints };
+import { PLANETS, poleVec, PLANET_VIS, planetMaterial, atmosphereMesh, ringMaterial, loadPlanetTextures, planetQuaternion } from './planets.js';
 import { makeSpaceEnv, ENV_HALF_DEG, makePlume, plumeGeometry, setPlume, plumeTick, makeGlow, Particles } from './fx.js';
 import { PointStore } from './pointstore.js';
 import { mergeByMaterial } from './meshmerge.js';
 import { loadTextures, lowMemory } from './texload.js';
 import { TEX } from './texplan.js';
-// gezegen yarıçapları (km), renk, IAU kutup yönü (RA, Dec derece), bant belirginliği, halka (iç, dış km)
-export const PLANETS = {
-  1: { name: 'Merkür', R: 2439.7, c: 0x9a9591, pole: [281.01, 61.41] }, 2: { name: 'Venüs', R: 6051.8, c: 0xe8d8a8, pole: [272.76, 67.16] },
-  5: { name: 'Mars', R: 3389.5, c: 0xc1623f, pole: [317.68, 52.89] }, 6: { name: 'Jüpiter', R: 69911, c: 0xd9b98a, pole: [268.06, 64.50], bands: 1.0 },
-  7: { name: 'Satürn', R: 58232, c: 0xe3cf9b, pole: [40.59, 83.54], bands: 0.55, ring: [74500, 140220] },
-  8: { name: 'Uranüs', R: 25362, c: 0x9fdbe3, pole: [257.31, -15.18], bands: 0.1 }, 9: { name: 'Neptün', R: 24622, c: 0x4a6fe0, pole: [299.36, 43.46], bands: 0.3 },
-  10: { name: 'Plüton', R: 1188.3, c: 0xc8b49a, pole: [132.99, -6.16] } };
-const poleVec = ([ra, de]) => { const a = ra * Math.PI / 180, d = de * Math.PI / 180; return new THREE.Vector3(Math.cos(d) * Math.cos(a), Math.cos(d) * Math.sin(a), Math.sin(d)); };
 import * as CR from './cr3bp.js';
-const K_EMB = E.MU_M / (E.MU_E + E.MU_M);          // Dünya–Ay kütle merkezi: Dünya'dan Ay'a doğru bu oranda
 
 const { add, sub, scale, dot, cross, norm, unit, mv, mtv } = E;
-const LANDING_PH = new Set(['PDI', 'YAKLASMA', 'SON_INIS', 'INDI']);          // motorlu iniş evreleri: araç kamerası yaklaşma eksenine bağlanır
-const CAM_BLEND_S = 1.4;                                                         // yakın kameralar arası geçiş süresi (gerçek s)
-const SUN_I = 1.6;                       // tonlamadan önce Güneş aydınlığı (Ay, araç, arazi)
 const EARTH_I = 1.15;                    // Dünya (bulutlar ve okyanus yansıması parlak olduğundan düşük)
 const KM = 0.001;                        // m -> km
-const TERRAIN_FAR_KM = 25000;            // iniş arazisi yamasının (60 km yarıçap) çizildiği en büyük kamera uzaklığı
 // model malzemelerinin PBR değerleri [metalik, pürüzlülük] (kaynak: NASA modellerindeki Maya "blinn" malzemeleri, adlarıyla)
 const PBR = {
   lander: { 'blinn1SG.002': [0.55, 0.36], 'blinn4SG.002': [0.4, 0.4], 'blinn5SG.002': [0.35, 0.5], 'blinn2SG.002': [0.4, 0.42], 'blinn6SG.001': [0.1, 0.6], 'initialShadingGr.001': [0.45, 0.4],
@@ -43,213 +37,7 @@ const PBR = {
   orb: { 'blinn2SG': [0.4, 0.45], 'blinn11SG': [0.05, 0.5], 'blinn4SG': [0.4, 0.42], 'blinn13SG': [0.3, 0.5], 'apollohorns_blin': [0.6, 0.34] },
   stage: { 'blinn1SG': [0.0, 0.42], 'blinn2SG': [0.05, 0.6], 'blinn5SG': [0.25, 0.5] } };
 
-// ------------------------------------------------------------------ yardımcılar
-function sphereGeometry(R, nLon, nLat) {
-  // dizin sayısı kesin bilinir (kutup şeritlerinde tek üçgen): düz tipli dizi, ara JS dizisi (3 milyon eleman) ve boyut dönüşümü yok
-  const n = (nLon + 1) * (nLat + 1), pos = new Float32Array(n * 3), uv = new Float32Array(n * 2), idx = new (n > 65535 ? Uint32Array : Uint16Array)(6 * nLon * (nLat - 1));
-  const cx = new Float64Array(nLon + 1), sx = new Float64Array(nLon + 1);                  // boylam kosinüs/sinüsü satırdan satıra aynı
-  for (let k = 0; k <= nLon; k++) { const lon = -Math.PI + (k / nLon) * 2 * Math.PI; cx[k] = Math.cos(lon); sx[k] = Math.sin(lon); }
-  let i = 0;
-  for (let j = 0; j <= nLat; j++) {
-    const v = j / nLat, lat = -Math.PI / 2 + v * Math.PI, cl = Math.cos(lat), sl = Math.sin(lat);
-    for (let k = 0; k <= nLon; k++) {
-      pos[i * 3] = R * cl * cx[k]; pos[i * 3 + 1] = R * cl * sx[k]; pos[i * 3 + 2] = R * sl;
-      uv[i * 2] = k / nLon; uv[i * 2 + 1] = v; i++;
-    }
-  }
-  let q = 0;
-  for (let j = 0; j < nLat; j++) for (let k = 0; k < nLon; k++) {
-    const a = j * (nLon + 1) + k, b = a + 1, c = a + nLon + 1, d = c + 1;
-    if (j > 0) { idx[q++] = a; idx[q++] = b; idx[q++] = d; }
-    if (j < nLat - 1) { idx[q++] = a; idx[q++] = d; idx[q++] = c; }
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-  g.setIndex(new THREE.BufferAttribute(idx, 1));
-  g.computeBoundingSphere();
-  return g;
-}
-const m3ToQuat = (M) => {            // satır matrisi (ICRF sütunları) -> THREE.Quaternion; M: yerel -> ICRF
-  const m = new THREE.Matrix4().set(M[0][0], M[0][1], M[0][2], 0, M[1][0], M[1][1], M[1][2], 0, M[2][0], M[2][1], M[2][2], 0, 0, 0, 0, 1);
-  return new THREE.Quaternion().setFromRotationMatrix(m);
-};
-function bodyMatrix(z, ref) {       // z ekseni verilen, x ref'e yakın: yerel -> ICRF (sütunlar x,y,z)
-  z = unit(z); let x = sub(ref, scale(z, dot(ref, z)));
-  if (norm(x) < 1e-6) x = cross(z, [0, 0, 1]);
-  x = unit(x); const y = cross(z, x);
-  return [[x[0], y[0], z[0]], [x[1], y[1], z[1]], [x[2], y[2], z[2]]];
-}
-function glowTexture(inner = 'rgba(255,255,255,1)', outer = 'rgba(255,255,255,0)', size = 128) {
-  const c = document.createElement('canvas'); c.width = c.height = size;
-  const g = c.getContext('2d'), gr = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-  gr.addColorStop(0, inner); gr.addColorStop(0.25, inner.replace(/[\d.]+\)$/, '0.55)')); gr.addColorStop(1, outer);
-  g.fillStyle = gr; g.fillRect(0, 0, size, size);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
-}
-function ringTexture(size = 64) {
-  const c = document.createElement('canvas'); c.width = c.height = size; const g = c.getContext('2d');
-  g.strokeStyle = 'white'; g.lineWidth = size * 0.1; g.beginPath(); g.arc(size / 2, size / 2, size * 0.36, 0, Math.PI * 2); g.stroke();
-  g.fillStyle = 'white'; g.beginPath(); g.arc(size / 2, size / 2, size * 0.12, 0, Math.PI * 2); g.fill();
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
-}
-
-const VS_BODY = /* glsl */`
-#include <common>
-#include <logdepthbuf_pars_vertex>
-uniform sampler2D heightMap; uniform vec2 hSize; uniform float radius; uniform float useHeight;
-attribute vec2 uvT; varying vec2 vUvT;
-varying vec3 vN; varying vec3 vE; varying vec3 vPos; varying vec2 vUv; varying vec3 vLocal;
-float decH(vec4 c) { return (c.r * 255.0 * 256.0 + c.g * 255.0) / 65535.0 * 21.0 - 10.0; }
-float hAt(vec2 uv) {
-  vec2 p = uv * hSize - 0.5; ivec2 i0 = ivec2(floor(p)); vec2 f = fract(p);
-  int W = int(hSize.x), H = int(hSize.y);
-  int x0 = i0.x < 0 ? i0.x + W : (i0.x >= W ? i0.x - W : i0.x); int x1 = x0 + 1 >= W ? 0 : x0 + 1;
-  ivec2 a = ivec2(x0, clamp(i0.y, 0, H - 1)), b = ivec2(x1, clamp(i0.y, 0, H - 1));
-  ivec2 c = ivec2(a.x, clamp(i0.y + 1, 0, H - 1)), d = ivec2(b.x, c.y);
-  float h00 = decH(texelFetch(heightMap, a, 0)), h10 = decH(texelFetch(heightMap, b, 0));
-  float h01 = decH(texelFetch(heightMap, c, 0)), h11 = decH(texelFetch(heightMap, d, 0));
-  return mix(mix(h00, h10, f.x), mix(h01, h11, f.x), f.y);
-}
-void main() {
-  vUv = uv; vUvT = uvT; vec3 dir = normalize(position); vLocal = dir;
-  vec3 p = position;
-  if (useHeight > 0.5) p = dir * (radius + hAt(uv));
-  vec4 wp = modelMatrix * vec4(p, 1.0); vPos = wp.xyz;
-  vN = normalize(mat3(modelMatrix) * dir);
-  vec3 e = vec3(-dir.y, dir.x, 0.0); float le = length(e); e = le > 1e-6 ? e / le : vec3(1.0, 0.0, 0.0);
-  vE = normalize(mat3(modelMatrix) * e);
-  gl_Position = projectionMatrix * viewMatrix * wp;
-  #include <logdepthbuf_vertex>
-}`;
-
-const FS_EARTH = /* glsl */`
-#include <common>
-#include <logdepthbuf_pars_fragment>
-uniform sampler2D dayMap, nightMap, cloudMap, specMap, normalMap, tileMap; uniform vec3 sunDir; uniform float sunI; uniform float obsMode; uniform float useTile, tileKind;
-uniform sampler2D parentMap; uniform vec4 pXf; uniform float pHas, tileFade;          // parça geçişi (tiles.js): ata parça (ya da taban doku) → yeni parça
-varying vec2 vUvT;
-varying vec3 vN; varying vec3 vE; varying vec3 vPos; varying vec2 vUv; varying vec3 vLocal;
-${GLSL_NOISE}
-void main() {
-  // kaplama parçaları: 1 = JPEG (saf siyah = kapsam yok, ör. okyanus), 2 = PNG (saydam = veri yok): alttaki Blue Marble görünür
-  if (useTile > 0.5 && tileKind > 0.5) { vec4 tq = texture2D(tileMap, vUvT); if ((tileKind < 1.5 && tq.r + tq.g + tq.b < 0.012) || (tileKind > 1.5 && tq.a < 0.5)) discard; }
-  #include <logdepthbuf_fragment>
-  vec3 N = normalize(vN), T = normalize(vE), B = cross(N, T);
-  vec3 nm = texture2D(normalMap, vUv).xyz * 2.0 - 1.0;
-  vec3 Np = normalize(T * nm.x * 0.8 + B * nm.y * 0.8 + N * max(nm.z, 0.2));
-  vec3 L = normalize(sunDir), V = normalize(-vPos), H = normalize(L + V);
-  float ndl = dot(N, L), ndlp = max(dot(Np, L), 0.0);
-  float spec = texture2D(specMap, vUv).r;
-  // doku çözünürlüğünü (8192 px ≈ 4,9 km) aşan yakınlıkta: kara dokusu ve bulut kenarı için ince ayrıntı
-  float magE = smoothstep(0.9, 0.08, useTile > 0.5 ? length(fwidth(vUvT * 512.0)) : length(fwidth(vUv * vec2(8192.0, 4096.0)))), dnE = 0.0, landE = 1.0 - smoothstep(0.1, 0.5, spec);
-  if (magE > 0.001) { dnE = (fbm(vLocal * 600.0) - 0.5) * 0.5 + (fbm(vLocal * 2600.0) - 0.5) * 0.35 + (fbm(vLocal * 11000.0) - 0.5) * 0.15; ndlp *= 1.0 + dnE * 0.7 * magE * landE; }
-  float magC = smoothstep(0.9, 0.08, length(fwidth(vUv * vec2(8192.0, 4096.0))));        // bulut dokusu kendi çözünürlüğünü aştıkça seyrelir: yer ayrıntısı bulanık lekelerin altında kalmasın
-  float cloud = texture2D(cloudMap, vUv).r + dnE * 0.4 * magE; cloud = smoothstep(0.08, 0.9, cloud) * (1.0 - 0.6 * magC);
-  vec3 day = useTile > 0.5 ? texture2D(tileMap, vUvT).rgb : texture2D(dayMap, vUv).rgb;
-  if (useTile > 0.5 && tileFade < 0.999) {                                                // yumuşak geçiş: yerinde önceden çizilen kaba görüntüden
-    vec4 pq = texture2D(parentMap, vUvT * pXf.xy + pXf.zw); vec3 pc = pHas > 0.5 ? pq.rgb : texture2D(dayMap, vUv).rgb;
-    bool pBad = tileKind > 0.5 && (pHas < 0.5 || (tileKind < 1.5 ? pq.r + pq.g + pq.b < 0.012 : pq.a < 0.5));   // kaplamanın atasında veri yok: saydamlıkla belirir
-    day = mix(pBad ? day : pc, day, tileFade);
-  }
-  day *= 1.0 + dnE * 0.5 * magE * landE;
-  float tw = smoothstep(-0.12, 0.2, ndl);
-  vec3 sunCol = mix(vec3(1.0, 0.55, 0.3), vec3(1.0), smoothstep(0.0, 0.35, ndl));
-  vec3 col = day * ndlp * sunCol * tw;
-  float nh = max(dot(N, H), 0.0), glint = spec * (pow(nh, 400.0) * 1.15 + pow(nh, 40.0) * 0.1);                // okyanus Güneş parıltısı: küçük, parlak çekirdek ve ince hâle (geniş, patlak bir leke değil)
-  col += glint * sunCol * step(0.0, ndl) * (1.0 - cloud);
-  col = mix(col, vec3(0.85) * max(ndl, 0.0) * sunCol * tw, cloud * 0.9);
-  vec3 night = texture2D(nightMap, vUv).rgb;
-  col += night * vec3(1.0, 0.78, 0.5) * (1.0 - smoothstep(-0.12, 0.05, ndl)) * (1.0 - cloud * 0.85) * 0.9 / sunI;
-  float mu = max(dot(N, V), 0.0);
-  col = mix(col, vec3(0.32, 0.55, 1.0) * max(ndl + 0.15, 0.0) * 0.7, pow(1.0 - mu, 3.0) * 0.45);
-  // yerdeki gözlemci: yakın zemin doku çözünürlüğünün altında; sade, aydınlanmaya göre koyulaşan zemin (şehir ışığı pikseli büyümesin)
-  if (obsMode > 0.5) { float nearG = 1.0 - smoothstep(60.0, 500.0, length(vPos));
-    vec3 g = vec3(0.018, 0.02, 0.024) + day * 0.35 * max(ndl, 0.0) * sunCol + vec3(0.25, 0.32, 0.45) * 0.05 * smoothstep(-0.2, 0.1, ndl);
-    col = mix(col, g, nearG); }
-  gl_FragColor = vec4(col * sunI, tileKind > 0.5 && pHas < 0.5 ? tileFade : 1.0);
-  #include <tonemapping_fragment>
-  #include <colorspace_fragment>
-}`;
-
-const VS_ATM = /* glsl */`
-#include <common>
-#include <logdepthbuf_pars_vertex>
-varying vec3 vN; varying vec3 vPos;
-void main() {
-  vec4 wp = modelMatrix * vec4(position, 1.0); vPos = wp.xyz; vN = normalize(mat3(modelMatrix) * normalize(position));
-  gl_Position = projectionMatrix * viewMatrix * wp;
-  #include <logdepthbuf_vertex>
-}`;
-const FS_ATM = /* glsl */`
-#include <common>
-#include <logdepthbuf_pars_fragment>
-uniform vec3 sunDir; uniform float sunI;
-varying vec3 vN; varying vec3 vPos;
-void main() {
-  #include <logdepthbuf_fragment>
-  vec3 N = normalize(vN), V = normalize(-vPos), L = normalize(sunDir);
-  float mu = abs(dot(N, V)); float rim = pow(1.0 - mu, 3.2);
-  float ndl = dot(N, L);
-  vec3 c = mix(vec3(1.0, 0.42, 0.12), vec3(0.28, 0.55, 1.0), smoothstep(-0.05, 0.35, ndl));
-  float a = rim * smoothstep(-0.35, 0.25, ndl) * 1.3;
-  gl_FragColor = vec4(c * a * sunI * 0.6, 1.0);
-  #include <tonemapping_fragment>
-  #include <colorspace_fragment>
-}`;
-
-const FS_MOON = /* glsl */`
-#include <common>
-#include <logdepthbuf_pars_fragment>
-uniform sampler2D colorMap, normalMap, tileMap; uniform vec3 sunDir, earthDir; uniform float sunI, holeCos, albScale, useTile, lodDelta, tileAlpha, latCut, tilePull; uniform vec3 siteDir;
-uniform sampler2D parentMap; uniform vec4 pXf; uniform float pHas, tileFade;          // parça geçişi (tiles.js)
-varying vec2 vUvT;
-varying vec3 vN; varying vec3 vE; varying vec3 vPos; varying vec2 vUv; varying vec3 vLocal;
-${GLSL_NOISE}
-void main() {
-  if (dot(normalize(vLocal), siteDir) > holeCos) discard;
-  #include <logdepthbuf_fragment>
-  // parçalar taban ağının (kaba, LOLA yer değiştirmeli üçgenler) çukur yerlerde yüzeyin üstüne çıkıp onları örtmesin: log-derinlikte kameraya doğru ölçekten bağımsız çekme
-  #ifdef USE_LOGDEPTHBUF
-  gl_FragDepth = max(gl_FragDepth - tilePull * logDepthBufFC * 0.5, 0.0);
-  #endif
-  vec3 N = normalize(vN), T = normalize(vE), B = cross(N, T);
-  vec3 nm = texture2D(normalMap, vUv).xyz * 2.0 - 1.0;
-  vec3 Np = normalize(T * nm.x + B * nm.y + N * max(nm.z, 0.2));
-  vec3 L = normalize(sunDir), V = normalize(-vPos);
-  float mu0 = max(dot(Np, L), 0.0), mu = max(dot(N, V), 0.05);
-  float I = mix(mu0, 2.0 * mu0 / (mu0 + mu + 1e-4), 0.45);
-  vec3 alb = texture2D(colorMap, vUv).rgb * albScale;
-  // yüksek çözünürlüklü WAC parçası: taban rengi korunur, parçanın taban çözünürlüğünün altındaki yerel kontrastı (krater, ışın, gölge) eklenir
-  if (useTile > 0.5) {
-    vec4 tt = texture2D(tileMap, vUvT); if (tileAlpha > 0.5 && (tt.a < 0.5 || abs(vLocal.z) > latCut)) discard;                      // kapsam dışı (saydam) yerde alttaki WAC görünür
-    float tl = tt.r, tc = textureLod(tileMap, vUvT, lodDelta).r;
-    if (tileFade < 0.999) {                                                               // yumuşak geçiş: ata parçadan (yoksa taban: oran 1; kaplama ise saydamlıkla)
-      vec4 pq = texture2D(parentMap, vUvT * pXf.xy + pXf.zw); bool pBad = pHas < 0.5 || (tileAlpha > 0.5 && pq.a < 0.5);
-      tl = mix(pBad ? (tileAlpha > 0.5 ? tl : tc) : pq.r, tl, tileFade);
-    }
-    alb *= clamp(tl / max(tc, 0.03), 0.3, 3.0);
-  }
-  // renk dokusunun çözünürlüğünü (8192 px ≈ 1,06 km) aşan yakınlıkta: regolit tanesi ve küçük krater kabartması
-  float magM = smoothstep(0.9, 0.08, useTile > 0.5 ? length(fwidth(vUvT * 256.0)) : length(fwidth(vUv * vec2(8192.0, 4096.0))));
-  if (magM > 0.001) {
-    float dn = (fbm(vLocal * 900.0) - 0.5) * 0.5 + (fbm(vLocal * 4200.0) - 0.5) * 0.3 + (fbm(vLocal * 16000.0) - 0.5) * 0.2;
-    alb *= 1.0 + dn * 0.5 * magM; I *= 1.0 + dn * 0.9 * magM * (1.0 - 0.5 * mu0);
-  }
-  vec3 col = alb * I * sunI + alb * 0.012 * max(dot(Np, normalize(earthDir)), 0.0);
-  gl_FragColor = vec4(col, tileAlpha > 0.5 && pHas < 0.5 ? tileFade : 1.0);
-  #include <tonemapping_fragment>
-  #include <colorspace_fragment>
-}`;
-
 // ------------------------------------------------------------------ dünya
-// kalkış alevinin renkleri (sıcak çekirdek, soğuk dış, ışıma): gazyağı turuncu, katı yakıt beyaz-sarı, hidrolox soluk mavi, metan (BE-4) mavi-turuncu
-const PLUME_COL = {
-  kerolox: [new THREE.Color(2.6, 1.7, 0.9), new THREE.Color(0.7, 0.32, 0.12), new THREE.Color(1.7, 1.0, 0.5)],
-  solid: [new THREE.Color(3.2, 2.8, 2.2), new THREE.Color(0.9, 0.6, 0.35), new THREE.Color(2.0, 1.7, 1.2)],
-  hydrolox: [new THREE.Color(1.9, 2.2, 3.2), new THREE.Color(0.12, 0.24, 1.3), new THREE.Color(0.8, 1.0, 1.7)],
-  methalox: [new THREE.Color(2.0, 2.0, 2.8), new THREE.Color(0.5, 0.3, 0.9), new THREE.Color(1.1, 1.0, 1.6)],
-};
 export class World {
   constructor(canvas, labelsEl) {
     this.canvas = canvas; this.labelsEl = labelsEl;
@@ -348,30 +136,7 @@ export class World {
     this.moon = new THREE.Mesh(sphereGeometry(E.R_M, 1024, 512), new THREE.ShaderMaterial({ uniforms: mu, vertexShader: VS_BODY, fragmentShader: FS_MOON }));
     this.moon.geometry.boundingSphere.radius = E.R_M + 15; S.add(this.moon);          // LOLA yer değiştirmesi (±11 km) küre sınırının dışına taşabilir
     this.moonU = mu; this.earthU = eu; this.holeCos0 = mu.holeCos.value;
-    // yakınlaştıkça yüksek çözünürlüklü parçalar (NASA GIBS Blue Marble kabartmalı + deniz tabanı · NASA Trek LRO WAC)
-    const baseTexel = (R) => 2 * Math.PI * R / 8192;
-    this.earthTiles = new TileLayer({ parent: this.earth, R: E.R_E, scheme: 'gibs', tileSize: 512, minZ: 3, maxZ: 7, baseTexelKm: baseTexel(E.R_E), lift: 2e-6, maxTextures: 130, concurrency: 16,
-      url: (z, x, y) => `https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/BlueMarble_ShadedRelief_Bathymetry/default/500m/${z}/${y}/${x}.jpeg`,
-      material: (tex) => new THREE.ShaderMaterial({ uniforms: { ...eu, tileMap: { value: tex }, useTile: { value: 1 } }, vertexShader: VS_BODY, fragmentShader: FS_EARTH }) });
-    // Dünya kaplamaları (Blue Marble'ın ≈490 m'sinden daha ince): Landsat WELD (30 m, bulutsuz, ~2000) ya da HLS (30 m, güncel, bulutlu); düğmeyle seçilir
-    const gibs = 'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/';
-    this.earthWeld = new TileLayer({ parent: this.earth, R: E.R_E, scheme: 'gibs', tileSize: 512, rootZ: 4, minZ: 8, maxZ: 11, baseTexelKm: 2.25 * Math.PI / 180 * E.R_E / 512, lift: 4e-6, maxTextures: 110, concurrency: 16, minBytes: 8000, overlay: true,
-      url: (z, x, y) => `${gibs}Landsat_WELD_CorrectedReflectance_TrueColor_Global_Annual/default/2000-12-01/31.25m/${z}/${y}/${x}.jpeg`,
-      material: (tex) => new THREE.ShaderMaterial({ uniforms: { ...eu, tileMap: { value: tex }, useTile: { value: 1 }, tileKind: { value: 1 } }, vertexShader: VS_BODY, fragmentShader: FS_EARTH }) });
-    const hlsDates = () => Array.from({ length: 9 }, (_, k) => new Date(Date.now() - (k + 1) * 864e5).toISOString().slice(0, 10));
-    this.earthHls = new TileLayer({ parent: this.earth, R: E.R_E, scheme: 'gibs', tileSize: 512, rootZ: 4, minZ: 8, maxZ: 11, baseTexelKm: 2.25 * Math.PI / 180 * E.R_E / 512, lift: 6e-6, maxTextures: 70, concurrency: 12, minBytes: 3000, noBoost: true, overlay: true,
-      urls: (z, x, y) => hlsDates().map((d) => `${gibs}HLS_S30_Nadir_BRDF_Adjusted_Reflectance/default/${d}/31.25m/${z}/${y}/${x}.png`),
-      material: (tex) => new THREE.ShaderMaterial({ uniforms: { ...eu, tileMap: { value: tex }, useTile: { value: 1 }, tileKind: { value: 2 } }, vertexShader: VS_BODY, fragmentShader: FS_EARTH }) });
-    this.moonTiles = new TileLayer({ parent: this.moon, R: E.R_M, scheme: 'eq', tileSize: 256, minZ: 4, maxZ: 8, baseTexelKm: baseTexel(E.R_M), lift: 0, maxTextures: 260,
-      url: (z, x, y) => `https://trek.nasa.gov/tiles/Moon/EQ/LRO_WAC_Mosaic_Global_303ppd_v02/1.0.0/default/default028mm/${z}/${y}/${x}.jpg`,
-      material: (tex, n) => new THREE.ShaderMaterial({ uniforms: { ...mu, tileMap: { value: tex }, useTile: { value: 1 }, tilePull: { value: 0.0589 }, radius: { value: E.R_M + 0.004 }, lodDelta: { value: Math.min(7, Math.max(0, Math.log2(baseTexel(E.R_M) / n.texelKm))) } },
-        vertexShader: VS_BODY, fragmentShader: FS_MOON }) });
-    // WAC'in (≈83 m) üstüne SELENE/Kaguya TC ortho mozaiği (≈21 m, yaklaşık 65°K–65°G): yalnız çok yakında; kapsam dışı saydam, orada WAC kalır
-    this.moonTiles2 = new TileLayer({ parent: this.moon, R: E.R_M, scheme: 'eq', tileSize: 256, rootZ: 4, minZ: 8, maxZ: 10, latLimit: 58, baseTexelKm: 2 * Math.PI * E.R_M / (256 * 2 ** 9), lift: 0, maxTextures: 200, lodBias: 1.15, overlay: true,
-      url: (z, x, y) => `https://trek.nasa.gov/tiles/Moon/EQ/Kaguya_TCortho_Mosaic_Global_4096ppd/1.0.0/default/default028mm/${z}/${y}/${x}.png`,
-      material: (tex, n) => new THREE.ShaderMaterial({ uniforms: { ...mu, tileMap: { value: tex }, useTile: { value: 1 }, tileAlpha: { value: 1 }, tilePull: { value: 0.0735 }, latCut: { value: Math.sin(58 * Math.PI / 180) }, radius: { value: E.R_M + 0.009 }, lodDelta: { value: Math.min(7, Math.max(0, Math.log2(baseTexel(E.R_M) / n.texelKm))) } },
-        vertexShader: VS_BODY, fragmentShader: FS_MOON }) });
-    this.moonTiles2.group.renderOrder = 2;
+    this.buildTiles(eu, mu);                                           // yüzey parçaları (surfaceview.js)
     // iniş arazisi: üretimi Web Worker'da (~0,9 sn, ana iş parçacığını tutmaz). Gelene dek aynı öznitelik/malzeme kümesiyle yer tutucu ağ durur:
     // gölgelendirici derlemesi (precompile) hazır olur, Ay küresinde delik açılmaz (holeCos 2.0); hazır olunca geometri ve ayrıntı dokusu yerine geçer
     if (A.dem) {
@@ -580,124 +345,6 @@ export class World {
     for (const m of this.debrisMeshes.values()) this.scene.remove(m);
     this.debrisMeshes.clear();
   }
-  // ------------------------------------------------------------------ kalkış canlandırması (ascent.js): tam fırlatma aracı
-  // spec: { lv: 'saturnv' | 'sls' | 'f9' | 'fh' | 'vulcan' | 'generic', prop: 'hydrolox' | 'kerolox' } → araç grubundaki iniş aracı/kademeler gizlenir, roket gösterilir.
-  // Model birimi metre, roket ekseni +Y, taban y = 0 → gövde çerçevesi (+z itki ekseni). Kademe ayrılması: kesme düzlemiyle (cut, m) alt kısım çizilmez; parça etiketli
-  // olanlar (booster, fairing, las) gizlenir. null: kalkış biter, araç geri gelir.
-  async setAscent(spec) {
-    const veh = this.vehicle;
-    if (this.asc) { veh.remove(this.asc.root); if (this.asc.world) { this.scene.remove(this.asc.world); this.asc.world.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); } this.asc = null; }
-    for (const c of veh.children) if (c.userData.ascHidden !== undefined) { c.visible = c.userData.ascHidden; delete c.userData.ascHidden; }
-    this.renderer.localClippingEnabled = false;
-    if (!spec) return;
-    this._lvCache = this._lvCache || {};
-    const glb = (k, f) => this._lvCache[k] || (this._lvCache[k] = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(this.base + f).then((g) => g.scene).catch(() => null));
-    const template = spec.lv === 'saturnv' ? await glb('saturnv', 'models/rockets/saturnv.glb') : makeLaunchVehicle(spec.lv);
-    if (!template) return;
-    // kesme düzlemli kopya: keep = [alt, üst] (m; üst yoksa yalnız alt sınır), parça = yalnız o etiketli parça görünür
-    const prep = (src, nPlanes) => {
-      const m = src.clone(true), planes = Array.from({ length: nPlanes }, () => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
-      m.traverse((o) => { if (!o.isMesh) return; o.material = [].concat(o.material).map((x) => { const c = x.clone(); c.clippingPlanes = planes; c.side = THREE.DoubleSide; return c; }); if (o.material.length === 1) o.material = o.material[0]; });
-      const inner = new THREE.Group(); inner.rotation.x = Math.PI / 2; inner.add(m);
-      const root = new THREE.Group(); root.add(inner); root.scale.setScalar(KM);
-      return { root, inner, model: m, planes };
-    };
-    const L = prep(template, 1);
-    for (const c of veh.children) { c.userData.ascHidden = c.visible; c.visible = false; }
-    veh.add(L.root);
-    const C = (r, g, b) => new THREE.Color(r, g, b), ker = spec.prop !== 'hydrolox', sol = spec.prop === 'solid';
-    const plumeR = spec.lv === 'saturnv' ? 4.5 : spec.lv === 'sls' ? 4.0 : spec.lv === 'fh' ? 5.0 : spec.lv === 'vulcan' ? 2.4 : 1.7;
-    const holder = new THREE.Group(); L.root.add(holder);
-    // alev rengi: gazyağı turuncu, katı yakıt (alüminyum) parlak beyaz-sarı, hidrolox soluk
-    const hot = sol ? C(3.2, 2.8, 2.2) : ker ? C(2.6, 1.7, 0.9) : C(1.9, 2.2, 3.2), cool = sol ? C(0.9, 0.6, 0.35) : ker ? C(0.7, 0.32, 0.12) : C(0.12, 0.24, 1.3);
-    const flame = this._addPlume(holder, { exitZ: 0, exitR: plumeR }, plumeR * 14, hot, cool, 0.9, { widen: 2.4, diamonds: 0.3, kS: 3.0 }, sol ? C(2.0, 1.7, 1.2) : ker ? C(1.7, 1.0, 0.5) : C(0.8, 1.0, 1.7), 3.0);
-    // dünya nesneleri (kameraya göre konumlanır): gökyüzü kubbesi, rampa + yer görüntüsü, ayrılan kademeler
-    const world = new THREE.Group(); this.scene.add(world);
-    // gökyüzü kubbesi: derinlik testiyle (rampa, roket ve Dünya önünde kalır); yarıçap ufkun ötesine (ascentFrame) — yalnız ufkun üstünde görünür
-    const sky = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24), new THREE.MeshBasicMaterial({ color: 0x5f8fd8, side: THREE.BackSide, transparent: true, opacity: 0, depthWrite: false, depthTest: true, toneMapped: false, fog: false }));
-    sky.scale.setScalar(80); sky.renderOrder = -9; sky.frustumCulled = false; world.add(sky);
-    const pad = new THREE.Group(); pad.scale.setScalar(KM); pad.matrixAutoUpdate = false; world.add(pad);
-    if (spec.pad === 'ml') {
-      const ml = await glb('ml', 'models/rockets/ml.glb');
-      // Mobile Launcher: roket ekseni modelde (−7,8; 16; 1,4) m — platform üstü yere oturur (kaideler gösterilmez)
-      if (ml) { const m = ml.clone(true); m.position.set(7.77, -16, -1.41); pad.add(m); }
-    } else {
-      const conc = new THREE.Mesh(new THREE.BoxGeometry(60, 2, 60), new THREE.MeshLambertMaterial({ color: 0x9a978f })); conc.position.y = -1; pad.add(conc);
-      const trench = new THREE.Mesh(new THREE.BoxGeometry(12, 2.2, 40), new THREE.MeshLambertMaterial({ color: 0x3a3936 })); trench.position.set(0, -0.95, 14); pad.add(trench);
-      for (const [x, z] of [[-26, -26], [26, 26]]) { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 1.0, 90, 8), new THREE.MeshLambertMaterial({ color: 0xb8b6b0 })); t.position.set(x, 45, z); pad.add(t); }   // yıldırım direkleri
-    }
-    this.asc = { root: L.root, inner: L.inner, model: L.model, plane: L.planes[0], holder, flame, cut: 0, spec, template, prep, world, sky, pad, debris: new Map(), state: null, credit: '' };
-    if (spec.site) this.loadPadGround(spec.site, pad).then((ok) => { if (ok && this.asc && this.asc.pad === pad) this.asc.credit = 'Yer görüntüsü: Sentinel-2 cloudless 2016 — s2maps.eu, EOX IT Services GmbH (değiştirilmiş Copernicus Sentinel verisi) · CC BY-SA 4.0'; });
-    this.renderer.localClippingEnabled = true;
-  }
-  // rampa çevresinin uydu görüntüsü: EOX Sentinel-2 cloudless 2016 (CC BY-SA 4.0), Web Mercator z=13 karoları (~17 m/piksel), 4 × 4 karo ≈ 17 km;
-  // kenarları yumuşak geçişli; yüklenemezse (ağ, engelleyici) yama gösterilmez
-  async loadPadGround(site, pad) {
-    const z = 13, n = 2 ** z, la = site.lat * Math.PI / 180;
-    const xc = (site.lon + 180) / 360 * n, yc = (1 - Math.log(Math.tan(la) + 1 / Math.cos(la)) / Math.PI) / 2 * n, x0 = Math.floor(xc) - 1, y0 = Math.floor(yc) - 1;
-    const cv = document.createElement('canvas'); cv.width = cv.height = 1024; const g = cv.getContext('2d');
-    const load = (x, y) => new Promise((res) => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = () => res(null); im.src = `https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/${z}/${y}/${x}.jpg`; });
-    const ims = await Promise.all([0, 1, 2, 3].flatMap((j) => [0, 1, 2, 3].map((i) => load(x0 + i, y0 + j).then((im) => ({ im, i, j })))));
-    if (ims.filter((t) => t.im).length < 12) return false;
-    for (const t of ims) if (t.im) g.drawImage(t.im, t.i * 256, t.j * 256);
-    g.globalCompositeOperation = 'destination-in';                            // kenarlara doğru saydamlaşan dairesel maske
-    const cx = (xc - x0) * 256, cy = (yc - y0) * 256, gr = g.createRadialGradient(cx, cy, 300, cx, cy, 500); gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = gr; g.fillRect(0, 0, 1024, 1024);
-    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
-    const mpt = 40075016.686 * Math.cos(la) / n, W = 4 * mpt;              // karo başına metre (Mercator ölçeği rampanın enleminde)
-    const plane = new THREE.Mesh(new THREE.PlaneGeometry(W, W), new THREE.MeshLambertMaterial({ map: tex, transparent: true, depthWrite: true }));
-    plane.rotation.x = -Math.PI / 2; plane.position.set((x0 + 2 - xc) * mpt, -2.2, (y0 + 2 - yc) * mpt); plane.renderOrder = -1;
-    pad.add(plane);
-    return true;
-  }
-  // kalkış karesi: o = { cut (m), hidden (Set), thr, h (km), pAmb (Pa), sunUp (Güneş yüksekliğinin sinüsü), pad: { pos, east, north, up } (çizim konumu, km),
-  //   debris: [{ id, lo, hi, part, hidden, r (çizim, km), q }] } — konumlar update() içinde kameraya göre uygulanır (applyAscent)
-  ascentFrame(o) {
-    const A = this.asc; if (!A) return;
-    A.state = o; A.cut = o.cut;
-    A.model.traverse((x) => { const p = x.userData.part; if (p) x.visible = !o.hidden.has(p); });
-    A.holder.position.set(0, 0, o.cut);                                                   // alev kalan yığının tabanında (gövde çerçevesi, m)
-    setPlume(A.flame, o.thr);
-    // alev ortam basıncı düştükçe genişler ve uzar; şok elmasları alçakta belirgin, yükseldikçe söner (aşırı/az genleşmiş jet)
-    const pr = Math.max(0, Math.min(1, o.pAmb / 101325)), wid = 1 + 1.5 * Math.pow(1 - pr, 0.6), len = 1 + 0.8 * (1 - pr);
-    A.flame.scale.x *= wid; A.flame.scale.y *= wid; A.flame.scale.z *= len;
-    A.flame.material.uniforms.diamonds.value = 0.32 * pr;
-    const g = A.flame.userData.glow; if (g) { g.visible = o.thr > 0.01; g.material.color.copy(g.userData.col).multiplyScalar(o.thr); }
-    // gökyüzü: gündüz mavi, alacakaranlıkta koyu; yoğunluk ölçek yüksekliğiyle (~7 km) söner
-    const day = Math.max(0, Math.min(1, (o.sunUp + 0.1) / 0.35)), op = Math.exp(-o.h / 7.5) * (0.25 + 0.75 * day);
-    A.sky.scale.setScalar(Math.max(80, 1.3 * Math.sqrt(2 * 6378 * Math.max(0.3, o.h))));                 // ufuk uzaklığı √(2 R h) ötesi
-    // alev rengi o anda yanan kademenin yakıtına göre (ör. Saturn V: S-IC gazyağı → S-II/S-IVB hidrolox)
-    if (o.prop && o.prop !== A.propNow) { A.propNow = o.prop; const c = PLUME_COL[o.prop] || PLUME_COL.kerolox; const u = A.flame.material.uniforms; u.hot.value.copy(c[0]); u.cool.value.copy(c[1]); const gl = A.flame.userData.glow; if (gl) gl.userData.col.copy(c[2]); }
-    A.sky.material.opacity = Math.min(0.97, op); A.sky.material.color.setRGB(0.04 + 0.30 * day, 0.06 + 0.50 * day, 0.12 + 0.82 * day);
-  }
-  // update() içinden: kameraya göre konumlar (rel) — rampa, kademe parçaları, gökyüzü
-  applyAscent(rel) {
-    const A = this.asc, o = A && A.state; if (!o) return;
-    A.root.updateMatrixWorld(true);
-    const base = A.inner.localToWorld(new THREE.Vector3(0, o.cut, 0)), tip = A.inner.localToWorld(new THREE.Vector3(0, o.cut + 1, 0));
-    A.plane.setFromNormalAndCoplanarPoint(tip.sub(base).normalize(), base);
-    A.sky.position.set(0, 0, 0);
-    if (o.pad) {
-      const P = o.pad, p = rel(P.pos), E3 = new THREE.Vector3(...P.east), U = new THREE.Vector3(...P.up), S = new THREE.Vector3(...P.north).multiplyScalar(-1);
-      A.pad.matrix.makeBasis(E3, U, S).scale(new THREE.Vector3(KM, KM, KM)).setPosition(p); A.pad.matrixWorldNeedsUpdate = true;
-    }
-    const seen = new Set();
-    for (const d of o.debris || []) {
-      let e = A.debris.get(d.id);
-      if (!e) {
-        e = A.prep(A.template, 2); A.world.add(e.root); A.debris.set(d.id, e);
-        e.model.traverse((x) => { if (x.isMesh) x.visible = !d.part; });
-        if (d.part) e.model.traverse((x) => { if (x.userData.part === d.part) x.traverse((y) => { y.visible = true; }); });
-        else e.model.traverse((x) => { const p = x.userData.part; if (p && d.hidden.includes(p)) x.visible = false; });
-      }
-      rel(d.r, e.root.position); e.root.quaternion.set(d.q[0], d.q[1], d.q[2], d.q[3]); e.root.updateMatrixWorld(true);
-      const lo = d.part ? -1e4 : d.lo, hi = d.part ? 1e4 : d.hi;
-      const b0 = e.inner.localToWorld(new THREE.Vector3(0, lo, 0)), b1 = e.inner.localToWorld(new THREE.Vector3(0, hi, 0)), n = b1.clone().sub(b0).normalize();
-      e.planes[0].setFromNormalAndCoplanarPoint(n, b0); e.planes[1].setFromNormalAndCoplanarPoint(n.clone().negate(), b1);
-      seen.add(d.id);
-    }
-    for (const [id, e] of A.debris) if (!seen.has(id)) { A.world.remove(e.root); A.debris.delete(id); }
-  }
   // gimbal: alev (−z yönünde uzanır) motorun gövdeye göre sapmasıyla (x, y teğet) döner
   setNozzle(flame, g) {
     if (!g) { flame.quaternion.identity(); return; }
@@ -733,140 +380,8 @@ export class World {
     }
   }
 
-  planetGeo(i, t) { const L = this.live.L, et = etOf(t); return sub(L.body(i, et)[0], L.body(3, et)[0]); }
-  focusPos(t) {
-    const f = this.cam.focus; if (!f) return null;
-    if (f.kind === 'planet') return this.live ? this.planetGeo(f.i, t) : null;
-    return f.fn ? f.fn(t) : null;
-  }
-  planetInfo(i, t) {
-    const L = this.live.L, et = etOf(t), [p, v] = L.body(i, et), [ps, vs] = L.body(0, et), [pe] = L.body(3, et), info = PLANETS[i];
-    const rh = sub(p, ps), vh = sub(v, vs), mu = BODIES[0].gm + BODIES[i].gm, el = E.elements(rh, vh, mu), AU = 149597870.7;
-    const dE = norm(sub(p, pe));
-    return { name: info.name, R: info.R, dSun: norm(rh) / AU, dEarth: dE / AU, lightMin: dE / 299792.458 / 60, v: norm(vh),
-      periodDays: el.a > 0 ? 2 * Math.PI * Math.sqrt(el.a ** 3 / mu) / 86400 : NaN, a: el.a / AU, e: el.e };
-  }
   setPixelRatio(r) { this.renderer.setPixelRatio(r); this.resize(this.canvas.clientWidth, this.canvas.clientHeight); }          // uyarlanır çözünürlük: tampon yeni orana göre yeniden boyutlanır
   resize(w, h) { this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); if (this.post) this.post.setSize(w, h); }
-
-  // ---------------------------------------------------------------- kamera
-  cameraPose(x, info) {
-    const c = this.cam, t = x.t, rm = info.rm;
-    const sph = (az, el) => [Math.cos(el) * Math.cos(az), Math.cos(el) * Math.sin(az), Math.sin(el)];
-    const fromBasis = (B, d) => add(add(scale(B[0], d[0]), scale(B[1], d[1])), scale(B[2], d[2]));
-    if (c.mode === 'CINE' && this.cine.rig) { const p = this.cine.rig(x, info, this); if (p) return p; }
-    if (c.mode === 'EARTH' || c.mode === 'MOON') {
-      const cen = c.mode === 'EARTH' ? [0, 0, 0] : rm;
-      return { eye: add(cen, scale(sph(c.az, c.el), c.dist)), target: cen, up: [0, 0, 1] };
-    }
-    if (c.mode === 'SYSTEM' || c.mode === 'EMB') {          // Dünya–Ay kütle merkezine bağlı, eylemsiz (ICRF eksenli, Ay yörünge düzlemine göre)
-      const vm = E.moonVel(t), z = unit(cross(rm, vm)), cen = scale(rm, K_EMB);
-      const ref = this.embRef || (this.embRef = unit(rm)), xx = unit(sub(ref, scale(z, dot(ref, z)))), y = cross(z, xx);
-      return { eye: add(cen, scale(fromBasis([xx, y, z], sph(c.az, c.el)), c.dist)), target: cen, up: z };
-    }
-    if (c.mode === 'FOCUS' && c.focus) {                    // seçilen gezegen ya da uydu etrafında
-      const tp = this.focusPos(t) || [0, 0, 0];
-      const B = c.focus.kind === 'planet' || c.focus.kind === 'ast' ? [[1, 0, 0], cross([0, -0.3977771559, 0.9174820621], [1, 0, 0]), [0, -0.3977771559, 0.9174820621]] : [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
-      return { eye: add(tp, scale(fromBasis(B, sph(c.az, c.el)), c.dist)), target: tp, up: B[2] };
-    }
-    if (c.mode === 'OBS' && this.obsPose) {                 // yerdeki gözlemci: gökyüzüne bakış (az kuzeyden, el ufuktan)
-      const o = this.obsPose(t), up = o.up, east = o.east, north = cross(up, east);
-      let dir;
-      if (c.lookFn) { const q = c.lookFn(t); if (q) { dir = unit(sub(q, o.eye)); const e = Math.asin(Math.max(-1, Math.min(1, dot(dir, up))));
-        c.el = e; c.az = Math.atan2(dot(dir, east), dot(dir, north)); } }
-      if (!dir) dir = add(add(scale(north, Math.cos(c.el) * Math.cos(c.az)), scale(east, Math.cos(c.el) * Math.sin(c.az))), scale(up, Math.sin(c.el)));
-      if (!c.userFov && Math.abs(this.camera.fov - 70) > 0.05) { this.camera.fov = 70; this.camera.updateProjectionMatrix(); }
-      return { eye: o.eye, target: add(o.eye, dir), up };
-    }
-    if (c.mode === 'SOLAR') {                               // Güneş merkezli, ekliptiğe yakın bakış
-      const sun = E.sunPos(t), ecl = [0, -0.3977771559, 0.9174820621];
-      const xx = [1, 0, 0], y = cross(ecl, xx);
-      return { eye: add(sun, scale(fromBasis([xx, y, ecl], sph(c.az, c.el)), c.dist)), target: sun, up: ecl };
-    }
-    if (c.mode === 'SITE') {
-      const s = add(rm, siteIcrf(t)), up = unit(siteIcrf(t));
-      const ax = info.drAxis || unit(cross([0, 0, 1], up)), xx = unit(sub(ax, scale(up, dot(ax, up)))), y = cross(up, xx);
-      // yer gözlemcisi Güneş tarafında (~180 m); araç kadrajın üstünde, ufuk altında kalacak şekilde
-      const obs = add(s, fromBasis([xx, y, up], [-0.125, -0.13, 0.002]));
-      const dv = sub(info.vehPos, obs), dh = sub(dv, scale(up, dot(dv, up))), elev = Math.atan2(dot(dv, up), norm(dh));
-      const fov = c.userFov ? this.camera.fov : Math.min(60, Math.max(22, (2 * elev * 180) / Math.PI + 12));
-      const lookEl = Math.max(0.02, elev - ((fov / 2 - 5) * Math.PI) / 180 * (elev > 0.05 ? 1 : 0));
-      const hdir = unit(dh), tdir = add(scale(hdir, Math.cos(Math.min(lookEl, elev))), scale(up, Math.sin(Math.min(lookEl, elev))));
-      return { eye: obs, target: add(obs, tdir), up, fov };
-    }
-    // VEHICLE: merkez cisme göre yerel dikey çerçeve (x: hızın yatay izdüşümü). Motorlu inişte x, yaklaşma ekseni (iniş yerine bağlı, sabit) olur: yüzeye göre hız sıfıra yaklaşırken
-    // eylemsiz hızın yönü oynar (Ay'ın dönmesi ~4,6 m/s, yatay hız bundan küçük); hıza bağlı çerçeve kamerayı aracın çevresinde döndürür, arazi sallanır.
-    const cen = info.central === 'M' ? rm : [0, 0, 0], vcen = info.central === 'M' ? E.moonVel(t) : [0, 0, 0];
-    const z = unit(sub(x.r, cen)), vv = sub(x.v, vcen);
-    let hx = sub(vv, scale(z, dot(vv, z)));
-    if (info.central === 'M' && info.drAxis && LANDING_PH.has(x.phase)) hx = sub(info.drAxis, scale(z, dot(info.drAxis, z)));
-    const xx = unit(hx), y = cross(z, xx);
-    return { eye: add(info.vehPos, scale(fromBasis([xx, y, z], sph(c.az, c.el)), c.dist)), target: info.vehPos, up: z, fov: 50 };
-  }
-
-  // kamera pozu; otomatik kamera yakın kipler arasında (araç ↔ iniş yeri) geçerken önceki ve yeni poz süre boyunca yumuşak (smoothstep) harmanlanır, görüş açısı da.
-  blendedPose(x, info, dt) {
-    let pose = this.cameraPose(x, info);
-    const b = this.camBlend;
-    if (b) {
-      b.p += Math.min(0.1, dt) / CAM_BLEND_S;
-      if (b.p >= 1) this.camBlend = null;
-      else {
-        const cur = this.cam; this.cam = b.from;
-        let p0; try { p0 = this.cameraPose(x, info); } finally { this.cam = cur; }
-        const f = b.p * b.p * (3 - 2 * b.p), mix = (a, c) => [a[0] + (c[0] - a[0]) * f, a[1] + (c[1] - a[1]) * f, a[2] + (c[2] - a[2]) * f];
-        pose = { eye: mix(p0.eye, pose.eye), target: mix(p0.target, pose.target), up: unit(mix(p0.up, pose.up)), fov: (p0.fov ?? 50) + ((pose.fov ?? 50) - (p0.fov ?? 50)) * f };
-      }
-    }
-    const fov = pose.fov !== undefined && this.cam.mode === 'CINE' ? this.cineFov(pose.fov) : pose.fov;
-    if (fov !== undefined && Math.abs(this.camera.fov - fov) > 0.05) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
-    return pose;
-  }
-  // dar ya da dikey pencerede (telefon) yatay görüş alanı daralmasın: sinematik kamerada dikey görüş açısı en-boy oranına göre genişler (1,4'ten geniş pencerede değişmez)
-  cineFov(fov) {
-    const a = this.camera.aspect || 1.78, k = Math.min(2.2, Math.max(1, 1.4 / a));
-    return k > 1.001 ? (2 * Math.atan(Math.tan(fov * Math.PI / 360) * k) * 180) / Math.PI : fov;
-  }
-
-  autoCamera(x, info) {
-    if (this.cam.mode !== 'SITE' && this.cam.mode !== 'OBS' && this.cam.mode !== 'CINE' && this.camera.fov !== 50 && !this.camBlend) { this.camera.fov = 50; this.camera.updateProjectionMatrix(); }
-    if (!this.cam.auto) { this.camBlend = null; return; }
-    const ph = x.phase, burning = x.thr > 0, rE = norm(x.r), rs = norm(sub(x.r, info.rm));
-    let key, set;
-    const alt = info.local ? info.local.p[2] : Infinity;
-    if (ph === 'INDI') { key = 'LANDED'; set = { mode: 'VEHICLE', dist: 0.028, el: 0.12, az: -2.2 }; }
-    else if ((ph === 'YAKLASMA' || ph === 'SON_INIS' || ph === 'PDI') && alt < 0.04) { key = 'SITE'; set = { mode: 'SITE' }; }
-    else if ((ph === 'YAKLASMA' || ph === 'SON_INIS' || ph === 'PDI') && alt < 2.5) {
-      key = 'VEH_LOW'; set = { mode: 'VEHICLE', dist: 0.045, el: 0.06, az: -2.0 };
-    }
-    else if (burning || ph === 'PARK' || ph === 'PDI' || ph === 'YAKLASMA' || ph === 'SON_INIS') { key = 'VEH_' + ph; set = { mode: 'VEHICLE', dist: ph === 'PARK' ? 0.05 : 0.06, el: 0.18, az: -2.3 }; }
-    else if (ph === 'AY_YORUNGESI' || ph === 'INIS_SUZULME') { key = 'VEH_LLO'; set = { mode: 'VEHICLE', dist: 0.09, el: 0.45, az: -2.6 }; }
-    else if (rs < E.MOON_ZONE) { key = 'MOON'; set = { mode: 'MOON', dist: Math.max(7000, 2.4 * rs), el: 0.35, az: 0.6 }; }
-    else if (rE < 45000) { key = 'EARTH'; set = { mode: 'EARTH', dist: Math.max(22000, 2.6 * rE), el: 0.35, az: 0.4 }; }
-    else { key = 'SYSTEM'; set = { mode: 'SYSTEM', dist: 760000, el: 1.05, az: -1.2 }; }
-    if (key !== this.cam.key) {
-      const near = (m) => m === 'VEHICLE' || m === 'SITE';                      // yakın kameralar arası geçişte kamera sıçramaz, yumuşak süzülür
-      if (this.cam.key && near(this.cam.mode) && near(set.mode)) this.camBlend = { from: { ...this.cam }, p: 0 };
-      else this.camBlend = null;
-      Object.assign(this.cam, set); this.cam.key = key;
-      if (key === 'MOON' || key === 'EARTH') {         // Güneş'in aydınlattığı yarıdan, aracı da gören bakış
-        const cen = key === 'MOON' ? info.rm : [0, 0, 0];
-        const d = unit(add(scale(unit(sub(E.sunPos(x.t), cen)), 0.8), scale(unit(sub(x.r, cen)), 0.6)));
-        this.cam.az = Math.atan2(d[1], d[0]); this.cam.el = Math.asin(Math.max(-0.9, Math.min(0.9, d[2])));
-      }
-    }
-    if (key === 'MOON') this.cam.dist += (Math.max(7000, 2.4 * rs) - this.cam.dist) * 0.02;
-    if (key === 'EARTH') this.cam.dist += (Math.max(22000, 2.6 * rE) - this.cam.dist) * 0.02;
-  }
-
-  // yönelimi olmayan fizik sürücüsü için (uyumluluk kipi): itki yönü / ileri yön / inişte yerel dikey, anlık; fizikten gelen x.q varken kullanılmaz
-  fallbackAttitude(x, central, rm, t) {
-    let zDir;
-    if (x.phase === 'INDI' || x.phase === 'SON_INIS' || x.phase === 'YAKLASMA') zDir = unit(siteIcrf(t));
-    else if (x.thr > 0 && x.u && norm(x.u) > 0) zDir = x.u;
-    else zDir = unit(central === 'M' ? sub(x.v, E.moonVel(t)) : x.v);
-    return m3ToQuat(bodyMatrix(zDir, central === 'M' ? unit(sub(x.r, rm)) : unit(x.r)));
-  }
 
   // ---------------------------------------------------------------- kare güncelle
   update(x, extra) {
@@ -882,8 +397,8 @@ export class World {
     else this.attQ.copy(this.fallbackAttitude(x, central, rm, t));          // yönelimsiz fizik (uyumluluk kipi): kaba ideal yönelim
     const zNow = new THREE.Vector3(0, 0, 1).applyQuaternion(this.attQ);
     // model başvuru noktası: fiziksel nokta = iniş ayakları; model orijini gövde z boyunca 2.9 m yukarıda
-    const vehPos = add(x.r, [zNow.x * 0.0029, zNow.y * 0.0029, zNow.z * 0.0029]);
-    const info = { rm, central, vehPos, drAxis: extra.drAxis, local: extra.local };
+    const vehPos = this.asc ? x.r.slice() : add(x.r, [zNow.x * 0.0029, zNow.y * 0.0029, zNow.z * 0.0029]);     // kalkışta roket tabanı = fiziksel nokta (rampaya oturur)
+    const info = { rm, central, vehPos, drAxis: extra.drAxis, local: extra.local, axis: [zNow.x, zNow.y, zNow.z] };
     this.autoCamera(x, info);
     const pose = this.blendedPose(x, info, extra.dtReal || 0.016);
     const eye = pose.eye;
@@ -969,7 +484,7 @@ export class World {
     } else this.cineFill.intensity = 0;
     const sc = this.sunLight.shadow.camera; sc.left = -0.035; sc.right = 0.035; sc.top = 0.035; sc.bottom = -0.035; sc.near = 0.03; sc.far = 0.17; sc.updateProjectionMatrix();
     // işaretçiler (uzakta sabit ekran boyu)
-    this.vehMarker.visible = dCamVeh > 1.5; rel(x.r, this.vehMarker.position);
+    this.vehMarker.visible = !this.asc && dCamVeh > 1.5; rel(x.r, this.vehMarker.position);          // kalkışta (yer kamerası uzakta) işaret halkası yok
     this.beacon.visible = this.cine.on && !!this.cine.beacon && dCamVeh > 0.8; rel(x.r, this.beacon.position);
     // geniş çekimlerde Dünya ve Ay çok küçükse (< ~9 piksel yarıçap) ışıltı işaretleri: yer imi gibi, cisimler büyütülmez
     const pxOf = (R, c) => { const d = norm(sub(c, eye)); return (R / d) * (this.canvas.clientHeight / 2) / Math.tan(this.camera.fov * Math.PI / 360); };
@@ -983,7 +498,7 @@ export class World {
     const solarV = this.cam.mode === 'SOLAR';                 // Güneş sistemi görünümünde gezegen etiketleri yeterli
     this.placeLabel('earth', [0, 0, E.R_E * 1.08], norm(eye) > 30000 && !solarV, 0);
     this.placeLabel('moon', add(rm, [0, 0, E.R_M * 1.12]), norm(sub(rm, eye)) > 9000 && !solarV, 0);
-    this.placeLabel('veh', x.r, dCamVeh > 1.5 && !solarV, 14);
+    this.placeLabel('veh', x.r, dCamVeh > 1.5 && !solarV && !this.asc, 14);
     // yakın planda (araç görünümü) TLI kademesinin etiketi: kademe takılıyken, kademenin ortasında
     if (this.labels.stagetag) {
       const on = this.stackStage.visible && dCamVeh < 0.6 && !this.cine.on && !!this.labels.stagetag.textContent;
@@ -1073,188 +588,9 @@ export class World {
     this.scene.environmentIntensity = best.I;
   }
 
-  // ---------------------------------------------------------------- Canlı Gökyüzü: araçsız, gerçek saatle çizim
-  setSkyMode(on) {
-    this.skyMode = on;
-    for (const o of [this.vehicle, this.vehMarker, this.siteMarker, this.osc, this.trailLineE, this.trailLineM, this.stageOsc, this.haloPath, ...this.lMarkers]) o.visible = !on && o !== this.haloPath;
-    if (on) { for (const m of this.debrisMeshes.values()) m.visible = false; for (const e of this.debrisMarkers.values()) { e.mk.visible = false; this.labels[e.key].style.display = 'none'; } for (const k of ['veh', 'site', 'lp', 'lp2']) if (this.labels[k]) this.labels[k].style.display = 'none'; }
-    if (this.skyDome) this.skyDome.visible = false;
-  }
-  updateSky(t, extra = {}) {
-    if (!this.ready) return;
-    if (!this.skyMode) this.setSkyMode(true);
-    const rm = E.moonPos(t), sun = E.sunPos(t), Mme = E.moonIcrfToMe(t), Mitrf = E.earthIcrfToItrf(t);
-    const info = { rm, central: 'E', vehPos: [0, 0, 0] };
-    if (this.cam.mode !== 'OBS' && this.cam.mode !== 'SITE' && this.camera.fov !== 50 && !this.cam.userFov) { this.camera.fov = 50; this.camera.updateProjectionMatrix(); }
-    const pose = this.cameraPose({ t, r: [0, 0, E.R_E * 3], v: [1, 0, 0] }, info), eye = pose.eye;
-    this.eye = eye;
-    const rel = (p, v = new THREE.Vector3()) => v.set(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]);
-    const tg = rel(pose.target), up = new THREE.Vector3(...pose.up);
-    const m = new THREE.Matrix4().lookAt(new THREE.Vector3(0, 0, 0), tg, up);
-    this.camera.position.set(0, 0, 0); this.camera.quaternion.setFromRotationMatrix(m); this.camera.updateMatrixWorld(true);
-    const sd = new THREE.Vector3(...unit(sub(sun, eye)));
-    this.earthU.sunDir.value.copy(unit3(sun)); this.moonU.sunDir.value.copy(unit3(sub(sun, rm))); this.moonU.earthDir.value.copy(unit3(scale(rm, -1)));
-    this.sunSprite.position.copy(sd.clone().multiplyScalar(5e6));
-    rel([0, 0, 0], this.earth.position); this.earth.quaternion.copy(m3ToQuat(E.mT(Mitrf))); this.atm.position.copy(this.earth.position);
-    rel(rm, this.moon.position); this.moon.quaternion.copy(m3ToQuat(E.mT(Mme)));
-    this.updateTiles();
-    if (this.terrainReady) this.placeTerrain(rm, Mme, eye, rel);
-    this.sunLight.intensity = Math.PI * SUN_I; this.sunLight.castShadow = false; this.ambient.intensity = 0.02; this.eclipse = 1;
-    this.sunLight.target.position.set(0, 0, 0); this.sunLight.position.copy(sd);
-    // Ay'ın yolu (±4 gün)
-    if (!this.moonPathT || Math.abs(t - this.moonPathT) > 3600) { this.moonPathT = t; this.moonPathPts = []; for (let i = 0; i < 600; i++) this.moonPathPts.push(E.moonPos(t - 4 * 86400 + (i * 8 * 86400) / 599)); }
-    const ma = this.moonPath.geometry.attributes.position.array;
-    this.moonPathPts.forEach((p, i) => { ma[i * 3] = p[0] - eye[0]; ma[i * 3 + 1] = p[1] - eye[1]; ma[i * 3 + 2] = p[2] - eye[2]; });
-    this.moonPath.geometry.setDrawRange(0, 600); this.moonPath.geometry.attributes.position.needsUpdate = true;
-    this.moonPath.visible = ['EARTH', 'MOON', 'FOCUS'].includes(this.cam.mode) && norm(eye) > 60000;
-    // yerden bakış: gündüz gökyüzü (Güneş'in gözlemciye göre yüksekliğine göre)
-    const obs = this.cam.mode === 'OBS' && this.obsPose;
-    this.earthU.obsMode.value = obs ? 1 : 0;
-    if (obs) {
-      if (!this.skyDome) { this.skyDome = new THREE.Mesh(new THREE.SphereGeometry(9e6, 32, 16), new THREE.MeshBasicMaterial({ color: 0x3b6fb0, side: THREE.BackSide, transparent: true, opacity: 0, depthWrite: false, depthTest: false, toneMapped: false }));
-        this.skyDome.renderOrder = -9.5; this.skyDome.frustumCulled = false; this.scene.add(this.skyDome); }
-      const o = this.obsPose(t), se = Math.asin(Math.max(-1, Math.min(1, dot(unit(sub(sun, o.eye)), o.up)))) * 180 / Math.PI;
-      const k = Math.max(0, Math.min(1, (se + 8) / 14));
-      this.skyDome.visible = k > 0; this.skyDome.material.opacity = 0.82 * k;
-      this.skyDome.material.color.setRGB(0.08 + 0.15 * k, 0.16 + 0.27 * k, 0.32 + 0.37 * k);
-      this.skyDome.position.set(0, 0, 0);
-      this.stars.material.color.setScalar(0.55 * (1 - k));
-    } else { if (this.skyDome) this.skyDome.visible = false; this.stars.material.color.setScalar(0.55); }
-    const solarV = this.cam.mode === 'SOLAR' || obs;
-    this.placeLabel('earth', [0, 0, E.R_E * 1.08], norm(eye) > 30000 && !solarV, 0);
-    const moonUp = !obs || dot(unit(sub(rm, eye)), this.obsPose(t).up) > 0;
-    this.placeLabel('moon', add(rm, [0, 0, E.R_M * 1.12]), ((norm(sub(rm, eye)) > 9000 && !this.full) || obs) && moonUp, 0);
-    this.updateCelestial(t, rm, eye);
-    this.central = 'E'; this.info = info;
-  }
 
-  // ---------------------------------------------------------------- kütle merkezi, dönüş eksenleri, Güneş sistemi
-  updateCelestial(t, rm, eye) {
-    const mode = this.cam.mode, setLine = (l, pts) => {
-      const a = l.geometry.attributes.position.array;
-      for (let i = 0; i < pts.length; i++) { a[i * 3] = pts[i][0] - eye[0]; a[i * 3 + 1] = pts[i][1] - eye[1]; a[i * 3 + 2] = pts[i][2] - eye[2]; }
-      l.geometry.setDrawRange(0, pts.length); l.geometry.attributes.position.needsUpdate = true;
-    };
-    const emb = scale(rm, K_EMB), embMode = mode === 'EMB' || mode === 'SYSTEM';
-    // Dünya ve Ay'ın kütle merkezi etrafındaki yolları (±14 gün, canlı efemeris)
-    if (!this.embT || Math.abs(t - this.embT) > 3 * 3600) {
-      this.embT = t; this.embPts = [];
-      for (let i = 0; i < 400; i++) this.embPts.push(E.moonPos(t - 14 * 86400 + (i * 28 * 86400) / 399));
-    }
-    this.embEarth.visible = this.embMoon.visible = this.embMarker.visible = embMode;
-    if (embMode) {
-      setLine(this.embEarth, this.embPts.map((q) => sub(emb, scale(q, K_EMB))));
-      setLine(this.embMoon, this.embPts.map((q) => add(emb, scale(q, 1 - K_EMB))));
-      this.embMarker.position.set(emb[0] - eye[0], emb[1] - eye[1], emb[2] - eye[2]);
-    }
-    this.placeLabel('emb', emb, embMode, 10);
-    // halo yolu: Ay'a göre (Ay'la birlikte taşınır) ve L1/L2
-    const showHalo = !this.skyMode && !!this.haloPts && mode !== 'SOLAR' && norm(sub(rm, eye)) > 12000;
-    this.haloPath.visible = showHalo;
-    if (showHalo) setLine(this.haloPath, this.haloPts.map((q) => add(rm, q)));
-    const showL = !this.skyMode && (embMode || !!this.haloPts) && mode !== 'SOLAR' && norm(sub(rm, eye)) > 30000;
-    const lpos = [CR.xL(1), CR.xL(2)].map((xl) => scale(rm, (xl + CR.MU) / 1));
-    this.lMarkers.forEach((m, i) => { m.visible = showL; m.position.set(lpos[i][0] - eye[0], lpos[i][1] - eye[1], lpos[i][2] - eye[2]); });
-    this.placeLabel('lp', lpos[0], showL, 8); this.placeLabel('lp2', lpos[1], showL, 8);
-    // dönüş eksenleri (+ başlangıç meridyeni işareti)
-    const far = (c, R) => norm(sub(c, eye)) > 6 * R;
-    const showE = mode !== 'OBS' && (mode === 'EARTH' || embMode || (far([0, 0, 0], E.R_E) && mode !== 'SOLAR'));
-    const showM = mode !== 'OBS' && (mode === 'MOON' || embMode || (far(rm, E.R_M) && mode !== 'SOLAR'));
-    const Mi = E.earthIcrfToItrf(t), pole = Mi[2], mer = Mi[0];
-    this.earthAxis.visible = this.earthMer.visible = showE;
-    if (showE) { setLine(this.earthAxis, [scale(pole, -1.35 * E.R_E), scale(pole, 1.35 * E.R_E)]); setLine(this.earthMer, [scale(mer, 1.0 * E.R_E), scale(mer, 1.3 * E.R_E)]); }
-    const Mm = E.moonIcrfToMe(t), Mp = E.moonIcrfToPa(t);
-    this.moonAxis.visible = this.moonMer.visible = showM;
-    if (showM) { setLine(this.moonAxis, [add(rm, scale(Mp[2], -1.35 * E.R_M)), add(rm, scale(Mp[2], 1.35 * E.R_M))]); setLine(this.moonMer, [add(rm, scale(Mm[0], E.R_M)), add(rm, scale(Mm[0], 1.35 * E.R_M))]); }
-    // Güneş sistemi
-    const focusPl = mode === 'FOCUS' && this.cam.focus && (this.cam.focus.kind === 'planet' || this.cam.focus.kind === 'ast');
-    this.full = mode === 'SOLAR' || focusPl;
-    const obsV = mode === 'OBS';
-    const solar = (mode === 'SOLAR' || focusPl || obsV) && this.live;
-    for (const pl of this.planets) {
-      const on = !!solar && !(obsV && pl.i === 3);
-      pl.m.visible = on; pl.o.visible = on && !obsV; if (pl.mesh) pl.mesh.visible = on; if (pl.ring) pl.ring.visible = on;
-      if (!on) { pl.d.style.display = 'none'; pl.scr = null; }
-    }
-    if (solar) {
-      const L = this.live.L, et = etOf(t), eS = L.body(3, et), sS = L.body(0, et);
-      if (!this.plT || Math.abs(t - this.plT) > 2 * 86400) { this.plT = t; this.plOrb = {}; }
-      for (const pl of this.planets) {
-        if (obsV && pl.i === 3) continue;
-        const [p, v] = L.body(pl.i, et), geo = sub(p, eS[0]);
-        pl.m.position.set(geo[0] - eye[0], geo[1] - eye[1], geo[2] - eye[2]);
-        pl.geo = geo;
-        const dCam = norm(sub(geo, eye)), info = PLANETS[pl.i];
-        const appR = info ? info.R / dCam * (this.canvas.clientHeight / 2) / Math.tan(this.camera.fov * Math.PI / 360) : 0;
-        pl.appR = appR; pl.m.visible = appR < 5;                       // yakından işaret yerine küre
-        if (pl.mesh) {
-          pl.mesh.position.copy(pl.m.position); pl.mesh.material.uniforms.sunDir.value.copy(unit3(sub(sS[0], p)));
-          planetQuaternion(info, pl.vis, et, pl.mesh.quaternion);                    // IAU dönme fazı: dokudaki özellikler gerçek yerinde
-          if (pl.atm) pl.atm.position.copy(pl.m.position);
-          if (!pl.texReq && appR >= 6 && this.base != null) {                        // yaklaşınca dokuyu indir
-            pl.texReq = true;
-            loadPlanetTextures(this.base, pl.vis).then(({ map, ring }) => {
-              const u = pl.mesh.material.uniforms;
-              if (map) { u.map.value = map; u.hasMap.value = 1; }
-              if (ring && pl.ring) { u.ringMap.value = ring; pl.ring.material.uniforms.ringMap.value = ring; }
-            });
-          }
-        }
-        if (pl.ring) { pl.ring.position.copy(pl.m.position); const ru = pl.ring.material.uniforms; ru.pc.value.copy(pl.m.position); ru.sunDir.value.copy(pl.mesh.material.uniforms.sunDir.value); }
-        if (!this.plOrb[pl.i] && !obsV) {
-          const rh = sub(p, sS[0]), vh = sub(v, sS[1]), mu = BODIES[0].gm + BODIES[pl.i].gm;
-          const el = E.elements(rh, vh, mu); this.plOrb[pl.i] = conicPoints(el, rh, mu, 1e11, 361).map((q) => add(q, sub(sS[0], eS[0])));
-        }
-        if (!obsV) setLine(pl.o, this.plOrb[pl.i].map((q) => q));
-        const d = pl.d, e = this.eye, vv = new THREE.Vector3(geo[0] - e[0], geo[1] - e[1], geo[2] - e[2]).project(this.camera);
-        const below = obsV && this.obsPose && dot(unit(sub(geo, e)), this.obsPose(t).up) < -0.01;      // gözlemcide ufkun altı
-        if (below) { pl.m.visible = false; if (pl.mesh) pl.mesh.visible = false; if (pl.ring) pl.ring.visible = false; }
-        if (pl.atm) pl.atm.visible = !!(pl.mesh && pl.mesh.visible) && appR >= 3;
-        if (below || vv.z > 1 || Math.abs(vv.x) > 1.1 || Math.abs(vv.y) > 1.1) { d.style.display = 'none'; pl.scr = null; }
-        else { const sx = ((vv.x + 1) / 2) * this.canvas.clientWidth, sy = ((1 - vv.y) / 2) * this.canvas.clientHeight;
-          pl.scr = [sx, sy]; d.style.display = 'block'; d.style.transform = `translate(${sx}px, ${sy - 10 - Math.min(pl.appR || 0, 400)}px) translate(-50%, -100%)`; }
-      }
-    }
-    // Güneş görüntüsü gerçek konumunda (uzaklık uzak düzlemin içinde)
-    const sg = E.sunPos(t);
-    if (mode === 'SOLAR' || focusPl) this.sunSprite.position.set(sg[0] - eye[0], sg[1] - eye[1], sg[2] - eye[2]);
-  }
 
-  // iniş arazisi yaması: yalnız yakınken çizilir; uzakta (yama ~0,25°'nin altında) hem yama hem Ay küresindeki delik kapatılır (yarım milyon üçgen ve delik gölgelendirme işi kalmaz)
-  placeTerrain(rm, Mme, eye, rel) {
-    const sp = add(rm, mtv(Mme, this.terrainSite)), near = norm(sub(sp, eye)) < TERRAIN_FAR_KM;
-    rel(sp, this.terrain.position); this.terrain.quaternion.copy(this.moon.quaternion);
-    if (this.terrain.visible !== near) { this.terrain.visible = near; this.moonU.holeCos.value = near ? this.holeCos0 : 2.0; }
-  }
 
-  // yüksek çözünürlüklü yüzey parçaları: kamera cisim sabit çerçevesinde
-  updateTiles() {
-    const cam = this.camera; cam.updateMatrixWorld(true);
-    const fov = cam.fov * Math.PI / 180, H = this.canvas.clientHeight || 800, fwdW = cam.getWorldDirection(new THREE.Vector3());
-    let pending = 0, failed = 0, loaded = 0, drawn = 0, busy = false;
-    let mode = this.earthDetail; if (!mode) { try { mode = localStorage.getItem('ls19.earthdetail'); } catch (e) { mode = null; } this.earthDetail = mode = ['weld', 'hls', 'bm'].includes(mode) ? mode : 'weld'; }
-    if (this.earthWeld) { this.earthWeld.userOn = mode === 'weld'; this.earthHls.userOn = mode === 'hls'; }
-    for (const [layer, body] of [[this.earthTiles, this.earth], [this.earthWeld, this.earth], [this.earthHls, this.earth], [this.moonTiles, this.moon], [this.moonTiles2, this.moon]]) {
-      if (!layer || !body.visible || layer.userOn === false) { if (layer) layer.setEnabled(false); continue; }
-      layer.setEnabled(true);
-      const qi = body.quaternion.clone().invert();
-      layer.update(body.position.clone().negate().applyQuaternion(qi), fwdW.clone().applyQuaternion(qi), fov, cam.aspect, H);
-      pending += layer.stats.pending; failed += layer.stats.failed; loaded += layer.stats.loaded; drawn += layer.stats.drawn; busy = busy || layer.busy;
-    }
-    this.tilesBusy = busy;                                                                  // parça GPU yüklemesi/geçişi sürüyor: app.js uyarlanır çözünürlüğe bildirir
-    // Dünya kaplama kaynağı düğmesi: yalnız Dünya'da ince parçalar devredeyken görünür
-    let mb = this.tileModeEl; if (!mb) {
-      mb = this.tileModeEl = document.createElement('button'); mb.className = 'tilemode'; mb.hidden = true; document.body.appendChild(mb);
-      mb.addEventListener('click', () => { const o = ['weld', 'hls', 'bm']; this.earthDetail = o[(o.indexOf(this.earthDetail) + 1) % 3]; try { localStorage.setItem('ls19.earthdetail', this.earthDetail); } catch (e) { /* */ } this.tileModeTxt = null; });
-    }
-    const showMode = this.earthTiles && this.earthTiles.stats.drawn > 0 && this.earth.visible, label = { weld: 'Dünya yüzeyi: Landsat 30 m (bulutsuz, ~2000 görüntüleri)', hls: 'Dünya yüzeyi: güncel HLS 30 m (Sentinel-2/Landsat; bulutlu, yamalı)', bm: 'Dünya yüzeyi: Blue Marble ≈490 m' }[this.earthDetail] + '  ⟳';
-    if (mb.hidden === showMode) mb.hidden = !showMode;
-    if (showMode && this.tileModeTxt !== label) { this.tileModeTxt = label; mb.textContent = label; mb.title = 'Tıklayın: Landsat (temiz) → güncel HLS → yalnız Blue Marble'; }
-    // kullanıcıya geri bildirim: yüzey ayrıntısı iniyor mu, alınamıyor mu
-    let el = this.tileStatusEl; if (!el) { el = this.tileStatusEl = document.createElement('div'); el.className = 'tilestatus'; el.hidden = true; document.body.appendChild(el); }
-    const msg = pending > 0 ? `Yüzey ayrıntısı yükleniyor… (${pending})` : (failed > 0 && loaded === 0 && drawn === 0 ? 'Yüzey ayrıntısı alınamadı: NASA parça sunucusuna erişilemiyor (ağ/reklam engelleyici?)' : '');
-    if (msg !== this.tileMsg) { this.tileMsg = msg; el.textContent = msg; el.hidden = !msg; el.classList.toggle('warn', msg.startsWith('Yüzey ayrıntısı alınamadı')); }
-  }
 
   updateLines(x, t, rm, central, eye, extra) {
     // anlık (oskülatör) yörünge: merkez cisme göre; noktalar ara dizi kurmadan doğrudan GPU tamponuna yazılır
@@ -1265,12 +601,12 @@ export class World {
     const no = conicEach(el, r, mu, central === 'M' ? 60000 : 1.2e6, 721, (i, px, py, pz) => { oa[i * 3] = px + cen[0] - eye[0]; oa[i * 3 + 1] = py + cen[1] - eye[1]; oa[i * 3 + 2] = pz + cen[2] - eye[2]; });
     this.osc.geometry.setDrawRange(0, no); this.upload(this.osc.geometry.attributes.position, no);
     this.osc.material.color.set(central === 'M' ? 0xc88cff : (el.e < 1 ? 0x49b6ff : 0xff8a3d));
-    this.osc.visible = x.phase !== 'INDI' && !(extra.local && extra.local.p[2] < 20);
+    this.osc.visible = !this.asc && x.phase !== 'INDI' && !(extra.local && extra.local.p[2] < 20);        // kalkışta anlık yörünge elipsi yanıltıcı (yer altına inen balistik yay)
     this.oscEl = { ...el, central };
     // iz: Dünya merkezli ve Ay merkezli ayrı (Ay yörüngesi Ay'la birlikte taşınır); noktalar fizik worker'ından gelir
     const T = this.trail;
     if (T.E.n > 39000) T.E.dropFirst(1000); if (T.M.n > 39000) T.M.dropFirst(1000);
-    const nearGround = extra.local && extra.local.p[2] < 20;
+    const nearGround = !!this.asc || (extra.local && extra.local.p[2] < 20);             // kalkışta görev izi (yörüngeye girişten sonrası) çizilmez: yatay hareket izlenimi vermesin
     const trailsOn = !nearGround && (!this.cine.on || !!this.cine.lines);                 // görünmeyecek iz tamponları doldurulmaz/yüklenmez
     this.trailLineM.visible = !nearGround; this.trailLineE.visible = !nearGround;
     const fill = (line, st, off, own) => {
@@ -1296,16 +632,6 @@ export class World {
   // tamponun yalnız kullanılan ilk n noktasını GPU'ya yükle (varsayılan: tüm dizi; 40.000 noktalık iz tamponu ~480 KB'tır)
   upload(attr, n) { attr.clearUpdateRanges(); attr.addUpdateRange(0, n * 3); attr.needsUpdate = true; }
 
-  planetName(i) { return PLANETS[i] ? PLANETS[i].name : BODIES[i].name; }
-  pickPlanet(mx, my) {
-    let best = null;
-    for (const pl of this.planets) {
-      if (!pl.scr || (!PLANETS[pl.i] && pl.i !== 3)) continue;
-      const d = Math.hypot(pl.scr[0] - mx, pl.scr[1] - my), lim = Math.max(14, pl.appR || 0);
-      if (d <= lim && (!best || d < best.d)) best = { kind: 'planet', i: pl.i, d };
-    }
-    return best;
-  }
   placeLabel(k, p, vis, dy) {
     const d = this.labels[k]; if (!d) return;
     if (!vis) { d.style.display = 'none'; return; }
@@ -1347,26 +673,4 @@ export class World {
     this.trailLineE.visible = this.trailLineM.visible = !!this.cine.lines;
   }
 }
-
-function unit3(a) { const u = unit(a); return new THREE.Vector3(u[0], u[1], u[2]); }
-
-// oskülatör konik noktaları (merkeze göre): her nokta için f(i, x, y, z) çağrılır (ara dizi yok); döner: nokta sayısı n
-export function conicEach(el, r, mu, rMax, n, f) {
-  const e = el.e, p = el.p, W = unit(el.h);
-  const Pv = e > 1e-8 ? scale(el.evec, 1 / e) : unit(r), Qv = cross(W, Pv);
-  let nu0, nu1;
-  if (e < 1 && p / (1 - e) <= rMax) { nu0 = 0; nu1 = 2 * Math.PI; }
-  else {
-    let lim = Math.acos(Math.max(-1, Math.min(1, (p / rMax - 1) / e)));
-    if (e >= 1) lim = Math.min(lim, Math.acos(-1 / e) - 1e-3);
-    nu0 = -lim; nu1 = lim;
-  }
-  for (let i = 0; i < n; i++) {
-    const nu = nu0 + ((nu1 - nu0) * i) / (n - 1), rr = p / (1 + e * Math.cos(nu)), a = rr * Math.cos(nu), b = rr * Math.sin(nu);
-    f(i, Pv[0] * a + Qv[0] * b, Pv[1] * a + Qv[1] * b, Pv[2] * a + Qv[2] * b);
-  }
-  return n;
-}
-export function conicPoints(el, r, mu, rMax, n) {
-  const out = []; conicEach(el, r, mu, rMax, n, (i, x, y, z) => out.push([x, y, z])); return out;
-}
+mixin(World, AscentView, CameraRig, SkyView, SurfaceView);

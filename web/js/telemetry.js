@@ -12,6 +12,7 @@
 //   İtki/ağırlık  azami itki ÷ (kütle × baskın cismin o yarıçaptaki μ/r²).
 //   Özgül kuvvet  itki ÷ kütle (yerçekimi dışı ivme): mürettebatın hissedeceği ivme; birimi g₀ = 9,80665 m/s².
 import * as E from './engine.js';
+import { OMEGA_E, WGS84_F, geodetic as geodeticG } from './geo.js';
 import { dvKeys } from './dvbudget.js';
 import { massProps, stageSpec } from './rigidbody.js';
 import { CTL } from './attctl.js';
@@ -19,8 +20,8 @@ import { fmt, fmtInt } from './format.js';
 
 const { add, sub, scale, dot, cross, norm, unit } = E;
 export const C_LIGHT = 299792.458;                 // ışık hızı, km/s
-export const OMEGA_EARTH = 7.2921150e-5;           // Dünya'nın yıldız dönme hızı, rad/s (IERS 1996)
-export const F_EARTH = 1 / 298.257223563;          // WGS-84 basıklığı
+export const OMEGA_EARTH = OMEGA_E;               // Dünya'nın yıldız dönme hızı, rad/s (geo.js)
+export const F_EARTH = WGS84_F;                    // WGS-84 basıklığı (geo.js)
 export const R_SUN = 695700.0;                     // Güneş yarıçapı, km (IAU 2015)
 export const TWO_PI = 2 * Math.PI;
 export const LIMITS = { vz: 3.0, vh: 1.22 };        // temas sınırları, m/s (görev başarı ölçütü: mission.js touchdown)
@@ -31,17 +32,7 @@ const mod = (x, m) => ((x % m) + m) % m;
 // ------------------------------------------------------------------ yer ölçüleri
 // Merkez cisme göre konumdan jeodezik enlem ve elipsoid üstü yükseklik (km). pole: dönme ekseni (birim), a: ekvator yarıçapı, f: basıklık.
 // Sabit nokta yinelemesi (Bowring); kutupta ve kutuptan uzakta (Ay mesafesi dahil) yakınsar.
-export function geodetic(r, pole, a = E.R_E, f = F_EARTH) {
-  const z = dot(r, pole), p = norm(sub(r, scale(pole, z))), e2 = f * (2 - f);
-  let lat = Math.atan2(z, p * (1 - e2)), h = 0;
-  for (let i = 0; i < 16; i++) {
-    const s = Math.sin(lat), c = Math.cos(lat), N = a / Math.sqrt(1 - e2 * s * s);
-    h = Math.abs(c) > 0.7071 ? p / c - N : Math.abs(z) / Math.abs(s) - N * (1 - e2);
-    const nl = Math.atan2(z, p * (1 - e2 * N / (N + h))), done = Math.abs(nl - lat) < 1e-15;
-    lat = nl; if (done) break;
-  }
-  return { lat, h };
-}
+export const geodetic = (r, pole, a = E.R_E, f = F_EARTH) => geodeticG(r, pole, a, f);     // geo.js (Bowring yinelemesi)
 
 // Cismin gövdeye bağlı eksenleri (satırlar, ICRF bileşenleri; x,y,z) ve dönme vektörü ω (rad/s, ICRF).
 // Dünya: ITRS (Greenwich), Ay: ortalama yer/dönme ekseni (ME). Ay'ın ω'sı yönelim matrisinin türevidir (serbest dönme + libration).

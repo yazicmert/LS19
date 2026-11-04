@@ -6,11 +6,9 @@
 //   - Dönme her adımda en kısa yayla yapılır (en küçük dönüş); yuvarlanma (gövde z eksenine göre dönüş) tekilliksiz, süreklidir:
 //     itki yönü yerel dikeyden geçse de, 180° ters çevrilse de yuvarlanma sıçramaz.
 // Kuaterniyonlar [x, y, z, w], gövde → eylemsiz (ICRF eksenleri); THREE.Quaternion ile aynı sıra ve dönüş yönü.
+import { dot, cross, norm, unit as unit0, Z_UP } from './vec3.js';
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
-const unit = (a) => { const n = norm(a); return n > 0 ? [a[0] / n, a[1] / n, a[2] / n] : [0, 0, 1]; };
+const unit = (a) => unit0(a, Z_UP);                          // sıfır vektörde +z
 export const Z_AXIS = [0, 0, 1], Y_AXIS = [0, 1, 0];
 export const D2R = Math.PI / 180;
 

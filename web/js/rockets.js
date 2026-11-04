@@ -13,7 +13,8 @@
 // SpaceX ve ULA kademe kuru kütlelerini yayımlamaz: 'tahmin' işaretli değerler ikincil kaynaklardandır (sonuç yakıta ±%3 kadar yansır).
 
 export const G0 = 9.80665;
-export const MU_E = 398600.4418;                          // km³/s²
+import { MU_E } from './geo.js';
+export { MU_E };                                          // km³/s² (geo.js)
 const R_PARK_REF = 6378.137 + 200;                        // başarım tablolarının park yörüngesi (200 km dairesel)
 const vc = Math.sqrt(MU_E / R_PARK_REF);
 // TLI: C3 = −2 km²/s² (ULA/NASA tanımı); GTO: 200 × 35 786 km (eğim değişimi yok sayılır: Florida GTO'su ~27°, ikinci yakış eğimi değiştirmez)

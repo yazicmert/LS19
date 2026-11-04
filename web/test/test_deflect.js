@@ -1,6 +1,7 @@
 // Saptırma motoru doğrulaması: Apophis 2029 yakın geçişi (JPL CAD ile), doğrusal STM ile doğrusal olmayan saptırmanın uyumu, DART
 import fs from 'fs';
 import * as D from '../js/deflect.js';
+import { unit } from '../js/vec3.js';
 const ab = (f) => { const b = fs.readFileSync(f); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); };
 const eng = new D.DeflectEngine(ab(new URL('../data/de440s.bsp', import.meta.url)));
 const dir = process.argv[2] || new URL('./fixtures/', import.meta.url).pathname;
@@ -36,7 +37,7 @@ console.log('  STM', ((performance.now() - T) / 1000).toFixed(2), 's');
 // STM'yi CA'ya uzat
 const tr2 = eng.stm(etA, stA, ca.et);
 const Phi = tr2[0].Phi, { J } = eng.bplanePartials(ca);
-const vdir = D.unit(stA.slice(3, 6)), dvm = 0.01e-3;                          // 1 cm/s
+const vdir = unit(stA.slice(3, 6)), dvm = 0.01e-3;                          // 1 cm/s
 const dx = Phi.map((row) => row[3] * vdir[0] + row[4] * vdir[1] + row[5] * vdir[2]);
 const [pE] = eng.earth(ca.et);
 const dXi = J[0].reduce((s2, jk, k) => s2 + jk * dx[k], 0) * dvm, dZeta = J[1].reduce((s2, jk, k) => s2 + jk * dx[k], 0) * dvm;

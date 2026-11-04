@@ -50,7 +50,9 @@
 <link rel="modulepreload" href="js/app.js">
 <link rel="modulepreload" href="js/engine.js">
 <link rel="modulepreload" href="js/attitude.js">
+<link rel="modulepreload" href="js/vec3.js">
 <link rel="modulepreload" href="js/rigidbody.js">
+<link rel="modulepreload" href="js/dopri.js">
 <link rel="modulepreload" href="js/scene.js">
 <link rel="modulepreload" href="lib/three.module.js">
 <link rel="modulepreload" href="lib/addons/loaders/GLTFLoader.js">
@@ -58,11 +60,13 @@
 <link rel="modulepreload" href="lib/addons/libs/meshopt_decoder.module.js">
 <link rel="modulepreload" href="js/rocketmodels.js">
 <link rel="modulepreload" href="js/rockets.js">
+<link rel="modulepreload" href="js/geo.js">
 <link rel="modulepreload" href="js/terrain.js">
 <link rel="modulepreload" href="js/terraingen.js">
 <link rel="modulepreload" href="js/mission.js">
 <link rel="modulepreload" href="js/halo.js">
 <link rel="modulepreload" href="js/cr3bp.js">
+<link rel="modulepreload" href="js/linalg.js">
 <link rel="modulepreload" href="js/conic.js">
 <link rel="modulepreload" href="lib/clarabel/clarabel_wasm.js">
 <link rel="modulepreload" href="js/attctl.js">
@@ -74,8 +78,16 @@
 <link rel="modulepreload" href="js/tiles.js">
 <link rel="modulepreload" href="js/texload.js">
 <link rel="modulepreload" href="js/texplan.js">
-<link rel="modulepreload" href="js/planets.js">
+<link rel="modulepreload" href="js/ascentview.js">
+<link rel="modulepreload" href="js/launchfx.js">
+<link rel="modulepreload" href="js/launchcam.js">
 <link rel="modulepreload" href="js/fx.js">
+<link rel="modulepreload" href="js/planets.js">
+<link rel="modulepreload" href="js/camerarig.js">
+<link rel="modulepreload" href="js/scenegeom.js">
+<link rel="modulepreload" href="js/skyview.js">
+<link rel="modulepreload" href="js/surfaceview.js">
+<link rel="modulepreload" href="js/bodyshaders.js">
 <link rel="modulepreload" href="js/pointstore.js">
 <link rel="modulepreload" href="js/meshmerge.js">
 <link rel="modulepreload" href="js/ui.js">
@@ -628,7 +640,8 @@
   <div id="loading"><div class="lbox"><div class="ltitle">LS19 <span class="lsub">Look Star 19</span></div><div id="loadMsg">Dokular yükleniyor…</div><div class="track"><div id="loadBar" class="fill"></div></div><button id="loadBack" hidden>Varsayılan tarihe dön</button></div></div>
 </div>
 <script type="module" src="js/app.js"></script>
-<div id="ascBar" class="ascbar" hidden role="status"><span id="ascTxt"></span><small id="ascCredit" class="asccredit"></small><span class="ascbtns"><button type="button" data-asc="1">×1</button><button type="button" data-asc="10">×10</button><button type="button" data-asc="50">×50</button><button type="button" data-asc="end">Yörüngeye atla</button></span></div>
+<div id="ascBar" class="ascbar" hidden role="status"><span id="ascTxt"></span><small id="ascCredit" class="asccredit"></small><span class="ascbtns"><button type="button" data-asc="1">×1</button><button type="button" data-asc="10">×10</button><button type="button" data-asc="50">×50</button><button type="button" data-asc="end">Yörüngeye atla</button></span><span class="ascbtns" aria-label="Kamera"><button type="button" data-ascam="auto" title="Yayın kurgusu: rampa, yer izleme, takip, araç üstü">Kurgu</button><button type="button" data-ascam="ground">Yer</button><button type="button" data-ascam="chase">Takip</button><button type="button" data-ascam="onboard">Araç üstü</button></span></div>
+<div id="ascTele" class="asctele" hidden aria-live="off"></div>
 <div id="rocketSheet" class="rsheet" hidden role="dialog" aria-modal="true" aria-labelledby="rsTitle">
   <div class="rs-box">
     <header class="rs-head"><div><h2 id="rsTitle"></h2><span class="rs-status"></span></div><button class="rs-close" type="button" aria-label="Kapat">×</button></header>

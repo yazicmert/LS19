@@ -19,6 +19,7 @@ import { ROCKETS, DEFAULT_ROCKET, stageRecord, parkPropellant, rocketOf } from '
 import { LEGACY_SITE, minIncl, incPenalty, padAllowed, inclRange, azInRange } from './pads.js';
 import { HALO_PRESETS, haloMember, ephemerisHalo } from './halo.js';
 import * as CR from './cr3bp.js';
+import { solve as linSolve } from './linalg.js';
 const { add, sub, scale, dot, cross, norm, unit, mtv } = E;
 
 const ASCENT_T = 600.0, ASCENT_ARC = 16.0 * Math.PI / 180;
@@ -40,7 +41,6 @@ export const PROFILES = {
   L1: { name: 'L1 halo bekleme + LLO', cfg: { earth: DEFAULT_CONFIG.earth, moon: { type: 'HALO', llo: { h: 100, revs: 2 }, halo: { preset: 'L1N10', revs: 1 } } } },
   YUKSELTME: { name: 'Yörünge yükseltmeli: 3 yakış (apoje 40.000 km) + TLI + LLO', cfg: { earth: { h: 185, inc: 28.7, revs: 1.5, raise: { n: 3, ha: 40000 } }, moon: DEFAULT_CONFIG.moon } },
 };
-export const HALO_OPTIONS = Object.fromEntries(Object.entries(HALO_PRESETS).map(([k, v]) => [k, v.name]));
 const clone = (o) => JSON.parse(JSON.stringify(o));
 export function normalizeConfig(c) {
   const d = clone(DEFAULT_CONFIG), cfg = c ? clone(c) : {};
@@ -96,45 +96,13 @@ function ctx(cfg, stages) {
 }
 
 // ---------------------------------------------------------------- küçük doğrusal cebir
-function solve(A, b) {                           // Gauss, kısmi pivot
-  const n = b.length, M = A.map((r, i) => [...r, b[i]]);
-  for (let c = 0; c < n; c++) {
-    let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
-    [M[c], M[p]] = [M[p], M[c]];
-    for (let r = c + 1; r < n; r++) { const f = M[r][c] / M[c][c]; for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k]; }
-  }
-  const x = new Array(n).fill(0);
-  for (let r = n - 1; r >= 0; r--) { let s = M[r][n]; for (let k = r + 1; k < n; k++) s -= M[r][k] * x[k]; x[r] = s / M[r][r]; }
-  return x;
-}
+const solve = (A, b) => Array.from(linSolve(A, b));        // Gauss, kısmi pivot (linalg.js)
 const T = (A) => A[0].map((_, j) => A.map((r) => r[j]));
 const matmul = (A, B) => A.map((r) => B[0].map((_, j) => r.reduce((s, x, k) => s + x * B[k][j], 0)));
 function lstsq(J, F) {                           // en küçük kareler; eksik belirli ise en küçük normlu çözüm
   const m = J.length, n = J[0].length;
   if (m >= n) { const Jt = T(J); return solve(matmul(Jt, J), Jt.map((r) => r.reduce((s, x, k) => s + x * F[k], 0))); }
   const y = solve(matmul(J, T(J)), F); return T(J).map((r) => r.reduce((s, x, k) => s + x * y[k], 0));
-}
-// Nelder–Mead (küçük boyut)
-function nelderMead(f, x0, steps, { maxEval = 80, tol = 1e-3 } = {}) {
-  const n = x0.length; let pts = [x0.slice()];
-  for (let i = 0; i < n; i++) { const p = x0.slice(); p[i] += steps[i]; pts.push(p); }
-  let vals = pts.map(f), ev = n + 1;
-  while (ev < maxEval) {
-    const idx = vals.map((v, i) => i).sort((a, b) => vals[a] - vals[b]); pts = idx.map((i) => pts[i]); vals = idx.map((i) => vals[i]);
-    if (Math.abs(vals[n] - vals[0]) < tol) break;
-    const c = new Array(n).fill(0); for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) c[j] += pts[i][j] / n;
-    const at = (k) => c.map((cj, j) => cj + k * (pts[n][j] - cj));
-    const xr = at(-1), fr = f(xr); ev++;
-    if (fr < vals[0]) { const xe = at(-2), fe = f(xe); ev++; if (fe < fr) { pts[n] = xe; vals[n] = fe; } else { pts[n] = xr; vals[n] = fr; } }
-    else if (fr < vals[n - 1]) { pts[n] = xr; vals[n] = fr; }
-    else {
-      const xc = fr < vals[n] ? at(-0.5) : at(0.5), fc = f(xc); ev++;
-      if (fc < Math.min(fr, vals[n])) { pts[n] = xc; vals[n] = fc; }
-      else { for (let i = 1; i <= n; i++) { pts[i] = pts[i].map((x, j) => pts[0][j] + 0.5 * (x - pts[0][j])); vals[i] = f(pts[i]); ev++; } }
-    }
-  }
-  const i0 = vals.indexOf(Math.min(...vals));
-  return { x: pts[i0], f: vals[i0], evals: ev };
 }
 
 // ---------------------------------------------------------------- Ay tarafı
@@ -790,6 +758,3 @@ function* nelderMeadGen(f, x0, steps, { maxEval = 80, tol = 1e-3 } = {}) {
   const i0 = vals.indexOf(Math.min(...vals));
   return { x: pts[i0], f: vals[i0], evals: ev };
 }
-export { nelderMead };
-// test/deneme için iç işlevler
-export const __internals = { ctx, scanBack, solveBack, back, lambert, shootImpulse, planeBasis, lloState, designAt, parkState, flyTli, raiseChain, burnBack, apogeeSchedule };

@@ -8,6 +8,7 @@ import * as R from '../js/rockets.js';
 import { incPenalty } from '../js/pads.js';
 import { designMission, normalizeConfig, PROFILES } from '../js/design.js';
 import { Mission, twoStageDesign } from '../js/mission.js';
+import { sceneSrc } from './scenesrc.js';
 
 let ok = true;
 const check = (c, m) => { console.log((c ? '  ✓ ' : '  ✗ ') + m); ok = ok && !!c; };
@@ -60,7 +61,7 @@ let err = null; try { design('F9', 'NRHO'); } catch (e) { err = e.message; }
 check(err && /Falcon 9 Block 5 bu aracı Ay'a gönderemez: TLI için \d+ kg yakıt gerekir/.test(err), `yetmeyen yakıt anlaşılır hatayla durur: "${(err || '').slice(0, 90)}…"`);
 
 console.log('arayüz ve sahne');
-const html = read('index.html'), ui = read('js/ui.js'), app = read('js/app.js'), scene = read('js/scene.js'), rm = read('js/rocketmodels.js');
+const html = read('index.html'), ui = read('js/ui.js'), app = read('js/app.js'), scene = sceneSrc(), rm = read('js/rocketmodels.js');
 const arac = html.slice(html.indexOf('id="tab-arac"'), html.indexOf('id="tab-ucus"'));
 check(/id="rocketCards"/.test(arac) && /id="rocketInfo"/.test(arac), 'roket kartları 2. adımda (Araç ve güdüm)');
 check(/rocket: this\.rocket/.test(ui) && /'rocket' in c/.test(ui) && /rocket: undefined/.test(ui), 'ui: yapılandırma roketi taşır; profil seçimi roketi değiştirmez; profil eşleşmesi roketten bağımsız');

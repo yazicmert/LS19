@@ -5,6 +5,7 @@
 //  4) bağlantılar: gölgelendiriciler geçiş değişkenlerini bildirir, taban malzemeler varsayılanları taşır, kaplamalar overlay, app.js busy'yi iletir
 import fs from 'fs';
 import { register } from 'node:module';
+import { sceneSrc } from './scenesrc.js';
 register('./importmap_loader.mjs', import.meta.url);
 const THREE = await import('three');
 const { TileLayer, parentXf, FADE_MS } = await import('../js/tiles.js');
@@ -58,7 +59,7 @@ for (const [scheme, ts, minZ] of [['gibs', 512, 3], ['eq', 256, 4]]) {
 
 // ---------------------------------------------------------------- 4) bağlantılar
 {
-  const sc = rd('../js/scene.js'), app = rd('../js/app.js');
+  const sc = sceneSrc(), app = rd('../js/app.js');
   const decl = (sc.match(/uniform sampler2D parentMap; uniform vec4 pXf; uniform float pHas, tileFade;/g) || []).length;
   check('Dünya ve Ay gölgelendiricileri geçiş değişkenlerini bildirir', decl === 2);
   check('taban malzemeler (eu, mu) varsayılanları taşır (eksik uniform çizimi bozmasın)', (sc.match(/pHas: \{ value: 0 \}, tileFade: \{ value: 1 \}/g) || []).length === 2);

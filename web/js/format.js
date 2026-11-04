@@ -24,3 +24,10 @@ export function dateFormat(opt) {
   return f;
 }
 export const HM = { hour: '2-digit', minute: '2-digit' }, HMS = { hour: '2-digit', minute: '2-digit', second: '2-digit' };
+
+// görev süresi: [−][Ng ]SS:DD:ss (ör. 4g 06:32:06); arayüz ve sinematik şerit aynı biçimi kullanır
+export function fmtDur(s) {
+  const neg = s < 0; s = Math.abs(s);
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60), z = (x) => String(x).padStart(2, '0');
+  return (neg ? '−' : '') + (d ? `${d}g ` : '') + `${z(h)}:${z(m)}:${z(sec)}`;
+}

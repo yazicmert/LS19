@@ -6,7 +6,9 @@
 import * as THREE from 'three';
 import * as E from './engine.js';
 import { siteIcrf } from './mission.js';
+import { ellipsoidAlt } from './geo.js';
 import { CineUI } from './cinemaui.js';
+import { fmtDur } from './format.js';
 
 const { add, sub, scale, dot, cross, norm, unit } = E;
 const KM = 0.001;
@@ -14,12 +16,6 @@ const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const lerp = (a, b, k) => a + (b - a) * k;
 const smooth = (k) => { k = clamp(k, 0, 1); return k * k * k * (k * (k * 6 - 15) + 10); };
 const fmt = (x, d = 0) => (Number.isFinite(x) ? x.toLocaleString('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—');
-// görev süresi gösterimi (ui.js fmtDur ile aynı biçim: 4g 06:32:06)
-export function fmtDur(s) {
-  const neg = s < 0; s = Math.abs(s);
-  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60), z = (x) => String(x).padStart(2, '0');
-  return (neg ? '−' : '') + (d ? `${d}g ` : '') + `${z(h)}:${z(m)}:${z(sec)}`;
-}
 const V = (a) => new THREE.Vector3(a[0], a[1], a[2]);
 const arr = (v) => [v.x, v.y, v.z];
 
@@ -366,8 +362,8 @@ export class Cinema {
     return pose;
   }
   alt(x, info) {
-    const rE = norm(x.r), rs = norm(sub(x.r, E.moonPos(x.t))), nearM = rs < E.MOON_ZONE, sphi = x.r[2] / rE, Rell = E.R_E * (1 - (1 / 298.257) * sphi * sphi);
-    return nearM ? (x.local ? x.local.p[2] : rs - E.R_M) : rE - Rell;
+    const rs = norm(sub(x.r, E.moonPos(x.t))), nearM = rs < E.MOON_ZONE;
+    return nearM ? (x.local ? x.local.p[2] : rs - E.R_M) : ellipsoidAlt(x.r);
   }
 
   // ----- her kare (app.js, world.update'ten önce)

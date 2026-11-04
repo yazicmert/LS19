@@ -6,6 +6,8 @@
 //   Doğrusal duyarlılık: durum geçiş matrisi (STM, 6x6 varyasyon denklemleri) + B-düzlemi (Öpik/Valsecchi ξ–ζ) kısmi türevleri.
 // Birimler: km, s, TDB saniye (J2000'den), ICRF (SSB). Asteroidin kendi kütlesi yörüngesini etkilemez (test parçacığı).
 import { SPKKernel } from './jplkernel.js';
+import { dot, cross, norm, unit, sub, scale } from './vec3.js';
+import { DP_A, DP_C, DP_E } from './dopri.js';
 
 export const AU = 149597870.7, DAY = 86400, YEAR = 365.25 * 86400;
 export const GM_SUN = 132712440041.279419, MU_E = 398600.435507, R_E = 6378.1363;
@@ -18,12 +20,7 @@ export const etFromJd = (jd) => (jd - 2451545.0) * DAY;
 export const jdFromEt = (et) => et / DAY + 2451545.0;
 export const ET_MIN = etFromJd(2396758.5 + 400), ET_MAX = etFromJd(2506331.5 - 400);    // DE440s kapsamı (1849–2150), kenar payıyla
 
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
-const unit = (a) => { const n = norm(a); return [a[0] / n, a[1] / n, a[2] / n]; };
-const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const scl = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
+const scl = scale;
 
 // ---------------------------------------------------------------- yörünge öğeleri -> durum
 // el: { a (AU), e, i, om, w, ma (derece), epoch (JD TDB) } — JPL SBDB: Güneş merkezli, J2000 ekliptiği, oskülatör
@@ -83,10 +80,7 @@ const matMul6 = (A, B) => A.map((r) => B[0].map((_, j) => r.reduce((s, a, k) => 
 const phiOf = (y) => Array.from({ length: 6 }, (_, i) => Array.from({ length: 6 }, (_, j) => y[6 + i * 6 + j]));
 
 // ---------------------------------------------------------------- motor
-const A5 = [[], [1 / 5], [3 / 40, 9 / 40], [44 / 45, -56 / 15, 32 / 9], [19372 / 6561, -25360 / 2187, 64448 / 6561, -212 / 729],
-  [9017 / 3168, -355 / 33, 46732 / 5247, 49 / 176, -5103 / 18656], [35 / 384, 0, 500 / 1113, 125 / 192, -2187 / 6784, 11 / 84]];
-const C5 = [0, 1 / 5, 3 / 10, 4 / 5, 8 / 9, 1, 1];
-const E5 = [71 / 57600, 0, -71 / 16695, 71 / 1920, -17253 / 339200, 22 / 525, -1 / 40];
+const A5 = DP_A, C5 = DP_C, E5 = DP_E;                        // Dormand–Prince 5(4) tablosu (dopri.js)
 
 export class DeflectEngine {
   constructor(spk) {
@@ -259,7 +253,6 @@ export function massOf(p) {
   const D = p.D > 0 ? p.D : 1329 / Math.sqrt(p.albedo > 0 ? p.albedo : 0.14) * Math.pow(10, -p.H / 5);
   return (Math.PI / 6) * (D * 1000) ** 3 * (p.rho || 2000);
 }
-export function diameterOf(p) { return p.D > 0 ? p.D : 1329 / Math.sqrt(p.albedo > 0 ? p.albedo : 0.14) * Math.pow(10, -p.H / 5); }
 // kinetik çarpıcı: Δv = β m U / (M + m)  (m/s); β: momentum artış çarpanı (DART: ≈3,6)
 export const kineticDv = (m, U_kms, beta, M) => beta * m * U_kms * 1000 / (M + m);
 // itki yönü (ICRF birim vektör) — y: güneş merkezli olmayan SSB durumu, sunY: Güneş durumu
@@ -278,4 +271,4 @@ export function orbitChange(r, v, dv) {
   const e0 = helioElements(r, v), e1 = helioElements(r, [v[0] + dv[0], v[1] + dv[1], v[2] + dv[2]]);
   return { da: e1.a - e0.a, dP: e1.P - e0.P, de: e1.e - e0.e, di: e1.i - e0.i, before: e0, after: e1 };
 }
-export { matInv6, matMul6, phiOf, norm, sub, dot, cross, unit, scl };
+export { matInv6, matMul6 };

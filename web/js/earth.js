@@ -83,11 +83,14 @@ export function era(jdUT1) {
   let th = D2PI * (f + 0.7790572732640 + 0.00273781191135448 * d);
   th %= D2PI; if (th < 0) th += D2PI; return th;
 }
+// GMST (IAU 2006, ERA tabanlı) ve ekinoks denklemi (IAU 2000A, kısaltılmış tamamlayıcı terimlerle): gast, temeToIcrf, hızlı sürüm ortak
+const gmst06 = (jdUT1, t) => era(jdUT1) + (0.014506 + (4612.156534 + (1.3915817 + (-0.00000044 + (-0.000029956 - 0.0000000368 * t) * t) * t) * t) * t) * AS2R;
+const eqEquinox = (n) => n.dpsi * Math.cos(n.epsa) + (0.00264096 * Math.sin(n.om) + 0.00006352 * Math.sin(2 * n.om)) * AS2R;
 // Greenwich görünür yıldız zamanı (IAU 2006/2000A, ekinoks tabanlı)
 export function gast(jdUT1, jdTT) {
   const t = (jdTT - 2451545.0) / 36525.0, n = npb(jdTT);
-  const gmst = era(jdUT1) + (0.014506 + (4612.156534 + (1.3915817 + (-0.00000044 + (-0.000029956 - 0.0000000368 * t) * t) * t) * t) * t) * AS2R;
-  const ee = n.dpsi * Math.cos(n.epsa) + (0.00264096 * Math.sin(n.om) + 0.00006352 * Math.sin(2 * n.om)) * AS2R;
+  const gmst = gmst06(jdUT1, t);
+  const ee = eqEquinox(n);
   let g = (gmst + ee) % D2PI; if (g < 0) g += D2PI; return g;
 }
 // GCRS(≈ICRF) -> ITRS (kutup hareketi yok) ; jdTT
@@ -95,11 +98,10 @@ export function icrfToItrf(jdTT) {
   const jdUT1 = jdTT - deltaT(jdTT) / 86400;
   return mm(Rz(gast(jdUT1, jdTT)), npb(jdTT).R);
 }
-export const truePole = (jdTT) => npb(jdTT).R[2];     // tarihin gerçek kutbu (ICRF'de)
 // SGP4'ün TEME çerçevesi -> GCRS(≈ICRF): r_TOD = R3(−Eq)·r_TEME (Eq: ekinoks denklemi; Vallado, "TEME"), r_GCRS = NPBᵀ·r_TOD. Matris (satırlar)
 export function temeToIcrf(jdTT) {
   const n = npb(jdTT), R = n.R;
-  const eq = n.dpsi * Math.cos(n.epsa) + (0.00264096 * Math.sin(n.om) + 0.00006352 * Math.sin(2 * n.om)) * AS2R;
+  const eq = eqEquinox(n);
   const c = Math.cos(-eq), s = Math.sin(-eq), R3 = [[c, s, 0], [-s, c, 0], [0, 0, 1]];
   const M = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
   for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { let v = 0; for (let k = 0; k < 3; k++) v += R[k][i] * R3[k][j]; M[i][j] = v; }
@@ -122,8 +124,8 @@ export function npbFast(jdTT) {
 }
 export function icrfToItrfFast(jdTT) {
   const jdUT1 = jdTT - deltaT(jdTT) / 86400, n = npbFast(jdTT), t = (jdTT - 2451545.0) / 36525.0;
-  const gmst = era(jdUT1) + (0.014506 + (4612.156534 + (1.3915817 + (-0.00000044 + (-0.000029956 - 0.0000000368 * t) * t) * t) * t) * t) * AS2R;
-  const g = gmst + n.dpsi * Math.cos(n.epsa) + (0.00264096 * Math.sin(n.om) + 0.00006352 * Math.sin(2 * n.om)) * AS2R;
+  const gmst = gmst06(jdUT1, t);
+  const g = gmst + eqEquinox(n);
   return mm(Rz(g), n.R);
 }
 export const truePoleFast = (jdTT) => npbFast(jdTT).R[2];

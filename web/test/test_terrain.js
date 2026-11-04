@@ -6,6 +6,7 @@
 //  4) sahne bağlantısı: yer tutucu ağ + gerçek ağın yerine geçmesi, delik yalnız hazırken açılır
 import fs from 'fs';
 import { register } from 'node:module';
+import { sceneSrc } from './scenesrc.js';
 register('./importmap_loader.mjs', import.meta.url);
 const THREE = await import('three');
 const Ref = await import('./fixtures/terrain_ref.js');
@@ -76,7 +77,7 @@ const lat = MI.SITE_LAT * 180 / Math.PI, lon = MI.SITE_LON * 180 / Math.PI, hSit
 
 // ---------------------------------------------------------------- 4) sahne bağlantısı (kaynak denetimi)
 {
-  const sc = rd('../js/scene.js'), tr = rd('../js/terrain.js'), tw = rd('../js/terrainwork.js');
+  const sc = sceneSrc(), tr = rd('../js/terrain.js'), tw = rd('../js/terrainwork.js');
   check('scene: arazi worker\'da üretilir (loadTerrain), ana iş parçacığında buildTerrain çağrılmaz', /loadTerrain\(A\.dem/.test(sc) && !/buildTerrain\(/.test(sc) && !/detailNormalTexture\(\)/.test(sc));
   check('scene: yer tutucu ağ aynı öznitelik kümesiyle (position, normal, uv, uv1, color) ve aynı uv kanalındaki yer tutucu normal haritasıyla kurulur (program önceden derlenir)', /\['position', 3\], \['normal', 3\], \['uv', 2\], \['uv1', 2\], \['color', 3\]/.test(sc) && /ph\.channel = 1/.test(sc));
   check('scene: delik (holeCos) başlangıçta kapalı (2.0), arazi hazır olunca cos(HOLE_R / R_M)', /holeCos: \{ value: 2\.0 \}/.test(sc) && /this\.holeCos0 = Math\.cos\(HOLE_R \/ E\.R_M\); this\.terrainReady = true/.test(sc));

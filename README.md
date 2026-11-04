@@ -132,6 +132,7 @@ node test/test_texplan.js      # ana doku planı (R8, düşük bellek katmanı) 
 node test/test_nominalby.js    # hazır nominal Δv'ler (nominalBy), varsayılan açılışta nominal worker'ı yok, gökyüzü katmanlarının ertelenmesi (~10 s)
 node test/test_perfgov.js      # uyarlanır çizim çözünürlüğü (salınmaz) ve arka plan duraklatma bağlantısı
 node test/test_tiles.js        # parça akışı: yumuşak geçiş uv dönüşümü, kardeşler birlikte, akış sırasında çözünürlük düşmez
+node test/test_launchcam.js    # kalkış yayını kurgusu: çekim sırası, araç üstü pencereler, otomatik hız, sarsıntı, zaman çizgisi
 node test/test_preload.js      # index.html modulepreload ipuçları ↔ gerçek modül grafiği
 node test/test_profiles.js     # tüm görev profillerini tasarlayıp uçurur (birkaç dakika)
 ```
@@ -181,7 +182,7 @@ animate(el, { opacity: [0, 1], y: [8, 0] }, { duration: 0.2, ease: 'easeOut' });
 | `.claude/skills/`, `skills-lock.json` | Claude Code becerileri (UI UX Pro Max, Emil Kowalski) ve sürüm özetleri; siteye girmez |
 | `api/` | Vercel sunucusuz işlevleri (canlı veri vekili) |
 | `scripts/` | Blender sürümü (Adım 1–5): görev motoru ve sahne betikleri |
-| `kernels/` | JPL DE440s, Ay yönelim çekirdeği, efemeris tablosu |
+| `kernels/` | Ay çerçeve tanımı (`moon_de440_250416.tf`); JPL DE440s, Ay yönelim çekirdeği ve efemeris tablosu tek kopya olarak `web/data/`'dadır |
 
 ## Veri kaynakları ve lisanslar
 

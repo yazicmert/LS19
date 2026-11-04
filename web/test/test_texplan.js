@@ -6,6 +6,7 @@
 //  5) yükleme hattı sözleşmeleri: bitmap kapatma yalnız GPU yüklemesinden sonra, yedek yol, derleme zaman aşımı, bağlam kaybı, boyut userData'dan
 import fs from 'fs';
 import { TEX, lowMemoryFrom, fileFor } from '../js/texplan.js';
+import { sceneSrc } from './scenesrc.js';
 
 let fail = 0;
 const check = (name, ok, detail = '') => { console.log(`${ok ? 'TAMAM' : 'HATA '} ${name}${detail ? ' — ' + detail : ''}`); if (!ok) fail++; };
@@ -66,7 +67,7 @@ function dims(file) {
 
 // ---------------------------------------------------------------- 2) R8 yalnız .r ile okunur
 {
-  const src = rd('../js/scene.js');
+  const src = sceneSrc();
   const names = { clouds: 'cloudMap', spec: 'specMap' };
   for (const s of TEX.filter((t) => t.red)) {
     const u = names[s.key], uses = [...src.matchAll(new RegExp(`texture2D\\(\\s*${u}\\s*,[^;]*?\\)(\\.[a-z]+)?`, 'g'))];
@@ -81,7 +82,7 @@ function dims(file) {
 
 // ---------------------------------------------------------------- 3) World.build anahtarları
 {
-  const src = rd('../js/scene.js'), build = src.slice(src.indexOf('  build(A) {'), src.indexOf('  prepModel('));
+  const src = sceneSrc(), build = src.slice(src.indexOf('  build(A) {'), src.indexOf('  prepModel('));
   const used = new Set([...build.matchAll(/\bA\.([a-zA-Z]+)\b/g)].map((m) => m[1]));
   const planKeys = new Set(TEX.map((s) => s.key)), extra = new Set(['dem', 'lander', 'stage', 'orb']);
   const unknown = [...used].filter((k) => !planKeys.has(k) && !extra.has(k)), unused = [...planKeys].filter((k) => !used.has(k));
@@ -102,7 +103,7 @@ function dims(file) {
 
 // ---------------------------------------------------------------- 5) hat sözleşmeleri (kaynak denetimi)
 {
-  const tl = rd('../js/texload.js'), sc = rd('../js/scene.js'), tiles = rd('../js/tiles.js');
+  const tl = rd('../js/texload.js'), sc = sceneSrc(), tiles = rd('../js/tiles.js');
   check('texload: createImageBitmap seçenekleri flipY + premultiplyAlpha none + colorSpaceConversion none (WebGL ImageBitmap\'te bu ayarları yok sayar)', /imageOrientation: 'flipY', premultiplyAlpha: 'none', colorSpaceConversion: 'none'/.test(tl) && /t\.flipY = false/.test(tl));
   check('texload: tarayıcı flipY desteğini yoklar, desteklemiyorsa <img> yedeği (decodeImage)', /bitmapSupported/.test(tl) && /useBm \? (await )?decodeBitmap/.test(tl) && /decodeImage/.test(tl));
   check('texload: çözülmüş piksel belleği (release: bitmap.close / tuval 0×0) yalnız initTexture başarılı olunca bırakılır; başarısızsa bırakılmaz (ilk çizimde yeniden denenir)', /try \{ renderer\.initTexture\(t\); \} catch \(e\) \{ return; \}[^\n]*\n\s*if \(red && gl\.getError\(\)/.test(tl) && /if \(t\.userData\.release\) t\.userData\.release\(\)/.test(tl) && /\(\) => b\.close\(\)/.test(tl) && /cv\.width = cv\.height = 0/.test(tl));

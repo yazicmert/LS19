@@ -12,12 +12,10 @@
 //  Gravite gradyanı torku da eklenir (çok küçük). Sensör, kestirim, çalkantı, esneklik YOKTUR: yönelim bilgisi mükemmeldir.
 import { qMul, qRot, qConj, qNormalize, qFromZ, qSwing, vAngle, Z_AXIS, D2R } from './attitude.js';
 import { massProps, rk4Rot, ggTorque, stageSpec } from './rigidbody.js';
+import { dot, cross, norm, unit as unit0, Z_UP } from './vec3.js';
 
 const G0 = 9.80665;                                                // m/s²
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
-const unit = (a) => { const n = norm(a); return n > 0 ? [a[0] / n, a[1] / n, a[2] / n] : [0, 0, 1]; };
+const unit = (a) => unit0(a, Z_UP);                          // sıfır vektörde +z
 export const CTL = {
   HOLD_ENTER: 0.5 * D2R, HOLD_W: 0.3 * D2R, HOLD_RATE: 0.5 * D2R, HOLD_TRACK_MAX: 2.0 * D2R,     // yarı-durağan tutma: hata, hız hatası, komut hızı eşikleri (rad, rad/s)
   TVC_DERATE: 0.7, RCS_SUPPORT: 0.3, RCS_SUPPORT_FAST: 1.0,           // frenleme eğrisinde güvenilir yetki payları: gimbal (gecikme/hız sınırı için), motor açıkken RCS (yalnız TVC doyarsa yardım eder; iniş/elle uçuşta daha çok)

@@ -6,6 +6,8 @@
 //  - Ay dönüşü: Euler denklemleri I·ω̇ = N − ω×Iω; N: Dünya ve Güneş'in Ay'ın eylemsizlik tensörüne torku (MacCullagh)
 // Dünya ile Ay, ortak kütle merkezleri etrafında bu kuvvetlerle döner; Dünya'nın barisentrik salınımı kendiliğinden çıkar.
 import * as EO from './earth.js';
+import { mT } from './vec3.js';
+import { DP_A, DP_C, DP_E } from './dopri.js';
 
 export const BODIES = [
   { id: 10, name: 'Güneş', gm: 132712440041.279419 }, { id: 1, name: 'Merkür', gm: 22031.868551 },
@@ -46,7 +48,6 @@ function matToQ(M) {                           // gövde -> ICRF matrisinden bir
 const R1 = (a) => { const c = Math.cos(a), s = Math.sin(a); return [[1, 0, 0], [0, c, s], [0, -s, c]]; };
 const R3 = (a) => { const c = Math.cos(a), s = Math.sin(a); return [[c, s, 0], [-s, c, 0], [0, 0, 1]]; };
 const mm = (A, B) => A.map((r, i) => [0, 1, 2].map((j) => A[i][0] * B[0][j] + A[i][1] * B[1][j] + A[i][2] * B[2][j]));
-const mT = (A) => [[A[0][0], A[1][0], A[2][0]], [A[0][1], A[1][1], A[2][1]], [A[0][2], A[1][2], A[2][2]]];
 
 // Ay figür potansiyelinin (J2, C22) PA çerçevesinde yarattığı ivme (test parçacığı, μ = GM_Ay)
 function moonFigureAcc(x, y, z) {
@@ -129,10 +130,7 @@ export class LiveEphemeris {
 
   // ---------------------------------------------------------------- DOPRI5 adımı (FSAL)
   step(node, h) {
-    const A = [[], [1 / 5], [3 / 40, 9 / 40], [44 / 45, -56 / 15, 32 / 9], [19372 / 6561, -25360 / 2187, 64448 / 6561, -212 / 729],
-      [9017 / 3168, -355 / 33, 46732 / 5247, 49 / 176, -5103 / 18656], [35 / 384, 0, 500 / 1113, 125 / 192, -2187 / 6784, 11 / 84]];
-    const C = [0, 1 / 5, 3 / 10, 4 / 5, 8 / 9, 1, 1];
-    const E = [71 / 57600, 0, -71 / 16695, 71 / 1920, -17253 / 339200, 22 / 525, -1 / 40];   // B5 - B4
+    const A = DP_A, C = DP_C, E = DP_E;                            // Dormand–Prince 5(4) tablosu (dopri.js)
     for (;;) {
       const k = [node.f], y = node.y;
       let y5 = null;

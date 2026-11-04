@@ -161,7 +161,6 @@ export function controlNote(age, isStation = false) {
 }
 
 // ---------------------------------------------------------------- JPL Sentry
-export const TORINO_TR = { 0: '0 (önemsiz)', 1: '1 (normal izleme)', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9', 10: '10' };
 // map: des -> { ip, ps, ts, range:'2064-2064', n, D, vinf } -> satırlar (yıl bilgisiyle)
 export function sentryRows(map, nowYear = new Date().getUTCFullYear()) {
   const out = [];
