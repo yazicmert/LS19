@@ -6,9 +6,9 @@
 // (iniş ayaklarının 2,9 m üstü); yığın üstten alta: iniş aracı / (Ay yörünge kademesi) / TLI kademesi.
 // Kademe geometrisi ve aktüatör değerleri TEMSİLİDİR (belirli bir aracın verisi değildir); doğrulama: test/test_dynamics6.js.
 import { qMul, qRot, qNormalize, qConj } from './attitude.js';
+import { cross } from './vec3.js';
 
 const D2R = Math.PI / 180;
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 
 // ---------------------------------------------------------------- kademe rolleri (geometri, RCS, TVC, denetim parametreleri)
 //  len/rad: gövde uzunluğu ve yarıçapı (m); cg: kuru kütle merkezi (kıç uçtan, m); tankAft/tankLen/tankRad: yakıt tankı (kıç uçtan başlar; sütun kıça çökmüş);

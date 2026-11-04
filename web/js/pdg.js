@@ -10,14 +10,9 @@
 // Ayrıklaştırma: u, σ ve g aralıklarda sabit (ZOH), tam (matris üstelli) tümleme; böylece sonuç sürekli zamanlı modelle uyuşur.
 // Sabit tf için dışbükeydir; tf için tek boyutlu arama yapılır (yakıt tf'nin tek tepeli işlevidir).
 import { Conic } from './conic.js';
+import { dot, norm, add, sub, scale, cross, unit as unit0, Z_UP } from './vec3.js';
 
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const norm = (a) => Math.sqrt(dot(a, a));
-const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const scale = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const unit = (a) => { const n = norm(a); return n > 0 ? scale(a, 1 / n) : [0, 0, 1]; };
+const unit = (a) => unit0(a, Z_UP);                          // sıfır vektörde +z
 // n̂'ye dik iki birim vektör
 function perpBasis(n) {
   const a = Math.abs(n[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0], e1 = unit(cross(n, a));

@@ -67,7 +67,7 @@ function rotAngle(A, B) {
   const s = 0.5 * Math.hypot(C[2][1] - C[1][2], C[0][2] - C[2][0], C[1][0] - C[0][1]), c = 0.5 * (C[0][0] + C[1][1] + C[2][2] - 1);
   return Math.atan2(s, c);
 }
-const mv = (M, v) => M.map((r) => r[0] * v[0] + r[1] * v[1] + r[2] * v[2]);
+const mv = E.mv;
 
 export class UI {
   constructor(world, send) {

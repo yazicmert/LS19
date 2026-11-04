@@ -74,6 +74,7 @@ check(/loadPadGround/.test(scene) && /s2cloudless_3857/.test(scene) && /CC BY-SA
   'rampa: NASA Mobile Launcher (SLS), çevresi Sentinel-2 cloudless 2016 (atıflı, CC BY-SA 4.0); yüklenemezse gösterilmez');
 check(/PLUME_COL/.test(scene) && /pAmb/.test(scene) && /diamonds\.value = 0\.32 \* pr/.test(scene) && ['saturnv', 'sls', 'vulcan'].every((lv) => Object.values(ROCKETS).some((r) => r.ascent.lv === lv && r.ascent.props.length === r.ascent.veh.stages.length)),
   'alev: ortam basıncıyla genişler, şok elmasları alçakta; renk o anki kademenin yakıtına göre (her kademenin yakıtı tanımlı)');
-check(/A\.sky/.test(scene) && /Math\.sqrt\(2 \* 6378/.test(scene) && /depthTest: true/.test(scene), 'gökyüzü: Güneş yüksekliğine göre renk, ölçek yüksekliğiyle sönüm; ufkun ötesinde derinlik testli kubbe');
+check(/A\.sky/.test(scene) && /Math\.sqrt\(2 \* 6378/.test(scene) && /skyFade/.test(scene) && /logdepthbuf_vertex/.test(scene) && !/depthTest: false/.test(scene.slice(scene.indexOf('async skyMaterial'), scene.indexOf('async loadPadGround'))),
+  'gökyüzü: Preetham (three Sky), Güneş konumuna göre renk, irtifayla sönüm; ufkun ötesinde derinlik testli kubbe (log derinlik)');
 check(/propagate\(d, dt\)/.test(ap) && /atmosphere\(alt\)\.rho/.test(ap) && /debris\.push/.test(ap) && /applyAscent/.test(scene), 'ayrılan kademeler: ayrılma anındaki durumdan balistik (çekim + sürüklenme), takla atarak düşer');
 console.log(ok ? 'TAMAM' : 'HATA'); process.exit(ok ? 0 : 1);

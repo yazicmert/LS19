@@ -6,6 +6,7 @@
 //   Doğrusal duyarlılık: durum geçiş matrisi (STM, 6x6 varyasyon denklemleri) + B-düzlemi (Öpik/Valsecchi ξ–ζ) kısmi türevleri.
 // Birimler: km, s, TDB saniye (J2000'den), ICRF (SSB). Asteroidin kendi kütlesi yörüngesini etkilemez (test parçacığı).
 import { SPKKernel } from './jplkernel.js';
+import { dot, cross, norm, unit, sub, scale } from './vec3.js';
 
 export const AU = 149597870.7, DAY = 86400, YEAR = 365.25 * 86400;
 export const GM_SUN = 132712440041.279419, MU_E = 398600.435507, R_E = 6378.1363;
@@ -18,12 +19,7 @@ export const etFromJd = (jd) => (jd - 2451545.0) * DAY;
 export const jdFromEt = (et) => et / DAY + 2451545.0;
 export const ET_MIN = etFromJd(2396758.5 + 400), ET_MAX = etFromJd(2506331.5 - 400);    // DE440s kapsamı (1849–2150), kenar payıyla
 
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
-const unit = (a) => { const n = norm(a); return [a[0] / n, a[1] / n, a[2] / n]; };
-const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const scl = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
+const scl = scale;
 
 // ---------------------------------------------------------------- yörünge öğeleri -> durum
 // el: { a (AU), e, i, om, w, ma (derece), epoch (JD TDB) } — JPL SBDB: Güneş merkezli, J2000 ekliptiği, oskülatör
@@ -278,4 +274,4 @@ export function orbitChange(r, v, dv) {
   const e0 = helioElements(r, v), e1 = helioElements(r, [v[0] + dv[0], v[1] + dv[1], v[2] + dv[2]]);
   return { da: e1.a - e0.a, dP: e1.P - e0.P, de: e1.e - e0.e, di: e1.i - e0.i, before: e0, after: e1 };
 }
-export { matInv6, matMul6, phiOf, norm, sub, dot, cross, unit, scl };
+export { matInv6, matMul6 };

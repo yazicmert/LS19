@@ -6,6 +6,7 @@
 //  - Ay dönüşü: Euler denklemleri I·ω̇ = N − ω×Iω; N: Dünya ve Güneş'in Ay'ın eylemsizlik tensörüne torku (MacCullagh)
 // Dünya ile Ay, ortak kütle merkezleri etrafında bu kuvvetlerle döner; Dünya'nın barisentrik salınımı kendiliğinden çıkar.
 import * as EO from './earth.js';
+import { mT } from './vec3.js';
 
 export const BODIES = [
   { id: 10, name: 'Güneş', gm: 132712440041.279419 }, { id: 1, name: 'Merkür', gm: 22031.868551 },
@@ -46,7 +47,6 @@ function matToQ(M) {                           // gövde -> ICRF matrisinden bir
 const R1 = (a) => { const c = Math.cos(a), s = Math.sin(a); return [[1, 0, 0], [0, c, s], [0, -s, c]]; };
 const R3 = (a) => { const c = Math.cos(a), s = Math.sin(a); return [[c, s, 0], [-s, c, 0], [0, 0, 1]]; };
 const mm = (A, B) => A.map((r, i) => [0, 1, 2].map((j) => A[i][0] * B[0][j] + A[i][1] * B[1][j] + A[i][2] * B[2][j]));
-const mT = (A) => [[A[0][0], A[1][0], A[2][0]], [A[0][1], A[1][1], A[2][1]], [A[0][2], A[1][2], A[2][2]]];
 
 // Ay figür potansiyelinin (J2, C22) PA çerçevesinde yarattığı ivme (test parçacığı, μ = GM_Ay)
 function moonFigureAcc(x, y, z) {

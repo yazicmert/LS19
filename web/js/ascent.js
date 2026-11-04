@@ -12,15 +12,8 @@
 // zamanlarından (rockets.js ascent) T'ye ölçeklenir.
 
 import { solveAscent, sampleAt } from './ascentsim.js';
+import { dot, sub, add, scale, norm, unit, cross, mtv } from './vec3.js';
 const OMEGA = 7.2921159e-5;                                       // rad/s
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-const scale = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
-const unit = (a) => scale(a, 1 / (norm(a) || 1));
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const mtv = (M, x) => [M[0][0] * x[0] + M[1][0] * x[1] + M[2][0] * x[2], M[0][1] * x[0] + M[1][1] * x[1] + M[2][1] * x[2], M[0][2] * x[0] + M[1][2] * x[1] + M[2][2] * x[2]];
 
 export const P_ALT = 2.2, Q_ALT = 1.3;
 const A_E = 6378.137, F_E = 1 / 298.257223563, E2 = F_E * (2 - F_E);
