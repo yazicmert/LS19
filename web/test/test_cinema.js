@@ -143,7 +143,7 @@ check('Apollo iki kademe: dokuz bölüm, anma süre 110–150 s, açılış INS\
 // ---------------------------------------------------------------- 6) sahne, modeller ve son işlem
 {
   const sc = sceneSrc(), post = rd('../js/post.js');
-  const m = /const PBR = \{([\s\S]*?)\n\};/.exec(sc);
+  const m = /const PBR = \{([\s\S]*?\})\s*\};/.exec(sc);
   const kinds = {}; for (const k of ['lander', 'orb', 'stage']) { const mm = new RegExp(k + ': \\{([^}]*)\\}').exec(m[1]); kinds[k] = [...mm[1].matchAll(/'([^']+)':/g)].map((x) => x[1]); }
   const names = (n) => { const b = fs.readFileSync(new URL(`../models/${n}.glb`, import.meta.url)), jl = b.readUInt32LE(12), j = JSON.parse(b.subarray(20, 20 + jl).toString('utf8')); return j.materials.map((x) => x.name); };
   const bad = []; for (const [k, list] of Object.entries(kinds)) { const have = new Set(names(k)); for (const n of list) if (!have.has(n)) bad.push(`${k}:${n}`); }
