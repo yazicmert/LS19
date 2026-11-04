@@ -7,12 +7,20 @@
 // yakından uzağa öncelik; her parça için iki seviye üst ata da hemen istenir (önce bulanık, sonra net, boşluk yok) ·
 // kamera yaklaşırken bir sonraki seviye önceden istenir (boşta bant genişliğiyle) · gerekmeyen istekler iptal edilir ·
 // kare başına en çok MAX_PROMOTE yeni parça GPU'ya yüklenir (takılma olmasın) · başarısız parça 15 sn sonra yeniden denenir.
+// Akıcılık ("parça parça / piksel piksel" görünmesin): yeni parça yerini aldığı kaba görüntüden (en yakın hazır ata ya da taban doku) FADE_MS içinde
+// yumuşak geçişle gelir (gölgelendiricide iki örnek karışır; kaplama katmanı atası yoksa saydamlıkla belirir) · aynı atanın kardeş parçaları aynı karede
+// açılır (yamalı bohça görünmesin) · öncelik ekran merkezine yakınlıkla da ağırlıklanır (bakılan yer önce netleşir) · busy: GPU'ya yükleme/geçiş sürüyor
+// (uyarlanır çözünürlük bu karelerdeki kısa takılmaları "yavaş sahne" sanıp çözünürlüğü düşürmesin: app.js → perfgov.js).
 import * as THREE from 'three';
 import { bitmapSupported } from './texload.js';
 
 const D2R = Math.PI / 180;
 const NSEG = 14;
 const MAX_PROMOTE = 4, LOOKAHEAD = 0.5, RETRY_MS = 15000, STALE_MS = 2500, CACHE_NAME = 'ls19-tiles-v1';
+export const FADE_MS = 450;
+const smooth = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
+// çocuk parçanın uvT'sini atanın uvT'sine taşıyan doğrusal dönüşüm [ölçek u, ölçek v, kayma u, kayma v] (uvT: u = (boylam − lon0)/span, v = 1 − (lat1 − enlem)/span)
+export function parentXf(n, p) { const s = n.span / p.span; return [s, s, (n.lon0 - p.lon0) / p.span, 1 - s - (p.lat1 - n.lat1) / p.span]; }
 
 // ızgara şemaları: parça açısal genişliği (derece), sütun/satır sayısı
 export const SCHEMES = {
@@ -84,7 +92,7 @@ export class TileLayer {
             const x = n.x * 2 + dx, y = n.y * 2 + dy; if (x >= this.S.cols(n.z + 1) || y >= this.S.rows(n.z + 1)) continue;
             visit(this.node(n.z + 1, x, y), k, out);
           }
-        } else { n.dist = dist; out.push(n); }
+        } else { n.dist = dist; n.ang = ang; out.push(n); }
       };
       const zr = this.rootZ;
       for (let y = 0; y < this.S.rows(zr); y++) for (let x = 0; x < this.S.cols(zr); x++) visit(this.node(zr, x, y), 1, leaves);
@@ -95,26 +103,45 @@ export class TileLayer {
     }
     // her yaprak için: dokusu hazırsa kendisi, değilse en yakın hazır atası çizilir; hazır olmayan (ve iki seviye üst atası) istenir
     const draw = new Map(); let maxZ = 0;
-    leaves.sort((a, b) => a.dist - b.dist);
+    const hd = this.halfDiag = halfDiag;
+    for (const n of leaves) n.pri = n.dist * (1 + 1.5 * Math.min(1, (n.ang || 0) / hd));                       // ekran merkezine yakın olan önce (bakılan yer önce netleşir)
+    leaves.sort((a, b) => a.pri - b.pri);
     for (const n of leaves) {
       let a = n; while (a && !(this.cache.get(a.key) && this.cache.get(a.key).tex)) a = this.up(a);
       if (a !== n) {
-        this.request(n, n.dist);
+        this.request(n, n.pri);
         let g = n; for (let i = 0; i < 2 && g && !this.noBoost; i++) g = this.up(g);
-        if (g && !this.noBoost && !(this.cache.get(g.key) && this.cache.get(g.key).tex)) this.request(g, n.dist * 0.15);       // kaba ata önce gelir
+        if (g && !this.noBoost && !(this.cache.get(g.key) && this.cache.get(g.key).tex)) this.request(g, n.pri * 0.15);       // kaba ata önce gelir
       }
       if (a) { draw.set(a.key, a); maxZ = Math.max(maxZ, a.z); }
     }
     for (const n of ahead) if (!this.cache.has(n.key)) this.request(n, n.dist * 4 + 1e4, true);                      // en düşük öncelik
     const dt = this.lastT ? now - this.lastT : 16; this.lastT = now;
-    if (this.nReady > 0) this.promote(Math.min(24, Math.max(MAX_PROMOTE, Math.round(dt / 6))));                // yavaş karede daha çok (kare başına sabit sınır yavaş cihazda beklemeye yol açmasın)
+    const promoted = this.nReady > 0 ? this.promote(Math.min(24, Math.max(MAX_PROMOTE, Math.round(dt / 6)))) : 0;   // yavaş karede daha çok (kare başına sabit sınır yavaş cihazda beklemeye yol açmasın)
+    if (promoted) this.lastPromote = now;
     this.pump(now);
     // görünürlük: yalnız değişenlere yazılır (yüzlerce mesh üzerinde her karede döngü yok)
-    const vis = this.visSet || (this.visSet = new Set()), next = new Set();
+    const vis = this.visSet || (this.visSet = new Set()), next = new Set(); let fading = 0;
     for (const n of draw.values()) {
       const e = this.cache.get(n.key); e.last = this.frame; e.t = now;
       let m = this.meshes.get(n.key);
-      if (!m) { m = new THREE.Mesh(tileGeometry(this.R, n.lat0, n.lat1, n.lon0, n.lon1, n.uMax, n.vMin, this.lift || 0), this.material(e.tex, n)); m.frustumCulled = false; m.renderOrder = 1; this.group.add(m); this.meshes.set(n.key, m); }
+      if (!m) {
+        m = new THREE.Mesh(tileGeometry(this.R, n.lat0, n.lat1, n.lon0, n.lon1, n.uMax, n.vMin, this.lift || 0), this.material(e.tex, n)); m.frustumCulled = false; m.renderOrder = 1; this.group.add(m); this.meshes.set(n.key, m);
+        const u = m.material.uniforms;                                                                      // parçaya özgü geçiş değişkenleri (taban malzemeyle paylaşılmaz)
+        u.tileFade = { value: 1 }; u.pHas = { value: 0 }; u.parentMap = { value: e.tex }; u.pXf = { value: new THREE.Vector4(1, 1, 0, 0) };
+      }
+      if (e.fade0 === undefined) {                                                                          // ilk görünüş: o ana dek yerinde çizilen kaba görüntüden geçiş
+        let p = this.up(n); while (p && !(this.cache.get(p.key) && this.cache.get(p.key).tex)) p = this.up(p);
+        e.fade0 = this.fadeMs === 0 ? -1e9 : now; e.par = p ? this.cache.get(p.key) : null;
+        const u = m.material.uniforms; u.pHas.value = p ? 1 : 0; if (p) { u.parentMap.value = e.par.tex; u.pXf.value.fromArray(parentXf(n, p)); }
+      }
+      if (e.fade0 > -1e9) {
+        const f = smooth((now - e.fade0) / (this.fadeMs ?? FADE_MS)), u = m.material.uniforms;
+        if (f < 1 && (!e.par || this.cache.get(e.par.n.key) === e.par)) {
+          u.tileFade.value = f; if (e.par) e.par.last = this.frame;                                           // ata geçiş bitene dek bellekte kalsın
+          const tr = !!this.overlay && !e.par; if (m.material.transparent !== tr) m.material.transparent = tr; fading++;
+        } else { u.tileFade.value = 1; u.pHas.value = 0; u.parentMap.value = e.tex; if (m.material.transparent) m.material.transparent = false; e.par = null; e.fade0 = -1e9; }
+      }
       if (!vis.has(n.key)) m.visible = true;
       next.add(n.key);
     }
@@ -122,7 +149,8 @@ export class TileLayer {
     this.visSet = next;
     this.evict();
     let need = 0; for (const e of this.queue) if (!e.ahead) need++; for (const e of this.loading) if (!e.ahead) need++;
-    this.stats = { drawn: draw.size, pending: need, cached: this.cache.size, maxZ, failed: this.fails, loaded: this.okCount };
+    this.stats = { drawn: draw.size, pending: need, cached: this.cache.size, maxZ, failed: this.fails, loaded: this.okCount, fading };
+    this.busy = fading > 0 || now - (this.lastPromote || -1e9) < 400;                                        // GPU'ya yükleme / geçiş sürüyor (bkz. perfgov busy)
   }
   request(n, prio, ahead = false) {
     let e = this.cache.get(n.key); const now = performance.now();
@@ -186,12 +214,21 @@ export class TileLayer {
       }).catch((err) => { this.loading.delete(e); if (this.cache.get(e.n.key) !== e) return; e.failed = true; e.failedAt = performance.now(); e.loading = false; if (!(err && err.name === 'AbortError')) this.fails++; });
     }
   }
-  // hazır dokulardan kare başına en çok MAX_PROMOTE tanesini (en yakınlar önce) çizime aç: GPU yüklemesi takılma yapmasın
+  // hazır dokulardan kare başına en çok MAX_PROMOTE tanesini (en yakınlar önce) çizime aç: GPU yüklemesi takılma yapmasın.
+  // Kardeşler (aynı ata) birlikte açılır: dörtlünün biri net, biri bulanık yamalı görüntü kalmasın (sınır en çok 3 aşılır). Dönen: açılan sayısı.
   promote(max = MAX_PROMOTE) {
-    let k = 0, list = [];
+    let k = 0; const list = [];
     for (const e of this.cache.values()) if (e.ready && !e.tex) list.push(e);
     list.sort((a, b) => (a.prio || 0) - (b.prio || 0));
-    for (const e of list) { if (k++ >= max) break; e.tex = e.ready; this.nReady--; }
+    const open = (e) => { e.tex = e.ready; this.nReady--; k++; };
+    for (const e of list) {
+      if (k >= max) break; if (e.tex) continue;
+      open(e);
+      const n = e.n; if (n.z <= this.minZ) continue;
+      const px = n.x >> 1, py = n.y >> 1;
+      for (const s of list) if (!s.tex && s !== e && s.n.z === n.z && s.n.x >> 1 === px && s.n.y >> 1 === py && k < max + 3) open(s);
+    }
+    return k;
   }
   evict() {
     if (this.cache.size <= this.maxTextures) return;

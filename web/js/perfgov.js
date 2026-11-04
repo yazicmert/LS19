@@ -7,7 +7,10 @@
 //    (aksi halde hiçbir kazanç olmadan yalnız bulanıklık eklenirdi),
 //  - geri çıkış: kare süresi ekran ritmine yakınsa (≤ en iyi görülen medyan × 1,12) BİR KADEME DENENİR; deneme yavaşlarsa o seviye "tavan" olarak 30 dk hatırlanır
 //    (salınmaz); tavan seviyesinde kare süresi ≥ %15 düşerse (sahne hafifledi, güç tasarrufu kalktı) tavan kalkar: oran kendiliğinden geri döner, tabanda takılı kalmaz,
-//  - 250 ms'den uzun kareler de (çok yavaş cihaz) ölçüme girer; yalnız > 1,5 sn'lik duraklamalar (sekme, yükleme) ölçümü sıfırlar. Medyan birkaç sıçramaya dayanıklıdır.
+//  - 250 ms'den uzun kareler de (çok yavaş cihaz) ölçüme girer; yalnız > 1,5 sn'lik duraklamalar (sekme, yükleme) ölçümü sıfırlar. Medyan birkaç sıçramaya dayanıklıdır,
+//  - busy (doku/parça GPU'ya yükleniyor, parça geçişi sürüyor): o karelerin süresi geçici akış maliyetidir, sahnenin kalıcı yükü değil → ölçüme girmez
+//    (yoksa yakınlaşırken yüzey netleşirken çözünürlük düşer, görüntü tam ayrıntı gelirken "piksel piksel" bulanıklaşırdı),
+//  - taban (floorRatio): yüksek yoğunluklu ekranda oran en çok %25 düşer (2× → 1,5×): 1×'e inmek metin/kenarlarda belirgin pikselleşme yapar.
 export class PixelGovernor {
   // max: en yüksek oran (örn. min(devicePixelRatio, 2)); min: en düşük; step: kademe; slowMs: bu kare süresinin (medyan) üstü yavaş; win: ölçüm penceresi (kare)
   constructor({ max, min = 1, step = 0.25, slowMs = 24, win = 40, stallMs = 1500 } = {}) {
@@ -16,8 +19,9 @@ export class PixelGovernor {
     this.pending = null; this.noGainUntil = 0; this.ceilMed = 0;
   }
   get active() { return this.max > this.min; }
-  tick(frameMs, now) {
+  tick(frameMs, now, busy = false) {
     if (!this.active || !(frameMs > 0)) return null;
+    if (busy) { this.buf.length = 0; return null; }                                         // akış (GPU yüklemesi) sürüyor: ölçülmez
     if (frameMs > this.stallMs) { this.buf.length = 0; return null; }                       // duraklama, sekme değişimi, yükleme: ölçüm sayılmaz
     this.buf.push(frameMs); if (this.buf.length < this.win) return null;
     const s = this.buf.slice().sort((a, b) => a - b), med = s[s.length >> 1]; this.buf.length = 0;
@@ -45,3 +49,6 @@ export class PixelGovernor {
     return null;
   }
 }
+
+// en düşük oran: max'ın %75'i (0,25 kademeye yukarı yuvarlanır), 1'den az değil — 2 → 1,5 · 1,5 → 1,25 · ≤ 1,25 → 1
+export const floorRatio = (max) => Math.max(1, Math.min(max, Math.ceil(max * 0.75 * 4 - 1e-9) / 4));

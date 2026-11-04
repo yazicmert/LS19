@@ -131,6 +131,7 @@ node test/test_terrain.js      # iniş arazisi üretimi (worker'a taşındı): e
 node test/test_texplan.js      # ana doku planı (R8, düşük bellek katmanı) ve yükleme hattı sözleşmeleri
 node test/test_nominalby.js    # hazır nominal Δv'ler (nominalBy), varsayılan açılışta nominal worker'ı yok, gökyüzü katmanlarının ertelenmesi (~10 s)
 node test/test_perfgov.js      # uyarlanır çizim çözünürlüğü (salınmaz) ve arka plan duraklatma bağlantısı
+node test/test_tiles.js        # parça akışı: yumuşak geçiş uv dönüşümü, kardeşler birlikte, akış sırasında çözünürlük düşmez
 node test/test_preload.js      # index.html modulepreload ipuçları ↔ gerçek modül grafiği
 node test/test_profiles.js     # tüm görev profillerini tasarlayıp uçurur (birkaç dakika)
 ```

@@ -127,6 +127,7 @@ const FS_EARTH = /* glsl */`
 #include <common>
 #include <logdepthbuf_pars_fragment>
 uniform sampler2D dayMap, nightMap, cloudMap, specMap, normalMap, tileMap; uniform vec3 sunDir; uniform float sunI; uniform float obsMode; uniform float useTile, tileKind;
+uniform sampler2D parentMap; uniform vec4 pXf; uniform float pHas, tileFade;          // parça geçişi (tiles.js): ata parça (ya da taban doku) → yeni parça
 varying vec2 vUvT;
 varying vec3 vN; varying vec3 vE; varying vec3 vPos; varying vec2 vUv; varying vec3 vLocal;
 ${GLSL_NOISE}
@@ -145,7 +146,13 @@ void main() {
   if (magE > 0.001) { dnE = (fbm(vLocal * 600.0) - 0.5) * 0.5 + (fbm(vLocal * 2600.0) - 0.5) * 0.35 + (fbm(vLocal * 11000.0) - 0.5) * 0.15; ndlp *= 1.0 + dnE * 0.7 * magE * landE; }
   float magC = smoothstep(0.9, 0.08, length(fwidth(vUv * vec2(8192.0, 4096.0))));        // bulut dokusu kendi çözünürlüğünü aştıkça seyrelir: yer ayrıntısı bulanık lekelerin altında kalmasın
   float cloud = texture2D(cloudMap, vUv).r + dnE * 0.4 * magE; cloud = smoothstep(0.08, 0.9, cloud) * (1.0 - 0.6 * magC);
-  vec3 day = (useTile > 0.5 ? texture2D(tileMap, vUvT).rgb : texture2D(dayMap, vUv).rgb) * (1.0 + dnE * 0.5 * magE * landE);
+  vec3 day = useTile > 0.5 ? texture2D(tileMap, vUvT).rgb : texture2D(dayMap, vUv).rgb;
+  if (useTile > 0.5 && tileFade < 0.999) {                                                // yumuşak geçiş: yerinde önceden çizilen kaba görüntüden
+    vec4 pq = texture2D(parentMap, vUvT * pXf.xy + pXf.zw); vec3 pc = pHas > 0.5 ? pq.rgb : texture2D(dayMap, vUv).rgb;
+    bool pBad = tileKind > 0.5 && (pHas < 0.5 || (tileKind < 1.5 ? pq.r + pq.g + pq.b < 0.012 : pq.a < 0.5));   // kaplamanın atasında veri yok: saydamlıkla belirir
+    day = mix(pBad ? day : pc, day, tileFade);
+  }
+  day *= 1.0 + dnE * 0.5 * magE * landE;
   float tw = smoothstep(-0.12, 0.2, ndl);
   vec3 sunCol = mix(vec3(1.0, 0.55, 0.3), vec3(1.0), smoothstep(0.0, 0.35, ndl));
   vec3 col = day * ndlp * sunCol * tw;
@@ -160,7 +167,7 @@ void main() {
   if (obsMode > 0.5) { float nearG = 1.0 - smoothstep(60.0, 500.0, length(vPos));
     vec3 g = vec3(0.018, 0.02, 0.024) + day * 0.35 * max(ndl, 0.0) * sunCol + vec3(0.25, 0.32, 0.45) * 0.05 * smoothstep(-0.2, 0.1, ndl);
     col = mix(col, g, nearG); }
-  gl_FragColor = vec4(col * sunI, 1.0);
+  gl_FragColor = vec4(col * sunI, tileKind > 0.5 && pHas < 0.5 ? tileFade : 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
 }`;
@@ -195,6 +202,7 @@ const FS_MOON = /* glsl */`
 #include <common>
 #include <logdepthbuf_pars_fragment>
 uniform sampler2D colorMap, normalMap, tileMap; uniform vec3 sunDir, earthDir; uniform float sunI, holeCos, albScale, useTile, lodDelta, tileAlpha, latCut, tilePull; uniform vec3 siteDir;
+uniform sampler2D parentMap; uniform vec4 pXf; uniform float pHas, tileFade;          // parça geçişi (tiles.js)
 varying vec2 vUvT;
 varying vec3 vN; varying vec3 vE; varying vec3 vPos; varying vec2 vUv; varying vec3 vLocal;
 ${GLSL_NOISE}
@@ -215,7 +223,12 @@ void main() {
   // yüksek çözünürlüklü WAC parçası: taban rengi korunur, parçanın taban çözünürlüğünün altındaki yerel kontrastı (krater, ışın, gölge) eklenir
   if (useTile > 0.5) {
     vec4 tt = texture2D(tileMap, vUvT); if (tileAlpha > 0.5 && (tt.a < 0.5 || abs(vLocal.z) > latCut)) discard;                      // kapsam dışı (saydam) yerde alttaki WAC görünür
-    float tl = tt.r, tc = textureLod(tileMap, vUvT, lodDelta).r; alb *= clamp(tl / max(tc, 0.03), 0.3, 3.0);
+    float tl = tt.r, tc = textureLod(tileMap, vUvT, lodDelta).r;
+    if (tileFade < 0.999) {                                                               // yumuşak geçiş: ata parçadan (yoksa taban: oran 1; kaplama ise saydamlıkla)
+      vec4 pq = texture2D(parentMap, vUvT * pXf.xy + pXf.zw); bool pBad = pHas < 0.5 || (tileAlpha > 0.5 && pq.a < 0.5);
+      tl = mix(pBad ? (tileAlpha > 0.5 ? tl : tc) : pq.r, tl, tileFade);
+    }
+    alb *= clamp(tl / max(tc, 0.03), 0.3, 3.0);
   }
   // renk dokusunun çözünürlüğünü (8192 px ≈ 1,06 km) aşan yakınlıkta: regolit tanesi ve küçük krater kabartması
   float magM = smoothstep(0.9, 0.08, useTile > 0.5 ? length(fwidth(vUvT * 256.0)) : length(fwidth(vUv * vec2(8192.0, 4096.0))));
@@ -224,7 +237,7 @@ void main() {
     alb *= 1.0 + dn * 0.5 * magM; I *= 1.0 + dn * 0.9 * magM * (1.0 - 0.5 * mu0);
   }
   vec3 col = alb * I * sunI + alb * 0.012 * max(dot(Np, normalize(earthDir)), 0.0);
-  gl_FragColor = vec4(col, 1.0);
+  gl_FragColor = vec4(col, tileAlpha > 0.5 && pHas < 0.5 ? tileFade : 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
 }`;
@@ -316,7 +329,8 @@ export class World {
       cloudMap: { value: A.clouds || flat([0, 0, 0, 255]) }, specMap: { value: A.spec || flat([0, 0, 0, 255]) },
       normalMap: { value: A.enorm || flat([128, 128, 255, 255]) }, sunDir: { value: new THREE.Vector3(1, 0, 0) }, sunI: { value: EARTH_I },
       heightMap: { value: flat([0, 0, 0, 255]) }, hSize: { value: new THREE.Vector2(1, 1) }, radius: { value: E.R_E }, useHeight: { value: 0 }, obsMode: { value: 0 },
-      tileMap: { value: flat([0, 0, 0, 255]) }, useTile: { value: 0 }, tileKind: { value: 0 } };
+      tileMap: { value: flat([0, 0, 0, 255]) }, useTile: { value: 0 }, tileKind: { value: 0 },
+      parentMap: { value: flat([0, 0, 0, 255]) }, pXf: { value: new THREE.Vector4(1, 1, 0, 0) }, pHas: { value: 0 }, tileFade: { value: 1 } };      // parça geçişi (her parça kendi kopyasını alır: tiles.js)
     this.earth = new THREE.Mesh(sphereGeometry(E.R_E, 1024, 512), new THREE.ShaderMaterial({ uniforms: eu, vertexShader: VS_BODY, fragmentShader: FS_EARTH }));
     S.add(this.earth);                                    // görüş dışındaki cisim köşe işlemeye girmez (frustum culling): her biri ~1 milyon üçgen
     this.atm = new THREE.Mesh(sphereGeometry(E.R_E * 1.0125, 256, 128), new THREE.ShaderMaterial({
@@ -329,7 +343,8 @@ export class World {
       radius: { value: E.R_M }, useHeight: { value: A.mh ? 1 : 0 },
       sunDir: { value: new THREE.Vector3(1, 0, 0) }, earthDir: { value: new THREE.Vector3(1, 0, 0) }, sunI: { value: SUN_I },
       siteDir: { value: new THREE.Vector3(sd[0], sd[1], sd[2]) }, albScale: { value: 0.8 }, holeCos: { value: 2.0 },          // delik (arazi yaması varken küre çizilmez): arazi hazır olunca açılır (loadTerrain)
-      tileMap: { value: flat([128, 128, 128, 255]) }, useTile: { value: 0 }, lodDelta: { value: 0 }, tileAlpha: { value: 0 }, latCut: { value: 2 }, tilePull: { value: 0 } };
+      tileMap: { value: flat([128, 128, 128, 255]) }, useTile: { value: 0 }, lodDelta: { value: 0 }, tileAlpha: { value: 0 }, latCut: { value: 2 }, tilePull: { value: 0 },
+      parentMap: { value: flat([128, 128, 128, 255]) }, pXf: { value: new THREE.Vector4(1, 1, 0, 0) }, pHas: { value: 0 }, tileFade: { value: 1 } };
     this.moon = new THREE.Mesh(sphereGeometry(E.R_M, 1024, 512), new THREE.ShaderMaterial({ uniforms: mu, vertexShader: VS_BODY, fragmentShader: FS_MOON }));
     this.moon.geometry.boundingSphere.radius = E.R_M + 15; S.add(this.moon);          // LOLA yer değiştirmesi (±11 km) küre sınırının dışına taşabilir
     this.moonU = mu; this.earthU = eu; this.holeCos0 = mu.holeCos.value;
@@ -340,11 +355,11 @@ export class World {
       material: (tex) => new THREE.ShaderMaterial({ uniforms: { ...eu, tileMap: { value: tex }, useTile: { value: 1 } }, vertexShader: VS_BODY, fragmentShader: FS_EARTH }) });
     // Dünya kaplamaları (Blue Marble'ın ≈490 m'sinden daha ince): Landsat WELD (30 m, bulutsuz, ~2000) ya da HLS (30 m, güncel, bulutlu); düğmeyle seçilir
     const gibs = 'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/';
-    this.earthWeld = new TileLayer({ parent: this.earth, R: E.R_E, scheme: 'gibs', tileSize: 512, rootZ: 4, minZ: 8, maxZ: 11, baseTexelKm: 2.25 * Math.PI / 180 * E.R_E / 512, lift: 4e-6, maxTextures: 110, concurrency: 16, minBytes: 8000,
+    this.earthWeld = new TileLayer({ parent: this.earth, R: E.R_E, scheme: 'gibs', tileSize: 512, rootZ: 4, minZ: 8, maxZ: 11, baseTexelKm: 2.25 * Math.PI / 180 * E.R_E / 512, lift: 4e-6, maxTextures: 110, concurrency: 16, minBytes: 8000, overlay: true,
       url: (z, x, y) => `${gibs}Landsat_WELD_CorrectedReflectance_TrueColor_Global_Annual/default/2000-12-01/31.25m/${z}/${y}/${x}.jpeg`,
       material: (tex) => new THREE.ShaderMaterial({ uniforms: { ...eu, tileMap: { value: tex }, useTile: { value: 1 }, tileKind: { value: 1 } }, vertexShader: VS_BODY, fragmentShader: FS_EARTH }) });
     const hlsDates = () => Array.from({ length: 9 }, (_, k) => new Date(Date.now() - (k + 1) * 864e5).toISOString().slice(0, 10));
-    this.earthHls = new TileLayer({ parent: this.earth, R: E.R_E, scheme: 'gibs', tileSize: 512, rootZ: 4, minZ: 8, maxZ: 11, baseTexelKm: 2.25 * Math.PI / 180 * E.R_E / 512, lift: 6e-6, maxTextures: 70, concurrency: 12, minBytes: 3000, noBoost: true,
+    this.earthHls = new TileLayer({ parent: this.earth, R: E.R_E, scheme: 'gibs', tileSize: 512, rootZ: 4, minZ: 8, maxZ: 11, baseTexelKm: 2.25 * Math.PI / 180 * E.R_E / 512, lift: 6e-6, maxTextures: 70, concurrency: 12, minBytes: 3000, noBoost: true, overlay: true,
       urls: (z, x, y) => hlsDates().map((d) => `${gibs}HLS_S30_Nadir_BRDF_Adjusted_Reflectance/default/${d}/31.25m/${z}/${y}/${x}.png`),
       material: (tex) => new THREE.ShaderMaterial({ uniforms: { ...eu, tileMap: { value: tex }, useTile: { value: 1 }, tileKind: { value: 2 } }, vertexShader: VS_BODY, fragmentShader: FS_EARTH }) });
     this.moonTiles = new TileLayer({ parent: this.moon, R: E.R_M, scheme: 'eq', tileSize: 256, minZ: 4, maxZ: 8, baseTexelKm: baseTexel(E.R_M), lift: 0, maxTextures: 260,
@@ -352,7 +367,7 @@ export class World {
       material: (tex, n) => new THREE.ShaderMaterial({ uniforms: { ...mu, tileMap: { value: tex }, useTile: { value: 1 }, tilePull: { value: 0.0589 }, radius: { value: E.R_M + 0.004 }, lodDelta: { value: Math.min(7, Math.max(0, Math.log2(baseTexel(E.R_M) / n.texelKm))) } },
         vertexShader: VS_BODY, fragmentShader: FS_MOON }) });
     // WAC'in (≈83 m) üstüne SELENE/Kaguya TC ortho mozaiği (≈21 m, yaklaşık 65°K–65°G): yalnız çok yakında; kapsam dışı saydam, orada WAC kalır
-    this.moonTiles2 = new TileLayer({ parent: this.moon, R: E.R_M, scheme: 'eq', tileSize: 256, rootZ: 4, minZ: 8, maxZ: 10, latLimit: 58, baseTexelKm: 2 * Math.PI * E.R_M / (256 * 2 ** 9), lift: 0, maxTextures: 200, lodBias: 1.15,
+    this.moonTiles2 = new TileLayer({ parent: this.moon, R: E.R_M, scheme: 'eq', tileSize: 256, rootZ: 4, minZ: 8, maxZ: 10, latLimit: 58, baseTexelKm: 2 * Math.PI * E.R_M / (256 * 2 ** 9), lift: 0, maxTextures: 200, lodBias: 1.15, overlay: true,
       url: (z, x, y) => `https://trek.nasa.gov/tiles/Moon/EQ/Kaguya_TCortho_Mosaic_Global_4096ppd/1.0.0/default/default028mm/${z}/${y}/${x}.png`,
       material: (tex, n) => new THREE.ShaderMaterial({ uniforms: { ...mu, tileMap: { value: tex }, useTile: { value: 1 }, tileAlpha: { value: 1 }, tilePull: { value: 0.0735 }, latCut: { value: Math.sin(58 * Math.PI / 180) }, radius: { value: E.R_M + 0.009 }, lodDelta: { value: Math.min(7, Math.max(0, Math.log2(baseTexel(E.R_M) / n.texelKm))) } },
         vertexShader: VS_BODY, fragmentShader: FS_MOON }) });
@@ -1216,7 +1231,7 @@ export class World {
   updateTiles() {
     const cam = this.camera; cam.updateMatrixWorld(true);
     const fov = cam.fov * Math.PI / 180, H = this.canvas.clientHeight || 800, fwdW = cam.getWorldDirection(new THREE.Vector3());
-    let pending = 0, failed = 0, loaded = 0, drawn = 0;
+    let pending = 0, failed = 0, loaded = 0, drawn = 0, busy = false;
     let mode = this.earthDetail; if (!mode) { try { mode = localStorage.getItem('ls19.earthdetail'); } catch (e) { mode = null; } this.earthDetail = mode = ['weld', 'hls', 'bm'].includes(mode) ? mode : 'weld'; }
     if (this.earthWeld) { this.earthWeld.userOn = mode === 'weld'; this.earthHls.userOn = mode === 'hls'; }
     for (const [layer, body] of [[this.earthTiles, this.earth], [this.earthWeld, this.earth], [this.earthHls, this.earth], [this.moonTiles, this.moon], [this.moonTiles2, this.moon]]) {
@@ -1224,8 +1239,9 @@ export class World {
       layer.setEnabled(true);
       const qi = body.quaternion.clone().invert();
       layer.update(body.position.clone().negate().applyQuaternion(qi), fwdW.clone().applyQuaternion(qi), fov, cam.aspect, H);
-      pending += layer.stats.pending; failed += layer.stats.failed; loaded += layer.stats.loaded; drawn += layer.stats.drawn;
+      pending += layer.stats.pending; failed += layer.stats.failed; loaded += layer.stats.loaded; drawn += layer.stats.drawn; busy = busy || layer.busy;
     }
+    this.tilesBusy = busy;                                                                  // parça GPU yüklemesi/geçişi sürüyor: app.js uyarlanır çözünürlüğe bildirir
     // Dünya kaplama kaynağı düğmesi: yalnız Dünya'da ince parçalar devredeyken görünür
     let mb = this.tileModeEl; if (!mb) {
       mb = this.tileModeEl = document.createElement('button'); mb.className = 'tilemode'; mb.hidden = true; document.body.appendChild(mb);

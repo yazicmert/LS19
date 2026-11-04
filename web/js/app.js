@@ -28,7 +28,7 @@ import { MODELS, MOON_MODELS } from './satmodels.js';
 import { srcOf } from './satcatalog.js';
 import { ImpactUI } from './impactui.js';
 import { Cinema } from './cinema.js';
-import { PixelGovernor } from './perfgov.js';
+import { PixelGovernor, floorRatio } from './perfgov.js';
 
 const DEFAULT_DATE = '2026-10-13';
 let K = null, DESIGN = null, START_MS = 0, sats = null, asts = null, astui = null, deflect = null, updater = null, tracker = null, skyui = null, impactui = null;
@@ -515,7 +515,7 @@ worker.onmessage = (e) => {
 
 let lastUpd = 0, lastSkyHud = 0, lastSatTab = 0;
 // Uyarlanır çizim çözünürlüğü (perfgov.js): kare süresi sürekli yüksekse piksel oranı kademeli düşer. Kapalı: ?adapt=0, otomasyon (webdriver), sinematik kip (post hattı kendi kalitesini yönetir)
-const gov = new PixelGovernor({ max: world.prMax, min: 1 });
+const gov = new PixelGovernor({ max: world.prMax, min: floorRatio(world.prMax) });          // taban: yüksek yoğunluklu ekranda en çok %25 düşüş (pikselleşme yok)
 const govOn = !navigator.webdriver && new URLSearchParams(location.search).get('adapt') !== '0';
 function applyPixelRatio(r) {
   world.setPixelRatio(r);
@@ -523,7 +523,7 @@ function applyPixelRatio(r) {
 }
 function frame(now) {
   const dtMs = now - lastFrame, dt = Math.min(0.1, dtMs / 1000); lastFrame = now;
-  if (govOn && !cinema.on && !designing && !document.hidden) { const r = gov.tick(dtMs, now); if (r) applyPixelRatio(r); }
+  if (govOn && !cinema.on && !designing && !document.hidden) { const r = gov.tick(dtMs, now, !!world.tilesBusy); if (r) applyPixelRatio(r); }
   if (MODE === 'sky' && K && skyui && !designing) {
     const ms = clock.nowMs(); skyT = tOfUtcMs(ms);
     if (ensureSky(skyT)) skyFrame(ms, now, dt);
