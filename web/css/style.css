@@ -566,3 +566,6 @@ body.rs-open { overflow: hidden; }
 .ascbtns { display: inline-flex; gap: 4px; }
 .ascbtns button { padding: 3px 8px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--surface-2); color: var(--text-secondary); font-size: 12px; }
 .ascbtns button.on { border-color: var(--accent); color: var(--text-primary); }
+
+.asccredit { flex-basis: 100%; text-align: center; font-size: 10.5px; color: var(--text-muted); }
+.asccredit:empty { display: none; }

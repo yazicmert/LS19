@@ -100,6 +100,7 @@
 <link rel="modulepreload" href="js/weather.js">
 <link rel="modulepreload" href="js/ascentplay.js">
 <link rel="modulepreload" href="js/ascent.js">
+<link rel="modulepreload" href="js/ascentsim.js">
 <link rel="modulepreload" href="js/asteroids.js">
 <link rel="modulepreload" href="js/deflect.js">
 <link rel="modulepreload" href="js/astui.js">
@@ -627,7 +628,7 @@
   <div id="loading"><div class="lbox"><div class="ltitle">LS19 <span class="lsub">Look Star 19</span></div><div id="loadMsg">Dokular yükleniyor…</div><div class="track"><div id="loadBar" class="fill"></div></div><button id="loadBack" hidden>Varsayılan tarihe dön</button></div></div>
 </div>
 <script type="module" src="js/app.js"></script>
-<div id="ascBar" class="ascbar" hidden role="status"><span id="ascTxt"></span><span class="ascbtns"><button type="button" data-asc="1">×1</button><button type="button" data-asc="10">×10</button><button type="button" data-asc="50">×50</button><button type="button" data-asc="end">Yörüngeye atla</button></span></div>
+<div id="ascBar" class="ascbar" hidden role="status"><span id="ascTxt"></span><small id="ascCredit" class="asccredit"></small><span class="ascbtns"><button type="button" data-asc="1">×1</button><button type="button" data-asc="10">×10</button><button type="button" data-asc="50">×50</button><button type="button" data-asc="end">Yörüngeye atla</button></span></div>
 <div id="rocketSheet" class="rsheet" hidden role="dialog" aria-modal="true" aria-labelledby="rsTitle">
   <div class="rs-box">
     <header class="rs-head"><div><h2 id="rsTitle"></h2><span class="rs-status"></span></div><button class="rs-close" type="button" aria-label="Kapat">×</button></header>

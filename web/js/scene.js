@@ -230,6 +230,13 @@ void main() {
 }`;
 
 // ------------------------------------------------------------------ dünya
+// kalkış alevinin renkleri (sıcak çekirdek, soğuk dış, ışıma): gazyağı turuncu, katı yakıt beyaz-sarı, hidrolox soluk mavi, metan (BE-4) mavi-turuncu
+const PLUME_COL = {
+  kerolox: [new THREE.Color(2.6, 1.7, 0.9), new THREE.Color(0.7, 0.32, 0.12), new THREE.Color(1.7, 1.0, 0.5)],
+  solid: [new THREE.Color(3.2, 2.8, 2.2), new THREE.Color(0.9, 0.6, 0.35), new THREE.Color(2.0, 1.7, 1.2)],
+  hydrolox: [new THREE.Color(1.9, 2.2, 3.2), new THREE.Color(0.12, 0.24, 1.3), new THREE.Color(0.8, 1.0, 1.7)],
+  methalox: [new THREE.Color(2.0, 2.0, 2.8), new THREE.Color(0.5, 0.3, 0.9), new THREE.Color(1.1, 1.0, 1.6)],
+};
 export class World {
   constructor(canvas, labelsEl) {
     this.canvas = canvas; this.labelsEl = labelsEl;
@@ -564,46 +571,117 @@ export class World {
   // olanlar (booster, fairing, las) gizlenir. null: kalkış biter, araç geri gelir.
   async setAscent(spec) {
     const veh = this.vehicle;
-    if (this.asc) { veh.remove(this.asc.root); this.asc = null; }
+    if (this.asc) { veh.remove(this.asc.root); if (this.asc.world) { this.scene.remove(this.asc.world); this.asc.world.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); } this.asc = null; }
     for (const c of veh.children) if (c.userData.ascHidden !== undefined) { c.visible = c.userData.ascHidden; delete c.userData.ascHidden; }
     this.renderer.localClippingEnabled = false;
     if (!spec) return;
-    let model = null;
-    if (spec.lv === 'saturnv') {
-      this._lvCache = this._lvCache || {};
-      model = this._lvCache.saturnv || (this._lvCache.saturnv = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(this.base + 'models/rockets/saturnv.glb').then((g) => g.scene).catch(() => null));
-      model = model ? model.clone(true) : null;
-    } else model = makeLaunchVehicle(spec.lv);
-    if (!model) return;
-    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-    model.traverse((o) => {
-      if (!o.isMesh) return;
-      o.material = (Array.isArray(o.material) ? o.material.map((m) => m.clone()) : o.material.clone());
-      for (const m of [].concat(o.material)) { m.clippingPlanes = [plane]; m.side = THREE.DoubleSide; }
-    });
-    const inner = new THREE.Group(); inner.rotation.x = Math.PI / 2; inner.add(model);
-    const root = new THREE.Group(); root.add(inner); root.scale.setScalar(KM);
+    this._lvCache = this._lvCache || {};
+    const glb = (k, f) => this._lvCache[k] || (this._lvCache[k] = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(this.base + f).then((g) => g.scene).catch(() => null));
+    const template = spec.lv === 'saturnv' ? await glb('saturnv', 'models/rockets/saturnv.glb') : makeLaunchVehicle(spec.lv);
+    if (!template) return;
+    // kesme düzlemli kopya: keep = [alt, üst] (m; üst yoksa yalnız alt sınır), parça = yalnız o etiketli parça görünür
+    const prep = (src, nPlanes) => {
+      const m = src.clone(true), planes = Array.from({ length: nPlanes }, () => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
+      m.traverse((o) => { if (!o.isMesh) return; o.material = [].concat(o.material).map((x) => { const c = x.clone(); c.clippingPlanes = planes; c.side = THREE.DoubleSide; return c; }); if (o.material.length === 1) o.material = o.material[0]; });
+      const inner = new THREE.Group(); inner.rotation.x = Math.PI / 2; inner.add(m);
+      const root = new THREE.Group(); root.add(inner); root.scale.setScalar(KM);
+      return { root, inner, model: m, planes };
+    };
+    const L = prep(template, 1);
     for (const c of veh.children) { c.userData.ascHidden = c.visible; c.visible = false; }
-    veh.add(root);
+    veh.add(L.root);
     const C = (r, g, b) => new THREE.Color(r, g, b), ker = spec.prop !== 'hydrolox', sol = spec.prop === 'solid';
     const plumeR = spec.lv === 'saturnv' ? 4.5 : spec.lv === 'sls' ? 4.0 : spec.lv === 'fh' ? 5.0 : spec.lv === 'vulcan' ? 2.4 : 1.7;
-    const holder = new THREE.Group(); root.add(holder);
+    const holder = new THREE.Group(); L.root.add(holder);
     // alev rengi: gazyağı turuncu, katı yakıt (alüminyum) parlak beyaz-sarı, hidrolox soluk
     const hot = sol ? C(3.2, 2.8, 2.2) : ker ? C(2.6, 1.7, 0.9) : C(1.9, 2.2, 3.2), cool = sol ? C(0.9, 0.6, 0.35) : ker ? C(0.7, 0.32, 0.12) : C(0.12, 0.24, 1.3);
     const flame = this._addPlume(holder, { exitZ: 0, exitR: plumeR }, plumeR * 14, hot, cool, 0.9, { widen: 2.4, diamonds: 0.3, kS: 3.0 }, sol ? C(2.0, 1.7, 1.2) : ker ? C(1.7, 1.0, 0.5) : C(0.8, 1.0, 1.7), 3.0);
-    this.asc = { root, inner, model, plane, holder, flame, cut: 0, spec };
+    // dünya nesneleri (kameraya göre konumlanır): gökyüzü kubbesi, rampa + yer görüntüsü, ayrılan kademeler
+    const world = new THREE.Group(); this.scene.add(world);
+    // gökyüzü kubbesi: derinlik testiyle (rampa, roket ve Dünya önünde kalır); yarıçap ufkun ötesine (ascentFrame) — yalnız ufkun üstünde görünür
+    const sky = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24), new THREE.MeshBasicMaterial({ color: 0x5f8fd8, side: THREE.BackSide, transparent: true, opacity: 0, depthWrite: false, depthTest: true, toneMapped: false, fog: false }));
+    sky.scale.setScalar(80); sky.renderOrder = -9; sky.frustumCulled = false; world.add(sky);
+    const pad = new THREE.Group(); pad.scale.setScalar(KM); pad.matrixAutoUpdate = false; world.add(pad);
+    if (spec.pad === 'ml') {
+      const ml = await glb('ml', 'models/rockets/ml.glb');
+      // Mobile Launcher: roket ekseni modelde (−7,8; 16; 1,4) m — platform üstü yere oturur (kaideler gösterilmez)
+      if (ml) { const m = ml.clone(true); m.position.set(7.77, -16, -1.41); pad.add(m); }
+    } else {
+      const conc = new THREE.Mesh(new THREE.BoxGeometry(60, 2, 60), new THREE.MeshLambertMaterial({ color: 0x9a978f })); conc.position.y = -1; pad.add(conc);
+      const trench = new THREE.Mesh(new THREE.BoxGeometry(12, 2.2, 40), new THREE.MeshLambertMaterial({ color: 0x3a3936 })); trench.position.set(0, -0.95, 14); pad.add(trench);
+      for (const [x, z] of [[-26, -26], [26, 26]]) { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 1.0, 90, 8), new THREE.MeshLambertMaterial({ color: 0xb8b6b0 })); t.position.set(x, 45, z); pad.add(t); }   // yıldırım direkleri
+    }
+    this.asc = { root: L.root, inner: L.inner, model: L.model, plane: L.planes[0], holder, flame, cut: 0, spec, template, prep, world, sky, pad, debris: new Map(), state: null, credit: '' };
+    if (spec.site) this.loadPadGround(spec.site, pad).then((ok) => { if (ok && this.asc && this.asc.pad === pad) this.asc.credit = 'Yer görüntüsü: Sentinel-2 cloudless 2016 — s2maps.eu, EOX IT Services GmbH (değiştirilmiş Copernicus Sentinel verisi) · CC BY-SA 4.0'; });
     this.renderer.localClippingEnabled = true;
   }
-  // kalkış karesi: cut (m, kesme yüksekliği), hidden (gizlenecek parça etiketleri), thr (0/1)
-  ascentFrame(cut, hidden, thr) {
+  // rampa çevresinin uydu görüntüsü: EOX Sentinel-2 cloudless 2016 (CC BY-SA 4.0), Web Mercator z=13 karoları (~17 m/piksel), 4 × 4 karo ≈ 17 km;
+  // kenarları yumuşak geçişli; yüklenemezse (ağ, engelleyici) yama gösterilmez
+  async loadPadGround(site, pad) {
+    const z = 13, n = 2 ** z, la = site.lat * Math.PI / 180;
+    const xc = (site.lon + 180) / 360 * n, yc = (1 - Math.log(Math.tan(la) + 1 / Math.cos(la)) / Math.PI) / 2 * n, x0 = Math.floor(xc) - 1, y0 = Math.floor(yc) - 1;
+    const cv = document.createElement('canvas'); cv.width = cv.height = 1024; const g = cv.getContext('2d');
+    const load = (x, y) => new Promise((res) => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = () => res(null); im.src = `https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/${z}/${y}/${x}.jpg`; });
+    const ims = await Promise.all([0, 1, 2, 3].flatMap((j) => [0, 1, 2, 3].map((i) => load(x0 + i, y0 + j).then((im) => ({ im, i, j })))));
+    if (ims.filter((t) => t.im).length < 12) return false;
+    for (const t of ims) if (t.im) g.drawImage(t.im, t.i * 256, t.j * 256);
+    g.globalCompositeOperation = 'destination-in';                            // kenarlara doğru saydamlaşan dairesel maske
+    const cx = (xc - x0) * 256, cy = (yc - y0) * 256, gr = g.createRadialGradient(cx, cy, 300, cx, cy, 500); gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 1024, 1024);
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    const mpt = 40075016.686 * Math.cos(la) / n, W = 4 * mpt;              // karo başına metre (Mercator ölçeği rampanın enleminde)
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(W, W), new THREE.MeshLambertMaterial({ map: tex, transparent: true, depthWrite: true }));
+    plane.rotation.x = -Math.PI / 2; plane.position.set((x0 + 2 - xc) * mpt, -2.2, (y0 + 2 - yc) * mpt); plane.renderOrder = -1;
+    pad.add(plane);
+    return true;
+  }
+  // kalkış karesi: o = { cut (m), hidden (Set), thr, h (km), pAmb (Pa), sunUp (Güneş yüksekliğinin sinüsü), pad: { pos, east, north, up } (çizim konumu, km),
+  //   debris: [{ id, lo, hi, part, hidden, r (çizim, km), q }] } — konumlar update() içinde kameraya göre uygulanır (applyAscent)
+  ascentFrame(o) {
     const A = this.asc; if (!A) return;
-    A.cut = cut;
-    A.model.traverse((o) => { if (o.isMesh || o.isGroup) { const p = o.userData.part; if (p) o.visible = !hidden.has(p); } });
+    A.state = o; A.cut = o.cut;
+    A.model.traverse((x) => { const p = x.userData.part; if (p) x.visible = !o.hidden.has(p); });
+    A.holder.position.set(0, 0, o.cut);                                                   // alev kalan yığının tabanında (gövde çerçevesi, m)
+    setPlume(A.flame, o.thr);
+    // alev ortam basıncı düştükçe genişler ve uzar; şok elmasları alçakta belirgin, yükseldikçe söner (aşırı/az genleşmiş jet)
+    const pr = Math.max(0, Math.min(1, o.pAmb / 101325)), wid = 1 + 1.5 * Math.pow(1 - pr, 0.6), len = 1 + 0.8 * (1 - pr);
+    A.flame.scale.x *= wid; A.flame.scale.y *= wid; A.flame.scale.z *= len;
+    A.flame.material.uniforms.diamonds.value = 0.32 * pr;
+    const g = A.flame.userData.glow; if (g) { g.visible = o.thr > 0.01; g.material.color.copy(g.userData.col).multiplyScalar(o.thr); }
+    // gökyüzü: gündüz mavi, alacakaranlıkta koyu; yoğunluk ölçek yüksekliğiyle (~7 km) söner
+    const day = Math.max(0, Math.min(1, (o.sunUp + 0.1) / 0.35)), op = Math.exp(-o.h / 7.5) * (0.25 + 0.75 * day);
+    A.sky.scale.setScalar(Math.max(80, 1.3 * Math.sqrt(2 * 6378 * Math.max(0.3, o.h))));                 // ufuk uzaklığı √(2 R h) ötesi
+    // alev rengi o anda yanan kademenin yakıtına göre (ör. Saturn V: S-IC gazyağı → S-II/S-IVB hidrolox)
+    if (o.prop && o.prop !== A.propNow) { A.propNow = o.prop; const c = PLUME_COL[o.prop] || PLUME_COL.kerolox; const u = A.flame.material.uniforms; u.hot.value.copy(c[0]); u.cool.value.copy(c[1]); const gl = A.flame.userData.glow; if (gl) gl.userData.col.copy(c[2]); }
+    A.sky.material.opacity = Math.min(0.97, op); A.sky.material.color.setRGB(0.04 + 0.30 * day, 0.06 + 0.50 * day, 0.12 + 0.82 * day);
+  }
+  // update() içinden: kameraya göre konumlar (rel) — rampa, kademe parçaları, gökyüzü
+  applyAscent(rel) {
+    const A = this.asc, o = A && A.state; if (!o) return;
     A.root.updateMatrixWorld(true);
-    const base = A.inner.localToWorld(new THREE.Vector3(0, cut, 0)), tip = A.inner.localToWorld(new THREE.Vector3(0, cut + 1, 0));
+    const base = A.inner.localToWorld(new THREE.Vector3(0, o.cut, 0)), tip = A.inner.localToWorld(new THREE.Vector3(0, o.cut + 1, 0));
     A.plane.setFromNormalAndCoplanarPoint(tip.sub(base).normalize(), base);
-    A.holder.position.set(0, 0, cut);                                                     // alev kalan yığının tabanında (gövde çerçevesi, m)
-    setPlume(A.flame, thr); const g = A.flame.userData.glow; if (g) { g.visible = thr > 0.01; g.material.color.copy(g.userData.col).multiplyScalar(thr); }
+    A.sky.position.set(0, 0, 0);
+    if (o.pad) {
+      const P = o.pad, p = rel(P.pos), E3 = new THREE.Vector3(...P.east), U = new THREE.Vector3(...P.up), S = new THREE.Vector3(...P.north).multiplyScalar(-1);
+      A.pad.matrix.makeBasis(E3, U, S).scale(new THREE.Vector3(KM, KM, KM)).setPosition(p); A.pad.matrixWorldNeedsUpdate = true;
+    }
+    const seen = new Set();
+    for (const d of o.debris || []) {
+      let e = A.debris.get(d.id);
+      if (!e) {
+        e = A.prep(A.template, 2); A.world.add(e.root); A.debris.set(d.id, e);
+        e.model.traverse((x) => { if (x.isMesh) x.visible = !d.part; });
+        if (d.part) e.model.traverse((x) => { if (x.userData.part === d.part) x.traverse((y) => { y.visible = true; }); });
+        else e.model.traverse((x) => { const p = x.userData.part; if (p && d.hidden.includes(p)) x.visible = false; });
+      }
+      rel(d.r, e.root.position); e.root.quaternion.set(d.q[0], d.q[1], d.q[2], d.q[3]); e.root.updateMatrixWorld(true);
+      const lo = d.part ? -1e4 : d.lo, hi = d.part ? 1e4 : d.hi;
+      const b0 = e.inner.localToWorld(new THREE.Vector3(0, lo, 0)), b1 = e.inner.localToWorld(new THREE.Vector3(0, hi, 0)), n = b1.clone().sub(b0).normalize();
+      e.planes[0].setFromNormalAndCoplanarPoint(n, b0); e.planes[1].setFromNormalAndCoplanarPoint(n.clone().negate(), b1);
+      seen.add(d.id);
+    }
+    for (const [id, e] of A.debris) if (!seen.has(id)) { A.world.remove(e.root); A.debris.delete(id); }
   }
   // gimbal: alev (−z yönünde uzanır) motorun gövdeye göre sapmasıyla (x, y teğet) döner
   setNozzle(flame, g) {
@@ -838,6 +916,7 @@ export class World {
     this.engineLight.color.set(k === 0 ? 0xa8c4ff : 0xffb070);
     this.engineLight.intensity = dCamVeh < 2 ? 3.0e-5 * (this.thrS.S || 0) * (k === 0 ? 3 : 0) + 3.5e-5 * Math.max(this.thrS.L || 0, this.thrS.O || 0) : 0;
     if (this.asc) { for (const c of this.vehicle.children) if (c !== this.asc.root) c.visible = false; this.engineLight.intensity = 0; }   // kalkış: yalnız tam roket
+    if (this.asc) this.applyAscent(rel);
     // ayrılan kademeler: her biri kendi modeliyle (TLI kademesi ya da Ay yörünge kademesi), kendi yörüngesinde ve ayrıldığı andaki eylemsiz yönelimiyle çizilir; görev boyunca kalır
     const seenDebris = new Set();
     for (const d of extra.debris || []) {
