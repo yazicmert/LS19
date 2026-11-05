@@ -5,10 +5,9 @@
 // Birimler: SI (m, kg, s, N·m, rad). Gövde çerçevesi: z ekseni itki ekseni (motor çanı −z), başlangıç noktası iniş aracı modelinin başlangıç noktası
 // (iniş ayaklarının 2,9 m üstü); yığın üstten alta: iniş aracı / (Ay yörünge kademesi) / TLI kademesi.
 // Kademe geometrisi ve aktüatör değerleri TEMSİLİDİR (belirli bir aracın verisi değildir); doğrulama: test/test_dynamics6.js.
-import { qMul, qRot, qNormalize, qConj } from './attitude.js';
+import { qMul, qRot, qNormalize } from './attitude.js';
 import { cross } from './vec3.js';
 
-const D2R = Math.PI / 180;
 
 // ---------------------------------------------------------------- kademe rolleri (geometri, RCS, TVC, denetim parametreleri)
 //  len/rad: gövde uzunluğu ve yarıçapı (m); cg: kuru kütle merkezi (kıç uçtan, m); tankAft/tankLen/tankRad: yakıt tankı (kıç uçtan başlar; sütun kıça çökmüş);
@@ -27,7 +26,7 @@ export const ROLES = {
     ctl: { wMax: 2, wCruise: 1.5, Kw: 1.2, Ki: 0.35, thLin: 2.0, brake: 0.5, dt: 0.1 }, cgOff: [0.020, 0.015], align: [0.0008, -0.0006] },
 };
 export const Z_FEET = -2.9, GAP = 0.15;                           // iniş ayaklarının gövde çerçevesindeki z'si; kademeler arası boşluk (m)
-export const stageRole = (st) => (st.dyn && st.dyn.role) || (st.T >= 50 ? 'tli' : /yörünge/i.test(st.name || '') ? 'orb' : 'lander');
+const stageRole = (st) => (st.dyn && st.dyn.role) || (st.T >= 50 ? 'tli' : /yörünge/i.test(st.name || '') ? 'orb' : 'lander');
 const SPEC = new WeakMap();
 export function stageSpec(st) {                                    // kademe nesnesine bağlı önbellekli özellikler (st.dyn ile üzerine yazılabilir)
   let s = SPEC.get(st);
@@ -93,4 +92,4 @@ export function ggTorque(rb, k3, I) { const c = cross(rb, [I[0] * rb[0], I[1] * 
 // korunan/büyüklükler (testler): eylemsiz açısal momentum L = R·(Iω) ve dönme kinetik enerjisi
 export function angMomentum(q, w, I) { return qRot(q, [I[0] * w[0], I[1] * w[1], I[2] * w[2]]); }
 export function rotEnergy(w, I) { return 0.5 * (I[0] * w[0] * w[0] + I[1] * w[1] * w[1] + I[2] * w[2] * w[2]); }
-export { D2R, qConj };
+;

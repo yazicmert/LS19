@@ -8,8 +8,8 @@ import { atmosphere } from './ascentsim.js';
 import { qMul } from './attitude.js';
 import { directShot, autoWarp, timeline, SHOT_NAMES } from './launchcam.js';
 import { MU_E as MU, OMEGA_E as OMEGA } from './geo.js';
+import { $ } from './uiutil.js';
 
-const $ = (s) => document.querySelector(s);
 // (0,0,1) → d döndüren birim kuaterniyon [x, y, z, w]
 function quatZto(d) {
   const c = d[2]; if (c < -0.999999) return [1, 0, 0, 0];

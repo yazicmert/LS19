@@ -6,8 +6,8 @@
 // üzerine deterministik krater alanı + ince pürüzlülük eklenir. Kenarda küresel Ay ağına (LOLA ile yer değiştirmiş) bağlanır.
 import * as THREE from 'three';
 
-export const PATCH_R = 60.0;      // km
-export const HOLE_R = 52.0;       // km: küresel ağ bu yarıçapın içinde çizilmez
+const PATCH_R = 60.0;      // km
+const HOLE_R = 52.0;       // km: küresel ağ bu yarıçapın içinde çizilmez
 
 function hash2(ix, iy, s) {                 // [0,1) deterministik
   let h = (ix * 374761393 + iy * 668265263 + s * 2147483647) | 0;
@@ -25,7 +25,7 @@ const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a
 // krater sınıfları: yarıçap (km), hücre boyu, doluluk olasılığı
 const CRATERS = [[1.6, 9.0, 0.45], [0.7, 4.0, 0.45], [0.3, 1.8, 0.5], [0.12, 0.75, 0.5], [0.05, 0.32, 0.55], [0.02, 0.13, 0.55], [0.008, 0.055, 0.5]];
 
-export function craterField(x, y) {        // km -> km (yükseklik), ve taze krater parlaklığı
+function craterField(x, y) {        // km -> km (yükseklik), ve taze krater parlaklığı
   let h = 0, fresh = 0;
   for (let k = 0; k < CRATERS.length; k++) {
     const [r0, cell, occ] = CRATERS[k];

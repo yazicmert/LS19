@@ -20,9 +20,9 @@ const NB = BODIES.length, GM = BODIES.map((b) => b.gm), C2 = 299792.458 ** 2;
 const R_E = 6378.1363, J2_E = 1.0826267e-3;
 const R_MREF = 1738.0, J2_M = 2.03213e-4, C22_M = 2.2382e-5;
 // Ay eylemsizlik momentleri (M R² birimi, R = 1738 km): C/MR² = 0.393112 (LLR/GRAIL); farklar J2, C22'den
-export const MOON_I = (() => { const C = 0.393112, A = C - J2_M - 2 * C22_M, B = A + 4 * C22_M; return [A, B, C]; })();
+const MOON_I = (() => { const C = 0.393112, A = C - J2_M - 2 * C22_M, B = A + 4 * C22_M; return [A, B, C]; })();
 const NY = NB * 6 + 7, OQ = NB * 6, OW = NB * 6 + 4;
-export const J2000_JD = 2451545.0;
+const J2000_JD = 2451545.0;
 
 // ---------------------------------------------------------------- küçük yardımcılar
 const qRot = (q, v) => {                       // gövde -> ICRF (q = [w,x,y,z])

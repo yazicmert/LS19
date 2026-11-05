@@ -3,9 +3,7 @@ import { AU } from './deflect.js';
 import { AST_GROUPS } from './asteroids.js';
 import { fmt } from './format.js';
 import { sig, LD, distText as dist } from './labtext.js';
-
-const $ = (s) => document.querySelector(s);
-const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+import { $, mk } from './uiutil.js';
 
 export class AstUI {
   // openLab(i, opts): Laboratuvar çalışma alanında saptırma deneyini bu asteroitle açar (app.js)

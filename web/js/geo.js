@@ -5,7 +5,7 @@ import { dot, norm, sub, scale } from './vec3.js';
 
 export const WGS84_A = 6378.137;                       // km, ekvator yarıçapı
 export const WGS84_F = 1 / 298.257223563;              // basıklık
-export const WGS84_E2 = WGS84_F * (2 - WGS84_F);       // birinci dışmerkezliğin karesi
+const WGS84_E2 = WGS84_F * (2 - WGS84_F);              // birinci dışmerkezliğin karesi
 export const OMEGA_E = 7.2921159e-5;                   // rad/s, Dünya'nın yıldız dönme hızı
 export const MU_E = 398600.4418;                       // km³/s², Dünya'nın çekim parametresi
 const D2R = Math.PI / 180;

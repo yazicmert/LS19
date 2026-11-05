@@ -383,6 +383,31 @@ export class World {
   setPixelRatio(r) { this.renderer.setPixelRatio(r); this.resize(this.canvas.clientWidth, this.canvas.clientHeight); }          // uyarlanır çözünürlük: tampon yeni orana göre yeniden boyutlanır
   resize(w, h) { this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); if (this.post) this.post.setSize(w, h); }
 
+  // ortak kare yerleşimi (görev ve Canlı Gökyüzü): kamera yönü, Güneş yönü ve görüntüsü, Dünya/Ay konum ve yönelimi, yüzey parçaları, iniş arazisi.
+  // Sahne kameraya göre çizilir (kamera orijinde): rel(p) dünya konumunu kameraya göre vektöre çevirir. Dönüş: { eye, rel, sd (Güneş yönü) }
+  placeFrame(pose, sun, rm, Mitrf, Mme) {
+    const eye = pose.eye;
+    this.eye = eye;
+    const rel = (p, v = new THREE.Vector3()) => v.set(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]);
+    // kamera yönü
+    const tg = rel(pose.target), up = new THREE.Vector3(...pose.up);
+    const m = new THREE.Matrix4().lookAt(new THREE.Vector3(0, 0, 0), tg, up);
+    this.camera.position.set(0, 0, 0); this.camera.quaternion.setFromRotationMatrix(m);
+    this.camera.updateMatrixWorld(true);
+    // Güneş
+    const sd = new THREE.Vector3(...unit(sub(sun, eye)));
+    this.earthU.sunDir.value.copy(unit3(sub(sun, [0, 0, 0])));
+    this.moonU.sunDir.value.copy(unit3(sub(sun, rm)));
+    this.moonU.earthDir.value.copy(unit3(scale(rm, -1)));
+    this.sunSprite.position.copy(sd.clone().multiplyScalar(5e6));
+    // Dünya ve Ay
+    rel([0, 0, 0], this.earth.position); this.earth.quaternion.copy(m3ToQuat(E.mT(Mitrf)));
+    this.atm.position.copy(this.earth.position);
+    rel(rm, this.moon.position); this.moon.quaternion.copy(m3ToQuat(E.mT(Mme)));
+    this.updateTiles();
+    if (this.terrainReady) this.placeTerrain(rm, Mme, eye, rel);
+    return { eye, rel, sd };
+  }
   // ---------------------------------------------------------------- kare güncelle
   update(x, extra) {
     if (!this.ready || !x) return;
@@ -401,27 +426,7 @@ export class World {
     const info = { rm, central, vehPos, drAxis: extra.drAxis, local: extra.local, axis: [zNow.x, zNow.y, zNow.z] };
     this.autoCamera(x, info);
     const pose = this.blendedPose(x, info, extra.dtReal || 0.016);
-    const eye = pose.eye;
-    this.eye = eye;
-    const rel = (p, v = new THREE.Vector3()) => v.set(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]);
-    // kamera yönü
-    const tg = rel(pose.target), up = new THREE.Vector3(...pose.up);
-    const m = new THREE.Matrix4().lookAt(new THREE.Vector3(0, 0, 0), tg, up);
-    this.camera.position.set(0, 0, 0); this.camera.quaternion.setFromRotationMatrix(m);
-    this.camera.updateMatrixWorld(true);
-    // Güneş
-    const sunDir = unit(sub(sun, eye));
-    const sd = new THREE.Vector3(...sunDir);
-    this.earthU.sunDir.value.copy(unit3(sub(sun, [0, 0, 0])));
-    this.moonU.sunDir.value.copy(unit3(sub(sun, rm)));
-    this.moonU.earthDir.value.copy(unit3(scale(rm, -1)));
-    this.sunSprite.position.copy(sd.clone().multiplyScalar(5e6));
-    // Dünya ve Ay
-    rel([0, 0, 0], this.earth.position); this.earth.quaternion.copy(m3ToQuat(E.mT(Mitrf)));
-    this.atm.position.copy(this.earth.position);
-    rel(rm, this.moon.position); this.moon.quaternion.copy(m3ToQuat(E.mT(Mme)));
-    this.updateTiles();
-    if (this.terrainReady) this.placeTerrain(rm, Mme, eye, rel);
+    const { eye, rel, sd } = this.placeFrame(pose, sun, rm, Mitrf, Mme);          // kamera, Güneş, Dünya, Ay, yüzey (skyview ile ortak)
     // araç
     rel(vehPos, this.vehicle.position); this.vehicle.quaternion.copy(this.attQ);
     // aktif kademeye göre araç: yığın (üstten alta) iniş aracı / Ay yörünge kademesi (iki kademeli iniş aracı, ayrılana dek) / TLI kademesi (ayrılana dek);
@@ -618,16 +623,20 @@ export class World {
     if (trailsOn) { fill(this.trailLineE, T.E, [0, 0, 0], central === 'E'); fill(this.trailLineM, T.M, rm, central === 'M'); }
     // Ay'ın yolu (±4 gün)
     const mpVisible = !['EMB', 'SYSTEM', 'SOLAR'].includes(this.cam.mode) && (norm(eye) > 60000 || (norm(sub(rm, eye)) > 30000 && central === 'E'));
+    this.drawMoonPath(t, eye, mpVisible);
+  }
+  // Ay'ın yolu (±4 gün, 600 nokta): örnekler saatte bir yenilenir, çizgi yalnız görünürken GPU'ya yüklenir (görev ve Canlı Gökyüzü ortak)
+  drawMoonPath(t, eye, visible) {
     if (!this.moonPathT || Math.abs(t - this.moonPathT) > 3600) {
       this.moonPathT = t; this.moonPathPts = [];
       for (let i = 0; i < 600; i++) this.moonPathPts.push(E.moonPos(t - 4 * 86400 + (i * 8 * 86400) / 599));
     }
-    if (mpVisible) {
+    if (visible) {
       const ma = this.moonPath.geometry.attributes.position.array;
       this.moonPathPts.forEach((p, i) => { ma[i * 3] = p[0] - eye[0]; ma[i * 3 + 1] = p[1] - eye[1]; ma[i * 3 + 2] = p[2] - eye[2]; });
       this.moonPath.geometry.setDrawRange(0, 600); this.upload(this.moonPath.geometry.attributes.position, 600);
     }
-    this.moonPath.visible = mpVisible;
+    this.moonPath.visible = visible;
   }
   // tamponun yalnız kullanılan ilk n noktasını GPU'ya yükle (varsayılan: tüm dizi; 40.000 noktalık iz tamponu ~480 KB'tır)
   upload(attr, n) { attr.clearUpdateRanges(); attr.addUpdateRange(0, n * 3); attr.needsUpdate = true; }

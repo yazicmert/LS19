@@ -10,7 +10,7 @@ import * as W from '../lib/clarabel/clarabel_wasm.js';
 let ready = false, loading = null;
 const WASM_URL = new URL('../lib/clarabel/clarabel_wasm_bg.wasm', import.meta.url);
 export const conicReady = () => ready;
-export function initConicSync(bytes) { if (!ready) { W.initSync({ module: bytes }); ready = true; } }
+function initConicSync(bytes) { if (!ready) { W.initSync({ module: bytes }); ready = true; } }
 export async function initConic() {
   if (ready) return;
   if (!loading) loading = (async () => {

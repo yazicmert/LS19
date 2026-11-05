@@ -37,7 +37,7 @@ export function expm(A, n) {
 }
 const skew = (w) => [[0, -w[2], w[1]], [w[2], 0, -w[0]], [-w[1], w[0], 0]];
 // ẋ = A x + B [u; σ] + G g,  x = [r, v, z]: dt'lik ZOH matrisleri (A_d 7×7, B_d 7×4, G_d 7×3)
-export function discretize(omega, alpha, dt) {
+function discretize(omega, alpha, dt) {
   const n = 14, M = new Float64Array(n * n), S = skew(omega);
   for (let i = 0; i < 3; i++) {
     M[i * n + 3 + i] = 1;                                                   // ṙ = v
@@ -192,7 +192,7 @@ export function solveFixed(P, tf, N, opts = {}) {
 
 // ---------------------------------------------------------------- merkezi çekim, son zaman araması ve plan
 // Çözüm düğümlerinden normalleşmiş zamanda (τ ∈ [0,1]) konum: kübik Hermite (v = dr/dt, tf ile ölçekli)
-export function posAt(sol, tau) {
+function posAt(sol, tau) {
   const N = sol.N, x = Math.min(Math.max(tau, 0), 1) * N, k = Math.min(Math.floor(x), N - 1), s = x - k, h = sol.dt;
   const h00 = 2 * s ** 3 - 3 * s ** 2 + 1, h10 = s ** 3 - 2 * s ** 2 + s, h01 = -2 * s ** 3 + 3 * s ** 2, h11 = s ** 3 - s ** 2;
   return [0, 1, 2].map((j) => h00 * sol.r[k][j] + h10 * h * sol.v[k][j] + h01 * sol.r[k + 1][j] + h11 * h * sol.v[k + 1][j]);
@@ -208,7 +208,7 @@ function slerpRef(r0, rf) {
 }
 
 // tf ve referans yol r(τ) için solveFixed girdisi: hedef (tf'e bağlı), merkezi çekim düğümlerde, yüzey (teğet yarı uzay)
-export function makeForTf(P) {
+function makeForTf(P) {
   return (tf, r, Nn) => {
     const T = P.target ? P.target(tf) : {}, Q = { ...P, ...T };
     if (Q.up) {

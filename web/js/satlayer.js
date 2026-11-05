@@ -9,6 +9,7 @@ import { SatModels, modelFor, MOON_MODELS, MODELS, showDist } from './satmodels.
 import { SatInstancer } from './satinstancer.js';
 import { familyOf, FAMILIES } from './satfamilies.js';
 import { assessSat } from './impact.js';
+import { placeScreenLabel } from './screenlabel.js';
 
 export const SAT_GROUPS = [
   { name: 'Uzay istasyonları', color: 0xff5a5a, size: 5.0 },
@@ -18,7 +19,7 @@ export const SAT_GROUPS = [
   { name: 'Yer sabit (GEO)', color: 0x8dff7a, size: 2.4 },
   { name: 'Diğer', color: 0x7fb3ff, size: 1.9 },
 ];
-export const MOON_SATS = [
+const MOON_SATS = [
   { cmd: '-85', name: 'LRO' }, { cmd: '-155', name: 'Danuri (KPLO)' }, { cmd: '-152', name: 'Chandrayaan-2' },
   { cmd: 'THEMIS-B', name: 'ARTEMIS P1' }, { cmd: 'THEMIS-C', name: 'ARTEMIS P2' }, { cmd: '-1176', name: 'CAPSTONE (NRHO)' },
 ];
@@ -364,11 +365,7 @@ export class SatLayer {
       else this.points.visible = false;
     }
     // seçili uydu
-    const place = (d, p, dy = 12) => {
-      const v = new THREE.Vector3(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]).project(camera);
-      if (v.z > 1 || Math.abs(v.x) > 1.1 || Math.abs(v.y) > 1.1) { d.style.display = 'none'; return; }
-      d.style.display = 'block'; d.style.transform = `translate(${((v.x + 1) / 2) * canvas.clientWidth}px, ${((1 - v.y) / 2) * canvas.clientHeight - dy}px) translate(-50%, -100%)`;
-    };
+    const place = (d, p, dy = 12) => placeScreenLabel(d, p, eye, camera, canvas, dy);
     if (this.sel >= 0 && this.selRec && vis) {
       const p = this.selPos(t);
       if (p) {

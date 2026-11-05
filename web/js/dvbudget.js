@@ -1,6 +1,6 @@
 // Görev olaylarından manevra başına Δv (m/s): hem canlı panel hem arka plandaki nominal koşu kullanır
-export const DV_KEYS = ['TLI', 'MCC-1', 'MCC-2', 'MCC-3', 'LOI', 'DOI', 'PDI'];
-export const DV_KEYS_HALO = ['TLI', 'MCC-1', 'MCC-2', 'MCC-3', 'NRI', 'SK', 'DEP', 'LLOI', 'DOI', 'PDI'];
+const DV_KEYS = ['TLI', 'MCC-1', 'MCC-2', 'MCC-3', 'LOI', 'DOI', 'PDI'];
+const DV_KEYS_HALO = ['TLI', 'MCC-1', 'MCC-2', 'MCC-3', 'NRI', 'SK', 'DEP', 'LLOI', 'DOI', 'PDI'];
 // design: tasarım nesnesi (ya da profil adı); Dünya park yörüngesinde yükseltme yakışı varsa 'RAISE' satırı eklenir
 export const dvKeys = (design) => {
   const d = design && typeof design === 'object' ? design : { profile: design };

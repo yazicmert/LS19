@@ -32,6 +32,7 @@ import { srcOf } from './satcatalog.js';
 import { ImpactUI } from './impactui.js';
 import { Cinema } from './cinema.js';
 import { PixelGovernor, floorRatio } from './perfgov.js';
+import { $ } from './uiutil.js';
 
 const DEFAULT_DATE = '2026-10-13';
 let deflect = null, updater = null, impactui = null;
@@ -43,7 +44,6 @@ const clock = new SkyClock();
 applyIcons();
 initTreeMenus();
 
-const $ = (s) => document.querySelector(s);
 const canvas = $('#view'), chkNbody = $('#chkNbody');
 const world = new World(canvas, $('#labels'));
 // GPU bağlamı 30 sn içinde ikinci kez kaybolursa dokular geri yüklenemez (bellek için bırakılmıştı) ve sayfa yenileme döngüye girerdi: kullanıcıya bildirilir

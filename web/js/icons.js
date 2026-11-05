@@ -30,7 +30,7 @@ const P = {
   shield: '<path d="M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6z"/><path d="M9 12l2.2 2.2L15.5 10"/>',
   telescope: '<path d="M4 15l12-6 2 4-12 6z"/><path d="M10 17l-2 5M12 16l2 6"/><path d="M16 9l3-1.5 1.5 3L18 12"/>',
 };
-export function icon(name, cls = '') {
+function icon(name, cls = '') {
   return `<svg class="ico ${cls}" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${P[name] || ''}</svg>`;
 }
 export function applyIcons(root = document) {

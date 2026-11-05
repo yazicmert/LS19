@@ -19,11 +19,11 @@ import { CTL } from './attctl.js';
 import { fmt, fmtInt } from './format.js';
 
 const { add, sub, scale, dot, cross, norm, unit } = E;
-export const C_LIGHT = 299792.458;                 // ışık hızı, km/s
+const C_LIGHT = 299792.458;                 // ışık hızı, km/s
 export const OMEGA_EARTH = OMEGA_E;               // Dünya'nın yıldız dönme hızı, rad/s (geo.js)
 export const F_EARTH = WGS84_F;                    // WGS-84 basıklığı (geo.js)
 export const R_SUN = 695700.0;                     // Güneş yarıçapı, km (IAU 2015)
-export const TWO_PI = 2 * Math.PI;
+const TWO_PI = 2 * Math.PI;
 export const LIMITS = { vz: 3.0, vh: 1.22 };        // temas sınırları, m/s (görev başarı ölçütü: mission.js touchdown)
 export const LANDING_PHASES = new Set(['PDI', 'YAKLASMA', 'SON_INIS', 'INDI']);
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
@@ -36,14 +36,14 @@ export const geodetic = (r, pole, a = E.R_E, f = F_EARTH) => geodeticG(r, pole, 
 
 // Cismin gövdeye bağlı eksenleri (satırlar, ICRF bileşenleri; x,y,z) ve dönme vektörü ω (rad/s, ICRF).
 // Dünya: ITRS (Greenwich), Ay: ortalama yer/dönme ekseni (ME). Ay'ın ω'sı yönelim matrisinin türevidir (serbest dönme + libration).
-export function bodyAxes(isMoon, t) {
+function bodyAxes(isMoon, t) {
   if (isMoon) { const M = E.moonIcrfToMe(t); return { x: M[0], y: M[1], z: M[2], omega: E.omegaMoon(t) }; }
   const M = E.earthIcrfToItrf(t); return { x: M[0], y: M[1], z: M[2], omega: scale(M[2], OMEGA_EARTH) };
 }
 
 // Üçüncü cisimlerin merkez cisim çerçevesindeki bozucu ivmesi (km/s²): Σ μ_B (d_B/|d_B|³ − dc_B/|dc_B|³); d_B araçtan, dc_B merkez cisimden cisme.
 // Osküle koniğin ne kadar güvenilir olduğunu gösterir: bozucu/merkezi çekim oranı küçükse (< 10⁻³) konik gelecek hareketi iyi tarif eder.
-export function thirdBodyPerturbation(rv, rC, bodies) {
+function thirdBodyPerturbation(rv, rC, bodies) {
   let a = [0, 0, 0];
   for (const [gm, rB] of bodies) {
     const d = sub(rB, rv), dc = sub(rB, rC);
@@ -132,7 +132,7 @@ export function sunlightFraction(rv, rSun, bodies) {
 // ------------------------------------------------------------------ yakıt ve Δv
 // Kademe başına kalan Δv (km/s): etkin kademe şimdiki kütle ve yakıtla, sonrakiler tam yakıtla (arkalarındaki kademeler yük).
 // Atılmış kademe (j < k) için null. stages: [{dry, prop, T, isp}], k: etkin kademe, mNow/propNow: etkin kademenin şimdiki toplam kütlesi/yakıtı.
-export function stageDvs(stages, k, mNow, propNow) {
+function stageDvs(stages, k, mNow, propNow) {
   return stages.map((st, j) => {
     if (j < k) return null;
     let payload = 0; for (let i = j + 1; i < stages.length; i++) payload += stages[i].dry + stages[i].prop;
@@ -175,7 +175,7 @@ export function dvBaseline(design, nominal, stages) {
 }
 // Kademe başına Δv payı (m/s): kalan Δv (roket denklemi) − o kademenin yapacağı planlı manevraların kalanı. Bozulmasız uçuşta sabit kalır
 // (harcanan Δv hem kalandan hem gereksinimden düşer); plan dışı harcama (bozulma, elle yakış) payı azaltır. unplanned = tasarım payı − şimdiki pay.
-export function dvMargins(progress, sd, base = null) {
+function dvMargins(progress, sd, base = null) {
   const rows = [];
   sd.forEach((s, j) => {
     if (!s) return;
@@ -195,7 +195,7 @@ export function dvBudget(design, nominal, events, s, stages) {
 // s: durum (worker): { q, w (gövde açısal hızı, rad/s), att: Dyn6.diag() (err, mode, g, tq, tqRcs, tqTvc, duty, sat), rcsUsed (kg, etkin kademe), k, prop, thr }; stages: tasarım kademeleri.
 // Kütle özellikleri (rigidbody.massProps) o anki yakıt ve RCS tüketimiyle yeniden kurulur; yetkiler kademenin RCS/TVC değerlerinden: RCS tork yetkisi 2·n·F·kol (N·m),
 // gimbal torku azami T·ℓ·tan(δmaks) (ℓ: kütle merkezi–gimbal kolu), açısal ivme yetkisi = tork / eylemsizlik.
-export function attitudeInfo(s, stages) {
+function attitudeInfo(s, stages) {
   const a = s.att, k = s.k, st = stages && stages[k];
   if (!a || !st) return null;
   const sp = stageSpec(st), sim = stages.map((x, j) => ({ ...x, prop0: x.prop, prop: j === k ? s.prop : x.prop, dry: j === k ? x.dry - (s.rcsUsed || 0) : x.dry })), mp = massProps(sim, k);

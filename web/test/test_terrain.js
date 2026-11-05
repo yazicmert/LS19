@@ -81,7 +81,7 @@ const lat = MI.SITE_LAT * 180 / Math.PI, lon = MI.SITE_LON * 180 / Math.PI, hSit
   check('scene: arazi worker\'da üretilir (loadTerrain), ana iş parçacığında buildTerrain çağrılmaz', /loadTerrain\(A\.dem/.test(sc) && !/buildTerrain\(/.test(sc) && !/detailNormalTexture\(\)/.test(sc));
   check('scene: yer tutucu ağ aynı öznitelik kümesiyle (position, normal, uv, uv1, color) ve aynı uv kanalındaki yer tutucu normal haritasıyla kurulur (program önceden derlenir)', /\['position', 3\], \['normal', 3\], \['uv', 2\], \['uv1', 2\], \['color', 3\]/.test(sc) && /ph\.channel = 1/.test(sc));
   check('scene: delik (holeCos) başlangıçta kapalı (2.0), arazi hazır olunca cos(HOLE_R / R_M)', /holeCos: \{ value: 2\.0 \}/.test(sc) && /this\.holeCos0 = Math\.cos\(HOLE_R \/ E\.R_M\); this\.terrainReady = true/.test(sc));
-  check('scene: placeTerrain yalnız terrainReady iken (yer tutucu görünmez)', (sc.match(/if \(this\.terrainReady\) this\.placeTerrain/g) || []).length === 2 && !/if \(this\.terrain\) this\.placeTerrain/.test(sc));
+  check('scene: placeTerrain yalnız terrainReady iken (yer tutucu görünmez); görev ve Canlı Gökyüzü aynı yerleşimi (placeFrame) kullanır', (sc.match(/if \(this\.terrainReady\) this\.placeTerrain/g) || []).length === 1 && (sc.match(/this\.placeFrame\(pose, sun, rm, Mitrf, Mme\)/g) || []).length === 2 && !/if \(this\.terrain\) this\.placeTerrain/.test(sc));
   check('terrain: worker açılamaz/çökerse ana iş parçacığında üretir (yedek)', /w\.onerror = fallback/.test(tr) && /catch \(e\) \{ fallback\(\); \}/.test(tr) && /new Worker\(new URL\('\.\/terrainwork\.js'/.test(tr));
   check('terrainwork: THREE içe aktarmaz (worker\'da import map yok)', !/from 'three'/.test(tw) && !/from 'three'/.test(rd('../js/terraingen.js')));
 }

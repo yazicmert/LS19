@@ -1,7 +1,7 @@
 // Laboratuvar çalışma alanı: deney merkezi (ağaç), deney kaydı ve deneyler arası gezinme. Deneylerin kendisi ayrı modüllerdedir
 // (Ay görevi: ui.js + fizik worker'ı; asteroit saptırma: deflectui.js).
 //   LS19 › Canlı Gökyüzü · Laboratuvar › { Ay görevi · Asteroit saptırma · Çarpma riski (Canlı Gökyüzü'ne kısayol) }
-const $ = (s) => document.querySelector(s);
+import { $ } from './uiutil.js';
 
 // Deney kaydı: her deney hangi MOTORU kullandığını kendisi bildirir. app.js görünüm → motor eşlemesini buradan yapar:
 //   engine   'mission' (fizik worker'ı, görev saati) | 'sky' (gerçek saat, DE440, uydu/asteroit katmanları)
