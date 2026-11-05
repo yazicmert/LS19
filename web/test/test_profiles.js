@@ -1,5 +1,7 @@
 // Kullanım: node test/test_profiles.js PROFIL [YYYY-MM-DD]
 import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import * as E from '../js/engine.js';
 import * as EO from '../js/earth.js';
 import { makeLive } from '../js/live.js';
@@ -16,7 +18,7 @@ let T0 = performance.now();
 makeLive(SPK, PCK, eo, tStart);
 const D = designMission(tOf(ms), (m) => console.log(`  [${((performance.now() - T0) / 1000).toFixed(1)}s] ${m}`), PROFILES[key].cfg);
 console.log('tasarım', ((performance.now() - T0) / 1000).toFixed(1), 's; DV', JSON.stringify(Object.fromEntries(Object.entries(D.DV).map(([k, v]) => [k, +v.toFixed(1)]))));
-fs.writeFileSync(`/tmp/claude-0/design_${key}.json`, JSON.stringify({ tStart, design: D }));
+fs.writeFileSync(path.join(os.tmpdir(), `ls19_design_${key}.json`), JSON.stringify({ tStart, design: D }));     // inceleme için (işletim sisteminin geçici klasörü)
 T0 = performance.now();
 makeLive(SPK, PCK, eo, tStart);
 const M = new Mission({ design: D }); M.P.tLimit = Infinity;
