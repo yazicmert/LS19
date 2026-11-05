@@ -135,9 +135,48 @@ Klavye kısayolları `app.js`'te kaldı (uygulama çapında komut haritası).
 - Ayrılan modüller (`windowscan`, `profilecompare`, `canvasinput`) artık getter çantası almıyor, `S`'yi doğrudan okuyor. Böylece kimin hangi duruma bağlı olduğu içe aktarmalardan görünüyor.
 - Değişiklik 217 başvuruyu mekanik olarak `S.` altına taşıdı. Yalnız kod kısımları dönüştürüldü (dizgiler ve yorumlar korundu); nesne kısaltmaları (`{ designing }` → `{ designing: S.designing }`) `node --check` ile tek tek bulundu.
 
-## 8. Sonraki temel işleri (öneri)
+## 8. Yeniden denetim (main üzerinde, tüm adımlardan sonra)
+
+Aynı araçlar güncel main'de baştan çalıştırıldı.
+
+| Ölçüt | İlk denetim | Yeniden denetim | Sonra |
+|---|---|---|---|
+| Birebir kopya (jscpd, `web/js` + `api` + `tools`) | %1,95, 62 klon | %0,59, 20 klon | %0,39, 13 klon |
+| Kullanılmayan dosya (knip) | 0 | 0 | 0 |
+| Kullanılmayan dışa aktarım (knip) | 98 | 2 ölü + 83 yalnız içeride | 0 |
+| ESLint | denetim yoktu | temiz | temiz |
+
+**Giderilen tekrarlar:**
+- `earth.js`'teki kendi `mm` kopyası → `vec3.mm`.
+- Görev ve Canlı Gökyüzü kare yerleşimi (kamera, Güneş, Dünya/Ay, yüzey, arazi) → `World.placeFrame`.
+- Ay yolu → `World.drawMoonPath`.
+- Üç katmandaki aynı ekran etiketi yerleştirici → `screenlabel.js`.
+- `$` (10 dosyada) ve `mk` (5 dosyada) DOM yardımcıları → `uiutil.js`.
+- `design.js`'teki iki kez yazılmış yükseltme zinciri denetimi → `raiseChainFor`.
+
+**Dışa aktarımlar:**
+- Yalnız kendi dosyasında kullanılan 82 adın `export`'u knip ile kaldırıldı.
+- Ölü olanlar silindi: `passes.F_E`, `vec3.D2R`, `rigidbody.D2R`.
+
+**Bulunan ve düzeltilen tuzak:** knip'in dışa aktarım düzelticisi `earth.npbFast`'i de "kullanılmıyor" saydı.
+- Ama `earth.js` modülü, `live.js`'te `engine.liveProvider(L, EO, …)` çağrısına değer olarak geçiriliyor ve `npbFast` orada çalışma anında çağrılıyor.
+- Bunu ne knip ne ESLint statik olarak görebilir. Tam test koşusu yakaladı (`EO.npbFast is not a function`).
+- Ardından değer olarak geçirilen tüm modüller (`earth`, `engine`, `mission`, `telemetry`, `cinema`) tarandı. Kaldırılan her ad, kod tabanındaki her `.ad` erişimine karşı denetlendi. Başka kayıp yok; `npbFast` dışa aktarımda kaldı.
+
+**Bilerek bırakılan benzerlikler:**
+- `engine.js`'in iki adım döngüsü: sıcak yol, itki yönü farklı.
+- Uydu ve asteroit katmanlarının worker iletisi ve seçme döngüleri: farklı çekim parametresi ve çerçeve. Birleştirmek ortak bir nokta katmanı sınıfı ister.
+- `astui`/`deflectui`'deki kısa içe aktarma blokları.
+- Araç betiklerindeki 8 satırlık GLB yükleyici: yalnız elle çalıştırılan betikler.
+
+**Doğrulama:**
+- `npm run lint` temiz, `npm test` tüm testler geçti.
+- `test_terrain` sözleşmesi ortak `placeFrame`'e göre güncellendi.
+- Tarayıcı akışları yeniden çalıştırıldı.
+
+## 9. Sonraki temel işleri (öneri)
 
 | Öncelik | İş | Neden |
 |---|---|---|
-| 1 | Gereksiz dışa aktarımları kaldırmak (knip listesi) | Modüllerin gerçek arayüzü görünür olur |
+| 1 | Uydu ve asteroit katmanları için ortak bir nokta katmanı tabanı | İki katmanda benzer worker iletişimi, seçme ve etiket mantığı |
 | 2 | Araç betiklerindeki ortak GLB dönüştürme kodu (`tools/*_modelleri.mjs`, 4 kopya) | Aynı 8 satırlık yükleyici dört betikte |
