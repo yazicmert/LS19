@@ -1,5 +1,4 @@
 import fs from 'fs';
-import * as E from '../js/engine.js';
 import { makeLive } from '../js/live.js';
 import { Mission } from '../js/mission.js';
 const ab = (f) => { const b = fs.readFileSync(f); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); };

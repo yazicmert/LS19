@@ -9,7 +9,7 @@ ok(ents.length > 4000, `${ents.length} DAMIT asteroidi`);
 const shards = new Map(); let bad = 0, badVol = 0, badRot = 0, maxExt = 0;
 const cat = JSON.parse(fs.readFileSync(new URL('../models/ast/katalog.json', import.meta.url)));
 ok(!ents.some(([d]) => cat[d]), 'NASA PDS modeli olan asteroit DAMIT\'te yinelenmiyor');
-for (const [des, m] of ents) {
+for (const [_des, m] of ents) {
   const [sh, off, nv, nf, lam, bet, P, jd0, phi0] = m;
   if (!shards.has(sh)) shards.set(sh, zlib.gunzipSync(fs.readFileSync(new URL(`damit_${String(sh).padStart(3, '0')}.bin.gz`, dir))));
   const b = shards.get(sh), buf = b.buffer.slice(b.byteOffset, b.byteOffset + b.length);

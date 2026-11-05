@@ -106,6 +106,15 @@ Notlar:
 
 ## Testler (Node 20+)
 
+Tek komutla (depo kökünde; ilk seferde `npm ci` ESLint'i kurar):
+
+```bash
+npm run lint      # kod denetimi: tanımsız ad, kullanılmayan değişken/içe aktarma (eslint.config.mjs)
+npm test          # tüm testler; ilk başarısız testin çıktısını gösterir
+```
+
+Her PR'da ve main'e her gönderimde ikisi de GitHub Actions'ta çalışır (`.github/workflows/denetim.yml`). Tek tek:
+
 ```bash
 cd web
 node test/test_deflect.js      # Apophis 2029 (JPL CAD ile), STM/tam tümleme uyumu, DART

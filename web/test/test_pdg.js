@@ -204,13 +204,13 @@ function sub3(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
 
 // ---------------------------------------------------------------- 8) tam görev: ZEM/ZEV ile optimal modlar (N-cisim motor, J2/C22, Ay dönmesi)
 {
-  const E = await import('../js/engine.js'), { makeLive } = await import('../js/live.js'), { Mission } = await import('../js/mission.js');
+  const _E = await import('../js/engine.js'), { makeLive } = await import('../js/live.js'), { Mission } = await import('../js/mission.js');
   const ab = (f) => { const b = fs.readFileSync(f); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); };
   const eo = JSON.parse(fs.readFileSync(new URL('../data/earth_orient.json', import.meta.url)));
   makeLive(ab(new URL('../data/de440s.bsp', import.meta.url)), ab(new URL('../data/moon_pa_de440_200625.bpc', import.meta.url)), eo, 1083171.0725 - 86400);
   const fly = (landing, kick = null) => {
-    const M = new Mission({ landing }); let tK = null; M.P.tLimit = Infinity;
-    if (kick) { M.P.tLimit = kick.t; for (let g = 0; g < 1e7; g++) { const r = M.gen.next(); if (r.done || r.value === 0) break; } M.P.s.v = M.P.s.v.map((v, k) => v + kick.d[k] * kick.mag / 1000); M.P.tLimit = Infinity; tK = kick.t; }
+    const M = new Mission({ landing }); M.P.tLimit = Infinity;
+    if (kick) { M.P.tLimit = kick.t; for (let g = 0; g < 1e7; g++) { const r = M.gen.next(); if (r.done || r.value === 0) break; } M.P.s.v = M.P.s.v.map((v, k) => v + kick.d[k] * kick.mag / 1000); M.P.tLimit = Infinity; }
     for (;;) { if (M.gen.next().done) break; }
     return M;
   };

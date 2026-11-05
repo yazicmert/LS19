@@ -7,7 +7,7 @@ import { makeLive, etOf } from './live.js';
 import { EphStore } from './ephstore.js';
 import { designMission } from './design.js';
 
-let K = null, DESIGN = null, T_START = 0, LIVE = null, landingMode = 'opt', conicErr = null;     // landingMode: iniş güdümü (LANDING_MODES); konik çözücü yüklenemezse ZEM kullanılır
+let K = null, DESIGN = null, T_START = 0, landingMode = 'opt', conicErr = null;     // landingMode: iniş güdümü (LANDING_MODES); konik çözücü yüklenemezse ZEM kullanılır
 async function loadKernels() {
   if (K) return K;
   const get = (f) => fetch(new URL('../data/' + f, import.meta.url)).then((r) => { if (!r.ok) throw new Error(f + ' yüklenemedi'); return r; });
@@ -29,7 +29,7 @@ async function setupDate(d) {
   const def = !d.design && K.def && Math.abs(K.def.startMs - startMs) < 1000 ? K.def : null;
   T_START = d.design ? d.tStart : def ? def.tStart : tOfUtcMs(startMs) - 86400;   // efemeris başlangıcı: seçilen günden 1 gün önce
   await K.eph.ensure(etOf(T_START) - 86400, etOf(T_START) + 120 * 86400);       // efemeris başlangıcı + görev süresi (ana iş parçacığıyla aynı pencere)
-  LIVE = makeLive(K.spk, K.pck, K.eo, T_START);
+  makeLive(K.spk, K.pck, K.eo, T_START);
   let nominal = null;
   if (d.design) { DESIGN = d.design; nominal = d.nominal || null; }
   else if (def) { DESIGN = def.design; nominal = def.nominal || null; }

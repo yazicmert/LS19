@@ -1,0 +1,33 @@
+# Her PR'da ve main'e her gönderimde: kod denetimi (ESLint: tanımsız ad, kullanılmayan değişken/içe aktarma) ve tüm Node testleri.
+# Site derleme gerektirmez (Vercel web/ klasörünü olduğu gibi yayınlar); bu iş yalnız denetler, hiçbir şey yazmaz.
+name: Denetim
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: denetim-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  denetim:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: Bağımlılıklar (yalnız ESLint)
+        run: npm ci
+      - name: Kod denetimi
+        run: npm run lint
+      - name: Testler
+        run: npm test

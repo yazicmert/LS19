@@ -31,7 +31,7 @@ export function haloMember(spec) {
     if (orb && !spec.south) orb = mirror(orb);
   } else {
     // Az genliği: Richardson girişini secant ile ayarla (ölçülen en büyük |z| = hedef)
-    let a = spec.value * 0.8, fa = null, b = spec.value, fb = null;
+    let a = spec.value * 0.8, b = spec.value;
     const run = (Az) => { const R = C.richardson(spec.L, Az, spec.south), c = C.correct(R.X0, { fix: 2 }); return c ? { c, m: C.orbitStats(c).AzKm - spec.value } : null; };
     let ra = run(a), rb = run(b);
     for (let k = 0; ra && rb && k < 20; k++) {

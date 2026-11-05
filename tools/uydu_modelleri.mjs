@@ -8,8 +8,8 @@
 //   node uydu_modelleri.mjs [anahtar …]   -> out/<anahtar>.glb
 // Adımlar: Draco çöz, tekrarları birleştir, ≥80 bin üçgende sadeleştir, dokular en çok 1024 px WebP, meshopt sıkıştırma + nicemleme.
 import { NodeIO } from '@gltf-transform/core';
-import { ALL_EXTENSIONS, EXTMeshoptCompression, KHRDracoMeshCompression } from '@gltf-transform/extensions';
-import { dedup, weld, simplify, prune, resample, textureCompress, quantize, flatten, join, getBounds, reorder, instance } from '@gltf-transform/functions';
+import { ALL_EXTENSIONS, EXTMeshoptCompression } from '@gltf-transform/extensions';
+import { dedup, weld, simplify, prune, textureCompress, quantize, flatten, join, getBounds, reorder, instance } from '@gltf-transform/functions';
 import draco3d from 'draco3dgltf';
 import { MeshoptEncoder, MeshoptSimplifier } from 'meshoptimizer';
 import sharp from 'sharp';

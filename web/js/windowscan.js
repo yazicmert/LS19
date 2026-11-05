@@ -6,16 +6,17 @@ import { makeLive } from './live.js';
 import { designMissionAsync } from './design.js';
 import { minIncl, LEGACY_SITE, dailyIncls } from './pads.js';
 import { launchWeather, pickLaunch } from './weather.js';
+import { S } from './appstate.js';
 
 export class WindowScanner {
-  // deps: { ui, launch (LaunchUI), getK, getDesign, isDesigning, siteIncl, tOfUtcMs, missionEtWindow, dateStr }
+  // deps: { ui, launch (LaunchUI), siteIncl, tOfUtcMs, missionEtWindow, dateStr }; çekirdekler, tasarım ve tasarım durumu ortak durumdan (appstate.js)
   constructor(deps) { Object.assign(this, deps); this.scanning = false; this.cancelled = false; }
   cancel() { this.cancelled = true; }
   // günlük fırlatma penceresi: aynı gün, menzilin izin verdiği park eğimleriyle (farklı azimut → farklı saat) fırsatlar; her birinin fırlatma anındaki hava;
   // önerilen: hava uygun olanlar arasında en az yakıt (weather.js pickLaunch)
   async day() {
-    const K = this.getK();
-    if (this.scanning || this.isDesigning() || !K || !this.getDesign()) return;
+    const K = S.K;
+    if (this.scanning || S.designing || !K || !S.DESIGN) return;
     this.scanning = true; this.cancelled = false;
     const cfg0 = this.ui.getConfig(), st = cfg0.site || LEGACY_SITE, ir = this.siteIncl(cfg0.site) || [minIncl(st.lat), 90];
     const incs = dailyIncls(Math.max(ir[0], minIncl(st.lat)), ir[1]), prov0 = E.getProvider(), rows = incs.map((inc) => ({ inc, busy: true }));
@@ -28,7 +29,7 @@ export class WindowScanner {
         try {
           makeLive(K.spk, K.pck, K.eo, tStart);
           const cfg = JSON.parse(JSON.stringify(cfg0)); cfg.earth.inc = row.inc;
-          const D = await designMissionAsync(tFrom, () => {}, () => this.cancelled || this.isDesigning(), cfg);
+          const D = await designMissionAsync(tFrom, () => {}, () => this.cancelled || S.designing, cfg);
           if (!D) break;
           row.D = D; row.busy = false;
           row.cost = (D.LANDER_NEED ?? D.STAGES.slice(1).reduce((q, x) => q + x.prop, 0)) + (D.TLI_NEED ?? D.STAGES[0].prop);
@@ -48,8 +49,8 @@ export class WindowScanner {
   }
   // sonraki N pencere: her biri bir öncekinin fırlatmasından 1 gün sonrasından aranır; ana iş parçacığının efemeris kaynağı tarama sonunda geri yüklenir
   async scan(N = 4) {
-    const K = this.getK();
-    if (this.scanning || this.isDesigning() || !K) return;
+    const K = S.K;
+    if (this.scanning || S.designing || !K) return;
     this.scanning = true; this.cancelled = false;
     const cfg = this.ui.getConfig(), prov0 = E.getProvider(), rows = [];
     let tFrom = this.tOfUtcMs(Date.parse(this.dateStr() + 'T00:00:00Z'));
@@ -60,7 +61,7 @@ export class WindowScanner {
           const tStart = tFrom - 86400;
           await K.eph.ensure(...this.missionEtWindow(tStart));
           makeLive(K.spk, K.pck, K.eo, tStart);
-          const D = await designMissionAsync(tFrom, (m) => this.launch.setScan(rows, `${k + 1}/${N}: ${m.slice(0, 50)}`, true), () => this.cancelled || this.isDesigning(), cfg);
+          const D = await designMissionAsync(tFrom, (m) => this.launch.setScan(rows, `${k + 1}/${N}: ${m.slice(0, 50)}`, true), () => this.cancelled || S.designing, cfg);
           if (!D) break;
           // yakıt: iniş aracının ve TLI'ın gerektirdiği (tasarım tabanları olmadan) — pencereler arasındaki gerçek fark
           const pay = D.LANDER_NEED ?? D.STAGES.slice(1).reduce((q, x) => q + x.prop, 0);

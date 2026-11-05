@@ -179,11 +179,9 @@ export class DeflectEngine {
     let lo = 0, hi = null;
     return (b) => {
       hi = b.et - a.et;
-      let st = null;
       for (let k = 0; k < 60 && Math.abs(hi - lo) > 1e-4; k++) {
         const mid = 0.5 * (lo + hi), s = this.rawStep(a.et, a.y, a.f, mid, thrust);
         if (this.gEarth(a.et + mid, s.y) < 0) lo = mid; else hi = mid;
-        st = s;
       }
       const s = this.rawStep(a.et, a.y, a.f, 0.5 * (lo + hi), thrust);
       return { et: a.et + 0.5 * (lo + hi), y: s.y };

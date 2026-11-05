@@ -158,7 +158,7 @@ function refinePerigee(s0) {
   }
   return Q.s.copy();
 }
-let FAST_ABORT = false, STRICT_PERIGEE = false;                         // halo varış taramasında: Dünya'dan uzaklaşan geri yörüngeleri erken bırak
+let FAST_ABORT = false;                         // halo varış taramasında: Dünya'dan uzaklaşan geri yörüngeleri erken bırak
 function backToPerigee(st, tMax = 6 * 86400) {
   const P = new E.Propagator(st.copy(), dummy(), 1800.0);
   let best = null; const tEnd = st.t - tMax;
@@ -585,8 +585,7 @@ function shootImpulse(t0, r0, vGuess, t1, rTgt, { tol = 0.05, iters = 25 } = {})
 
 // ---------------------------------------------------------------- halo profili
 function* designHalo(K, tFrom, log) {
-  STRICT_PERIGEE = true;
-  try { return yield* designHaloInner(K, tFrom, log); } finally { STRICT_PERIGEE = false; }
+  return yield* designHaloInner(K, tFrom, log);
 }
 function* designHaloInner(K, tFrom, log) {
   const hc = K.cfg.moon.halo, preset = HALO_PRESETS[hc.preset];

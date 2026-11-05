@@ -9,7 +9,7 @@ export class PickCard {
   // ------------------------------------------------------------------ tıklanan cisim bilgisi (gezegen / uydu)
   showPick(obj, mx, my, t) {
     this.pick = obj; this.lastPick = 0;
-    const el = $('#pick'), app = $('#app'), W = app.clientWidth, H = app.clientHeight;
+    const el = $('#pick'), app = $('#app'), W = app.clientWidth;
     el.hidden = false; this.pickAnchor = [mx, my];
     el.style.left = Math.min(W - 308, Math.max(8, mx + 14)) + 'px';
     $('#pick').replaceChildren();

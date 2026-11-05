@@ -14,7 +14,7 @@ export function initConicSync(bytes) { if (!ready) { W.initSync({ module: bytes 
 export async function initConic() {
   if (ready) return;
   if (!loading) loading = (async () => {
-    if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+    if (globalThis.process?.versions?.node) {                  // Node (testler)
       const [{ readFileSync }, { fileURLToPath }] = await Promise.all([import('node:fs'), import('node:url')]);
       initConicSync(readFileSync(fileURLToPath(WASM_URL)));
     } else { await W.default({ module_or_path: WASM_URL }); ready = true; }

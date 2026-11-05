@@ -147,7 +147,7 @@ for (const [name, mode, two] of cases) {
   const rec = []; const push0 = P.onStep; P.onStep = (...a) => { push0(...a); rec.push({ t: P.s.t, q: P.att.q.slice(), thr: P.lastThr }); };
   const a0 = angBetween(qRot(P.att.q, Z_AXIS), pro());
   // (a) itkisiz: ters yön komutu → yönelim ≈ 14 s içinde ters yöne oturur, hız sınırı 15°/s
-  const t0 = P.s.t, v0 = P.s.v.slice(); M.advance(t0 + 40, 1e9, () => [0, retro()], now);
+  const t0 = P.s.t, _v0 = P.s.v.slice(); M.advance(t0 + 40, 1e9, () => [0, retro()], now);
   const coastRate = rec.reduce((m, r, i) => (i && r.t - rec[i - 1].t > 0.05 ? Math.max(m, qAngle(rec[i - 1].q, r.q) / (r.t - rec[i - 1].t)) : m), 0);
   const a1 = angBetween(qRot(P.att.q, Z_AXIS), retro());
   check('elle uçuş, itkisiz: ters yön komutuna hız sınırıyla dönülür (≤ 15°/s), 40 s sonra hizalı; başlangıçta ileri yönelimliydi',

@@ -29,7 +29,7 @@ export function atmosphere(h) {
 // tgt: { r0 (km, rampa yarıçapı), r1 (km), v1 (km/s, eylemsiz), inc (°), tEnd (s) }
 function fly(veh, tgt, [delta, k, c], { record = false, dt = 0.5 } = {}) {
   const wE = OMEGA * Math.cos(tgt.inc * Math.PI / 180);          // Dünya dönüşünün yörünge düzlemindeki bileşeni
-  let r = tgt.r0, th = 0, vr = 0, vt = wE * tgt.r0, t = 0, psi0 = null;
+  let r = tgt.r0, th = 0, vr = 0, vt = wE * tgt.r0, t = 0;
   const out = record ? [] : null, S = veh.stages, beta0 = veh.beta;
   const m0of = []; let mm = 1;                                    // kademe başında kalkış kütlesine oran (yalnız sürüklenme için)
   for (let i = 0; i < S.length; i++) { m0of.push(mm); mm = mm / S[i].mr * (S[i].drop ?? 0.85); }
@@ -98,15 +98,6 @@ export function solveAscent(veh, tgt) {
   const res = Math.hypot((e.r - tgt.r1) / 10, e.vr * 10, (Math.hypot(e.vr, e.vt) - tgt.v1) * 10);
   const ok = Math.abs(e.r - tgt.r1) < 1 && Math.abs(e.vr) < 0.08 && Math.abs(Math.hypot(e.vr, e.vt) - tgt.v1) < 0.01;   // 1 km, 80 m/s düşey, 10 m/s hız (kalan fark canlandırmada yumuşakça birleşir)
   return { x: [d, k], res, samples: e.out, maxQ: e.maxQ, ok, thEnd: e.th, h1: hAt1(d, k) };
-}
-function solve3(A, b) {
-  const M = A.map((r, i) => [...r, b[i]]);
-  for (let c = 0; c < 3; c++) {
-    let p = c; for (let r = c + 1; r < 3; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
-    if (Math.abs(M[p][c]) < 1e-14) return null; [M[c], M[p]] = [M[p], M[c]];
-    for (let r = 0; r < 3; r++) if (r !== c) { const f = M[r][c] / M[c][c]; for (let j = c; j < 4; j++) M[r][j] -= f * M[c][j]; }
-  }
-  return [0, 1, 2].map((i) => M[i][3] / M[i][i]);
 }
 // örneklerden t (gerçek s) anı: doğrusal ara değer
 export function sampleAt(samples, t) {

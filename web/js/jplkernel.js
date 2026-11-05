@@ -65,7 +65,7 @@ export class SPKKernel {
     const daf = new DAF(buffer);
     this.seg = new Map();
     for (const s of daf.segments) {
-      const [target, center, frame, type, start, end] = s.n;
+      const [target, center, _frame, type, start, end] = s.n;
       if (type !== 2) continue;
       this.seg.set(center + '>' + target, { seg: new ChebSegment(buffer, start, end, 3), et0: s.d[0], et1: s.d[1] });
     }
