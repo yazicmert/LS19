@@ -3,9 +3,8 @@
 //  • Asteroitler: JPL Sentry sanal çarpıcıları (olasılık, olası yıllar); seçilince N-cisim taraması için Saptırma laboratuvarı
 import { assessSat, fmtReentry, fmtSpan, fmtDate, sentryRows, fmtOdds, ageYears, controlNote, controlFromHistory } from './impact.js';
 import { SAT_GROUPS } from './satlayer.js';
+import { $, mk } from './uiutil.js';
 
-const $ = (s) => document.querySelector(s);
-const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
 const DOT = { yüksek: '#34d399', orta: '#f5b93a', düşük: '#8591a3' };
 const HORIZON = { all: Infinity, d30: 30, y1: 365.25, y5: 5 * 365.25, y25: 25 * 365.25, y100: 100 * 365.25 };
 const LIMIT = 80;

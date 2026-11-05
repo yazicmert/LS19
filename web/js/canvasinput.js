@@ -3,8 +3,7 @@
 import * as E from './engine.js';
 import { MODELS, MOON_MODELS } from './satmodels.js';
 import { S } from './appstate.js';
-
-const $ = (s) => document.querySelector(s);
+import { $ } from './uiutil.js';
 
 // ctx: { world, ui, curT, focusOn, followSat, lookAtSat, setCam, setSkyCam }; motor, son durum ve katmanlar ortak durumdan (appstate.js)
 export function attachCanvasInput(canvas, ctx) {

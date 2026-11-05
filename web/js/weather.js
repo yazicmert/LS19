@@ -16,7 +16,7 @@ export const WX_SOURCES = [
   { t: 'Open-Meteo — hava tahmini API', u: 'https://open-meteo.com/en/docs' },
 ];
 export const HOURLY = ['temperature_2m', 'precipitation', 'precipitation_probability', 'weather_code', 'cloud_cover', 'wind_speed_10m', 'wind_gusts_10m', 'wind_speed_120m', 'cape', 'wind_speed_250hPa'];
-export const FORECAST_DAYS = 16, PAST_DAYS = 92;
+const FORECAST_DAYS = 16, PAST_DAYS = 92;
 const DAY = 86400000;
 
 // istenen an (ms) için tahmin kapsamı: 'forecast' | 'past' | 'none' (+ neden)

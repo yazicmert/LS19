@@ -4,8 +4,8 @@ import { padIndex, siteOf, padShort, padAllowed, rangeOf, inclRange, minIncl, RO
 import { launchWeather, STATUS_TR, WX_SOURCES } from './weather.js';
 import { fmt } from './format.js';
 import { utcMsFromT } from './engine.js';
+import { $ } from './uiutil.js';
 
-const $ = (s) => document.querySelector(s);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const COUNTRY_TR = { US: 'ABD', RU: 'Rusya', KZ: 'Kazakistan', CN: 'Çin', FR: 'Fransız Guyanası (Fransa)', GF: 'Fransız Guyanası (Fransa)', JP: 'Japonya', IN: 'Hindistan', NZ: 'Yeni Zelanda',
   KP: 'Kuzey Kore', KR: 'Güney Kore', IR: 'İran', IL: 'İsrail', BR: 'Brezilya', AU: 'Avustralya', GB: 'Birleşik Krallık', NO: 'Norveç', SE: 'İsveç', KE: 'Kenya', DZ: 'Cezayir', MH: 'Marshall Adaları', XX: 'Deniz / diğer' };

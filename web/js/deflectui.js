@@ -5,11 +5,10 @@ import * as E from './engine.js';
 import { AU, R_E, massOf } from './deflect.js';
 import { CLASS_TR } from './asteroids.js';
 import { fmt } from './format.js';
+import { $, mk } from './uiutil.js';
 import { sig, kmText, distText, caDist, sizeText, dateLong, etToISO, etFromISO, RHO, QUICK_TARGETS, leadChoices, defaultLead, leadText, verdictOf, needText,
   targetSummary, caSummary, pushSummary, DIRS, dartNote } from './labtext.js';
 
-const $ = (s) => document.querySelector(s);
-const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const reduceMotion = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const narrow = () => window.matchMedia && matchMedia('(max-width: 760px)').matches;

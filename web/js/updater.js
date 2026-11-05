@@ -1,7 +1,7 @@
 // Canlı veri güncelleyici: 10 dakikada bir /api/surum'u sorar; sürümü değişen kaynağın katmanını yeniden yükler.
 // Kaynakların kendi kuralları sunucuda uygulanır (CelesTrak aynı veriyi 2 saatten sık vermez, JPL SBDB/Sentry günlük),
 // bu yüzden sık denetim kaynağa yük bindirmez: çoğu denetim "değişiklik yok" ile biter.
-export const CHECK_MS = 10 * 60 * 1000;
+const CHECK_MS = 10 * 60 * 1000;
 
 export class Updater {
   constructor(handlers) {

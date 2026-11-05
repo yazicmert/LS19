@@ -5,6 +5,7 @@ import * as T from './telemetry.js';
 import { R_E } from './engine.js';
 import { LANDING_MODES } from './mission.js';
 import { fmt } from './format.js';
+import { mk } from './uiutil.js';
 
 const D = 180 / Math.PI, AU = 149597870.7;
 const km = (x) => { if (x === Infinity) return '∞'; if (!Number.isFinite(x)) return '—'; if (Math.abs(x) < 5e-5) x = 0; const a = Math.abs(x); return a >= 10000 ? fmt(x, 0) + ' km' : a >= 100 ? fmt(x, 1) + ' km' : a >= 1 ? fmt(x, 2) + ' km' : fmt(x * 1000, a >= 0.1 ? 0 : 1) + ' m'; };
@@ -26,7 +27,6 @@ const setBig = (el, text) => {
   const i = text.lastIndexOf(' ');
   if (i > 0 && /[a-zA-Z]/.test(text.slice(i + 1))) { const u = document.createElement('i'); u.textContent = ' ' + text.slice(i + 1); el.replaceChildren(text.slice(0, i), u); } else el.textContent = text;
 };
-const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
 
 // satır: [başlık, değer(tel, bağlam) → metin | [metin, sınıf], açıklama]
 const SECTIONS = [

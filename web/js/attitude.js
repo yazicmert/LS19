@@ -8,7 +8,8 @@
 // Kuaterniyonlar [x, y, z, w], gövde → eylemsiz (ICRF eksenleri); THREE.Quaternion ile aynı sıra ve dönüş yönü.
 import { dot, cross, norm, unit as unit0, Z_UP } from './vec3.js';
 const unit = (a) => unit0(a, Z_UP);                          // sıfır vektörde +z
-export const Z_AXIS = [0, 0, 1], Y_AXIS = [0, 1, 0];
+export const Z_AXIS = [0, 0, 1];
+const Y_AXIS = [0, 1, 0];
 export const D2R = Math.PI / 180;
 
 export function qMul(a, b) {
@@ -35,7 +36,7 @@ export function qSlerp(a, b, s) {
   return [0, 1, 2, 3].map((i) => w1 * a[i] + w2 * b[i]);
 }
 // (x, y, z) sütunlu dönme matrisinden kuaterniyon (THREE.Quaternion.setFromRotationMatrix ile aynı)
-export function qFromBasis(x, y, z) {
+function qFromBasis(x, y, z) {
   const m11 = x[0], m12 = y[0], m13 = z[0], m21 = x[1], m22 = y[1], m23 = z[1], m31 = x[2], m32 = y[2], m33 = z[2], tr = m11 + m22 + m33;
   if (tr > 0) { const s = 0.5 / Math.sqrt(tr + 1); return [(m32 - m23) * s, (m13 - m31) * s, (m21 - m12) * s, 0.25 / s]; }
   if (m11 > m22 && m11 > m33) { const s = 2 * Math.sqrt(1 + m11 - m22 - m33); return [0.25 * s, (m12 + m21) / s, (m13 + m31) / s, (m32 - m23) / s]; }

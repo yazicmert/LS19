@@ -5,7 +5,7 @@
 // Girdi: met (gerçek uçuş saniyesi; kalkıştan önce negatif), h (km), events ([{ t, cut?, part?, name }] gerçek s), maxQ ({ t }), user ('auto'|'ground'|'chase'|'onboard').
 // Çıktı: { shot: 'wide'|'pad'|'track'|'chase'|'onboard', mount (araç üstü kameranın gövdedeki yüksekliği, m; null: gövde boyunun %60'ı), key (kesme kimliği), slow (yavaş çekim penceresi) }.
 
-export const ONBOARD_PRE = 5, ONBOARD_POST = 16;                     // ayrılma çevresinde araç üstü pencere (gerçek s)
+const ONBOARD_PRE = 5, ONBOARD_POST = 16;                     // ayrılma çevresinde araç üstü pencere (gerçek s)
 export const SHOT_NAMES = { wide: 'Geniş rampa çekimi', pad: 'Rampa kamerası', track: 'Yer izleme (tele)', chase: 'Takip kamerası', onboard: 'Araç üstü kamera' };
 
 // araç üstü pencereler: Max-Q çevresi ve her ayrılma (kesme ya da parça atma)

@@ -17,9 +17,10 @@ import { massProps } from './rigidbody.js';
 export const MU_E = 398600.435507, MU_M = 4902.800118, MU_S = 132712440041.279;
 export const R_E = 6378.1363, J2_E = 1.0826267e-3;
 export const R_M_REF = 1738.0, R_M = 1737.4, J2_M = 2.03213e-4, C22_M = 2.2382e-5;
-export const G0 = 9.80665e-3, SOI_M = 66100.0, TT_UTC = 69.184, DAY = 86400.0;
+export const G0 = 9.80665e-3, SOI_M = 66100.0;
+const TT_UTC = 69.184, DAY = 86400.0;
 // N-cisim çerçevesinde Ay figür (J2/C22) terimi bu uzaklığın içinde uygulanır (km; sınırdaki ivme ~1e-14 km/s²)
-export const MOON_FIG_RANGE = 150000.0;
+const MOON_FIG_RANGE = 150000.0;
 // motor seçenekleri: exactMass=false eski davranış (itki ivmesi adım başı kütleyle sabit; TLI'da Δv'yi ~%0,14 eksik uygular)
 export const OPTS = { exactMass: true };
 // görüntü/arayüz için 'Ay çevresi' yarıçapı (fizikteki merkez cisim geçişinden bağımsız): halo görevlerinde halo'yu kapsar
@@ -236,7 +237,7 @@ export function accelBreakdown(t, r, central = 'N') {
 // ------------------------------------------------------------------ araç
 // Yönelim ayarları: azami açısal hız (°/s) kademede 'slew' olarak verilebilir; verilmezse büyük itkılı (≥ 50 kN) üst kademe yavaş, iniş aracı sınıfı hızlı döner.
 // tau: komuta yaklaşırken üstel yavaşlama (s); snap: bu açı içindeki komut tam izlenir (°); fine: bundan büyük bir dönme sürerken adım H_SLEW ile sınırlanır (kare kare örnekleme)
-export const ATT = { RATE_HEAVY: 2.0, RATE_LIGHT: 15.0, TAU: 0.8, SNAP_DEG: 0.5, FINE_DEG: 10.0, H_SLEW: 1.0 };
+const ATT = { RATE_HEAVY: 2.0, RATE_LIGHT: 15.0, TAU: 0.8, SNAP_DEG: 0.5, FINE_DEG: 10.0, H_SLEW: 1.0 };
 export const attParams = (st) => ({ rate: (st.slew != null ? st.slew : st.T >= 50 ? ATT.RATE_HEAVY : ATT.RATE_LIGHT) * D2R, tau: ATT.TAU, snap: ATT.SNAP_DEG * D2R });
 export class Vehicle {
   constructor(stages) { this.stages = stages.map((s) => ({ ...s, prop0: s.prop0 != null ? s.prop0 : s.prop, dry0: s.dry0 != null ? s.dry0 : s.dry })); this.k = 0; }       // prop0/dry0: başlangıç yakıtı (tank doluluğu) ve kuru kütlesi (RCS yakıtı kuru kütleden düşer)
@@ -273,7 +274,7 @@ export class State {
 
 // ------------------------------------------------------------------ DOPRI5
 const A = DP_A, Cc = DP_C, B5 = DP_B5, B4 = DP_B4;              // Dormand–Prince 5(4) tablosu (dopri.js)
-export const TOL = { ATOL_R: 1e-5, ATOL_V: 1e-8, RTOL: 1e-12 };
+const TOL = { ATOL_R: 1e-5, ATOL_V: 1e-8, RTOL: 1e-12 };
 
 // thrust: null | [ax, ay, az] (sabit itki ivmesi, km/s²) | { u, T, m, mdot } (birim yön, itki kN, adım başı kütle kg, kütle akışı kg/s):
 // ikincisinde itki ivmesi her aşamada o aşamanın kütlesiyle (m − ṁ·Cᵢ·h) hesaplanır
@@ -450,7 +451,7 @@ export function elements(r, v, mu) {
            inc: Math.acos(Math.max(-1, Math.min(1, h[2] / hn))) };
 }
 
-export function utcParts(t) {
+function utcParts(t) {
   const jdT = jdTdb(t), jd = jdT - PROV.ttMinusUtc(jdT) / DAY + 0.5;
   const Z = Math.floor(jd), F = jd - Z;
   const alpha = Math.floor((Z - 1867216.25) / 36524.25), A_ = Z + 1 + alpha - Math.floor(alpha / 4);

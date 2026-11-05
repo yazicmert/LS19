@@ -9,7 +9,7 @@ import { dpStep, dpIntegrate } from './dopri.js';
 import { solve } from './linalg.js';
 
 export const MU = E.MU_M / (E.MU_E + E.MU_M);
-export const N_SID = 2 * Math.PI / (27.321661 * 86400);                     // Ay'ın yıldız ayı açısal hızı (rad/s)
+const N_SID = 2 * Math.PI / (27.321661 * 86400);                     // Ay'ın yıldız ayı açısal hızı (rad/s)
 export const L_CR = Math.cbrt((E.MU_E + E.MU_M) / (N_SID * N_SID));           // Kepler 3. yasası ile tutarlı uzunluk birimi (km)
 export const T_CR = 1 / N_SID;                                                // zaman birimi (s)
 export const SYNODIC_DAYS = 29.530589;
@@ -59,7 +59,7 @@ export function integrate(Y0, t0, tEnd, { mu = MU, stm = false, stop = null, hma
 const withStm = (X) => { const Y = new Float64Array(42); for (let i = 0; i < 6; i++) Y[i] = X[i]; for (let i = 0; i < 6; i++) Y[6 + i * 6 + i] = 1; return Y; };
 
 // y = 0 düzleminin (tMin sonrası) ilk geçişi; Newton ile tam geçiş anına oturtulur
-export function crossY(X0, { mu = MU, stm = true, tMin = 0.2, tMax = 12 } = {}) {
+function crossY(X0, { mu = MU, stm = true, tMin = 0.2, tMax = 12 } = {}) {
   const Y0 = stm ? withStm(X0) : Float64Array.from(X0);
   const res = integrate(Y0, 0, tMax, { mu, stm, stop: (tn, Yn, Y) => tn > tMin && Yn[1] * Y[1] <= 0 && Y[1] !== 0 });
   if (!res.stopped) return null;
@@ -72,7 +72,7 @@ export function crossY(X0, { mu = MU, stm = true, tMin = 0.2, tMax = 12 } = {}) 
 }
 
 // ---------------------------------------------------------------- Lagrange noktaları
-export function gammaL(L, mu = MU) {
+function gammaL(L, mu = MU) {
   let g = Math.cbrt(mu / 3);
   for (let i = 0; i < 50; i++) {
     const f = L === 1 ? g ** 5 - (3 - mu) * g ** 4 + (3 - 2 * mu) * g ** 3 - mu * g * g + 2 * mu * g - mu
@@ -155,7 +155,7 @@ export function correct(X0in, { mu = MU, fix = 2, target = null, tMin = 0.2, ite
 
 
 // ---------------------------------------------------------------- yörünge örnekleme ve özellikler
-export function sampleOrbit(orb, n = 400, mu = MU) {
+function sampleOrbit(orb, n = 400, mu = MU) {
   const T = 2 * orb.halfT, pts = [];
   let last = -1;
   integrate(Float64Array.from(orb.X0), 0, T, { mu, hmax: T / n, onStep: (t, Y) => { if (t - last >= T / n * 0.999 || t >= T - 1e-12) { pts.push({ t, s: Array.from(Y.slice(0, 6)) }); last = t; } } });

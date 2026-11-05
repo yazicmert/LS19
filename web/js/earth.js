@@ -1,6 +1,7 @@
 // Dünya yönelimi: IAU 2006 presesyon (Fukushima–Williams) + IAU 2000A nütasyon (IAU 2006 uyarlamalı) + ERA/GAST.
 // Zaman ölçekleri: TT (≈TDB), UT1 = TT − ΔT (tablo), UTC = TT − 32.184 − (TAI−UTC).
 // Kutup hareketi ihmal (≤ 0.5″ ≈ 15 m).
+import { mm } from './vec3.js';
 
 const AS2R = Math.PI / 180 / 3600, TURNAS = 1296000, D2PI = 2 * Math.PI;
 let D = null;
@@ -14,7 +15,7 @@ export function deltaT(jdTT) {                   // TT − UT1 (s)
   const i = Math.max(0, Math.min(n - 2, Math.floor(x))), f = Math.max(0, Math.min(1, x - i));
   return D.dt[i] * (1 - f) + D.dt[i + 1] * f;
 }
-export function taiMinusUtc(jdUTC) {            // 1972 öncesi 10 s kabul
+function taiMinusUtc(jdUTC) {            // 1972 öncesi 10 s kabul
   let off = 10;
   for (let i = 0; i < D.leap_jd.length; i++) if (jdUTC >= D.leap_jd[i]) off = D.leap_off[i];
   return off;
@@ -51,12 +52,7 @@ export function nutation2000A(jdTT) {
 // ---------------------------------------------------------------- IAU 2006 presesyon + nütasyon matrisi (GCRS -> gerçek ekvator/ekinoks)
 const Rx = (a) => { const c = Math.cos(a), s = Math.sin(a); return [[1, 0, 0], [0, c, s], [0, -s, c]]; };
 const Rz = (a) => { const c = Math.cos(a), s = Math.sin(a); return [[c, s, 0], [-s, c, 0], [0, 0, 1]]; };
-function mm(A, B) {
-  const C = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
-  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) C[i][j] = A[i][0] * B[0][j] + A[i][1] * B[1][j] + A[i][2] * B[2][j];
-  return C;
-}
-export function fwAngles(jdTT) {
+function fwAngles(jdTT) {
   const t = (jdTT - 2451545.0) / 36525.0;
   const gamb = (-0.052928 + (10.556378 + (0.4932044 + (-0.00031238 + (-0.000002788 + 0.0000000260 * t) * t) * t) * t) * t) * AS2R;
   const phib = (84381.412819 + (-46.811016 + (0.0511268 + (0.00053289 + (-0.000000440 - 0.0000000176 * t) * t) * t) * t) * t) * AS2R;

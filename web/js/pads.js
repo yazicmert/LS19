@@ -8,9 +8,9 @@
 // Bu ek Δv'yi üst kademe karşılar sayılır: park yörüngesine ulaşan kütle M · exp(−Δv / (Isp g0)) (birinci derece yaklaşım; çıkış kayıpları aynı kabul edilir).
 
 import { OMEGA_E, WGS84_A as R_EQ } from './geo.js';
-export { OMEGA_E, R_EQ };                             // rad/s, km (geo.js)
+;                             // rad/s, km (geo.js)
 export const V_EQ = OMEGA_E * R_EQ;                  // 0,4651 km/s: ekvatordaki dönüş hızı
-export const REF_INC = 28.5;                          // yayımlanmış başarımların başvuru eğimi (°, Florida doğu fırlatması)
+const REF_INC = 28.5;                          // yayımlanmış başarımların başvuru eğimi (°, Florida doğu fırlatması)
 
 // Varsayılan fırlatma rampası: KSC LC-39B (LL2 kimliği 4; koordinat LL2'den). Yapılandırmaya yazılmaz (site yok = bu rampa); hazır tasarımlar bununla.
 // (Eski sürümlerdeki nokta 28,5729° K, 80,6490° B idi: gerçek rampanın ~6 km güneyi.)
@@ -28,7 +28,7 @@ const D2R = Math.PI / 180;
 //   Doğu Menzili (Cape Canaveral / KSC): 35°–120° — Firefly CCSFS işletme bilgisi; Wikipedia "Eastern Range" (bazı kaynaklar 37°–114°)
 //   Batı Menzili (Vandenberg): 140°–260° — Firefly VSFB işletme bilgisi (ileri yönlü yörüngeler için güneye fırlatma)
 //   Guyana Uzay Merkezi (Kourou): −10,5°–93,5° — ikincil kaynak (spaceodysseyhub)
-export const RANGES = [
+const RANGES = [
   { re: /Cape Canaveral|Kennedy Space Center/i, name: 'Doğu Menzili', az: [35, 120], src: 'https://fireflyspace.com/?p=821' },
   { re: /Vandenberg/i, name: 'Batı Menzili', az: [140, 260], src: 'https://fireflyspace.com/?p=821' },
   { re: /Guiana Space Centre|Kourou/i, name: 'Guyana Uzay Merkezi', az: [-10.5, 93.5], src: 'https://spaceodysseyhub.com/compare/spaceports/guiana-space-centre' },

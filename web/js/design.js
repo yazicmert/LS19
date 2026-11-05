@@ -28,7 +28,7 @@ const dummy = () => E.dummyVehicle();
 const D2R = Math.PI / 180;
 
 // ---------------------------------------------------------------- yapılandırma
-export const DEFAULT_RAISE = { n: 0, ha: 20000 };            // yörünge yükseltme: TLI öncesi apoje yükseltme yakışı sayısı (0 = yok) ve son apoje irtifası (km)
+const DEFAULT_RAISE = { n: 0, ha: 20000 };            // yörünge yükseltme: TLI öncesi apoje yükseltme yakışı sayısı (0 = yok) ve son apoje irtifası (km)
 export const DEFAULT_CONFIG = {
   earth: { h: 185, inc: 28.7, revs: 1.5, raise: DEFAULT_RAISE },   // Dünya park yörüngesi: irtifa (km), eğim (°), tur (yükseltmeden önce park yörüngesinde)
   moon: { type: 'LLO', llo: { h: 110, revs: 2 }, halo: { preset: 'NRHO92', revs: 1 } },
@@ -71,7 +71,7 @@ export function normalizeConfig(c) {
   if (out.moon.type !== 'HALO') out.moon.type = 'LLO';
   return out;
 }
-export function configLabel(cfg) {
+function configLabel(cfg) {
   const e = cfg.earth, m = cfg.moon;
   const park = `Dünya park ${e.h} km, i ${e.inc}°, ${e.revs} tur` + (e.raise && e.raise.n ? ` + ${e.raise.n} yükseltme yakışı (apoje ${e.raise.ha} km)` : '');
   const moon = m.type === 'HALO' ? `${HALO_PRESETS[m.halo.preset].name}, ${m.halo.revs} tur + LLO ${m.llo.h} km, ${m.llo.revs} tur`
@@ -110,7 +110,7 @@ export function sunElevationAtSite(t) {
   const s = siteIcrf(t), up = unit(s), sun = sub(E.sunPos(t), add(E.moonPos(t), s));
   return Math.asin(dot(up, unit(sun))) * 180 / Math.PI;
 }
-export function findLandingWindow(tFrom) {       // Güneş SUN_EL_TARGET'ı yükselerek geçtiği ilk an
+function findLandingWindow(tFrom) {       // Güneş SUN_EL_TARGET'ı yükselerek geçtiği ilk an
   let t = tFrom, prev = sunElevationAtSite(t);
   for (let i = 0; i < 24 * 40; i++) {
     const t2 = t + 3600, e2 = sunElevationAtSite(t2);
@@ -326,6 +326,8 @@ function solveDecreasing(g, tau0) {
   }
   return 0.5 * (lo + hi);
 }
+// yükseltme yakışları istenmişse zinciri çöz (çözülemezse tasarım durur); istenmemişse null
+const raiseChainFor = (K, sol) => { if (!K.RAISE.n) return null; const c = raiseChain(K, sol); if (!c) throw new Error('Yörünge yükseltme zinciri çözülemedi'); return c; };
 function raiseChain(K, sol) {
   const n = K.RAISE.n, st = K.STAGES[0], T = st.T, c = st.isp * E.G0, mdot = T / c, ra = apogeeSchedule(K);
   let S = parkState(K, sol.t_ign, sol.phat, sol.hhat, sol.x[0], sol.x[3]);          // TLI yakışının başlangıç durumu (yükseltilmiş elips)
@@ -529,8 +531,7 @@ function* designApollo(K, tFrom, log) {
     if (!sol) throw new Error('TLI tasarımı yakınsamadı');
     yield;
     x0 = sol.xArr;
-    chain = K.RAISE.n ? raiseChain(K, sol) : null;
-    if (K.RAISE.n && !chain) throw new Error('Yörünge yükseltme zinciri çözülemedi');
+    chain = raiseChainFor(K, sol);
     if (chain) { log(`  yükseltme: ${chain.burns.map((b) => `${b.dur.toFixed(0)} s (apoje ${b.apoAfter.toFixed(0)} km)`).join(' → ')}; park ${chain.leoAlt.toFixed(0)} km`, 0.2 + it * 0.07); yield; }
     const opts = phasingShift(K, sol, chain && { t: chain.S1.t, r: chain.S1.r, v: chain.S1.v }).filter((o) => o.delta > -3 * 3600).sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta));
     if (!opts.length) throw new Error(`${K.site.short || K.site.name}: fırlatma fırsatı bulunamadı`);
@@ -553,7 +554,7 @@ function* designApollo(K, tFrom, log) {
 // ---------------------------------------------------------------- iki cisimli Lambert (evrensel değişken, bisection)
 function stumpC(z) { if (z > 1e-8) return (1 - Math.cos(Math.sqrt(z))) / z; if (z < -1e-8) return (Math.cosh(Math.sqrt(-z)) - 1) / (-z); return 0.5 - z / 24; }
 function stumpS(z) { if (z > 1e-8) { const s = Math.sqrt(z); return (s - Math.sin(s)) / s ** 3; } if (z < -1e-8) { const s = Math.sqrt(-z); return (Math.sinh(s) - s) / s ** 3; } return 1 / 6 - z / 120; }
-export function lambert(r1, r2, tof, mu, hRef) {
+function lambert(r1, r2, tof, mu, hRef) {
   const R1 = norm(r1), R2 = norm(r2);
   let dth = Math.acos(Math.max(-1, Math.min(1, dot(r1, r2) / (R1 * R2))));
   if (dot(cross(r1, r2), hRef) < 0) dth = 2 * Math.PI - dth;
@@ -706,8 +707,7 @@ function* designHaloInner(K, tFrom, log) {
     if (!sol) throw new Error('TLI tasarımı yakınsamadı');
     yield;
     x0 = sol.xArr;
-    chain = K.RAISE.n ? raiseChain(K, sol) : null;
-    if (K.RAISE.n && !chain) throw new Error('Yörünge yükseltme zinciri çözülemedi');
+    chain = raiseChainFor(K, sol);
     // varış halo boyunca kayabilir: halo ve iniş zamanlaması sabit kalır
     const lo = ref.t0 + 3600 - tA, hi = Math.min(tNriP + (fLim + 0.05) * Ts, dep.tD - 0.15 * Ts) - tA;
     const all = phasingShift(K, sol, chain && { t: chain.S1.t, r: chain.S1.r, v: chain.S1.v }), opts = all.filter((o) => o.delta > lo && o.delta < hi).sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta));

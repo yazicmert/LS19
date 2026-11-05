@@ -15,7 +15,7 @@ import { solveAscent, sampleAt } from './ascentsim.js';
 import { dot, sub, add, scale, norm, unit, cross, mtv } from './vec3.js';
 import { OMEGA_E as OMEGA, ecfFromGeodetic } from './geo.js';
 
-export const P_ALT = 2.2, Q_ALT = 1.3;
+const P_ALT = 2.2, Q_ALT = 1.3;
 
 // site: { lat, lon } (°); ins: { t, r, v } (ICRF km, km/s); icrfToItrf(t) → 3×3 (engine.earthIcrfToItrf); rE: Dünya yarıçapı (km)
 export function buildAscent({ site, tLaunch, ins, icrfToItrf, rE = 6378.137, veh = null, tInsReal = null, inc = 28.5 }) {

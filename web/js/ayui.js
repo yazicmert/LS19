@@ -3,8 +3,8 @@
 // fizik worker'ına komut göndermez (Baştan uçur, app.js'in verdiği restart geri çağrısıyla yapılır).
 import { AY_STEPS, sumGorev, sumArac, sumUcus, sumSonuc, verdict } from './aytext.js';
 import { dvKeys, dvFromEvents } from './dvbudget.js';
+import { $ } from './uiutil.js';
 
-const $ = (s) => document.querySelector(s);
 const setText = (el, t) => { if (el && el._t !== t) { el._t = t; el.textContent = t; } };
 
 export class AyUI {

@@ -144,7 +144,7 @@ export function controlFromHistory(h, nowMs = Date.now()) {
 // ---------------------------------------------------------------- kontrol durumu (yakıt/manevra bilinmediği için)
 // Yakıtı bilmediğimizden, bir uydunun yeniden girişi ancak görev süreci bittikten sonra anlamlıdır; FCC'nin 5 yıl kuralı (görev sonu + 5 yıl) uyarınca
 // görev sonu fırlatmadan sonraki tipik ömürle (~5 yıl) yaklaştırılır: yaş ≥ MISSION_PLUS + 5 -> kontrolsüz aday. Kesin görev sonu tarihi geçmiş yörünge verisiyle bulunabilir.
-export const MISSION_PLUS = 5;
+const MISSION_PLUS = 5;
 export function launchYear(o) {
   const id = String(o.OBJECT_ID || ''), y = +id.slice(0, 4);
   if (/^1998-067/.test(id) && !/^1998-067A$/.test(id.trim())) return null;                  // ISS'ten sonradan bırakılan nesneler ISS'in uluslararası tanımını (1998-067) taşır: gerçek fırlatma yılı bilinmiyor

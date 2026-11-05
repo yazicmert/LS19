@@ -23,7 +23,7 @@ const smooth = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
 export function parentXf(n, p) { const s = n.span / p.span; return [s, s, (n.lon0 - p.lon0) / p.span, 1 - s - (p.lat1 - n.lat1) / p.span]; }
 
 // ızgara şemaları: parça açısal genişliği (derece), sütun/satır sayısı
-export const SCHEMES = {
+const SCHEMES = {
   gibs: { span: (z) => 288 / 2 ** z, cols: (z) => Math.ceil(360 / (288 / 2 ** z) - 1e-9), rows: (z) => Math.ceil(180 / (288 / 2 ** z) - 1e-9) },     // EPSG:4326, 512 px
   eq: { span: (z) => 180 / 2 ** z, cols: (z) => 2 ** (z + 1), rows: (z) => 2 ** z },                                                              // Trek eşdikdörtgen, 256 px
 };

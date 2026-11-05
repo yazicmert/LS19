@@ -87,7 +87,7 @@ export function plumeGeometry(r0, len, widen = 2.4) {
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setIndex(idx);
   return g;
 }
-export function plumeMaterial(hot, cool, gain = 1.0, opts = {}) {
+function plumeMaterial(hot, cool, gain = 1.0, opts = {}) {
   const mat = new THREE.ShaderMaterial({ vertexShader: VS_PLUME, fragmentShader: FS_PLUME, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
     uniforms: { throttle: { value: 0 }, gain: { value: gain }, time: { value: 0 }, diamonds: { value: opts.diamonds ?? 0.25 }, seed: { value: Math.random() * 50 }, kS: { value: opts.kS ?? 2.0 }, hot: { value: hot }, cool: { value: cool } } });
   return mat;
@@ -107,7 +107,7 @@ export function setPlume(m, thr) {
 
 // ------------------------------------------------------------------ yumuşak ışıma sprite'ı (HDR): motor çıkışı, ayrılma parlaması
 let _glowTex = null;
-export function glowTexture() {
+function glowTexture() {
   if (_glowTex) return _glowTex;
   const S = 128, c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d'), gr = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
   gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.18, 'rgba(255,255,255,0.55)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.12)'); gr.addColorStop(1, 'rgba(255,255,255,0)');

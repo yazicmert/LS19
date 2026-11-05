@@ -10,7 +10,7 @@ function hash2(ix, iy, s) {                 // [0,1) deterministik
   h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16;
   return (h >>> 0) / 4294967296;
 }
-export function vnoise(x, y, s) {           // değer gürültüsü
+function vnoise(x, y, s) {           // değer gürültüsü
   const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
   const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
   const a = hash2(ix, iy, s), b = hash2(ix + 1, iy, s), c = hash2(ix, iy + 1, s), d = hash2(ix + 1, iy + 1, s);
@@ -83,7 +83,7 @@ export function terrainBasis(siteLatDeg, siteLonDeg, R_M, hSite) {
 }
 
 // köşe normalleri (indeksli ağ): THREE.BufferGeometry.computeVertexNormals ile aynı işlem sırası ve kesinlik (Float32 birikimi), böylece çıktı birebir aynı
-export function vertexNormals(pos, idx) {
+function vertexNormals(pos, idx) {
   const nor = new Float32Array(pos.length);
   for (let i = 0; i < idx.length; i += 3) {
     const a = idx[i] * 3, b = idx[i + 1] * 3, c = idx[i + 2] * 3;

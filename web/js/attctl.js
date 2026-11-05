@@ -11,7 +11,7 @@
 //    kullanılamaz): yönelim komuta oturur, açısal hız komutun dönme hızıdır; sınır çevrimi ve tutma yakıtı modellenmez. Dönmeler (komut sıçraması), yakışlar ve iniş gerçek dinamikle koşar.
 //  Gravite gradyanı torku da eklenir (çok küçük). Sensör, kestirim, çalkantı, esneklik YOKTUR: yönelim bilgisi mükemmeldir.
 import { qMul, qRot, qConj, qNormalize, qFromZ, qSwing, vAngle, Z_AXIS, D2R } from './attitude.js';
-import { massProps, rk4Rot, ggTorque, stageSpec } from './rigidbody.js';
+import { rk4Rot, ggTorque } from './rigidbody.js';
 import { dot, cross, norm, unit as unit0, Z_UP } from './vec3.js';
 
 const G0 = 9.80665;                                                // m/s²
@@ -189,4 +189,4 @@ export class Dyn6 {
     this.cPrev = c1; this.tPrev = t1;
   }
 }
-export { stageSpec, massProps };
+;

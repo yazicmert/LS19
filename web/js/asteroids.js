@@ -6,6 +6,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as E from './engine.js';
 import { keplerHelio, AU, helioElements } from './deflect.js';
+import { placeScreenLabel } from './screenlabel.js';
 
 export const AST_GROUPS = [
   { name: 'Sentry risk listesi', color: 0xff4fd8, size: 2.0 },
@@ -365,11 +366,7 @@ export class AsteroidLayer {
       this.mat.uniforms.sunGeo.value.set(s[0], s[1], s[2]);
       this.mat.uniforms.nearLim.value = full ? 1e13 : 0.05 * AU;
     }
-    const place = (d, p, dy = 12) => {
-      const v = new THREE.Vector3(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]).project(camera);
-      if (v.z > 1 || Math.abs(v.x) > 1.1 || Math.abs(v.y) > 1.1) { d.style.display = 'none'; return; }
-      d.style.display = 'block'; d.style.transform = `translate(${((v.x + 1) / 2) * canvas.clientWidth}px, ${((1 - v.y) / 2) * canvas.clientHeight - dy}px) translate(-50%, -100%)`;
-    };
+    const place = (d, p, dy = 12) => placeScreenLabel(d, p, eye, camera, canvas, dy);
     for (const b of this.bigLabels) { if (vis && full && this.mask[this.groupOf(b.i)]) place(b.el, this.geoPos(b.i, t), 8); else b.el.style.display = 'none'; }
     if (vis && this.sel >= 0) {
       const [r] = this.helio(this.sel, t), p = [s[0] + r[0], s[1] + r[1], s[2] + r[2]];

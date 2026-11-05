@@ -14,8 +14,8 @@ export const AY_STEPS = [
 // Uçuş adımının aletleri (iç sekmeler)
 export const AY_TOOLS = ['plan', 'kontrol', 'grafik', 'yorunge', 'efemeris'];
 
-export const VEHICLE_SHORT = { two: 'İki kademe', one: 'Tek kademe' };
-export const LANDING_SHORT = { opt: 'Optimal', free: 'Optimal (serbest)', zem: 'ZEM/ZEV' };
+const VEHICLE_SHORT = { two: 'İki kademe', one: 'Tek kademe' };
+const LANDING_SHORT = { opt: 'Optimal', free: 'Optimal (serbest)', zem: 'ZEM/ZEV' };
 // mission.js touchdown(): güvenli temas sınırları (anlatım için; karar result.ok'tan okunur)
 export const SAFE_VZ = 3.0, SAFE_VH = 1.22;
 
@@ -58,7 +58,7 @@ export function sumSonuc({ done, result }) {
   return result.ok ? `İniş ✓ · ${fmt(result.prop, 0)} kg yakıt` : 'Sert temas';
 }
 // '1g 04:12' / '04:12:30' (özet satırı için kısa süre)
-export function durShort(s) {
+function durShort(s) {
   s = Math.max(0, s);
   const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60), z = (x) => String(x).padStart(2, '0');
   return d ? `${d}g ${z(h)}:${z(m)}` : `${z(h)}:${z(m)}:${z(sec)}`;

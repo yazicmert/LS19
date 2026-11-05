@@ -30,7 +30,7 @@ export const QUICK_TARGETS = [
 ];
 
 // ---------------------------------------------------------------- itki zamanı: "yakın geçişten ne kadar önce?"
-export const LEADS = [['10y', '10 yıl', 3652.5], ['5y', '5 yıl', 1826.25], ['2y', '2 yıl', 730.5], ['1y', '1 yıl', 365.25], ['3m', '3 ay', 91.3125]];
+const LEADS = [['10y', '10 yıl', 3652.5], ['5y', '5 yıl', 1826.25], ['2y', '2 yıl', 730.5], ['1y', '1 yıl', 365.25], ['3m', '3 ay', 91.3125]];
 // caEt: yakın geçiş (TDB s), minEt: izin verilen en erken itki anı (tarama başlangıcı). ok: tarih aralıkta
 export function leadChoices(caEt, minEt) {
   return LEADS.map(([id, label, days]) => { const et = caEt - days * 86400; return { id, label, days, et, ok: et >= minEt && et < caEt - 3600 }; });

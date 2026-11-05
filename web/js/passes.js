@@ -4,9 +4,10 @@
 //   Güneş: düşük duyarlıklı analitik formül (Astronomical Almanac, ~0,01°) — gölge ve alacakaranlık için fazlasıyla yeterli.
 //   Gözlemci: WGS-84 elipsoidi.
 import * as S from '../lib/satellite.esm.js';
-import { WGS84_A, WGS84_F, ecfFromGeodetic, geodeticFromEcf } from './geo.js';
+import { WGS84_A, ecfFromGeodetic, geodeticFromEcf } from './geo.js';
 
-export const R_E = WGS84_A, F_E = WGS84_F, AU = 149597870.7;
+export const R_E = WGS84_A;
+const AU = 149597870.7;
 const D2R = Math.PI / 180;
 
 export function gmst(ms) { return S.gstime(new Date(ms)); }
@@ -38,7 +39,7 @@ export function sunEci(ms) {
   return [R * Math.cos(lam), R * Math.cos(eps) * Math.sin(lam), R * Math.sin(eps) * Math.sin(lam)];
 }
 // uydu Güneş ışığında mı (Dünya'nın silindirik gölgesi)
-export function sunlit(p, sun) {
+function sunlit(p, sun) {
   const sn = Math.hypot(...sun), s = [sun[0] / sn, sun[1] / sn, sun[2] / sn], a = p[0] * s[0] + p[1] * s[1] + p[2] * s[2];
   if (a > 0) return true;
   return Math.hypot(p[0] - a * s[0], p[1] - a * s[1], p[2] - a * s[2]) > R_E;
@@ -57,7 +58,7 @@ export function stateAt(rec, ms, obs) {
   return out;
 }
 // kapsama alanı: uydunun ufkunun (0°) ya da minEl yükseklik açısının yerde çizdiği daire için merkez açı (radyan)
-export function footprintAngle(altKm, minElDeg = 0) {
+function footprintAngle(altKm, minElDeg = 0) {
   const e = minElDeg * D2R; return Math.acos(R_E * Math.cos(e) / (R_E + altKm)) - e;
 }
 export function compass(az) { return ['K', 'KKD', 'KD', 'DKD', 'D', 'DGD', 'GD', 'GGD', 'G', 'GGB', 'GB', 'BGB', 'B', 'BKB', 'KB', 'KKB'][Math.round(az / 22.5) % 16]; }
@@ -99,7 +100,7 @@ export function* findPassesIter(rec, obs, startMs, days = 3, opt = {}) {
   return out;
 }
 // bir geçişin ayrıntısı: doğuş/en yüksek/batış, görünürlük, gökyüzü yolu (kutup çizimi için)
-export function passDetail(rec, obs, tRise, tSet) {
+function passDetail(rec, obs, tRise, tSet) {
   const N = Math.max(24, Math.min(180, Math.round((tSet - tRise) / 5000))), path = [];
   let max = null, visFrom = null, visTo = null;
   for (let k = 0; k <= N; k++) {

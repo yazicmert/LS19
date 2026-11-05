@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import * as E from './engine.js';
 import * as P from './passes.js';
 import * as EO from './earth.js';
+import { placeScreenLabel } from './screenlabel.js';
 
 const LS_WATCH = 'ls19.watch.v1', LS_OBS = 'ls19.observer.v1', LS_NOTIFY = 'ls19.notify.v1';
 export const CITIES = [
@@ -13,7 +14,7 @@ export const CITIES = [
   { name: 'Trabzon', lat: 41.0027, lon: 39.7168, h: 0.04 }, { name: 'Erzurum', lat: 39.9055, lon: 41.2658, h: 1.86 },
   { name: 'Diyarbakır', lat: 37.9144, lon: 40.2306, h: 0.67 }, { name: 'Van', lat: 38.5012, lon: 43.3730, h: 1.73 }];
 const DEFAULT_WATCH = [25544, 48274, 20580];                 // ISS, Tiangong (Tianhe), Hubble
-export const WATCH_COLORS = [0x5ee7ff, 0xff8fd8, 0xb6ff7a, 0xffc15e, 0xa99bff, 0xff7a7a, 0x7affc7, 0xfff17a];
+const WATCH_COLORS = [0x5ee7ff, 0xff8fd8, 0xb6ff7a, 0xffc15e, 0xa99bff, 0xff7a7a, 0x7affc7, 0xfff17a];
 const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? d; } catch (e) { return d; } };
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* özel pencere */ } };
 
@@ -136,11 +137,7 @@ export class Tracker {
   update(t, eye, camera, canvas, show, far) {
     if (!show) { this.hideAll(); return; }
     const ms = E.utcMsFromT(t), Mi = E.earthIcrfToItrf(t);
-    const place = (d, p, dy) => {
-      const v = new THREE.Vector3(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]).project(camera);
-      if (v.z > 1 || Math.abs(v.x) > 1.1 || Math.abs(v.y) > 1.1) { d.style.display = 'none'; return; }
-      d.style.display = 'block'; d.style.transform = `translate(${((v.x + 1) / 2) * canvas.clientWidth}px, ${((1 - v.y) / 2) * canvas.clientHeight - dy}px) translate(-50%, -100%)`;
-    };
+    const place = (d, p, dy = 12) => placeScreenLabel(d, p, eye, camera, canvas, dy);
     const setLine = (l, pts) => { const a = l.geometry.attributes.position.array; for (let k = 0; k < pts.length; k++) { a[3 * k] = pts[k][0] - eye[0]; a[3 * k + 1] = pts[k][1] - eye[1]; a[3 * k + 2] = pts[k][2] - eye[2]; }
       l.geometry.setDrawRange(0, pts.length); l.geometry.attributes.position.needsUpdate = true; l.visible = pts.length > 1; };
     // ECF (yaklaşık) -> ICRF: ITRF'ye çok yakın; çizimde Dünya'yla birlikte döner

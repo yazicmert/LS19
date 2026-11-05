@@ -59,13 +59,13 @@ function stabilityIndex(orb) {
 }
 
 // ---------------------------------------------------------------- dönen çerçeve <-> ICRF (Ay merkezli)
-export function frameAt(t) {
+function frameAt(t) {
   const rm = E.moonPos(t), vm = E.moonVel(t), l = norm(rm), h = cross(rm, vm);
   const x = scale(rm, 1 / l), z = unit(h), y = cross(z, x);
   return { rm, vm, l, ldot: dot(rm, vm) / l, w: norm(h) / (l * l), x, y, z };
 }
 // boyutsuz CR3BP durumu (kütle merkezine göre) -> Ay merkezli ICRF
-export function toInertial(s, t, F = frameAt(t)) {
+function toInertial(s, t, F = frameAt(t)) {
   const mu = C.MU;
   const rel = [s[0] - (1 - mu), s[1], s[2]];                       // Ay'a göre (boyutsuz)
   const p = add(add(scale(F.x, rel[0] * F.l), scale(F.y, rel[1] * F.l)), scale(F.z, rel[2] * F.l));
@@ -110,14 +110,14 @@ function pmDeriv(t, Y, stm) {
   return d;
 }
 // Y (6 ya da 42) t0 -> t1
-export function pmPropagate(Y0, t0, t1, stm = false, onStep = null) {
+function pmPropagate(Y0, t0, t1, stm = false, onStep = null) {
   const errScale = (q, y0, y5) => (q < 3 ? 1e-6 : 1e-10) + 1e-12 * Math.max(Math.abs(y0), Math.abs(y5));
   return dpIntegrate((tt, YY) => pmDeriv(tt, YY, stm), Float64Array.from(Y0), t0, t1, { h0: 60, hmax: 6 * 3600, errScale, nErr: 6, onStep, tol: 1e-9 }).Y;
 }
 
 // ---------------------------------------------------------------- çoklu atış
 // patches: [{t, X:[6]}]; döner: düzeltilmiş patches + en büyük süreksizlik
-export function multipleShoot(patches, { iters = 25, tolPos = 1e-3, tolVel = 1e-8, log = null } = {}) {
+function multipleShoot(patches, { iters = 25, tolPos = 1e-3, tolVel = 1e-8, log = null } = {}) {
   const K = patches.length - 1;
   let P = patches.map((p) => ({ t: p.t, X: p.X.slice() }));
   // ölçekleme: konum 1 km ~ hız 1 km / (ortalama yama aralığı); en küçük normlu düzeltme birimlerden bağımsız olsun

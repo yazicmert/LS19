@@ -5,7 +5,7 @@ import * as E from './engine.js';
 import { BODIES } from './ephem.js';
 import { etOf } from './live.js';
 import { PLANETS, planetQuaternion, loadPlanetTextures } from './planets.js';
-import { conicPoints, m3ToQuat, unit3, SUN_I } from './scenegeom.js';
+import { conicPoints, unit3, SUN_I } from './scenegeom.js';
 import * as CR from './cr3bp.js';
 import { K_EMB } from './camerarig.js';
 import { add, sub, scale, dot, norm, unit } from './vec3.js';
@@ -37,27 +37,12 @@ export class SkyView {
     const rm = E.moonPos(t), sun = E.sunPos(t), Mme = E.moonIcrfToMe(t), Mitrf = E.earthIcrfToItrf(t);
     const info = { rm, central: 'E', vehPos: [0, 0, 0] };
     if (this.cam.mode !== 'OBS' && this.cam.mode !== 'SITE' && this.camera.fov !== 50 && !this.cam.userFov) { this.camera.fov = 50; this.camera.updateProjectionMatrix(); }
-    const pose = this.cameraPose({ t, r: [0, 0, E.R_E * 3], v: [1, 0, 0] }, info), eye = pose.eye;
-    this.eye = eye;
-    const rel = (p, v = new THREE.Vector3()) => v.set(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]);
-    const tg = rel(pose.target), up = new THREE.Vector3(...pose.up);
-    const m = new THREE.Matrix4().lookAt(new THREE.Vector3(0, 0, 0), tg, up);
-    this.camera.position.set(0, 0, 0); this.camera.quaternion.setFromRotationMatrix(m); this.camera.updateMatrixWorld(true);
-    const sd = new THREE.Vector3(...unit(sub(sun, eye)));
-    this.earthU.sunDir.value.copy(unit3(sun)); this.moonU.sunDir.value.copy(unit3(sub(sun, rm))); this.moonU.earthDir.value.copy(unit3(scale(rm, -1)));
-    this.sunSprite.position.copy(sd.clone().multiplyScalar(5e6));
-    rel([0, 0, 0], this.earth.position); this.earth.quaternion.copy(m3ToQuat(E.mT(Mitrf))); this.atm.position.copy(this.earth.position);
-    rel(rm, this.moon.position); this.moon.quaternion.copy(m3ToQuat(E.mT(Mme)));
-    this.updateTiles();
-    if (this.terrainReady) this.placeTerrain(rm, Mme, eye, rel);
+    const pose = this.cameraPose({ t, r: [0, 0, E.R_E * 3], v: [1, 0, 0] }, info);
+    const { eye, sd } = this.placeFrame(pose, sun, rm, Mitrf, Mme);
     this.sunLight.intensity = Math.PI * SUN_I; this.sunLight.castShadow = false; this.ambient.intensity = 0.02; this.eclipse = 1;
     this.sunLight.target.position.set(0, 0, 0); this.sunLight.position.copy(sd);
     // Ay'ın yolu (±4 gün)
-    if (!this.moonPathT || Math.abs(t - this.moonPathT) > 3600) { this.moonPathT = t; this.moonPathPts = []; for (let i = 0; i < 600; i++) this.moonPathPts.push(E.moonPos(t - 4 * 86400 + (i * 8 * 86400) / 599)); }
-    const ma = this.moonPath.geometry.attributes.position.array;
-    this.moonPathPts.forEach((p, i) => { ma[i * 3] = p[0] - eye[0]; ma[i * 3 + 1] = p[1] - eye[1]; ma[i * 3 + 2] = p[2] - eye[2]; });
-    this.moonPath.geometry.setDrawRange(0, 600); this.moonPath.geometry.attributes.position.needsUpdate = true;
-    this.moonPath.visible = ['EARTH', 'MOON', 'FOCUS'].includes(this.cam.mode) && norm(eye) > 60000;
+    this.drawMoonPath(t, eye, ['EARTH', 'MOON', 'FOCUS'].includes(this.cam.mode) && norm(eye) > 60000);
     // yerden bakış: gündüz gökyüzü (Güneş'in gözlemciye göre yüksekliğine göre)
     const obs = this.cam.mode === 'OBS' && this.obsPose;
     this.earthU.obsMode.value = obs ? 1 : 0;

@@ -10,7 +10,8 @@ import { dot, cross, norm, unit, sub, scale } from './vec3.js';
 import { DP_A, DP_C, DP_E } from './dopri.js';
 
 export const AU = 149597870.7, DAY = 86400, YEAR = 365.25 * 86400;
-export const GM_SUN = 132712440041.279419, MU_E = 398600.435507, R_E = 6378.1363;
+const GM_SUN = 132712440041.279419, MU_E = 398600.435507;
+export const R_E = 6378.1363;
 const PERT = [[10, GM_SUN], [1, 22031.868551], [2, 324858.592], [399, 398600.435507], [301, 4902.800118], [4, 42828.375816],
   [5, 126712764.1], [6, 37940584.8418], [7, 5794556.4], [8, 6836527.10058], [9, 975.5]];
 const NP = PERT.length, C2 = 299792.458 ** 2;
@@ -24,8 +25,8 @@ const scl = scale;
 
 // ---------------------------------------------------------------- yörünge öğeleri -> durum
 // el: { a (AU), e, i, om, w, ma (derece), epoch (JD TDB) } — JPL SBDB: Güneş merkezli, J2000 ekliptiği, oskülatör
-export function eclToIcrf(v) { return [v[0], CE * v[1] - SE * v[2], SE * v[1] + CE * v[2]]; }
-export function icrfToEcl(v) { return [v[0], CE * v[1] + SE * v[2], -SE * v[1] + CE * v[2]]; }
+function eclToIcrf(v) { return [v[0], CE * v[1] - SE * v[2], SE * v[1] + CE * v[2]]; }
+function icrfToEcl(v) { return [v[0], CE * v[1] + SE * v[2], -SE * v[1] + CE * v[2]]; }
 export function keplerHelio(el, et, mu = GM_SUN) {
   const a = el.a * AU, e = el.e, n = Math.sqrt(mu / Math.abs(a) ** 3);
   let M = el.ma * D2R + n * (et - etFromJd(el.epoch));
@@ -50,7 +51,7 @@ export function helioElements(r, v, mu = GM_SUN) {
 
 // ---------------------------------------------------------------- B-düzlemi (Dünya merkezli hiperbol asimptotu)
 // r, v: asteroidin Dünya'ya göre konum/hızı (yakın geçiş civarında), vE: Dünya'nın Güneş'e göre hızı (ζ ekseni yönü için)
-export function bplane(r, v, vE) {
+function bplane(r, v, vE) {
   const rn = norm(r), v2 = dot(v, v), vinf2 = v2 - 2 * MU_E / rn;
   if (!(vinf2 > 0)) return null;                                   // Dünya'ya bağlı (yakalanmış) yörünge
   const vinf = Math.sqrt(vinf2), h = cross(r, v), hn = norm(h), hh = scl(h, 1 / hn);
