@@ -80,10 +80,11 @@ export class Tracker {
     const now = Date.now();
     if (!force && now - this.passT < 10 * 60000) return;
     if (!this.sats.byId) return;
-    this.passT = now; const tok = this.passTok = (this.passTok || 0) + 1, ids = [...this.watch], all = []; let cur = null;
+    this.passT = now; this.passBusy = true;                              // arayüz: "hesaplanıyor" ile "geçiş yok"u ayırır
+    const tok = this.passTok = (this.passTok || 0) + 1, ids = [...this.watch], all = []; let cur = null;
     const finish = () => {
       this.passes = all.filter((p) => p.kind === 'sabit' || p.set.ms > now).sort((a, b) => (a.rise ? a.rise.ms : 0) - (b.rise ? b.rise.ms : 0));
-      this.schedule(); this.changed();
+      this.passBusy = false; this.schedule(); this.changed();
     };
     const slice = () => {
       if (tok !== this.passTok) return;                                  // daha yeni bir hesap başladı

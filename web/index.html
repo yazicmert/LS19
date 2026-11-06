@@ -300,29 +300,34 @@
       <button class="tab" role="tab" data-tab="carpma" aria-selected="false" tabindex="-1">Çarpma</button>
       <button class="tab" role="tab" data-tab="firlatma" aria-selected="false" tabindex="-1">Fırlatmalar</button>
     </nav>
-    <div id="tab-takip" class="tabpage" role="tabpanel">
-      <h3><i data-icon="pin"></i> Gözlemci</h3>
-      <div id="obsInfo" class="dinfo"></div>
-      <div class="daterow">
-        <select id="obsCity" aria-label="Gözlemci konumu"></select>
-        <button id="obsGeo" class="sm" title="Tarayıcının konum iznini ister"><i data-icon="target"></i><span>Konumumu kullan</span></button>
-      </div>
+    <div id="tab-takip" class="tabpage tk" role="tabpanel">
+      <section class="tk-card tk-obs" aria-label="Gözlemci">
+        <span class="tk-obs-ic"><i data-icon="pin"></i></span>
+        <div class="tk-obs-main">
+          <span class="tk-obs-city"><select id="obsCity" aria-label="Gözlemci konumu"></select><i data-icon="chev" class="tk-chev"></i></span>
+          <div id="obsInfo" class="tk-obs-coord"></div>
+        </div>
+        <button id="obsGeo" class="tk-icbtn" type="button" title="Konumumu kullan (tarayıcı konum izni ister)" aria-label="Konumumu kullan"><i data-icon="target"></i></button>
+      </section>
       <div class="frow3" id="obsCustom" hidden>
         <label>Enlem<span><input id="obsLat" type="number" step="0.0001" min="-90" max="90"> °</span></label>
         <label>Boylam<span><input id="obsLon" type="number" step="0.0001" min="-180" max="180"> °</span></label>
         <label>Yükseklik<span><input id="obsH" type="number" step="1" min="-400" max="9000"> m</span></label>
       </div>
-      <h3><i data-icon="satellite"></i> Takip listesi</h3>
-      <ul id="watchList" class="watch" aria-live="polite"></ul>
-      <div class="daterow"><input id="watchAdd" type="search" placeholder="Uydu ekle (ad ya da NORAD no)" aria-label="Takip listesine uydu ekle"></div>
-      <ul id="watchResults" class="sresults"></ul>
-      <h3><i data-icon="clock"></i> Yaklaşan geçişler <span class="k">· 3 gün, en yüksek ≥ 10°</span></h3>
-      <label class="chk"><input id="passVisOnly" type="checkbox" checked> Yalnız çıplak gözle görünenler</label>
-      <label class="chk"><input id="passNotify" type="checkbox"> <i data-icon="bell"></i> Görünür geçişten 5 dk önce bildir</label>
-      <table id="passTable" class="tbl passes"><thead><tr><th>Uydu</th><th>Doğuş</th><th class="num">En yüksek</th><th>Yön</th><th></th></tr></thead><tbody></tbody></table>
-      <div id="passDetail" class="dinfo"></div>
-      <canvas id="passSky" class="chart sq" role="img" aria-label="Geçişin gökyüzündeki yolu"></canvas>
-      <p class="note">Konumlar CelesTrak yörünge verisinden SGP4 ile hesaplanır; ISS, Starlink, OneWeb, GPS gibi uydularda operatörlerin kendi verisi (Supplemental GP) kullanılır. Geçiş zamanları bağımsız bir kütüphaneyle (Skyfield) 1 saniye içinde uyumludur. "Görünür": uydu Güneş ışığında, gökyüzü karanlık (Güneş ufkun 6° altında). Bildirimler sayfa açıkken çalışır.</p>
+      <div class="tk-head"><h3><i data-icon="satellite"></i> Takip listesi</h3><span id="watchCount" class="tk-count"></span></div>
+      <div class="tk-search"><i data-icon="search"></i><input id="watchAdd" type="search" placeholder="Uydu ekle: ad ya da NORAD no" aria-label="Takip listesine uydu ekle" autocomplete="off" spellcheck="false"></div>
+      <ul id="watchResults" class="sresults tk-results"></ul>
+      <ul id="watchList" class="watch tk-watch" aria-live="polite"></ul>
+      <div class="tk-head">
+        <h3><i data-icon="clock"></i> Yaklaşan geçişler</h3>
+        <div id="passFilter" class="tk-seg" role="group" aria-label="Geçiş süzgeci"><button type="button" data-vis="1" title="Yalnız çıplak gözle görünen geçişler">Görünür</button><button type="button" data-vis="0" title="Gündüz ve gölgedekiler dahil tüm geçişler">Tümü</button></div>
+        <button id="passNotify" class="tk-icbtn" type="button" aria-pressed="false" title="Görünür geçişten 5 dk önce bildir" aria-label="Görünür geçişten 5 dk önce bildir"><i data-icon="bell"></i></button>
+      </div>
+      <p class="tk-sub">3 gün içinde, en yüksek ≥ 10°</p>
+      <ul id="passList" class="tk-passes"></ul>
+      <details class="tk-about"><summary>Nasıl hesaplanıyor?</summary>
+        <p class="note">Konumlar CelesTrak yörünge verisinden SGP4 ile hesaplanır; ISS, Starlink, OneWeb, GPS gibi uydularda operatörlerin kendi verisi (Supplemental GP) kullanılır. Geçiş zamanları bağımsız bir kütüphaneyle (Skyfield) 1 saniye içinde uyumludur. "Görünür": uydu Güneş ışığında, gökyüzü karanlık (Güneş ufkun 6° altında). Bildirimler sayfa açıkken çalışır.</p>
+      </details>
     </div>
     <div id="tab-uydular" class="tabpage" role="tabpanel" hidden>
       <h3>Dünya çevresindeki uydular</h3>
