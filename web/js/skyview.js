@@ -28,7 +28,7 @@ export class SkyView {
   setSkyMode(on) {
     this.skyMode = on;
     for (const o of [this.vehicle, this.vehMarker, this.siteMarker, this.osc, this.trailLineE, this.trailLineM, this.stageOsc, this.haloPath, ...this.lMarkers]) o.visible = !on && o !== this.haloPath;
-    if (on) { for (const m of this.debrisMeshes.values()) m.visible = false; for (const e of this.debrisMarkers.values()) { e.mk.visible = false; this.labels[e.key].style.display = 'none'; } for (const k of ['veh', 'site', 'lp', 'lp2']) if (this.labels[k]) this.labels[k].style.display = 'none'; }
+    if (on) { for (const m of this.debrisMeshes.values()) m.visible = false; for (const e of this.debrisMarkers.values()) { e.mk.visible = false; this.labels[e.key].style.display = 'none'; } for (const k of ['veh', 'site', 'lp', 'lp2', 'stagetag']) if (this.labels[k]) this.labels[k].style.display = 'none'; }     // stagetag: Laboratuvar'daki kademe açıklaması gökyüzünde asılı kalmasın
     if (this.skyDome) this.skyDome.visible = false;
   }
   updateSky(t, extra = {}) {

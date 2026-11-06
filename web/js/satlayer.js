@@ -78,13 +78,16 @@ async function fetchMirror(file, kaynak, v) {
   if (meta && Number.isFinite(+meta.t)) d.yas = Math.max(d.yas, (Date.now() - meta.t) / 1000);
   return d;
 }
+// en çok bu kadar beklenir: CelesTrak bağlantıyı açık bırakıp yanıt vermezse yükleme asılı kalmasın (~7 MB yavaş bağlantıda da sığar)
+const DIRECT_TIMEOUT_MS = 90e3;
+const timeoutOpt = (ms) => (typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? { signal: AbortSignal.timeout(ms) } : {});
 async function celestrakDirect() {
   let cache = null, hit = null;
   try { cache = await caches.open('ls19-celestrak'); hit = await cache.match(GP_URL); } catch (e) { cache = null; }
   const tHit = hit ? +hit.headers.get('X-LS19-T') : 0;
   if (hit && Date.now() - tHit < 2 * 3600e3) { const omm = await hit.json(); return { omm, kaynak: 'CelesTrak (tarayıcı önbelleği)', yas: dataAgeS((Date.now() - tHit) / 1000, omm) }; }
   try {
-    const r = await fetch(GP_URL);
+    const r = await fetch(GP_URL, timeoutOpt(DIRECT_TIMEOUT_MS));
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const txt = await r.text(), omm = JSON.parse(txt);
     if (!Array.isArray(omm) || !omm.length) throw new Error('beklenmeyen yanıt');
@@ -125,21 +128,35 @@ export class SatLayer {
   // ---------------------------------------------------------------- Dünya uyduları
   async load(v) {
     if (!this.n) { this.info = { status: 'CelesTrak verisi alınıyor…' }; this.changed(); }
-    const errs = [];
-    let d = null;
+    const errs = [], token = (this.loadId = (this.loadId || 0) + 1);
+    let d = null, direct = false;
     // 1) sunucu vekili (yerel sunucu.py ya da bulut api/) · 2) GitHub kopyası · 3) tarayıcıdan doğrudan CelesTrak.
-    // Vekil ya da kopya 2 saatten eskiyse (gpdata.js MAX_COPY_AGE_S) doğrudan CelesTrak da denenir; hangisi tazeyse o kullanılır.
     try { d = await fetchOmm('api/gp?group=active' + (v != null ? '&v=' + v : '')); } catch (e) { errs.push('vekil: ' + e.message); }
     if (!d) try { d = await fetchMirror('gp_active.json', 'CelesTrak (GitHub kopyası)', v); } catch (e) { errs.push('kopya: ' + e.message); }
-    if (!d || isStale(d.yas)) try { const dd = await celestrakDirect(); if (!d || dd.yas < d.yas) d = dd; } catch (e) { errs.push('doğrudan: ' + e.message); }
+    if (!d) try { d = await celestrakDirect(); direct = true; } catch (e) { errs.push('doğrudan: ' + e.message); }
+    if (token !== this.loadId) return;                            // bu arada daha yeni bir yükleme başladı
     if (!d) { this.info = { status: 'Uydu verisi alınamadı (' + errs.join(' · ') + ')' }; this.changed(); return; }
+    this.sup = null; this.supInfo = null;
+    this.setGp(d);                                                // eldeki veri hemen gösterilir
+    this.loadSup(v, token);                                       // operatör verisi arkadan gelir
+    // Vekil ya da kopya 2 saatten eskiyse (gpdata.js MAX_COPY_AGE_S) CelesTrak arka planda doğrudan denenir; daha tazesi gelirse
+    // onunla değiştirilir (operatör verisi yeniden birleştirilir). Beklerken eski veri görünür kalır, deneme zaman aşımıyla biter.
+    if (!direct && isStale(d.yas)) {
+      celestrakDirect().then((dd) => {
+        if (token !== this.loadId || !(dd.yas < this.src.yas)) return;
+        this.setGp(dd);
+      }).catch(() => { /* eski veri kalır; panel yaşını gösterir */ });
+    }
+  }
+  // GP listesini kur; operatör verisi varsa onunla birleştirip uygula (seçili uydu korunur)
+  setGp(d) {
     this.src = { kaynak: d.kaynak, yas: d.yas, t: Date.now() };
-    this.gp = d.omm; this.gpMap = null; this.sup = null;
-    this.apply(this.gp);
-    this.loadSup(v);                                              // operatör verisi arkadan gelir
+    this.gp = d.omm; this.gpMap = null;
+    if (this.sup) this.mergeSup();
+    else this.apply(this.gp, this.sel >= 0 ? this.ids[this.sel] : null);
   }
   // CelesTrak Supplemental GP: operatörlerin kendi yörünge çözümleri (ISS, Starlink, OneWeb, GPS…), GP'den daha doğru
-  async loadSup(v) {
+  async loadSup(v, token) {
     const got = {}, stats = {};
     await Promise.all(SUP_FILES.map(async (f) => {
       let d = null;
@@ -147,12 +164,17 @@ export class SatLayer {
       if (!d) try { d = await fetchOmm(`${DATA_RAW}sup_${f}.json?v=${v ?? ''}`, 'SupGP (GitHub kopyası)'); } catch (e) { stats[f] = 0; return; }   // bayatsa birleştirmede elenir (gpdata.js)
       got[f] = d.omm; stats[f] = d.omm.length;
     }));
+    if (token !== this.loadId) return;
+    this.supStats = stats;
     if (!Object.keys(got).length) { this.supInfo = { n: 0, older: 0, files: stats }; this.changed(); return; }
-    // operatör kaydı yalnız normal GP kaydından yeniyse kullanılır (bayat kopya taze GP'yi bozmasın)
-    const { merged, n, older } = mergeSupGP(this.gp, got);
-    this.sup = got; this.supInfo = { n, older, files: stats };
-    const sel = this.sel >= 0 ? this.ids[this.sel] : null;
-    this.apply(merged, sel);
+    this.sup = got;
+    this.mergeSup();
+  }
+  // operatör kaydı yalnız normal GP kaydından yeniyse kullanılır (bayat kopya taze GP'yi bozmasın)
+  mergeSup() {
+    const { merged, n, older } = mergeSupGP(this.gp, this.sup);
+    this.supInfo = { n, older, files: this.supStats || {} };
+    this.apply(merged, this.sel >= 0 ? this.ids[this.sel] : null);
   }
   apply(omm, keepId = null) {
     this.omm = omm; this.byId = new Map(omm.map((o) => [+o.NORAD_CAT_ID, o])); this.recCache = new Map();

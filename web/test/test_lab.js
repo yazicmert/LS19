@@ -59,6 +59,8 @@ const ruleOk = (eng) => new RegExp(`body\\[data-mode="lab"\\]\\[data-engine="${e
 check(/body\[data-mode="sky"\] \[data-for\]:not\(\[data-for~="sky"\]\)/.test(css) && ruleOk('mission') && ruleOk('sky'), 'CSS: data-for gizleme kuralı görünüm + motor (lab@mission, lab@sky)');
 check(!/#panel\b/.test(css) && !/#panel\b/.test(cine) && /#skyPanel, #labPanel \{ position: absolute/.test(css) && /#skyPanel\.open, #labPanel\.open/.test(css), 'CSS: #panel kuralları Laboratuvar paneline taşındı; aynı yerleşim ve telefon düzeni');
 check(/\.labpage\.labtabs \{[^}]*overflow: hidden[^}]*flex-direction: column/.test(css), 'sekmeli deney sayfası: sekme çubuğu sabit, sayfalar kendi içinde kayar');
+const skyview = fs.readFileSync(new URL('../js/skyview.js', import.meta.url), 'utf8');
+check(/for \(const k of \[[^\]]*'stagetag'[^\]]*\]\) if \(this\.labels\[k\]\) this\.labels\[k\]\.style\.display = 'none'/.test(skyview), 'Canlı Gökyüzü\'ne geçince görev etiketleri gizlenir (Laboratuvar\'ın kademe etiketi dahil)');
 const skyTabs = [...html.slice(html.indexOf('id="skyPanel"'), html.indexOf('id="labPanel"')).matchAll(/data-tab="(\w+)"/g)].map((m) => m[1]);
 check(skyTabs.join() === 'takip,uydular,asteroit,carpma,firlatma' && !html.includes('id="tab-saptirma"'), 'Saptırma Canlı Gökyüzü\'nden çıktı; sekmeler (fırlatma takvimi dahil): ' + skyTabs.join(', '));
 const exps = [...html.matchAll(/class="exp"[^>]*data-exp="(\w+)"/g)].map((m) => m[1]), gos = [...html.matchAll(/data-go="(\w+)"/g)].map((m) => m[1]);
