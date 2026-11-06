@@ -70,14 +70,49 @@
    "launch_service_provider": {
     "id": 1,
     "name": "SpaceX",
-    "abbrev": "SPA"
+    "abbrev": "SPA",
+    "type": {
+     "id": 3,
+     "name": "Commercial"
+    }
    },
    "rocket": {
     "id": 1,
     "configuration": {
      "name": "Falcon 9",
-     "full_name": "Falcon 9 Block 5"
-    }
+     "full_name": "Falcon 9 Block 5",
+     "total_launch_count": 644,
+     "successful_launches": 643,
+     "failed_launches": 1,
+     "successful_landings": 629,
+     "attempted_landings": 634,
+     "maiden_flight": "2018-05-11",
+     "leo_capacity": 22800.0,
+     "gto_capacity": 8300.0,
+     "reusable": true
+    },
+    "launcher_stage": [
+     {
+      "type": "Core",
+      "reused": true,
+      "launcher_flight_number": 7,
+      "launcher": {
+       "serial_number": "B1103"
+      },
+      "landing": {
+       "attempt": true,
+       "success": null,
+       "downrange_distance": 574.4,
+       "landing_location": {
+        "name": "Of Course I Still Love You",
+        "abbrev": "OCISLY"
+       },
+       "type": {
+        "abbrev": "ASDS"
+       }
+      }
+     }
+    ]
    },
    "mission": {
     "name": "Starlink Ornek 1",
@@ -85,7 +120,22 @@
     "orbit": {
      "abbrev": "LEO"
     },
-    "vid_urls": []
+    "vid_urls": [],
+    "description": "Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması. Örnek görev açıklaması.",
+    "agencies": [
+     {
+      "name": "SpaceX"
+     },
+     {
+      "name": "Ornek Ajans"
+     },
+     {
+      "name": "Ucuncu"
+     },
+     {
+      "name": "Dorduncu"
+     }
+    ]
    },
    "pad": {
     "id": 16,
@@ -103,7 +153,53 @@
    "webcast_live": true,
    "image": {
     "image_url": "https://example.invalid/x.jpg"
-   }
+   },
+   "response_mode": "detailed",
+   "program": [
+    {
+     "name": "Starlink"
+    }
+   ],
+   "vid_urls": [
+    {
+     "priority": 8,
+     "url": "https://www.youtube.com/watch?v=ornek",
+     "title": "🚀 Örnek canlı yayın — çok uzun bir başlık xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+     "type": {
+      "id": 4,
+      "name": "Unofficial Re-stream"
+     }
+    },
+    {
+     "priority": 10,
+     "url": "https://x.com/i/broadcasts/ornek",
+     "title": "Starlink Mission",
+     "type": {
+      "id": 1,
+      "name": "Official Webcast"
+     }
+    },
+    {
+     "priority": 99,
+     "url": "http://guvensiz.example/",
+     "title": "http elenir",
+     "type": {
+      "id": 1
+     }
+    }
+   ],
+   "probability": 80,
+   "weather_concerns": "Upper-level winds",
+   "orbital_launch_attempt_count_year": 262,
+   "pad_launch_attempt_count_year": 70,
+   "pad_launch_attempt_count": 308,
+   "agency_launch_attempt_count_year": 126,
+   "updates": [
+    {
+     "comment": "Now targeting Nov 07 at 00:48 UTC",
+     "created_on": "2026-11-05T12:00:00Z"
+    }
+   ]
   },
   {
    "id": "u-2",

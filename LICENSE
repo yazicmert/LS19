@@ -39,6 +39,11 @@ In particular:
   - Lunar terrain (web/data/site_dem.json) and lunar textures: NASA LRO/LOLA,
     NASA SVS CGI Moon Kit (U.S. public domain).
   - Launch pads (web/data/pads.json): The Space Devs, Launch Library 2.
+  - Launch database (web/data/launchdb.json): derived from GCAT, the General
+    Catalog of Artificial Space Objects, by Jonathan C. McDowell
+    (https://planet4589.org/space/gcat), licensed CC-BY-4.0. "Data from
+    J. McDowell, planet4589.org." Filtered to orbital and deep-space launches
+    and converted to a columnar format.
   - Historical orbit summary (web/data/gecmis.json): derived from public
     CelesTrak data via github.com/jtmiclat/celestrak-historical (MIT). Only
     derived summaries are distributed; no raw TLEs and no Space-Track data.

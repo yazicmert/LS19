@@ -7,8 +7,9 @@
 //     Koşulu: verinin yanında "Data by RocketLaunch.Live" yazılır.
 
 export const LL2_BASE = 'https://ll.thespacedevs.com/2.3.0/';
-export const LL2_UPCOMING = LL2_BASE + 'launches/upcoming/?limit=30&mode=normal&hide_recent_previous=true';
-export const LL2_PREVIOUS = LL2_BASE + 'launches/previous/?limit=20&mode=normal';
+// ayrıntılı kip: görev açıklaması, müşteri, roket ve itici istatistikleri, iniş, canlı yayın (istek sayısı aynı; yanıt büyük, vekil küçültür)
+export const LL2_UPCOMING = LL2_BASE + 'launches/upcoming/?limit=30&mode=detailed&hide_recent_previous=true';
+export const LL2_PREVIOUS = LL2_BASE + 'launches/previous/?limit=20&mode=detailed';
 export const RLL_NEXT = 'https://fdo.rocketlaunch.live/json/launches/next/5';
 // yenileme aralığı: LL2'nin saatte 15 isteği içinde (her yenileme 2 istek) ve yaklaşan fırlatmaların durumu (erteleme, bekleme) için yeterince sık
 export const LAUNCH_PERIOD_S = 1800;
@@ -35,7 +36,53 @@ const ms = (s) => { if (!s) return null; const v = Date.parse(s); return Number.
 const str = (x) => (typeof x === 'string' && x.trim() ? x.trim() : null);
 const num = (x) => { if (x === null || x === undefined || x === '') return null; const v = Number(x); return Number.isFinite(v) ? Math.round(v * 1e5) / 1e5 : null; };
 
-// LL2 (mode=normal) kaydı -> küçük kayıt
+// boş alanları at (null, boş dizi, boş nesne): çıktı küçük kalsın; sunucu.py prune ile aynı kural
+export function prune(o) {
+  const out = {};
+  for (const [k, v] of Object.entries(o)) {
+    if (v === null || v === undefined || v === '' || (Array.isArray(v) && !v.length)) continue;
+    if (typeof v === 'object' && !Array.isArray(v) && !Object.keys(v).length) continue;
+    out[k] = v;
+  }
+  return out;
+}
+const int = (x) => { const v = num(x); return v === null ? null : Math.round(v); };
+// kırpma kod noktası sayısıyla (emoji vb. sunucu.py ile aynı kesilsin)
+const cut = (x, n) => { const v = str(x); if (!v) return v; const a = Array.from(v); return a.length > n ? a.slice(0, n - 1).join('').trimEnd() + '…' : v; };
+// ayrıntılı kipteki zengin alanlar -> d (yoksa boş nesne)
+export function detailLL2(r) {
+  const mi = r.mission || {}, cfg = (r.rocket && r.rocket.configuration) || {}, lsp = r.launch_service_provider || {};
+  const names = (arr, n) => (Array.isArray(arr) ? arr.map((a) => a && str(a.name)).filter(Boolean).slice(0, n) : []);
+  const stages = ((r.rocket && r.rocket.launcher_stage) || []).slice(0, 3).map((st) => {
+    const L = st.landing || {}, loc = L.landing_location || {}, lt = L.type || {}, ln = st.launcher || {};
+    return prune({ seri: str(ln.serial_number), ucus: int(st.launcher_flight_number), tekrar: st.reused === true ? true : st.reused === false ? false : null,
+      inis: L.attempt === true ? prune({ basari: L.success === true ? true : L.success === false ? false : null, yer: str(loc.abbrev) || str(loc.name), yerAd: str(loc.name),
+        tip: str(lt.abbrev), mesafe: int(L.downrange_distance) }) : null });
+  }).filter((x) => Object.keys(x).length);
+  const vids = (Array.isArray(r.vid_urls) ? r.vid_urls : []).filter((v) => v && str(v.url) && /^https:\/\//.test(v.url))
+    .map((v, i) => ({ v, i, off: v.type && v.type.id === 1 ? 1 : 0, pr: num(v.priority) ?? 0 }))
+    .sort((a, b) => b.off - a.off || b.pr - a.pr || a.i - b.i).slice(0, 2)
+    .map(({ v, off }) => prune({ u: str(v.url), b: cut(v.title, 90), resmi: off === 1 ? true : null }));
+  const up = Array.isArray(r.updates) && r.updates[0];
+  return prune({
+    aciklama: cut(mi.description, 700),
+    musteri: names(mi.agencies, 3),
+    program: names(r.program, 2),
+    tur: str(lsp.type && lsp.type.name),
+    roket: prune({ toplam: int(cfg.total_launch_count), basarili: int(cfg.successful_launches), basarisiz: int(cfg.failed_launches),
+      inis: int(cfg.successful_landings), inisDeneme: int(cfg.attempted_landings), ilk: str(cfg.maiden_flight), leo: int(cfg.leo_capacity), gto: int(cfg.gto_capacity),
+      tekrar: cfg.reusable === true ? true : null }),
+    itici: stages,
+    yayin: vids,
+    olasilik: int(r.probability),
+    hava: cut(r.weather_concerns, 200),
+    hata: cut(r.failreason, 300),
+    sayac: prune({ yil: int(r.orbital_launch_attempt_count_year), rampaYil: int(r.pad_launch_attempt_count_year), rampa: int(r.pad_launch_attempt_count), ajansYil: int(r.agency_launch_attempt_count_year) }),
+    son: up && str(up.comment) ? prune({ m: cut(up.comment, 160), t: ms(up.created_on) }) : null,
+  });
+}
+
+// LL2 kaydı (mode=normal ya da detailed) -> küçük kayıt
 export function fromLL2(r) {
   if (!r || !r.id) return null;
   const net = ms(r.net);
@@ -62,6 +109,7 @@ export function fromLL2(r) {
     yorunge: orbit && orbit !== 'N/A' ? orbit : null,
     cospar: str(r.launch_designator),
     canli: r.webcast_live === true,
+    d: detailLL2(r),
   };
 }
 
