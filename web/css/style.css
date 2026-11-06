@@ -86,6 +86,19 @@ body[data-mode="lab"][data-engine="sky"] [data-for]:not([data-for~="lab"]):not([
 .tab { flex: 1 0 18%; padding: 6px 2px; font-size: 12.5px; min-width: 0; font-weight: 600; color: var(--text-secondary); background: transparent; border-color: transparent; }
 .tab:hover { color: var(--text-primary); background: var(--surface-2); }
 .tab.on { color: #fff; background: rgba(59, 130, 246, .2); border-color: rgba(59, 130, 246, .6); }
+/* Canlı Gökyüzü panelinin sekmeleri: kutusuz, ferah alt çizgi düzeni. Etiketler panele eşit aralıkla yayılır, seçili sekme beyaz yazı ve
+   altında ince çizgiyle belli olur; yazı kalınlığı sabit (seçim değişince etiketler kaymaz). Çizgi ortadan 200 ms ease-out ile açılır. */
+#skyPanel > .tabs { flex-wrap: nowrap; justify-content: space-between; gap: 6px; padding: 0 16px; overflow-x: auto; scrollbar-width: none; }
+#skyPanel > .tabs::-webkit-scrollbar { display: none; }
+#skyPanel > .tabs .tab { position: relative; flex: 0 0 auto; padding: 14px 2px 13px; font-size: 13px; font-weight: 500; letter-spacing: .005em; color: var(--text-muted);
+  background: none; border: 0; border-radius: 6px; white-space: nowrap; transition: color .16s ease; }
+#skyPanel > .tabs .tab::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; border-radius: 2px; background: var(--text-primary);
+  opacity: 0; transform: scaleX(.4); transition: opacity .16s ease, transform .2s cubic-bezier(.23, 1, .32, 1); }
+#skyPanel > .tabs .tab.on { color: var(--text-primary); background: none; }
+#skyPanel > .tabs .tab.on::after { opacity: 1; transform: none; }
+#skyPanel > .tabs .tab:focus-visible { outline-offset: -1px; }
+@media (hover: hover) and (pointer: fine) { #skyPanel > .tabs .tab:not(.on):hover { color: var(--text-secondary); background: none; } }
+@media (prefers-reduced-motion: reduce) { #skyPanel > .tabs .tab::after { transition: opacity .16s ease; } }
 .tabpage { padding: 4px 12px 12px; overflow-y: auto; flex: 1; }
 .tabpage h3 { font-size: 13px; color: var(--text-secondary); font-weight: 600; margin: 12px 0 6px; }
 .plan, .log { list-style: none; margin: 0; padding: 0; }
