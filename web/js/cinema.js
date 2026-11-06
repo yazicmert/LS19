@@ -9,13 +9,14 @@ import { siteIcrf } from './mission.js';
 import { ellipsoidAlt } from './geo.js';
 import { CineUI } from './cinemaui.js';
 import { fmtDur } from './format.js';
+import { LOC } from './i18n.js';
 
 const { add, sub, scale, dot, cross, norm, unit } = E;
 const KM = 0.001;
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const lerp = (a, b, k) => a + (b - a) * k;
 const smooth = (k) => { k = clamp(k, 0, 1); return k * k * k * (k * (k * 6 - 15) + 10); };
-const fmt = (x, d = 0) => (Number.isFinite(x) ? x.toLocaleString('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—');
+const fmt = (x, d = 0) => (Number.isFinite(x) ? x.toLocaleString(LOC, { minimumFractionDigits: d, maximumFractionDigits: d }) : '—');
 const V = (a) => new THREE.Vector3(a[0], a[1], a[2]);
 const arr = (v) => [v.x, v.y, v.z];
 

@@ -1,5 +1,6 @@
 // Görev grafikleri için hafif çizgi grafiği (ui.js'ten ayrıldı): tek seri, isteğe bağlı log ölçek, tema renkleri, kare başına en çok bir çizim.
 import { fmt } from './format.js';
+import { UNIT } from './i18n.js';
 
 // ------------------------------------------------------------------ çizgi grafiği (tek seri, çapraz imleçli)
 export class LineChart {
@@ -46,7 +47,7 @@ export class LineChart {
       const v = this.log ? 10 ** f : f; g.fillText(this.log ? (v >= 1 ? fmt(v, 0) : String(v)) : fmt(v, v < 10 ? 1 : 0), L - 6, y + 4);
     }
     g.textAlign = 'center';
-    for (let k = 0; k <= 4; k++) { const xv = x0 + (k / 4) * (x1 - x0); g.fillText(fmt(xv, xv < 10 ? 1 : 0) + ' sa', px(xv), H - 6); }
+    for (let k = 0; k <= 4; k++) { const xv = x0 + (k / 4) * (x1 - x0); g.fillText(fmt(xv, xv < 10 ? 1 : 0) + ' ' + UNIT.h, px(xv), H - 6); }
     // seri
     g.strokeStyle = ser; g.lineWidth = 2; g.lineJoin = 'round'; g.lineCap = 'round'; g.beginPath();
     for (let i = 0; i < n; i++) { const X = px(this.x[i]), Y = py(fy(this.y[i])); if (i) g.lineTo(X, Y); else g.moveTo(X, Y); }
@@ -60,7 +61,7 @@ export class LineChart {
       const xv = x0 + ((this.hover - L) / (W - L - R)) * (x1 - x0);
       let j = 0; while (j < n - 1 && this.x[j + 1] < xv) j++;
       const X = px(this.x[j]); g.strokeStyle = ink2; g.lineWidth = 1; g.beginPath(); g.moveTo(Math.round(X) + 0.5, T); g.lineTo(Math.round(X) + 0.5, H - B); g.stroke();
-      const val = this.y[j], lab = `${fmt(val, val < 10 ? 3 : 0)} ${this.unit}`, sub = `T+${fmt(this.x[j], 2)} sa`;
+      const val = this.y[j], lab = `${fmt(val, val < 10 ? 3 : 0)} ${this.unit}`, sub = `T+${fmt(this.x[j], 2)} ${UNIT.h}`;
       g.font = '600 12px system-ui, sans-serif'; const w = Math.max(g.measureText(lab).width, g.measureText(sub).width) + 16;
       const bx = Math.min(W - R - w, Math.max(L, X + 8)), by = T + 4;
       g.fillStyle = C.s2; g.fillRect(bx, by, w, 38);

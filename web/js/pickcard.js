@@ -4,6 +4,7 @@ import { fmtReentry, controlNote } from './impact.js';
 import { fmt } from './format.js';
 import { srcOf } from './satcatalog.js';
 import { $ } from './uiutil.js';
+import { ns, ew, LOC, UNIT } from './i18n.js';
 
 export class PickCard {
   // ------------------------------------------------------------------ tıklanan cisim bilgisi (gezegen / uydu)
@@ -40,9 +41,9 @@ export class PickCard {
       ttl.append(mk('div', 'pt', d.name), mk('div', 'ps', `NORAD ${d.norad} · COSPAR ${d.cospar}${d.launchYear ? ` · fırlatma ${d.launchYear}` : ''}`));
       rows.push(['Grup', d.group], ['Yörünge türü', d.orbitType]);
       if (d.alt != null) rows.push(['İrtifa', km(d.alt)], ['Hız', fmt(d.speed, 3) + ' km/s'],
-        ['Yer izi', `${fmt(Math.abs(d.lat), 2)}° ${d.lat >= 0 ? 'K' : 'G'}, ${fmt(Math.abs(d.lon), 2)}° ${d.lon >= 0 ? 'D' : 'B'}`],
+        ['Yer izi', `${fmt(Math.abs(d.lat), 2)}° ${ns(d.lat)}, ${fmt(Math.abs(d.lon), 2)}° ${ew(d.lon)}`],
         ['Aydınlanma', d.sunlit ? 'Güneş ışığında' : "Dünya'nın gölgesinde"]);
-      rows.push(['Periyot', d.periodMin > 180 ? fmt(d.periodMin / 60, 2) + ' sa' : fmt(d.periodMin, 1) + ' dk'], ['Eğim', fmt(d.inc, 2) + '°'],
+      rows.push(['Periyot', d.periodMin > 180 ? fmt(d.periodMin / 60, 2) + ' ' + UNIT.h : fmt(d.periodMin, 1) + ' ' + UNIT.min], ['Eğim', fmt(d.inc, 2) + '°'],
         ['Perije / apoje', `${fmt(d.perigee, 0)} / ${fmt(d.apogee, 0)} km`], ['Dış merkezlik', fmt(d.ecc, 5)],
         ['Öğelerin yaşı', `${fmt(d.epochAgeDays, 1)} gün`], ['Yörünge verisi', d.source || 'CelesTrak GP']);
       rows.push(['Tahmini yeniden giriş', fmtReentry(d.decay)]);
@@ -50,11 +51,11 @@ export class PickCard {
       rows.push(['3B model', d.model ? `${d.model.note || d.model.title} · ${srcOf(d.model)} (~${fmt(d.model.size, d.model.size < 10 ? 1 : 0)} m)` : d.family ? `${d.family.title} · temsili aile modeli (${d.family.note})` : 'nokta']);
       if (d.obsEl != null) rows.push([`${d.obsName}'dan`, d.obsEl > 0 ? `gökte ${fmt(d.obsEl, 1)}° · az ${fmt(d.obsAz, 0)}° · ${fmt(d.obsRange, 0)} km` : 'ufkun altında']);
       if (d.nextPass) { const p = d.nextPass, tt = new Date(p.rise.ms);
-        rows.push(['Sonraki geçiş', `${tt.toLocaleString('tr-TR', { weekday: 'short', hour: '2-digit', minute: '2-digit' })} · en yüksek ${fmt(p.max.el, 0)}°${p.visible ? ' · görünür' : ''}`]); }
+        rows.push(['Sonraki geçiş', `${tt.toLocaleString(LOC, { weekday: 'short', hour: '2-digit', minute: '2-digit' })} · en yüksek ${fmt(p.max.el, 0)}°${p.visible ? ' · görünür' : ''}`]); }
     } else if (P.kind === 'msat') {
       ttl.append(mk('div', 'pt', d.name), mk('div', 'ps', 'Ay yörüngesinde · JPL Horizons'));
       rows.push(["İrtifa (Ay'a göre)", km(d.alt)], ['Hız', fmt(d.speed, 3) + ' km/s'],
-        ['Periyot (anlık)', Number.isFinite(d.periodMin) ? (d.periodMin > 180 ? fmt(d.periodMin / 60, 2) + ' sa' : fmt(d.periodMin, 1) + ' dk') : '—']);
+        ['Periyot (anlık)', Number.isFinite(d.periodMin) ? (d.periodMin > 180 ? fmt(d.periodMin / 60, 2) + ' ' + UNIT.h : fmt(d.periodMin, 1) + ' ' + UNIT.min) : '—']);
       if (d.model) rows.push(['3B model', `${d.model.title} · ${srcOf(d.model)}`]);
     } else if (P.kind === 'planet') {
       ttl.append(mk('div', 'pt', d.name), mk('div', 'ps', 'Canlı efemeris (DE440 başlangıçlı N-cisim)'));

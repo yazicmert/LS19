@@ -4,6 +4,7 @@
 import { AY_STEPS, sumGorev, sumArac, sumUcus, sumSonuc, verdict } from './aytext.js';
 import { dvKeys, dvFromEvents } from './dvbudget.js';
 import { $ } from './uiutil.js';
+import { t } from './i18n.js';
 
 const setText = (el, t) => { if (el && el._t !== t) { el._t = t; el.textContent = t; } };
 
@@ -37,7 +38,7 @@ export class AyUI {
       for (const s of AY_STEPS) {
         setText($('#aySum-' + s.id), sums[s.id]);
         const b = document.querySelector(`#lab-ay > .tabs .tab[data-tab="${s.id}"]`);
-        if (b) b.title = `${s.n}. ${s.title}: ${sums[s.id]}`;
+        if (b) b.title = `${s.n}. ${t(s.title)}: ${t(sums[s.id])}`;
         if (b) b.classList.toggle('done', s.id === 'dv' ? !!(st.done && st.result) : s.id === 'ucus' ? !!st.done : !!st.ready);
       }
       $('#ayOptNote').hidden = st.optimalOk !== false;

@@ -9,6 +9,7 @@ import { qMul } from './attitude.js';
 import { directShot, autoWarp, timeline, SHOT_NAMES } from './launchcam.js';
 import { MU_E as MU, OMEGA_E as OMEGA } from './geo.js';
 import { $ } from './uiutil.js';
+import { fmt } from './format.js';
 
 // (0,0,1) → d döndüren birim kuaterniyon [x, y, z, w]
 function quatZto(d) {
@@ -47,7 +48,7 @@ export class AscentPlayer {
     const now = performance.now(); if (now - this.teleLast < 90) return; this.teleLast = now;            // ~11 Hz (yayın göstergesi gibi; her karede DOM yazılmaz)
     const k = Math.max(0, Math.round(Math.abs(real))), sgn = real < 0 ? '−' : '+';
     E.t.textContent = `T${sgn}${String(Math.floor(k / 60)).padStart(2, '0')}:${String(k % 60).padStart(2, '0')}`;
-    E.v.textContent = Math.round(vRel * 3600).toLocaleString('tr-TR'); E.h.textContent = h < 10 ? h.toFixed(1).replace('.', ',') : Math.round(h).toLocaleString('tr-TR');
+    E.v.textContent = fmt(vRel * 3600, 0); E.h.textContent = fmt(h, h < 10 ? 1 : 0);
     E.st.textContent = stageName; E.fill.style.width = this.teleX(Math.max(-10, real)); E.cam.textContent = SHOT_NAMES[shot] || '';
     this.tl.forEach((e, i) => E.ev[i].classList.toggle('done', real >= e.t));
   }

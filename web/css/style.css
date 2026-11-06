@@ -63,6 +63,8 @@ body[data-mode="lab"][data-engine="sky"] [data-for]:not([data-for~="lab"]):not([
 #modebar .seg button { font-family: var(--font); font-size: 13px; border-radius: 999px; padding: 6px 14px; font-weight: 600; background: transparent; border-color: transparent; color: var(--text-secondary); }
 #modebar .seg button:hover { color: var(--text-primary); background: var(--surface-2); }
 #modebar .seg button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+#modebar .langbtn { font-family: var(--font); font-size: 12px; font-weight: 700; letter-spacing: .06em; border-radius: 999px; padding: 6px 10px; background: transparent; border-color: var(--line-2); color: var(--text-secondary); }
+#modebar .langbtn:hover { color: var(--text-primary); background: var(--surface-2); }
 
 #hud, #skyHud { position: absolute; top: 14px; left: 14px; width: 318px; padding: 12px 14px; }
 .hud-top { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }

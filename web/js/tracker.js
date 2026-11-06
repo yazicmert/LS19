@@ -5,6 +5,7 @@ import * as E from './engine.js';
 import * as P from './passes.js';
 import * as EO from './earth.js';
 import { placeScreenLabel } from './screenlabel.js';
+import { LOC } from './i18n.js';
 
 const LS_WATCH = 'ls19.watch.v1', LS_OBS = 'ls19.observer.v1', LS_NOTIFY = 'ls19.notify.v1';
 export const CITIES = [
@@ -112,7 +113,7 @@ export class Tracker {
     }
   }
   fire(p) {
-    const hm = (ms) => new Date(ms).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+    const hm = (ms) => new Date(ms).toLocaleTimeString(LOC, { hour: '2-digit', minute: '2-digit' });
     const body = `${hm(p.visFrom || p.rise.ms)}'de ${P.compass(p.rise.az)} yönünden doğuyor, en yüksek ${Math.round(p.max.el)}° (${P.compass(p.max.az)}), ${hm(p.set.ms)}'de batıyor.`;
     try { if ('Notification' in window && Notification.permission === 'granted') new Notification(`${p.name} geçişi 5 dk sonra`, { body, icon: 'icon-192.png', tag: 'ls19-' + p.id + '-' + p.rise.ms }); } catch (e) { /* bazı tarayıcılar */ }
     if (this.onToast) this.onToast(`${p.name} geçişi 5 dk sonra — ${body}`);

@@ -6,6 +6,7 @@ import { R_E } from './engine.js';
 import { LANDING_MODES } from './mission.js';
 import { fmt } from './format.js';
 import { mk } from './uiutil.js';
+import { DAY, ns, ew } from './i18n.js';
 
 const D = 180 / Math.PI, AU = 149597870.7;
 const km = (x) => { if (x === Infinity) return '∞'; if (!Number.isFinite(x)) return '—'; if (Math.abs(x) < 5e-5) x = 0; const a = Math.abs(x); return a >= 10000 ? fmt(x, 0) + ' km' : a >= 100 ? fmt(x, 1) + ' km' : a >= 1 ? fmt(x, 2) + ' km' : fmt(x * 1000, a >= 0.1 ? 0 : 1) + ' m'; };
@@ -15,9 +16,9 @@ const dur = (s) => {
   if (!Number.isFinite(s)) return '—';
   const neg = s < 0, a = Math.abs(s); if (a < 100) return fmt(s, 1) + ' s';
   const d = Math.floor(a / 86400), h = Math.floor((a % 86400) / 3600), m = Math.floor((a % 3600) / 60), q = Math.floor(a % 60), z = (x) => String(x).padStart(2, '0');
-  return (neg ? '−' : '') + (d ? `${d}g ` : '') + `${z(h)}:${z(m)}:${z(q)}`;
+  return (neg ? '−' : '') + (d ? `${d}${DAY} ` : '') + `${z(h)}:${z(m)}:${z(q)}`;
 };
-const latlon = (lat, lon) => `${fmt(Math.abs(lat * D), 2)}° ${lat >= 0 ? 'K' : 'G'} · ${fmt(Math.abs(lon * D), 2)}° ${lon >= 0 ? 'D' : 'B'}`;
+const latlon = (lat, lon) => `${fmt(Math.abs(lat * D), 2)}° ${ns(lat)} · ${fmt(Math.abs(lon * D), 2)}° ${ew(lon)}`;
 const sg = (x, f) => (x > 0 ? '+' : x < 0 ? '−' : '') + f(Math.abs(x));
 // büyük gösterge metni: son boşluktan sonrası birimdir, küçük yazılır (dar kartta sığsın)
 const setText = (el, t) => { if (el._t !== t) { el._t = t; el.textContent = t; } };

@@ -2,6 +2,7 @@
 // Fizik buradan hesaplanmaz: temasın başarılı sayılıp sayılmadığı mission.js'in touchdown() kararıdır (result.ok); burada yalnız düz dille anlatılır.
 import { fmt } from './format.js';
 import { ROCKETS } from './rockets.js';
+import { MONTHS_SHORT } from './i18n.js';
 const rocketShort = (id) => (id && id !== 'GENEL' && ROCKETS[id] ? ROCKETS[id].short : '');
 
 // Ay görevi deneyinin dört adımı (index.html #lab-ay: sekme kimlikleri tab-<id>); "dv" eski ?tab=dv bağlantılarıyla uyum için Sonuç adımının kimliğidir
@@ -19,7 +20,7 @@ const LANDING_SHORT = { opt: 'Optimal', free: 'Optimal (serbest)', zem: 'ZEM/ZEV
 // mission.js touchdown(): güvenli temas sınırları (anlatım için; karar result.ok'tan okunur)
 export const SAFE_VZ = 3.0, SAFE_VH = 1.22;
 
-const AY = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+const AY = MONTHS_SHORT;
 // '2026-10-13' → '13 Eki 2026'
 export function dateShort(iso) {
   const m = /^(\d{4})-(\d\d)-(\d\d)/.exec(iso || ''); if (!m) return '';

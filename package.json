@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "eslint": "^9.39.1",
+    "espree": "^10.4.0",
     "globals": "^15.15.0"
   }
 }

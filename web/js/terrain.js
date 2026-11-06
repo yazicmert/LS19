@@ -2,6 +2,7 @@
 // Üretim ~0,9 sn sürdüğü için normalde terrainwork.js (Web Worker) içinde yapılır: loadTerrain bir söz döner; worker yoksa/çökerse aynı kod ana iş parçacığında çalışır.
 import * as THREE from 'three';
 import { PATCH_R, HOLE_R, craterField, terrainArrays, detailNormalData, terrainBasis } from './terraingen.js';
+import { workerOpts } from './i18n.js';
 
 export { PATCH_R, HOLE_R, craterField, terrainBasis };
 
@@ -38,7 +39,7 @@ export function loadTerrain(dem, siteLatDeg, siteLonDeg, R_M, hSite, N = 513) {
     let w = null;
     const fallback = () => { try { if (w) w.terminate(); } catch (e) { /* */ } resolve(here()); };
     try {
-      w = new Worker(new URL('./terrainwork.js', import.meta.url), { type: 'module' });
+      w = new Worker(new URL('./terrainwork.js', import.meta.url), workerOpts());
       w.onmessage = (e) => { const a = e.data; w.terminate(); resolve({ geometry: terrainGeometry(a), detail: detailNormalTexture(a.detailSize, a.detail) }); };
       w.onerror = fallback; w.onmessageerror = fallback;
       w.postMessage({ dem, siteLatDeg, siteLonDeg, R_M, hSite, N });

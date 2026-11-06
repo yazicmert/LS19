@@ -1,6 +1,7 @@
 // LS19 sinematik bindirmeler (DOM): letterbox, bölüm kartları, veri şeridi, zaman çizelgesi, geçiş (kararma/parlama), kapanış özeti.
 // Hareket yalnız transform / opacity / clip-path ile ve css/cinema.css'teki geçişlerle yapılır; JS yalnız sınıf ve metin değiştirir.
 import { applyIcons } from './icons.js';
+import { LOC } from './i18n.js';
 
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 
@@ -80,7 +81,7 @@ export class CineUI {
     const nodes = rows.map((r) => {
       const row = el('div', 'cc-stat'), val = el('span', 'cc-sv'), unit = el('span', 'cc-su', r.unit || '');
       row.appendChild(el('span', 'cc-sk', r.label)); const wrap = el('span', 'cc-sval'); wrap.appendChild(val); wrap.appendChild(unit); row.appendChild(wrap); box.appendChild(row);
-      if (NF && !r.text) { const n = document.createElement('number-flow'); n.format = r.format || { maximumFractionDigits: 1 }; n.locales = 'tr-TR'; n.animated = true; n.update(0); val.appendChild(n); return { n, v: r.value }; }
+      if (NF && !r.text) { const n = document.createElement('number-flow'); n.format = r.format || { maximumFractionDigits: 1 }; n.locales = LOC; n.animated = true; n.update(0); val.appendChild(n); return { n, v: r.value }; }
       val.textContent = r.text != null ? r.text : String(r.value); return null;
     });
     return { box, run: () => { for (const o of nodes) if (o) o.n.update(o.v); } };

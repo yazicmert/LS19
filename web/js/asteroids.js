@@ -7,6 +7,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as E from './engine.js';
 import { keplerHelio, AU, helioElements } from './deflect.js';
 import { placeScreenLabel } from './screenlabel.js';
+import { workerOpts } from './i18n.js';
 
 export const AST_GROUPS = [
   { name: 'Sentry risk listesi', color: 0xff4fd8, size: 2.0 },
@@ -101,7 +102,7 @@ export class AsteroidLayer {
     this.scene = scene; this.labelsEl = labelsEl;
     this.sets = {}; this.src = {}; this.n = 0; this.sentry = new Map(); this.enabled = true; this.mask = [1, 1, 1, 1, 1];
     this.info = { status: 'bekleniyor' }; this.sel = -1; this.detail = new Map(); this.etProp = null; this.pending = false; this.reqId = 0; this.lastReq = 0;
-    this.worker = new Worker(new URL('./astwork.js', import.meta.url), { type: 'module' });
+    this.worker = new Worker(new URL('./astwork.js', import.meta.url), workerOpts());
     this.worker.onmessage = (e) => this.onMsg(e.data);
     this.mat = new THREE.ShaderMaterial({
       uniforms: { off: { value: new THREE.Vector3() }, sunGeo: { value: new THREE.Vector3() }, dt: { value: 0 }, mu: { value: GM_SUN },

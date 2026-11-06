@@ -20,6 +20,7 @@ import { LEGACY_SITE, minIncl, incPenalty, padAllowed, inclRange, azInRange } fr
 import { HALO_PRESETS, haloMember, ephemerisHalo } from './halo.js';
 import * as CR from './cr3bp.js';
 import { solve as linSolve } from './linalg.js';
+import { ns, ew } from './i18n.js';
 const { add, sub, scale, dot, cross, norm, unit, mtv } = E;
 
 const ASCENT_T = 600.0, ASCENT_ARC = 16.0 * Math.PI / 180;
@@ -386,7 +387,7 @@ function raiseOutput(K, chain, tIns) {
 }
 
 // ---------------------------------------------------------------- KSC fırlatma fazlaması
-const siteText = (s) => `${s.name} (${Math.abs(s.lat).toFixed(4)}°${s.lat >= 0 ? 'K' : 'G'}, ${Math.abs(s.lon).toFixed(4)}°${s.lon >= 0 ? 'D' : 'B'})`;
+const siteText = (s) => `${s.name} (${Math.abs(s.lat).toFixed(4)}°${ns(s.lat)}, ${Math.abs(s.lon).toFixed(4)}°${ew(s.lon)})`;
 // fırlatma rampasının ICRF birim vektörü (küresel Dünya; jeodezik/jeosentrik enlem farkı ~0,2° — azimut ve faz için ihmal edilir)
 function siteIcrfOf(site, t) {
   const la = site.lat * D2R, lo = site.lon * D2R, x = [Math.cos(la) * Math.cos(lo), Math.cos(la) * Math.sin(lo), Math.sin(la)];

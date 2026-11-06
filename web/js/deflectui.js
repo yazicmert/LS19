@@ -8,6 +8,7 @@ import { fmt } from './format.js';
 import { $, mk } from './uiutil.js';
 import { sig, kmText, distText, caDist, sizeText, dateLong, etToISO, etFromISO, RHO, QUICK_TARGETS, leadChoices, defaultLead, leadText, verdictOf, needText,
   targetSummary, caSummary, pushSummary, DIRS, dartNote } from './labtext.js';
+import { workerOpts } from './i18n.js';
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const reduceMotion = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -122,7 +123,7 @@ export class DeflectUI {
   // ---------------------------------------------------------------- 2 · yakın geçiş
   worker() {
     if (this.w) return this.w;
-    this.w = new Worker(new URL('./deflectwork.js', import.meta.url), { type: 'module' });
+    this.w = new Worker(new URL('./deflectwork.js', import.meta.url), workerOpts());
     this.w.onmessage = (e) => this.onMsg(e.data);
     this.w.onerror = (e) => { this.busy = false; const m = 'Hesap iş parçacığı hatası: ' + (e.message || ''); if (this.mode === 'scan') { $('#dfScanStatus').textContent = m; this.refresh(); } else this.setMsg(m, true); };
     return this.w;

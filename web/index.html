@@ -9,6 +9,23 @@
      Dokular <link rel=preload> ile DEĞİL, doğrudan fetch ile başlatılır ve söz window.LS19_EARLY'de saklanır; texload.js aynı sözü kullanır (tek istek).
      (Chromium büyük bir preload yanıtını sonraki fetch() ile eşlerken ara sıra "Failed to fetch" veriyordu: yedek dosya gereksiz iniyordu.)
      Dosya listesi ve düşük bellek kuralı js/texplan.js ile aynı (test/test_texplan.js denetler). priority=low: önce JS modülleri insin. -->
+<!-- Arayüz dili (js/i18n.js ile aynı kural): ?lang=en|tr (hatırlanır) → localStorage → tarayıcı dili (tr* ise Türkçe, değilse İngilizce).
+     İngilizcede sözlük (js/i18n/en.js) erkenden indirilir ve sayfa çevrilene dek gizlenir (en çok 6 s). -->
+<script id="langBoot">
+(function () {
+  var L = ['tr', 'en'], l = null, h = document.documentElement;
+  try { var q = new URLSearchParams(location.search).get('lang'); if (L.indexOf(q) >= 0) { l = q; try { localStorage.setItem('ls19.lang', q); } catch (e) { /* yok */ } } } catch (e) { /* yok */ }
+  if (!l) try { var s = localStorage.getItem('ls19.lang'); if (L.indexOf(s) >= 0) l = s; } catch (e) { /* yok */ }
+  if (!l) { var n = (navigator.languages && navigator.languages[0]) || navigator.language || 'tr'; l = /^tr\b/i.test(n) ? 'tr' : 'en'; }
+  window.LS19_LANG = l; h.lang = l;
+  if (l === 'en') {
+    h.classList.add('i18n-wait');
+    var m = document.createElement('link'); m.rel = 'modulepreload'; m.href = 'js/i18n/en.js'; document.head.appendChild(m);
+    setTimeout(function () { h.classList.remove('i18n-wait'); }, 6000);
+  }
+})();
+</script>
+<style>html.i18n-wait #app { visibility: hidden; }</style>
 <script id="earlyFetch">
 (function () {
   var q = new URLSearchParams(location.search).get('lowmem'), dm = navigator.deviceMemory || 0;
@@ -48,6 +65,7 @@
 </script>
 <!-- Modül grafiği düz liste olarak paralel indirilir (içe aktarma zinciri tek tek keşfedilirse her seviye bir ağ gidiş-dönüşü); liste test/test_preload.js ile grafikten doğrulanır (node test/test_preload.js --print) -->
 <link rel="modulepreload" href="js/app.js">
+<link rel="modulepreload" href="js/i18n.js">
 <link rel="modulepreload" href="js/engine.js">
 <link rel="modulepreload" href="js/attitude.js">
 <link rel="modulepreload" href="js/vec3.js">
@@ -158,6 +176,7 @@
       <button role="tab" data-workspace="sky" aria-selected="false" aria-label="Canlı Gökyüzü"><i data-icon="satellite"></i><span>Canlı Gökyüzü</span></button>
       <button role="tab" data-workspace="lab" class="on" aria-selected="true" aria-label="Laboratuvar"><i data-icon="flask"></i><span>Laboratuvar</span></button>
     </div>
+    <button id="langBtn" class="langbtn" type="button" translate="no" lang="en" aria-label="English interface" title="English interface">EN</button>
   </header>
 
   <section id="hud" class="card" data-for="lab@mission" aria-label="Uçuş verileri">
@@ -484,7 +503,7 @@
           <p class="note">Anlık (oskülatör) konik: o andaki konum ve hızdan, yalnız merkez cismin çekimiyle. Mavi elips, turuncu hiperbol, mor Ay merkezli.</p>
           <h3>Kuvvet dökümü <span class="k">(m/s²)</span></h3>
           <div id="forceFrame" class="k"></div>
-          <table id="forcetable" class="tbl forces"><thead><tr><th>Etki</th><th class="num">Doğrudan</th><th class="num">Etkin</th></tr></thead><tbody></tbody></table>
+          <table id="forcetable" class="tbl forces"><thead><tr><th>Etki</th><th class="num">Doğrudan</th><th class="num" data-en="Effective">Etkin</th></tr></thead><tbody></tbody></table>
           <p class="note">Doğrudan: cismin aracı tek başına çekmesi. Etkin: baskın cismin çerçevesinde harekete gerçekten etki eden kısım; baskın cisim için çekimin kendisi, diğerleri için gelgit (bozucu) etkisi (çekimi − baskın cisme çekimi). Güneş doğrudan ~6·10⁻³ çeker ama Dünya'yla birlikte düştüğü için etkisi ~10⁻⁷ kalır. Dünya J2 ve Ay J2/C22 şekil terimleridir. Çözücü N-cisimken Dünya, Ay ve Güneş aynı anda, etki küresi geçişi olmadan çeker.</p>
         </div>
         <div id="tab-efemeris" class="tabpage" role="tabpanel" hidden>
@@ -650,6 +669,7 @@
 
   <div id="loading"><div class="lbox"><div class="ltitle">LS19 <span class="lsub">Look Star 19</span></div><div id="loadMsg">Dokular yükleniyor…</div><div class="track"><div id="loadBar" class="fill"></div></div><button id="loadBack" hidden>Varsayılan tarihe dön</button></div></div>
 </div>
+<script type="module" src="js/i18n.js"></script>
 <script type="module" src="js/app.js"></script>
 <div id="ascBar" class="ascbar" hidden role="status"><span id="ascTxt"></span><small id="ascCredit" class="asccredit"></small><span class="ascbtns"><button type="button" data-asc="1">×1</button><button type="button" data-asc="10">×10</button><button type="button" data-asc="50">×50</button><button type="button" data-asc="end">Yörüngeye atla</button></span><span class="ascbtns" aria-label="Kamera"><button type="button" data-ascam="auto" title="Yayın kurgusu: rampa, yer izleme, takip, araç üstü">Kurgu</button><button type="button" data-ascam="ground">Yer</button><button type="button" data-ascam="chase">Takip</button><button type="button" data-ascam="onboard">Araç üstü</button></span></div>
 <div id="ascTele" class="asctele" hidden aria-live="off"></div>
