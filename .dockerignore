@@ -1,0 +1,12 @@
+# Kapsayıcıya yalnız site (web/) girer — .vercelignore ile aynı kapsam
+*
+!web/
+web/test/
+web/data/cache/
+web/data/de440s.bsp
+web/data/moon_pa_de440_200625.bpc
+web/baslat.command
+web/baslat.bat
+**/__pycache__/
+**/*.pyc
+**/.DS_Store

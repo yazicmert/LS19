@@ -19,3 +19,85 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+NOTE ON THIRD-PARTY DATA, MODELS AND LIBRARIES — THE MIT LICENSE ABOVE COVERS
+THE SOURCE CODE OF THIS PROJECT ONLY.
+
+Files in this repository that come from other sources, and all data fetched
+from other providers at runtime, are owned by their respective sources. They
+are NOT licensed under MIT and remain subject to their own licenses and terms.
+In particular:
+
+  - JPL ephemerides and lunar orientation (web/data/de440s.bsp,
+    web/data/moon_pa_de440_200625.bpc, web/data/eph/, kernels/): NASA/JPL NAIF
+    DE440 products.
+  - Earth orientation tables (web/data/earth_orient.json): IAU 2000A nutation
+    coefficients and Delta-T / leap-second tables taken from Skyfield / ERFA
+    (IERS data).
+  - Lunar terrain (web/data/site_dem.json) and lunar textures: NASA LRO/LOLA,
+    NASA SVS CGI Moon Kit (U.S. public domain).
+  - Launch pads (web/data/pads.json): The Space Devs, Launch Library 2.
+  - Historical orbit summary (web/data/gecmis.json): derived from public
+    CelesTrak data via github.com/jtmiclat/celestrak-historical (MIT). Only
+    derived summaries are distributed; no raw TLEs and no Space-Track data.
+  - Asteroid shape models (web/models/ast/*.glb): NASA PDS Small Bodies Node
+    (public domain); the source of each model is listed in
+    web/models/ast/katalog.json.
+  - DAMIT asteroid shapes and spin states (web/models/ast/damit/): Creative
+    Commons Attribution 4.0 — Durech, J., Sidorin, V., Kaasalainen, M. 2010,
+    A&A 513, A46; each model rests on its own publication listed in DAMIT.
+  - Satellite models (web/models/sats/): NASA 3D Resources and NASA Eyes on
+    the Earth (NASA/JPL-Caltech visualization models).
+  - Vehicle and launch models (web/models/lander.glb, orb.glb, stage.glb,
+    web/models/rockets/): derived from NASA 3D Resources (public domain).
+  - Planet textures (web/textures/planets/): Solar System Scope, CC BY 4.0
+    (Mercury to Neptune, Saturn's rings); Pluto: NASA/JHUAPL/SwRI New Horizons
+    (PIA19956, public domain). Other images under web/textures/ are not
+    covered by the MIT grant either.
+  - Libraries (web/lib/, pylib/): three.js, satellite.js, Motion, NumberFlow,
+    torph, jplephem (MIT), Clarabel, 3d-tiles-renderer (NASA-AMMOS) and the
+    Draco glTF decoder (Google) (Apache-2.0). Their license texts sit next to
+    them (web/lib/*.LICENSE.md, web/lib/clarabel/, web/lib/addons/libs/draco/,
+    pylib/).
+  - Development skills (.claude/skills/): MIT, see .claude/skills/LICENSES.md.
+
+The NASA name, logo and insignia (which also appear on some model textures)
+are subject to NASA's usage guidelines. Use of NASA material does not imply
+NASA endorsement of this project.
+
+Exception: the satellite family models in web/models/fam/ were made for this
+project and are MIT, like the code.
+
+Live sources fetched at runtime (CelesTrak, JPL Horizons, JPL SBDB, JPL
+Sentry, JPL CAD, NASA GIBS, NASA Moon Trek, Esri World Imagery, AWS Terrain
+Tiles, EOX Sentinel-2 cloudless, Open-Meteo) are used under each provider's
+terms. Some restrict commercial or high-volume use: Esri World Imagery
+requires on-screen attribution and is subject to Esri's terms of use;
+Sentinel-2 cloudless is CC BY-SA 4.0 with on-screen attribution; AWS Terrain
+Tiles carry their source attributions (USGS 3DEP, SRTM, GMTED2010, ETOPO1 and
+others); and Open-Meteo's free API is for non-commercial use. The optional Google
+Photorealistic 3D Tiles layer is fetched with the user's own Google Maps
+Platform API key and is subject to Google's Map Tiles API terms, including
+its attribution and logo requirements, which whoever deploys the site must
+follow.
+
+In short: the MIT grant does not extend to any third-party data, model,
+texture or library. See "Veri kaynakları ve lisanslar" in README.md for the
+per-source summary, and remove anything whose terms do not fit your use.
+
+---
+
+ÜÇÜNCÜ TARAF VERİ, MODEL VE KÜTÜPHANELER HAKKINDA NOT — YUKARIDAKİ MIT
+LİSANSI YALNIZ BU PROJENİN KAYNAK KODUNU KAPSAR.
+
+Depodaki başka kaynaklardan gelen dosyalar (JPL çekirdekleri, NASA ve DAMIT
+modelleri, dokular, web/lib/ ve pylib/ kütüphaneleri vb.) ve çalışma anında
+sağlayıcılardan alınan tüm veriler kendi sahiplerinindir; MIT lisanslı
+değildir, kendi lisans ve kullanım koşullarına tabidir. Ayrıntılı liste
+yukarıdaki İngilizce bölümde, kaynak bazında özet README.md'deki "Veri
+kaynakları ve lisanslar" bölümündedir. Tek istisna web/models/fam/ altındaki,
+bu projede üretilmiş uydu aile modelleridir (MIT). NASA adı, logosu ve
+amblemi NASA'nın kullanım kurallarına tabidir; NASA malzemesinin kullanımı
+NASA'nın onayını ima etmez.

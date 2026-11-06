@@ -1,9 +1,10 @@
 // Laboratuvar arayüzünün saf yardımcıları (DOM ve THREE yok; Node'da sınanır): düz dille biçimleme, itki zamanı seçenekleri, sonuç yargısı.
 import { fmt } from './format.js';
 import { AU, etFromJd, jdFromEt, kineticDv } from './deflect.js';
+import { MONTHS } from './i18n.js';
 
 export const LD = 384399;                                    // Ay uzaklığı, km
-const AYLAR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+const AYLAR = MONTHS;
 
 // n anlamlı basamakla düz sayı (bilimsel gösterim yok; ondalık sayısı büyüklüğe göre)
 export const sig = (x, n = 3) => { if (!Number.isFinite(x)) return '—'; if (x === 0) return '0'; const d = Math.max(0, n - 1 - Math.floor(Math.log10(Math.abs(x)))); return fmt(x, Math.min(d, 9)); };

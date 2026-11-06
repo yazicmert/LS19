@@ -33,6 +33,8 @@ import { ImpactUI } from './impactui.js';
 import { Cinema } from './cinema.js';
 import { PixelGovernor, floorRatio } from './perfgov.js';
 import { $ } from './uiutil.js';
+import { LOC, workerOpts, isEn, setLang } from './i18n.js';
+import { initG3dPanel } from './g3dpanel.js';
 
 const DEFAULT_DATE = '2026-10-13';
 let deflect = null, updater = null, impactui = null;
@@ -57,7 +59,7 @@ const manual = { throttle: 0, mode: 'PRO' };
 function resize() { world.resize(canvas.clientWidth, canvas.clientHeight); }
 window.addEventListener('resize', resize);
 
-const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
+const worker = new Worker(new URL('./worker.js', import.meta.url), workerOpts());
 const send = (m) => worker.postMessage(m);
 const ui = new UI(world, send);
 // Laboratuvar › Ay görevi: dört adımın özetleri ve sonuç kartı (ayui.js). Yalnız durumu okur; "Baştan uçur" görev çubuğundaki Baştan başlat ile aynı komuttur
@@ -198,6 +200,15 @@ function openLab(i, opts) {
   if (deflect) deflect.setTarget(i, opts);
 }
 document.querySelectorAll('[data-workspace]').forEach((b) => b.addEventListener('click', () => setWorkspace(b.dataset.workspace)));
+// arayüz dili: düğme öteki dili gösterir; seçim hatırlanır ve sayfa yeniden yüklenir (js/i18n.js)
+{
+  const lb = $('#langBtn');
+  if (lb) {
+    lb.textContent = isEn ? 'TR' : 'EN'; lb.lang = isEn ? 'tr' : 'en';
+    lb.title = isEn ? 'Türkçe arayüz' : 'English interface'; lb.setAttribute('aria-label', lb.title);
+    lb.addEventListener('click', () => setLang(isEn ? 'tr' : 'en'));
+  }
+}
 function loadMoonSats(t) {
   if (!S.sats) return;
   if (moonRange && t > moonRange[0] + 3600 && t < moonRange[1] - 3600) return;
@@ -232,7 +243,7 @@ function lookAtSat(id) {
   world.cam.lookFn = (tt) => { const st = S.tracker.state(id, E.utcMsFromT(tt)); return st && st.el > 0 ? S.tracker.icrfOf(id, tt) : null; };
   if (s && s.el <= 0) {
     const np = S.tracker.passes.find((p) => p.id === +id && p.rise && p.rise.ms > Date.now());
-    S.skyui.toast(`${S.tracker.name(id)} şu an ufkun altında.` + (np ? ` Sonraki geçiş ${new Date(np.rise.ms).toLocaleString('tr-TR', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}, ${PS.compass(np.rise.az)} yönünden.` : ''));
+    S.skyui.toast(`${S.tracker.name(id)} şu an ufkun altında.` + (np ? ` Sonraki geçiş ${new Date(np.rise.ms).toLocaleString(LOC, { weekday: 'short', hour: '2-digit', minute: '2-digit' })}, ${PS.compass(np.rise.az)} yönünden.` : ''));
     if (s) Object.assign(world.cam, { az: s.az * Math.PI / 180, el: 0.15 });
   }
 }
@@ -315,7 +326,7 @@ $('#loadBack').onclick = () => startDesign(goodDate && goodDate !== pendingDate 
 let nomWorker = null, nomId = 0;
 function runNominal(tStart, design, landing, done) {
   if (nomWorker) nomWorker.terminate();
-  const w = (nomWorker = new Worker(new URL('./nominal.js', import.meta.url), { type: 'module' })), id = ++nomId;
+  const w = (nomWorker = new Worker(new URL('./nominal.js', import.meta.url), workerOpts())), id = ++nomId;
   w.onmessage = (e) => { if (e.data.id !== id) return; ui.setNominal(e.data.error ? {} : e.data.dv); if (!e.data.error && done) done(e.data.dv); w.terminate(); if (nomWorker === w) nomWorker = null; };
   w.onerror = () => { ui.setNominal({}); w.terminate(); if (nomWorker === w) nomWorker = null; };
   w.postMessage({ id, tStart, design, landing });
@@ -363,6 +374,7 @@ ui.onRocketInfo = (id) => rocketSheet.open(id);
 let insState = null;
 const ascent = new AscentPlayer({ world, E, send, getDesign: () => S.DESIGN, getIns: () => insState, getState: () => S.latest,
   onEnd: () => { send({ cmd: 'seek', t: ui.t0 }); } });
+initG3dPanel(world);                                                                // Google 3B karolar ayarları (kalkış çubuğu)
 $('#btnAscent').addEventListener('click', async () => {
   if (S.designing || ascent.active) return;
   if (!insState) { send({ cmd: 'seek', t: ui.t0 }); await new Promise((r) => setTimeout(r, 400)); }

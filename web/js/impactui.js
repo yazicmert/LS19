@@ -4,6 +4,7 @@
 import { assessSat, fmtReentry, fmtSpan, fmtDate, sentryRows, fmtOdds, ageYears, controlNote, controlFromHistory } from './impact.js';
 import { SAT_GROUPS } from './satlayer.js';
 import { $, mk } from './uiutil.js';
+import { LOC } from './i18n.js';
 
 const DOT = { yüksek: '#34d399', orta: '#f5b93a', düşük: '#8591a3' };
 const HORIZON = { all: Infinity, d30: 30, y1: 365.25, y5: 5 * 365.25, y25: 25 * 365.25, y100: 100 * 365.25 };
@@ -45,7 +46,7 @@ export class ImpactUI {
       if (this.doneFor !== omm) return;
       const t0 = performance.now();
       while (i < omm.length && performance.now() - t0 < 12) { const o = omm[i++], id = +o.NORAD_CAT_ID, h = this.histOf(id); res.push({ o, id, h, r: assessSat(o, now, false, h && h.ctl.klass === 'serbest' ? h : null) }); }
-      $('#cpSatSum').textContent = `Yörünge bozunması hesaplanıyor… ${i.toLocaleString('tr-TR')} / ${omm.length.toLocaleString('tr-TR')}`;
+      $('#cpSatSum').textContent = `Yörünge bozunması hesaplanıyor… ${i.toLocaleString(LOC)} / ${omm.length.toLocaleString(LOC)}`;
       if (i < omm.length) setTimeout(step, 0); else { this.groupOf = new Map((this.sats.ids || []).map((id, k) => [+id, this.sats.groups[k]])); this.renderList(); }
     };
     step();
@@ -65,7 +66,7 @@ export class ImpactUI {
     const sel = live.filter((x) => (g === 'all' || this.groupOf.get(x.id) === +g) && days(x) <= hz && (!q || x.o.OBJECT_NAME.toUpperCase().includes(q) || String(x.id) === q));
     sel.sort((a, b) => a.r.reentryMs - b.r.reentryMs);
     const n1 = live.filter((x) => days(x) <= 365.25).length, n5 = live.filter((x) => days(x) <= 5 * 365.25).length, nHigh = this.res.filter((x) => x.r.durum === 'yüksek').length;
-    $('#cpSatSum').innerHTML = `${byHist ? 'Son ~14 ayda <b>hiç yükseltme yapmadan serbestçe alçalan</b> (gözlenen bozunma B*\'la uyumlu)' : minAge > 0 ? `Fırlatmadan ≥ ${minAge} yıl geçmiş, <b>kontrolsüz olabilecek</b>` : 'Tüm aktif katalogda (manevrasız senaryo)'} <b>${live.length.toLocaleString('tr-TR')}</b> cisim${minAge > 0 || byHist ? ` (katalogda bozunan ${alive.length.toLocaleString('tr-TR')} cisimden)` : ''} · <b>${n1.toLocaleString('tr-TR')}</b> tanesi 1 yıl, <b>${n5.toLocaleString('tr-TR')}</b> tanesi 5 yıl içinde yeniden girer · ${nHigh.toLocaleString('tr-TR')} cisim çok yüksek yörüngede (bozunma ihmal edilebilir)${nKept ? ` · yaşı yeterli ama son ~14 ayda yörüngesini koruyan ${nKept.toLocaleString('tr-TR')} cisim elendi` : ''}${this.histData ? '' : ' · geçmiş verisi yüklenemedi (yalnız yaş süzgeci)'}${stale ? ` · ${stale.toLocaleString('tr-TR')} cismin hesaplanan süresi veri çağından beri dolmuş (veri eski ya da çoktan yeniden girdi)` : ''}`;
+    $('#cpSatSum').innerHTML = `${byHist ? 'Son ~14 ayda <b>hiç yükseltme yapmadan serbestçe alçalan</b> (gözlenen bozunma B*\'la uyumlu)' : minAge > 0 ? `Fırlatmadan ≥ ${minAge} yıl geçmiş, <b>kontrolsüz olabilecek</b>` : 'Tüm aktif katalogda (manevrasız senaryo)'} <b>${live.length.toLocaleString(LOC)}</b> cisim${minAge > 0 || byHist ? ` (katalogda bozunan ${alive.length.toLocaleString(LOC)} cisimden)` : ''} · <b>${n1.toLocaleString(LOC)}</b> tanesi 1 yıl, <b>${n5.toLocaleString(LOC)}</b> tanesi 5 yıl içinde yeniden girer · ${nHigh.toLocaleString(LOC)} cisim çok yüksek yörüngede (bozunma ihmal edilebilir)${nKept ? ` · yaşı yeterli ama son ~14 ayda yörüngesini koruyan ${nKept.toLocaleString(LOC)} cisim elendi` : ''}${this.histData ? '' : ' · geçmiş verisi yüklenemedi (yalnız yaş süzgeci)'}${stale ? ` · ${stale.toLocaleString(LOC)} cismin hesaplanan süresi veri çağından beri dolmuş (veri eski ya da çoktan yeniden girdi)` : ''}`;
     const ul = $('#cpSatList'); ul.replaceChildren();
     for (const x of sel.slice(0, LIMIT)) {
       const li = mk('li', 'cp-li' + (x.id === this.selId ? ' on' : '')), left = mk('div'), rem = days(x);
@@ -75,7 +76,7 @@ export class ImpactUI {
       right.append(mk('div', null, rem <= 0 ? 'şimdi' : rem < 730 ? fmtDate(x.r.reentryMs) : String(new Date(x.r.reentryMs).getUTCFullYear())), mk('div', 'k small', rem <= 0 ? '—' : fmtSpan(rem) + ' sonra')); right.prepend(dot);
       li.append(left, right); li.addEventListener('click', () => this.pickSat(x)); ul.appendChild(li);
     }
-    if (sel.length > LIMIT) ul.appendChild(mk('li', 'k small', `… ve ${(sel.length - LIMIT).toLocaleString('tr-TR')} tane daha (filtreleyin)`));
+    if (sel.length > LIMIT) ul.appendChild(mk('li', 'k small', `… ve ${(sel.length - LIMIT).toLocaleString(LOC)} tane daha (filtreleyin)`));
     if (!sel.length) ul.appendChild(mk('li', 'k small', 'Bu filtreyle eşleşen cisim yok.'));
   }
   pickSat(x) {
@@ -138,7 +139,7 @@ export class ImpactUI {
     const sel = rows.filter((d) => (d.y0 == null || d.y0 <= lim) && (!q || label(d).toLowerCase().includes(q)));
     sel.sort(sort === 'ip' ? (a, b) => b.ip - a.ip : sort === 'ps' ? (a, b) => b.ps - a.ps : (a, b) => (a.y0 ?? 9999) - (b.y0 ?? 9999) || b.ip - a.ip);
     const t1 = rows.filter((d) => +d.ts >= 1).length, high = rows.filter((d) => d.ip >= 1e-3).length;
-    $('#cpAstSum').innerHTML = `JPL Sentry'de <b>${rows.length.toLocaleString('tr-TR')}</b> asteroit için sıfır olmayan çarpma olasılığı var · olasılığı ≥ 1/1000 olan: <b>${high}</b> · Torino ≥ 1: <b>${t1}</b>. <b>Kesin çarpacağı bilinen asteroit yok</b>; bunlar yörünge belirsizliğinden doğan olasılıklardır.`;
+    $('#cpAstSum').innerHTML = `JPL Sentry'de <b>${rows.length.toLocaleString(LOC)}</b> asteroit için sıfır olmayan çarpma olasılığı var · olasılığı ≥ 1/1000 olan: <b>${high}</b> · Torino ≥ 1: <b>${t1}</b>. <b>Kesin çarpacağı bilinen asteroit yok</b>; bunlar yörünge belirsizliğinden doğan olasılıklardır.`;
     const ul = $('#cpAstList'); ul.replaceChildren();
     for (const d of sel.slice(0, LIMIT)) {
       const li = mk('li', 'cp-li' + (d.des === this.selAst ? ' on' : '')), left = mk('div'), right = mk('div', 'cp-r');
@@ -146,7 +147,7 @@ export class ImpactUI {
       right.append(mk('div', null, fmtOdds(d.ip)), mk('div', 'k small', `${d.inYears == null ? '' : d.inYears === 0 ? 'bu yıl · ' : d.inYears + ' yıl sonra · '}Palermo ${d.ps.toFixed(1).replace('.', ',')}${+d.ts >= 1 ? ' · Torino ' + d.ts : ''}`));
       li.append(left, right); li.addEventListener('click', () => this.pickAst(d)); ul.appendChild(li);
     }
-    if (sel.length > LIMIT) ul.appendChild(mk('li', 'k small', `… ve ${(sel.length - LIMIT).toLocaleString('tr-TR')} tane daha (filtreleyin)`));
+    if (sel.length > LIMIT) ul.appendChild(mk('li', 'k small', `… ve ${(sel.length - LIMIT).toLocaleString(LOC)} tane daha (filtreleyin)`));
     if (!sel.length) ul.appendChild(mk('li', 'k small', 'Bu filtreyle eşleşen asteroit yok.'));
     void nowY;
   }

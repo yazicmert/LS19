@@ -4,10 +4,11 @@ import * as P from './passes.js';
 import { CITIES } from './tracker.js';
 import { fmt } from './format.js';
 import { $, mk } from './uiutil.js';
+import { ns, ew, compass16, LOC, t, UNIT } from './i18n.js';
 
-const hm = (ms, sec = false) => new Date(ms).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', ...(sec ? { second: '2-digit' } : {}) });
+const hm = (ms, sec = false) => new Date(ms).toLocaleTimeString(LOC, { hour: '2-digit', minute: '2-digit', ...(sec ? { second: '2-digit' } : {}) });
 const day = (ms) => { const d = new Date(ms), n = new Date(); const dd = Math.round((new Date(d.toDateString()) - new Date(n.toDateString())) / 86400000);
-  return dd === 0 ? 'Bugün' : dd === 1 ? 'Yarın' : d.toLocaleDateString('tr-TR', { weekday: 'short', day: 'numeric', month: 'short' }); };
+  return dd === 0 ? t('Bugün') : dd === 1 ? t('Yarın') : d.toLocaleDateString(LOC, { weekday: 'short', day: 'numeric', month: 'short' }); };
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 
 // ---------------------------------------------------------------- gerçek saat (hızlandırılabilir)
@@ -103,8 +104,8 @@ export class SkyUI {
     $('#liveBadge').classList.toggle('off', !live);
     $('#liveBadge').lastChild.textContent = live ? 'CANLI' : c.paused ? 'DURAKLATILDI' : c.rate !== 1 ? `×${fmt(c.rate, 0)} HIZLI` : 'GEÇMİŞ/GELECEK';
     const d = new Date(ms);
-    $('#skyLocal').textContent = d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    $('#skyDate').textContent = d.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    $('#skyLocal').textContent = d.toLocaleTimeString(LOC, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    $('#skyDate').textContent = d.toLocaleDateString(LOC, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     $('#skyUtc').textContent = 'UTC ' + d.toISOString().slice(0, 19).replace('T', ' ');
     const off = ms - Date.now();
     $('#skyOffset').textContent = Math.abs(off) < 3000 ? '' : `gerçek zamandan ${off > 0 ? 'ileri' : 'geri'}: ${fmtDelta(Math.abs(off))}`;
@@ -127,7 +128,7 @@ export class SkyUI {
     const sel = $('#obsCity'); sel.value = CITIES.some((c) => c.name === o.name) ? o.name : '_';
     $('#obsCustom').hidden = sel.value !== '_';
     $('#obsLat').value = o.lat; $('#obsLon').value = o.lon; $('#obsH').value = Math.round((o.h || 0) * 1000);
-    $('#obsInfo').textContent = `${o.name}: ${fmt(o.lat, 4)}° ${o.lat >= 0 ? 'K' : 'G'}, ${fmt(Math.abs(o.lon), 4)}° ${o.lon >= 0 ? 'D' : 'B'}, ${fmt((o.h || 0) * 1000, 0)} m`;
+    $('#obsInfo').textContent = `${o.name}: ${fmt(Math.abs(o.lat), 4)}° ${ns(o.lat)}, ${fmt(Math.abs(o.lon), 4)}° ${ew(o.lon)}, ${fmt((o.h || 0) * 1000, 0)} m`;
     // liste iskeleti
     const ul = $('#watchList'); ul.replaceChildren();
     if (!T.watch.length) ul.appendChild(mk('li', 'empty', 'Liste boş. Aşağıdan uydu ekleyin ya da bir uydunun kartında “Takibe al”a basın.'));
@@ -155,7 +156,7 @@ export class SkyUI {
       const up = s.el > 0;
       v.replaceChildren(
         mk('span', null, `${fmt(s.alt, 0)} km · ${fmt(s.speed, 2)} km/s`),
-        mk('span', null, `${fmt(Math.abs(s.lat), 1)}°${s.lat >= 0 ? 'K' : 'G'} ${fmt(Math.abs(s.lon), 1)}°${s.lon >= 0 ? 'D' : 'B'}`),
+        mk('span', null, `${fmt(Math.abs(s.lat), 1)}°${ns(s.lat)} ${fmt(Math.abs(s.lon), 1)}°${ew(s.lon)}`),
         mk('span', 'tag ' + (s.sunlit ? 'sun' : 'shadow'), s.sunlit ? 'Güneşte' : 'Gölgede'),
         mk('span', 'tag ' + (up ? 'up' : 'down'), up ? `Gökte ${fmt(s.el, 0)}° ${P.compass(s.az)}` : 'Ufkun altında'));
     });
@@ -191,7 +192,7 @@ export class SkyUI {
     row('Doğuş', `${hm(p.rise.ms, true)} · ${P.compass(p.rise.az)} (${fmt(p.rise.az, 0)}°)`);
     row('En yüksek', `${hm(p.max.ms, true)} · ${fmt(p.max.el, 1)}° · ${P.compass(p.max.az)} · uzaklık ${fmt(p.max.range, 0)} km`);
     row('Batış', `${hm(p.set.ms, true)} · ${P.compass(p.set.az)} (${fmt(p.set.az, 0)}°)`);
-    row('Süre', `${Math.floor(p.duration / 60)} dk ${Math.round(p.duration % 60)} s`);
+    row('Süre', `${Math.floor(p.duration / 60)} ${UNIT.min} ${Math.round(p.duration % 60)} s`);
     row('Görünürlük', p.visible ? `çıplak gözle görünür: ${hm(p.visFrom)}–${hm(p.visTo)} (uydu Güneş'te, gökyüzü karanlık)` : p.kind === 'gölgede' ? "uydu Dünya'nın gölgesinde (görünmez)" : 'gökyüzü aydınlık (gündüz ya da alacakaranlık)');
     const acts = mk('div', 'daterow');
     const b1 = mk('button', 'sm', 'Geçişe git ve gökte izle');
@@ -210,7 +211,7 @@ export class SkyUI {
     for (const e of [0, 30, 60]) { g.beginPath(); g.arc(cx, cy, R * (90 - e) / 90, 0, 7); g.stroke(); }
     for (let a = 0; a < 360; a += 45) { const q = XY(a, 0); g.beginPath(); g.moveTo(cx, cy); g.lineTo(q[0], q[1]); g.stroke(); }
     g.fillStyle = '#94a3b8'; g.font = '11px "Roboto Mono", ui-monospace, monospace'; g.textAlign = 'center';
-    for (const [a, s] of [[0, 'K'], [90, 'D'], [180, 'G'], [270, 'B']]) { const q = XY(a, -9); g.fillText(s, q[0], q[1] + 4); }
+    for (const [a, s] of [0, 90, 180, 270].map((az) => [az, compass16(az)])) { const q = XY(a, -9); g.fillText(s, q[0], q[1] + 4); }
     g.textAlign = 'left'; g.fillText('30°', cx + 3, cy - R * 60 / 90 - 2); g.fillText('60°', cx + 3, cy - R * 30 / 90 - 2);
     if (!p) { g.textAlign = 'center'; g.fillStyle = '#64748b'; g.fillText('Bir geçiş seçin', cx, cy + 4); return; }
     // yol: görünür kısım parlak
@@ -226,5 +227,5 @@ export class SkyUI {
 }
 function fmtDelta(ms) {
   const s = Math.round(ms / 1000), d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
-  return d ? `${d} g ${h} sa` : h ? `${h} sa ${m} dk` : m ? `${m} dk` : `${s % 60} s`;
+  return d ? `${d} ${UNIT.d} ${h} ${UNIT.h}` : h ? `${h} ${UNIT.h} ${m} ${UNIT.min}` : m ? `${m} ${UNIT.min}` : `${s % 60} s`;
 }

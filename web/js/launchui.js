@@ -5,6 +5,7 @@ import { launchWeather, STATUS_TR, WX_SOURCES } from './weather.js';
 import { fmt } from './format.js';
 import { utcMsFromT } from './engine.js';
 import { $ } from './uiutil.js';
+import { ns, ew } from './i18n.js';
 
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const COUNTRY_TR = { US: 'ABD', RU: 'Rusya', KZ: 'Kazakistan', CN: 'Çin', FR: 'Fransız Guyanası (Fransa)', GF: 'Fransız Guyanası (Fransa)', JP: 'Japonya', IN: 'Hindistan', NZ: 'Yeni Zelanda',
@@ -63,7 +64,7 @@ export class LaunchUI {
   renderInfo() {
     const s = this.site || LEGACY_SITE, p = this.site ? this.pads.get(this.site.id) : null, r = p ? rangeOf(p.loc) : { name: 'Doğu Menzili', az: [35, 120] };
     const ir = s.az ? inclRange(s.lat, s.az) : [minIncl(s.lat), 90];
-    const lat = `${Math.abs(s.lat).toFixed(3)}° ${s.lat >= 0 ? 'K' : 'G'}`, lon = `${Math.abs(s.lon).toFixed(3)}° ${s.lon >= 0 ? 'D' : 'B'}`;
+    const lat = `${Math.abs(s.lat).toFixed(3)}° ${ns(s.lat)}`, lon = `${Math.abs(s.lon).toFixed(3)}° ${ew(s.lon)}`;
     const t = [];
     t.push(`${p ? `${p.loc} · ${p.name}` : LEGACY_SITE.name + ' (varsayılan)'} — ${lat}, ${lon}.`);
     t.push(r ? `${r.name}: izinli azimut ${r.az[0]}°–${r.az[1]}° → park eğimi ${ir ? `${fmt(ir[0], 1)}°–${fmt(ir[1], 1)}°` : 'yok'}.` : `Menzil güvenliği sınırı verisi yok: yalnız enlem sınırı (eğim ≥ ${fmt(minIncl(s.lat), 1)}°).`);

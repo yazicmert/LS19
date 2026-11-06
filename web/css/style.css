@@ -63,6 +63,8 @@ body[data-mode="lab"][data-engine="sky"] [data-for]:not([data-for~="lab"]):not([
 #modebar .seg button { font-family: var(--font); font-size: 13px; border-radius: 999px; padding: 6px 14px; font-weight: 600; background: transparent; border-color: transparent; color: var(--text-secondary); }
 #modebar .seg button:hover { color: var(--text-primary); background: var(--surface-2); }
 #modebar .seg button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+#modebar .langbtn { font-family: var(--font); font-size: 12px; font-weight: 700; letter-spacing: .06em; border-radius: 999px; padding: 6px 10px; background: transparent; border-color: var(--line-2); color: var(--text-secondary); }
+#modebar .langbtn:hover { color: var(--text-primary); background: var(--surface-2); }
 
 #hud, #skyHud { position: absolute; top: 14px; left: 14px; width: 318px; padding: 12px 14px; }
 .hud-top { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
@@ -564,8 +566,24 @@ body.rs-open { overflow: hidden; }
   max-width: min(760px, calc(100vw - 32px)); padding: 7px 12px; border-radius: 12px; background: rgba(8, 10, 16, .78); border: 1px solid var(--line-2); font-size: 12.5px; color: var(--text-primary); }
 .ascbar[hidden] { display: none; }
 .ascbtns { display: inline-flex; gap: 4px; }
+.ascbtns[hidden] { display: none; }
 .ascbtns button { padding: 3px 8px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--surface-2); color: var(--text-secondary); font-size: 12px; }
 .ascbtns button.on { border-color: var(--accent); color: var(--text-primary); }
+/* Google 3B karolar ayar paneli (kalkış çubuğunun üstünde) */
+.g3dpanel { position: fixed; left: 50%; bottom: 150px; transform: translateX(-50%); z-index: 41; width: min(420px, calc(100vw - 32px)); padding: 12px 14px; border-radius: 12px;
+  background: rgba(8, 10, 16, .92); border: 1px solid var(--line-2); color: var(--text-primary); font-size: 12.5px; line-height: 1.45; box-shadow: 0 10px 30px rgba(0, 0, 0, .45); }
+.g3dpanel[hidden] { display: none; }
+.g3dpanel p { margin: 6px 0; color: var(--text-secondary); }
+.g3dpanel .note { font-size: 11.5px; color: var(--text-muted); }
+.g3d-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.g3d-head button { background: transparent; border: 0; color: var(--text-secondary); font-size: 18px; line-height: 1; padding: 2px 6px; }
+.g3d-key { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; color: var(--text-secondary); }
+.g3d-key input { font: inherit; font-family: var(--mono); padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--surface-1); color: var(--text-primary); }
+.g3d-chk { display: flex; align-items: center; gap: 6px; margin: 8px 0; color: var(--text-secondary); }
+.g3d-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.g3d-row button { padding: 4px 10px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--surface-2); color: var(--text-primary); font-size: 12px; }
+.g3d-row a { color: var(--accent-2); font-size: 12px; margin-left: auto; }
+.g3dstatus { display: block; margin-top: 8px; color: var(--text-muted); min-height: 1.2em; }
 
 /* kalkış telemetri bandı (yayın tarzı): alt ortada, kontrol çubuğunun üstünde; iki satır (sayılar · olay zaman çizgisi); sayılar sabit genişlikli */
 .asctele { position: fixed; left: 50%; bottom: 178px; transform: translateX(-50%); z-index: 39; width: min(640px, calc(100vw - 32px)); padding: 8px 16px 4px; border-radius: 12px;

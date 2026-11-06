@@ -10,6 +10,7 @@ import { SatInstancer } from './satinstancer.js';
 import { familyOf, FAMILIES } from './satfamilies.js';
 import { assessSat } from './impact.js';
 import { placeScreenLabel } from './screenlabel.js';
+import { workerOpts } from './i18n.js';
 
 export const SAT_GROUPS = [
   { name: 'Uzay istasyonları', color: 0xff5a5a, size: 5.0 },
@@ -92,7 +93,7 @@ export class SatLayer {
     this.scene = scene; this.labelsEl = labelsEl; this.eo = eoData;
     this.n = 0; this.tProp = null; this.pending = false; this.lastReq = 0; this.reqId = 0; this.enabled = true; this.moonEnabled = true;
     this.mask = [1, 1, 1, 1, 1, 1]; this.info = { status: 'bekleniyor' }; this.moonSats = []; this.sel = -1;
-    this.worker = new Worker(new URL('./sats.js', import.meta.url), { type: 'module' });
+    this.worker = new Worker(new URL('./sats.js', import.meta.url), workerOpts());
     this.worker.onmessage = (e) => this.onMsg(e.data);
     this.mat = new THREE.ShaderMaterial({
       uniforms: { eye: { value: new THREE.Vector3() }, sunDir: { value: new THREE.Vector3(1, 0, 0) }, obsView: { value: 0 }, nearHide: { value: 0 }, dt: { value: 0 }, mu: { value: E.MU_E }, px: { value: window.devicePixelRatio || 1 },

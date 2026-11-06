@@ -3,9 +3,9 @@
 import { ROCKET_INFO } from './rocketinfo.js';
 import { ROCKETS, tliCapacity, parkMass } from './rockets.js';
 import { fmt } from './format.js';
+import { MONTHS } from './i18n.js';
 
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 const dateTr = (iso) => { const m = /^(\d{4})-(\d\d)-(\d\d)$/.exec(iso || ''); return m ? `${+m[3]} ${MONTHS[+m[2] - 1]} ${m[1]}` : iso; };
 
 export class RocketSheet {

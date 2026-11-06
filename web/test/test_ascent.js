@@ -71,11 +71,13 @@ check(/ascent\.tick\(dt\)/.test(app) && /cmd: 'seek', t: ui\.t0/.test(app) && /i
 check(/setAscent\(/.test(scene) && /clippingPlanes/.test(scene) && /localClippingEnabled/.test(scene), 'sahne: tam roket, kademe ayrılması kesme düzlemiyle');
 check(['booster', 'fairing', 'las'].every((k) => new RegExp(`part = '${k}'`).test(rm)) && /key === 'generic'/.test(rm.slice(rm.indexOf('export function makeLaunchVehicle'))), 'ayrılabilir parçalar etiketli (iticiler, kaporta, LAS); genel roketin de modeli var');
 const ap = read('js/ascentplay.js');
-check(/loadPadGround/.test(scene) && /s2cloudless_3857/.test(scene) && /CC BY-SA 4\.0/.test(scene) && /models\/rockets\/ml\.glb/.test(scene) && fs.existsSync(new URL('../models/rockets/ml.glb', import.meta.url)),
-  'rampa: NASA Mobile Launcher (SLS), çevresi Sentinel-2 cloudless 2016 (atıflı, CC BY-SA 4.0); yüklenemezse gösterilmez');
+const pg = read('js/padground.js');
+check(/new PadGround\(/.test(scene) && /World_Imagery\/MapServer\/tile/.test(pg) && /s2cloudless_3857/.test(pg) && /CC BY-SA 4\.0/.test(pg) && /elevation-tiles-prod\/terrarium/.test(pg) && /credit\(\)/.test(pg)
+  && /models\/rockets\/ml\.glb/.test(scene) && fs.existsSync(new URL('../models/rockets/ml.glb', import.meta.url)),
+  'rampa: NASA Mobile Launcher (SLS); çevresi çok çözünürlüklü Esri görüntüsü (yedekte Sentinel-2 cloudless, CC BY-SA 4.0) ve Terrarium kabartması, atıflı (padground.js)');
 check(/PLUME_COL/.test(scene) && /pAmb/.test(scene) && /diamonds\.value = 0\.32 \* pr/.test(scene) && ['saturnv', 'sls', 'vulcan'].every((lv) => Object.values(ROCKETS).some((r) => r.ascent.lv === lv && r.ascent.props.length === r.ascent.veh.stages.length)),
   'alev: ortam basıncıyla genişler, şok elmasları alçakta; renk o anki kademenin yakıtına göre (her kademenin yakıtı tanımlı)');
-check(/A\.sky/.test(scene) && /Math\.sqrt\(2 \* 6378/.test(scene) && /skyFade/.test(scene) && /logdepthbuf_vertex/.test(scene) && !/depthTest: false/.test(scene.slice(scene.indexOf('async skyMaterial'), scene.indexOf('async loadPadGround'))),
+check(/A\.sky/.test(scene) && /Math\.sqrt\(2 \* 6378/.test(scene) && /skyFade/.test(scene) && /logdepthbuf_vertex/.test(scene) && !/depthTest: false/.test(scene.slice(scene.indexOf('async skyMaterial'), scene.indexOf('ascentFrame(o)'))),
   'gökyüzü: Preetham (three Sky), Güneş konumuna göre renk, irtifayla sönüm; ufkun ötesinde derinlik testli kubbe (log derinlik)');
 check(/propagate\(d, dt\)/.test(ap) && /atmosphere\(alt\)\.rho/.test(ap) && /debris\.push/.test(ap) && /applyAscent/.test(scene), 'ayrılan kademeler: ayrılma anındaki durumdan balistik (çekim + sürüklenme), takla atarak düşer');
 console.log(ok ? 'TAMAM' : 'HATA'); process.exit(ok ? 0 : 1);

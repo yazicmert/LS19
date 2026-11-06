@@ -5,6 +5,7 @@
 //   Gözlemci: WGS-84 elipsoidi.
 import * as S from '../lib/satellite.esm.js';
 import { WGS84_A, ecfFromGeodetic, geodeticFromEcf } from './geo.js';
+import { compass16 } from './i18n.js';
 
 export const R_E = WGS84_A;
 const AU = 149597870.7;
@@ -61,7 +62,7 @@ export function stateAt(rec, ms, obs) {
 function footprintAngle(altKm, minElDeg = 0) {
   const e = minElDeg * D2R; return Math.acos(R_E * Math.cos(e) / (R_E + altKm)) - e;
 }
-export function compass(az) { return ['K', 'KKD', 'KD', 'DKD', 'D', 'DGD', 'GD', 'GGD', 'G', 'GGB', 'GB', 'BGB', 'B', 'BKB', 'KB', 'KKB'][Math.round(az / 22.5) % 16]; }
+export function compass(az) { return compass16(az); }
 
 // geçişler: [startMs, startMs + days) içinde yükseklik açısı 0°'yi aşan her geçiş (minMaxEl'den alçaklar atılır)
 // Taramanın kendisi bir üreteçtir (findPassesIter): her SLICE adımda yield eder, çağıran isterse zaman dilimlerine bölerek çalıştırır

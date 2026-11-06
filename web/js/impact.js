@@ -8,6 +8,7 @@
 //   • Sınırlar: Güneş aktivitesi gelecekte değişir (yüzyıllık tahminler ±2–5×); küre biçimli Dünya; Starlink gibi aktif uydular yörüngelerini korur.
 //
 // ASTEROİTLER — JPL Sentry (sanal çarpıcılar): olasılık ve olası yıllar. Bilinen kesin çarpma yoktur.
+import { LOC, MONTHS_SHORT } from './i18n.js';
 const MU = 398600.4418, RE = 6378.135, DAY = 86400;
 const REENTRY_KM = 120, MAX_DAYS = 300 * 365.25;
 
@@ -170,10 +171,10 @@ export function sentryRows(map, nowYear = new Date().getUTCFullYear()) {
   }
   return out;
 }
-export const fmtOdds = (ip) => (ip > 0 ? '1 / ' + Math.round(1 / ip).toLocaleString('tr-TR') : '—');
+export const fmtOdds = (ip) => (ip > 0 ? '1 / ' + Math.round(1 / ip).toLocaleString(LOC) : '—');
 
 // ---------------------------------------------------------------- biçimlendirme
-const AY = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+const AY = MONTHS_SHORT;
 export function fmtSpan(days) {
   if (!(days >= 0)) return '—';
   if (days < 2) return `${Math.max(1, Math.round(days * 24))} saat`;

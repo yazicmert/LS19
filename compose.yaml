@@ -1,0 +1,15 @@
+# LS19 yerel çalıştırma: docker compose up  →  http://localhost:8765  (durdurmak: Ctrl+C ya da docker compose down)
+# Kapı yalnız bu bilgisayara açılır (127.0.0.1). Farklı kapı: LS19_PORT=9000 docker compose up
+services:
+  ls19:
+    build: .
+    image: ls19:local
+    ports:
+      - "127.0.0.1:${LS19_PORT:-8765}:8765"
+    volumes:
+      # canlı veri önbelleği (CelesTrak, JPL): kapsayıcı yeniden kurulsa da kalır, kaynaklara gereksiz istek gitmez
+      - ls19-cache:/app/web/data/cache
+    restart: unless-stopped
+
+volumes:
+  ls19-cache:

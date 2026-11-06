@@ -5,6 +5,7 @@ import * as E from './engine.js';
 import { TileLayer } from './tiles.js';
 import { VS_BODY, FS_EARTH, FS_MOON } from './bodyshaders.js';
 import { add, sub, norm, mtv } from './vec3.js';
+import { t } from './i18n.js';
 
 const TERRAIN_FAR_KM = 25000;            // iniş arazisi yamasının (60 km yarıçap) çizildiği en büyük kamera uzaklığı
 
@@ -49,8 +50,12 @@ export class SurfaceView {
     let pending = 0, failed = 0, loaded = 0, drawn = 0, busy = false;
     let mode = this.earthDetail; if (!mode) { try { mode = localStorage.getItem('ls19.earthdetail'); } catch (e) { mode = null; } this.earthDetail = mode = ['weld', 'hls', 'bm'].includes(mode) ? mode : 'weld'; }
     if (this.earthWeld) { this.earthWeld.userOn = mode === 'weld'; this.earthHls.userOn = mode === 'hls'; }
+    // kalkış canlandırmasında rampa çevresini padground.js çizer (ufka dek, kabartmalı): Dünya parçaları onun üstüne binmesin
+    const padGround = !!(this.asc && this.asc.ground && this.asc.ground.ready && this.cam && this.cam.mode === 'LAUNCH');
+    // taban küre de gizlenir: zemin ağı ~1650 km'ye (185 km irtifadaki ufka) dek uzanır; küre köşeleri zemine 0,25 m yaklaştığından irtifada derinlikte çakışırdı
+    if (this.earth.material.visible === padGround) this.earth.material.visible = !padGround;
     for (const [layer, body] of [[this.earthTiles, this.earth], [this.earthWeld, this.earth], [this.earthHls, this.earth], [this.moonTiles, this.moon], [this.moonTiles2, this.moon]]) {
-      if (!layer || !body.visible || layer.userOn === false) { if (layer) layer.setEnabled(false); continue; }
+      if (!layer || !body.visible || layer.userOn === false || (padGround && body === this.earth)) { if (layer) layer.setEnabled(false); continue; }
       layer.setEnabled(true);
       const qi = body.quaternion.clone().invert();
       layer.update(body.position.clone().negate().applyQuaternion(qi), fwdW.clone().applyQuaternion(qi), fov, cam.aspect, H);
@@ -62,11 +67,12 @@ export class SurfaceView {
       mb = this.tileModeEl = document.createElement('button'); mb.className = 'tilemode'; mb.hidden = true; document.body.appendChild(mb);
       mb.addEventListener('click', () => { const o = ['weld', 'hls', 'bm']; this.earthDetail = o[(o.indexOf(this.earthDetail) + 1) % 3]; try { localStorage.setItem('ls19.earthdetail', this.earthDetail); } catch (e) { /* */ } this.tileModeTxt = null; });
     }
-    const showMode = this.earthTiles && this.earthTiles.stats.drawn > 0 && this.earth.visible, label = { weld: 'Dünya yüzeyi: Landsat 30 m (bulutsuz, ~2000 görüntüleri)', hls: 'Dünya yüzeyi: güncel HLS 30 m (Sentinel-2/Landsat; bulutlu, yamalı)', bm: 'Dünya yüzeyi: Blue Marble ≈490 m' }[this.earthDetail] + '  ⟳';
+    const showMode = !padGround && this.earthTiles && this.earthTiles.stats.drawn > 0 && this.earth.visible, label = t({ weld: 'Dünya yüzeyi: Landsat 30 m (bulutsuz, ~2000 görüntüleri)', hls: 'Dünya yüzeyi: güncel HLS 30 m (Sentinel-2/Landsat; bulutlu, yamalı)', bm: 'Dünya yüzeyi: Blue Marble ≈490 m' }[this.earthDetail]) + '  ⟳';
     if (mb.hidden === showMode) mb.hidden = !showMode;
     if (showMode && this.tileModeTxt !== label) { this.tileModeTxt = label; mb.textContent = label; mb.title = 'Tıklayın: Landsat (temiz) → güncel HLS → yalnız Blue Marble'; }
     // kullanıcıya geri bildirim: yüzey ayrıntısı iniyor mu, alınamıyor mu
     let el = this.tileStatusEl; if (!el) { el = this.tileStatusEl = document.createElement('div'); el.className = 'tilestatus'; el.hidden = true; document.body.appendChild(el); }
+    if (padGround) pending = failed = 0;                                                     // kalkışta zemin padground.js'ten (kendi atfı ascBar'da)
     const msg = pending > 0 ? `Yüzey ayrıntısı yükleniyor… (${pending})` : (failed > 0 && loaded === 0 && drawn === 0 ? 'Yüzey ayrıntısı alınamadı: NASA parça sunucusuna erişilemiyor (ağ/reklam engelleyici?)' : '');
     if (msg !== this.tileMsg) { this.tileMsg = msg; el.textContent = msg; el.hidden = !msg; el.classList.toggle('warn', msg.startsWith('Yüzey ayrıntısı alınamadı')); }
   }
