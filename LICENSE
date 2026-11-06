@@ -72,8 +72,11 @@ project and are MIT, like the code.
 
 Live sources fetched at runtime (CelesTrak, JPL Horizons, JPL SBDB, JPL
 Sentry, JPL CAD, NASA GIBS, NASA Moon Trek, Esri World Imagery, AWS Terrain
-Tiles, EOX Sentinel-2 cloudless, Open-Meteo) are used under each provider's
-terms. Some restrict commercial or high-volume use: Esri World Imagery
+Tiles, EOX Sentinel-2 cloudless, Open-Meteo, The Space Devs Launch Library 2,
+RocketLaunch.Live) are used under each provider's terms. Some restrict
+commercial or high-volume use: Launch Library 2 is free with a limit of 15
+unauthenticated requests per hour; RocketLaunch.Live's free feed (next five
+launches) asks for "Data by RocketLaunch.Live" next to the data; Esri World Imagery
 requires on-screen attribution and is subject to Esri's terms of use;
 Sentinel-2 cloudless is CC BY-SA 4.0 with on-screen attribution; AWS Terrain
 Tiles carry their source attributions (USGS 3DEP, SRTM, GMTED2010, ETOPO1 and

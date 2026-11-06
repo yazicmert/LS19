@@ -7,19 +7,21 @@
 #   /api/sbdb?des=99942           JPL SBDB tek cisim: tam duyarlıklı öğeler, fiziksel özellikler, keşif, Dünya yakın geçişleri, Sentry
 #   /api/sentry                   JPL Sentry çarpma riski listesi (özet)
 #   /api/supgp?file=iss           CelesTrak Supplemental GP (operatör verisi: ISS, Starlink, OneWeb, GPS…) — 2 sa önbellek
+#   /api/launches                 fırlatma kataloğu: yaklaşan 30 + son 20 (The Space Devs Launch Library 2; yedek RocketLaunch.Live) — 30 dk
 #   /api/surum                    kaynak sürümleri: tarayıcı 10 dakikada bir sorar, değişen katmanı yeniden yükler
 #   /api/durum                    sunucu ve önbellek bilgisi
-# Arka planda 10 dakikada bir denetim: süresi dolan kaynak (CelesTrak 2 sa, SBDB/Sentry 24 sa) önceden yenilenir.
+# Arka planda 10 dakikada bir denetim: süresi dolan kaynak (CelesTrak 2 sa, SBDB/Sentry 24 sa, fırlatmalar 30 dk) önceden yenilenir.
 # Yalnız Python standart kütüphanesi. Kullanım: python3 sunucu.py   (LS19_PORT ile farklı kapı; LS19_HOST ile dinlenen adres,
 # varsayılan 127.0.0.1 yalnız bu bilgisayar — Docker kapsayıcısında 0.0.0.0, kapıyı dışarıya compose.yaml yine yalnız 127.0.0.1'e açar)
-import gzip, hashlib, http.server, json, os, re, sys, threading, time, urllib.error, urllib.parse, urllib.request
+import calendar, gzip, hashlib, http.server, json, math, os, re, sys, threading, time, urllib.error, urllib.parse, urllib.request
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 CACHE = os.path.join(ROOT, 'data', 'cache')
 os.makedirs(CACHE, exist_ok=True)
 PORT = int(os.environ.get('LS19_PORT', os.environ.get('ROCSIM_PORT', '8765')))
 HOST = os.environ.get('LS19_HOST', '127.0.0.1')
-UA = {'User-Agent': 'LS19/1.1 (Look Star 19 egitim simulasyonu)'}
+# CelesTrak toplu grupları (ör. active) tanıtıcı ve iletişim adresli bir User-Agent ister; adres olmadan 403 verebiliyor
+UA = {'User-Agent': 'LS19/1.1 (Look Star 19 egitim simulasyonu; +https://github.com/yazicmert/LS19)'}
 GROUPS = {'active', 'stations', 'starlink', 'gps-ops', 'glo-ops', 'galileo', 'beidou', 'geo', 'weather', 'science', 'oneweb', 'last-30-days'}
 HZ_ALLOWED = re.compile(r"^(-?\d{1,7}|THEMIS-[BC]|[A-Za-z0-9 \-]{1,24})$")
 DES_OK = re.compile(r"^[A-Za-z0-9 ()/'\-]{1,40}$")
@@ -28,7 +30,8 @@ HZ_LOCK = threading.Lock()                          # Horizons'a aynı anda tek 
 SB_LOCK = threading.Lock()
 CHECK_S = 600                                       # güncelleme denetimi: 10 dakika
 # kaynak -> (önbellek dosyası, en kısa yenileme aralığı s)
-SOURCES = {'gp': ('gp_active.json', 2 * 3600), 'neo': ('ast_neo.json', 24 * 3600), 'mb': ('ast_mb.json', 24 * 3600), 'sentry': ('sentry.json', 24 * 3600)}
+SOURCES = {'gp': ('gp_active.json', 2 * 3600), 'neo': ('ast_neo.json', 24 * 3600), 'mb': ('ast_mb.json', 24 * 3600), 'sentry': ('sentry.json', 24 * 3600),
+           'launch': ('launches.json', 1800)}
 SBQ = 'https://ssd-api.jpl.nasa.gov/sbdb_query.api?'
 SB_FIELDS = 'pdes,name,class,pha,H,diameter,albedo,epoch,a,e,i,om,w,ma,moid,rot_per,spec_B,spec_T,condition_code,data_arc,GM'
 
@@ -186,6 +189,160 @@ def sbdb_one(des):
     return cached(key, 24 * 3600, lambda: get_retry('https://ssd-api.jpl.nasa.gov/sbdb.api?' + urllib.parse.urlencode(q), 60), SB_LOCK)[0]
 
 
+# ---------------------------------------------------------------- fırlatma kataloğu (web/js/launchdata.js ile aynı biçim)
+# The Space Devs Launch Library 2: ücretsiz, anahtarsız, IP başına saatte 15 istek (yenileme başına 2). Alınamazsa RocketLaunch.Live
+# ücretsiz akışı (sonraki 5 fırlatma; "Data by RocketLaunch.Live" yazılır).
+LL2_BASE = 'https://ll.thespacedevs.com/2.3.0/'
+LL2_UPCOMING = LL2_BASE + 'launches/upcoming/?limit=30&mode=normal&hide_recent_previous=true'
+LL2_PREVIOUS = LL2_BASE + 'launches/previous/?limit=20&mode=normal'
+RLL_NEXT = 'https://fdo.rocketlaunch.live/json/launches/next/5'
+LAUNCH_CREDITS = {'ll2': 'The Space Devs — Launch Library 2 (ücretsiz, anahtarsız)', 'rll': 'Data by RocketLaunch.Live'}
+LAUNCH_STATUS = {1: 'go', 2: 'tbd', 3: 'basarili', 4: 'basarisiz', 5: 'bekleme', 6: 'ucusta', 7: 'kismi', 8: 'tbc'}
+LAUNCH_DONE = {'basarili', 'basarisiz', 'kismi'}
+ISO_RE = re.compile(r'^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d)(?::(\d\d)(?:\.(\d+))?)?(Z|[+-]\d\d:?\d\d)?$')
+
+
+def iso_ms(s):
+    """ISO 8601 (LL2 '2026-11-06T23:35:00Z', RocketLaunch.Live '2026-11-06T23:35Z') -> ms; saat dilimi yoksa UTC"""
+    m = ISO_RE.match(s.strip()) if isinstance(s, str) else None
+    if not m:
+        return None
+    y, mo, d, h, mi = (int(m.group(k)) for k in range(1, 6))
+    sec = int(m.group(6) or 0)
+    frac = int((m.group(7) or '0')[:3].ljust(3, '0'))
+    off = 0
+    z = m.group(8)
+    if z and z != 'Z':
+        z = z.replace(':', '')
+        off = (1 if z[0] == '+' else -1) * (int(z[1:3]) * 60 + int(z[3:5])) * 60
+    return (calendar.timegm((y, mo, d, h, mi, sec)) - off) * 1000 + frac
+
+
+def lstr(x):
+    return x.strip() if isinstance(x, str) and x.strip() else None
+
+
+def lnum(x):
+    if x is None or x == '' or isinstance(x, bool):
+        return None
+    try:
+        v = float(x)
+    except (TypeError, ValueError):
+        return None
+    if v != v or v in (float('inf'), float('-inf')):
+        return None
+    r = math.floor(v * 1e5 + 0.5) / 1e5                  # JS Math.round ile aynı yuvarlama
+    return int(r) if r == int(r) else r
+
+
+def prec_ll2(np):
+    i = np.get('id') if isinstance(np, dict) else None
+    if not isinstance(i, (int, float)) or isinstance(i, bool):
+        return None
+    return 'sn' if i <= 0 else 'dk' if i == 1 else 'sa' if i == 2 else 'gun' if i <= 5 else 'hafta' if i == 6 else 'ay' if i == 7 \
+        else 'ceyrek' if i <= 11 else 'yariyil' if i <= 13 else 'yil'
+
+
+def compact_ll2(r):
+    if not isinstance(r, dict) or not r.get('id'):
+        return None
+    net = iso_ms(r.get('net'))
+    if net is None:
+        return None
+    mi, pad, cfg, lsp = r.get('mission') or {}, r.get('pad') or {}, (r.get('rocket') or {}).get('configuration') or {}, r.get('launch_service_provider') or {}
+    loc = pad.get('location') or {}
+    parts = [x.strip() for x in str(r.get('name') or '').split('|')]
+    durum = LAUNCH_STATUS.get((r.get('status') or {}).get('id'), 'tbd')
+    orbit = lstr((mi.get('orbit') or {}).get('abbrev'))
+    ws, we = iso_ms(r.get('window_start')), iso_ms(r.get('window_end'))
+    pid = pad.get('id')
+    return {
+        'id': str(r['id']),
+        'gorev': lstr(mi.get('name')) or (parts[1] if len(parts) > 1 and parts[1] else None) or lstr(r.get('name')) or '?',
+        'roket': lstr(cfg.get('full_name')) or lstr(cfg.get('name')) or (parts[0] or None) or '?',
+        'saglayici': lstr(lsp.get('name')),
+        'durum': durum,
+        'net': net,
+        'kesinlik': prec_ll2(r.get('net_precision')) or ('dk' if durum in LAUNCH_DONE else 'gun'),
+        'pencere': [ws, we] if ws is not None and we is not None else None,
+        'rampa': lstr(pad.get('name')),
+        'rampaId': int(pid) if isinstance(pid, (int, float)) and not isinstance(pid, bool) else None,
+        'yer': lstr(loc.get('name')),
+        'ulke': lstr((pad.get('country') or {}).get('alpha_2_code')),
+        'enlem': lnum(pad.get('latitude')),
+        'boylam': lnum(pad.get('longitude')),
+        'yorunge': orbit if orbit and orbit != 'N/A' else None,
+        'cospar': lstr(r.get('launch_designator')),
+        'canli': r.get('webcast_live') is True,
+    }
+
+
+def compact_rll(r):
+    if not isinstance(r, dict) or r.get('id') is None:
+        return None
+    t0, wo, wc = iso_ms(r.get('t0')), iso_ms(r.get('win_open')), iso_ms(r.get('win_close'))
+    try:
+        sd = float(r.get('sort_date'))
+    except (TypeError, ValueError):
+        sd = float('nan')
+    net = t0 if t0 is not None else wo if wo is not None else (int(sd * 1000) if sd == sd and sd > 0 else None)
+    if net is None:
+        return None
+    e = r.get('est_date') or {}
+    kes = 'dk' if t0 is not None or wo is not None else 'gun' if e.get('day') else 'ay' if e.get('month') else 'ceyrek' if e.get('quarter') else 'yil'
+    pad = r.get('pad') or {}
+    loc = pad.get('location') or {}
+    mi = (r.get('missions') or [{}])[0] or {}
+    try:
+        res = float(r.get('result'))
+    except (TypeError, ValueError):
+        res = None
+    durum = 'basarili' if res == 1 else 'basarisiz' if res == 0 else 'kismi' if res == 2 else 'tbd'
+    name = lstr(r.get('name'))
+    yer = ', '.join(x for x in (lstr(loc.get('name')), lstr(loc.get('statename')) or lstr(loc.get('state')), lstr(loc.get('country'))) if x)
+    return {
+        'id': 'rll-' + str(r['id']), 'gorev': (name if name and name != 'TBD' else lstr(mi.get('name'))) or '?',
+        'roket': lstr((r.get('vehicle') or {}).get('name')) or '?', 'saglayici': lstr((r.get('provider') or {}).get('name')),
+        'durum': durum, 'net': net, 'kesinlik': kes, 'pencere': [wo, wc] if wo is not None and wc is not None else None,
+        'rampa': lstr(pad.get('name')), 'rampaId': None, 'yer': yer or None, 'ulke': None, 'enlem': None, 'boylam': None,
+        'yorunge': None, 'cospar': lstr(r.get('cospar_id')), 'canli': False,
+    }
+
+
+def build_launch_catalog(kod, upcoming, previous, t=None):
+    conv = compact_rll if kod == 'rll' else compact_ll2
+    up = sorted((x for x in map(conv, upcoming or []) if x), key=lambda x: x['net'])
+    prev = sorted((x for x in map(conv, previous or []) if x), key=lambda x: -x['net'])
+    return {'kod': kod, 'kaynak': LAUNCH_CREDITS[kod], 't': int(time.time() * 1000) if t is None else t, 'yaklasan': up, 'gecmis': prev}
+
+
+def fetch_launches():
+    try:
+        up = json.loads(http_get(LL2_UPCOMING, 30)).get('results')
+    except Exception:
+        up = None
+    if isinstance(up, list):
+        try:
+            prev = json.loads(http_get(LL2_PREVIOUS, 30)).get('results') or []
+        except Exception:
+            prev = []
+        cat = build_launch_catalog('ll2', up, prev)
+    else:
+        res = json.loads(get_retry(RLL_NEXT, 30)).get('result')
+        if not isinstance(res, list) or not res:
+            raise ValueError('fırlatma verisi alınamadı (LL2 ve RocketLaunch.Live)')
+        cat = build_launch_catalog('rll', res, [])
+    return json.dumps(cat, separators=(',', ':'), ensure_ascii=False).encode()
+
+
+def launches(force=False):
+    data, info = cached(SOURCES['launch'][0], SOURCES['launch'][1], fetch_launches, force=force)
+    if info['kaynak'] == 'canlı' and b'"kod":"rll"' in data[:40]:      # yedek kaynak: LL2 10 dakika sonra yeniden denensin
+        past = time.time() - (SOURCES['launch'][1] - 600)
+        os.utime(cache_path(SOURCES['launch'][0]), (past, past))
+    return data, info
+
+
 # ---------------------------------------------------------------- JPL Horizons (Ay uyduları)
 def horizons(cmd, start, stop, step):
     key = 'hz_' + hashlib.sha1(f'{cmd}|{start}|{stop}|{step}'.encode()).hexdigest()[:16] + '.json'
@@ -249,7 +406,7 @@ def versions():
 
 
 def refresher():
-    jobs = {'gp': lambda: celestrak('active'), 'neo': lambda: asteroids('neo'), 'mb': lambda: asteroids('mb'), 'sentry': sentry}
+    jobs = {'gp': lambda: celestrak('active'), 'neo': lambda: asteroids('neo'), 'mb': lambda: asteroids('mb'), 'sentry': sentry, 'launch': launches}
     while True:
         for k, job in jobs.items():
             try:
@@ -312,6 +469,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     return self.send_json(400, {'hata': 'bilinmeyen dosya'})
                 data, info = supgp(f)
                 return self.send_json(200, data, {'X-LS19-Kaynak': urllib.parse.quote('CelesTrak SupGP · ' + info['kaynak']), 'X-LS19-Yas': str(info['yas_s'])})
+            if u.path == '/api/launches':
+                data, info = launches()
+                return self.send_json(200, data, {'X-LS19-Yas': str(info['yas_s'])})
             if u.path == '/api/sentry':
                 return self.send_json(200, sentry()[0])
             if u.path == '/api/sbdb':

@@ -1,5 +1,5 @@
 // Canlı veri güncelleyici: 10 dakikada bir /api/surum'u sorar; sürümü değişen kaynağın katmanını yeniden yükler.
-// Kaynakların kendi kuralları sunucuda uygulanır (CelesTrak aynı veriyi 2 saatten sık vermez, JPL SBDB/Sentry günlük),
+// Kaynakların kendi kuralları sunucuda uygulanır (CelesTrak aynı veriyi 2 saatten sık vermez, JPL SBDB/Sentry günlük, Launch Library 2 saatte 15 istek),
 // bu yüzden sık denetim kaynağa yük bindirmez: çoğu denetim "değişiklik yok" ile biter.
 import { LOC, UNIT } from './i18n.js';
 const fmt1 = (x) => x.toLocaleString(LOC, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -7,7 +7,7 @@ const CHECK_MS = 10 * 60 * 1000;
 
 export class Updater {
   constructor(handlers) {
-    this.h = handlers;                  // { gp: (v) => …, neo: (v) => …, mb: …, sentry: … }
+    this.h = handlers;                  // { gp: (v) => …, neo: (v) => …, mb: …, sentry: …, launch: … }
     this.seen = {}; this.last = null; this.next = null; this.info = null; this.err = null; this.onChange = null; this.timer = null;
   }
   start() {
@@ -42,7 +42,7 @@ export class Updater {
     const hm = (ms) => (ms ? new Date(ms).toLocaleTimeString(LOC, { hour: '2-digit', minute: '2-digit' }) : '—');
     const k = this.info && this.info.kaynaklar, age = (x) => (x && x.yas_s != null ? (x.yas_s < 5400 ? `${Math.round(x.yas_s / 60)} ${UNIT.min}` : `${fmt1(x.yas_s / 3600)} ${UNIT.h}`) : '—');
     const lines = [`Otomatik güncelleme: 10 dakikada bir denetim · son ${hm(this.last)}, sonraki ${hm(this.next)}${this.info ? (this.info.mod === 'bulut' ? ' (bulut)' : ' (yerel sunucu)') : ''}`];
-    if (k) lines.push(`Veri yaşı: uydular ${age(k.gp)}, asteroitler ${age(k.neo)}, Sentry ${age(k.sentry)}`);
+    if (k) lines.push(`Veri yaşı: uydular ${age(k.gp)}, asteroitler ${age(k.neo)}, Sentry ${age(k.sentry)}, fırlatmalar ${age(k.launch)}`);
     if (this.lastChanged && this.lastChanged.length) lines.push('Son denetimde yenilenen: ' + this.lastChanged.join(', '));
     if (this.err) lines.push(this.err);
     return lines;

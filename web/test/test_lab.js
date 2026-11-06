@@ -60,7 +60,7 @@ check(/body\[data-mode="sky"\] \[data-for\]:not\(\[data-for~="sky"\]\)/.test(css
 check(!/#panel\b/.test(css) && !/#panel\b/.test(cine) && /#skyPanel, #labPanel \{ position: absolute/.test(css) && /#skyPanel\.open, #labPanel\.open/.test(css), 'CSS: #panel kuralları Laboratuvar paneline taşındı; aynı yerleşim ve telefon düzeni');
 check(/\.labpage\.labtabs \{[^}]*overflow: hidden[^}]*flex-direction: column/.test(css), 'sekmeli deney sayfası: sekme çubuğu sabit, sayfalar kendi içinde kayar');
 const skyTabs = [...html.slice(html.indexOf('id="skyPanel"'), html.indexOf('id="labPanel"')).matchAll(/data-tab="(\w+)"/g)].map((m) => m[1]);
-check(skyTabs.join() === 'takip,uydular,asteroit,carpma' && !html.includes('id="tab-saptirma"'), 'Saptırma Canlı Gökyüzü\'nden çıktı; sekmeler: ' + skyTabs.join(', '));
+check(skyTabs.join() === 'takip,uydular,asteroit,carpma,firlatma' && !html.includes('id="tab-saptirma"'), 'Saptırma Canlı Gökyüzü\'nden çıktı; sekmeler (fırlatma takvimi dahil): ' + skyTabs.join(', '));
 const exps = [...html.matchAll(/class="exp"[^>]*data-exp="(\w+)"/g)].map((m) => m[1]), gos = [...html.matchAll(/data-go="(\w+)"/g)].map((m) => m[1]);
 check(exps.every((e) => LAB_PAGES[e] && idSet.has('lab-' + e)), 'ağaçtaki her deney için sayfa (#lab-…) ve başlık var: ' + exps.join());
 check(Object.keys(EXPERIMENTS).every((e) => exps.includes(e) && idSet.has('lab-' + e)) && exps.join() === 'ay,saptirma', 'deney kaydındaki her deney ağaçta ve sayfası var (Ay görevi, Asteroit saptırma)');

@@ -35,6 +35,8 @@ import { PixelGovernor, floorRatio } from './perfgov.js';
 import { $ } from './uiutil.js';
 import { LOC, workerOpts, isEn, setLang } from './i18n.js';
 import { initG3dPanel } from './g3dpanel.js';
+import { Launches } from './launches.js';
+import { LaunchCal } from './launchcal.js';
 
 const DEFAULT_DATE = '2026-10-13';
 let deflect = null, updater = null, impactui = null;
@@ -114,11 +116,16 @@ function initSky() {
   impactui = new ImpactUI({ sats: S.sats, asts: S.asts, astui: S.astui, follow: followSat }); ui.onCarpma = () => impactui.open();
   S.sats.models.onLoad = (e, st) => { if (st === 'start') S.skyui.toast(`${e.name}: gerçek 3B model yükleniyor (${srcOf(MODELS[e.key])})…`); else if (st === 'error') S.skyui.toast(`${e.name}: 3B model yüklenemedi, temsili model gösteriliyor.`); };
   S.sats.onData = () => { if (S.tracker) S.tracker.computePasses(true); };
+  // fırlatma takvimi (saatin altında) ve Fırlatmalar sekmesi: LL2 (yedek RocketLaunch.Live), son fırlatmalar uydu kataloğuna COSPAR ile bağlanır
+  S.launches = new Launches();
+  S.launchcal = new LaunchCal({ launches: S.launches, sats: S.sats, follow: followSat,
+    openTab: () => { ui.setTab('firlatma'); if (narrowScreen()) $('#skyPanel').classList.add('open'); } });
   world.obsPose = obsPose;
   if (gov.r !== gov.max) { S.sats.setPixelScale(gov.r / world.prMax); S.asts.setPixelScale(gov.r / world.prMax); }          // oran önceden düşmüşse yeni katmanlar da aynı ölçekte
   const jobs = {};
   if (q.get('sats') !== '0') jobs.gp = (v) => S.sats.load(v);
   if (q.get('ast') !== '0') Object.assign(jobs, { neo: (v) => S.asts.load('neo', v), mb: (v) => S.asts.load('mb', v), sentry: (v) => S.asts.loadSentry(v) });
+  if (q.get('launch') !== '0') jobs.launch = (v) => S.launches.load(v);
   updater = new Updater(jobs); updater.onChange = () => S.astui.renderUpdater(updater); updater.start();
 }
 // arayüz boşa çıkınca kur (rIC yoksa kısa gecikmeyle); ?prefetch=1 ile görev hazır olur olmaz
@@ -504,7 +511,7 @@ function skyFrame(ms, now, dt) {
       S.tracker.update(t, eye, world.camera, canvas, true, full);
     }
     loadMoonSats(t);
-    if (now - lastSkyHud > 200) { lastSkyHud = now; S.skyui.hud(t, ms); ui.pickTick(t, now); S.tracker.computePasses(); }
+    if (now - lastSkyHud > 200) { lastSkyHud = now; S.skyui.hud(t, ms); S.launchcal.tick(); ui.pickTick(t, now); S.tracker.computePasses(); }
     if (ui.skyTab === 'uydular' && now - lastSatTab > 400) { lastSatTab = now; ui.satTab(t); }
     if (updater && now - lastUpd > 5000) { lastUpd = now; S.astui.renderUpdater(updater); }
 }
@@ -623,7 +630,7 @@ function applyUrlParams() {
 $('#btnPanel').onclick = () => $('#labPanel').classList.toggle('open');
 $('#btnSkyPanel').onclick = () => (S.VIEW === 'lab' ? $('#labPanel') : $('#skyPanel')).classList.toggle('open');
 window.LS19 = { world, ui, send, ascent, setCam, setPlay, cinema, focusOn, setWorkspace, setSkyCam, clock, followSat, lookAtSat, labui, openLab, get mode() { return S.MODE; }, get view() { return S.VIEW; }, get skyT() { return skyT; }, get deflect() { return deflect; },
-  get sats() { return S.sats; }, get asts() { return S.asts; }, get astui() { return S.astui; }, get updater() { return updater; }, get tracker() { return S.tracker; }, get skyui() { return S.skyui; } };
+  get sats() { return S.sats; }, get asts() { return S.asts; }, get astui() { return S.astui; }, get updater() { return updater; }, get tracker() { return S.tracker; }, get skyui() { return S.skyui; }, get launches() { return S.launches; } };
 window.ROCSIM = window.LS19;
 
 boot().catch((err) => { $('#loadMsg').textContent = 'Hata: ' + err.message + ' — siteyi yerel sunucuyla (baslat.command) ya da bulutta açın.'; console.error(err); });

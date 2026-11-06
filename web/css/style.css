@@ -246,6 +246,29 @@ input[type=search] { flex: 1; font: inherit; font-size: 13px; color: var(--text-
 .kv { display: grid; grid-template-columns: 72px 1fr; gap: 6px; font-size: 12.5px; margin: 3px 0; color: var(--text-secondary); }
 .nextpass { margin: 10px 0 6px; padding: 8px 10px; border: 1px solid rgba(94, 231, 255, .35); border-radius: 10px; background: rgba(94, 231, 255, .06); font-size: 12.5px; line-height: 1.5; }
 .nextpass b { color: var(--accent-2); font-size: 14px; }
+.launches { margin: 8px 0 4px; padding-top: 7px; border-top: 1px solid var(--grid); font-size: 12.5px; }            /* fırlatma takvimi (saatin altında) */
+.launches:empty { display: none; }
+.launches .lc-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+.launches .lc-head button.xs { padding: 1px 8px; font-size: 11.5px; }
+.lc-row { display: grid; grid-template-columns: 106px minmax(0, 1fr); grid-template-areas: "cd name" "chip sub"; column-gap: 8px; row-gap: 2px; padding: 5px 0; align-items: center; }
+.lc-row + .lc-row { border-top: 1px dashed var(--grid); }
+.lc-row .lc-cd { grid-area: cd; font: 500 12.5px var(--mono); font-variant-numeric: tabular-nums; color: var(--accent-2); white-space: nowrap; }
+.lc-row .lc-name { grid-area: name; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
+.lc-row .lc-chip { grid-area: chip; justify-self: start; }
+.lc-row .lc-sub { grid-area: sub; }
+.lc-sub { color: var(--text-muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lc-note { color: var(--text-muted); font-size: 11.5px; padding: 3px 0; }
+.lc-chip { display: inline-block; font: 600 10px var(--font); letter-spacing: .03em; line-height: 16px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--text-secondary); white-space: nowrap; }
+.lc-chip.ok { color: var(--good); border-color: rgba(52, 211, 153, .5); } .lc-chip.warn { color: var(--warn); border-color: rgba(245, 185, 58, .5); }
+.lc-chip.bad { color: var(--bad); border-color: rgba(248, 113, 113, .5); } .lc-chip.dim { color: var(--text-muted); }
+.lc-list { list-style: none; margin: 4px 0 10px; padding: 0; }                                                           /* Fırlatmalar sekmesi */
+.lc-item { padding: 7px 0; border-bottom: 1px solid var(--grid); font-size: 12.5px; }
+.lc-item .lc-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.lc-item .lc-when { font: 500 12px var(--mono); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.lc-item .lc-name { margin: 2px 0 1px; color: var(--text-primary); }
+.lc-item .lc-sub { white-space: normal; }
+.lc-item .lc-cat { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; font-size: 11.5px; }
+.lc-list .empty { color: var(--text-muted); font-size: 12.5px; padding: 6px 0; }
 .watch { list-style: none; margin: 4px 0; padding: 0; }
 .witem { padding: 8px 0; border-bottom: 1px solid var(--grid); }
 .witem .wtop { display: flex; align-items: center; gap: 7px; }
@@ -280,6 +303,7 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
   #skyDate, #skyUtc, #skyCounts, #skyHud .kv { display: none; }
   .clockbig { font-size: 24px; margin-top: 2px; }
   .nextpass { margin: 6px 0 0; padding: 6px 8px; }
+  .launches { margin: 6px 0 0; padding-top: 5px; } .launches .lc-row ~ .lc-row { display: none; }          /* telefonda yalnız sıradaki fırlatma */
   #controls, #skyControls { left: 8px; right: 8px; transform: none; width: auto; max-width: none; bottom: 8px; gap: 6px; padding: 6px; justify-content: space-between; flex-wrap: nowrap; }
   .dock > button:not(.icon) span, .tm-btn .tm-k { display: none; }
   .tm-btn { padding: 7px 8px; gap: 5px; } .tm-btn .tm-val { font-size: 12.5px; } .tm-btn .chev { display: none; }

@@ -1,10 +1,10 @@
 // LS19 bulut (Vercel) veri vekili — ortak yardımcılar. Yerel karşılığı: web/sunucu.py (aynı uç noktalar, aynı biçim).
 // Güncelleme düzeni: tarayıcı /api/surum'u 10 dakikada bir sorar. Buluttaki sürüm, kaynağın izinli yenileme aralığına
-// göre zaman kovasıdır (CelesTrak 2 sa, JPL SBDB/Sentry 24 sa). Veri isteği ?v=<kova> taşır; Vercel CDN yanıtı o kova
+// göre zaman kovasıdır (CelesTrak 2 sa, JPL SBDB/Sentry 24 sa, fırlatma kataloğu 30 dk). Veri isteği ?v=<kova> taşır; Vercel CDN yanıtı o kova
 // boyunca paylaşımlı önbellekte tutar, yani kaynağa kova başına (bölge başına) tek istek gider.
 import { gzipSync } from 'node:zlib';
 
-export const PERIODS = { gp: 7200, neo: 86400, mb: 86400, sentry: 86400 };
+export const PERIODS = { gp: 7200, neo: 86400, mb: 86400, sentry: 86400, launch: 1800 };      // launch: web/js/launchdata.js LAUNCH_PERIOD_S
 // CelesTrak bazı bulut IP'lerini (Vercel dahil) engelliyor. Yedek: GitHub Actions'ın 2 saatte bir CelesTrak'tan çekip
 // deponun "data" dalına yazdığı kopya (.github/workflows/celestrak-data.yml). LS19_DATA_RAW ile değiştirilebilir.
 export const DATA_RAW = process.env.LS19_DATA_RAW || 'https://raw.githubusercontent.com/yazicmert/LS19/data/';
@@ -26,7 +26,8 @@ export async function celestrakOrMirror(url, mirrorFile) {
   }
 }
 export const CHECK_S = 600;
-const UA = { 'User-Agent': 'LS19/1.1 (Look Star 19 egitim simulasyonu)' };
+// CelesTrak toplu grupları (ör. active) tanıtıcı ve iletişim adresli bir User-Agent ister; adres olmadan 403 verebiliyor
+export const UA = { 'User-Agent': 'LS19/1.1 (Look Star 19 egitim simulasyonu; +https://github.com/yazicmert/LS19)' };
 
 export function send(body, { status = 200, sMaxAge = 0, swr = 0, headers = {} } = {}) {
   const buf = Buffer.from(typeof body === 'string' || body instanceof Uint8Array ? body : JSON.stringify(body));
