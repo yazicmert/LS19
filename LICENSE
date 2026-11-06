@@ -69,10 +69,13 @@ Exception: the satellite family models in web/models/fam/ were made for this
 project and are MIT, like the code.
 
 Live sources fetched at runtime (CelesTrak, JPL Horizons, JPL SBDB, JPL
-Sentry, JPL CAD, NASA GIBS, NASA Moon Trek, EOX Sentinel-2 cloudless,
-Open-Meteo) are used under each provider's terms. Some restrict commercial or
-high-volume use: Sentinel-2 cloudless is CC BY-SA 4.0 with on-screen
-attribution, and Open-Meteo's free API is for non-commercial use.
+Sentry, JPL CAD, NASA GIBS, NASA Moon Trek, Esri World Imagery, AWS Terrain
+Tiles, EOX Sentinel-2 cloudless, Open-Meteo) are used under each provider's
+terms. Some restrict commercial or high-volume use: Esri World Imagery
+requires on-screen attribution and is subject to Esri's terms of use;
+Sentinel-2 cloudless is CC BY-SA 4.0 with on-screen attribution; AWS Terrain
+Tiles carry their source attributions (USGS 3DEP, SRTM, GMTED2010, ETOPO1 and
+others); and Open-Meteo's free API is for non-commercial use.
 
 In short: the MIT grant does not extend to any third-party data, model,
 texture or library. See "Veri kaynakları ve lisanslar" in README.md for the

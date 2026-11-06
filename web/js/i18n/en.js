@@ -383,7 +383,6 @@ const dict = {
   "KALKIS": "LIFTOFF",
   "{0} rampada · T−{1} s": "{0} on the pad · T−{1} s",
   // ---------------------------------------------------------------- js/ascentview.js
-  "Yer görüntüsü: Sentinel-2 cloudless 2016 — s2maps.eu, EOX IT Services GmbH (değiştirilmiş Copernicus Sentinel verisi) · CC BY-SA 4.0": "Ground imagery: Sentinel-2 cloudless 2016 — s2maps.eu, EOX IT Services GmbH (modified Copernicus Sentinel data) · CC BY-SA 4.0",
   "Sky gölgelendiricisi beklenen biçimde değil": "Sky shader is not in the expected form",
   // ---------------------------------------------------------------- js/asteroids.js
   "Sentry risk listesi": "Sentry risk list",
@@ -1176,6 +1175,10 @@ const dict = {
   "Batı Menzili": "Western Range",
   "Kennedy Uzay Merkezi LC-39B": "Kennedy Space Center LC-39B",
   "Guyana Uzay Merkezi": "Guiana Space Centre",
+  // ---------------------------------------------------------------- js/padground.js
+  "Görüntü: Esri World Imagery — Esri, Maxar, Earthstar Geographics ve GIS kullanıcı topluluğu": "Imagery: Esri World Imagery — Esri, Maxar, Earthstar Geographics and the GIS User Community",
+  "Görüntü: Sentinel-2 cloudless 2016 — s2maps.eu, EOX IT Services GmbH (değiştirilmiş Copernicus Sentinel verisi) · CC BY-SA 4.0": "Imagery: Sentinel-2 cloudless 2016 — s2maps.eu, EOX IT Services GmbH (contains modified Copernicus Sentinel data) · CC BY-SA 4.0",
+  "Yükselti: AWS Terrain Tiles (Mapzen; USGS 3DEP, SRTM, GMTED2010, ETOPO1 ve diğerleri)": "Elevation: AWS Terrain Tiles (Mapzen; USGS 3DEP, SRTM, GMTED2010, ETOPO1 and others)",
   // ---------------------------------------------------------------- js/passes.js
   "görünür": "visible",
   "gölgede": "in shadow",
@@ -1665,6 +1668,8 @@ const dict = {
 export const manual = {
   "orta": "medium",
   "duraklat ·": "pause ·",
+  "{0} rampada": "{0} on the pad",
+  "km/sa": "km/h",
   "gece": "night",
   "belirsiz": "uncertain",
   "bozunuyor": "decaying",

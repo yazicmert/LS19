@@ -347,11 +347,13 @@ Canlandırmada yol bu benzetimden geliyor: gerçek zaman canlandırma süresine 
 **Görsellik:**
 
 - **Rampa:** SLS'te NASA 3D Resources **Mobile Launcher** modeli (116 m, platform 48 m; roket ekseni modelden ölçüldü). Diğer roketlerde beton platform ve yıldırım direkleri.
-- **Yer görüntüsü:** rampa çevresi, çalışma anında **Sentinel-2 cloudless 2016** (EOX, CC BY-SA 4.0; atıf ekranda). Web Mercator z = 13, 4 × 4 karo ≈ 17 km, kenarları yumuşak. Yüklenemezse gösterilmiyor.
+- **Yer (`padground.js`):** rampa çevresinden ufka dek tek ağ: rampa çerçevesinde Dünya eğriliğini izleyen kare ızgara (193 × 193 köşe; köşe aralığı rampada ~1 m, 1650 km'deki kenarda ~200 km, üstel). Görüntü çalışma anında **Esri World Imagery**'den (anahtarsız, atıf ekranda): iç içe yedi seviye z18, 16, 14, 11, 9, 7, 5 (her biri 6 × 6 karo; rampada ≈ 0,5 m/piksel, ufukta ≈ 4 km/piksel). z12 atlanır, çünkü bu bölgelerde Esri'nin geçiş seviyesi farklı tarihli kaynaklardan yamalı. Gölgelendirici her noktada eldeki en ince seviyeyi seçer, seviye kenarlarında yumuşak geçiş yapar. Esri'nin "veri yok" yer tutucusu (düz açık gri karo) içerikten tanınıp saydam bırakılır, orada kaba seviye görünür. Esri alınamazsa **EOX Sentinel-2 cloudless** (CC BY-SA 4.0, z ≤ 15). Kabartma **AWS Terrain Tiles**'tan (Terrarium; z14/11/8/5, 3 × 3 karo). Rampa çevresi (~400 m) düz tutulur, 1,4 km'ye dek yumuşakça gerçek yüksekliğe geçer. Rampadan alçak yerler rampa düzeyine kırpılır, çünkü fizik rampayı küre yüzeyine koyar. Dağlık rampalarda (Xichang 1857 m, Vandenberg) yer kameraları zeminin üstüne kaldırılır. Hava perspektifi: pus alçak katmanda (H ≈ 2 km) yoğun; ışının deniz düzeyi eşdeğeri yolu H·(1 − e^(−h/H))/sin(görüş açısı), sönüm uzunluğu ~22 km. Gece alevin ışığı rampa çevresini aydınlatır. Kalkış sırasında küre parçaları ve taban Dünya küresi gizlenir; zemin 185 km irtifadaki ufka dek uzanır. Sınır: düz görüntü çok yatık bakışta (≲ 1°, yerden tele objektif) şeritlenir; 3B karolar (GEV'in Google Photorealistic 3D Tiles'ı) anahtar gerektirir.
 - **Alev:**
   - Ortam basıncı düştükçe genişliyor ve uzuyor; şok elmasları alçakta belirgin.
   - Rengi o anda yanan kademenin yakıtına göre: gazyağı turuncu, katı yakıt beyaz-sarı, hidrolox soluk mavi, metan mavi-mor. Örneğin Saturn V'de S-IC turuncu, S-II mavi.
-- **Gökyüzü:** Güneş'in araca göre yüksekliğine göre mavi ya da koyu; ölçek yüksekliğiyle (~7,5 km) sönüyor. Ufkun ötesinde, derinlik testli kubbe.
+- **Gökyüzü:** Güneş'in araca göre yüksekliğine göre mavi ya da koyu; ölçek yüksekliğiyle (~7,5 km) sönüyor. Ufkun ötesinde, derinlik testli kubbe. 2–25 km arasında griye değil laciverde döner (Preetham modeli gözlemciyi yerde varsayar).
+- **Kalkış bulutu:** parçacıklar kameraya dönük küre gibi gölgelenir (gündüz Güneş'e bakan yüz aydınlık); aleve yakın sıcak parçacıklar gölgelenmez. Egzoz sütunu, karede roketin aldığı yol boyunca dağıtılır ve doğduğu ana göre yaşlandırılır: düşük kare hızında ya da hızlandırılmış zamanda iz kesik kesik olmaz.
+- **Geri sayım çekimi:** ~2,7 km'den, 120 m yükseklikten yavaşça kayan alçak hava çekimi: roket, gerçek rampa kompleksi ve kıyı birlikte görünür.
 - **Ayrılan kademeler:** ayrılma anındaki durumdan balistik düşüyor (çekim, dönen havada sürüklenme β ≈ 2000 kg/m², 4 m/s geriye ayrılma itişi, yavaş takla). Kesme düzlemleri ya da etiketli parçalarla çiziliyor.
 
 **Sınırlar:**
@@ -359,7 +361,7 @@ Canlandırmada yol bu benzetimden geliyor: gerçek zaman canlandırma süresine 
 - Kademe kütle oranları ve itki/ağırlık değerleri yaklaşık; itki ölçeği 0,89–1,17 arasında çıkıyor.
 - Model yükü gerçek görevden hafif (örneğin SLS'te 3,6 t'luk iniş aracı, Orion 26 t).
 - Hava yoğunluğu 86 km üstünde üstel.
-- Bu ortamın ağından EOX karolarına ve NASA GIBS'e erişilemediği için yer görüntüsü tarayıcıda sahte karoyla denendi.
+- Yer görüntüsü ve kabartma Chromium'da (yazılımsal WebGL) gerçek Esri ve Terrarium karolarıyla denendi: KSC LC-39B (gündüz/gece, yerden, alçak hava çekimi, 11–88 km araç üstü ve takip) ve Xichang (dağlık).
 
 #### 6.7.1 Kalkış kamerası
 
