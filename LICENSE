@@ -57,8 +57,10 @@ In particular:
     (PIA19956, public domain). Other images under web/textures/ are not
     covered by the MIT grant either.
   - Libraries (web/lib/, pylib/): three.js, satellite.js, Motion, NumberFlow,
-    torph, jplephem (MIT) and Clarabel (Apache-2.0). Their license texts sit
-    next to them (web/lib/*.LICENSE.md, web/lib/clarabel/, pylib/).
+    torph, jplephem (MIT), Clarabel, 3d-tiles-renderer (NASA-AMMOS) and the
+    Draco glTF decoder (Google) (Apache-2.0). Their license texts sit next to
+    them (web/lib/*.LICENSE.md, web/lib/clarabel/, web/lib/addons/libs/draco/,
+    pylib/).
   - Development skills (.claude/skills/): MIT, see .claude/skills/LICENSES.md.
 
 The NASA name, logo and insignia (which also appear on some model textures)
@@ -75,7 +77,11 @@ terms. Some restrict commercial or high-volume use: Esri World Imagery
 requires on-screen attribution and is subject to Esri's terms of use;
 Sentinel-2 cloudless is CC BY-SA 4.0 with on-screen attribution; AWS Terrain
 Tiles carry their source attributions (USGS 3DEP, SRTM, GMTED2010, ETOPO1 and
-others); and Open-Meteo's free API is for non-commercial use.
+others); and Open-Meteo's free API is for non-commercial use. The optional Google
+Photorealistic 3D Tiles layer is fetched with the user's own Google Maps
+Platform API key and is subject to Google's Map Tiles API terms, including
+its attribution and logo requirements, which whoever deploys the site must
+follow.
 
 In short: the MIT grant does not extend to any third-party data, model,
 texture or library. See "Veri kaynakları ve lisanslar" in README.md for the

@@ -34,6 +34,7 @@ import { Cinema } from './cinema.js';
 import { PixelGovernor, floorRatio } from './perfgov.js';
 import { $ } from './uiutil.js';
 import { LOC, workerOpts, isEn, setLang } from './i18n.js';
+import { initG3dPanel } from './g3dpanel.js';
 
 const DEFAULT_DATE = '2026-10-13';
 let deflect = null, updater = null, impactui = null;
@@ -373,6 +374,7 @@ ui.onRocketInfo = (id) => rocketSheet.open(id);
 let insState = null;
 const ascent = new AscentPlayer({ world, E, send, getDesign: () => S.DESIGN, getIns: () => insState, getState: () => S.latest,
   onEnd: () => { send({ cmd: 'seek', t: ui.t0 }); } });
+initG3dPanel(world);                                                                // Google 3B karolar ayarları (kalkış çubuğu)
 $('#btnAscent').addEventListener('click', async () => {
   if (S.designing || ascent.active) return;
   if (!insState) { send({ cmd: 'seek', t: ui.t0 }); await new Promise((r) => setTimeout(r, 400)); }

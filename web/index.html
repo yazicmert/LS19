@@ -95,6 +95,8 @@
 <link rel="modulepreload" href="js/ascentview.js">
 <link rel="modulepreload" href="js/launchfx.js">
 <link rel="modulepreload" href="js/padground.js">
+<link rel="modulepreload" href="js/google3d.js">
+<link rel="modulepreload" href="js/g3dpanel.js">
 <link rel="modulepreload" href="js/launchcam.js">
 <link rel="modulepreload" href="js/fx.js">
 <link rel="modulepreload" href="js/planets.js">
@@ -672,7 +674,16 @@
 </div>
 <script type="module" src="js/i18n.js"></script>
 <script type="module" src="js/app.js"></script>
-<div id="ascBar" class="ascbar" hidden role="status"><span id="ascTxt"></span><small id="ascCredit" class="asccredit"></small><span class="ascbtns"><button type="button" data-asc="1">×1</button><button type="button" data-asc="10">×10</button><button type="button" data-asc="50">×50</button><button type="button" data-asc="end">Yörüngeye atla</button></span><span class="ascbtns" aria-label="Kamera"><button type="button" data-ascam="auto" title="Yayın kurgusu: rampa, yer izleme, takip, araç üstü">Kurgu</button><button type="button" data-ascam="ground">Yer</button><button type="button" data-ascam="chase">Takip</button><button type="button" data-ascam="onboard">Araç üstü</button></span></div>
+<div id="ascBar" class="ascbar" hidden role="status"><span id="ascTxt"></span><small id="ascCredit" class="asccredit"></small><span class="ascbtns"><button type="button" data-asc="1">×1</button><button type="button" data-asc="10">×10</button><button type="button" data-asc="50">×50</button><button type="button" data-asc="end">Yörüngeye atla</button></span><span class="ascbtns" aria-label="Kamera"><button type="button" data-ascam="auto" title="Yayın kurgusu: rampa, yer izleme, takip, araç üstü">Kurgu</button><button type="button" data-ascam="ground">Yer</button><button type="button" data-ascam="chase">Takip</button><button type="button" data-ascam="onboard">Araç üstü</button></span><span class="ascbtns"><button type="button" data-g3d aria-expanded="false" aria-controls="g3dPanel" title="Google 3B karolar: rampa çevresi gerçek 3B binalar ve araziyle (kendi API anahtarınızla)">3B şehir</button></span></div>
+<div id="g3dPanel" class="g3dpanel" hidden role="dialog" aria-labelledby="g3dTitle">
+  <div class="g3d-head"><b id="g3dTitle">Google 3B karolar (isteğe bağlı)</b><button id="g3dClose" type="button" aria-label="Kapat">×</button></div>
+  <p>Kalkışta rampa çevresi (12 km) Google Photorealistic 3D Tiles ile gerçek 3B binalar, rampa yapıları ve araziyle çizilir; dışında Esri görüntüsü sürer.</p>
+  <p class="note">Kendi Google Maps Platform API anahtarınız gerekir (Map Tiles API açık). Google kullanımı ücretlendirir. Anahtar yalnız bu tarayıcıda saklanır ve istekler doğrudan Google'a gider; anahtarı Google Cloud Console'da bu sitenin adresiyle (HTTP yönlendiren) kısıtlayın.</p>
+  <label class="g3d-key">API anahtarı <input id="g3dKey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…"></label>
+  <label class="g3d-chk"><input id="g3dOn" type="checkbox"> Kalkışta kullan</label>
+  <div class="g3d-row"><button id="g3dSave" type="button">Kaydet</button><button id="g3dDel" type="button">Anahtarı sil</button><a href="https://developers.google.com/maps/documentation/tile/3d-tiles" target="_blank" rel="noopener noreferrer">Anahtar nasıl alınır?</a></div>
+  <small id="g3dStatus" class="g3dstatus" role="status" aria-live="polite"></small>
+</div>
 <div id="ascTele" class="asctele" hidden aria-live="off"></div>
 <div id="rocketSheet" class="rsheet" hidden role="dialog" aria-modal="true" aria-labelledby="rsTitle">
   <div class="rs-box">

@@ -6,6 +6,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { makeLaunchVehicle } from './rocketmodels.js';
 import { LaunchSmoke } from './launchfx.js';
 import { PadGround, R_M } from './padground.js';
+import { Google3D, g3dSettings, g3dUsable } from './google3d.js';
 import { shake as camShake } from './launchcam.js';
 import { setPlume } from './fx.js';
 import { add, sub, scale, dot, cross, norm, unit } from './vec3.js';
@@ -26,7 +27,7 @@ export class AscentView {
   // olanlar (booster, fairing, las) gizlenir. null: kalkış biter, araç geri gelir.
   async setAscent(spec) {
     const veh = this.vehicle;
-    if (this.asc) { veh.remove(this.asc.root); if (this.asc.smoke) this.asc.smoke.dispose(); if (this.asc.ground) this.asc.ground.dispose(); if (this.asc.world) { this.scene.remove(this.asc.world); this.asc.world.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); } this.asc = null; }
+    if (this.asc) { veh.remove(this.asc.root); if (this.asc.smoke) this.asc.smoke.dispose(); if (this.asc.ground) this.asc.ground.dispose(); if (this.asc.g3d) this.asc.g3d.dispose(); if (this.asc.world) { this.scene.remove(this.asc.world); this.asc.world.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); } this.asc = null; }
     for (const c of veh.children) if (c.userData.ascHidden !== undefined) { c.visible = c.userData.ascHidden; delete c.userData.ascHidden; }
     this.renderer.localClippingEnabled = false;
     if (!spec) return;
@@ -59,6 +60,7 @@ export class AscentView {
     const sky = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24), await this.skyMaterial());
     sky.scale.setScalar(80); sky.renderOrder = -9; sky.frustumCulled = false; world.add(sky);
     const pad = new THREE.Group(); pad.scale.setScalar(KM); pad.matrixAutoUpdate = false; world.add(pad);
+    const padProps = [];                                                                 // temsilî rampa (beton, çukur, direkler): gerçek 3B karolar varken gizlenir
     if (spec.pad === 'ml') {
       const ml = await glb('ml', 'models/rockets/ml.glb');
       // Mobile Launcher: roket ekseni modelde (−7,8; 16; 1,4) m — platform üstü yere oturur (kaideler gösterilmez)
@@ -67,19 +69,31 @@ export class AscentView {
       // beton (üstü zemin görüntüsünün 0,15 m üstünde: padground.js zemini rampa düzeyinden 0,25 m yukarıda) ve alev çukuru
       const conc = new THREE.Mesh(new THREE.BoxGeometry(60, 2.4, 60), new THREE.MeshLambertMaterial({ color: 0x9a978f })); conc.position.y = -0.8; pad.add(conc);
       const trench = new THREE.Mesh(new THREE.BoxGeometry(12, 2.2, 40), new THREE.MeshLambertMaterial({ color: 0x3a3936 })); trench.position.set(0, -0.55, 14); pad.add(trench);
-      for (const [x, z] of [[-26, -26], [26, 26]]) { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 1.0, 90, 8), new THREE.MeshLambertMaterial({ color: 0xb8b6b0 })); t.position.set(x, 45, z); pad.add(t); }   // yıldırım direkleri
+      padProps.push(conc, trench);
+      for (const [x, z] of [[-26, -26], [26, 26]]) { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 1.0, 90, 8), new THREE.MeshLambertMaterial({ color: 0xb8b6b0 })); t.position.set(x, 45, z); pad.add(t); padProps.push(t); }   // yıldırım direkleri
     }
     const len = new THREE.Box3().setFromObject(template).getSize(new THREE.Vector3()).y;      // roket boyu (m, +Y): kalkış kamerasının kadrajı
     const radius = { saturnv: 5.05, sls: 4.2, fh: 1.83, f9: 1.83, vulcan: 2.7 }[spec.lv] || 2.0;     // gövde yarıçapı (m): araç üstü kameranın yeri
     const big = spec.lv === 'saturnv' || spec.lv === 'sls' || spec.lv === 'fh';
     const smoke = new LaunchSmoke(pad, KM, { scale: big ? 1 : 0.65, trenchDir: [0, 0, 1] });             // alev çukuru kuzey–güney (LC-39A/B gibi)
-    this.asc = { root: L.root, inner: L.inner, model: L.model, plane: L.planes[0], holder, flame, plumeLight, smoke, cut: 0, spec, template, prep, world, sky, pad, debris: new Map(), state: null, credit: '', len, radius };
+    this.asc = { root: L.root, inner: L.inner, model: L.model, plane: L.planes[0], holder, flame, plumeLight, smoke, cut: 0, spec, template, prep, world, sky, pad, padProps, debris: new Map(), state: null, credit: '', len, radius };
     // yer: rampa çevresinin iç içe uydu görüntüsü ve kabartması (kaba seviyeler önce gelir; atıf yüklenen kaynağa göre)
     if (spec.site) {
       const ground = this.asc.ground = new PadGround(THREE, pad, spec.site, { onProgress: (G) => { if (this.asc && this.asc.ground === G) this.asc.credit = G.credit(); } });
       ground.load();
+      if (g3dUsable()) this.setGoogle3D(true);                                          // isteğe bağlı: rampa çevresi Google 3B karolarıyla (google3d.js)
     }
     this.renderer.localClippingEnabled = true;
+  }
+  // Google 3B karoları (google3d.js): kalkış sürerken aç/kapa; ayarlar (anahtar) google3d.js'te. onStatus: durum değişince (ayar paneli)
+  setGoogle3D(on) {
+    const A = this.asc; if (!A || !A.spec.site) return;
+    if (A.g3d) { A.g3d.dispose(); A.g3d = null; if (A.ground) A.ground.u.holeR.value = 0; for (const p of A.padProps) p.visible = true; }
+    const s = g3dSettings();
+    if (!on || !(s.key || s.url)) { if (this.onG3dStatus) this.onG3dStatus(null); return; }
+    A.g3d = new Google3D({ THREE, parent: A.pad, site: A.spec.site, key: s.key, url: s.url, renderer: this.renderer, camera: this.camera, base: this.base,
+      onStatus: (g) => { if (this.onG3dStatus && this.asc && this.asc.g3d === g) this.onG3dStatus(g); } });
+    A.g3d.start();
   }
   // kalkış gökyüzü: three.js resmî Sky eklentisi (Preetham analitik gün ışığı modeli: Rayleigh + Mie saçılması, Güneş konumuna göre renk, ufukta beyazlaşma).
   // Sahnenin logaritmik derinliğine uyarlanır (uzak düzleme itilmez: ufuk mesafesindeki kubbe yıldızları örter, Dünya'yı örtmez) ve irtifayla saydamlaşır (skyFade).
@@ -138,7 +152,14 @@ export class AscentView {
       A.pad.matrix.makeBasis(E3, U, S).scale(new THREE.Vector3(KM, KM, KM)).setPosition(p); A.pad.matrixWorldNeedsUpdate = true;
       if (A.ground) {                                                                      // zemin: Güneş, kamera irtifası (pus), alevin ışığı (dünya km)
         const plume = PLUME_COL[o.prop] || PLUME_COL.kerolox, pc = plume[2], pm = Math.max(pc.r, pc.g, pc.b);
-        A.ground.frame({ sunDir: o.sunDir, sunUp: o.sunUp, h: Math.max(0, this.earth.position.length() - R_M / 1000), plumeW: base, thr: o.thr, plumeCol: pc.clone().multiplyScalar(1 / pm) });
+        const camH = Math.max(0, this.earth.position.length() - R_M / 1000);
+        A.ground.frame({ sunDir: o.sunDir, sunUp: o.sunUp, h: camH, plumeW: base, thr: o.thr, plumeCol: pc.clone().multiplyScalar(1 / pm) });
+        if (A.g3d) {                                                                     // Google 3B: aynı ışık/pus; hazırken zemin içeriyi boşaltır, temsilî rampa gizlenir
+          A.g3d.frame(A.ground.u, camH);
+          const on = A.g3d.ready && A.g3d.visible; A.ground.u.holeR.value = on ? A.g3d.radiusM * 0.985 : 0;
+          for (const p of A.padProps) if (p.visible === on) p.visible = !on;
+          const now = performance.now(); if (!A.creditT || now - A.creditT > 1000) { A.creditT = now; const g = A.g3d.attribution(); A.credit = A.ground.credit() + (g ? ' · ' + g : ''); }
+        }
       }
       if (A.smoke) {                                                                       // kalkış bulutu rampa çerçevesinde (m): roket tabanı ve kamera oraya taşınır
         const inv = A.pad.matrix.clone().invert(), rb = base.clone().applyMatrix4(inv), cm = new THREE.Vector3().applyMatrix4(inv);
@@ -185,9 +206,11 @@ export class AscentView {
     const fovFit = (span, d, lo = 2.5, hi = 55) => Math.min(hi, Math.max(lo, 2 * Math.atan(span * 0.62 / d) * 180 / Math.PI));
     // yer kamerası kabartmanın (dağlık rampalar: Xichang, Vandenberg) altında kalmasın: o noktadaki zeminin en az 'clear' m üstüne kaldırılır
     const G = this.asc.ground, north = P.north;
+    const G3 = this.asc.g3d && this.asc.g3d.ready && this.asc.g3d.visible ? this.asc.g3d : null;
     const lift = (eye, clear) => {
-      if (!G || !G.heightAt) return eye;
-      const rl = sub(eye, P.pos), e = dot(rl, P.east) * 1000, s = -dot(rl, north) * 1000, hy = dot(rl, up) * 1000, gy = G.groundAt(e, s);
+      if (!G || (!G.heightAt && !G3)) return eye;
+      const rl = sub(eye, P.pos), e = dot(rl, P.east) * 1000, s = -dot(rl, north) * 1000, hy = dot(rl, up) * 1000;
+      const g3 = G3 ? G3.surfaceAt(e, s) : null, gy = Math.max(G.heightAt ? G.groundAt(e, s) : 0, g3 ?? -1e9);   // 3B karolarda bina/ağaç tepesi de
       return hy < gy + clear ? add(eye, scale(up, (gy + clear - hy) / 1000)) : eye;
     };
     if (shot === 'wide') {                                                               // geri sayım: ~2,7 km'den, 120 m yükseklikten alçak hava çekimi — roket, rampa kompleksi ve

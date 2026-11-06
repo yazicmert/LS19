@@ -103,9 +103,9 @@ const VS = /* glsl */`
 #include <common>
 #include <logdepthbuf_pars_vertex>
 attribute vec2 mxy; uniform float radius;
-varying vec2 vM; varying vec3 vW; varying vec3 vNw; varying vec3 vUpW;
+varying vec2 vM; varying vec3 vW; varying vec3 vNw; varying vec3 vUpW; varying vec2 vLoc;
 void main() {
-  vM = mxy; vec4 wp = modelMatrix * vec4(position, 1.0); vW = wp.xyz;
+  vM = mxy; vLoc = position.xz; vec4 wp = modelMatrix * vec4(position, 1.0); vW = wp.xyz;
   vNw = normalize(mat3(modelMatrix) * normal);
   vUpW = normalize(mat3(modelMatrix) * (position - vec3(0.0, -radius, 0.0)));
   gl_Position = projectionMatrix * viewMatrix * wp;
@@ -116,8 +116,8 @@ const FS = /* glsl */`
 #include <common>
 #include <logdepthbuf_pars_fragment>
 ${LEVELS.map((_, k) => `uniform sampler2D t${k}; uniform vec4 L${k};`).join('\n')}
-uniform float N; uniform vec3 sunDir; uniform float day, camH, sunI; uniform vec3 plumeW, plumeCol; uniform float plumeI;
-varying vec2 vM; varying vec3 vW; varying vec3 vNw; varying vec3 vUpW;
+uniform float N; uniform vec3 sunDir; uniform float day, camH, sunI; uniform vec3 plumeW, plumeCol; uniform float plumeI, holeR;
+varying vec2 vM; varying vec3 vW; varying vec3 vNw; varying vec3 vUpW; varying vec2 vLoc;
 vec4 lvl(sampler2D t, vec4 L) {
   vec2 uv = (vM * L.x + L.yz) / N; float e = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
   vec4 tx = texture2D(t, vec2(uv.x, 1.0 - uv.y), -0.6);              // hafif keskin mip (yatık bakışta şeritlenme az); eksik karo saydam: kaba seviye görünür
@@ -125,6 +125,7 @@ vec4 lvl(sampler2D t, vec4 L) {
 }
 void main() {
   #include <logdepthbuf_fragment>
+  if (holeR > 0.0 && length(vLoc) < holeR) discard;                 // içeriyi Google 3B karoları çizer (google3d.js)
   vec3 col = vec3(0.0); float a = 0.0; vec4 c;
   ${LEVELS.map((_, k) => `c = lvl(t${NL - 1 - k}, L${NL - 1 - k}); col = mix(col, c.rgb, c.a); a = max(a, c.a);`).join('\n  ')}
   if (a < 0.01) discard;
@@ -150,7 +151,7 @@ export class PadGround {
   constructor(THREE, parent, site, { onProgress } = {}) {
     this.T = THREE; this.site = site; this.onProgress = onProgress; this.ctl = new AbortController(); this.provider = null; this.hasDem = false; this.ready = false;
     const u = { N: { value: LEVEL_N }, sunDir: { value: new THREE.Vector3(0, 1, 0) }, day: { value: 1 }, camH: { value: 0 }, sunI: { value: 1.25 }, radius: { value: R_M },
-      plumeW: { value: new THREE.Vector3() }, plumeCol: { value: new THREE.Color(1, 0.6, 0.3) }, plumeI: { value: 0 } };
+      plumeW: { value: new THREE.Vector3() }, plumeCol: { value: new THREE.Color(1, 0.6, 0.3) }, plumeI: { value: 0 }, holeR: { value: 0 } };
     this.rects = LEVELS.map((z) => levelRect(site.lat, site.lon, z, LEVEL_N));
     this.rects.forEach((r, k) => { const [s, ox, oy] = levelXf(r); u['t' + k] = { value: null }; u['L' + k] = { value: new THREE.Vector4(s, ox, oy, 0) }; });
     this.u = u;

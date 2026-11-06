@@ -353,6 +353,16 @@ const dict = {
   "Araç üstü": "Onboard",
   "Kapat": "Close",
   "Roketin 3B modeli": "3D model of the rocket",
+  "Google 3B karolar: rampa çevresi gerçek 3B binalar ve araziyle (kendi API anahtarınızla)": "Google 3D tiles: real 3D buildings and terrain around the pad (with your own API key)",
+  "3B şehir": "3D city",
+  "Google 3B karolar (isteğe bağlı)": "Google 3D tiles (optional)",
+  "Kalkışta rampa çevresi (12 km) Google Photorealistic 3D Tiles ile gerçek 3B binalar, rampa yapıları ve araziyle çizilir; dışında Esri görüntüsü sürer.": "During launch, the area around the pad (12 km) is drawn with Google Photorealistic 3D Tiles: real 3D buildings, pad structures and terrain; beyond it the Esri imagery continues.",
+  "Kendi Google Maps Platform API anahtarınız gerekir (Map Tiles API açık). Google kullanımı ücretlendirir. Anahtar yalnız bu tarayıcıda saklanır ve istekler doğrudan Google'a gider; anahtarı Google Cloud Console'da bu sitenin adresiyle (HTTP yönlendiren) kısıtlayın.": "You need your own Google Maps Platform API key (with the Map Tiles API enabled). Google bills the usage. The key is stored only in this browser and requests go directly to Google; restrict the key to this site's address (HTTP referrer) in the Google Cloud Console.",
+  "API anahtarı": "API key",
+  "Kalkışta kullan": "Use during launch",
+  "Kaydet": "Save",
+  "Anahtarı sil": "Remove key",
+  "Anahtar nasıl alınır?": "How to get a key?",
   // ---------------------------------------------------------------- js/app.js
   "Grafik bağlamı tekrar kayboldu; dokular geri yüklenemedi. Sayfayı yenileyin.": "The graphics context was lost again; textures could not be restored. Reload the page.",
   "Sayfayı yenile": "Reload page",
@@ -1661,6 +1671,17 @@ const dict = {
   "YAKLASMA": "APPROACH",
   "INDI": "LANDED",
   "PARK": "PARKING",
+  // ---------------------------------------------------------------- js/g3dpanel.js
+  "Hazırlanıyor…": "Preparing…",
+  "Kapalı": "Off",
+  "Kalkış canlandırmasında kullanılır.": "Used in the launch animation.",
+  "Google 3B karoları çiziliyor.": "Drawing Google 3D tiles.",
+  "Google 3B karoları alınamadı": "Google 3D tiles could not be fetched",
+  "Google 3B karoları yükleniyor…": "Loading Google 3D tiles…",
+  "Önce API anahtarını girin.": "Enter the API key first.",
+  // ---------------------------------------------------------------- js/google3d.js
+  "Google 3B kütüphanesi yüklenemedi": "The Google 3D library failed to load",
+  "Google 3B: anahtar geçersiz ya da Map Tiles API kapalı": "Google 3D: the key is invalid or the Map Tiles API is not enabled",
 };
 
 // Çıkarıcının bilerek almadığı ama ekranda görünen metinler: boşluksuz küçük harfli sözcükler (kimliklerle karışmasın diye
@@ -1670,6 +1691,10 @@ export const manual = {
   "duraklat ·": "pause ·",
   "{0} rampada": "{0} on the pad",
   "km/sa": "km/h",
+  "Anahtar silindi.": "Key removed.",
+  "3B karolar: {0}": "3D tiles: {0}",
+  "Google 3B karolar": "Google 3D tiles",
+  "Google 3B karolar — {0}": "Google 3D tiles — {0}",
   "gece": "night",
   "belirsiz": "uncertain",
   "bozunuyor": "decaying",
@@ -1701,6 +1726,7 @@ export const manual = {
 
 // Kaynakta Türkçe gibi görünen ama çevrilmeyecek metinler (ad, kısaltma, bağlantı): çıkarıcı bulur, sözlüğe girmez.
 export const same = [
+ "AIza…",
  "GENEL",
  "models/ast/katalog.json",
  "models/ast/damit/damit_{0}.bin.gz",
