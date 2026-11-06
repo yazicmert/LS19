@@ -195,9 +195,10 @@ animate(el, { opacity: [0, 1], y: [8, 0] }, { duration: 0.2, ease: 'easeOut' });
 
 ## Veri kaynakları ve lisanslar
 
-- Kod: MIT (bkz. [LICENSE](LICENSE)).
+- Kod: MIT (bkz. [LICENSE](LICENSE)). MIT yalnız kodu kapsar: depodaki üçüncü taraf veri, model, doku ve kütüphaneler ile çalışma anında alınan veriler kendi lisanslarına tabidir; `LICENSE` sonundaki not bunları tek tek sayar.
 - JPL DE440s ve Ay yönelim çekirdekleri: NASA/JPL NAIF.
 - Canlı veri: [CelesTrak](https://celestrak.org) GP, [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/), [JPL Small-Body Database](https://ssd.jpl.nasa.gov/tools/sbdb_query.html), [JPL Sentry](https://cneos.jpl.nasa.gov/sentry/), JPL CAD.
+- Fırlatma rampası yer görüntüsü (çalışma anında): [EOX Sentinel-2 cloudless 2016](https://s2maps.eu) (CC BY-SA 4.0; atıf ekranda). Fırlatma hava durumu: [Open-Meteo](https://open-meteo.com) (istek ziyaretçinin tarayıcısından gider; ücretsiz API ticari olmayan kullanım içindir). Rampa listesi (`web/data/pads.json`): [The Space Devs — Launch Library 2](https://thespacedevs.com/llapi).
 - Asteroit şekil modelleri: [NASA PDS Küçük Cisimler Düğümü](https://sbn.psi.edu/pds/shape-models/) (kamu malı): JPL radar modelleri (Hudson, Lawrence, Brozović, Busch vd.), NEAR (Eros) ve Hayabusa (Itokawa) için Gaskell, Dawn (Vesta, Ceres), Rosetta OSIRIS (Lutetia, Steins), Bennu radar modeli (Nolan vd. 2021). Sadeleştirilmiş ve birim yarıçapa ölçeklenmiştir; her modelin kaynağı `web/models/ast/katalog.json`'dadır.
 - DAMIT asteroit şekilleri ve dönme parametreleri: [DAMIT](https://damit.cuni.cz/projects/damit/), Creative Commons Attribution 4.0 — Ďurech, J., Sidorin, V., Kaasalainen, M. 2010, A&A 513, A46; her model kendi yayınına dayanır (DAMIT'te listelenir). Sadeleştirilmiş, nicemlenmiş ve parçalara bölünmüştür.
 - Uydu aile modelleri (`web/models/fam/`): bu projede Blender betiğiyle üretildi (MIT, kod ile aynı); Starlink, OneWeb vb. için yayımlanmış yaklaşık boyutlara dayanan temsili modellerdir, resmî CAD değildir.
