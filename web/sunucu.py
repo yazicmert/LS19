@@ -10,13 +10,15 @@
 #   /api/surum                    kaynak sürümleri: tarayıcı 10 dakikada bir sorar, değişen katmanı yeniden yükler
 #   /api/durum                    sunucu ve önbellek bilgisi
 # Arka planda 10 dakikada bir denetim: süresi dolan kaynak (CelesTrak 2 sa, SBDB/Sentry 24 sa) önceden yenilenir.
-# Yalnız Python standart kütüphanesi. Kullanım: python3 sunucu.py   (LS19_PORT ile farklı kapı)
+# Yalnız Python standart kütüphanesi. Kullanım: python3 sunucu.py   (LS19_PORT ile farklı kapı; LS19_HOST ile dinlenen adres,
+# varsayılan 127.0.0.1 yalnız bu bilgisayar — Docker kapsayıcısında 0.0.0.0, kapıyı dışarıya compose.yaml yine yalnız 127.0.0.1'e açar)
 import gzip, hashlib, http.server, json, os, re, sys, threading, time, urllib.error, urllib.parse, urllib.request
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 CACHE = os.path.join(ROOT, 'data', 'cache')
 os.makedirs(CACHE, exist_ok=True)
 PORT = int(os.environ.get('LS19_PORT', os.environ.get('ROCSIM_PORT', '8765')))
+HOST = os.environ.get('LS19_HOST', '127.0.0.1')
 UA = {'User-Agent': 'LS19/1.1 (Look Star 19 egitim simulasyonu)'}
 GROUPS = {'active', 'stations', 'starlink', 'gps-ops', 'glo-ops', 'galileo', 'beidou', 'geo', 'weather', 'science', 'oneweb', 'last-30-days'}
 HZ_ALLOWED = re.compile(r"^(-?\d{1,7}|THEMIS-[BC]|[A-Za-z0-9 \-]{1,24})$")
@@ -334,8 +336,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         return super().do_GET()
 
 
-def make_server(port=PORT):
-    srv = http.server.ThreadingHTTPServer(('127.0.0.1', port), Handler)
+def make_server(port=PORT, host=HOST):
+    srv = http.server.ThreadingHTTPServer((host, port), Handler)
     threading.Thread(target=refresher, daemon=True).start()
     return srv
 

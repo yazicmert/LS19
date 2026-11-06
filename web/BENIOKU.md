@@ -10,6 +10,8 @@ saptırma laboratuvarı bir asteroide uygulanan itkinin Dünya yakın geçişini
 - `baslat.command` dosyasına çift tıkla (ilk seferde macOS "tanımlanmamış geliştirici" uyarısı verirse: sağ tık → Aç).
   Bu, `sunucu.py`'yi başlatır: sitenin dosyaları + canlı veri (CelesTrak, JPL Horizons, JPL SBDB, Sentry) için yerel vekil ve önbellek.
 - Ya da Terminal'de bu klasörde: `python3 sunucu.py` ve tarayıcıda `http://localhost:8765`.
+- Windows: `baslat.bat` dosyasına çift tıkla (Python 3 gerekir; python.org kurulumu). Linux: `bash baslat.command`.
+- Docker: depo kökünde `docker compose up` (Python gerekmez; ayrıntı kökteki README'de).
 - Dosyayı doğrudan (file://) açmak çalışmaz. Eski `python3 -m http.server` da site için yeterlidir ama uydular gelmez.
 - En hızlı çalışma için Safari ya da Chrome önerilir.
 - Adres parametreleri: `?date=1969-07-16`, `?profile=NRHO` (APOLLO, APOLLO11, NRHO, L2, L1), `?sats=0` (uyduları kapat), `?ast=0` (asteroitleri kapat), `?mode=lab&exp=ay` (Laboratuvar › Ay görevi; varsayılan açılış, eski `?mode=mission` da çalışır), `?mode=lab&exp=saptirma` (Laboratuvar › Asteroit saptırma; eski `?tab=saptirma` da çalışır), `?mode=sky` (Canlı Gökyüzü), `?lowmem=1` (düşük bellek dokuları; telefonda kendiliğinden), `?adapt=0` (uyarlanır çözünürlüğü kapat), `?bg=1` (sekme arka plandayken de oynat), `?prefetch=1` (gökyüzü katmanlarını hemen kur).

@@ -84,9 +84,20 @@ Gereken: Python 3 (yalnız standart kütüphane) ve güncel bir tarayıcı.
 
 ```bash
 cd web
-python3 sunucu.py          # macOS'ta baslat.command'a çift tıklamak da olur
+python3 sunucu.py          # macOS'ta baslat.command'a, Windows'ta baslat.bat'a çift tıklamak da olur
 # tarayıcıda: http://localhost:8765
 ```
+
+Linux'ta `bash web/baslat.command` aynı işi yapar (tarayıcıyı `xdg-open` ile açar). Farklı kapı için `LS19_PORT=9000`.
+
+**Docker ile (Python kurmadan):** Docker Desktop ya da Docker Engine yeterli.
+
+```bash
+docker compose up
+# tarayıcıda: http://localhost:8765   ·   durdurmak: Ctrl+C ya da docker compose down
+```
+
+Kapsayıcı aynı `sunucu.py`'yi çalıştırır; imaj yalnız `web/` klasörünü içerir (testler ve tarayıcının indirmediği tam JPL çekirdekleri hariç, `.dockerignore`). Kapı yalnız bu bilgisayara açılır (`127.0.0.1`); farklı kapı için `LS19_PORT=9000 docker compose up`. Canlı veri önbelleği `ls19-cache` adlı Docker biriminde tutulur, kapsayıcı yeniden kurulsa da kalır (`docker compose down -v` siler). Kod değişince imajı yenilemek için `docker compose up --build`.
 
 `sunucu.py` sitenin dosyalarını sunar; CelesTrak (GP ve Supplemental GP), JPL Horizons, JPL SBDB ve Sentry için yerel vekil, önbellek ve 10 dakikalık arka plan güncellemesi görevi görür. Ayrıntılar: [web/BENIOKU.md](web/BENIOKU.md).
 
@@ -177,6 +188,7 @@ animate(el, { opacity: [0, 1], y: [8, 0] }, { duration: 0.2, ease: 'easeOut' });
 | Yol | İçerik |
 |---|---|
 | `web/` | Tarayıcı simülasyonu (Three.js, Web Worker'lar), `sunucu.py`, testler |
+| `Dockerfile`, `compose.yaml`, `.dockerignore` | Yerel çalıştırma kapsayıcısı (`docker compose up`): `web/` + `sunucu.py`, önbellek birimi, yalnız 127.0.0.1 |
 | `docs/` | Ekran görüntüleri ve teknik notlar: [fizik_denetimi.md](docs/fizik_denetimi.md) (formül ve sabitlerin kaynaklarla denetimi, düzeltilen üç hata); [optimal_inis.md](docs/optimal_inis.md) (yakıt-optimal iniş: okunan kaynaklar, formülasyon, doğrulama, iki kademeli iniş, sınırlar); [yonelim.md](docs/yonelim.md) (araç yönelimi ve kademe görselleri: bulgular, kinematik model, doğrulama); [6dof.md](docs/6dof.md) (6 serbestlik dereceli rijit cisim dinamiği: model, doğrulama, sınırlar); [6dof_arastirma.md](docs/6dof_arastirma.md) (GitHub'da taranan benzer projeler, alınan fikirler, lisans notları); [modeller.md](docs/modeller.md) (araç modelleri: NASA'nın resmî Apollo modelleri, lisans, dönüştürme, yerleşim); [sinematik.md](docs/sinematik.md) (sinematik gösterim ve araç görünümü: yönetmen, zaman hızı denetimi, son işlem, ışık/malzeme/efektler, sınırlar); [performans.md](docs/performans.md) (performans denetimi: veri senkronizasyonu, veri görüntüleme, çizim ve açılış; ölçümler, düzeltmeler, sınırlar) |
 | `web/js/` | `engine.js` fizik (merkez cisimli ve N-cisim çerçeveleri, değişken kütleli itki, kuvvet dökümü) · `ephem.js`/`live.js` efemeris · `cr3bp.js`/`halo.js` halo yörüngeleri · `design.js` görev tasarımı · `mission.js` otopilot (tek ve iki kademeli iniş aracı) · `sats.js`/`satlayer.js` uydular · `asteroids.js`/`astwork.js` asteroitler · `deflect.js`/`deflectwork.js` saptırma motoru · `labui.js`/`deflectui.js`/`labtext.js` Laboratuvar (deney merkezi, saptırma adımları) · `astui.js` asteroit kataloğu · `passes.js`/`tracker.js`/`skyui.js` canlı takip ve geçişler · `satcatalog.js`/`satmodels.js` 3B uydu modelleri · `treemenu.js` alt çubuk menüleri · `updater.js` güncelleme · `pdg.js`/`conic.js` yakıt-optimal iniş güdümü (kayıpsız dışbükeyleştirme, SOCP) ve konik çözücü arayüzü · `rigidbody.js` rijit cisim dinamiği (bileşen bazlı kütle özellikleri, Euler denklemleri, kuaterniyon kinematiği) · `attctl.js` 6-DOF denetleyici ve aktüatörler (gimbal, RCS) · `attitude.js` kinematik yönelim modeli (hız sınırlı; çapraz kontrol) ve kuaterniyon yardımcıları · `telemetry.js`/`controlpanel.js` canlı uçuş telemetrisi ve kontrol paneli · `cinema.js`/`cinemaui.js` sinematik gösterimin yönetmeni ve bindirmeleri · `post.js` sinematik son işlem hattı · `fx.js` plüm, parçacık ve ortam ışığı efektleri · `scene.js`/`ui.js` görüntü ve arayüz · `texload.js`/`texplan.js` ana doku hattı · `terraingen.js`/`terrainwork.js` iniş arazisi üretimi (worker) · `meshmerge.js`/`pointstore.js`/`format.js`/`perfgov.js`/`nominalrun.js` performans yardımcıları ([docs/performans.md](docs/performans.md)) |
 | `web/css/` | `style.css` ana arayüz · `cinema.css` sinematik gösterimin bindirmeleri (letterbox, bölüm kartları, veri şeridi; yalnız transform/opacity/clip-path geçişleri, azaltılmış hareket varyantı) |
