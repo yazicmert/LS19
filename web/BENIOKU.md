@@ -69,7 +69,7 @@ saptırma laboratuvarı bir asteroide uygulanan itkinin Dünya yakın geçişini
 - Yerel sunucu da arka planda 10 dakikada bir denetler ve süresi dolan veriyi önceden indirir.
 - Kaynak kuralları korunur: CelesTrak aynı veriyi en sık 2 saatte bir verir (daha sık indireni engeller); JPL SBDB ve Sentry günde bir;
   Launch Library 2 saatte en çok 15 istek (yenileme 30 dakikada bir, 2 istek). Uydu verisi 2 saatten eskiyse (sunucu CelesTrak'a ulaşamadıysa)
-  tarayıcı CelesTrak'ı doğrudan da dener.
+  eldeki veri hemen gösterilir, tarayıcı CelesTrak'ı arka planda doğrudan dener ve tazesi gelirse onunla değiştirir.
   Uyduların ve asteroitlerin konumları ise sürekli (her karede) hesaplanır.
 
 ## Asteroitler (Asteroit sekmesi)

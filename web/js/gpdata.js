@@ -1,6 +1,7 @@
 // CelesTrak GP ve Supplemental GP verisinin tazelik ve birleştirme kuralları (saf; tarayıcı ve Node: test/test_gpdata.js).
-//   • Sunucu vekilinden ya da GitHub kopyasından gelen veri 2 saatten eskiyse tarayıcı CelesTrak'ı doğrudan da dener (GP'de CORS açık;
-//     CelesTrak kuralı gereği tarayıcıda da 2 sa önbellek). Hangisi tazeyse o kullanılır.
+//   • Sunucu vekilinden ya da GitHub kopyasından gelen veri 2 saatten eskiyse eldeki veri hemen gösterilir ve tarayıcı CelesTrak'ı arka
+//     planda doğrudan dener (GP'de CORS açık; CelesTrak kuralı gereği tarayıcıda da 2 sa önbellek); tazesi gelirse onunla değiştirilir
+//     (satlayer.js load).
 //   • Yaş, kaynağın bildirdiği değer ile verideki en yeni çağdan çıkan alt sınırın büyüğüdür: kopyanın üst bilgisi alınamadığında ya da
 //     yanlış olduğunda bayat veri taze sanılmasın.
 //   • Operatör verisi (SupGP) yalnız aynı uydunun normal GP kaydından yeni çağlıysa kullanılır: bayat bir SupGP kopyası taze GP'yi bozmasın.
