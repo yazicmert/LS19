@@ -1,11 +1,13 @@
 // Google 3B karolar ayar paneli (kalkış çubuğundaki "3B şehir" düğmesi): kullanıcının kendi Google Maps Platform anahtarı, aç/kapa, durum.
 // Ayarlar google3d.js'te (localStorage); kalkış sürüyorsa değişiklik hemen uygulanır (AscentView.setGoogle3D).
-import { g3dSettings, saveG3dSettings, g3dUsable } from './google3d.js';
+import { g3dSettings, saveG3dSettings, g3dUsable, G3D_ENABLED } from './google3d.js';
 import { t } from './i18n.js';
 
 export function initG3dPanel(world) {
   const btn = document.querySelector('[data-g3d]'), P = document.getElementById('g3dPanel');
   if (!btn || !P) return;
+  if (!G3D_ENABLED) return;                                                       // pasif: düğme gizli kalır (index.html'de hidden)
+  btn.closest('.ascbtns').hidden = false;
   const key = P.querySelector('#g3dKey'), on = P.querySelector('#g3dOn'), st = P.querySelector('#g3dStatus');
   const sync = () => { const s = g3dSettings(); key.value = s.key; on.checked = s.on; btn.classList.toggle('on', g3dUsable(s)); };
   const say = (msg) => { st.textContent = t(msg); };

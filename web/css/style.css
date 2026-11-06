@@ -566,6 +566,7 @@ body.rs-open { overflow: hidden; }
   max-width: min(760px, calc(100vw - 32px)); padding: 7px 12px; border-radius: 12px; background: rgba(8, 10, 16, .78); border: 1px solid var(--line-2); font-size: 12.5px; color: var(--text-primary); }
 .ascbar[hidden] { display: none; }
 .ascbtns { display: inline-flex; gap: 4px; }
+.ascbtns[hidden] { display: none; }
 .ascbtns button { padding: 3px 8px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--surface-2); color: var(--text-secondary); font-size: 12px; }
 .ascbtns button.on { border-color: var(--accent); color: var(--text-primary); }
 /* Google 3B karolar ayar paneli (kalkış çubuğunun üstünde) */

@@ -46,10 +46,11 @@ check('beklenmeyen gölgelendiricide yama yapılmaz', G.patchShader({ vertexShad
 
 // ayarlar (Node'da bellekte)
 let s = G.saveG3dSettings({ key: '  AIzaTEST  ', on: true });
-check('ayar: anahtar kırpılır, açık', s.key === 'AIzaTEST' && s.on && G.g3dUsable(s));
+check('özellik bayrağı pasif: kayıtlı anahtar olsa da katman başlamaz', G.G3D_ENABLED === false && !G.g3dUsable(s) && !G.g3dUsable({ on: true, key: 'x', url: '' }));
+check('ayar: anahtar kırpılır, açık (bayrak açıkken kullanılır)', s.key === 'AIzaTEST' && s.on && G.g3dUsable(s, true));
 s = G.saveG3dSettings({ key: '', on: false });
-check('ayar: anahtar silinir, kapalı', s.key === '' && !s.on && !G.g3dUsable(s));
-check('ayar: anahtarsız açık kullanılamaz, url (deneme kümesi) yeter', !G.g3dUsable({ on: true, key: '', url: '' }) && G.g3dUsable({ on: true, key: '', url: 'x/tileset.json' }));
+check('ayar: anahtar silinir, kapalı', s.key === '' && !s.on && !G.g3dUsable(s, true));
+check('ayar: anahtarsız açık kullanılamaz, url (deneme kümesi) yeter', !G.g3dUsable({ on: true, key: '', url: '' }, true) && G.g3dUsable({ on: true, key: '', url: 'x/tileset.json' }, true));
 
 // paketlenmiş kütüphane ve Draco çözücü (tools/tiles3d_paketle.mjs)
 const lib = fs.readFileSync(new URL('../lib/3d-tiles-renderer.esm.js', import.meta.url), 'utf8');
