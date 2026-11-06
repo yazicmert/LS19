@@ -35,8 +35,9 @@ saptırma laboratuvarı bir asteroide uygulanan itkinin Dünya yakın geçişini
   **Geçişe git ve gökte izle**. "Görünür geçişten 5 dk önce bildir" tarayıcı bildirimi ister (sayfa açıkken çalışır).
 - ISS, Starlink, OneWeb, GPS, GLONASS, Planet, Intelsat, SES, Kuiper için operatör verisi (CelesTrak Supplemental GP), yalnız normal GP kaydından
   yeniyse kullanılır.
-- **Fırlatma takvimi** (saatin altında): sıradaki 3 fırlatma, geri sayım ve durum; **Tümü** ya da **Fırlatmalar** sekmesi: yaklaşan 30 ve son 20
-  fırlatma, son fırlatmaların uydu kataloğundaki nesneleri (**İzle**). Kaynak: The Space Devs Launch Library 2 (ücretsiz, anahtarsız; yerel
+- **Fırlatma takvimi** (saatin altında): sıradaki 3 fırlatma, geri sayım ve durum. **Fırlatmalar** sekmesi: *Yaklaşan* (dokununca görev,
+  roket ve itici istatistikleri, iniş, hava, canlı yayın), *Geçmiş* (1957'den bugüne 7.400'ü aşkın fırlatma: arama, yıl/ülke/sonuç süzgeci;
+  GCAT — J. McDowell, CC BY 4.0) ve *İstatistik* (yıllık sayılar, başarı oranı, en çok fırlatan roket/ülke/yer). Kaynak: The Space Devs Launch Library 2 (ücretsiz, anahtarsız; yerel
   sunucu `/api/launches` 30 dakikada bir yeniler), alınamazsa RocketLaunch.Live ücretsiz akışı (sonraki 5 fırlatma).
 
 ## Görev yapılandırması (Görev sekmesi)

@@ -193,8 +193,8 @@ def sbdb_one(des):
 # The Space Devs Launch Library 2: ücretsiz, anahtarsız, IP başına saatte 15 istek (yenileme başına 2). Alınamazsa RocketLaunch.Live
 # ücretsiz akışı (sonraki 5 fırlatma; "Data by RocketLaunch.Live" yazılır).
 LL2_BASE = 'https://ll.thespacedevs.com/2.3.0/'
-LL2_UPCOMING = LL2_BASE + 'launches/upcoming/?limit=30&mode=normal&hide_recent_previous=true'
-LL2_PREVIOUS = LL2_BASE + 'launches/previous/?limit=20&mode=normal'
+LL2_UPCOMING = LL2_BASE + 'launches/upcoming/?limit=30&mode=detailed&hide_recent_previous=true'
+LL2_PREVIOUS = LL2_BASE + 'launches/previous/?limit=20&mode=detailed'
 RLL_NEXT = 'https://fdo.rocketlaunch.live/json/launches/next/5'
 LAUNCH_CREDITS = {'ll2': 'The Space Devs — Launch Library 2 (ücretsiz, anahtarsız)', 'rll': 'Data by RocketLaunch.Live'}
 LAUNCH_STATUS = {1: 'go', 2: 'tbd', 3: 'basarili', 4: 'basarisiz', 5: 'bekleme', 6: 'ucusta', 7: 'kismi', 8: 'tbc'}
@@ -243,6 +243,72 @@ def prec_ll2(np):
         else 'ceyrek' if i <= 11 else 'yariyil' if i <= 13 else 'yil'
 
 
+def prune(o):
+    """boş alanları at (None, '', boş liste, boş sözlük): launchdata.js prune ile aynı"""
+    return {k: v for k, v in o.items() if not (v is None or v == '' or (isinstance(v, (list, dict)) and not v))}
+
+
+def lint(x):
+    v = lnum(x)
+    return None if v is None else int(math.floor(v + 0.5))
+
+
+def lcut(x, n):
+    v = lstr(x)
+    if not v:
+        return v
+    return v[:n - 1].rstrip() + '…' if len(v) > n else v
+
+
+def tri(x):
+    return True if x is True else False if x is False else None
+
+
+def detail_ll2(r):
+    """ayrıntılı kipteki zengin alanlar (launchdata.js detailLL2 ile aynı)"""
+    mi, lsp = r.get('mission') or {}, r.get('launch_service_provider') or {}
+    cfg = (r.get('rocket') or {}).get('configuration') or {}
+
+    def names(arr, n):
+        return [lstr(a.get('name')) for a in arr if isinstance(a, dict) and lstr(a.get('name'))][:n] if isinstance(arr, list) else []
+    stages = []
+    for st in ((r.get('rocket') or {}).get('launcher_stage') or [])[:3]:
+        L = st.get('landing') or {}
+        loc, lt, ln = L.get('landing_location') or {}, L.get('type') or {}, st.get('launcher') or {}
+        inis = prune({'basari': tri(L.get('success')), 'yer': lstr(loc.get('abbrev')) or lstr(loc.get('name')), 'yerAd': lstr(loc.get('name')),
+                      'tip': lstr(lt.get('abbrev')), 'mesafe': lint(L.get('downrange_distance'))}) if L.get('attempt') is True else None
+        x = prune({'seri': lstr(ln.get('serial_number')), 'ucus': lint(st.get('launcher_flight_number')), 'tekrar': tri(st.get('reused')), 'inis': inis})
+        if x:
+            stages.append(x)
+    vids = [v for v in (r.get('vid_urls') or []) if isinstance(v, dict) and lstr(v.get('url')) and isinstance(v.get('url'), str) and v['url'].startswith('https://')]
+    ranked = []
+    for i, v in enumerate(vids):
+        off = 1 if (v.get('type') or {}).get('id') == 1 else 0
+        pr = lnum(v.get('priority'))
+        ranked.append((-off, -(pr if pr is not None else 0), i, v, off))
+    ranked.sort(key=lambda x: x[:3])
+    yayin = [prune({'u': lstr(v.get('url')), 'b': lcut(v.get('title'), 90), 'resmi': True if off == 1 else None}) for *_, v, off in ranked[:2]]
+    ups = r.get('updates')
+    up = ups[0] if isinstance(ups, list) and ups else None
+    return prune({
+        'aciklama': lcut(mi.get('description'), 700),
+        'musteri': names(mi.get('agencies'), 3),
+        'program': names(r.get('program'), 2),
+        'tur': lstr((lsp.get('type') or {}).get('name')),
+        'roket': prune({'toplam': lint(cfg.get('total_launch_count')), 'basarili': lint(cfg.get('successful_launches')), 'basarisiz': lint(cfg.get('failed_launches')),
+                        'inis': lint(cfg.get('successful_landings')), 'inisDeneme': lint(cfg.get('attempted_landings')), 'ilk': lstr(cfg.get('maiden_flight')),
+                        'leo': lint(cfg.get('leo_capacity')), 'gto': lint(cfg.get('gto_capacity')), 'tekrar': True if cfg.get('reusable') is True else None}),
+        'itici': stages,
+        'yayin': yayin,
+        'olasilik': lint(r.get('probability')),
+        'hava': lcut(r.get('weather_concerns'), 200),
+        'hata': lcut(r.get('failreason'), 300),
+        'sayac': prune({'yil': lint(r.get('orbital_launch_attempt_count_year')), 'rampaYil': lint(r.get('pad_launch_attempt_count_year')),
+                        'rampa': lint(r.get('pad_launch_attempt_count')), 'ajansYil': lint(r.get('agency_launch_attempt_count_year'))}),
+        'son': prune({'m': lcut(up.get('comment'), 160), 't': iso_ms(up.get('created_on'))}) if isinstance(up, dict) and lstr(up.get('comment')) else None,
+    })
+
+
 def compact_ll2(r):
     if not isinstance(r, dict) or not r.get('id'):
         return None
@@ -274,6 +340,7 @@ def compact_ll2(r):
         'yorunge': orbit if orbit and orbit != 'N/A' else None,
         'cospar': lstr(r.get('launch_designator')),
         'canli': r.get('webcast_live') is True,
+        'd': detail_ll2(r),
     }
 
 

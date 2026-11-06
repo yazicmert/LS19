@@ -25,7 +25,28 @@
     "configuration": {
      "name": "Falcon 9",
      "full_name": "Falcon 9 Block 5"
-    }
+    },
+    "launcher_stage": [
+     {
+      "reused": true,
+      "launcher_flight_number": 18,
+      "launcher": {
+       "serial_number": "B1093"
+      },
+      "landing": {
+       "attempt": true,
+       "success": true,
+       "downrange_distance": 600,
+       "landing_location": {
+        "name": "Of Course I Still Love You",
+        "abbrev": "OCISLY"
+       },
+       "type": {
+        "abbrev": "ASDS"
+       }
+      }
+     }
+    ]
    },
    "mission": {
     "name": "Starlink Group 15-18",
@@ -103,7 +124,8 @@
    "webcast_live": false,
    "image": {
     "image_url": "https://example.invalid/x.jpg"
-   }
+   },
+   "failreason": "İkinci kademe motoru erken durdu."
   },
   {
    "id": "p-3",

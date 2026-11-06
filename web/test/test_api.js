@@ -62,6 +62,11 @@ check(lu['u-1'].durum === 'go' && lu['u-2'].durum === 'tbc' && lu['u-3'].durum =
 check(lu['u-1'].gorev === 'Starlink Ornek 1' && lu['u-1'].roket === 'Falcon 9 Block 5' && lu['u-1'].rampaId === 16 && lu['u-1'].enlem === 34.632 && lu['u-1'].canli && lu['u-1'].pencere.length === 2, 'görev, roket, rampa, pencere');
 check(lu['u-2'].gorev === 'Unknown Payload' && lu['u-2'].yorunge === null && lu['u-3'].yorunge === null && lu['u-5'].rampa === null, 'eksik görev/rampa ve "N/A" yörünge');
 check(lp['p-2'].cospar === '2026-246' && lp['p-3'].kesinlik === 'dk', 'COSPAR kodu; kesinliği olmayan geçmiş fırlatma dakika');
+const d1 = lu['u-1'].d;
+check(d1 && d1.roket.toplam === 644 && d1.roket.tekrar === true && d1.itici[0].seri === 'B1103' && d1.itici[0].ucus === 7 && d1.itici[0].inis.yer === 'OCISLY' && d1.itici[0].inis.mesafe === 574 && !('basari' in d1.itici[0].inis), 'ayrıntı: roket istatistiği, itici, bekleyen iniş');
+check(d1.yayin.length === 2 && d1.yayin[0].resmi === true && d1.yayin[0].u.startsWith('https://x.com') && d1.yayin.every((v) => v.u.startsWith('https://')) && Array.from(d1.yayin[1].b).length === 90 && d1.yayin[1].b.endsWith('…'), 'canlı yayın: resmî önce, yalnız https, başlık 90 karakter');
+check(Array.from(d1.aciklama).length === 700 && d1.musteri.length === 3 && d1.program[0] === 'Starlink' && d1.olasilik === 80 && d1.sayac.yil === 262 && d1.son.m.startsWith('Now targeting'), 'açıklama kırpılır, müşteri en çok 3, olasılık, sayaçlar, son güncelleme');
+check(lp['p-2'].d.itici[0].inis.basari === true && lp['p-1'].d.hata && !lu['u-3'].d.roket, 'geçmiş: iniş başarılı, başarısızlık nedeni; normal kipte boş alanlar atlanır');
 check(/s-maxage=1800/.test(la.cc) && /Launch Library 2/.test(decodeURIComponent(la.hk || '')), 'CDN 30 dk, kaynak başlığı');
 check(/github\.com\/yazicmert\/LS19/.test(seenUA['ll.thespacedevs.com'] || ''), 'LL2 isteği de iletişim adresli User-Agent taşır');
 const fetchOk = globalThis.fetch;
