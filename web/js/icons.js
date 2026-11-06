@@ -14,6 +14,7 @@ const P = {
   bell: '<path d="M6 16V11a6 6 0 0112 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 004 0"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>',
   target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/>',
   back: '<path d="M11 7l-5 5 5 5M18 7l-5 5 5 5"/>',
   fwd: '<path d="M13 7l5 5-5 5M6 7l5 5-5 5"/>',
