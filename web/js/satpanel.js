@@ -22,7 +22,8 @@ export class SatPanel {
     const line = (txt) => { const d = document.createElement('div'); d.textContent = txt; st.appendChild(d); };
     if (L.n > 0) {
       const ep = new Date(L.epochMs).toISOString().slice(0, 16).replace('T', ' ');
-      line(`${fmt(L.n, 0)} aktif uydu · kaynak: ${L.src ? L.src.kaynak : '—'}${L.src && L.src.yas ? ` (${fmt(L.src.yas / 3600, 1)} sa önce)` : ''}`);
+      const yas = L.src && L.src.yas >= 60 ? L.src.yas : 0;
+      line(`${fmt(L.n, 0)} aktif uydu · kaynak: ${L.src ? L.src.kaynak : '—'}${!yas ? '' : yas < 48 * 3600 ? ` (${fmt(yas / 3600, 1)} sa önce)` : ` (${fmt(yas / 86400, 0)} gün önce)`}`);
       line(`Yörünge öğeleri çağı: ~${ep} UTC`);
     } else line(L.info.status);
     const ul = $('#satGroups'); ul.replaceChildren();

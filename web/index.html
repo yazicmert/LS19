@@ -97,6 +97,10 @@
 <link rel="modulepreload" href="js/padground.js">
 <link rel="modulepreload" href="js/google3d.js">
 <link rel="modulepreload" href="js/g3dpanel.js">
+<link rel="modulepreload" href="js/gpdata.js">
+<link rel="modulepreload" href="js/launchdata.js">
+<link rel="modulepreload" href="js/launches.js">
+<link rel="modulepreload" href="js/launchcal.js">
 <link rel="modulepreload" href="js/launchcam.js">
 <link rel="modulepreload" href="js/fx.js">
 <link rel="modulepreload" href="js/planets.js">
@@ -281,6 +285,7 @@
     <div id="skyLocal" class="clockbig">—</div>
     <div id="skyDate" class="sub"></div>
     <div id="skyUtc" class="sub mono"></div>
+    <div id="skyLaunches" class="launches" aria-label="Fırlatma takvimi"></div>
     <div class="kv"><span class="k">Gözlemci</span><span id="skyObs"></span></div>
     <div class="kv"><span class="k">Gökyüzü</span><span id="skySun"></span></div>
     <div id="skyNext" class="nextpass"></div>
@@ -293,6 +298,7 @@
       <button class="tab" role="tab" data-tab="uydular" aria-selected="false" tabindex="-1">Uydular</button>
       <button class="tab" role="tab" data-tab="asteroit" aria-selected="false" tabindex="-1">Asteroitler</button>
       <button class="tab" role="tab" data-tab="carpma" aria-selected="false" tabindex="-1">Çarpma</button>
+      <button class="tab" role="tab" data-tab="firlatma" aria-selected="false" tabindex="-1">Fırlatmalar</button>
     </nav>
     <div id="tab-takip" class="tabpage" role="tabpanel">
       <h3><i data-icon="pin"></i> Gözlemci</h3>
@@ -369,6 +375,9 @@
         <div id="cpAstDet" hidden></div>
         <p class="note">Kaynak: JPL Sentry (sanal çarpıcılar). Bir satırı seçince asteroit haritada işaretlenir; "Laboratuvarda dene" bu asteroidin nominal yörüngesini Güneş, gezegenler ve Ay çekimiyle yıllarca ileri tümleyip Dünya'ya yakın geçişlerini listeler.</p>
       </div>
+    </div>
+    <div id="tab-firlatma" class="tabpage" role="tabpanel" hidden>
+      <div id="launchList" class="launchlist"></div>
     </div>
   </aside>
 

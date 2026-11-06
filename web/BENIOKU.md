@@ -8,7 +8,7 @@ saptırma laboratuvarı bir asteroide uygulanan itkinin Dünya yakın geçişini
 
 ## Açma
 - `baslat.command` dosyasına çift tıkla (ilk seferde macOS "tanımlanmamış geliştirici" uyarısı verirse: sağ tık → Aç).
-  Bu, `sunucu.py`'yi başlatır: sitenin dosyaları + canlı veri (CelesTrak, JPL Horizons, JPL SBDB, Sentry) için yerel vekil ve önbellek.
+  Bu, `sunucu.py`'yi başlatır: sitenin dosyaları + canlı veri (CelesTrak, JPL Horizons, JPL SBDB, Sentry, fırlatma takvimi) için yerel vekil ve önbellek.
 - Ya da Terminal'de bu klasörde: `python3 sunucu.py` ve tarayıcıda `http://localhost:8765`.
 - Windows: `baslat.bat` dosyasına çift tıkla (Python 3 gerekir; python.org kurulumu). Linux: `bash baslat.command`.
 - Docker: depo kökünde `docker compose up` (Python gerekmez; ayrıntı kökteki README'de).
@@ -33,7 +33,11 @@ saptırma laboratuvarı bir asteroide uygulanan itkinin Dünya yakın geçişini
   (yer izi + kapsama dairesi), **Kaldır**. Uydu kartında **Takibe al**.
 - Yaklaşan geçişler (3 gün, en yüksek ≥ 10°): doğuş, en yüksek, yön, çıplak gözle görünürlük; satıra tıkla → ayrıntı ve gökyüzü çizimi,
   **Geçişe git ve gökte izle**. "Görünür geçişten 5 dk önce bildir" tarayıcı bildirimi ister (sayfa açıkken çalışır).
-- ISS, Starlink, OneWeb, GPS, GLONASS, Planet, Intelsat, SES, Kuiper için operatör verisi (CelesTrak Supplemental GP) kullanılır.
+- ISS, Starlink, OneWeb, GPS, GLONASS, Planet, Intelsat, SES, Kuiper için operatör verisi (CelesTrak Supplemental GP), yalnız normal GP kaydından
+  yeniyse kullanılır.
+- **Fırlatma takvimi** (saatin altında): sıradaki 3 fırlatma, geri sayım ve durum; **Tümü** ya da **Fırlatmalar** sekmesi: yaklaşan 30 ve son 20
+  fırlatma, son fırlatmaların uydu kataloğundaki nesneleri (**İzle**). Kaynak: The Space Devs Launch Library 2 (ücretsiz, anahtarsız; yerel
+  sunucu `/api/launches` 30 dakikada bir yeniler), alınamazsa RocketLaunch.Live ücretsiz akışı (sonraki 5 fırlatma).
 
 ## Görev yapılandırması (Görev sekmesi)
 - Profil: Apollo hızlı (LLO 2 tur) · Apollo 11 gibi (LLO 13 tur, park eğimi 32,5°) · Artemis NRHO 9:2 · L2 halo · L1 halo · Yörünge yükseltmeli (3 yakış, apoje 40.000 km) · Özel.
@@ -63,7 +67,9 @@ saptırma laboratuvarı bir asteroide uygulanan itkinin Dünya yakın geçişini
 ## Otomatik güncelleme (10 dakika)
 - Tarayıcı 10 dakikada bir `/api/surum`'u sorar; hangi kaynağın yeni sürümü varsa yalnız o katman yeniden yüklenir (sayfa yenilenmez).
 - Yerel sunucu da arka planda 10 dakikada bir denetler ve süresi dolan veriyi önceden indirir.
-- Kaynak kuralları korunur: CelesTrak aynı veriyi en sık 2 saatte bir verir (daha sık indireni engeller); JPL SBDB ve Sentry günde bir.
+- Kaynak kuralları korunur: CelesTrak aynı veriyi en sık 2 saatte bir verir (daha sık indireni engeller); JPL SBDB ve Sentry günde bir;
+  Launch Library 2 saatte en çok 15 istek (yenileme 30 dakikada bir, 2 istek). Uydu verisi 2 saatten eskiyse (sunucu CelesTrak'a ulaşamadıysa)
+  tarayıcı CelesTrak'ı doğrudan da dener.
   Uyduların ve asteroitlerin konumları ise sürekli (her karede) hesaplanır.
 
 ## Asteroitler (Asteroit sekmesi)

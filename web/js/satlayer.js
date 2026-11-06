@@ -5,6 +5,7 @@ import * as E from './engine.js';
 import * as S from '../lib/satellite.esm.js';
 import * as EO from './earth.js';
 import { DATA_RAW, SUP_FILES } from './config.js';
+import { dataAgeS, isStale, mergeSupGP } from './gpdata.js';
 import { SatModels, modelFor, MOON_MODELS, MODELS, showDist } from './satmodels.js';
 import { SatInstancer } from './satinstancer.js';
 import { familyOf, FAMILIES } from './satfamilies.js';
@@ -68,22 +69,29 @@ async function fetchOmm(url, kaynak = null) {
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).hata || ('HTTP ' + r.status));
   const omm = await r.json();
   if (!Array.isArray(omm) || !omm.length) throw new Error('boş yanıt');
-  return { omm, kaynak: kaynak || decodeURIComponent(r.headers.get('X-LS19-Kaynak') || 'CelesTrak'), yas: +(r.headers.get('X-LS19-Yas') || 0) };
+  return { omm, kaynak: kaynak || decodeURIComponent(r.headers.get('X-LS19-Kaynak') || 'CelesTrak'), yas: dataAgeS(r.headers.get('X-LS19-Yas'), omm) };
+}
+// GitHub kopyası: yaşı kopyanın üst bilgisinden (meta.json; alınamazsa verinin en yeni çağından)
+async function fetchMirror(file, kaynak, v) {
+  const q = '?v=' + (v ?? '');
+  const [d, meta] = await Promise.all([fetchOmm(DATA_RAW + file + q, kaynak), fetch(DATA_RAW + 'meta.json' + q).then((r) => (r.ok ? r.json() : null)).catch(() => null)]);
+  if (meta && Number.isFinite(+meta.t)) d.yas = Math.max(d.yas, (Date.now() - meta.t) / 1000);
+  return d;
 }
 async function celestrakDirect() {
   let cache = null, hit = null;
   try { cache = await caches.open('ls19-celestrak'); hit = await cache.match(GP_URL); } catch (e) { cache = null; }
   const tHit = hit ? +hit.headers.get('X-LS19-T') : 0;
-  if (hit && Date.now() - tHit < 2 * 3600e3) return { omm: await hit.json(), kaynak: 'CelesTrak (tarayıcı önbelleği)', yas: (Date.now() - tHit) / 1000 };
+  if (hit && Date.now() - tHit < 2 * 3600e3) { const omm = await hit.json(); return { omm, kaynak: 'CelesTrak (tarayıcı önbelleği)', yas: dataAgeS((Date.now() - tHit) / 1000, omm) }; }
   try {
     const r = await fetch(GP_URL);
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const txt = await r.text(), omm = JSON.parse(txt);
     if (!Array.isArray(omm) || !omm.length) throw new Error('beklenmeyen yanıt');
     if (cache) try { await cache.put(GP_URL, new Response(txt, { headers: { 'Content-Type': 'application/json', 'X-LS19-T': String(Date.now()) } })); } catch (e) { /* önbellek isteğe bağlı */ }
-    return { omm, kaynak: 'CelesTrak (doğrudan)', yas: 0 };
+    return { omm, kaynak: 'CelesTrak (doğrudan)', yas: dataAgeS(0, omm) };
   } catch (e) {
-    if (hit) return { omm: await hit.json(), kaynak: 'CelesTrak (eski tarayıcı önbelleği)', yas: (Date.now() - tHit) / 1000 };
+    if (hit) { const omm = await hit.json(); return { omm, kaynak: 'CelesTrak (eski tarayıcı önbelleği)', yas: dataAgeS((Date.now() - tHit) / 1000, omm) }; }
     throw e;
   }
 }
@@ -119,10 +127,11 @@ export class SatLayer {
     if (!this.n) { this.info = { status: 'CelesTrak verisi alınıyor…' }; this.changed(); }
     const errs = [];
     let d = null;
-    // 1) sunucu vekili (yerel sunucu.py ya da bulut api/) · 2) GitHub kopyası · 3) tarayıcıdan doğrudan CelesTrak
+    // 1) sunucu vekili (yerel sunucu.py ya da bulut api/) · 2) GitHub kopyası · 3) tarayıcıdan doğrudan CelesTrak.
+    // Vekil ya da kopya 2 saatten eskiyse (gpdata.js MAX_COPY_AGE_S) doğrudan CelesTrak da denenir; hangisi tazeyse o kullanılır.
     try { d = await fetchOmm('api/gp?group=active' + (v != null ? '&v=' + v : '')); } catch (e) { errs.push('vekil: ' + e.message); }
-    if (!d) try { d = await fetchOmm(DATA_RAW + 'gp_active.json?v=' + (v ?? ''), 'CelesTrak (GitHub kopyası)'); } catch (e) { errs.push('kopya: ' + e.message); }
-    if (!d) try { d = await celestrakDirect(); } catch (e) { errs.push('doğrudan: ' + e.message); }
+    if (!d) try { d = await fetchMirror('gp_active.json', 'CelesTrak (GitHub kopyası)', v); } catch (e) { errs.push('kopya: ' + e.message); }
+    if (!d || isStale(d.yas)) try { const dd = await celestrakDirect(); if (!d || dd.yas < d.yas) d = dd; } catch (e) { errs.push('doğrudan: ' + e.message); }
     if (!d) { this.info = { status: 'Uydu verisi alınamadı (' + errs.join(' · ') + ')' }; this.changed(); return; }
     this.src = { kaynak: d.kaynak, yas: d.yas, t: Date.now() };
     this.gp = d.omm; this.gpMap = null; this.sup = null;
@@ -135,23 +144,13 @@ export class SatLayer {
     await Promise.all(SUP_FILES.map(async (f) => {
       let d = null;
       try { d = await fetchOmm(`api/supgp?file=${f}` + (v != null ? '&v=' + v : '')); } catch (e) { /* kopyaya düş */ }
-      if (!d) try { d = await fetchOmm(`${DATA_RAW}sup_${f}.json?v=${v ?? ''}`, 'SupGP (GitHub kopyası)'); } catch (e) { stats[f] = 0; return; }
+      if (!d) try { d = await fetchOmm(`${DATA_RAW}sup_${f}.json?v=${v ?? ''}`, 'SupGP (GitHub kopyası)'); } catch (e) { stats[f] = 0; return; }   // bayatsa birleştirmede elenir (gpdata.js)
       got[f] = d.omm; stats[f] = d.omm.length;
     }));
-    if (!Object.keys(got).length) { this.supInfo = { n: 0, files: stats }; this.changed(); return; }
-    // her NORAD için şimdiye en yakın (tercihen geçmişteki) çağlı kayıt
-    const now = Date.now(), best = new Map();
-    for (const [f, arr] of Object.entries(got)) for (const o of arr) {
-      const id = +o.NORAD_CAT_ID, ep = Date.parse(o.EPOCH + 'Z'); if (!id || !Number.isFinite(ep)) continue;
-      const score = ep <= now + 3600e3 ? now - ep : 1e15 + ep - now, cur = best.get(id);
-      if (!cur || score < cur.score) best.set(id, { o, f, score });
-    }
-    let n = 0;
-    const merged = this.gp.map((o) => {
-      const b = best.get(+o.NORAD_CAT_ID); if (!b) return o;
-      n++; return { ...b.o, OBJECT_NAME: o.OBJECT_NAME, OBJECT_ID: o.OBJECT_ID || b.o.OBJECT_ID, _sup: { file: b.f, src: b.o.DATA_SOURCE || '', rms: b.o.RMS != null ? +b.o.RMS : null } };
-    });
-    this.sup = got; this.supInfo = { n, files: stats };
+    if (!Object.keys(got).length) { this.supInfo = { n: 0, older: 0, files: stats }; this.changed(); return; }
+    // operatör kaydı yalnız normal GP kaydından yeniyse kullanılır (bayat kopya taze GP'yi bozmasın)
+    const { merged, n, older } = mergeSupGP(this.gp, got);
+    this.sup = got; this.supInfo = { n, older, files: stats };
     const sel = this.sel >= 0 ? this.ids[this.sel] : null;
     this.apply(merged, sel);
   }
