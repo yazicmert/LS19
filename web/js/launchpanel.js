@@ -2,19 +2,23 @@
 //   Yaklaşan  — canlı LL2 kayıtları (launches.js): satıra dokununca ayrıntı (görev, müşteri, roket ve itici istatistikleri, iniş, pencere,
 //               hava, canlı yayın, yılın kaçıncı fırlatması); kesin saatli olanda canlı geri sayım.
 //   Geçmiş    — 1957'den bugüne veritabanı (launchdb.js, GCAT — J. McDowell, CC-BY-4.0) ve veritabanından yeni son günlerin LL2 kayıtları:
-//               arama (roket, görev, COSPAR, yer, kuruluş, ülke), yıl/ülke/sonuç süzgeci; ayrıntıda yörünge, yük, itici, uydu kataloğu bağı.
+//               arama (roket, görev, COSPAR, yer, kuruluş, ülke, yük adı), yıl/ülke/sonuç/amaç süzgeci; ayrıntıda yörünge, itici ve yükler
+//               (payloadui.js: her yükün amacı, araştırma alanı, bugünkü durumu, Vikipedi özeti, yörünge çizimi, yörüngedekiler için 3B'de izle).
 //   İstatistik — seçili yılın sayıları, yıllara göre fırlatmalar (tek seri sütun; seçili yıl vurgulu, üzerine gelince değer; tıklayınca o yıl),
-//               en çok fırlatan roketler / ülkeler / yerler (dokununca Geçmiş o süzgeçle açılır).
+//               en çok fırlatan roketler / ülkeler / yerler ve ana yükün amacına göre dağılım (dokununca Geçmiş o süzgeçle açılır).
 // Veritabanı yalnız Geçmiş ya da İstatistik ilk açılınca indirilir. Kaynak verisi (roket, görev, açıklama) çevrilmez: translate="no".
 import { DONE, CREDITS, catalogObjects } from './launchdata.js';
 import { loadLaunchDb, row, size, filterIdx, perYear, yearSummary, success, partial, countryName, ORBIT } from './launchdb.js';
 import { whenText, cdText, statusChip } from './launchcal.js';
+import { PayloadView } from './payloadui.js';
+import { GROUPS, groupOf, groupName } from './payloads.js';
 import { fmt } from './format.js';
 import { $, mk } from './uiutil.js';
 import { applyIcons } from './icons.js';
 import { LOC, t, isEn } from './i18n.js';
 
 const PAGE = 40;
+const NOF = () => ({ q: '', yil: null, ulke: null, sonuc: null, amac: null });
 const TYPE = { Commercial: 'Ticari', Government: 'Devlet', Multinational: 'Çok uluslu', Educational: 'Eğitim', Private: 'Özel' };
 const LAND = { ASDS: 'gemi', RTLS: 'karaya dönüş', ATL: 'okyanus' };
 const REDUCED = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -42,7 +46,8 @@ export class LaunchPanel {
   constructor({ launches, sats, follow }) {
     Object.assign(this, { launches, sats, follow });
     this.root = $('#launchList'); this.view = 'yak'; this.open = null; this.db = null; this.dbErr = null; this.dbLoading = false;
-    this.f = { q: '', yil: null, ulke: null, sonuc: null }; this.shown = PAGE; this.statYear = new Date().getUTCFullYear(); this.cdEl = null;
+    this.f = NOF(); this.shown = PAGE; this.statYear = new Date().getUTCFullYear(); this.cdEl = null;
+    this.pv = new PayloadView({ sats, follow });
     if (!this.root) return;
     this.build();
   }
@@ -155,7 +160,7 @@ export class LaunchPanel {
     const out = [], db = this.db;
     // arama ve süzgeçler (tek satır kontrol grubu, listenin üstünde)
     const search = mk('div', 'tk-search lp-search'); search.innerHTML = '<i data-icon="search"></i>';
-    const inp = mk('input'); inp.type = 'search'; inp.placeholder = 'Ara: roket, görev, COSPAR, yer'; inp.setAttribute('aria-label', 'Fırlatma ara'); inp.value = this.f.q; inp.autocomplete = 'off'; inp.spellcheck = false;
+    const inp = mk('input'); inp.type = 'search'; inp.placeholder = 'Ara: roket, görev, uydu, COSPAR, yer'; inp.setAttribute('aria-label', 'Fırlatma ara'); inp.value = this.f.q; inp.autocomplete = 'off'; inp.spellcheck = false;
     let tmr = null;
     inp.addEventListener('input', () => { clearTimeout(tmr); tmr = setTimeout(() => { this.f.q = inp.value; this.shown = PAGE; this.open = null; this.renderHistoryList(); }, 140); });
     inp.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Escape') { inp.value = ''; this.f.q = ''; this.renderHistoryList(); } });
@@ -173,7 +178,8 @@ export class LaunchPanel {
       const cc = new Map(); for (let i = 0; i < size(db); i++) { const c = db.ag[db.c.ag[i]][1] || db.site[db.c.site[i]][1]; cc.set(c, (cc.get(c) || 0) + 1); }
       const countries = [['', 'Her ülke'], ...[...cc.entries()].sort((a, b) => b[1] - a[1]).map(([c]) => [c, t(countryName(c))])];
       fr.append(sel('Yıl', years, this.f.yil, (v) => { this.f.yil = v ? +v : null; }), sel('Ülke', countries, this.f.ulke, (v) => { this.f.ulke = v || null; }),
-        sel('Sonuç', [['', 'Her sonuç'], ['S', 'Başarılı'], ['F', 'Başarısız']], this.f.sonuc, (v) => { this.f.sonuc = v || null; }));
+        sel('Sonuç', [['', 'Her sonuç'], ['S', 'Başarılı'], ['F', 'Başarısız']], this.f.sonuc, (v) => { this.f.sonuc = v || null; }),
+        sel('Amaç', [['', 'Her amaç'], ...GROUPS.map(([g, ad]) => [g, t(ad)])], this.f.amac, (v) => { this.f.amac = v || null; }));
       out.push(fr);
     }
     this.list = mk('div', 'lp-hist'); out.push(this.list);
@@ -186,13 +192,13 @@ export class LaunchPanel {
     const idx = filterIdx(db, this.f), now = Date.now(), lastT = db.c.t[size(db) - 1] * 1000;
     // veritabanından yeni son günler (canlı LL2): süzgeç yoksa ya da yalnız bu yıl seçiliyse ve aramaya uyuyorsa
     const cat = this.launches.cat, words = this.f.q.toLocaleLowerCase('tr').split(/\s+/).filter(Boolean);
-    const fresh = cat && !this.f.ulke && this.f.sonuc !== 'F' && (this.f.yil === null || this.f.yil === new Date(now).getUTCFullYear())
+    const fresh = cat && !this.f.ulke && !this.f.amac && this.f.sonuc !== 'F' && (this.f.yil === null || this.f.yil === new Date(now).getUTCFullYear())
       ? cat.gecmis.filter((l) => l.net > lastT + 60e3 && words.every((w) => `${l.roket} ${l.gorev} ${l.yer} ${l.saglayici} ${l.cospar || ''}`.toLocaleLowerCase('tr').includes(w))) : [];
     const head = mk('div', 'lp-count');
     head.append(mk('span', null, `${fmt(idx.length + fresh.length, 0)} fırlatma`));
-    if (this.f.q || this.f.yil !== null || this.f.ulke || this.f.sonuc) {
+    if (this.f.q || this.f.yil !== null || this.f.ulke || this.f.sonuc || this.f.amac) {
       const clr = mk('button', 'xs lp-clear', 'Süzgeci temizle'); clr.type = 'button';
-      clr.addEventListener('click', () => { this.f = { q: '', yil: null, ulke: null, sonuc: null }; this.shown = PAGE; this.open = null; this.renderHistory(); applyIcons(this.body); });
+      clr.addEventListener('click', () => { this.f = NOF(); this.shown = PAGE; this.open = null; this.renderHistory(); applyIcons(this.body); });
       head.appendChild(clr);
     }
     const ul = mk('ul', 'tk-passes lp-list');
@@ -212,7 +218,9 @@ export class LaunchPanel {
     const r = row(db, i), key = 'd:' + r.tag, on = this.open === key, li = mk('li', 'tk-pass' + (on ? ' on' : ''));
     const btn = mk('button', 'tk-prow lp-row'); btn.type = 'button'; btn.setAttribute('aria-expanded', on ? 'true' : 'false');
     const main = mk('span', 'tk-pmain'), nm = noTr(mk('b')); nm.append(r.roket + ' · ', r.gorev);
-    const meta = mk('span', 'tk-pmeta'); meta.append(mk('span', 'lp-date', dateLong(r.t)), ' · ', noTr(mk('span', null, r.yer)), ' · ', mk('span', null, t(countryName(r.ulke))));
+    const meta = mk('span', 'tk-pmeta'), g = groupOf(r.amac);
+    // amaç (ana yük) tarihten hemen sonra: dar panelde kırpılan yer ve ülke olsun
+    meta.append(mk('span', 'lp-date', dateLong(r.t)), ' · ', ...(g ? [mk('span', 'lp-pur', t(groupName(g, true))), ' · '] : []), noTr(mk('span', null, r.yer)), ' · ', mk('span', null, t(countryName(r.ulke))));
     main.append(nm, meta);
     btn.append(mk('span', 'lp-yr', String(new Date(r.t).getUTCFullYear())), main, outcomeChip(db, i));
     btn.addEventListener('click', () => this.toggle(key));
@@ -222,7 +230,7 @@ export class LaunchPanel {
       dd(dl, 'Zaman', `${dateLong(r.t)} ${new Date(r.t).toISOString().slice(11, 16)} UTC`);
       dd(dl, 'Roket', [r.roket, r.surum].filter(Boolean).join(' · '), true);
       dd(dl, 'Uçuş', r.ucus, true);
-      if (r.yuk) dd(dl, 'Yük', r.yuk, true);
+      if (r.yuk && !r.nYuk) dd(dl, 'Yük', r.yuk, true);
       dd(dl, 'Kuruluş', `${r.kurulus} · ${t(countryName(r.ulke))}`);
       dd(dl, 'Fırlatma yeri', [r.yer, r.rampa].filter(Boolean).join(' · '), true);
       const orb = [r.yorunge ? `${r.yorunge}${ORBIT[r.yorunge] ? ` · ${t(ORBIT[r.yorunge])}` : ''}` : null,
@@ -232,7 +240,8 @@ export class LaunchPanel {
       if (r.oran !== null) dd(dl, 'Başarı oranı', `${r.oran}/100`);
       dd(dl, 'COSPAR', r.tag);
       box.appendChild(dl);
-      if (/^\d{4}-\d{3}$/.test(r.tag)) box.appendChild(this.catalogRow(r.tag));
+      // yükler (veri yoksa — çok yeni fırlatma — etkin uydu kataloğundaki nesneler)
+      box.appendChild(this.pv.section(r.tag, new Date(r.t).getUTCFullYear(), /^\d{4}-\d{3}$/.test(r.tag) ? () => this.catalogRow(r.tag) : null));
       li.appendChild(box); this.enter(box);
     }
     return li;
@@ -291,10 +300,11 @@ export class LaunchPanel {
       }
       box.appendChild(ul); return box;
     };
-    const toHist = (f) => { this.f = { q: '', yil: y, ulke: null, sonuc: null, ...f }; this.shown = PAGE; this.setView('gec'); };
+    const toHist = (f) => { this.f = { ...NOF(), yil: y, ...f }; this.shown = PAGE; this.setView('gec'); };
     out.push(rank('Roketler', s.roket, (k) => k, { data: true, fn: (k) => toHist({ q: k }) }));
     out.push(rank('Ülkeler', s.ulke, (k) => t(countryName(k)), { fn: (k) => toHist({ ulke: k }) }));
     out.push(rank('Fırlatma yerleri', s.yer, (k) => k, { data: true, fn: (k) => toHist({ q: k }) }));
+    if (s.amac.length) out.push(rank('Amaçlar (ana yük)', s.amac, (k) => t(groupName(k)), { fn: (k) => toHist({ amac: k }) }));
     this.body.replaceChildren(...out); this.setSrc(null, true);
   }
   // tek seri sütun grafiği (SVG): seçili yıl vurgulu; üzerine gelince yıl/sayı/başarısız; tıklayınca o yıl seçilir

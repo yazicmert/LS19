@@ -17,6 +17,8 @@ globalThis.fetch = async (url, opts = {}) => {
   else if (u.includes('sentry.api')) body = file('sentry.json');
   else if (u.includes('sup-gp.php')) body = file('sup_iss.json');
   else if (u.includes('sbdb.api')) body = file('sbdb_99942.json');
+  else if (u.includes('CATNR=5&')) body = JSON.stringify([{ OBJECT_NAME: 'VANGUARD 1', OBJECT_ID: '1958-002B', NORAD_CAT_ID: 5, EPOCH: '2026-11-06T00:00:00', MEAN_MOTION: 10.85, ECCENTRICITY: 0.18, INCLINATION: 34.25 }]);
+  else if (u.includes('CATNR=')) body = 'No GP data found';
   else if (u.includes('celestrak')) body = file('gp_active.json');
   else return new Response('yok', { status: 404 });
   return new Response(body, { status: 200 });
@@ -40,6 +42,10 @@ const sbBad = await call('sbdb', '?des=' + encodeURIComponent('<script>')); chec
 const gp = await call('gp', '?group=active'); check(gp.status === 200 && Array.isArray(gp.j) && gp.j.length > 0 && gp.size < 4.5e6, `gp: ${gp.j.length} uydu, gzip ${(gp.size / 1e6).toFixed(2)} MB`);
 check(/s-maxage=7200/.test(gp.cc), 'CelesTrak için 2 sa önbellek');
 check(/github\.com\/yazicmert\/LS19/.test(seenUA['celestrak.org'] || ''), 'CelesTrak isteği iletişim adresli User-Agent taşır: ' + seenUA['celestrak.org']);
+// tek uydu (etkin listede olmayan yükler): kayıt, kayıt yok (atmosfere girmiş), geçersiz numara
+const g5 = await call('gp', '?catnr=5'); check(g5.status === 200 && g5.j.length === 1 && g5.j[0].NORAD_CAT_ID === 5 && /s-maxage=7200/.test(g5.cc), 'gp?catnr=5: tek uydu (Vanguard 1), 2 sa önbellek');
+const g99 = await call('gp', '?catnr=99'); check(g99.status === 404 && /yörünge verisi yok/.test(g99.j.hata), 'kaydı olmayan uydu 404');
+const gx = await call('gp', '?catnr=12a'); check(gx.status === 400, 'geçersiz NORAD numarası 400');
 const sg = await call('supgp', '?file=iss'); check(sg.status === 200 && Array.isArray(sg.j) && sg.j[0].DATA_SOURCE, `supgp iss: ${sg.j.length} kayıt`);
 const sgb = await call('supgp', '?file=../etc'); check(sgb.status === 400, 'geçersiz SupGP dosyası 400');
 // CelesTrak engellerse GitHub kopyasına düşme
@@ -92,4 +98,13 @@ for (const [kod, a, b] of [['ll2', 'll2_upcoming.json', 'll2_previous.json'], ['
   const { buildCatalog } = await import('../js/launchdata.js');
   check(JSON.stringify(JSON.parse(pyCat)) === JSON.stringify(buildCatalog(kod, up, prev, 1)), `fırlatma kataloğu (${kod}): sunucu.py ile aynı`);
 }
+// sunucu.py tek uydu: kayıt döner, "No GP data found" -> NoRecord (404)
+const pyOne = execFileSync('python3', ['-c', `import sys; sys.path.insert(0,'.'); import sunucu as S
+S.http_get = lambda u, t=90: b'No GP data found' if 'CATNR=99&' in u else b'[{"NORAD_CAT_ID":5}]'
+print(S.fetch_gp_one(5).decode())
+try:
+    S.fetch_gp_one(99); print('var')
+except S.NoRecord:
+    print('yok')`], { cwd: new URL('..', import.meta.url).pathname }).toString().trim().split('\n');
+check(pyOne[0] === '[{"NORAD_CAT_ID":5}]' && pyOne[1] === 'yok', 'sunucu.py tek uydu: kayıt / kayıt yok');
 console.log(ok ? 'TAMAM' : 'HATA'); process.exit(ok ? 0 : 1);

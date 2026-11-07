@@ -99,6 +99,29 @@ async function celestrakDirect() {
   }
 }
 
+// tek uydu (NORAD) — etkin listede olmayan, görevi bitmiş ama hâlâ yörüngedeki yükler için: vekil (api/gp?catnr=) ya da tarayıcıdan CelesTrak.
+// Aynı kayıt 2 saatten sık indirilmez (Cache Storage). Atmosfere girmiş ya da izlenmeyen nesnede CelesTrak "No GP data found" der -> hata.
+const gpCatUrl = (n) => `https://celestrak.org/NORAD/elements/gp.php?CATNR=${n}&FORMAT=json`;
+const oneRecord = (arr, n) => { const o = Array.isArray(arr) ? arr.find((x) => +x.NORAD_CAT_ID === n) : null; if (!o) throw new Error('güncel yörünge verisi yok'); return o; };
+export async function fetchGpCatnr(n, v = null) {
+  n = +n;
+  if (!(n > 0 && n < 1e6)) throw new Error('geçersiz NORAD numarası');
+  try {
+    const r = await fetch(`api/gp?catnr=${n}` + (v != null ? '&v=' + v : ''));
+    if (r.status === 404) throw Object.assign(new Error('güncel yörünge verisi yok'), { final: true });
+    if (r.ok) return oneRecord(await r.json(), n);
+  } catch (e) { if (e.final) throw e; /* vekil yok: doğrudan */ }
+  const url = gpCatUrl(n);
+  let cache = null, hit = null;
+  try { cache = await caches.open('ls19-celestrak'); hit = await cache.match(url); } catch (e) { cache = null; }
+  if (hit && Date.now() - +hit.headers.get('X-LS19-T') < 2 * 3600e3) return oneRecord(await hit.json(), n);
+  const r = await fetch(url, timeoutOpt(30e3)), txt = await r.text();
+  let arr = null; try { arr = JSON.parse(txt); } catch (e) { throw new Error(/No GP data/i.test(txt) ? 'güncel yörünge verisi yok' : 'beklenmeyen yanıt'); }
+  const o = oneRecord(arr, n);
+  if (cache) try { await cache.put(url, new Response(txt, { headers: { 'Content-Type': 'application/json', 'X-LS19-T': String(Date.now()) } })); } catch (e) { /* önbellek isteğe bağlı */ }
+  return o;
+}
+
 export class SatLayer {
   constructor(scene, labelsEl, eoData) {
     this.scene = scene; this.labelsEl = labelsEl; this.eo = eoData;
@@ -122,6 +145,7 @@ export class SatLayer {
     this.inst = new SatInstancer(scene); this.realIdx = new Map();
     this.models = new SatModels(scene); this.modelEntries = []; this.moonModelEntries = [];
     this.onChange = null;
+    this.extra = new Map(); this.loadWaiters = [];             // etkin listede olmayan, sonradan eklenen uydular (yükler: geçmiş görevler)
   }
   mkLabel(cls) { const d = document.createElement('div'); d.className = cls; d.style.display = 'none'; this.labelsEl.appendChild(d); return d; }
 
@@ -177,11 +201,26 @@ export class SatLayer {
     this.apply(merged, this.sel >= 0 ? this.ids[this.sel] : null);
   }
   apply(omm, keepId = null) {
+    this.base = omm;
+    if (this.extra.size) { const have = new Set(omm.map((o) => +o.NORAD_CAT_ID)); omm = omm.concat([...this.extra.values()].filter((o) => !have.has(+o.NORAD_CAT_ID))); }
     this.omm = omm; this.byId = new Map(omm.map((o) => [+o.NORAD_CAT_ID, o])); this.recCache = new Map();
     this.pendingSel = keepId; if (this.sel >= 0 && keepId == null) this.select(-1);
     this.worker.postMessage({ cmd: 'load', omm, eo: this.eo });
     if (this.onData) this.onData();
   }
+  // etkin listede olmayan uyduyu (NORAD) CelesTrak'tan alıp sahneye ekle; uydu iş parçacığı yeni listeyi kurunca biter (seçili uydu korunur)
+  async addByNorad(n, v = null) {
+    n = +n;
+    if (this.byId && this.byId.has(n)) return this.byId.get(n);
+    if (!this.base) throw new Error('uydu verisi henüz yüklenmedi');
+    const o = await fetchGpCatnr(n, v);
+    this.extra.set(n, { ...o, _extra: true });
+    const done = new Promise((res) => this.loadWaiters.push(res));
+    this.apply(this.base, this.sel >= 0 ? this.ids[this.sel] : null);
+    await done;
+    return o;
+  }
+  isExtra(id) { return this.extra.has(+id); }
   // NORAD -> satrec (önbellekli, ana iş parçacığında: takip, geçiş tahmini, yer izi)
   satrec(id) {
     id = +id; if (!this.byId) return null;
@@ -229,6 +268,7 @@ export class SatLayer {
       this.inst.setFamilies(this.famKeys);
       if (this.pendingSel != null) { const i = this.indexOf(this.pendingSel); this.pendingSel = null; if (i >= 0) this.select(i); }
       if (this.onData) this.onData();
+      for (const f of this.loadWaiters.splice(0)) f();
     } else if (d.type === 'pos' && d.id === this.reqId) {
       this.geo.attributes.position.array.set(d.pos); this.geo.attributes.position.needsUpdate = true;
       this.geo.attributes.vel.array.set(d.vel); this.geo.attributes.vel.needsUpdate = true;
@@ -352,7 +392,7 @@ export class SatLayer {
       periodMin: 1440 / o.MEAN_MOTION, inc: +o.INCLINATION, ecc, perigee: a * (1 - ecc) - E.R_E, apogee: a * (1 + ecc) - E.R_E,
       epochAgeDays: (E.utcMsFromT(t) - Date.parse(o.EPOCH + 'Z')) / 86400000, launchYear: (o.OBJECT_ID || '').slice(0, 4),
       decay: assessSat(this.gpRecord(this.ids[i]) || o, Date.now(), false), model: modelFor(o.NORAD_CAT_ID, o.OBJECT_NAME), family: FAMILIES[this.famKeys && this.famKeys[i]] || null,
-      source: o._sup ? `CelesTrak SupGP (${o._sup.src || o._sup.file}${o._sup.rms != null ? `, RMS ${o._sup.rms} km` : ''})` : 'CelesTrak GP' };
+      source: o._sup ? `CelesTrak SupGP (${o._sup.src || o._sup.file}${o._sup.rms != null ? `, RMS ${o._sup.rms} km` : ''})` : o._extra ? 'CelesTrak GP (tek kayıt, etkin listede değil)' : 'CelesTrak GP' };
     if (pv && pv.position) {
       const p = E.mv(EO.temeToIcrf(E.jdTdb(t)), [pv.position.x, pv.position.y, pv.position.z]);
       const r = Math.hypot(...p), itrf = E.mv(E.earthIcrfToItrf(t), p);
