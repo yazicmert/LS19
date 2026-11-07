@@ -5,7 +5,7 @@ import * as E from './engine.js';
 import * as S from '../lib/satellite.esm.js';
 import * as EO from './earth.js';
 import { DATA_RAW, SUP_FILES } from './config.js';
-import { dataAgeS, isStale, mergeSupGP } from './gpdata.js';
+import { dataAgeS, isStale, mergeSupGP, ommFromColumns } from './gpdata.js';
 import { SatModels, modelFor, MOON_MODELS, MODELS, showDist } from './satmodels.js';
 import { SatInstancer } from './satinstancer.js';
 import { familyOf, FAMILIES } from './satfamilies.js';
@@ -67,7 +67,7 @@ const GP_URL = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=
 async function fetchOmm(url, kaynak = null) {
   const r = await fetch(url);
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).hata || ('HTTP ' + r.status));
-  const omm = await r.json();
+  const omm = ommFromColumns(await r.json());                         // vekil sütunlu verir (&fmt=col); kopya ve SupGP dizi
   if (!Array.isArray(omm) || !omm.length) throw new Error('boş yanıt');
   return { omm, kaynak: kaynak || decodeURIComponent(r.headers.get('X-LS19-Kaynak') || 'CelesTrak'), yas: dataAgeS(r.headers.get('X-LS19-Yas'), omm) };
 }
@@ -155,7 +155,7 @@ export class SatLayer {
     const errs = [], token = (this.loadId = (this.loadId || 0) + 1);
     let d = null, direct = false;
     // 1) sunucu vekili (yerel sunucu.py ya da bulut api/) · 2) GitHub kopyası · 3) tarayıcıdan doğrudan CelesTrak.
-    try { d = await fetchOmm('api/gp?group=active' + (v != null ? '&v=' + v : '')); } catch (e) { errs.push('vekil: ' + e.message); }
+    try { d = await fetchOmm('api/gp?group=active&fmt=col' + (v != null ? '&v=' + v : '')); } catch (e) { errs.push('vekil: ' + e.message); }
     if (!d) try { d = await fetchMirror('gp_active.json', 'CelesTrak (GitHub kopyası)', v); } catch (e) { errs.push('kopya: ' + e.message); }
     if (!d) try { d = await celestrakDirect(); direct = true; } catch (e) { errs.push('doğrudan: ' + e.message); }
     if (token !== this.loadId) return;                            // bu arada daha yeni bir yükleme başladı

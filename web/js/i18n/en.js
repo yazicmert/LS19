@@ -1440,6 +1440,8 @@ const dict = {
   "boş yanıt": "empty response",
   "CelesTrak (tarayıcı önbelleği)": "CelesTrak (browser cache)",
   "beklenmeyen yanıt": "unexpected response",
+  "beklenmeyen biçim": "unexpected format",
+  "sütun uzunlukları tutmuyor": "column lengths do not match",
   "CelesTrak (doğrudan)": "CelesTrak (direct)",
   "CelesTrak (eski tarayıcı önbelleği)": "CelesTrak (stale browser cache)",
   "CelesTrak verisi alınıyor…": "Fetching CelesTrak data…",

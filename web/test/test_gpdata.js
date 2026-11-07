@@ -1,7 +1,8 @@
 // CelesTrak verisinin tazelik ve SupGP birleştirme kuralları (js/gpdata.js): 2 saatten eski kopya doğrudan CelesTrak'ı tetikler,
 // bildirilen yaş eksik/yanlışsa verinin en yeni çağı alt sınır olur, operatör kaydı yalnız normal GP kaydından yeniyse kullanılır.
 import fs from 'fs';
-import { MAX_COPY_AGE_S, EPOCH_SLACK_S, epochMs, newestEpochMs, dataAgeS, isStale, mergeSupGP } from '../js/gpdata.js';
+import { MAX_COPY_AGE_S, EPOCH_SLACK_S, epochMs, newestEpochMs, dataAgeS, isStale, mergeSupGP, ommFromColumns } from '../js/gpdata.js';
+import { ommColumns } from '../../api/_lib.js';
 
 let fail = 0;
 const ok = (c, m) => { if (!c) { fail++; console.log('HATA', m); } else console.log('tamam', m); };
@@ -50,6 +51,20 @@ ok(m.merged.length === g.length && iss._sup && epochMs(iss) > epochMs(g.find((o)
 const shifted = g.map((o) => ({ ...o, EPOCH: iso(nowFx + 40 * 86400e3) }));
 const m2 = mergeSupGP(shifted, { iss: s }, nowFx + 40 * 86400e3);
 ok(m2.n === 0 && m2.older > 0, `örnek veri: GP 40 gün yenilenince eski SupGP kopyası elenir (${m2.older} uydu)`);
+
+
+// sütunlu biçim (api/gp?group=…&fmt=col): kayıpsız gidiş-dönüş, eksik alan, dizi aynen geçer, bozuk biçim hata
+{
+  const arr = fx('gp_active.json'), c = ommColumns(arr), back = ommFromColumns(JSON.parse(JSON.stringify(c)));
+  ok(c.n === arr.length && back.length === arr.length && JSON.stringify(back) === JSON.stringify(arr), `sütunlu biçim kayıpsız: ${arr.length} uydu, alan sırası dahil aynı`);
+  const plain = JSON.stringify(arr).length, col = JSON.stringify(c).length;
+  ok(col < 0.5 * plain, `sütunlu biçim ham boyutu yarıdan az: ${(plain / 1e6).toFixed(2)} → ${(col / 1e6).toFixed(2)} MB`);
+  const mixed = [{ A: 1, B: 'x' }, { A: 2 }, { C: 0, B: '' }], mb = ommFromColumns(ommColumns(mixed));
+  ok(JSON.stringify(mb) === JSON.stringify([{ A: 1, B: 'x' }, { A: 2 }, { B: '', C: 0 }]), 'eksik alan null yazılır, açılırken atlanır; 0 ve boş metin korunur');
+  ok(ommFromColumns(arr) === arr, 'dizi gelirse (kopya, doğrudan CelesTrak) olduğu gibi döner');
+  const bad = [{}, { n: 2, cols: { A: [1] } }, { n: -1, cols: {} }, null].map((d) => { try { ommFromColumns(d); return false; } catch (e) { return true; } });
+  ok(bad.every(Boolean), 'bozuk sütunlu biçim hata verir (çağıran öteki kaynağa geçer)');
+}
 
 console.log(fail ? `\n${fail} HATA` : '\nTAMAM');
 process.exit(fail ? 1 : 0);

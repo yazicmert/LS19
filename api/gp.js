@@ -2,7 +2,8 @@
 // CelesTrak bulut IP'sini engellerse GitHub "data" dalındaki 2 saatlik kopyaya düşer (yalnız "active" grubu).
 // /api/gp?catnr=5 — tek uydu (NORAD): etkin listede olmayan, görevi bitmiş ama yörüngedeki yükler (Fırlatmalar > yükler > 3B'de izle).
 // CelesTrak kaydı yoksa (atmosfere girmiş ya da izlenmiyor) 404.
-import { send, fail, getText, celestrakOrMirror, PERIODS } from './_lib.js';
+// &fmt=col: liste sütunlu biçimde ({ n, cols }, _lib.js ommColumns; ~%30 küçük). Varsayılan OMM dizisi kalır (dağıtım sırasında açık eski sekmeler bozulmasın).
+import { send, fail, getText, celestrakOrMirror, ommColumns, PERIODS } from './_lib.js';
 const GROUPS = new Set(['active', 'stations', 'starlink', 'gps-ops', 'glo-ops', 'galileo', 'beidou', 'geo', 'weather', 'science', 'oneweb', 'last-30-days']);
 export async function GET(req) {
   const q = new URL(req.url).searchParams;
@@ -12,7 +13,9 @@ export async function GET(req) {
   const url = `https://celestrak.org/NORAD/elements/gp.php?GROUP=${encodeURIComponent(group)}&FORMAT=json`;
   try {
     const r = group === 'active' ? await celestrakOrMirror(url, 'gp_active.json') : { txt: await getText(url, { tries: 2 }), kaynak: 'CelesTrak', yas: 0 };
-    return send(r.txt, { sMaxAge: PERIODS.gp, swr: 6 * PERIODS.gp, headers: { 'X-LS19-Kaynak': encodeURIComponent(r.kaynak), 'X-LS19-Yas': String(r.yas) } });
+    let body = r.txt;
+    if (q.get('fmt') === 'col') { const arr = JSON.parse(r.txt); if (!Array.isArray(arr) || !arr.length) throw new Error('beklenmeyen yanıt'); body = JSON.stringify(ommColumns(arr)); }
+    return send(body, { sMaxAge: PERIODS.gp, swr: 6 * PERIODS.gp, headers: { 'X-LS19-Kaynak': encodeURIComponent(r.kaynak), 'X-LS19-Yas': String(r.yas) } });
   } catch (e) { return fail('CelesTrak verisi alınamadı: ' + String(e.message || e).slice(0, 160)); }
 }
 async function one(s) {

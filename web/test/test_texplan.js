@@ -146,6 +146,9 @@ function dims(file) {
     if (links.some((l) => /basis_transcoder/.test(l.href))) bad.push('çevirici preload ' + JSON.stringify(c));      // büyük preload yanıtı fetch ile eşlenirken ara sıra hata verir (§12.3): texload.js init() ile hemen indirir
   }
   check(`erken indirme: ${cases.length} durumda (?lowmem, deviceMemory, mobil UA) dokular texload.js'in ilk yüklemede indireceğiyle aynı (KTX2, ?ktx=0 ise WebP), fetch ile başlatılır (preload değil) ve sözler LS19_EARLY'de; efemeris dizini preload (KTX2 çeviricisi değil: texload.js yükleyiciyi kurunca indirir)`, bad.length === 0, bad.slice(0, 2).join(' | '));
+  const hdr = Object.fromEntries(JSON.parse(rd('../../vercel.json')).headers.map((h) => [h.source, (h.headers.find((x) => x.key === 'Cache-Control') || {}).value || '']));
+  check('vercel.json: dokular, modeller ve kütüphaneler (lib/: three, KTX2 çeviricisi, Clarabel) tarayıcıda 1 gün taze + arka planda yenilenir; uygulama kodu (js/) önbellek kuralsız (eski ve yeni modüller karışmasın)',
+    ['/textures/(.*)', '/models/(.*)', '/lib/(.*)'].every((k) => /public, max-age=86400, stale-while-revalidate=\d+/.test(hdr[k] || '')) && !Object.keys(hdr).some((k) => /^\/js|^\/\(\.\*\)/.test(k) && /max-age=[1-9]/.test(hdr[k])), JSON.stringify(hdr['/lib/(.*)']));
   check('texload: erken sözü kullanır (tek istek), yoksa ya da boş dönerse base + "textures/" + dosya adıyla indirir, başarısızsa bir kez yeniden dener', /LS19_EARLY/.test(rd('../js/texload.js')) && /delete early\[f\]/.test(rd('../js/texload.js')) && /fetch\(base \+ 'textures\/' \+ f, priority \? \{ priority \} : undefined\)/.test(rd('../js/texload.js')) && /net\(f, n - 1\)/.test(rd('../js/texload.js')) && /world\.load\('\.\/'/.test(rd('../js/app.js')));
 }
 
