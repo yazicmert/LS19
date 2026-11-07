@@ -195,7 +195,7 @@ Not (5. ve 6. satırlar): karelerin 16,7 ms'nin katlarına (vsync) sıçradığ�
 
 | Doku | Özgün | WebP | Yöntem | Düşük bellek (`_lo`) |
 |---|---|---|---|---|
-| earth_clouds | 11,3 MB | 9,9 MB | gri (tek kanal; özgünde R = G = B), kalite 90, PSNR 42,2 dB | 2,7 MB (4096×2048) |
+| earth_clouds | 11,3 MB | 6,3 MB | gri (tek kanal; özgünde R = G = B), kalite 80, PSNR 37,2 dB (kalite 90'da 9,9 MB, 42,2 dB) | 1,8 MB (4096×2048) |
 | moon_height | 8,8 MB | 5,3 MB | **kayıpsız** (çözülen pikseller özgünle aynı) | 1,4 MB (1440×720; 16 bit yükseklik alanında 2×2 ortalama, kayıpsız) |
 | moon_color | 7,4 MB | 6,1 MB | kalite 90, PSNR 42,1 dB | 1,5 MB |
 | earth_day | 4,5 MB | 2,2 MB | kalite 90, PSNR 41,4 dB | 0,7 MB |
@@ -204,9 +204,10 @@ Not (5. ve 6. satırlar): karelerin 16,7 ms'nin katlarına (vsync) sıçradığ�
 | earth_normal | 2,0 MB | 1,4 MB | **kayıpsız** | — |
 | stars | 1,9 MB | 0,5 MB | kalite 90, PSNR 50,7 dB | 0,2 MB |
 | earth_spec | 0,25 MB | 0,1 MB | **kayıpsız** | — |
-| **Toplam** | **44,5 MB** | **30,8 MB** | | **9,8 MB** |
+| **Toplam** | **44,5 MB** | **27,3 MB** | | **8,9 MB** |
 
 - Veri haritaları (yükseklik, normal, özyansıma) kayıpsızdır: gölgelendiricinin okuduğu değerler değişmez. Fotoğraf dokularında PSNR ≥ 40 dB (gözle ayırt edilmez; betik eşiği denetler).
+- **Bulut haritası kalite 80 (2026-11):** kalite 90'da tek başına tüm doku indirmesinin ~%40'ıydı (9,9 MB + `_lo` 2,7 MB). Kalite 80'de 6,3 MB + 1,8 MB, PSNR 37,2 dB (eşik 36). Bulut yarı saydam ve yumuşak; Dünya'nın gündüz yüzünde orta mesafeden ekran farkı 44,9 dB, yakın planda büyütülmüş kesitte gözle fark yok. KTX2'deki renk dokuları da benzer düzeyde (35–38 dB).
 - Düşük bellekli cihaz (`?lowmem`, `deviceMemory ≤ 4`, mobil UA) artık önceden küçültülmüş dosyayı indirir; cihazda yeniden küçültme yapılmaz.
 - **Aşamalı yükleme:** ilk yüklemede **her cihaz** `_lo` dosyalarını alır (9,8 MB; ilk görüntü masaüstünde 29 MB yerine bununla gelir). Masaüstü tam çözünürlüğü sonra, düşük öncelikle ve tek tek çözerek indirir (`scene.js upgradeTextures`): Dünya ve yıldızlar ilk görüntüden 1,5 sn sonra, **Ay dokuları kamera Ay'a ~40 Ay yarıçapı yaklaşınca** (Ay'a hiç gitmeyen ziyaretçi 14,5 MB indirmez). Eski doku, kullanan her malzemede ve uniform'da yenisiyle değiştirilip atılır (iniş arazisi Ay renk dokusunu `map` olarak kullanır). Düşük bellekli cihazda ve veri tasarrufu (`Save-Data`) açıkken yükseltme yapılmaz. Yükseltmenin GPU yüklemesi tarayıcı boştayken yapılır (`requestIdleCallback`, en çok 2 sn bekler).
 - **Eşzamanlı `gl.getError` yalnız bir kez:** R8 (tek kanal) desteği eskiden her doku yüklemesinde `getError` ile denetleniyordu. Bu çağrı GPU kuyruğunun bitmesini bekler: 8192'lik dokunun yüklemesi ve mip üretimi süresince ana iş parçacığı donar (yazılım GL ölçümünde yükseltme sırasında 4,5 sn). Artık yalnız ilk R8 dokusunda bir kez denetlenir; R8 reddedilirse sonraki R8 dokular baştan RGBA yüklenir. Yükseklik haritası yedek yolda cihazda küçültülmez (paketli 16 bit değeri bayt ortalaması bozar).
@@ -224,7 +225,7 @@ WebP indirmeyi küçültür ama ekran kartında doku yine açılmış RGBA8 olar
 | stars | 0,5 MB | 0,9 MB | 46,0 / 44,3 dB | 0,2 → 0,3 MB, 46,3 dB | 171 → 43 / 21 MB |
 | earth_normal (4096×2048) | 1,4 MB | 0,2 MB | 42,7 / 42,2 dB | — | 43 → 11 / 5 MB |
 
-PSNR, sitenin kullandığı çeviriciyle (three r170 `basis_transcoder`) çözülen düzey 0'ın kaynakla karşılaştırmasıdır; WebP dokular 41–51 dB'dir (§12.2). Toplam (`test/test_ktx2.js`): ekran kartı belleği masaüstü tam katmanda **871 → 327 MB** (BC7 varsayımıyla; BC7'siz masaüstünde BC1 ile daha az), telefonda **252 → 65 MB**. İndirme hemen hemen aynı: ilk yükleme 9,8 → 8,8 MB, tam katman 30,8 → 30,3 MB.
+PSNR, sitenin kullandığı çeviriciyle (three r170 `basis_transcoder`) çözülen düzey 0'ın kaynakla karşılaştırmasıdır; WebP dokular 41–51 dB'dir (§12.2). Toplam (`test/test_ktx2.js`): ekran kartı belleği masaüstü tam katmanda **871 → 327 MB** (BC7 varsayımıyla; BC7'siz masaüstünde BC1 ile daha az), telefonda **252 → 65 MB**. İndirme hemen hemen aynı: ilk yükleme 9,8 → 8,8 MB, tam katman 30,8 → 30,3 MB (bulut kalite 80'den sonra: ilk yükleme 7,9 MB, tam katman 26,8 MB).
 
 **KTX2'ye geçmeyenler (ölçüme göre):**
 - Bulut ve özyansıma (tek kanal, R8): masaüstünde BC7 de 8 bit/piksel, yani bellek kazancı yok; bulut haritası ETC1S'te 28,8 dB'e düşüyor (ince bulut dokusu). WebP R8 kalır.
@@ -239,11 +240,16 @@ PSNR, sitenin kullandığı çeviriciyle (three r170 `basis_transcoder`) çözü
 
 **Sınırlar:** Gerçek ekran kartlarında (özellikle telefonlarda) sınanmadı; SwiftShader yazılım GL'dir. ETC1S kalitesi WebP'nin altındadır (gündüz haritası 34,9 dB'e karşı 41,4 dB); uzaktan ve orta mesafeden fark görülmedi, Dünya'ya yakında zaten yüzey karoları devreye girer. Çevirici ilk açılışa ~0,6 MB ve işçide çevirme süresi ekler.
 
+### 12.2.2 Uydu listesi sütunlu (`api/gp?group=active&fmt=col`, `js/gpdata.js` `ommFromColumns`)
+
+Etkin uydu listesi (CelesTrak OMM JSON, ~16.900 uydu, her biri 17 alanlı nesne) her açılışta iniyordu: ham 7,1 MB, gzip 1,09 MB; tarayıcı 7 MB'lık metni ana iş parçacığında ayrıştırıyordu. Vekil artık `&fmt=col` ile sütunlu verir (`{ n, cols: { ALAN: [değerler] } }`, alan adları bir kez): ham **2,7 MB**, aktarım **0,75 MB** (yerel ölçüm, gerçek liste; −%31). İstemci (`satlayer.js`) sütunları OMM nesnelerine geri açar; GitHub kopyası, doğrudan CelesTrak ve SupGP dizi olarak kalır. Varsayılan biçim değişmedi: dağıtım sırasında açık kalan eski sekmeler `fmt` göndermez ve dizi alır. Bulutta `api/_lib.js` `ommColumns`, yerelde `sunucu.py` `omm_columns` (aynı ham veri için bir kez çevrilir, bellekte tutulur). Testler: gidiş-dönüş kayıpsız (alan sırası dahil), eksik alan, bozuk biçim; vekil sütunlu yanıtı diziyle aynı açılır, gzip en az %20 küçük, GitHub kopyasına düşüşte de sütunlu; `sunucu.py` ile birebir aynı çıktı (`test_gpdata.js`, `test_api.js`).
+
 ### 12.3 Erken indirme, yazı tipi ve önbellek
 
 - `index.html` başındaki küçük betik (`#earlyFetch`), modül grafiği inerken ana dokuları **doğrudan `fetch` ile** (`priority: 'low'`: önce JS) indirmeye başlar ve sözleri `window.LS19_EARLY`'de saklar; `texload.js` aynı sözü kullanır (tek istek). İlk sürüm `<link rel=preload as=fetch>` kullanıyordu: Chromium büyük bir preload yanıtını sonraki `fetch()` ile eşlerken ara sıra "Failed to fetch" verdi ve 11,6 MB'lık yedek JPG gereksiz indi (5 ölçümden 2'sinde); bu yüzden dokular için preload bırakıldı, yalnız küçük efemeris dizini (`index.json`, `head.bin`) preload ile gelir. Başarısız bir doku indirmesi bir kez yeniden denenir. Liste ve düşük bellek kuralı `texplan.js` ile aynıdır; `test_texplan.js` 40 durumda (?lowmem, ?ktx=0, deviceMemory, mobil UA) aynı dosyaların istendiğini denetler.
 - Google Fonts stil sayfası artık boyamayı bekletmez (`media=print` → yüklenince `all`; `display=swap`).
 - `vercel.json`: `/data/eph/*` bir yıl `immutable` (içerik değişirse klasör adı `v1` değişir). Dokular ve modeller 1 gün taze + 30 gün `stale-while-revalidate` (adları sürümsüz: eskiden 30 gün `immutable` idi, bir doku güncellenince ziyaretçi eskisini bir ay görebilirdi).
+- `/lib/*` (three.js ve eklentileri, KTX2 çeviricisi, Clarabel) 1 gün taze + 7 gün `stale-while-revalidate` (2026-11): Vercel'in varsayılanı `max-age=0, must-revalidate` idi, yani her ziyarette ~30 kütüphane dosyası sunucuya yeniden sorulur, KTX2 çeviricisi aynı ziyarette iki kez istenirdi (ilk yükleme ve tam çözünürlüğe yükseltme ayrı yükleyici kurar). Uygulama kodu (`/js/`) bilerek kuralsız: eski ve yeni modüller karışırsa sayfa bozulabilir. Kütüphane sürümü yükseltilirken yol değiştirilmeli (ör. `lib/three-r180/`), yoksa ziyaretçi bir güne kadar eski dosyayı görebilir.
 
 ### 12.4 Ölçüm (yerel sunucu, başsız Chromium; ilk ziyaret, `?sats=0&ast=0`)
 

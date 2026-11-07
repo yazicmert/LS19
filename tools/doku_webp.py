@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # Ana dokuların WebP sürümleri (web/textures/*.webp) ve düşük bellekli cihazlar için önceden küçültülmüş sürümleri (*_lo.webp).
-#   python3 tools/doku_webp.py            (Pillow ≥ 9, WebP desteğiyle)
+#   python3 tools/doku_webp.py [süzgeç]   (Pillow ≥ 9, WebP desteğiyle; süzgeç verilirse yalnız adı onu içeren dosyalar, ör. earth_clouds)
 # Kurallar (web/js/texplan.js ile aynı):
 #   - veri haritaları (yükseklik, normal, özyansıma; PNG) KAYIPSIZ WebP: çözülen pikseller özgünle bayt bayt aynı (betik denetler)
 #   - fotoğraf dokuları kalite 90 (yıldızlar dahil), Ay normal haritası 92; PSNR ≥ 40 dB olmalı (betik denetler)
-#   - bulut haritası özgünde R = G = B: tek kanal (gri) kodlanır, gölgelendirici yalnız .r okur
+#   - bulut haritası özgünde R = G = B: tek kanal (gri) kodlanır, gölgelendirici yalnız .r okur. Kalite 80 (eşik 36 dB): 90'da 42 dB ama
+#     10,2 MB (tüm doku indirmesinin ~%40'ı); 80'de 6,8 MB, 37 dB. Bulut yarı saydam ve yumuşak: ekran görüntüsü karşılaştırmasında fark yok
 #   - _lo: texplan.js'teki "lo" boyutuna Lanczos ile küçültülmüş, aynı kalite (eskiden telefon 8192'lik dosyayı indirip küçültüyordu).
 #     Ay yükseklik haritası (16 bit, R yüksek / G düşük bayt) piksel olarak değil yükseklik olarak 2×2 ortalanır, yeniden paketlenir, kayıpsız.
 #     _lo dosyaları her cihazda ilk iner; masaüstü tam çözünürlüğü sonra alır (scene.js: Dünya hemen, Ay yaklaşınca).
@@ -18,7 +19,7 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'web', 'te
 PLAN = [
     ('earth_day.jpg', 'rgb', 90, (4096, 2048)),
     ('earth_night.jpg', 'rgb', 90, (4096, 2048)),
-    ('earth_clouds.jpg', 'gray', 90, (4096, 2048)),
+    ('earth_clouds.jpg', 'gray', 80, (4096, 2048)),
     ('earth_spec.png', 'lossless', 0, None),
     ('earth_normal.png', 'lossless', 0, None),
     ('moon_color.jpg', 'rgb', 90, (4096, 2048)),
@@ -26,6 +27,10 @@ PLAN = [
     ('moon_height.png', 'lossless', 0, (1440, 720)),
     ('stars.jpg', 'rgb', 90, (4096, 2048)),
 ]
+
+MIN_PSNR = {'earth_clouds.jpg': 36}          # öteki kayıplı dokular 40 dB
+ONLY = sys.argv[1] if len(sys.argv) > 1 else ''
+
 
 def psnr(a, b):
     m = np.mean((a.astype(np.float64) - b.astype(np.float64)) ** 2)
@@ -44,6 +49,8 @@ def decoded(data, gray):
 ok = True
 tot0 = tot1 = totlo = 0
 for f, kind, q, lo in PLAN:
+    if ONLY not in f:
+        continue
     src = Image.open(os.path.join(ROOT, f)); src.load(); a = np.asarray(src.convert('RGB'))
     gray = kind == 'gray'
     if gray:
@@ -54,7 +61,7 @@ for f, kind, q, lo in PLAN:
     data = encode(img, kind, q)
     p = psnr(ref, decoded(data, gray)); exact = np.array_equal(ref, decoded(data, gray))
     if kind == 'lossless' and not exact: ok = False; print(f'HATA {f}: kayıpsız değil')
-    if kind != 'lossless' and p < 40: ok = False; print(f'HATA {f}: PSNR {p:.1f} < 40')
+    if kind != 'lossless' and p < MIN_PSNR.get(f, 40): ok = False; print(f'HATA {f}: PSNR {p:.1f} < {MIN_PSNR.get(f, 40)}')
     base = f.rsplit('.', 1)[0]
     open(os.path.join(ROOT, base + '.webp'), 'wb').write(data)
     s0 = os.path.getsize(os.path.join(ROOT, f)); tot0 += s0; tot1 += len(data)

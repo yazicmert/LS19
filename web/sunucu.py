@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # LS19 (Look Star 19) yerel sunucu: sitenin dosyaları + canlı veri vekili (tarayıcı bu kaynaklara doğrudan erişemez: CORS)
 #   /api/gp?group=active          CelesTrak GP (OMM JSON) — CelesTrak kuralı: aynı veri 2 saatten sık indirilmez
+#   /api/gp?group=active&fmt=col  aynı liste sütunlu ({ n, cols }; omm_columns, api/_lib.js ommColumns ile aynı; ~%30 küçük)
 #   /api/gp?catnr=5               tek uydu (NORAD), etkin listede olmayan yükler için; kayıt yoksa 404
 #   /api/horizons?cmd=-85&start=2026-10-10&stop=2026-10-20&step=10m
 #                                 JPL Horizons: Ay merkezli ICRF durum vektörleri (km, km/s)
@@ -101,6 +102,30 @@ def fetch_gp(group):
 
 def celestrak(group, force=False):
     return cached(f'gp_{group}.json', SOURCES['gp'][1], lambda: fetch_gp(group), force=force)
+
+
+def omm_columns(arr):
+    """OMM listesi -> sütunlu { n, cols }: alan adları bir kez (api/_lib.js ommColumns ile aynı; olmayan alan None)"""
+    keys = []
+    for o in arr:
+        for k in o:
+            if k not in keys:
+                keys.append(k)
+    return {'n': len(arr), 'cols': {k: [o.get(k) for o in arr] for k in keys}}
+
+
+_COL_CACHE = {}
+
+
+def celestrak_columns(group):
+    """sütunlu liste; aynı ham veri için dönüşüm bir kez yapılır (7 MB JSON'u her istekte yeniden çevirmemek için)"""
+    raw, info = celestrak(group)
+    key = hashlib.sha1(raw).hexdigest()
+    hit = _COL_CACHE.get(group)
+    if not hit or hit[0] != key:
+        hit = (key, json.dumps(omm_columns(json.loads(raw)), separators=(',', ':'), ensure_ascii=False).encode())
+        _COL_CACHE[group] = hit
+    return hit[1], info
 
 
 class NoRecord(Exception):
@@ -582,7 +607,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 group = q.get('group', 'active')
                 if group not in GROUPS:
                     return self.send_json(400, {'hata': 'bilinmeyen grup'})
-                data, info = celestrak(group)
+                data, info = celestrak_columns(group) if q.get('fmt') == 'col' else celestrak(group)
                 return self.send_json(200, data, {'X-LS19-Kaynak': urllib.parse.quote(info['kaynak']), 'X-LS19-Yas': str(info['yas_s'])})
             if u.path == '/api/asteroids':
                 which = q.get('set', 'neo')

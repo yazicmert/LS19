@@ -25,6 +25,16 @@ export async function celestrakOrMirror(url, mirrorFile) {
     return { txt, kaynak: 'CelesTrak (GitHub kopyası)', yas };
   }
 }
+// OMM listesi (CelesTrak JSON: her uydu için 17 alanlı nesne) -> sütunlu JSON { n, cols: { ALAN: [değerler] } }: alan adları bir kez yazılır.
+// Etkin liste (~16.900 uydu) ham 7,1 -> 2,7 MB, gzip 1,07 -> 0,74 MB; tarayıcıda ayrıştırma da kısalır. İstemci: web/js/gpdata.js ommFromColumns.
+// Bir nesnede olmayan alan null yazılır (açılırken atlanır). Yerel karşılığı: web/sunucu.py omm_columns (aynı çıktı).
+export function ommColumns(arr) {
+  const keys = [];
+  for (const o of arr) for (const k of Object.keys(o)) if (!keys.includes(k)) keys.push(k);
+  const cols = {};
+  for (const k of keys) cols[k] = arr.map((o) => (o[k] === undefined ? null : o[k]));
+  return { n: arr.length, cols };
+}
 export const CHECK_S = 600;
 // CelesTrak toplu grupları (ör. active) tanıtıcı ve iletişim adresli bir User-Agent ister; adres olmadan 403 verebiliyor
 export const UA = { 'User-Agent': 'LS19/1.1 (Look Star 19 egitim simulasyonu; +https://github.com/yazicmert/LS19)' };

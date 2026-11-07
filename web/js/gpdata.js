@@ -6,6 +6,8 @@
 //     yanlış olduğunda bayat veri taze sanılmasın.
 //   • Operatör verisi (SupGP) yalnız aynı uydunun normal GP kaydından yeni çağlıysa kullanılır: bayat bir SupGP kopyası taze GP'yi bozmasın.
 
+//   • Vekil listeyi sütunlu da verebilir (api/gp?group=…&fmt=col, { n, cols }: alan adları bir kez; ~%30 küçük); ommFromColumns açar.
+
 export const MAX_COPY_AGE_S = 2 * 3600;
 // En yeni çağ ile indirme anı arasındaki olağan gecikme payı. Etkin uydu listesinde en yeni çağ indirme anından birkaç saatten fazla
 // geride kalmaz (Starlink kayıtları günde birkaç kez yenilenir); 1 günlük pay, taze veriyi yanlışlıkla bayat saymayı önler.
@@ -54,4 +56,21 @@ export function mergeSupGP(gp, supByFile, now = Date.now()) {
     return { ...b.o, OBJECT_NAME: o.OBJECT_NAME, OBJECT_ID: o.OBJECT_ID || b.o.OBJECT_ID, _sup: { file: b.f, src: b.o.DATA_SOURCE || '', rms: b.o.RMS != null ? +b.o.RMS : null } };
   });
   return { merged, n, older };
+}
+
+// sütunlu liste ({ n, cols: { ALAN: [değerler] } }; api/_lib.js ommColumns, sunucu.py omm_columns) -> OMM nesneleri (null alan atlanır).
+// Zaten dizi gelirse olduğu gibi döner; biçim tutmazsa hata (çağıran öteki kaynağa geçer).
+export function ommFromColumns(d) {
+  if (Array.isArray(d)) return d;
+  const cols = d && d.cols, n = d && d.n;
+  if (!cols || typeof cols !== 'object' || !Number.isInteger(n) || n < 0) throw new Error('beklenmeyen biçim');
+  const keys = Object.keys(cols);
+  if (!keys.every((k) => Array.isArray(cols[k]) && cols[k].length === n)) throw new Error('sütun uzunlukları tutmuyor');
+  const out = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const o = {};
+    for (const k of keys) { const v = cols[k][i]; if (v !== null) o[k] = v; }
+    out[i] = o;
+  }
+  return out;
 }

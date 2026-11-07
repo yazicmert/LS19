@@ -41,6 +41,11 @@ const sb = await call('sbdb', '?des=99942'); check(sb.status === 200 && sb.j.orb
 const sbBad = await call('sbdb', '?des=' + encodeURIComponent('<script>')); check(sbBad.status === 400, 'geçersiz tanım 400');
 const gp = await call('gp', '?group=active'); check(gp.status === 200 && Array.isArray(gp.j) && gp.j.length > 0 && gp.size < 4.5e6, `gp: ${gp.j.length} uydu, gzip ${(gp.size / 1e6).toFixed(2)} MB`);
 check(/s-maxage=7200/.test(gp.cc), 'CelesTrak için 2 sa önbellek');
+const gpc = await call('gp', '?group=active&fmt=col');
+const { ommFromColumns } = await import('../js/gpdata.js');
+check(gpc.status === 200 && gpc.j.n === gp.j.length && JSON.stringify(ommFromColumns(gpc.j)) === JSON.stringify(gp.j) && /s-maxage=7200/.test(gpc.cc),
+  `gp&fmt=col: sütunlu, açılınca OMM dizisiyle aynı, 2 sa önbellek`);
+check(gpc.size < 0.8 * gp.size && gpc.raw < 0.5 * gp.raw, `gp&fmt=col: gzip ${(gp.size / 1e6).toFixed(2)} → ${(gpc.size / 1e6).toFixed(2)} MB, ham ${(gp.raw / 1e6).toFixed(2)} → ${(gpc.raw / 1e6).toFixed(2)} MB`);
 check(/github\.com\/yazicmert\/LS19/.test(seenUA['celestrak.org'] || ''), 'CelesTrak isteği iletişim adresli User-Agent taşır: ' + seenUA['celestrak.org']);
 // tek uydu (etkin listede olmayan yükler): kayıt, kayıt yok (atmosfere girmiş), geçersiz numara
 const g5 = await call('gp', '?catnr=5'); check(g5.status === 200 && g5.j.length === 1 && g5.j[0].NORAD_CAT_ID === 5 && /s-maxage=7200/.test(g5.cc), 'gp?catnr=5: tek uydu (Vanguard 1), 2 sa önbellek');
@@ -55,6 +60,7 @@ globalThis.fetch = async (url) => { const u = String(url); if (u.includes('celes
   if (u.includes('raw.githubusercontent.com') && u.endsWith('meta.json')) return new Response(JSON.stringify({ t: Date.now() - 3600e3 }));
   return realFetch(url); };
 const gm = await call('gp', '?group=active&v=x'); check(gm.status === 200 && Array.isArray(gm.j) && /GitHub/.test(decodeURIComponent(gm.hk || '')), 'CelesTrak 403 → GitHub kopyası');
+const gmc = await call('gp', '?group=active&fmt=col&v=x'); check(gmc.status === 200 && gmc.j.n === gm.j.length && /GitHub/.test(decodeURIComponent(gmc.hk || '')), 'CelesTrak 403 → GitHub kopyası, sütunlu da');
 globalThis.fetch = realFetch;
 const sv = await call('surum'); check(sv.j.mod === 'bulut' && sv.j.kaynaklar.gp.surum === Math.floor(Date.now() / 7.2e6), 'surum kovaları');
 check(sv.j.kaynaklar.launch && sv.j.kaynaklar.launch.aralik_s === 1800 && sv.j.kaynaklar.launch.surum === Math.floor(Date.now() / 1.8e6), 'surum: fırlatma kataloğu 30 dk kovası');
@@ -98,6 +104,11 @@ for (const [kod, a, b] of [['ll2', 'll2_upcoming.json', 'll2_previous.json'], ['
   const { buildCatalog } = await import('../js/launchdata.js');
   check(JSON.stringify(JSON.parse(pyCat)) === JSON.stringify(buildCatalog(kod, up, prev, 1)), `fırlatma kataloğu (${kod}): sunucu.py ile aynı`);
 }
+// sunucu.py sütunlu uydu listesi = api/_lib.js ommColumns (aynı alan sırası ve değerler)
+const pyCol = execFileSync('python3', ['-c', `import json,sys; sys.path.insert(0,'.'); import sunucu as S; print(json.dumps(S.omm_columns(json.load(open('${dir}gp_active.json'))), separators=(',',':'), ensure_ascii=False))`],
+  { cwd: new URL('..', import.meta.url).pathname, maxBuffer: 1e9 }).toString();
+const { ommColumns } = await import('../../api/_lib.js');
+check(JSON.stringify(JSON.parse(pyCol)) === JSON.stringify(ommColumns(JSON.parse(file('gp_active.json')))), 'sunucu.py omm_columns = api ommColumns');
 // sunucu.py tek uydu: kayıt döner, "No GP data found" -> NoRecord (404)
 const pyOne = execFileSync('python3', ['-c', `import sys; sys.path.insert(0,'.'); import sunucu as S
 S.http_get = lambda u, t=90: b'No GP data found' if 'CATNR=99&' in u else b'[{"NORAD_CAT_ID":5}]'
