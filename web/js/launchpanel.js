@@ -1,6 +1,6 @@
 // Fırlatmalar sekmesi: üç görünüm.
 //   Yaklaşan  — canlı LL2 kayıtları (launches.js): satıra dokununca ayrıntı (görev, müşteri, roket ve itici istatistikleri, iniş, pencere,
-//               hava, canlı yayın, yılın kaçıncı fırlatması); kesin saatli olanda canlı geri sayım.
+//               hava, canlı yayın, yılın kaçıncı fırlatması, görev yükü); kesin saatli olanda canlı geri sayım.
 //   Geçmiş    — 1957'den bugüne veritabanı (launchdb.js, GCAT — J. McDowell, CC-BY-4.0) ve veritabanından yeni son günlerin LL2 kayıtları:
 //               arama (roket, görev, COSPAR, yer, kuruluş, ülke, yük adı), yıl/ülke/sonuç/amaç süzgeci; ayrıntıda yörünge, itici ve yükler
 //               (payloadui.js: her yükün amacı, araştırma alanı, bugünkü durumu, Vikipedi özeti, yörünge çizimi, yörüngedekiler için 3B'de izle).
@@ -47,7 +47,7 @@ export class LaunchPanel {
     Object.assign(this, { launches, sats, follow });
     this.root = $('#launchList'); this.view = 'yak'; this.open = null; this.db = null; this.dbErr = null; this.dbLoading = false;
     this.f = NOF(); this.shown = PAGE; this.statYear = new Date().getUTCFullYear(); this.cdEl = null;
-    this.pv = new PayloadView({ sats, follow });
+    this.pv = new PayloadView({ sats, follow, search: (q) => { this.f = { ...NOF(), q }; this.shown = PAGE; this.setView('gec'); } });
     if (!this.root) return;
     this.build();
   }
@@ -140,6 +140,7 @@ export class LaunchPanel {
     if (d.hata) dd(dl, 'Neden', d.hata, true);
     if (l.cospar) dd(dl, 'COSPAR', l.cospar);
     box.appendChild(dl);
+    box.appendChild(this.pv.liveSection(l));                      // görev yükü: LL2 yükleri, görev adından aile ve ansiklopedi, kendi sayfası
     if (past && l.cospar) box.appendChild(this.catalogRow(l.cospar));
     const vids = d.yayin || [];
     if (vids.length) {
@@ -241,7 +242,7 @@ export class LaunchPanel {
       dd(dl, 'COSPAR', r.tag);
       box.appendChild(dl);
       // yükler (veri yoksa — çok yeni fırlatma — etkin uydu kataloğundaki nesneler)
-      box.appendChild(this.pv.section(r.tag, new Date(r.t).getUTCFullYear(), /^\d{4}-\d{3}$/.test(r.tag) ? () => this.catalogRow(r.tag) : null));
+      box.appendChild(this.pv.section(r.tag, new Date(r.t).getUTCFullYear(), /^\d{4}-\d{3}$/.test(r.tag) ? () => this.catalogRow(r.tag) : null, r.t));
       li.appendChild(box); this.enter(box);
     }
     return li;

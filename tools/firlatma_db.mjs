@@ -7,18 +7,22 @@
 // Kullanım (depo kökünden):
 //   node tools/firlatma_db.mjs                       GCAT'ten indirir
 //   node tools/firlatma_db.mjs <klasör>              önceden indirilmiş TSV'lerden (vekilli ortamlarda; FILES'taki dosya adları)
-// Yükler (uydu, uzay aracı, kapsül) fırlatma yılına göre web/data/payloads/<yıl>.json'a yazılır; amaç GCAT yük kataloğundan
+// Yükler (uydu, uzay aracı, kapsül) fırlatma yılına göre web/data/payloads/<yıl>.json'a, yük aileleri (ad kökü -> amaç, program, sahip; canlı
+// fırlatmanın adından çıkarım için, js/payloadresolve.js) web/data/payload_families.json'a yazılır; amaç GCAT yük kataloğundan
 // (Category, Discipline, Program, Class), güncel durum GCAT güncel kataloğundan. Vikipedi maddeleri Wikidata'dan (CC0) eşlenir:
 // NORAD (P377) ya da COSPAR (P247) numarası olan ve tr/en Vikipedi maddesi bulunan nesneler. Wikidata'ya ulaşılamazsa var olan
 // yük dosyalarındaki eşleme korunur. --wikidata <dosya.json> önceden indirilmiş SPARQL yanıtını kullanır. Vekilli ortamda Node'un fetch'i
 // vekili ancak NODE_USE_ENV_PROXY=1 ile kullanır.
 import fs from 'fs';
 import path from 'path';
+import { nameStem } from '../web/js/payloads.js';
 
 const BASE = 'https://planet4589.org/space/gcat/tsv/';
 const FILES = { launch: 'launch/launch.tsv', orgs: 'tables/orgs.tsv', sites: 'tables/sites.tsv',
   // yükler: nesne katalogları (standart, yardımcı, yörüngeye ulaşamayanlar), yük katalogları (amaç, sınıf, program), güncel durum, etkin uydular
-  satcat: 'cat/satcat.tsv', auxcat: 'cat/auxcat.tsv', ftocat: 'cat/ftocat.tsv', psatcat: 'cat/psatcat.tsv', pauxcat: 'cat/pauxcat.tsv', pftocat: 'cat/pftocat.tsv',
+  // satcat100k: 100.000 üstü NORAD numaralı (son aylarda kataloglanan) nesneler; ana katalog bunları içermez
+  satcat: 'cat/satcat.tsv', satcat100k: 'cat/satcat100k.tsv', auxcat: 'cat/auxcat.tsv', ftocat: 'cat/ftocat.tsv',
+  psatcat: 'cat/psatcat.tsv', psatcat100k: 'cat/psatcat100k.tsv', pauxcat: 'cat/pauxcat.tsv', pftocat: 'cat/pftocat.tsv',
   currentcat: 'derived/currentcat.tsv', active: 'derived/active.tsv' };
 const UA = { 'User-Agent': 'LS19/1.1 (Look Star 19 egitim simulasyonu; +https://github.com/yazicmert/LS19)' };
 const args = process.argv.slice(2), wdAt = args.indexOf('--wikidata'), wdFile = wdAt >= 0 ? args.splice(wdAt, 2)[1] : null, dir = args[0];
@@ -151,13 +155,13 @@ async function wikiMap(pdir) {
 }
 // fırlatma başına yükler (yıla göre dosyalar), ana amaç ve arama sözcükleri
 async function payloads(cols) {
-  const [sat, aux, fto, psat, paux, pfto, cur, act] = (await Promise.all(['satcat', 'auxcat', 'ftocat', 'psatcat', 'pauxcat', 'pftocat', 'currentcat', 'active'].map(text))).map(tsv);
+  const [sat, sat100, aux, fto, psat, psat100, paux, pfto, cur, act] = (await Promise.all(['satcat', 'satcat100k', 'auxcat', 'ftocat', 'psatcat', 'psatcat100k', 'pauxcat', 'pftocat', 'currentcat', 'active'].map(text))).map(tsv);
   const pdir = new URL('../web/data/payloads/', import.meta.url), wiki = await wikiMap(pdir);
   const tags = new Set(cols.tag), yearOf = new Map(cols.tag.map((tg, i) => [tg, new Date(cols.t[i] * 1000).getUTCFullYear()]));
-  const purpose = new Map(); for (const c of [psat, paux, pfto]) for (const r of c.rows) purpose.set(c.get(r, 'JCAT'), [c, r]);
+  const purpose = new Map(); for (const c of [psat, psat100, paux, pfto]) for (const r of c.rows) purpose.set(c.get(r, 'JCAT'), [c, r]);
   const now = new Map(cur.rows.map((r) => [cur.get(r, 'JCAT'), r])), active = new Set(act.rows.map((r) => act.get(r, 'JCAT')));
   const items = [];
-  for (const c of [sat, aux, fto]) for (const r of c.rows) {
+  for (const c of [sat, sat100, aux, fto]) for (const r of c.rows) {
     if (c.get(r, 'Type')[0] !== 'P' || !tags.has(c.get(r, 'Launch_Tag'))) continue;
     items.push({ c, r, j: c.get(r, 'JCAT'), tg: c.get(r, 'Launch_Tag') });
   }
@@ -224,7 +228,23 @@ async function payloads(cols) {
     if (list.length <= 12) for (const o of list) out.add(o.ad);
     return [...out].filter((w) => !have.includes(fold(w))).join(' · ');
   };
-  return { by, main, words, n: items.length, nAct, nWiki, wikiNote: wiki.note, years: new Map([...years].sort((a, b) => a[0] - b[0]).map(([y, Y]) => [y, { org: Y.org, L: Y.L }])) };
+  // yük aileleri (ad kökü -> en sık amaç, araştırma alanı, program, sınıf, sahip, ülke, sayı, ilk/son yıl): canlı fırlatmanın adından çıkarım
+  const fam = new Map(), inc = (m, k) => { if (k) m.set(k, (m.get(k) || 0) + 1); };
+  for (const [tg, list] of by) {
+    const y = yearOf.get(tg);
+    for (const o of list) {
+      const stems = new Set([o.ad, ...(o.ad2 ? o.ad2.split(' · ') : []), o.pr].filter(Boolean).map(nameStem).filter(Boolean));
+      for (const st of stems) {
+        let f = fam.get(st); if (!f) fam.set(st, (f = { n: 0, k: new Map(), d: new Map(), pr: new Map(), s: new Map(), o: new Map(), y0: y, y1: y }));
+        f.n++; f.y0 = Math.min(f.y0, y); f.y1 = Math.max(f.y1, y);
+        inc(f.k, o.k); inc(f.d, o.d); inc(f.pr, o.pr); inc(f.s, o.s); if (o.o) inc(f.o, o.o[0] + '|' + o.o[2]);
+      }
+    }
+  }
+  const top = (m) => [...m.entries()].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0]?.[0] || '';
+  // yalnız 2010'dan beri yükü olan ya da en az 5 yüklü aileler (yaklaşan fırlatmalar için; dosya ~80 KB sıkıştırılmış)
+  const families = Object.fromEntries([...fam].filter(([, f]) => f.y1 >= 2010 || f.n >= 5).sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([st, f]) => { const [os, ou] = top(f.o).split('|'); return [st, [top(f.k), top(f.d), top(f.pr), top(f.s), os || '', ou || '', f.n, f.y0, f.y1]]; }));
+  return { by, main, words, families, n: items.length, nAct, nWiki, wikiNote: wiki.note, years: new Map([...years].sort((a, b) => a[0] - b[0]).map(([y, Y]) => [y, { org: Y.org, L: Y.L }])) };
 }
 
 const META = { kaynak: 'GCAT — General Catalog of Artificial Space Objects, J. C. McDowell', url: 'https://planet4589.org/space/gcat', lisans: 'CC-BY-4.0',
@@ -241,8 +261,10 @@ fs.writeFileSync(new URL('../web/data/launchdb.json', import.meta.url), JSON.str
 const pdir = new URL('../web/data/payloads/', import.meta.url);
 fs.mkdirSync(pdir, { recursive: true });
 for (const f of fs.readdirSync(pdir)) if (/^\d{4}\.json$/.test(f)) fs.unlinkSync(new URL(f, pdir));
+fs.writeFileSync(new URL('../web/data/payload_families.json', import.meta.url), JSON.stringify({ meta: { ...META, alanlar: ['amaç', 'araştırma', 'program', 'sınıf', 'sahip', 'ülke', 'sayı', 'ilk yıl', 'son yıl'] }, f: P.families }));
 let pBytes = 0;
 for (const [y, file] of P.years) { const txt = JSON.stringify({ meta: { ...META, wiki: P.wikiNote, yil: y }, ...file }); pBytes += txt.length; fs.writeFileSync(new URL(`${y}.json`, pdir), txt); }
+console.log(`yük aileleri: ${Object.keys(P.families).length}`);
 console.log(`yükler: ${P.n} (${P.nAct} etkin, ${P.nWiki} Vikipedi maddesi; ${P.wikiNote}), ${P.years.size} yıl dosyası, ${(pBytes / 1024).toFixed(0)} KB; yüksüz fırlatma ${cols.ny.filter((x) => !x).length}`);
 const y = new Date().getUTCFullYear(), thisYear = cols.t.filter((t) => new Date(t * 1000).getUTCFullYear() === y).length;
 console.log(`${cols.t.length} fırlatma (${cols.r.filter((r) => r === 'F').length} başarısız), ${LV.list.length} roket, ${SITE.list.length} fırlatma yeri, ${AG.list.length} kuruluş; ${y}: ${thisYear}; atlanan ${skipped}; GCAT ${rel || '?'} (${upd || '?'})`);

@@ -486,6 +486,22 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
 .py-pt { fill: var(--accent-2); } .py-pt.ap { fill: var(--text-secondary); }
 .py-cap { display: flex; flex-wrap: wrap; gap: 3px 10px; margin-top: 4px; font-size: 11.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .py-cap b { font-weight: 600; color: var(--text-secondary); }
+/* Görev yükü kartı (yaklaşan ve veritabanından yeni fırlatmalar): LL2 yükleri + görev adından çözümleme; açılmayan satırlar */
+.py-mbody { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px 11px; min-width: 0; }
+.py-mbody .py-name { white-space: normal; }
+.py-fam { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 12px; color: var(--text-muted); }
+.py-fam:empty { display: none; }
+.py-fl { min-width: 0; }
+.py-fb { padding: 2px 8px; font-size: 11.5px; }
+.py-desc { margin: 4px 0 0; font-size: 12px; line-height: 1.5; color: var(--text-secondary); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.py-links { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; margin-top: 4px; font-size: 12px; }
+.py-links .lp-link { color: var(--accent-2); }
+.py-links:empty { display: none; }
+.py-wd { margin-top: 4px; }
+.py-wd > .py-wait { margin: 2px 0; font-size: 11.5px; }
+.py-wdd { margin: 2px 0 6px; font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); }
+.py-wdd b { color: var(--text-primary); font-weight: 600; }
+.py-det > .py-wd { margin: 2px 0 8px; }
 @media (hover: hover) and (pointer: fine) {
   .lp-rrow:hover { background: rgba(255, 255, 255, .04); } .lp-rrow:hover .lp-rbar span { background: #6b8dbd; }
   .lp-btn:hover { background: #2f74e6; } .lp-link:hover { color: var(--text-primary); }

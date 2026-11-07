@@ -39,7 +39,9 @@ saptırma laboratuvarı bir asteroide uygulanan itkinin Dünya yakın geçişini
   roket ve itici istatistikleri, iniş, hava, canlı yayın), *Geçmiş* (1957'den bugüne 7.400'ü aşkın fırlatma: arama, yıl/ülke/sonuç/amaç süzgeci;
   GCAT — J. McDowell, CC BY 4.0; her fırlatmanın yükleri: amacı, neyi araştırdığı, sahibi, bugünkü durumu, Vikipedi özeti, yörünge çizimi,
   yörüngedekiler için **3B'de izle** — etkin listede olmayan uydu `/api/gp?catnr=` ile CelesTrak'tan alınır) ve *İstatistik* (yıllık sayılar,
-  başarı oranı, en çok fırlatan roket/ülke/yer, amaçlara göre dağılım). Kaynak: The Space Devs Launch Library 2 (ücretsiz, anahtarsız; yerel
+  başarı oranı, en çok fırlatan roket/ülke/yer, amaçlara göre dağılım). Yaklaşan ve veritabanından yeni fırlatmalarda **Görev yükü** kartı görev
+  adından çözümlenir: LL2'nin bildirdiği yük ve araç, aynı adlı önceki yüklerden aile bilgisi (`data/payload_families.json`), Wikidata/Vikipedi
+  (tarih ya da COSPAR tutmalı) ve görevin resmî sayfası. Kaynak: The Space Devs Launch Library 2 (ücretsiz, anahtarsız; yerel
   sunucu `/api/launches` 30 dakikada bir yeniler), alınamazsa RocketLaunch.Live ücretsiz akışı (sonraki 5 fırlatma).
 
 ## Görev yapılandırması (Görev sekmesi)

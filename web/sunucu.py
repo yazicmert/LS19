@@ -311,8 +311,38 @@ def detail_ll2(r):
     yayin = [prune({'u': lstr(v.get('url')), 'b': lcut(v.get('title'), 90), 'resmi': True if off == 1 else None}) for *_, v, off in ranked[:2]]
     ups = r.get('updates')
     up = ups[0] if isinstance(ups, list) and ups else None
+    rk = r.get('rocket') or {}
+
+    def https(u):
+        v = lstr(u)
+        return v if v and v.startswith('https://') else None
+    yuk = []
+    for pf in (rk.get('payloads') if isinstance(rk.get('payloads'), list) else [])[:8]:
+        pf = pf if isinstance(pf, dict) else {}
+        p = pf.get('payload') or {}
+        op, mf, n = p.get('operator') or {}, p.get('manufacturer') or {}, lint(pf.get('amount'))
+        yuk.append(prune({'ad': lstr(p.get('name')), 'tur': lstr((p.get('type') or {}).get('name')), 'op': lstr(op.get('abbrev')) or lstr(op.get('name')),
+                          'uretici': lstr(mf.get('abbrev')) or lstr(mf.get('name')), 'hedef': lstr(pf.get('destination')), 'adet': n if n is not None and n > 1 else None,
+                          'kg': lnum(p.get('mass')), 'aciklama': lcut(p.get('description'), 400), 'url': https(p.get('info_link')), 'wiki': https(p.get('wiki_link'))}))
+    scs = rk.get('spacecraft_stage') or []
+    for st in (scs if isinstance(scs, list) else [scs])[:2]:
+        st = st if isinstance(st, dict) else {}
+        sc = st.get('spacecraft') or {}
+        yuk.append(prune({'ad': lstr(sc.get('name')), 'tur': lstr((sc.get('spacecraft_config') or {}).get('name')), 'hedef': lstr(st.get('destination')), 'arac': True}))
+    yuk = [x for x in yuk if x.get('ad')]
+    urls = [u for u in (r.get('info_urls') or []) if isinstance(u, dict) and https(u.get('url'))]
+    ranked = []
+    for i, u in enumerate(urls):
+        off = 1 if (u.get('type') or {}).get('id') == 1 else 0
+        pr = lnum(u.get('priority'))
+        ranked.append((-off, -(pr if pr is not None else 0), i, u, off))
+    ranked.sort(key=lambda x: x[:3])
+    site = [prune({'u': https(u.get('url')), 'k': lcut(u.get('source'), 40) or lcut(u.get('title'), 40), 'resmi': True if off == 1 else None}) for *_, u, off in ranked[:2]]
     return prune({
         'aciklama': lcut(mi.get('description'), 700),
+        'gorevTur': lstr(mi.get('type')),
+        'yuk': yuk,
+        'site': site,
         'musteri': names(mi.get('agencies'), 3),
         'program': names(r.get('program'), 2),
         'tur': lstr((lsp.get('type') or {}).get('name')),
