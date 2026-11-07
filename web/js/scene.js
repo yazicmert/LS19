@@ -24,7 +24,7 @@ import { makeSpaceEnv, ENV_HALF_DEG, makePlume, plumeGeometry, setPlume, plumeTi
 import { PointStore } from './pointstore.js';
 import { mergeByMaterial } from './meshmerge.js';
 import { loadTextures, lowMemory } from './texload.js';
-import { TEX } from './texplan.js';
+import { TEX, UPGRADE } from './texplan.js';
 
 
 const { add, sub, scale, dot, cross, norm, unit } = E;
@@ -70,7 +70,8 @@ export class World {
   }
 
   // Yükleme hattı: dokular (texload.js: ana iş parçacığı dışında çözme, GPU'ya kareler arasında yükleme), arazi verisi ve modeller birlikte iner;
-  // sahne kurulunca gölgelendiriciler önceden derlenir (ilk çizim derleme için donmasın).
+  // sahne kurulunca gölgelendiriciler önceden derlenir (ilk çizim derleme için donmasın). Dokular her cihazda önce önceden küçültülmüş (_lo)
+  // dosyalardan gelir (masaüstünde ~29 MB yerine ~9 MB); masaüstü tam çözünürlüğü sonra alır (upgradeTextures).
   async load(base, onProgress = () => {}) {
     this.base = base;
     const lowmem = this.lowMem = lowMemory(), total = TEX.length * 2 + 5; let done = 0;       // doku başına 2 adım (çözüldü, GPU'da) + arazi verisi + 3 model + derleme
@@ -78,11 +79,41 @@ export class World {
     const json = (f) => fetch(base + f).then((r) => (r.ok ? r.json() : null)).catch(() => null).then((x) => { tick('dem'); return x; });
     const gl = new GLTFLoader(); gl.setMeshoptDecoder(MeshoptDecoder);
     const glb = (f) => new Promise((res) => gl.load(base + 'models/' + f, (g) => { tick(f); res(g.scene); }, undefined, () => { tick(f + ' (yok)'); res(null); }));
-    const [T, dem, lander, stage, orb] = await Promise.all([loadTextures(this.renderer, base, { lowmem, tick }), json('data/site_dem.json'),
+    const [T, dem, lander, stage, orb] = await Promise.all([loadTextures(this.renderer, base, { lowmem: true, conc: lowmem ? 2 : 3, tick }), json('data/site_dem.json'),
       glb('lander.glb'), glb('stage.glb'), glb('orb.glb')]);          // NASA resmî Apollo modelleri: LM, S-IVB, hizmet modülü (tools/apollo_modelleri.mjs)
     this.build({ ...T, dem, lander, stage, orb });
     await this.precompile(); tick('gölgelendiriciler');
     this.ready = true;
+    // masaüstü: Dünya ve yıldızların tam çözünürlüğü ilk görüntüden kısa süre sonra; Ay'ınki kamera yaklaşınca (placeFrame). Veri tasarrufunda yükseltme yok.
+    const saveData = typeof navigator !== 'undefined' && navigator.connection && navigator.connection.saveData;
+    if (!lowmem && !saveData) { this.texUp = {}; setTimeout(() => this.upgradeTextures('earth'), 1500); }
+  }
+  // önceden küçültülmüş dokuyu tam çözünürlüklüsüyle değiştir (düşük öncelikli indirme, tek tek çözme); eski doku GPU'dan atılır.
+  // Yüzey parçaları aynı uniform nesnelerini paylaşır ({ ...eu }): değer burada değişince onlarda da değişir.
+  async upgradeTextures(group) {
+    if (!this.texUp || this.texUp[group]) return;
+    this.texUp[group] = 'iniyor';
+    const specs = TEX.filter((s) => UPGRADE[group].includes(s.key) && s.flo);
+    let T = {};
+    try { T = await loadTextures(this.renderer, this.base, { specs, lowmem: false, conc: 1, priority: 'low', idle: true }); } catch (e) { T = {}; }
+    const slot = { day: [this.earthU, 'dayMap'], night: [this.earthU, 'nightMap'], clouds: [this.earthU, 'cloudMap'], mcol: [this.moonU, 'colorMap'], mnorm: [this.moonU, 'normalMap'], mh: [this.moonU, 'heightMap'] };
+    // eski dokuyu kullanan her malzemede (iniş arazisi Ay renk dokusunu map olarak kullanır) ve uniform'da yenisiyle değiştir: atılan doku bir daha
+    // çizilirse kapatılmış bitmap'ten yeniden yüklenmeye çalışılır (WebGL hatası, siyah yüzey)
+    const swap = (old, t) => this.scene.traverse((o) => {
+      for (const m of o.material ? [].concat(o.material) : []) {
+        for (const k of Object.keys(m)) if (m[k] === old) { m[k] = t; m.needsUpdate = true; }
+        if (m.uniforms) for (const u of Object.values(m.uniforms)) if (u && u.value === old) u.value = t;
+      }
+    });
+    for (const [k, t] of Object.entries(T)) {
+      if (!t) continue;                                                            // inmediyse küçük doku kalır
+      const old = k === 'stars' ? this.stars.material.map : slot[k] ? slot[k][0][slot[k][1]].value : null;
+      if (!old || old === t) continue;
+      swap(old, t);
+      if (k === 'mh') this.moonU.hSize.value.set(...t.userData.size);
+      if (!old.isDataTexture) old.dispose();
+    }
+    this.texUp[group] = 'tamam';
   }
   // Programları (gölgelendirici bağlama) ilk çizimden önce derle: KHR_parallel_shader_compile varsa ana iş parçacığını tutmadan.
   // Eşzamanlı hata denetimi paralel derlemeyi engeller: derleme sırasında kapatılır, sonra bağlama durumu toplu denetlenir.
@@ -404,6 +435,7 @@ export class World {
     rel([0, 0, 0], this.earth.position); this.earth.quaternion.copy(m3ToQuat(E.mT(Mitrf)));
     this.atm.position.copy(this.earth.position);
     rel(rm, this.moon.position); this.moon.quaternion.copy(m3ToQuat(E.mT(Mme)));
+    if (this.texUp && !this.texUp.moon && this.moon.position.length() < 40 * E.R_M) this.upgradeTextures('moon');          // Ay'a yaklaşıldı (~70.000 km): tam çözünürlük
     this.updateTiles();
     if (this.terrainReady) this.placeTerrain(rm, Mme, eye, rel);
     return { eye, rel, sd };
