@@ -37,7 +37,7 @@ async function open(S) {
   const ctx = await browser.newContext(S.ctx), page = await ctx.newPage(), errors = []; page.setDefaultNavigationTimeout(240000); page.setDefaultTimeout(240000);
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
   page.on('console', (m) => { const t = m.text(); if (m.type() === 'error' && !/ERR_CERT|ERR_TUNNEL|Failed to load resource|net::ERR/.test(t)) errors.push('console: ' + t.slice(0, 160)); });
-  await page.addInitScript(() => { try { localStorage.clear(); localStorage.setItem('ls19.vehicle', 'two'); localStorage.setItem('ls19.landing', 'opt'); } catch (e) { /* */ } });
+  await page.addInitScript(() => { try { localStorage.clear(); localStorage.setItem('ls19.lang', 'tr'); localStorage.setItem('ls19.vehicle', 'two'); localStorage.setItem('ls19.landing', 'opt'); } catch (e) { /* */ } });
   if (S.init) await page.addInitScript(S.init);
   await page.goto(base + 'index.html' + S.q, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => { const l = document.querySelector('#loading'); return l && getComputedStyle(l).display === 'none'; }, null, { timeout: 280000 });

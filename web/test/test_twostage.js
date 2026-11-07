@@ -12,14 +12,17 @@ import { Mission, twoStageDesign, TWO_STAGE, siteIcrf, R_SITE } from '../js/miss
 import { dvFromEvents } from '../js/dvbudget.js';
 import * as T from '../js/telemetry.js';
 import { initConic } from '../js/conic.js';
+import { parca } from './parca.js';
 
-let fail = 0;
-const check = (name, ok, detail = '') => { console.log(`${ok ? 'TAMAM' : 'HATA '} ${name}${detail ? ' — ' + detail : ''}`); if (!ok) fail++; };
+let fail = 0, nCheck = 0;
+const check = (name, ok, detail = '') => { nCheck++; console.log(`${ok ? 'TAMAM' : 'HATA '} ${name}${detail ? ' — ' + detail : ''}`); if (!ok) fail++; };
 await initConic();
 const ab = (f) => { const b = fs.readFileSync(f); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); };
 const SPK = ab(new URL('../data/de440s.bsp', import.meta.url)), PCK = ab(new URL('../data/moon_pa_de440_200625.bpc', import.meta.url));
 const eo = JSON.parse(fs.readFileSync(new URL('../data/earth_orient.json', import.meta.url))); EO.loadEarthOrientation(eo);
 const ALL = JSON.parse(fs.readFileSync(new URL('../data/designs_default.json', import.meta.url)));
+// --parca i/n (tools/testler.mjs): birimler ve ölçülen süreleri (sn): profil başına 6 uçuş + telemetri uçuşu, bozulma bölümü 8 uçuş
+const P = parca({ bolme: 1.5, ...Object.fromEntries(Object.keys(ALL.profiles).map((k) => [k, 18])), bozulma: 28 });
 const fly = (D, landing) => {
   E.setMoonZone(D.profile === 'HALO' ? 1.25 * D.HALO.stats.raKm : E.SOI_M); makeLive(SPK, PCK, eo, ALL.tStart);
   const M = new Mission({ design: D, landing }); M.P.tLimit = Infinity; M.attachHistory(); return M;
@@ -28,6 +31,7 @@ const run = (M) => { for (;;) { if (M.gen.next().done) break; } return M; };
 
 // ---------------------------------------------------------------- 1) araç bölme
 for (const [name, entry] of Object.entries(ALL.profiles)) {
+  if (!P('bolme')) break;
   const D0 = entry.design, D = twoStageDesign(D0), L = D0.STAGES[1], [, s1, s2] = D.STAGES;
   const tot0 = L.dry + L.prop, tot1 = s1.dry + s1.prop + s2.dry + s2.prop, dv1 = (D.TWO.dv1) / 1000;
   const cEx = s1.isp * E.G0, have = cEx * Math.log((tot1) / (tot1 - s1.prop));                                  // yörünge kademesinin roket denklemi Δv'si (km/s)
@@ -39,6 +43,7 @@ for (const [name, entry] of Object.entries(ALL.profiles)) {
 // ---------------------------------------------------------------- 2) uçuşlar
 const flights = {};
 for (const [name, entry] of Object.entries(ALL.profiles)) {
+  if (!P(name)) continue;
   const out = {};
   for (const mode of ['zem', 'opt', 'free']) {
     const one = run(fly(entry.design, mode)), two = run(fly(twoStageDesign(entry.design), mode));
@@ -59,6 +64,7 @@ for (const [name, entry] of Object.entries(ALL.profiles)) {
 
 // ---------------------------------------------------------------- 3) telemetri: üç kademeli Δv bütçesi
 for (const [name, entry] of Object.entries(ALL.profiles)) {
+  if (!P(name)) continue;
   const D = twoStageDesign(entry.design), nominal = dvFromEvents(flights[name].opt.two.events);                  // uygulamadaki gibi: aynı güdüm ve araçla bozulmasız koşunun Δv'si
   const M = fly(D, 'opt'), O = { stages: D.STAGES, siteIcrf, rSite: R_SITE, tLaunch: D.LAUNCH.t_launch };
   let last = -1e9, n = 0, errs = 0, nan = 0, hard = 0, ex = '', nS = 0;
@@ -86,8 +92,8 @@ for (const [name, entry] of Object.entries(ALL.profiles)) {
 }
 
 // ---------------------------------------------------------------- 4) hız bozulmalarına dayanıklılık (yörünge kademesinin payı yalnız %3 + 15 m/s; tek kademeli araçtaki gibi her iki pencerede de kurtarılır)
-{
-  const D = twoStageDesign(ALL.profiles.APOLLO.design), base = flights.APOLLO.opt.two, ev = (k) => base.events.find((e) => e.key === k);
+if (P('bozulma')) {
+  const D = twoStageDesign(ALL.profiles.APOLLO.design), base = flights.APOLLO ? flights.APOLLO.opt.two : run(fly(D, 'opt')), ev = (k) => base.events.find((e) => e.key === k);
   const tA = ev('LOI_END').t, tD = ev('DOI').t, tP = ev('PDI').t;
   let seed = 777; const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
   for (const [where, pick] of [['DOI öncesi (LLO)', () => tA + 300 + rnd() * (tD - tA - 600)], ["DOI'dan sonra, PDI'dan 5–15 dk önce", () => tP - 300 - rnd() * 600]]) {
@@ -104,4 +110,5 @@ for (const [name, entry] of Object.entries(ALL.profiles)) {
       `${okN}/${NT}, en büyük |dikey| ${worstV.toFixed(2)} m/s, hata ${worstE.toFixed(1)} m, ayrılırken en az ${minLeft} kg yakıt, başarısız yeniden çözüm ${fails}`);
   }
 }
-console.log(fail ? `\n${fail} HATA` : '\nTAMAM'); process.exit(fail ? 1 : 0);
+if (!P.bitir(nCheck)) fail++;
+console.log(fail ? `\n${fail} HATA${P.label}` : `\nTAMAM${P.label}`); process.exit(fail ? 1 : 0);

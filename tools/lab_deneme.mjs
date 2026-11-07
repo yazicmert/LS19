@@ -54,7 +54,7 @@ async function open(ctxOpt, query) {
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
   page.on('console', (m) => { const t = m.text(); if (m.type() === 'error' && !/ERR_CERT|ERR_TUNNEL|Failed to load resource|net::ERR/.test(t)) errors.push('console: ' + t.slice(0, 200)); });
   await page.route('**/api/**', api);
-  await page.addInitScript(() => { try { localStorage.clear(); localStorage.setItem('ls19.vehicle', 'two'); localStorage.setItem('ls19.landing', 'opt'); } catch (e) { /* */ } });
+  await page.addInitScript(() => { try { localStorage.clear(); localStorage.setItem('ls19.lang', 'tr'); localStorage.setItem('ls19.vehicle', 'two'); localStorage.setItem('ls19.landing', 'opt'); } catch (e) { /* */ } });
   await page.goto(base + 'index.html' + query, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => { const l = document.querySelector('#loading'); return l && getComputedStyle(l).display === 'none'; }, null, { timeout: 280000 });
   return { ctx, page, errors };
@@ -73,7 +73,7 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   check('Laboratuvar paneli görünür; Canlı Gökyüzü paneli ve saati gizli', (await vis(page, '#labPanel')) && !(await vis(page, '#skyPanel')) && !(await vis(page, '#skyHud')));
   check('ana sayfa motoru değiştirmez: açılıştaki görev motoru sürer, görev çubuğu görünür, zaman/kamera çubuğu gizli', await page.evaluate(() => window.LS19.mode === 'mission' && document.body.dataset.engine === 'mission') && (await vis(page, '#controls')) && !(await vis(page, '#skyControls')));
   check('deney merkezi ağacı: 3 dal (Ay görevi, Asteroit saptırma, Çarpma riski)', await page.evaluate(() => [...document.querySelectorAll('#lab-home .exp')].map((b) => b.querySelector('b').textContent).join('|') === 'Ay görevi|Asteroit saptırma|Çarpma riski'));
-  check('Saptırma artık Canlı Gökyüzü sekmelerinde değil (sekmeler: Takip, Uydular, Asteroitler, Çarpma)', await page.evaluate(() => [...document.querySelectorAll('#skyPanel .tab')].map((b) => b.dataset.tab).join() === 'takip,uydular,asteroit,carpma'));
+  check('Saptırma artık Canlı Gökyüzü sekmelerinde değil (sekmeler: Takip, Uydular, Asteroitler, Çarpma, Fırlatmalar)', await page.evaluate(() => [...document.querySelectorAll('#skyPanel .tab')].map((b) => b.dataset.tab).join() === 'takip,uydular,asteroit,carpma,firlatma'));
   await shot(page, '1-merkez');
 
   await page.click('#lab-home [data-exp=saptirma]');
