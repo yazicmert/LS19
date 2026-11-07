@@ -29,17 +29,28 @@ export function buildAscent({ site, tLaunch, ins, icrfToItrf, rE = 6378.137, veh
   if (veh && tInsReal) {
     const S = solveAscent(veh, { r0: R0, r1, v1: norm(ins.v), inc, tEnd: tInsReal }), last = S.samples[S.samples.length - 1];
     const kTh = th1 / last.th, kH = (r1 - R0) / ((last.r - R0) || 1), v1d = unit(ins.v);
+    // düzlemdeki yol (eylemsiz): yay açısı görevin giriş noktasına ölçeklenir (kTh) — bu ölçek Dünya dönüşünden gelen yatay hızı da küçültür/büyütür,
+    // ayrıca düzleme dik dönüş bileşeni yoktur: rampa hızıyla fark (dv0, ~100 m/s) kalkışta roketi rampadan yana kaydırırdı (T+13 s'de 1,3 km, merdiven
+    // çıkar gibi eğik yükseliş). Düzeltme: c(t) = dv0 · t · (1 − s(τ)) — kalkışta roket rampanın tam hızını taşır (yere göre dikey yükselir), girişte
+    // c = 0 ve c' = 0 (yol görevin giriş durumuna oturur); s: düzgün basamak (τ = 0,1'de %3).
+    const plane = (tau) => { const s = sampleAt(S.samples, tau * tInsReal), th = s.th * kTh, d = add(scale(e0, Math.cos(th)), scale(e1, Math.sin(th))); return { s, d, R: R0 + (s.r - R0) * kH }; };
+    const horiz = (v, u) => sub(v, scale(u, dot(v, u)));
+    const ep = 0.25 / T, vPath0 = horiz(scale(sub(scale(plane(ep).d, plane(ep).R), scale(d0, R0)), 1 / (ep * T)), d0);
+    const vPad0 = horiz(scale(sub(padAt(tLaunch + 0.25), padAt(tLaunch - 0.25)), R0 / 0.5), d0), dv0 = sub(vPad0, vPath0);
+    const smooth = (x) => x * x * (3 - 2 * x), corr = (tau) => scale(dv0, tau * T * (1 - smooth(tau)));
+    const posAt = (tau) => { const p = plane(tau); return add(scale(p.d, p.R), horiz(corr(tau), p.d)); };   // düzeltme yatay: irtifa değişmez
     const atP = (t) => {
       const tau = Math.max(0, Math.min(1, (t - tLaunch) / T));
       if (tau <= 0) { const d = padAt(t), r = scale(d, R0), v = cross([0, 0, OMEGA], r); return { r, v, vRel: [0, 0, 0], up: d, h: 0, tau: 0, dir: d, q: 0, tReal: (t - tLaunch) * tInsReal / T, stage: 0 }; }
-      const tr = tau * tInsReal, s = sampleAt(S.samples, tr), th = s.th * kTh, R = R0 + (s.r - R0) * kH;
-      const d = add(scale(e0, Math.cos(th)), scale(e1, Math.sin(th))), et = cross(nrm, d);
-      let v = add(scale(d, s.vr), scale(et, s.vt));
-      const w = tau < 0.92 ? 0 : ((tau - 0.92) / 0.08) ** 2 * (3 - 2 * (tau - 0.92) / 0.08);   // son %8'de görevin giriş hızına yumuşak birleşme
+      const tr = tau * tInsReal, p = plane(tau), s = p.s, d = p.d, et = cross(nrm, d);
+      // hız: çizilen yolun türevi (ölçek ve düzeltme dahil; yere göre hız kalkışta 0'dan başlar), son %8'de görevin giriş hızına yumuşak birleşme
+      const h2 = Math.min(0.25 / T, tau, 1 - tau) || 1e-6;
+      let v = scale(sub(posAt(Math.min(1, tau + h2)), posAt(Math.max(0, tau - h2))), 1 / (2 * h2 * T));
+      const w = tau < 0.92 ? 0 : ((tau - 0.92) / 0.08) ** 2 * (3 - 2 * (tau - 0.92) / 0.08);
       v = add(scale(v, 1 - w), scale(ins.v, w));
-      const r = scale(d, R), vRel = sub(v, cross([0, 0, OMEGA], r));
+      const r = posAt(tau), up = unit(r), vRel = sub(v, cross([0, 0, OMEGA], r));
       const dir = s.stage >= 0 ? add(scale(d, Math.sin(s.psi)), scale(et, Math.cos(s.psi))) : unit(v);
-      return { r, v, vRel, up: d, h: R - R0, tau, dir: unit(add(scale(dir, 1 - w), scale(v1d, w))), q: s.q, tReal: tr, stage: s.stage };
+      return { r, v, vRel, up, h: p.R - R0, tau, dir: unit(add(scale(dir, 1 - w), scale(v1d, w))), q: s.q, tReal: tr, stage: s.stage };
     };
     return { T, th1, h1, R0, at: atP, tLaunch, tIns: ins.t, sim: S, physical: true, padAt };
   }
