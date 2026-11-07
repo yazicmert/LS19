@@ -95,7 +95,7 @@ export class World {
     this.texUp[group] = 'iniyor';
     const specs = TEX.filter((s) => UPGRADE[group].includes(s.key) && s.flo);
     let T = {};
-    try { T = await loadTextures(this.renderer, this.base, { specs, lowmem: false, conc: 1, priority: 'low' }); } catch (e) { T = {}; }
+    try { T = await loadTextures(this.renderer, this.base, { specs, lowmem: false, conc: 1, priority: 'low', idle: true }); } catch (e) { T = {}; }
     const slot = { day: [this.earthU, 'dayMap'], night: [this.earthU, 'nightMap'], clouds: [this.earthU, 'cloudMap'], mcol: [this.moonU, 'colorMap'], mnorm: [this.moonU, 'normalMap'], mh: [this.moonU, 'heightMap'] };
     // eski dokuyu kullanan her malzemede (iniş arazisi Ay renk dokusunu map olarak kullanır) ve uniform'da yenisiyle değiştir: atılan doku bir daha
     // çizilirse kapatılmış bitmap'ten yeniden yüklenmeye çalışılır (WebGL hatası, siyah yüzey)

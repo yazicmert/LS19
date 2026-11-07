@@ -69,22 +69,32 @@ function decodeImage(blob, s, lowmem) {                                         
 
 // bir boyama araya girsin (yükleme çubuğu akar); arka sekmede rAF durur: zaman aşımı yedeği
 const frame = () => new Promise((res) => { let d = false; const go = () => { if (!d) { d = true; res(); } }; requestAnimationFrame(() => setTimeout(go, 0)); setTimeout(go, 150); });
-async function upload(renderer, t) {
-  await frame();
+// Tarayıcı ImageBitmap → R8 (tek kanal) yüklemesini kabul ediyor mu: ilk R8 dokusunda bir kez GL hatasıyla denetlenir (null: henüz bilinmiyor).
+// gl.getError eşzamanlıdır: GPU'nun kuyruğu bitirmesini bekler (8192'lik doku + mip yüklemesinde ana iş parçacığı yüzlerce ms donar). Bu yüzden
+// yalnız o tek denetimde çağrılır; öteki yüklemeler (tam çözünürlüğe yükseltme dahil, kullanıcı gezinirken) beklemeden geçer.
+let r8 = null;
+// idle: yüklemeyi tarayıcının boşta olduğu ana bırak (en çok 2 sn bekler): tam çözünürlüğe yükseltme kullanıcı gezinirken kare kaçırtmasın
+const idleFrame = () => new Promise((res) => (typeof requestIdleCallback === 'function' ? requestIdleCallback(() => res(), { timeout: 2000 }) : setTimeout(res, 50)));
+async function upload(renderer, t, idle = false) {
+  await (idle ? idleFrame() : frame());
   const gl = renderer.getContext(), drain = () => { for (let i = 0; i < 8 && gl.getError() !== gl.NO_ERROR; i++); };       // önceki hatalar bu yüklemeye yazılmasın
-  drain();
-  const red = t.format === THREE.RedFormat;
+  if (t.format === THREE.RedFormat && r8 === false) { t.format = THREE.RGBAFormat; t.needsUpdate = true; }          // R8 bu tarayıcıda çalışmıyor: baştan RGBA
+  const probe = t.format === THREE.RedFormat && r8 === null;
+  if (probe) drain();
   try { renderer.initTexture(t); } catch (e) { return; }                         // başarısızsa ilk çizimde yeniden denenir (bitmap kapatılmaz)
-  if (red && gl.getError() !== gl.NO_ERROR) {                                    // tarayıcı ImageBitmap → R8 yüklemesini reddetti: RGBA'ya dön (bellek 4×, görüntü aynı)
-    drain(); t.dispose(); t.format = THREE.RGBAFormat; t.needsUpdate = true;
-    try { renderer.initTexture(t); } catch (e) { return; }
+  if (probe) {
+    r8 = gl.getError() === gl.NO_ERROR;
+    if (!r8) {                                                                   // tarayıcı ImageBitmap → R8 yüklemesini reddetti: RGBA'ya dön (bellek 4×, görüntü aynı)
+      drain(); t.dispose(); t.format = THREE.RGBAFormat; t.needsUpdate = true;
+      try { renderer.initTexture(t); } catch (e) { return; }
+    }
   }
   if (t.userData.release) t.userData.release();                                  // çözülmüş piksel belleğini bırak (GPU kopyası kalır)
 }
 
 // { day, night, clouds, spec, enorm, mcol, mnorm, mh, stars } → THREE.Texture | null; tick(ad): ilerleme (doku başına 2 çağrı: çözüldü, GPU'da)
 // priority: fetch önceliği (tam çözünürlüğe yükseltme 'low' ister: etkileşimi ve parça indirmelerini geciktirmesin)
-export async function loadTextures(renderer, base, { specs = TEX, lowmem = false, tick = () => {}, conc = lowmem ? 2 : 3, priority = null } = {}) {
+export async function loadTextures(renderer, base, { specs = TEX, lowmem = false, tick = () => {}, conc = lowmem ? 2 : 3, priority = null, idle = false } = {}) {
   const useBm = await bitmapSupported();
   // index.html'deki erken indirme (#earlyFetch) bu dosyayı başlattıysa aynı söz kullanılır (tek istek); başarısız indirme bir kez yeniden denenir
   const early = (globalThis.LS19_EARLY && globalThis.LS19_EARLY.tex) || {};
@@ -106,7 +116,7 @@ export async function loadTextures(renderer, base, { specs = TEX, lowmem = false
         if (b2) { try { t = await decode(b2, fb.spec); } catch (e) { t = null; } }
       }
       out[s.key] = t; tick(s.f + (t ? '' : ' (yok)'));
-      if (t) gpu = gpu.then(() => upload(renderer, t)).then(() => tick(s.f + ' (GPU)')); else tick(s.f + ' (GPU, yok)');          // GPU yüklemeleri sıralı: tek GL bağlamı
+      if (t) gpu = gpu.then(() => upload(renderer, t, idle)).then(() => tick(s.f + ' (GPU)')); else tick(s.f + ' (GPU, yok)');          // GPU yüklemeleri sıralı: tek GL bağlamı
     }
   };
   await Promise.all(Array.from({ length: Math.min(conc, specs.length) }, worker));
