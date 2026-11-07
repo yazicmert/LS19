@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # LS19 (Look Star 19) yerel sunucu: sitenin dosyaları + canlı veri vekili (tarayıcı bu kaynaklara doğrudan erişemez: CORS)
 #   /api/gp?group=active          CelesTrak GP (OMM JSON) — CelesTrak kuralı: aynı veri 2 saatten sık indirilmez
+#   /api/gp?catnr=5               tek uydu (NORAD), etkin listede olmayan yükler için; kayıt yoksa 404
 #   /api/horizons?cmd=-85&start=2026-10-10&stop=2026-10-20&step=10m
 #                                 JPL Horizons: Ay merkezli ICRF durum vektörleri (km, km/s)
 #   /api/asteroids?set=neo|mb     JPL SBDB: Dünya'ya yakın asteroitler / büyük ana kuşak + Jüpiter Truvalıları (sütunlu, sıkıştırılmış)
@@ -100,6 +101,26 @@ def fetch_gp(group):
 
 def celestrak(group, force=False):
     return cached(f'gp_{group}.json', SOURCES['gp'][1], lambda: fetch_gp(group), force=force)
+
+
+class NoRecord(Exception):
+    pass
+
+
+def fetch_gp_one(n):
+    raw = http_get(f'https://celestrak.org/NORAD/elements/gp.php?CATNR={n}&FORMAT=json', 30)
+    try:
+        arr = json.loads(raw)
+    except ValueError:                               # "No GP data found" düz metni: atmosfere girmiş ya da izlenmiyor
+        arr = None
+    if not isinstance(arr, list) or not any(str(o.get('NORAD_CAT_ID')) == str(n) for o in arr):
+        raise NoRecord('güncel yörünge verisi yok')
+    return raw
+
+
+def celestrak_one(n):
+    """tek uydu (NORAD): etkin listede olmayan, görevi bitmiş ama yörüngedeki yükler; 2 saat önbellek"""
+    return cached(f'gp_cat_{n}.json', SOURCES['gp'][1], lambda: fetch_gp_one(n))
 
 
 SUP_FILES = {'iss', 'starlink', 'oneweb', 'planet', 'gps', 'glonass', 'intelsat', 'ses', 'kuiper', 'ast', 'cpf'}
@@ -518,6 +539,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         u = urllib.parse.urlparse(self.path)
         q = {k: v[0] for k, v in urllib.parse.parse_qs(u.query).items()}
         try:
+            if u.path == '/api/gp' and 'catnr' in q:
+                n = q['catnr']
+                if not re.match(r'^\d{1,6}$', n) or int(n) < 1:
+                    return self.send_json(400, {'hata': 'geçersiz NORAD numarası'})
+                try:
+                    data, info = celestrak_one(int(n))
+                except NoRecord as e:
+                    return self.send_json(404, {'hata': str(e)})
+                return self.send_json(200, data, {'X-LS19-Kaynak': urllib.parse.quote('CelesTrak · ' + info['kaynak']), 'X-LS19-Yas': str(info['yas_s'])})
             if u.path == '/api/gp':
                 group = q.get('group', 'active')
                 if group not in GROUPS:
