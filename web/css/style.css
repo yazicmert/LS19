@@ -858,3 +858,27 @@ body.rs-open { overflow: hidden; }
 @media (max-width: 760px) { .asctele { bottom: 200px; padding: 6px 10px 2px; } .asctele b { font-size: 16px; } .asctele .at-cam { display: none; } .asctele .at-ev em { display: none; } .asctele .at-line { margin: 10px 4px 10px; } .asctele .at-cam small { display: none; } }
 .asccredit { flex-basis: 100%; text-align: center; font-size: 10.5px; color: var(--text-muted); }
 .asccredit:empty { display: none; }
+/* yayın alt yazısı: olay adı bandın üstünde birkaç saniye (ascentplay.js flash) */
+.asctele .at-flash { position: absolute; left: 50%; bottom: calc(100% + 10px); transform: translate(-50%, 6px); opacity: 0; transition: opacity .35s ease, transform .35s ease;
+  white-space: nowrap; padding: 5px 14px; border-radius: 999px; background: rgba(6, 8, 14, .74); border: 1px solid rgba(255, 255, 255, .12); font-size: 13px; font-weight: 600; letter-spacing: .04em; }
+.asctele .at-flash.on { opacity: 1; transform: translate(-50%, 0); }
+.asctele .at-flash:empty { display: none; }
+
+/* sinematik kalkış (varsayılan; ascentplay.js body.launch-cine): görev panelleri, üst gezinme, alt denetimler ve ekran işaretleri gizlenir —
+   ekranda sahne, alt yayın bandı ve olay alt yazıları kalır. Hız/kamera düğmeleri üstte ince bir şerit: fare kıpırdayınca belirir (asc-ui-on),
+   üstüne gelince ya da odaktayken açık kalır. Atıf (lisans gereği) sol altta küçük ve hep görünür. "Paneller" düğmesi eski düzene döndürür. */
+body.launch-cine #modebar, body.launch-cine #hud, body.launch-cine #labPanel, body.launch-cine #controls, body.launch-cine #manual, body.launch-cine #toasts,
+body.launch-cine #labels, body.launch-cine #pick, body.launch-cine #hoverTip, body.launch-cine #skyHud, body.launch-cine #skyPanel, body.launch-cine #skyControls {
+  opacity: 0 !important; visibility: hidden; pointer-events: none; transition: opacity .45s ease, visibility 0s linear .45s; }
+body.launch-cine::after { content: ''; position: fixed; inset: 0; z-index: 30; pointer-events: none;
+  background: linear-gradient(180deg, rgba(0, 0, 0, .32), rgba(0, 0, 0, 0) 13%, rgba(0, 0, 0, 0) 74%, rgba(0, 0, 0, .42)); }
+body.launch-cine .ascbar { top: 14px; bottom: auto; left: 0; right: 0; transform: none; margin: 0 auto; width: max-content; max-width: calc(100vw - 24px);
+  padding: 0; background: transparent; border: 0; gap: 8px; }
+body.launch-cine #ascTxt { display: none; }
+body.launch-cine .ascbtns:not([hidden]) { padding: 4px; border-radius: 12px; background: rgba(8, 10, 16, .64); border: 1px solid rgba(255, 255, 255, .1); transition: opacity .35s ease; }
+body.launch-cine:not(.asc-ui-on) .ascbar:not(:hover):not(:focus-within) .ascbtns { opacity: 0; }
+body.launch-cine .asccredit { position: fixed; left: 12px; bottom: 8px; max-width: min(32vw, 520px); text-align: left; font-size: 10px; line-height: 1.35;
+  color: rgba(255, 255, 255, .66); text-shadow: 0 1px 2px rgba(0, 0, 0, .85); pointer-events: none; }
+body.launch-cine .asctele { background: linear-gradient(180deg, rgba(6, 8, 14, .58), rgba(6, 8, 14, .44)); }
+@media (max-width: 760px) { body.launch-cine .asccredit { left: 8px; right: 8px; max-width: none; text-align: center; } body.launch-cine .ascbar { top: 8px; } }
+@media (prefers-reduced-motion: reduce) { .asctele .at-flash, body.launch-cine .ascbtns { transition: none; } }

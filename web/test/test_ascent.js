@@ -65,6 +65,13 @@ const PP = buildAscent({ site, tLaunch: D.LAUNCH.t_launch, ins, icrfToItrf: E.ea
 const e1 = PP.at(ins.t - 1e-3), e0 = PP.at(D.LAUNCH.t_launch + 0.3);
 check(PP.physical && norm(sub(e1.r, ins.r)) < 0.05 && norm(sub(e1.v, ins.v)) < 0.005 && Math.abs(geodH(e0.r, D.LAUNCH.t_launch + 0.3)) < 0.05, `fiziksel yol görevin giriş durumuna oturur: konum farkı ${(norm(sub(e1.r, ins.r)) * 1000).toFixed(1)} m, hız farkı ${(norm(sub(e1.v, ins.v)) * 1000).toFixed(2)} m/s`);
 check(dot(PP.at(D.LAUNCH.t_launch + 5).dir, PP.at(D.LAUNCH.t_launch + 5).up) > 0.999, 'fiziksel yol: dikey yükselişle başlar');
+// kalkışta roket Dünya ile dönen rampanın üstünde dikey yükselir (yol ölçeği ve düzleme dik dönüş bileşeni yana kaydırmaz; önce T+13 s'de ~1,5 km)
+for (const id of ['SATURN_V', 'SLS1', 'GENEL']) {
+  const A = ROCKETS[id].ascent, Q = buildAscent({ site, tLaunch: D.LAUNCH.t_launch, ins, icrfToItrf: E.earthIcrfToItrf, rE: E.R_E, veh: A.veh, tInsReal: A.tIns, inc: D.inc });
+  const off = (dt) => { const t = D.LAUNCH.t_launch + dt * Q.T / A.tIns, s = Q.at(t), pu = Q.padAt(t), d = sub(s.r, pu.map((c) => c * Q.R0)), up = dot(d, pu); return { h: up * 1000, side: norm(d.map((c, i) => c - up * pu[i])) * 1000, vRel: norm(s.vRel) * 1000 }; };
+  const a = off(13), b = off(2), e1 = Q.at(ins.t - 1e-3);
+  check(a.side < 10 && a.h > 150 && b.vRel < 30 && norm(sub(e1.r, ins.r)) < 0.05, `${id}: T+13 s'de ${a.h.toFixed(0)} m irtifada rampadan yana ${a.side.toFixed(1)} m (dikey kalkış); T+2 s yere göre hız ${b.vRel.toFixed(1)} m/s; girişte konum farkı ${(norm(sub(e1.r, ins.r)) * 1000).toFixed(1)} m`);
+}
 const html = read('index.html'), app = read('js/app.js'), scene = sceneSrc(), rm = read('js/rocketmodels.js');
 check(/id="btnAscent"/.test(html) && /id="ascBar"/.test(html) && /data-asc="end"/.test(html), 'Uçuş adımında "Kalkışı izle"; oynatma çubuğu (hız, yörüngeye atla)');
 check(/ascent\.tick\(dt\)/.test(app) && /cmd: 'seek', t: ui\.t0/.test(app) && /insState/.test(app), 'oynatma ana iş parçacığında; bitince görev girişten sürer');

@@ -68,6 +68,12 @@ check('tasarım: fırlatma → giriş süresi roketin gerçek giriş zamanı (ge
   /tIns = tc \+ ascentTime\(K\.ROCKET\)/.test(dsrc) && ascentTime(null) === 600 && ROCKETS.GENEL.ascent.tIns === 600 && ['SATURN_V', 'SLS1', 'F9', 'FH', 'VULCAN'].every((k) => ascentTime(k) === ROCKETS[k].ascent.tIns),
   ['SATURN_V', 'SLS1', 'F9'].map((k) => `${k} ${ascentTime(k)} s`).join(', '));
 check('gösterge yakıt satırı: yanan / sıradaki / son kademe (index.html "<ad> yakıtı")', /stage: burning \? 'Yanan kademe' : after \? 'Son kademe' : 'Sıradaki kademe'/.test(ap) && /setText\(H\.propName, A\.stage\)/.test(uiSrc) && /<span id="propName">Yakıt<\/span> yakıtı/.test(html));
+const css = fs.readFileSync(new URL('../css/style.css', import.meta.url), 'utf8');
+check('sinematik kalkış: paneller gizli (gösterge, sağ panel, üst gezinme, alt denetimler), kontroller fareyle belirir, atıf hep görünür, "Paneller" geri getirir',
+  /this\.cine = true;[^\n]*this\.applyCine\(\)/.test(ap) && /classList\.toggle\('launch-cine', on\)/.test(ap) && /classList\.remove\('launch-cine', 'asc-ui-on'\)/.test(ap)
+  && ['#hud', '#labPanel', '#modebar', '#controls'].every((id) => new RegExp(`body\\.launch-cine ${id}`).test(css)) && /body\.launch-cine:not\(\.asc-ui-on\) \.ascbar:not\(:hover\):not\(:focus-within\) \.ascbtns \{ opacity: 0; \}/.test(css)
+  && /body\.launch-cine \.asccredit \{ position: fixed;/.test(css) && /data-ascui/.test(html));
+check('yayın alt yazısı: yeni olayda ve Max-Q\'da bandın üstünde kısa süre', /if \(last && last !== this\.lastEv\) \{ this\.lastEv = last; this\.flash\(last\.name\); \}/.test(ap) && /this\.flash\(`MAX-Q/.test(ap) && /\.asctele \.at-flash\.on/.test(css));
 check('bant: uçlara yakın olay etiketleri bandın içine hizalanır', /edge = px > 80 \? ' at-r' : px < 20 \? ' at-l' : ''/.test(ap));
 check('gösterge kalkışta roketin değerleri: yere göre hız, yaklaşık kütle, yanan kademenin yakıtı, itki; UTC başlıkta bir kez', /const A = s\.asc, vRel = A \? A\.spd/.test(uiSrc) && /A \? 'yere göre'/.test(uiSrc) && /'≈ ' \+ fmt\(A\.m, 0\)/.test(uiSrc) && /replace\(\/ UTC\$\/, ''\)/.test(uiSrc) && /asc = \{ spd: vRel/.test(ap));
 check('bant kontrol çubuğunun üstünde kalır (çubuk uzarsa yükselir); kamera düğmeleri gerçek kameralar', /new ResizeObserver\(\(\) => this\.placeTele\(\)\)\.observe\(this\.bar\)/.test(ap) && /data-ascam="air"/.test(html) && !/data-ascam="chase"/.test(html));

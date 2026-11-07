@@ -24,15 +24,43 @@ export class AscentPlayer {
     this.active = false; this.warp = 10; this.camUser = 'auto'; this.bar = $('#ascBar'); this.txt = $('#ascTxt'); this.credit = $('#ascCredit'); this.tele = $('#ascTele');
     this.bar.addEventListener('click', (e) => {
       const c = e.target.closest('[data-ascam]'); if (c) { this.camUser = c.dataset.ascam; this.syncBar(); return; }
+      if (e.target.closest('[data-ascui]')) { this.cine = !this.cine; this.applyCine(); return; }
       const b = e.target.closest('[data-asc]'); if (!b) return;
       const v = b.dataset.asc; if (v === 'end') this.stop(); else { this.warp = +v; this.userWarp = true; this.syncBar(); }
     });
-    // telemetri bandı her zaman kontrol çubuğunun üstünde: çubuk (atıf iki satıra sarınca) uzarsa bant da yükselir, üst üste binmez
+    // telemetri bandı: panellerle görünümde kontrol çubuğunun üstünde (çubuk atıfla iki satıra sarınca bant da yükselir); sinematik görünümde ekranın
+    // altında — sol alttaki atıf bandın altına taşarsa bant atıfın üstüne çıkar (üst üste binmez)
     this.placeTele = () => {
       if (!this.tele || this.bar.hidden) return;
+      if (document.body.classList.contains('launch-cine')) {
+        const cr = this.credit && this.credit.textContent ? this.credit.getBoundingClientRect() : null, tw = this.tele.offsetWidth || 640;
+        const clash = cr && cr.width > 0 && cr.right + 12 > (window.innerWidth - tw) / 2;
+        this.tele.style.bottom = `${clash ? Math.round(window.innerHeight - cr.top + 10) : 30}px`; return;
+      }
       const b = parseFloat(getComputedStyle(this.bar).bottom) || 92; this.tele.style.bottom = `${Math.round(b + this.bar.offsetHeight + 8)}px`;
     };
     if (typeof ResizeObserver === 'function') new ResizeObserver(() => this.placeTele()).observe(this.bar);
+    // sinematik görünüm: kontroller fare/dokunma/tuşla belirir, ~2,8 s sonra söner (üstüne gelince ya da odaktayken açık kalır)
+    this.poke = (ms = 2800) => {
+      if (!this.active) return;
+      document.body.classList.add('asc-ui-on'); clearTimeout(this.pokeT);
+      this.pokeT = setTimeout(() => document.body.classList.remove('asc-ui-on'), ms);
+    };
+    this.onPoke = () => this.poke();
+    this.onResize = () => this.placeTele();
+  }
+  // sinematik kalkış (varsayılan): görev panelleri, üst gezinme ve alt denetimler gizlenir; ekranda sahne, yayın bandı ve olay alt yazıları kalır
+  applyCine() {
+    const on = this.active && this.cine;
+    document.body.classList.toggle('launch-cine', on);
+    const b = this.bar.querySelector('[data-ascui]'); if (b) { b.classList.toggle('on', !on); b.setAttribute('aria-pressed', String(!on)); }
+    this.placeTele();
+  }
+  // yayın alt yazısı: olay adı bandın üstünde birkaç saniye görünür (Max-Q, ayrılmalar; açılışta roket ve rampa)
+  flash(text, ms = 4200) {
+    const f = this.teleEl && this.teleEl.flash; if (!f) return;
+    f.textContent = text; f.classList.add('on'); clearTimeout(this.flashT);
+    this.flashT = setTimeout(() => f.classList.remove('on'), ms);
   }
   syncBar() {
     this.bar.querySelectorAll('[data-asc]').forEach((b) => b.classList.toggle('on', b.dataset.asc === String(this.warp)));
@@ -44,9 +72,9 @@ export class AscentPlayer {
     const tl = this.tl = timeline(this.A.events, this.path.sim && this.path.sim.maxQ, this.A.tIns), tEnd = this.A.tIns, t0 = -10;
     const x = (t) => ((t - t0) / (tEnd - t0) * 100).toFixed(2) + '%';            // uçlara yakın etiketler bandın içine doğru hizalanır (at-l, at-r)
     T.innerHTML = `<div class="at-row"><span class="at-st" id="atSt"></span><span class="at-k">HIZ</span><b id="atV">0</b><span class="at-u">km/sa</span><span class="at-k">İRTİFA</span><b id="atH">0</b><span class="at-u">km</span>`
-      + `<b id="atT" class="at-t">T−00:10</b><span class="at-cam"><span id="atCam"></span><small id="atCamNote"></small></span></div>`
+      + `<b id="atT" class="at-t">T−00:10</b><span class="at-cam"><span id="atCam"></span><small id="atCamNote"></small></span></div><div class="at-flash" id="atFlash"></div>`
       + `<div class="at-line"><i id="atFill"></i>${tl.map((e, i) => { const px = parseFloat(x(e.t)), edge = px > 80 ? ' at-r' : px < 20 ? ' at-l' : ''; return `<span class="at-ev at-${e.kind}${edge}" style="left:${x(e.t)}" data-i="${i}"><em>${e.name}</em></span>`; }).join('')}<span class="at-ev at-zero" style="left:${x(0)}"></span></div>`;
-    this.teleEl = { st: T.querySelector('#atSt'), v: T.querySelector('#atV'), h: T.querySelector('#atH'), t: T.querySelector('#atT'), fill: T.querySelector('#atFill'), ev: [...T.querySelectorAll('[data-i]')], cam: T.querySelector('#atCam'), note: T.querySelector('#atCamNote') };
+    this.teleEl = { st: T.querySelector('#atSt'), v: T.querySelector('#atV'), h: T.querySelector('#atH'), t: T.querySelector('#atT'), fill: T.querySelector('#atFill'), ev: [...T.querySelectorAll('[data-i]')], cam: T.querySelector('#atCam'), note: T.querySelector('#atCamNote'), flash: T.querySelector('#atFlash') };
     this.teleX = x; this.teleLast = 0; T.hidden = false; this.placeTele();
   }
   // T± görev saatidir (sol üst gösterge ve görev çizelgesiyle aynı); olay noktaları ve dolgu roketin uçuş zamanında (tasarım roketin giriş süresini kullandığından ikisi aynı)
@@ -83,6 +111,10 @@ export class AscentPlayer {
     await this.world.setAscent({ lv: A.lv, prop: { saturnv: 'kerolox', f9: 'kerolox', fh: 'kerolox', generic: 'kerolox', sls: 'solid', vulcan: 'solid' }[A.lv] || 'kerolox', pad: A.lv === 'sls' ? 'ml' : 'concrete', site });
     this.debris = []; this.done = new Set(); this.prevCut = 0; this.hiddenNow = [];
     this.active = true; this.bar.hidden = false; this.syncBar(); this.buildTele();      // model yüklendikten sonra oynamaya başla
+    this.cine = true; this.lastEv = null; this.qShown = false; this.applyCine(); this.poke(4500);
+    for (const ev of ['pointermove', 'pointerdown', 'keydown']) window.addEventListener(ev, this.onPoke, { passive: true });
+    window.addEventListener('resize', this.onResize);
+    this.flash(`${rk.name} · ${L.site || rk.pad || ''}`.replace(/ · $/, ''), 5000);
     return true;
   }
   // çizim konumu: sahnede Dünya küre (R_E), rampa ise WGS-84 elipsoidinde — alçakta küre yüzeyine yaslanır (20 km'de söner); telemetri gerçek konumu kullanır
@@ -140,6 +172,8 @@ export class AscentPlayer {
     const scaled = Math.abs(k0 - 1) > 0.005, msg = met < 0 ? `${this.rk.name} rampada · T−${Math.floor(-met)} s`
       : scaled ? `${this.rk.name} · gerçek uçuşta ${fmtMet(real)}${last ? ` · ${last.name} (${fmtMet(last.t)})` : ''}` : `${this.rk.name}${last ? ` · ${last.name} (${fmtMet(last.t)})` : ''}`;
     const mq = P.sim && P.sim.maxQ, nearQ = mq && Math.abs(real - mq.t) < 6 ? ` · MAX-Q ${(mq.q / 1000).toFixed(0)} kPa` : '';
+    if (last && last !== this.lastEv) { this.lastEv = last; this.flash(last.name); }                            // yeni olay: yayın alt yazısı
+    else if (mq && !this.qShown && real >= mq.t && real < mq.t + 20) { this.qShown = true; this.flash(`MAX-Q · ${(mq.q / 1000).toFixed(0)} kPa`); }
     const full = msg + ` · irtifa ${h.toFixed(h < 10 ? 1 : 0)} km` + (s.q != null && met > 0 && h < 100 ? ` · q ${(s.q / 1000).toFixed(1)} kPa` : '') + nearQ;
     if (full !== this.lastMsg) { this.txt.textContent = full; this.lastMsg = full; }
     const cr = this.world.asc && h < 40 ? this.world.asc.credit : ''; if (this.credit && this.credit.textContent !== cr) { this.credit.textContent = cr; this.placeTele(); }
@@ -156,6 +190,9 @@ export class AscentPlayer {
   async stop() {
     if (!this.active) return;
     this.active = false; this.bar.hidden = true; if (this.tele) this.tele.hidden = true; this.teleEl = null;
+    for (const ev of ['pointermove', 'pointerdown', 'keydown']) window.removeEventListener(ev, this.onPoke);
+    window.removeEventListener('resize', this.onResize); clearTimeout(this.pokeT); clearTimeout(this.flashT);
+    document.body.classList.remove('launch-cine', 'asc-ui-on');
     await this.world.setAscent(null);
     Object.assign(this.world.cam, this.camPrev || {});
     this.onEnd && this.onEnd();

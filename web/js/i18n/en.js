@@ -346,6 +346,8 @@ const dict = {
   "Kurgu": "Cut",
   "Yer": "Ground",
   "Uçak": "Aircraft",
+  "Paneller": "Panels",
+  "Görev panellerini göster ya da gizle (kalkış sinematik görünümle açılır: ekranda yalnız yayın bandı)": "Show or hide the mission panels (the launch opens in a cinematic view: only the broadcast band on screen)",
   "Araç üstü": "Onboard",
   "Yer izleme: rampanın 1,4 km yanından tele objektifle; roket ufkun altına inene dek": "Ground tracking: telephoto from 1.4 km beside the pad, until the rocket drops below the horizon",
   "Takip uçağı: 18,3 km irtifada, uçuş yönünde uçan yüksek irtifa uçağından tele kamera": "Tracking aircraft: telephoto camera on a high-altitude aircraft at 18.3 km, downrange",

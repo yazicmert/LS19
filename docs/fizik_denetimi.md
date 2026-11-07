@@ -342,7 +342,9 @@ Toplam Δv tüm fırsatlarda ~5.910 m/s, birkaç m/s farkla. Gerçek roketlerde 
 
 Altı roketin hepsinde max-Q 53–79 s'de ve 11 km civarında (tipik 10–15 km).
 
-Canlandırmada yol bu benzetimden geliyor: zaman gerçek (tasarımın çıkış süresi roketin giriş zamanı), yay açısı ve irtifa görevin giriş noktasına oturtuluyor. Son %8'de hız görevin giriş hızıyla yumuşakça birleşiyor; fiziğe geçişte hız sıçraması yok (önce 85 m/s idi).
+Canlandırmada yol bu benzetimden geliyor: zaman gerçek (tasarımın çıkış süresi roketin giriş zamanı), yay açısı ve irtifa görevin giriş noktasına oturtuluyor.
+
+**Dikey kalkış (düzeltme).** Yol eylemsiz düzlemde çizildiği ve yay açısı giriş noktasına ölçeklendiği (ör. ×0,76) için Dünya dönüşünden gelen yatay hız da ölçekleniyordu; düzleme dik dönüş bileşeni de yoktu. Rampa ise Dünya ile 408 m/s döner: roket rampadan ~100 m/s geri kalıyor, T+13 s'de 290 m irtifadayken rampanın 1,3 km batısında görünüyordu (merdiven çıkar gibi eğik yükseliş). Düzeltme (`ascent.js`): yola c(t) = Δv₀ · t · (1 − s(τ)) eklenir; Δv₀ rampanın hızı ile yolun kalkıştaki yatay hızı arasındaki fark, s düzgün basamak. Kalkışta roket rampanın tam hızını taşır, girişte c = 0 ve c′ = 0 olur, yol görevin giriş durumuna yine oturur. Hız çizilen yolun türevidir (yere göre hız kalkışta 0'dan başlar). Ölçüm (`test_ascent.js`): T+13 s'de rampadan yana 1,8–2,2 m (Saturn V, SLS, genel); girişte konum farkı < 7 m. Son %8'de hız görevin giriş hızıyla yumuşakça birleşiyor; fiziğe geçişte hız sıçraması yok (önce 85 m/s idi).
 
 **Görsellik:**
 
@@ -400,6 +402,8 @@ Her kamera gerçek bir yerde durur (rampa çerçevesinde sabit, roketle sürükl
 - Ayrılmalarda kamera üst kademeye geçer (kesme + 12 m).
 - Kalkış ×1 hızda başlar, ayrılmalar ×2 yavaş çekim, arada ×10. Kullanıcı hızı ya da kamerayı seçerse kurgu ona uyar (Kurgu / Yer / Uçak / Araç üstü).
 - Sarsıntı deterministiktir (sinüs toplamı). Yer kameralarında kalkıştaki ses basıncı uzaklıkla azalır ve sönümlenir; araç üstünde dinamik basınca bağlıdır.
+
+**Sinematik görünüm (varsayılan):** kalkış açılınca görev panelleri, üst gezinme, alt denetimler ve ekran işaretleri söner; ekranda sahne, alt yayın bandı ve olay alt yazıları kalır (yeni olay ya da Max-Q bandın üstünde ~4 s; açılışta roket ve rampa). Hız ve kamera düğmeleri üstte ince bir şerittir: fare kıpırdayınca ya da tuşa basınca belirir, ~3 s sonra söner. Görüntü atfı lisans gereği sol altta küçük ve hep görünür. "Paneller" düğmesi panelleri geri getirir.
 
 **Telemetri bandı:** aşama, yere göre hız (km/sa), irtifa, T± saati, o anki kamera ve olay zaman çizgisi (Max-Q, ayrılmalar, yörünge). Yayındaki alt şerit gibidir ve ~11 Hz'de güncellenir. T± sol üst göstergedeki görev saatiyle aynıdır; bant kontrol çubuğunun üstünde durur (çubuk atıfla iki satıra sarınca yükselir), olay etiketleri çizginin altında iki sırada, uçlardakiler bandın içine hizalı.
 
