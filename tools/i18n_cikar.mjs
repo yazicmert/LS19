@@ -43,7 +43,7 @@ function splitHtml(s, out) {
 
 // kod parçaları ve kimlikler: gölgelendirici kaynağı, CSS seçicisi, BÜYÜK_ALT_ÇİZGİLİ ya da boşluksuz küçük ASCII kimlik ('gorev', 'kp-sec')
 export const isCode = (k) => /^https?:\/\//.test(k) || /\b(uniform|varying|gl_Frag\w*|void main|#include|#ifdef|texture2D|discard|vec[234]|ivec2)\b/.test(k) || /^[#.][\w-]+([\s>.[:]|$)/.test(k) || /\[data-[\w-]+/.test(k) ||
-  /^[A-Z0-9]+(_[A-Z0-9]+)+$/.test(k) || /^[a-z0-9]+([-_][a-z0-9]+)*$/.test(k);
+  /^[A-Z0-9]+(_[A-Z0-9]+)+$/.test(k) || /^[a-z0-9]+([-_][a-z0-9]+)*$/.test(k) || /\b(wikibase|wdt|schema|mwapi):\w/.test(k);      // SPARQL sorgusu
 
 // şablon parçalarını (dize, '\u0000' yer tutucu işaretiyle) anahtarlara çevir: her parça kendi içinde {0}.. diye yeniden numaralanır
 function piecesToKeys(raw, keys, all = false) {

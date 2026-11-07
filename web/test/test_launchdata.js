@@ -48,5 +48,15 @@ ok(catalogObjects('1998-067', fixOmm).some((o) => o.id === 25544), 'örnek katal
 const r = buildCatalog('rll', fx('rll_next.json').result, [], 1);
 ok(r.kaynak === 'Data by RocketLaunch.Live' && r.yaklasan.every((l) => l.durum === 'tbd') && r.yaklasan.find((l) => l.id === 'rll-6300').kesinlik === 'ay', 'RocketLaunch.Live kayıtları');
 
+// görev yükü ve görevin kendi sayfası (LL2 ayrıntılı kip): yük uçuşları ve araç, yalnız https bağlar, resmî sayfa önde
+const gp = Object.fromEntries(cat.gecmis.map((l) => [l.id, l]));
+const nvs = (gp['p-4'] || cat.gecmis.find((l) => /IRNSS/.test(l.gorev))).d.yuk;
+ok(nvs.length === 2 && nvs[0].ad === 'NVS-03' && nvs[0].op === 'ISRO' && nvs[0].kg === 2250.5 && nvs[0].url === 'https://www.isro.gov.in/NVS03.html' && !nvs[0].wiki && Array.from(nvs[0].aciklama).length === 400 && nvs[1].adet === 3,
+  'yük uçuşu: ad, işletmeci, kütle, kendi sitesi (http Vikipedi bağı atlandı), açıklama 400 kod noktasında kırpılır, adet; adsız yük atlanır');
+const drg = cat.gecmis.find((l) => /Ornek Gorev/.test(l.gorev)).d.yuk;
+ok(drg.length === 1 && drg[0].arac === true && drg[0].tur === 'Cargo Dragon 2' && drg[0].hedef === 'International Space Station', 'araç (spacecraft_stage): Cargo Dragon, hedef ISS');
+const sl = cat.gecmis.find((l) => /Starlink/.test(l.gorev)).d;
+ok(sl.gorevTur === 'Communications' && sl.site.length === 2 && sl.site[0].resmi === true && sl.site[0].u.startsWith('https://www.spacex.com') && !sl.site.some((x) => x.u.startsWith('http:')), 'görev türü ve kendi sayfası: resmî sayfa önde, http bağ atlanır');
+
 console.log(fail ? `\n${fail} HATA` : '\nTAMAM');
 process.exit(fail ? 1 : 0);

@@ -3,7 +3,10 @@
 // Hâlâ Dünya yörüngesindeyse "3B'de izle": etkin uydu listesindeyse doğrudan, değilse kaydı CelesTrak'tan alınıp sahneye eklenir (satlayer.js
 // addByNorad). Atmosfere girmiş, dönmüş ya da derin uzaydaki yüklerde son durum ve (Dünya çevresindeyse) ilk yörüngesinin çizimi.
 // Kalabalık fırlatmalar (Starlink, paylaşımlı uçuşlar) aynı programdaki yükleri tek satırda toplar. Yük verisi yıla göre, ilk açılışta iner.
-import { loadPayloads, payloadsOf, groupPayloads, statusOf, statusCounts, purposes, disciplines, CLASS, orbitInfo, parseVague, stateName, wikiPick, wikiSummary, wikiUrl } from './payloads.js';
+// Veritabanında yük listesi olmayan fırlatmalarda (yaklaşan, veritabanından yeni) "Görev yükü" kartı: LL2'nin bildirdiği yükler ve araç, görev
+// adından çözümleme (payloadresolve.js: yük ailesi, Wikidata/Vikipedi, görevin kendi sitesi). Vikipedi eşlemesi olmayan yükte de ad ile aranır.
+import { loadPayloads, payloadsOf, groupPayloads, statusOf, statusCounts, purposes, disciplines, CLASS, PURPOSE, groupOf, groupName, orbitInfo, parseVague, stateName, wikiPick, wikiSummary, wikiUrl } from './payloads.js';
+import { nameCandidates, familyLookup, loadFamilies, wikidataLookup, ll2Group } from './payloadresolve.js';
 import { fmt } from './format.js';
 import { mk } from './uiutil.js';
 import { applyIcons } from './icons.js';
@@ -25,16 +28,16 @@ const purposeText = (p) => purposes(p).map((x) => t(x.ad) + (x.belirsiz ? ' (?)'
 const ownerText = (p) => (p.sahip ? [p.sahip[0], COUNTRY[p.sahip[2]] ? t(COUNTRY[p.sahip[2]]) : stateName(p.sahip[2], lang)].filter(Boolean).join(' · ') : '');
 
 export class PayloadView {
-  constructor({ sats, follow }) {
-    Object.assign(this, { sats, follow });
+  constructor({ sats, follow, search = null }) {
+    Object.assign(this, { sats, follow, search });          // search(q): Geçmiş'te ara (yük ailesi satırı)
     this.openP = null; this.openG = new Set(); this.allG = new Set(); this.err = new Map(); this.busy = new Set(); this.boxes = new Set();
   }
   // görünen tüm yük bölümlerini yeniden çiz (uzun süren işten sonra: panel bu arada yeniden kurulmuş olabilir)
   refresh() { for (const b of this.boxes) { if (!b.isConnected) { this.boxes.delete(b); continue; } b._fill(); applyIcons(b); } }
   // bölüm öğesi; veri gelince doldurulur. fallback(): yük verisi olmayan (çok yeni) fırlatmada gösterilecek öğe
-  section(tag, year, fallback) {
+  section(tag, year, fallback, ms = null) {
     const box = mk('section', 'py'), d = DATA.get(year);
-    const done = (pd) => { this.fill(box, pd, tag, fallback); applyIcons(box); };
+    const done = (pd) => { this.fill(box, pd, tag, fallback, ms); applyIcons(box); };
     if (d) done(d);
     else {
       box.appendChild(mk('p', 'py-wait', 'Yükler yükleniyor…'));
@@ -43,11 +46,11 @@ export class PayloadView {
     }
     return box;
   }
-  fill(box, pd, tag, fallback) {
-    const list = payloadsOf(pd, tag);
-    if (!list || !list.length) { box.replaceChildren(...(fallback ? [fallback()] : [])); return; }
-    const redo = () => { this.fill(box, pd, tag, fallback); applyIcons(box); };
-    box._fill = () => this.fill(box, pd, tag, fallback); this.boxes.add(box);
+  fill(box, pd, tag, fallback, ms = null) {
+    const list = (payloadsOf(pd, tag) || []).map((p) => ({ ...p, _ms: ms, _tag: tag }));        // fırlatma zamanı ve COSPAR: ad ile aramada doğrulama
+    if (!list.length) { box.replaceChildren(...(fallback ? [fallback()] : [])); return; }
+    const redo = () => { this.fill(box, pd, tag, fallback, ms); applyIcons(box); };
+    box._fill = () => this.fill(box, pd, tag, fallback, ms); this.boxes.add(box);
     const head = mk('h4', 'py-h'); head.append(mk('span', null, 'Yükler'), mk('span', 'py-n', fmt(list.length, 0)));
     const ul = mk('ul', 'py-list');
     for (const g of groupPayloads(list)) ul.appendChild(g.one ? this.item(g.one, redo) : this.group(g, redo));
@@ -94,7 +97,12 @@ export class PayloadView {
   }
   detail(p, s) {
     const box = mk('div', 'py-det');
-    const w = wikiPick(p, lang); if (w) box.appendChild(wikiBlock(w));
+    const w = wikiPick(p, lang);
+    if (w) box.appendChild(wikiBlock(w));
+    else {           // eşleme yok: yükün adıyla Wikidata'da ara (fırlatma tarihi ya da COSPAR tutmalı); bulunamazsa sessizce kalkar
+      const names = [p.ad, ...(p.ad2 ? p.ad2.split(' · ') : [])].filter((n, i, a) => n && a.indexOf(n) === i).slice(0, 3);
+      box.appendChild(lookupBlock(names, { ms: p._ms ?? null, cospar: /^\d{4}-\d{3}$/.test(p._tag || '') ? p._tag : null }, true));
+    }
     const dl = mk('dl', 'tk-dl py-dl');
     const dd = (k, v, data = false) => { if (!v) return; const d = mk('dd', null, v); if (data) noTr(d); dl.append(mk('dt', null, k), d); };
     dd('Amaç', purposes(p).map((x) => t(x.ad) + (x.belirsiz ? ' (?)' : '')).join(', '));
@@ -113,6 +121,43 @@ export class PayloadView {
     box.appendChild(dl);
     if (s.kind !== 'deep') { const f = orbitFigure(p, s.live); if (f) box.appendChild(f); }
     return box;
+  }
+  // veritabanında yük listesi olmayan fırlatma (LL2 kaydı): LL2'nin yükleri ve aracı + görev adından çözümleme
+  liveSection(l) {
+    const d = l.d || {}, box = mk('section', 'py py-live'), ul = mk('ul', 'py-list');
+    const head = mk('h4', 'py-h'); head.appendChild(mk('span', null, 'Görev yükü'));
+    for (const y of d.yuk || []) ul.appendChild(ll2Item(y));
+    ul.appendChild(this.missionItem(l));
+    box.append(head, ul);
+    applyIcons(box);
+    return box;
+  }
+  // görev adından: amaç (LL2 görev türü, yoksa aile), yük ailesi, Wikidata/Vikipedi, görevin kendi sayfaları
+  missionItem(l) {
+    const d = l.d || {}, li = mk('li', 'py-item py-mis'), body = mk('div', 'py-mbody');
+    const names = nameCandidates(l.gorev), g = ll2Group(d.gorevTur);
+    const nm = noTr(mk('b', 'py-name', names[0] || l.gorev || '?'));
+    const pur = mk('span', 'py-pur', g ? t(groupName(g)) : '');
+    body.append(nm, pur);
+    const fam = mk('div', 'py-fam'); body.appendChild(fam);
+    loadFamilies().then((F) => {
+      const f = familyLookup(names, F); if (!f || !fam.isConnected) return;
+      // aile amacı LL2 türüyle çelişmiyorsa daha ayrıntılı amaç adı (ör. "Seyrüsefer, konum ve zaman")
+      if (f.k && PURPOSE[f.k] && (!g || groupOf(f.k) === g)) pur.textContent = t(PURPOSE[f.k]);
+      else if (!g && f.k) pur.textContent = t(PURPOSE[f.k] || f.k);
+      const yrs = f.y0 === f.y1 ? String(f.y0) : `${f.y0}–${f.y1}`;
+      const line = mk('span', 'py-fl');
+      line.append(mk('span', null, t('Aynı aileden {0} yük ({1})', fmt(f.n, 0), yrs)), ...[f.pr, f.sahip, f.ulke ? (COUNTRY[f.ulke] ? t(COUNTRY[f.ulke]) : stateName(f.ulke, lang)) : null]
+        .filter(Boolean).map((x) => noTr(mk('span', null, ' · ' + x))));
+      fam.appendChild(line);
+      if (this.search) { const b = mk('button', 'xs py-fb', 'Geçmişte göster'); b.type = 'button'; b.addEventListener('click', () => this.search(f.kok)); fam.appendChild(b); }
+    }).catch(() => { /* aile dizini isteğe bağlı */ });
+    // görevin kendi sayfaları: LL2'nin bildirdikleri hemen, Wikidata'nınkiler (P856) gelince — aynı site bir kez
+    const seen = new Set(), links = (d.site || []).map((x) => ({ u: x.u, k: x.k }));
+    if (names.length) body.appendChild(lookupBlock(names, { ms: l.net, cospar: l.cospar || null }, false, seen));
+    if (links.length) body.appendChild(linkRow(links, 'Görevin sayfası', seen));
+    li.appendChild(body);
+    return li;
   }
   // aynı programdaki yükler (Starlink × 24): açınca üyeler
   group(g, redo) {
@@ -144,6 +189,53 @@ export class PayloadView {
   }
 }
 
+// LL2'nin bildirdiği yük ya da araç satırı (kaynak İngilizce: çevrilmez)
+function ll2Item(y) {
+  const li = mk('li', 'py-item py-ll2'), body = mk('div', 'py-mbody');
+  const nm = mk('b', 'py-name'); nm.appendChild(noTr(mk('span', null, y.ad))); if (y.adet) nm.appendChild(mk('span', 'py-x', ` × ${fmt(y.adet, 0)}`));
+  body.appendChild(nm);
+  const sub = [y.arac ? t('Uzay aracı') : null, y.tur, y.op, y.uretici && y.uretici !== y.op ? y.uretici : null].filter(Boolean);
+  if (sub.length) body.appendChild(noTr(mk('span', 'py-pur', sub.join(' · '))));
+  const meta = [y.hedef ? t('hedef: {0}', y.hedef) : null, y.kg ? mass(y.kg) : null].filter(Boolean);
+  if (meta.length) body.appendChild(mk('span', 'py-st', meta.join(' · ')));
+  if (y.aciklama) { const p = noTr(mk('p', 'py-desc', y.aciklama)); p.lang = 'en'; body.appendChild(p); }
+  const links = [y.url ? { u: y.url } : null, y.wiki ? { u: y.wiki, k: 'Vikipedi' } : null].filter(Boolean);
+  if (links.length) body.appendChild(linkRow(links, 'Sitesi'));
+  li.appendChild(body);
+  return li;
+}
+const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return u; } };
+// dış bağlantılar: "Görevin sayfası: mmx.jaxa.jp · spacex.com"; aynı site bir kez (seen: bölümde gösterilmiş siteler)
+function linkRow(links, label, seen = new Set()) {
+  links = links.filter((x) => { const h = host(x.u) + (x.k === 'Vikipedi' ? '#w' : ''); if (seen.has(h)) return false; seen.add(h); return true; });
+  const row = mk('div', 'py-links'); if (!links.length) return row;
+  row.appendChild(mk('span', 'k', label));
+  links.forEach((x, i) => {
+    const a = mk('a', 'lp-link'); a.href = x.u; a.target = '_blank'; a.rel = 'noopener noreferrer';
+    a.appendChild(x.k === 'Vikipedi' ? mk('span', null, 'Vikipedi') : noTr(mk('span', null, x.k && !/^https?:/.test(x.k) ? x.k : host(x.u))));
+    if (i) row.appendChild(mk('span', 'k', '·'));
+    row.appendChild(a);
+  });
+  return row;
+}
+// ad ile Wikidata araması: açıklama, Vikipedi özeti, kendi sitesi. quiet: bulunamazsa hiçbir şey gösterme
+function lookupBlock(names, opt, quiet, seen = new Set()) {
+  const box = mk('div', 'py-wd'), wait = mk('p', 'py-wait', 'Ansiklopedide aranıyor…');
+  box.appendChild(wait);
+  wikidataLookup(names, opt).then((it) => {
+    if (!box.isConnected) return;                    // panel bu arada yeniden kuruldu
+    if (!it) { if (quiet) box.remove(); else wait.textContent = t('Ansiklopedide bu görevin kaydı bulunamadı.'); return; }
+    const kids = [];
+    const desc = (lang === 'tr' && it.aciklama.tr) || it.aciklama.en;
+    if (desc) { const p = noTr(mk('p', 'py-wdd')); p.append(noTr(mk('b', null, it.ad)), ' — ', desc); p.lang = lang === 'tr' && it.aciklama.tr ? 'tr' : 'en'; kids.push(p); }
+    const w = wikiPick(it, lang); if (w) kids.push(wikiBlock(w));
+    if (it.site.length) { const r = linkRow(it.site.map((u) => ({ u })), 'Kendi sitesi', seen); if (r.childNodes.length) kids.push(r); }
+    if (it.cospar.length) kids.push(mk('span', 'py-lic', `Wikidata ${it.id} · COSPAR ${it.cospar.slice(0, 2).join(', ')}`));
+    else kids.push(mk('span', 'py-lic', `Wikidata ${it.id}`));
+    box.replaceChildren(...kids); applyIcons(box);
+  }).catch(() => { if (quiet) box.remove(); else wait.textContent = t('Ansiklopedi şu an yanıt vermiyor.'); });
+  return box;
+}
 function enter(el) {
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (!reduced && el.animate) el.animate([{ opacity: 0, transform: 'translateY(-4px)' }, { opacity: 1, transform: 'none' }], { duration: 200, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });

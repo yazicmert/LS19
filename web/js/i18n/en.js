@@ -1920,6 +1920,15 @@ const dict = {
   "geçersiz NORAD numarası": "invalid NORAD number",
   "uydu verisi henüz yüklenmedi": "satellite data not loaded yet",
   "CelesTrak GP (tek kayıt, etkin listede değil)": "CelesTrak GP (single record, not in the active list)",
+  "Görev yükü": "Mission payload",
+  "Aynı aileden {0} yük ({1})": "{0} payloads of the same family ({1})",
+  "Görevin sayfası": "Mission page",
+  "hedef: {0}": "destination: {0}",
+  "Ansiklopedide aranıyor…": "Searching the encyclopedia…",
+  "Ansiklopedide bu görevin kaydı bulunamadı.": "No encyclopedia entry found for this mission.",
+  "Kendi sitesi": "Official site",
+  "Ansiklopedi şu an yanıt vermiyor.": "The encyclopedia is not responding right now.",
+  "Uzay aracı": "Spacecraft",
 };
 
 // Çıkarıcının bilerek almadığı ama ekranda görünen metinler: boşluksuz küçük harfli sözcükler (kimliklerle karışmasın diye
@@ -1983,6 +1992,7 @@ export const manual = {
   "Metin: Vikipedi, CC BY-SA 4.0": "Text: Wikipedia, CC BY-SA 4.0",
   "SSCB": "USSR",
   "Bilim": "Science",
+  "Sitesi": "Website",
 };
 
 // Kaynakta Türkçe gibi görünen ama çevrilmeyecek metinler (ad, kısaltma, bağlantı): çıkarıcı bulur, sözlüğe girmez.

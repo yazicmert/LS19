@@ -72,7 +72,38 @@
    "webcast_live": false,
    "image": {
     "image_url": "https://example.invalid/x.jpg"
-   }
+   },
+   "info_urls": [
+    {
+     "priority": 5,
+     "source": "spaceflightnow.com",
+     "title": "Launch coverage",
+     "url": "https://spaceflightnow.com/launch/x",
+     "type": {
+      "id": 3,
+      "name": "Article"
+     }
+    },
+    {
+     "priority": 10,
+     "source": "spacex.com",
+     "title": "SpaceX",
+     "url": "https://www.spacex.com/launches/sl-15-18",
+     "type": {
+      "id": 1,
+      "name": "Official Page"
+     }
+    },
+    {
+     "priority": 20,
+     "source": "insecure",
+     "url": "http://example.com/x",
+     "type": {
+      "id": 1,
+      "name": "Official Page"
+     }
+    }
+   ]
   },
   {
    "id": "p-1",
@@ -98,7 +129,19 @@
     "configuration": {
      "name": "Electron",
      "full_name": "Electron"
-    }
+    },
+    "spacecraft_stage": [
+     {
+      "id": 1,
+      "destination": "International Space Station",
+      "spacecraft": {
+       "name": "Cargo Dragon C211",
+       "spacecraft_config": {
+        "name": "Cargo Dragon 2"
+       }
+      }
+     }
+    ]
    },
    "mission": {
     "name": "Ornek Gorev",
@@ -148,7 +191,51 @@
     "configuration": {
      "name": "GSLV Mk II",
      "full_name": "GSLV Mk II"
-    }
+    },
+    "payloads": [
+     {
+      "id": 9,
+      "destination": "Geosynchronous Orbit",
+      "amount": 1,
+      "payload": {
+       "id": 3,
+       "name": "NVS-03",
+       "type": {
+        "id": 2,
+        "name": "Navigation Satellite"
+       },
+       "operator": {
+        "name": "Indian Space Research Organization",
+        "abbrev": "ISRO"
+       },
+       "manufacturer": {
+        "name": "U R Rao Satellite Centre",
+        "abbrev": null
+       },
+       "mass": 2250.5,
+       "description": "Hindistan bölgesel seyrüsefer uydusu 🛰️ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+       "info_link": "https://www.isro.gov.in/NVS03.html",
+       "wiki_link": "http://en.wikipedia.org/wiki/NVS-03"
+      }
+     },
+     {
+      "id": 10,
+      "destination": null,
+      "amount": 3,
+      "payload": {
+       "name": "Kübesat",
+       "type": null,
+       "operator": null,
+       "mass": null
+      }
+     },
+     {
+      "id": 11,
+      "payload": {
+       "name": "  "
+      }
+     }
+    ]
    },
    "mission": {
     "name": "IRNSS Ornek",

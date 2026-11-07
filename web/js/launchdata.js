@@ -64,8 +64,29 @@ export function detailLL2(r) {
     .sort((a, b) => b.off - a.off || b.pr - a.pr || a.i - b.i).slice(0, 2)
     .map(({ v, off }) => prune({ u: str(v.url), b: cut(v.title, 90), resmi: off === 1 ? true : null }));
   const up = Array.isArray(r.updates) && r.updates[0];
+  // görev yükü: LL2 yük uçuşları (ad, tür, işletmeci, üretici, hedef, adet, kütle, açıklama, kendi sitesi, Vikipedi) ve araç (Dragon, Progress…)
+  const rk = r.rocket || {}, https = (u) => { const v = str(u); return v && /^https:\/\//.test(v) ? v : null; };
+  const yuk = [
+    ...(Array.isArray(rk.payloads) ? rk.payloads : []).slice(0, 8).map((pf) => {
+      const p = (pf && pf.payload) || {}, op = p.operator || {}, mf = p.manufacturer || {}, n = int(pf && pf.amount);
+      return prune({ ad: str(p.name), tur: str(p.type && p.type.name), op: str(op.abbrev) || str(op.name), uretici: str(mf.abbrev) || str(mf.name), hedef: str(pf && pf.destination),
+        adet: n > 1 ? n : null, kg: num(p.mass), aciklama: cut(p.description, 400), url: https(p.info_link), wiki: https(p.wiki_link) });
+    }),
+    ...[].concat(rk.spacecraft_stage || []).slice(0, 2).map((st) => {
+      const sc = (st && st.spacecraft) || {}, cf = sc.spacecraft_config || {};
+      return prune({ ad: str(sc.name), tur: str(cf.name), hedef: str(st && st.destination), arac: true });
+    }),
+  ].filter((x) => x.ad);
+  // görevin kendi sayfaları (LL2 info_urls; resmî sayfa önde)
+  const site = (Array.isArray(r.info_urls) ? r.info_urls : []).filter((u) => u && https(u.url))
+    .map((u, i) => ({ u, i, off: u.type && u.type.id === 1 ? 1 : 0, pr: num(u.priority) ?? 0 }))
+    .sort((a, b) => b.off - a.off || b.pr - a.pr || a.i - b.i).slice(0, 2)
+    .map(({ u, off }) => prune({ u: https(u.url), k: cut(u.source, 40) || cut(u.title, 40), resmi: off === 1 ? true : null }));
   return prune({
     aciklama: cut(mi.description, 700),
+    gorevTur: str(mi.type),
+    yuk,
+    site,
     musteri: names(mi.agencies, 3),
     program: names(r.program, 2),
     tur: str(lsp.type && lsp.type.name),

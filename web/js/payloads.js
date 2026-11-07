@@ -117,6 +117,23 @@ export function stateName(code, lang = 'tr') {
   return code;
 }
 
+// yük ailesi (görev ya da yük adından): "Starlink Group 15-18" ve "Starlink 32713" -> "starlink", "Glonass-K1 No. 19" -> "glonass-k",
+// "Progress MS-35 (96P)" -> "progress ms", "Yaogan 51-07 to 09" -> "yaogan". Rakamlı ilk sözcükte durur, ayraç içini ve genel sözcükleri atar.
+// Derleme aracı (tools/firlatma_db.mjs) aile dizinini aynı işlevle kurar; çalışırken canlı fırlatmanın adı bu dizinde aranır.
+const GENERIC = new Set(['group', 'no', 'flight', 'mission', 'launch', 'batch', 'fm', 'f', 'block', 'the', 'and', 'to', 'of', 'tbd', 'unknown', 'payload', 'payloads', 'dedicated', 'rideshare', 'satellites']);
+export function nameStem(s) {
+  const t = String(s || '').toLocaleLowerCase('tr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ı/g, 'i').replace(/\([^)]*\)|\[[^\]]*\]/g, ' ');
+  const out = [];
+  for (const tok of t.split(/[\s_/,&+:]+/)) {
+    if (!tok) continue;
+    const k = tok.search(/\d/), base = (k < 0 ? tok : tok.slice(0, k)).replace(/[-.'#?]+$/, '').replace(/^[-.'#]+/, '');
+    if (base && !GENERIC.has(base)) out.push(base);
+    if (k >= 0 || out.length >= 3) break;
+  }
+  const r = out.join(' ');
+  return r.length >= 3 ? r : '';
+}
+
 // yükleme ve erişim
 const cache = new Map();
 export function loadPayloads(year, base = 'data/payloads/') {
