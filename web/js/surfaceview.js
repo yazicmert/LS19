@@ -6,6 +6,7 @@ import { TileLayer } from './tiles.js';
 import { VS_BODY, FS_EARTH, FS_MOON } from './bodyshaders.js';
 import { add, sub, norm, mtv } from './vec3.js';
 import { t } from './i18n.js';
+import { groundCovers } from './launchcam.js';
 
 const TERRAIN_FAR_KM = 25000;            // iniş arazisi yamasının (60 km yarıçap) çizildiği en büyük kamera uzaklığı
 
@@ -50,9 +51,14 @@ export class SurfaceView {
     let pending = 0, failed = 0, loaded = 0, drawn = 0, busy = false;
     let mode = this.earthDetail; if (!mode) { try { mode = localStorage.getItem('ls19.earthdetail'); } catch (e) { mode = null; } this.earthDetail = mode = ['weld', 'hls', 'bm'].includes(mode) ? mode : 'weld'; }
     if (this.earthWeld) { this.earthWeld.userOn = mode === 'weld'; this.earthHls.userOn = mode === 'hls'; }
-    // kalkış canlandırmasında rampa çevresini padground.js çizer (ufka dek, kabartmalı): Dünya parçaları onun üstüne binmesin
-    const padGround = !!(this.asc && this.asc.ground && this.asc.ground.ready && this.cam && this.cam.mode === 'LAUNCH');
-    // taban küre de gizlenir: zemin ağı ~1650 km'ye (185 km irtifadaki ufka) dek uzanır; küre köşeleri zemine 0,25 m yaklaştığından irtifada derinlikte çakışırdı
+    // kalkış canlandırmasında rampa çevresini padground.js çizer (ufka dek, kabartmalı): Dünya parçaları onun üstüne binmesin. Taban küre de gizlenir: zemin ağı
+    // ~1650 km'ye dek uzanır; küre köşeleri zemine 0,25 m yaklaştığından derinlikte çakışırdı. Ama yalnız kameranın gördüğü yer (altındaki nokta + ufuk) bu
+    // karenin içindeyken: kamera uzaklaşınca ya da roket karenin kıyısına varınca zemin gizlenir, gerçek küre ve yüzey parçaları çizilir (yoksa uzaktan
+    // bakışta kara bir küre üstünde süzülen bir kare görünürdü). launchcam.js groundCovers
+    const AG = this.asc && this.asc.ground, padP = this.asc && this.asc.state && this.asc.state.pad;
+    const camE = this.earth.position, eyeE = [-camE.x, -camE.y, -camE.z];               // kamera Dünya merkezine göre (sahne kameraya göre)
+    const padGround = !!(AG && AG.ready && padP && this.cam && this.cam.mode === 'LAUNCH' && groundCovers(eyeE, padP.pos, E.R_E));
+    if (AG && AG.ready && AG.mesh.visible !== padGround) AG.mesh.visible = padGround;
     if (this.earth.material.visible === padGround) this.earth.material.visible = !padGround;
     for (const [layer, body] of [[this.earthTiles, this.earth], [this.earthWeld, this.earth], [this.earthHls, this.earth], [this.moonTiles, this.moon], [this.moonTiles2, this.moon]]) {
       if (!layer || !body.visible || layer.userOn === false || (padGround && body === this.earth)) { if (layer) layer.setEnabled(false); continue; }

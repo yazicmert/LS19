@@ -277,7 +277,7 @@ Bu bir **kinematik canlandırma**. Görev fiziği ve Δv hesapları değişmiyor
 - Girişte konum 8 m içinde birleşiyor; hız büyüklüğü %0,07 içinde.
 - Hız yönünde ~0,6° (85 m/s) fark kalıyor: canlandırmadan fiziğe geçerken hız vektörü bu kadar sıçrıyor.
 
-**Kademe ayrılmaları** roketlerin gerçek uçuş zamanlarından canlandırma süresine (tasarımın 600 s'lik çıkışı) ölçekleniyor:
+**Kademe ayrılmaları** roketlerin gerçek uçuş zamanlarında oluyor: tasarım fırlatmadan girişe süreyi seçili roketin gerçek giriş zamanından alıyor (`design.js` `ascentTime`: Saturn V 709 s, SLS 496 s, Falcon 9 520 s, Falcon Heavy 510 s, Vulcan 690 s; genel kademe 600 s, hazır tasarımlar değişmez). Canlandırma gerçek zamanlı; görev saati ile roketin uçuş saati aynı (önce her roket 600 s'ye ölçekleniyordu, SLS'te saat %21 kayıyordu):
 
 | Roket | Olaylar | Kaynak |
 |---|---|---|
@@ -342,17 +342,17 @@ Toplam Δv tüm fırsatlarda ~5.910 m/s, birkaç m/s farkla. Gerçek roketlerde 
 
 Altı roketin hepsinde max-Q 53–79 s'de ve 11 km civarında (tipik 10–15 km).
 
-Canlandırmada yol bu benzetimden geliyor: gerçek zaman canlandırma süresine ölçekleniyor, yay açısı ve irtifa görevin giriş noktasına oturtuluyor. Son %8'de hız görevin giriş hızıyla yumuşakça birleşiyor; fiziğe geçişte hız sıçraması yok (önce 85 m/s idi).
+Canlandırmada yol bu benzetimden geliyor: zaman gerçek (tasarımın çıkış süresi roketin giriş zamanı), yay açısı ve irtifa görevin giriş noktasına oturtuluyor. Son %8'de hız görevin giriş hızıyla yumuşakça birleşiyor; fiziğe geçişte hız sıçraması yok (önce 85 m/s idi).
 
 **Görsellik:**
 
 - **Rampa:** SLS'te NASA 3D Resources **Mobile Launcher** modeli (116 m, platform 48 m; roket ekseni modelden ölçüldü). Diğer roketlerde beton platform ve yıldırım direkleri.
-- **Yer (`padground.js`):** rampa çevresinden ufka dek tek ağ: rampa çerçevesinde Dünya eğriliğini izleyen kare ızgara (193 × 193 köşe; köşe aralığı rampada ~1 m, 1650 km'deki kenarda ~200 km, üstel). Görüntü çalışma anında **Esri World Imagery**'den (anahtarsız, atıf ekranda): iç içe yedi seviye z18, 16, 14, 11, 9, 7, 5 (her biri 6 × 6 karo; rampada ≈ 0,5 m/piksel, ufukta ≈ 4 km/piksel). z12 atlanır, çünkü bu bölgelerde Esri'nin geçiş seviyesi farklı tarihli kaynaklardan yamalı. Gölgelendirici her noktada eldeki en ince seviyeyi seçer, seviye kenarlarında yumuşak geçiş yapar. Esri'nin "veri yok" yer tutucusu (düz açık gri karo) içerikten tanınıp saydam bırakılır, orada kaba seviye görünür. Esri alınamazsa **EOX Sentinel-2 cloudless** (CC BY-SA 4.0, z ≤ 15). Kabartma **AWS Terrain Tiles**'tan (Terrarium; z14/11/8/5, 3 × 3 karo). Rampa çevresi (~400 m) düz tutulur, 1,4 km'ye dek yumuşakça gerçek yüksekliğe geçer. Rampadan alçak yerler rampa düzeyine kırpılır, çünkü fizik rampayı küre yüzeyine koyar. Dağlık rampalarda (Xichang 1857 m, Vandenberg) yer kameraları zeminin üstüne kaldırılır. Hava perspektifi: pus alçak katmanda (H ≈ 2 km) yoğun; ışının deniz düzeyi eşdeğeri yolu H·(1 − e^(−h/H))/sin(görüş açısı), sönüm uzunluğu ~22 km. Gece alevin ışığı rampa çevresini aydınlatır. Kalkış sırasında küre parçaları ve taban Dünya küresi gizlenir; zemin 185 km irtifadaki ufka dek uzanır. Sınır: düz görüntü çok yatık bakışta (≲ 1°, yerden tele objektif) şeritlenir.
+- **Yer (`padground.js`):** rampa çevresinden ufka dek tek ağ: rampa çerçevesinde Dünya eğriliğini izleyen kare ızgara (193 × 193 köşe; köşe aralığı rampada ~1 m, 1650 km'deki kenarda ~200 km, üstel). Görüntü çalışma anında **Esri World Imagery**'den (anahtarsız, atıf ekranda): iç içe yedi seviye z18, 16, 14, 11, 9, 7, 5 (her biri 6 × 6 karo; rampada ≈ 0,5 m/piksel, ufukta ≈ 4 km/piksel). z12 atlanır, çünkü bu bölgelerde Esri'nin geçiş seviyesi farklı tarihli kaynaklardan yamalı. Gölgelendirici her noktada eldeki en ince seviyeyi seçer, seviye kenarlarında yumuşak geçiş yapar. Esri'nin "veri yok" yer tutucusu (düz açık gri karo) içerikten tanınıp saydam bırakılır, orada kaba seviye görünür. Esri alınamazsa **EOX Sentinel-2 cloudless** (CC BY-SA 4.0, z ≤ 15). Kabartma **AWS Terrain Tiles**'tan (Terrarium; z14/11/8/5, 3 × 3 karo). Rampa çevresi (~400 m) düz tutulur, 1,4 km'ye dek yumuşakça gerçek yüksekliğe geçer. Rampadan alçak yerler rampa düzeyine kırpılır, çünkü fizik rampayı küre yüzeyine koyar. Dağlık rampalarda (Xichang 1857 m, Vandenberg) yer kameraları zeminin üstüne kaldırılır. Hava perspektifi: pus alçak katmanda (H ≈ 2 km) yoğun; ışının deniz düzeyi eşdeğeri yolu H·(1 − e^(−h/H))/sin(görüş açısı), sönüm uzunluğu ~22 km. Gece alevin ışığı rampa çevresini aydınlatır. Kalkış sırasında küre parçaları ve taban Dünya küresi gizlenir; zemin 185 km irtifadaki ufka dek uzanır. Kameranın gördüğü yer zeminin dışına taşınca (uzaklaştırılmış görünüm, yüksek irtifada araç üstü) zemin gizlenir, Dünya küresi görünür (`launchcam.js` `groundCovers`): uzaktan kara küre üstünde yüzen kare görünmez. Sınır: düz görüntü çok yatık bakışta (≲ 1°, yerden tele objektif) şeritlenir.
 - **İsteğe bağlı Google 3B karolar (`google3d.js`) — şimdilik pasif (`G3D_ENABLED = false`; düğme gizli, katman başlamaz):** açılınca kullanıcının kendi anahtarıyla rampa çevresi (12 km) Google Photorealistic 3D Tiles ile çizilir (3d-tiles-renderer; yalnız açılınca iner). Karolar ECEF (WGS-84); grup matrisi ECEF → rampa çerçevesi (doğu, yukarı, güney). Karolar elipsoit yüksekliğinde ve geoit farkı bilinmediği için rampa çevresine (45–90 m halkada 36 ışın) aşağı ışın atılır, isabetlerin alt çeyreği (kule ve yapılar karışmasın) y = 0'a oturtulur; ince karolar geldikçe 2,5 s'de bir yinelenir. Yalnız rampa çevresindeki karolar yüklenir (maske küresi); ayrıntı düzeyi kameraya göre. Malzemeler yerinde yamalanır: ışıksız fotoğraf rengi, padground.js ile aynı gece karartması, alev ışığı ve pus; 12 km dışı atılır, padground.js aynı yarıçapın içini boşaltır. Hazır olunca temsilî rampa (beton, çukur, direkler) gizlenir; yer kameraları bina/ağaç tepelerinin de üstüne kaldırılır. Kamera 25 km'nin üstünde karolar kapanır. Doğrulama: gerçek Google karoları anahtar gerektirdiğinden, KSC çevresinde ECEF'te üretilmiş sahte bir 3D Tiles kümesiyle (zemin elipsoidin 7 m üstünde, 100 m kule, binalar, kuzey şeridi) Chromium'da denendi: hizalama +7,02 m buldu, kırpma/delik, temsilî rampanın gizlenmesi ve 25 km kapanışı doğru; Google'a özgü oturum ve atıf kütüphanenin GoogleCloudAuthPlugin'inde.
 - **Alev:**
   - Ortam basıncı düştükçe genişliyor ve uzuyor; şok elmasları alçakta belirgin.
   - Rengi o anda yanan kademenin yakıtına göre: gazyağı turuncu, katı yakıt beyaz-sarı, hidrolox soluk mavi, metan mavi-mor. Örneğin Saturn V'de S-IC turuncu, S-II mavi.
-- **Gökyüzü:** Güneş'in araca göre yüksekliğine göre mavi ya da koyu; ölçek yüksekliğiyle (~7,5 km) sönüyor. Ufkun ötesinde, derinlik testli kubbe. 2–25 km arasında griye değil laciverde döner (Preetham modeli gözlemciyi yerde varsayar).
+- **Gökyüzü:** kameranın bulunduğu yerden (irtifası ve oradaki Güneş yüksekliği): yer kamerası roket 150 km'deyken de gündüz gökyüzü görür, takip uçağı (18 km) lacivert, araç üstü kamera irtifada siyah. Ölçek yüksekliğiyle (~7,5 km) sönüyor. Ufkun ötesinde, derinlik testli kubbe. 2–25 km arasında griye değil laciverde döner (Preetham modeli gözlemciyi yerde varsayar). Tele izleme kameraları parlak alevi ölçer (pozlama 0,16): ufka yakın gökyüzü beyaza doymaz, uzaktaki alev seçilir.
 - **Kalkış bulutu:** parçacıklar kameraya dönük küre gibi gölgelenir (gündüz Güneş'e bakan yüz aydınlık); aleve yakın sıcak parçacıklar gölgelenmez. Egzoz sütunu, karede roketin aldığı yol boyunca dağıtılır ve doğduğu ana göre yaşlandırılır: düşük kare hızında ya da hızlandırılmış zamanda iz kesik kesik olmaz.
 - **Geri sayım çekimi:** ~2,7 km'den, 120 m yükseklikten yavaşça kayan alçak hava çekimi: roket, gerçek rampa kompleksi ve kıyı birlikte görünür.
 - **Ayrılan kademeler:** ayrılma anındaki durumdan balistik düşüyor (çekim, dönen havada sürüklenme β ≈ 2000 kg/m², 4 m/s geriye ayrılma itişi, yavaş takla). Kesme düzlemleri ya da etiketli parçalarla çiziliyor.
@@ -374,7 +374,7 @@ Kullanıcı kalkışın "yatay gibi" göründüğünü bildirdi. Ölçüm: rampa
 Düzeltme (`scene.js` `LAUNCH` kipi, `ascentplay.js`):
 
 1. **Yer kamerası.** Rampanın yanında, uçuş yönüne dik, 1,4 km uzakta ve 12 m yükseklikte durur; tele objektifle izler. Kadraj roketin tepesinden rampaya kadar uzanır; roket yükseldikçe en çok 2,5 roket boyu aşağısını kapsar. Dikey kalkış rampaya ve ufka göre görünür, yunuslama yandan izlenir (uçuş yönü kadrajın sağına akar).
-2. **Takip kamerasına geçiş.** 1,5–4,5 km irtifada roketin arkasındaki takip kamerasına yumuşak geçer: yerel dikey yukarı, ufuk kadrajda. Sürükleme ve tekerlek çalışır.
+2. **Yerden ayrılmaz.** Yer kamerası roketi ufkun altına inene dek yerden izler. Önceki sürümde 1,5–4,5 km irtifada roketin arkasındaki sanal bir takip kamerasına geçiyordu; bu kaldırıldı, yerine gerçek kameralar geldi (6.7.2).
 3. **Hız.** Kalkış ×1 hızda başlar; T+20 s'den sonra ×10 olur (kullanıcı hız seçtiyse dokunulmaz).
 4. **Kalkışta gizlenenler.** Yörünge çizgileri, "Araç" işareti ve iniş ayağı ofseti (2,9 m) kalkışta yok; roket rampaya oturur.
 5. **İrtifa göstergesi.** Rampada 11,6 m gösteriyordu (yaklaşık elipsoid formülü); artık canlandırmanın WGS-84 irtifasını gösterir.
@@ -389,17 +389,21 @@ Hedef: NASA ve SpaceX canlı yayınlarının çekim dili ve ekran düzeni. Yayı
 
 | Zaman | Çekim |
 |---|---|
-| T−10 → T−3 | Geniş rampa çekimi: 3 km'den, yavaşça kayar |
+| T−10 → T−3 | Geniş rampa çekimi (helikopter): ~2,7 km'den, 120 m yükseklikten, yavaşça kayar |
 | T−3 → T+7 | Rampa kamerası: 160 m'den, yerden 3 m; motorlara ve aleve bakar; kalkışın ses basıncıyla sarsılır |
-| T+7 → 4,5 km | Yer izleme: 1,4 km'den tele objektif; operatör gecikmesi (0,35 s) |
-| 4,5 km sonrası | Takip kamerası: ufuk kadrajda |
-| Max-Q ve her ayrılma | Araç üstü kamera: gövdenin yanından aşağı bakar, ayrılan kademe görünür |
+| T+7 → roket 50 km uzaklaşana dek | Yer izleme (tele): rampanın 1,4 km yanında, yerden 12 m; en dar 1° (~2000 mm sınıfı); operatör gecikmesi 0,35 s |
+| roket 900 km uzaklaşana dek | Takip uçağı: 18,3 km irtifada, uçuş yönünde 70 km ileride, 40 km yanda; dengeli tele kamera, en dar 0,4° |
+| Max-Q, her ayrılma, uzak kameralar roketi göremeyince | Araç üstü kamera: gövdenin yanından aşağı bakar, ayrılan kademe görünür |
+
+Her kamera gerçek bir yerde durur (rampa çerçevesinde sabit, roketle sürüklenmez) ve roketi yalnız görebildiği sürece gösterir: görüş çizgisi Dünya küresine karşı denetlenir (`launchcam.js` `lineOfSight`, ufuk). Kullanıcı Yer ya da Uçak seçtiyse ve o kamera roketi ufukta kaybettiyse araç üstüne geçilir; bantta "yer kamerası aracı ufukta kaybetti" notu görünür. Uzaktaki roket tele kamerada gerçekte olduğu gibi küçük, parlak bir alev noktasıdır (en az 10 piksel). İzleme hatası görüş açısının %18'iyle sınırlıdır: dar açıda ve hızlandırılmış zamanda roket kadrajdan çıkmaz.
 
 - Ayrılmalarda kamera üst kademeye geçer (kesme + 12 m).
-- Kalkış ×1 hızda başlar, ayrılmalar ×2 yavaş çekim, arada ×10. Kullanıcı hızı ya da kamerayı seçerse kurgu ona uyar (Kurgu / Yer / Takip / Araç üstü).
+- Kalkış ×1 hızda başlar, ayrılmalar ×2 yavaş çekim, arada ×10. Kullanıcı hızı ya da kamerayı seçerse kurgu ona uyar (Kurgu / Yer / Uçak / Araç üstü).
 - Sarsıntı deterministiktir (sinüs toplamı). Yer kameralarında kalkıştaki ses basıncı uzaklıkla azalır ve sönümlenir; araç üstünde dinamik basınca bağlıdır.
 
-**Telemetri bandı:** aşama, yere göre hız (km/sa), irtifa, T± saati ve olay zaman çizgisi (Max-Q, ayrılmalar, yörünge). Yayındaki alt şerit gibidir ve ~11 Hz'de güncellenir.
+**Telemetri bandı:** aşama, yere göre hız (km/sa), irtifa, T± saati, o anki kamera ve olay zaman çizgisi (Max-Q, ayrılmalar, yörünge). Yayındaki alt şerit gibidir ve ~11 Hz'de güncellenir. T± sol üst göstergedeki görev saatiyle aynıdır; bant kontrol çubuğunun üstünde durur (çubuk atıfla iki satıra sarınca yükselir), olay etiketleri çizginin altında iki sırada, uçlardakiler bandın içine hizalı.
+
+**Gösterge (sol üst):** kalkışta görev aracının değil roketin değerleri: yere göre hız (bantla aynı), yaklaşık kütle (kalkış kütlesi × modelin kütle oranı, `ascentsim.js` `massState`), yanan kademenin kalan yakıtı, itki; Δv kalkışta gösterilmez. UTC başlıkta bir kez yazılır.
 
 **Gökyüzü:** three.js r170'in resmî `Sky` eklentisi (Preetham analitik gün ışığı modeli, Rayleigh + Mie; `lib/addons/objects/Sky.js`, MIT). Sahnenin logaritmik derinliğine uyarlandı:
 - Kubbe ufuk uzaklığında kalır; yıldızları örter, Dünya'yı örtmez.

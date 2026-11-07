@@ -99,6 +99,18 @@ export function solveAscent(veh, tgt) {
   const ok = Math.abs(e.r - tgt.r1) < 1 && Math.abs(e.vr) < 0.08 && Math.abs(Math.hypot(e.vr, e.vt) - tgt.v1) < 0.01;   // 1 km, 80 m/s düşey, 10 m/s hız (kalan fark canlandırmada yumuşakça birleşir)
   return { x: [d, k], res, samples: e.out, maxQ: e.maxQ, ok, thEnd: e.th, h1: hAt1(d, k) };
 }
+// t (gerçek s) anında araç kütlesinin kalkış kütlesine oranı ve yanan kademe (fly() ile aynı varsayım: kademe sonunda kuru kütlenin drop ≈ %85'i atılır).
+// { frac, si (yanan kademe dizini, süzülmede −1), left (yanan kademenin kalan yakıt oranı 0–1; süzülmede null) } — göstergede roketin kütlesi (rockets.js m0 ile)
+export function massState(veh, t) {
+  const S = veh.stages; let mm = 1;
+  for (let i = 0; i < S.length; i++) {
+    const s = S[i], drop = s.drop ?? 0.85;
+    if (t < s.t0) return { frac: mm, si: -1, left: null };
+    if (t < s.t1) { const f = (t - s.t0) / (s.t1 - s.t0); return { frac: mm * (1 - (1 - 1 / s.mr) * f), si: i, left: 1 - f }; }
+    mm = mm / s.mr * drop;
+  }
+  return { frac: mm, si: -1, left: null };
+}
 // örneklerden t (gerçek s) anı: doğrusal ara değer
 export function sampleAt(samples, t) {
   if (t <= samples[0].t) return samples[0];
