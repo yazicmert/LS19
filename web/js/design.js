@@ -23,7 +23,10 @@ import { solve as linSolve } from './linalg.js';
 import { ns, ew } from './i18n.js';
 const { add, sub, scale, dot, cross, norm, unit, mtv } = E;
 
+// fırlatmadan yörüngeye girişe süre: seçili roketin gerçek giriş zamanı (rockets.js ascent.tIns; genel kademe 600 s) — kalkış canlandırması
+// (ascentplay.js) bu süreyle gerçek zamanlı oynar, görev saati ile roketin uçuş saati aynıdır. Giriş noktası rampadan 16° uzakta.
 const ASCENT_T = 600.0, ASCENT_ARC = 16.0 * Math.PI / 180;
+export const ascentTime = (rocket) => { const a = rocketOf(rocket).ascent; return a && a.tIns > 0 ? a.tIns : ASCENT_T; };
 const SUN_EL_TARGET = 12.0;                      // derece (Apollo 11: 10.8°)
 const dummy = () => E.dummyVehicle();
 const D2R = Math.PI / 180;
@@ -414,7 +417,7 @@ function phasingShift(K, sol, ref = null) {
   }
   const tliDir = unit(st.r);
   return cands.map((tc) => {
-    const tIns = tc + ASCENT_T, h = hz(tIns), k = kscIcrf(tc), kp = unit(sub(k, scale(h, dot(k, h))));
+    const tIns = tc + ascentTime(K.ROCKET), h = hz(tIns), k = kscIcrf(tc), kp = unit(sub(k, scale(h, dot(k, h))));
     const ins = add(scale(kp, Math.cos(ASCENT_ARC)), scale(cross(h, kp), Math.sin(ASCENT_ARC)));
     const tp = unit(sub(tliDir, scale(h, dot(tliDir, h))));
     let ang = Math.atan2(dot(cross(ins, tp), h), dot(ins, tp)); ang = ((ang % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);

@@ -7,7 +7,7 @@ import { makeLaunchVehicle } from './rocketmodels.js';
 import { LaunchSmoke } from './launchfx.js';
 import { PadGround, R_M } from './padground.js';
 import { Google3D, g3dSettings, g3dUsable } from './google3d.js';
-import { shake as camShake } from './launchcam.js';
+import { shake as camShake, SITES, siteEye } from './launchcam.js';
 import { setPlume } from './fx.js';
 import { add, sub, scale, dot, cross, norm, unit } from './vec3.js';
 
@@ -125,20 +125,25 @@ export class AscentView {
     const pr = Math.max(0, Math.min(1, o.pAmb / 101325)), wid = 1 + 1.5 * Math.pow(1 - pr, 0.6), len = 1 + 0.8 * (1 - pr);
     A.flame.scale.x *= wid; A.flame.scale.y *= wid; A.flame.scale.z *= len;
     A.flame.material.uniforms.diamonds.value = 0.32 * pr;
-    const g = A.flame.userData.glow; if (g) { g.visible = o.thr > 0.01; g.material.color.copy(g.userData.col).multiplyScalar(o.thr); }
-    // gökyüzü: gündüz mavi, alacakaranlıkta koyu; yoğunluk ölçek yüksekliğiyle (~7 km) söner
-    const day = Math.max(0, Math.min(1, (o.sunUp + 0.1) / 0.35)), op = Math.exp(-o.h / 7.5) * (0.25 + 0.75 * day);
-    A.sky.scale.setScalar(Math.max(80, 1.3 * Math.sqrt(2 * 6378 * Math.max(0.3, o.h))));                 // ufuk uzaklığı √(2 R h) ötesi
+    const g = A.flame.userData.glow; if (g) { g.visible = o.thr > 0.01; g.material.color.copy(g.userData.col).multiplyScalar(o.thr); g.userData.now = g.material.color.clone(); }
     // alev rengi o anda yanan kademenin yakıtına göre (ör. Saturn V: S-IC gazyağı → S-II/S-IVB hidrolox)
     if (o.prop && o.prop !== A.propNow) { A.propNow = o.prop; const c = PLUME_COL[o.prop] || PLUME_COL.kerolox; const u = A.flame.material.uniforms; u.hot.value.copy(c[0]); u.cool.value.copy(c[1]); const gl = A.flame.userData.glow; if (gl) gl.userData.col.copy(c[2]); }
-    const SM = A.sky.material;                                                         // gökyüzü irtifayla saydamlaşır: 15 km'de koyu mavi, ~60 km üstünde siyah
+    // alev ışığı: itkiyle, yakıt rengine göre (gece kalkışında gövde ve bulut belirgin turuncu)
+    const day = Math.max(0, Math.min(1, (o.sunUp + 0.1) / 0.35));
+    if (A.plumeLight) { const c = (PLUME_COL[o.prop] || PLUME_COL.kerolox)[2]; A.plumeLight.color.setRGB(c.r, c.g, c.b).multiplyScalar(1 / Math.max(c.r, c.g, c.b)); A.plumeLight.intensity = 0.006 * o.thr * (1 + 0.6 * (1 - day)); }
+  }
+  // gökyüzü KAMERANIN bulunduğu yerden görüldüğü gibi: yer kamerası roket 150 km'deyken de mavi gökyüzü görür, takip uçağı (18 km) lacivert, araç üstü kamera
+  // irtifada siyah. h: kameranın irtifası (km), sunUp: kameranın yerinde Güneş yüksekliğinin sinüsü, up: kameranın yerel dikeyi,
+  // expo: pozlama (tele izleme kameraları parlak alevi ölçer: ufuk yakını gökyüzü beyaza doymaz, koyu maviye iner ve uzaktaki alev seçilir)
+  _skyFor(h, sunUp, sunDir, up, expo = 1) {
+    const A = this.asc, SM = A.sky.material, day = Math.max(0, Math.min(1, (sunUp + 0.1) / 0.35)), op = Math.exp(-h / 7.5) * (0.25 + 0.75 * day);
+    A.sky.scale.setScalar(Math.max(80, 1.3 * Math.sqrt(2 * 6378 * Math.max(0.3, h))));                   // ufuk uzaklığı √(2 R h) ötesi
     if (SM.userData.preetham) {
       // irtifada gökyüzü koyulaşırken griye değil laciverde döner (saçılan ışık maviye kayar; Preetham modeli gözlemciyi yerde varsayar)
-      const hb = Math.max(0, Math.min(1, (o.h - 2) / 23)), sb = hb * hb * (3 - 2 * hb); SM.uniforms.skyTint.value.set(1 - 0.5 * sb, 1 - 0.25 * sb, 1 + 0.4 * sb);
-      SM.uniforms.skyFade.value = Math.min(0.985, Math.exp(-o.h / 22) * (0.35 + 0.65 * day)); if (o.sunDir) SM.uniforms.sunPosition.value.set(...o.sunDir); if (o.upV) SM.uniforms.up.value.set(...o.upV); }
-    else { SM.opacity = Math.min(0.97, op); SM.color.setRGB(0.04 + 0.30 * day, 0.06 + 0.50 * day, 0.12 + 0.82 * day); }
-    // alev ışığı: itkiyle, yakıt rengine göre (gece kalkışında gövde ve bulut belirgin turuncu)
-    if (A.plumeLight) { const c = (PLUME_COL[o.prop] || PLUME_COL.kerolox)[2]; A.plumeLight.color.setRGB(c.r, c.g, c.b).multiplyScalar(1 / Math.max(c.r, c.g, c.b)); A.plumeLight.intensity = 0.006 * o.thr * (1 + 0.6 * (1 - day)); }
+      const hb = Math.max(0, Math.min(1, (h - 2) / 23)), sb = hb * hb * (3 - 2 * hb); SM.uniforms.skyTint.value.set(1 - 0.75 * sb, 1 - 0.45 * sb, 1 + 0.3 * sb);
+      SM.uniforms.skyGain.value = 0.8 * expo;
+      SM.uniforms.skyFade.value = Math.min(0.985, Math.exp(-h / 22) * (0.35 + 0.65 * day)); if (sunDir) SM.uniforms.sunPosition.value.set(...sunDir); SM.uniforms.up.value.set(...up);
+    } else { SM.opacity = Math.min(0.97, op); SM.color.setRGB(0.04 + 0.30 * day, 0.06 + 0.50 * day, 0.12 + 0.82 * day); }
   }
   // update() içinden: kameraya göre konumlar (rel) — rampa, kademe parçaları, gökyüzü
   applyAscent(rel) {
@@ -147,12 +152,27 @@ export class AscentView {
     const base = A.inner.localToWorld(new THREE.Vector3(0, o.cut, 0)), tip = A.inner.localToWorld(new THREE.Vector3(0, o.cut + 1, 0));
     A.plane.setFromNormalAndCoplanarPoint(tip.sub(base).normalize(), base);
     A.sky.position.set(0, 0, 0);
+    // kameranın yeri (sahne kameraya göre: Dünya merkezi = earth.position): irtifa, yerel dikey, Güneş yüksekliği → gökyüzü
+    const camUpV = this.earth.position.clone().negate(), camR = camUpV.length(), camH = Math.max(0, camR - R_M / 1000); camUpV.multiplyScalar(1 / camR);
+    const sd = o.sunDir || [1, 0, 0], camSunUp = camUpV.x * sd[0] + camUpV.y * sd[1] + camUpV.z * sd[2];
+    const tele = o.shot && (o.shot.shot === 'track' || o.shot.shot === 'air');
+    this._skyFor(camH, camSunUp, o.sunDir, [camUpV.x, camUpV.y, camUpV.z], tele ? 0.16 : 1);
+    // uzaktaki roket (yer izleme 1.000 km'de, takip uçağı): gövde ve alev pikselin altına düşer; gerçek tele kamerada alev parlak bir nokta olarak görünür —
+    // parıltı en az ~10 piksel çizilir ve uzakta parlaklaşır (yakında alevin kendi boyutu ve rengi geçerli)
+    const gl = A.flame.userData.glow;
+    if (gl) {
+      if (gl.userData.base == null) gl.userData.base = gl.scale.x;
+      const wp = gl.getWorldPosition(new THREE.Vector3()), dKm = wp.length(), H = this.canvas.clientHeight || 800;
+      const minKm = dKm * 2 * Math.tan((this.camera.fov * Math.PI / 180) * 10 / H / 2);           // 10 piksellik açının o uzaklıktaki karşılığı (km)
+      const ws = new THREE.Vector3(); gl.parent.getWorldScale(ws); const k = Math.max(gl.userData.base, minKm / Math.max(1e-12, ws.x));   // ws: yerel birim → km
+      gl.scale.set(k, k, 1);
+      if (gl.userData.now) gl.material.color.copy(gl.userData.now).multiplyScalar(Math.min(2.5, 1 + 0.5 * (k / gl.userData.base - 1)));
+    }
     if (o.pad) {
       const P = o.pad, p = rel(P.pos), E3 = new THREE.Vector3(...P.east), U = new THREE.Vector3(...P.up), S = new THREE.Vector3(...P.north).multiplyScalar(-1);
       A.pad.matrix.makeBasis(E3, U, S).scale(new THREE.Vector3(KM, KM, KM)).setPosition(p); A.pad.matrixWorldNeedsUpdate = true;
       if (A.ground) {                                                                      // zemin: Güneş, kamera irtifası (pus), alevin ışığı (dünya km)
         const plume = PLUME_COL[o.prop] || PLUME_COL.kerolox, pc = plume[2], pm = Math.max(pc.r, pc.g, pc.b);
-        const camH = Math.max(0, this.earth.position.length() - R_M / 1000);
         A.ground.frame({ sunDir: o.sunDir, sunUp: o.sunUp, h: camH, plumeW: base, thr: o.thr, plumeCol: pc.clone().multiplyScalar(1 / pm) });
         if (A.g3d) {                                                                     // Google 3B: aynı ışık/pus; hazırken zemin içeriyi boşaltır, temsilî rampa gizlenir
           A.g3d.frame(A.ground.u, camH);
@@ -184,24 +204,25 @@ export class AscentView {
     for (const [id, e] of A.debris) if (!seen.has(id)) { A.world.remove(e.root); A.debris.delete(id); }
   }
 
-  // LAUNCH (kalkış canlandırması): yayınlardaki gibi önce YER kamerası — rampanın yanında (uçuş yönüne dik, ~1,4 km), yerden ~12 m yukarıda, tele
-  // objektifle roketi izler (roket kadraj yüksekliğinin ~yarısı); dikey kalkış rampaya ve ufka göre görünür, yunuslama (pitch) yandan, profilden izlenir.
-  // İrtifa 1,5 → 4,5 km arasında yumuşakça TAKİP kamerasına geçer: roketin arkasından (cam.az/el/dist; sürüklenebilir), yerel dikey yukarı, ufuk kadrajda.
+  // LAUNCH (kalkış canlandırması): her çekim gerçek bir yayın kamerasıdır (launchcam.js kurgu ve görünürlük):
+  //   geniş (helikopter) · rampa dibi (uzaktan kumandalı) · YER İZLEME: rampanın 1,4 km yanında, yerden 12 m, tele objektif (en dar 1°, ~2000 mm sınıfı);
+  //   kalkışta rampa ve ufuk kadrajda, sonra roketi uçuşun sonuna dek (ufkun altına inene dek) yerden izler — yerden ayrılmaz · TAKİP UÇAĞI: 18,3 km irtifada,
+  //   70 km uçuş yönünde, 40 km yanda; tele kamera (en dar 0,4°) · ARAÇ ÜSTÜ: gövdenin yanında, geriye bakar. Kamera yerleri sabittir (sürüklenmez).
   launchPose(x, info) {
-    const c = this.cam;
-    const sph = (az, el) => [Math.cos(el) * Math.cos(az), Math.cos(el) * Math.sin(az), Math.sin(el)];
-    const fromBasis = (B, d) => add(add(scale(B[0], d[0]), scale(B[1], d[1])), scale(B[2], d[2]));
     if (!(this.asc && this.asc.state && this.asc.state.pad && info.axis)) return null;
     const o = this.asc.state, P = o.pad, h = o.h || 0, L = (this.asc.len || 60) / 1000, shot = (o.shot && o.shot.shot) || 'track', met = o.met || 0;
     const cutK = (o.cut || 0) / 1000, base = add(info.vehPos, scale(info.axis, cutK)), mid = add(info.vehPos, scale(info.axis, (cutK + L) / 2));   // kalan yığının tabanı ve ortası
     const up = P.up, dr = P.dr || P.east, side = cross(up, dr);
-    const z = unit(x.r), hv = sub(x.v, scale(z, dot(x.v, z))), xx = norm(hv) > 1e-6 ? unit(hv) : dr, y = cross(z, xx);
     const key = o.shot ? o.shot.key : shot; if (key !== this.ascShotKey) { this.ascShotKey = key; this.ascAim = null; }       // kesme: operatör gecikmesi sıfırlanır
     const sh = (eye, dist) => add(eye, camShake(shot, met, { thr: o.thr, q: o.q || 0, dist }));
-    // yer kameraları: operatör roketi biraz gecikmeli izler (tele objektifte roket kadrajda hafif kayar)
-    const aimLag = (eye, tgt, tau) => {
+    // yer kameraları: operatör roketi biraz gecikmeli izler (tele objektifte roket kadrajda hafif kayar); izleme hatası görüş açısının %18'ini aşmaz
+    // (izleme montajı ve uçaktaki dengeli kamera hedefi kadrajda tutar; hızlı oynatmada da roket kadrajdan çıkmaz)
+    const aimLag = (eye, tgt, tau, fov) => {
       const d = unit(sub(tgt, eye)), k = 1 - Math.exp(-(this._dtCam || 0.016) / tau);
-      this.ascAim = this.ascAim ? unit(add(scale(this.ascAim, 1 - k), scale(d, k))) : d; return add(eye, scale(this.ascAim, norm(sub(tgt, eye))));
+      let a = this.ascAim ? unit(add(scale(this.ascAim, 1 - k), scale(d, k))) : d;
+      const maxA = 0.18 * fov * Math.PI / 180, c = Math.max(-1, Math.min(1, dot(a, d)));
+      if (Math.acos(c) > maxA) { const pp = sub(a, scale(d, c)), pn = norm(pp); a = pn > 1e-12 ? add(scale(d, Math.cos(maxA)), scale(pp, Math.sin(maxA) / pn)) : d; }
+      this.ascAim = a; return add(eye, scale(a, norm(sub(tgt, eye))));
     };
     const fovFit = (span, d, lo = 2.5, hi = 55) => Math.min(hi, Math.max(lo, 2 * Math.atan(span * 0.62 / d) * 180 / Math.PI));
     // yer kamerası kabartmanın (dağlık rampalar: Xichang, Vandenberg) altında kalmasın: o noktadaki zeminin en az 'clear' m üstüne kaldırılır
@@ -221,7 +242,7 @@ export class AscentView {
     }
     if (shot === 'pad') {                                                                // rampa dibi: 160 m'den, yerden 3 m, motorlara ve aleve yukarı bakan geniş açı
       const g = lift(add(add(P.pos, scale(side, -0.13)), add(scale(dr, 0.09), scale(up, 0.003))), 3), tg = add(info.vehPos, scale(info.axis, L * 0.38));
-      return { eye: sh(g, 0.16), target: aimLag(g, tg, 0.12), up, fov: 46 };
+      return { eye: sh(g, 0.16), target: aimLag(g, tg, 0.12, 46), up, fov: 46 };
     }
     if (shot === 'onboard') {                                                            // araç üstü: gövdenin yanında, aşağı (geriye) bakar; Dünya ve alev, ayrılan kademe
       const q = this.attQ, rad = new THREE.Vector3(1, 0, 0).applyQuaternion(q), rd = [rad.x, rad.y, rad.z], ax = info.axis;
@@ -230,13 +251,17 @@ export class AscentView {
       const tg = add(add(e, scale(ax, -0.08)), scale(rd, 0.0125));
       return { eye: sh(e, 1), target: tg, up: rd, fov: 62 };
     }
-    const g = lift(add(add(P.pos, scale(side, -1.4)), add(scale(dr, -0.42), scale(up, 0.012))), 12);      // yer izleme: uçuş yönü kadrajın sağına akar
-    // kadraj: roketin tepesinden aşağıda rampaya (yükseldikçe en çok 2,5 roket boyu aşağıya) kadar — rampa ve ufuk kalkışta kadrajda kalır, sonra roket izlenir
+    const Pd = { pos: P.pos, up, dr };
+    if (shot === 'air') {                                                                // takip uçağı: yerel dikey yukarı; kadraj roket + alev (irtifada alev genişler)
+      const e = siteEye(Pd, SITES.air), d = norm(sub(mid, e)), span = L * (1.2 + 2.5 * Math.min(1, h / 40)), fov = fovFit(span, d, 0.4, 25);
+      return { eye: sh(e, d), target: aimLag(e, mid, 0.2, fov), up: unit(e), fov };          // otomatik izleyicili dengeli kamera: gecikme kısa
+    }
+    const g = lift(siteEye(Pd, SITES.track), 12);                                      // yer izleme: uçuş yönü kadrajın sağına akar
+    // kadraj: roketin tepesinden aşağıda rampaya (yükseldikçe en çok 2,5 roket boyu aşağıya) kadar — rampa ve ufuk kalkışta kadrajda kalır, sonra roket izlenir;
+    // uzaklaştıkça objektif en dar açısına (1°) iner ve roket küçülür (gerçek izleme kameralarındaki gibi)
     const a = Math.max(0, dot(sub(base, P.pos), up)), top = add(info.vehPos, scale(info.axis, L * 1.05)), bot = sub(base, scale(up, Math.min(a + 0.03, 2.5 * L)));
-    const tG = scale(add(top, bot), 0.5), span = norm(sub(top, bot)), dG = norm(sub(tG, g)), fovG = fovFit(span, dG, 2.5, 50);
-    const eC = add(mid, scale(fromBasis([xx, y, z], sph(c.az, c.el)), c.dist));
-    if (shot === 'chase') return { eye: sh(eC, 1), target: mid, up: z, fov: 50 };
-    const u = Math.max(0, Math.min(1, (h - 1.5) / 3)), w = u * u * (3 - 2 * u), tgL = aimLag(g, tG, 0.35);
-    return { eye: add(scale(sh(g, dG), 1 - w), scale(eC, w)), target: add(scale(tgL, 1 - w), scale(mid, w)), up: unit(add(scale(up, 1 - w), scale(z, w))), fov: fovG + (50 - fovG) * w };
+    const tG = scale(add(top, bot), 0.5), span = norm(sub(top, bot)), dG = norm(sub(tG, g));
+    const fov = fovFit(span, dG, 1.0, 50);
+    return { eye: sh(g, dG), target: aimLag(g, tG, 0.35, fov), up, fov };
   }
 }

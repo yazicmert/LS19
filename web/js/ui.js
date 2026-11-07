@@ -320,7 +320,7 @@ export class UI {
     const H = this.hudRefs || (this.hudRefs = Object.fromEntries(['utc', 'met', 'phase', 'altRef', 'spdRef', 'alt', 'spd', 'vv', 'mass', 'dvu', 'propName', 'propVal', 'propBar', 'thrBar', 'thrVal', 'warpVal', 'status'].map((k) => [k, $('#' + k)])));
     const t = s.t, met = t - this.tLaunch, rm = E.moonPos(t), rsv = E.sub(s.r, rm), rs = E.norm(rsv);
     const nearM = rs < E.MOON_ZONE;
-    setText(H.utc, E.utcString(t));
+    setText(H.utc, E.utcString(t).replace(/ UTC$/, ''));                                    // başlık zaten "UTC"
     setText(H.met, met < 0 ? 'T−' + fmtDur(-met) : 'T+' + fmtDur(met));
     setText(H.phase, this.phaseLabel(s.phase));
     // Dünya: WGS-84 elipsoidine göre (yaklaşık), Ay: iniş yakınında iniş yeri yüzeyine, değilse ortalama yarıçapa göre
@@ -328,9 +328,10 @@ export class UI {
     if (Math.abs(alt) < 5e-5) alt = 0;                          // yüzeyde "−0,0 m" görünmesin
     const surf = nearM && s.local && s.local.p[2] < 50;
     const vRelVec = nearM ? E.sub(s.v, E.moonVel(t)) : s.v;
-    const vRel = surf ? E.norm(s.local.v) : E.norm(vRelVec);
+    // kalkış canlandırması (s.asc): yere göre hız (Dünya ile dönen çerçeve; alttaki bantla aynı) — rampada 0; eylemsiz hız Florida'da dönüşten ~0,41 km/s olurdu
+    const A = s.asc, vRel = A ? A.spd : surf ? E.norm(s.local.v) : E.norm(vRelVec);
     setText(H.altRef, nearM ? (s.local ? 'iniş yerine göre' : "Ay'a göre") : "Dünya'ya göre");
-    setText(H.spdRef, surf ? 'yüzeye göre' : nearM ? "Ay'a göre" : "Dünya'ya göre");
+    setText(H.spdRef, A ? 'yere göre' : surf ? 'yüzeye göre' : nearM ? "Ay'a göre" : "Dünya'ya göre");
     setText(H.alt, alt > 100 ? fmt(alt, 0) + ' km' : alt > 2 ? fmt(alt, 2) + ' km' : fmt(alt * 1000, 1) + ' m');
     setText(H.spd, vRel > 0.1 ? fmt(vRel, 3) + ' km/s' : fmt(vRel * 1000, 2) + ' m/s');
     if (s.local && s.local.p[2] < 20) {
@@ -338,13 +339,20 @@ export class UI {
       const vz = E.dot(vr, up), vh = E.norm(E.sub(vr, E.scale(up, vz))), rng = Math.hypot(s.local.p[0], s.local.p[1]);
       setText(H.vv, `dikey ${fmt(vz * 1000, 1)} m/s · yatay ${fmt(vh * 1000, 1)} m/s · iniş yerine ${rng > 5 ? fmt(rng, 1) + ' km' : fmt(rng * 1000, 0) + ' m'}`);
     } else setText(H.vv, `Ay'a uzaklık ${fmt(rs, 0)} km · Dünya'ya ${fmt(E.norm(s.r), 0)} km`);
-    setText(H.mass, fmt(s.m, 0) + ' kg');
-    setText(H.dvu, fmt(s.dv * 1000, 1) + ' m/s');
-    const ST = (this.design && this.design.STAGES) || [{ name: 'TLI kademesi', prop: 6200 }, { name: 'İniş aracı', prop: 2300 }];
-    const stg = { name: (ST[s.k] || ST[ST.length - 1]).name || (s.k === 0 ? 'TLI kademesi' : 'İniş aracı'), cap: (ST[s.k] || ST[ST.length - 1]).prop };
-    setText(H.propName, stg.name); setText(H.propVal, fmt(s.prop, 0) + ' kg');
-    setWidth(H.propBar, Math.max(0, Math.min(100, (100 * s.prop) / stg.cap)).toFixed(1) + '%');
-    setWidth(H.thrBar, (100 * (s.thr || 0)).toFixed(1) + '%'); setText(H.thrVal, fmt(100 * (s.thr || 0), 0) + '%');
+    if (A) {                                                                             // kalkış: roketin yaklaşık kütlesi, yanan kademenin kalan yakıtı, itkisi
+      setText(H.mass, A.m != null ? '≈ ' + fmt(A.m, 0) + ' kg' : '—'); setText(H.dvu, '—');
+      setText(H.propName, A.stage); setText(H.propVal, A.left != null ? '%' + fmt(100 * A.left, 0) : '—');                          // "<kademe> yakıtı" (index.html)
+      setWidth(H.propBar, (A.left != null ? 100 * A.left : 0).toFixed(1) + '%');
+      setWidth(H.thrBar, (100 * A.thr).toFixed(1) + '%'); setText(H.thrVal, fmt(100 * A.thr, 0) + '%');
+    } else {
+      setText(H.mass, fmt(s.m, 0) + ' kg');
+      setText(H.dvu, fmt(s.dv * 1000, 1) + ' m/s');
+      const ST = (this.design && this.design.STAGES) || [{ name: 'TLI kademesi', prop: 6200 }, { name: 'İniş aracı', prop: 2300 }];
+      const stg = { name: (ST[s.k] || ST[ST.length - 1]).name || (s.k === 0 ? 'TLI kademesi' : 'İniş aracı'), cap: (ST[s.k] || ST[ST.length - 1]).prop };
+      setText(H.propName, stg.name); setText(H.propVal, fmt(s.prop, 0) + ' kg');
+      setWidth(H.propBar, Math.max(0, Math.min(100, (100 * s.prop) / stg.cap)).toFixed(1) + '%');
+      setWidth(H.thrBar, (100 * (s.thr || 0)).toFixed(1) + '%'); setText(H.thrVal, fmt(100 * (s.thr || 0), 0) + '%');
+    }
     setText(H.warpVal, '×' + (s.warp >= 100 ? fmt(s.warp, 0) : fmt(s.warp, s.warp < 10 ? 1 : 0)));
     setText(H.status, s.status || (s.done ? (s.result && s.result.ok ? 'Görev tamamlandı: iniş başarılı' : 'Görev sona erdi') : ''));
     // sonraki olay

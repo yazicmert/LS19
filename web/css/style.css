@@ -842,14 +842,19 @@ body.rs-open { overflow: hidden; }
 .asctele b { font-size: 20px; font-weight: 600; min-width: 3.2ch; text-align: right; }
 .asctele .at-u { font-size: 10.5px; color: rgba(255, 255, 255, .6); }
 .asctele .at-t { margin-left: auto; min-width: 6.5ch; }
-.asctele .at-cam { font-size: 10.5px; color: rgba(255, 255, 255, .6); margin-left: 10px; min-width: 9em; text-align: right; }
-.asctele .at-line { position: relative; height: 2px; background: rgba(255, 255, 255, .22); margin: 16px 6px 18px; }
+.asctele .at-cam { display: inline-flex; flex-direction: column; align-items: flex-end; line-height: 1.25; font-size: 10.5px; color: rgba(255, 255, 255, .6); margin-left: 10px; min-width: 9em; text-align: right; }
+.asctele .at-cam small { font-size: 9.5px; color: #f4c16b; }
+.asctele .at-cam small:empty { display: none; }
+/* olay adları çizginin ALTINDA iki sıra (sayı satırına yapışıp durum mesajı gibi okunmasın; komşu olaylar farklı sırada) */
+.asctele .at-line { position: relative; height: 2px; background: rgba(255, 255, 255, .22); margin: 12px 6px 34px; }
 .asctele .at-line i { position: absolute; left: 0; top: 0; bottom: 0; background: #fff; }
 .asctele .at-ev { position: absolute; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; border: 1.5px solid #fff; background: rgba(6, 8, 14, .9); }
 .asctele .at-ev.done { background: #fff; }
 .asctele .at-ev.at-zero { width: 2px; height: 10px; margin: -5px 0 0 -1px; border: 0; border-radius: 0; background: rgba(255, 255, 255, .7); }
 .asctele .at-ev em { position: absolute; top: 11px; left: 50%; transform: translateX(-50%); font-style: normal; font-size: 9.5px; color: rgba(255, 255, 255, .7); white-space: nowrap; }
-.asctele .at-ev:nth-child(odd) em { top: auto; bottom: 11px; }
-@media (max-width: 760px) { .asctele { bottom: 200px; padding: 6px 10px 2px; } .asctele b { font-size: 16px; } .asctele .at-cam { display: none; } .asctele .at-ev em { display: none; } .asctele .at-line { margin: 10px 4px 10px; } }
+.asctele .at-ev:nth-child(odd) em { top: 24px; }
+.asctele .at-ev.at-r em { left: auto; right: -2px; transform: none; }
+.asctele .at-ev.at-l em { left: -2px; transform: none; }
+@media (max-width: 760px) { .asctele { bottom: 200px; padding: 6px 10px 2px; } .asctele b { font-size: 16px; } .asctele .at-cam { display: none; } .asctele .at-ev em { display: none; } .asctele .at-line { margin: 10px 4px 10px; } .asctele .at-cam small { display: none; } }
 .asccredit { flex-basis: 100%; text-align: center; font-size: 10.5px; color: var(--text-muted); }
 .asccredit:empty { display: none; }
