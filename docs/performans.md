@@ -196,7 +196,7 @@ Not (5. ve 6. satırlar): karelerin 16,7 ms'nin katlarına (vsync) sıçradığ�
 | Doku | Özgün | WebP | Yöntem | Düşük bellek (`_lo`) |
 |---|---|---|---|---|
 | earth_clouds | 11,3 MB | 9,9 MB | gri (tek kanal; özgünde R = G = B), kalite 90, PSNR 42,2 dB | 2,7 MB (4096×2048) |
-| moon_height | 8,8 MB | 5,3 MB | **kayıpsız** (çözülen pikseller özgünle aynı) | — |
+| moon_height | 8,8 MB | 5,3 MB | **kayıpsız** (çözülen pikseller özgünle aynı) | 1,4 MB (1440×720; 16 bit yükseklik alanında 2×2 ortalama, kayıpsız) |
 | moon_color | 7,4 MB | 6,1 MB | kalite 90, PSNR 42,1 dB | 1,5 MB |
 | earth_day | 4,5 MB | 2,2 MB | kalite 90, PSNR 41,4 dB | 0,7 MB |
 | moon_normal | 4,3 MB | 3,4 MB | kalite 92, PSNR 40,2 dB | 1,2 MB (2880×1440) |
@@ -204,17 +204,18 @@ Not (5. ve 6. satırlar): karelerin 16,7 ms'nin katlarına (vsync) sıçradığ�
 | earth_normal | 2,0 MB | 1,4 MB | **kayıpsız** | — |
 | stars | 1,9 MB | 0,5 MB | kalite 90, PSNR 50,7 dB | 0,2 MB |
 | earth_spec | 0,25 MB | 0,1 MB | **kayıpsız** | — |
-| **Toplam** | **44,5 MB** | **30,8 MB** | | **13,8 MB** |
+| **Toplam** | **44,5 MB** | **30,8 MB** | | **9,8 MB** |
 
 - Veri haritaları (yükseklik, normal, özyansıma) kayıpsızdır: gölgelendiricinin okuduğu değerler değişmez. Fotoğraf dokularında PSNR ≥ 40 dB (gözle ayırt edilmez; betik eşiği denetler).
 - Düşük bellekli cihaz (`?lowmem`, `deviceMemory ≤ 4`, mobil UA) artık önceden küçültülmüş dosyayı indirir; cihazda yeniden küçültme yapılmaz.
+- **Aşamalı yükleme:** ilk yüklemede **her cihaz** `_lo` dosyalarını alır (9,8 MB; ilk görüntü masaüstünde 29 MB yerine bununla gelir). Masaüstü tam çözünürlüğü sonra, düşük öncelikle ve tek tek çözerek indirir (`scene.js upgradeTextures`): Dünya ve yıldızlar ilk görüntüden 1,5 sn sonra, **Ay dokuları kamera Ay'a ~40 Ay yarıçapı yaklaşınca** (Ay'a hiç gitmeyen ziyaretçi 14,5 MB indirmez). Eski doku, kullanan her malzemede ve uniform'da yenisiyle değiştirilip atılır (iniş arazisi Ay renk dokusunu `map` olarak kullanır). Düşük bellekli cihazda ve veri tasarrufu (`Save-Data`) açıkken yükseltme yapılmaz. Yükseklik haritası yedek yolda cihazda küçültülmez (paketli 16 bit değeri bayt ortalaması bozar).
 - WebP çözülemezse (eski tarayıcı) ya da bellek darken eşzamanlı çözme düşerse: önce aynı dosya, önceki dokular GPU'ya geçtikten sonra bir kez daha çözülür; yine olmazsa özgün JPG/PNG indirilir (gerekirse cihazda küçültülür). Doku sessizce eksik kalmaz.
 
 ### 12.3 Erken indirme, yazı tipi ve önbellek
 
 - `index.html` başındaki küçük betik (`#earlyFetch`), modül grafiği inerken ana dokuları **doğrudan `fetch` ile** (`priority: 'low'`: önce JS) indirmeye başlar ve sözleri `window.LS19_EARLY`'de saklar; `texload.js` aynı sözü kullanır (tek istek). İlk sürüm `<link rel=preload as=fetch>` kullanıyordu: Chromium büyük bir preload yanıtını sonraki `fetch()` ile eşlerken ara sıra "Failed to fetch" verdi ve 11,6 MB'lık yedek JPG gereksiz indi (5 ölçümden 2'sinde); bu yüzden dokular için preload bırakıldı, yalnız küçük efemeris dizini (`index.json`, `head.bin`) preload ile gelir. Başarısız bir doku indirmesi bir kez yeniden denenir. Liste ve düşük bellek kuralı `texplan.js` ile aynıdır; `test_texplan.js` 24 durumda (?lowmem, deviceMemory, mobil UA) aynı dosyaların istendiğini denetler.
 - Google Fonts stil sayfası artık boyamayı bekletmez (`media=print` → yüklenince `all`; `display=swap`).
-- `vercel.json`: `/data/eph/*` bir yıl `immutable` (içerik değişirse klasör adı `v1` değişir); dokular ve modeller 30 gün `immutable` (değişmedi).
+- `vercel.json`: `/data/eph/*` bir yıl `immutable` (içerik değişirse klasör adı `v1` değişir). Dokular ve modeller 1 gün taze + 30 gün `stale-while-revalidate` (adları sürümsüz: eskiden 30 gün `immutable` idi, bir doku güncellenince ziyaretçi eskisini bir ay görebilirdi).
 
 ### 12.4 Ölçüm (yerel sunucu, başsız Chromium; ilk ziyaret, `?sats=0&ast=0`)
 
@@ -225,5 +226,7 @@ Not (5. ve 6. satırlar): karelerin 16,7 ms'nin katlarına (vsync) sıçradığ�
 | Açılışta inen ana dokular, telefon | 44,5 MB (cihazda küçültülür) | 13,8 MB |
 | Toplam açılış (masaüstü / telefon) | ~92 MB / ~92 MB | 35,3 MB / 18,3 MB |
 | Saptırma deneyi (60 yıllık tarama) | +32,7 MB | +~7 MB |
+
+**Aşamalı yüklemeden sonra (2026-11):** ilk görüntüden önce inen doku masaüstünde 29,3 → 9,3 MB (yerel ölçümde hazır olma 2,5 sn); ilk 20 saniyede toplam 31,3 → 24,7 MB (Dünya'nın tam çözünürlüğü dahil); Ay'ın tam çözünürlüğü (14,5 MB) yalnız Ay'a yaklaşınca. Telefonda ilk açılış 15,1 → 11,3 MB (Ay yükseklik haritasının `_lo` sürümüyle).
 
 Sınır: ölçüm yerel sunucuda, ağ gecikmesi ve bant genişliği taklit edilmeden yapıldı; gerçek bağlantıda süre kazancı indirilen baytla orantılıdır (ör. 50 Mbit/sn'de ~92 MB ≈ 15 sn → 35 MB ≈ 6 sn masaüstü, 18 MB ≈ 3 sn telefon).

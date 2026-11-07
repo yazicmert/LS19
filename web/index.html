@@ -8,7 +8,7 @@
 <!-- Erken indirme: ana dokular (~31 MB masaüstü / ~14 MB düşük bellek) ve efemeris dizini modül grafiği yüklenirken inmeye başlar.
      Dokular <link rel=preload> ile DEĞİL, doğrudan fetch ile başlatılır ve söz window.LS19_EARLY'de saklanır; texload.js aynı sözü kullanır (tek istek).
      (Chromium büyük bir preload yanıtını sonraki fetch() ile eşlerken ara sıra "Failed to fetch" veriyordu: yedek dosya gereksiz iniyordu.)
-     Dosya listesi ve düşük bellek kuralı js/texplan.js ile aynı (test/test_texplan.js denetler). priority=low: önce JS modülleri insin. -->
+     Dosya listesi js/texplan.js'in ilk yükleme planıyla aynı (test/test_texplan.js denetler). priority=low: önce JS modülleri insin. -->
 <!-- Arayüz dili (js/i18n.js ile aynı kural): ?lang=en|tr (hatırlanır) → localStorage → tarayıcı dili (tr* ise Türkçe, değilse İngilizce).
      İngilizcede sözlük (js/i18n/en.js) erkenden indirilir ve sayfa çevrilene dek gizlenir (en çok 6 s). -->
 <script id="langBoot">
@@ -28,12 +28,10 @@
 <style>html.i18n-wait #app { visibility: hidden; }</style>
 <script id="earlyFetch">
 (function () {
-  var q = new URLSearchParams(location.search).get('lowmem'), dm = navigator.deviceMemory || 0;
-  var low = q === '1' ? true : q === '0' ? false : (dm > 0 && dm <= 4) || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-  var hi = ['earth_day.webp', 'earth_night.webp', 'earth_clouds.webp', 'earth_spec.webp', 'earth_normal.webp', 'moon_color.webp', 'moon_normal.webp', 'moon_height.webp', 'stars.webp'];
-  var lo = ['earth_day_lo.webp', 'earth_night_lo.webp', 'earth_clouds_lo.webp', 'earth_spec.webp', 'earth_normal.webp', 'moon_color_lo.webp', 'moon_normal_lo.webp', 'moon_height.webp', 'stars_lo.webp'];
+  // her cihaz ilk yüklemede önceden küçültülmüş dosyaları alır (masaüstü tam çözünürlüğü sonra indirir: js/scene.js upgradeTextures)
+  var lo = ['earth_day_lo.webp', 'earth_night_lo.webp', 'earth_clouds_lo.webp', 'earth_spec.webp', 'earth_normal.webp', 'moon_color_lo.webp', 'moon_normal_lo.webp', 'moon_height_lo.webp', 'stars_lo.webp'];
   var early = window.LS19_EARLY = { tex: {} };
-  if (window.fetch) (low ? lo : hi).forEach(function (f) {
+  if (window.fetch) lo.forEach(function (f) {
     early.tex[f] = fetch('textures/' + f, { priority: 'low' }).then(function (r) { return r.ok ? r.blob() : null; }).catch(function () { return null; });
   });
   ['data/eph/v1/index.json', 'data/eph/v1/head.bin'].forEach(function (h) { var l = document.createElement('link'); l.rel = 'preload'; l.as = 'fetch'; l.crossOrigin = 'anonymous'; l.href = h; document.head.appendChild(l); });

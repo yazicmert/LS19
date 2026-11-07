@@ -4,8 +4,9 @@
 //  3) World.build'in beklediği doku anahtarlarının hepsi planda (ya da dem/model); nearest haritası texelFetch ile okunur
 //  4) lowMemoryFrom doğruluk tablosu (?lowmem=1/0 her şeyden önce gelir)
 //  5) yükleme hattı sözleşmeleri: bitmap kapatma yalnız GPU yüklemesinden sonra, yedek yol, derleme zaman aşımı, bağlam kaybı, boyut userData'dan
+//  6) ilk yükleme her cihazda önceden küçültülmüş dosyalar (index.html erken indirmesi aynı liste); masaüstü tam çözünürlüğe yükseltir
 import fs from 'fs';
-import { TEX, lowMemoryFrom, fileFor } from '../js/texplan.js';
+import { TEX, lowMemoryFrom, fileFor, UPGRADE } from '../js/texplan.js';
 import { sceneSrc } from './scenesrc.js';
 
 let fail = 0;
@@ -55,8 +56,11 @@ function dims(file) {
   const loBad = TEX.filter((s) => s.lo && (!s.flo || !fs.existsSync(tex(s.flo)) || String(dims(s.flo)) !== String(s.lo))).map((s) => s.flo || s.f);
   check('plan: "lo" boyutlu her dokunun önceden küçültülmüş dosyası var, boyutu tam lo', loBad.length === 0 && TEX.every((s) => !s.flo || s.lo), loBad.join(','));
   check('plan: tüm ana dosyalar WebP', TEX.every((s) => /\.webp$/.test(s.f)));
-  const p1 = fileFor(TEX[0], true), p2 = fileFor(TEX[0], false), p3 = fileFor(TEX[0], true, true), pm = fileFor(TEX.find((s) => s.key === 'mh'), true);
-  check('fileFor: düşük bellekte küçük dosya (yeniden küçültme yok), tam katmanda ana dosya, yedekte özgün dosya + cihazda küçültme', p1.file === TEX[0].flo && p1.spec.lo === null && p2.file === TEX[0].f && p2.spec === TEX[0] && p3.file === TEX[0].fb && p3.spec.lo === TEX[0].lo && pm.file === 'moon_height.webp');
+  const mhs = TEX.find((s) => s.key === 'mh'), p1 = fileFor(TEX[0], true), p2 = fileFor(TEX[0], false), p3 = fileFor(TEX[0], true, true), pm = fileFor(mhs, true), pmf = fileFor(mhs, true, true);
+  check('fileFor: düşük bellekte küçük dosya (yeniden küçültme yok), tam katmanda ana dosya, yedekte özgün dosya + cihazda küçültme; yükseklik haritası yedekte küçültülmez (paketli 16 bit)',
+    p1.file === TEX[0].flo && p1.spec.lo === null && p2.file === TEX[0].f && p2.spec === TEX[0] && p3.file === TEX[0].fb && p3.spec.lo === TEX[0].lo && pm.file === 'moon_height_lo.webp' && pm.spec.lo === null && pmf.file === 'moon_height.png' && pmf.spec.lo === null);
+  const first = TEX.reduce((a, s) => a + fs.statSync(tex(fileFor(s, true).file)).size, 0), whole = TEX.reduce((a, s) => a + fs.statSync(tex(s.f)).size, 0);
+  check('ilk yükleme (önceden küçültülmüş dosyalar) tam çözünürlüğün en çok %40\'ı', first <= 0.4 * whole, `${(first / 1e6).toFixed(1)} MB / ${(whole / 1e6).toFixed(1)} MB`);
   const sz = (lo) => TEX.reduce((a, s) => a + fs.statSync(tex(fileFor(s, lo).file)).size, 0) / 1e6, szOld = TEX.reduce((a, s) => a + fs.statSync(tex(s.fb)).size, 0) / 1e6;
   check('indirme: WebP masaüstünde özgünden ≥ %25, düşük bellekte ≥ %60 az', sz(false) <= 0.75 * szOld && sz(true) <= 0.4 * szOld, `özgün ${szOld.toFixed(1)} MB → masaüstü ${sz(false).toFixed(1)} MB, düşük bellek ${sz(true).toFixed(1)} MB`);
   // bellek: RGBA8 (+mip %33) varsayımıyla toplam GPU belleği; R8 ve düşük bellek katmanı belirgin düşürür
@@ -114,7 +118,7 @@ function dims(file) {
   check('texload: yükleme boyutları userData.size\'da saklanır (kapatılan bitmap\'te image.width 0 olur)', /userData\.size = \[w, h\]/.test(tl) && /userData\.size/.test(sc) && !/A\.mh\.image/.test(sc));
   check('texload: nearest/mip ayarı yükleme öncesi (finish) yapılır; build() sonradan değiştirmez', /nearest\) \{ t\.magFilter = t\.minFilter = THREE\.NearestFilter; t\.generateMipmaps = false/.test(tl) && !/A\.mh\.(magFilter|minFilter|generateMipmaps|flipY)/.test(sc));
   check('texload: R8 yalnız bitmap yolunda (yedek yol RGBA: eski davranış)', /if \(s\.red\) \{ t\.format = THREE\.RedFormat/.test(tl) && !/decodeImage[\s\S]{0,400}RedFormat/.test(tl));
-  check('World.load: dokular, arazi verisi ve modeller birlikte iner; derleme ardından ready', /Promise\.all\(\[loadTextures\(this\.renderer, base, \{ lowmem, tick \}\)/.test(sc) && /await this\.precompile\(\);[^]*this\.ready = true/.test(sc) && /TEX\.length \* 2 \+ 5/.test(sc));
+  check('World.load: dokular (her cihazda önce küçük dosyalar), arazi verisi ve modeller birlikte iner; derleme ardından ready', /Promise\.all\(\[loadTextures\(this\.renderer, base, \{ lowmem: true, conc: lowmem \? 2 : 3, tick \}\)/.test(sc) && /await this\.precompile\(\);[^]*this\.ready = true/.test(sc) && /TEX\.length \* 2 \+ 5/.test(sc));
   check('precompile: derleme sırasında checkShaderErrors kapalı (paralel derleme), sonra eski değer ve bağlama durumu denetimi; 10 sn zaman aşımı; eklenti yoksa eşzamanlı compile (uyarı yok)', /checkShaderErrors = false/.test(sc) && /finally \{ r\.debug\.checkShaderErrors = was; \}/.test(sc) && /LINK_STATUS/.test(sc) && /setTimeout\(res, 10000\)/.test(sc) && /extensions\.has\('KHR_parallel_shader_compile'\)/.test(sc) && /else r\.compile\(this\.scene, this\.camera\)/.test(sc));
   check('bağlam kaybı: webglcontextlost preventDefault; geri gelince bir kez yenile (30 sn içinde ikinci kayıpta döngü yok)', /webglcontextlost[^\n]*preventDefault/.test(sc) && /webglcontextrestored/.test(sc) && /ls19\.ctxReload/.test(sc) && /Date\.now\(\) - last > 30000/.test(sc));
   check('tiles: parça bitmap\'i GPU yüklemesinden sonra (onUpdate) ve atılırken kapatılır', /t\.onUpdate = \(\) => \{ t\.onUpdate = null; bm\.close\(\); \}/.test(tiles) && (tiles.match(/closeBitmap\(/g) || []).length >= 3);
@@ -133,12 +137,29 @@ function dims(file) {
     vm.runInNewContext(m[1], { document, window, fetch, location: { search: c.search }, navigator: { deviceMemory: c.deviceMemory || undefined, userAgent: c.ua }, URLSearchParams });
     window.fetch = fetch; fetched.length = 0; links.length = 0;
     vm.runInNewContext(m[1], { document, window, fetch, location: { search: c.search }, navigator: { deviceMemory: c.deviceMemory || undefined, userAgent: c.ua }, URLSearchParams });
-    const tex = fetched.map(([u]) => u.slice(9)), lowm = lowMemoryFrom(c), want = TEX.map((s) => fileFor(s, lowm).file);
+    const tex = fetched.map(([u]) => u.slice(9)), want = TEX.map((s) => fileFor(s, true).file);          // ilk yükleme her cihazda aynı
     if (JSON.stringify(tex) !== JSON.stringify(want) || !fetched.every(([u, o]) => u.startsWith('textures/') && o.priority === 'low') || JSON.stringify(Object.keys(window.LS19_EARLY.tex)) !== JSON.stringify(want)) bad.push(JSON.stringify(c));
     if (!links.some((l) => l.href === 'data/eph/v1/index.json') || !links.some((l) => l.href === 'data/eph/v1/head.bin') || links.some((l) => /textures\//.test(l.href))) bad.push('eph ' + JSON.stringify(c));
   }
-  check(`erken indirme: ${cases.length} durumda (?lowmem, deviceMemory, mobil UA) dokular texload.js'in indireceğiyle aynı, fetch ile başlatılır (preload değil) ve sözler LS19_EARLY'de; efemeris dizini preload`, bad.length === 0, bad.slice(0, 2).join(' | '));
-  check('texload: erken sözü kullanır (tek istek), yoksa ya da boş dönerse base + "textures/" + dosya adıyla indirir, başarısızsa bir kez yeniden dener', /LS19_EARLY/.test(rd('../js/texload.js')) && /delete early\[f\]/.test(rd('../js/texload.js')) && /fetch\(base \+ 'textures\/' \+ f\)/.test(rd('../js/texload.js')) && /net\(f, n - 1\)/.test(rd('../js/texload.js')) && /world\.load\('\.\/'/.test(rd('../js/app.js')));
+  check(`erken indirme: ${cases.length} durumda (?lowmem, deviceMemory, mobil UA) dokular texload.js'in ilk yüklemede indireceğiyle aynı, fetch ile başlatılır (preload değil) ve sözler LS19_EARLY'de; efemeris dizini preload`, bad.length === 0, bad.slice(0, 2).join(' | '));
+  check('texload: erken sözü kullanır (tek istek), yoksa ya da boş dönerse base + "textures/" + dosya adıyla indirir, başarısızsa bir kez yeniden dener', /LS19_EARLY/.test(rd('../js/texload.js')) && /delete early\[f\]/.test(rd('../js/texload.js')) && /fetch\(base \+ 'textures\/' \+ f, priority \? \{ priority \} : undefined\)/.test(rd('../js/texload.js')) && /net\(f, n - 1\)/.test(rd('../js/texload.js')) && /world\.load\('\.\/'/.test(rd('../js/app.js')));
+}
+
+// ---------------------------------------------------------------- 7) tam çözünürlüğe yükseltme (masaüstü)
+{
+  const sc = sceneSrc(), up = sc.slice(sc.indexOf('  async upgradeTextures('), sc.indexOf("    this.texUp[group] = 'tamam';"));
+  const keys = [...UPGRADE.earth, ...UPGRADE.moon];
+  check('yükseltme grupları: Dünya (gündüz, gece, bulut, yıldız) ve Ay (renk, normal, yükseklik); hepsinin küçük dosyası var, küçük dosyası olan her doku bir grupta',
+    keys.every((k) => TEX.find((s) => s.key === k && s.flo)) && TEX.filter((s) => s.flo).every((s) => keys.includes(s.key)), keys.join(','));
+  check('yükseltme: yalnız düşük bellekli olmayan ve veri tasarrufu kapalı cihazda; Dünya ilk görüntüden sonra, Ay kamera ~40 Ay yarıçapına yaklaşınca; tek sefer',
+    /if \(!lowmem && !saveData\) \{ this\.texUp = \{\}; setTimeout\(\(\) => this\.upgradeTextures\('earth'\)/.test(sc) && /this\.texUp && !this\.texUp\.moon && this\.moon\.position\.length\(\) < 40 \* E\.R_M\) this\.upgradeTextures\('moon'\)/.test(sc) && /if \(!this\.texUp \|\| this\.texUp\[group\]\) return;/.test(up));
+  check('yükseltme: tam dosyalar düşük öncelikle, tek tek; yükseklikte boyut da güncellenir; eski doku atılır, inmeyen küçük kalır',
+    /lowmem: false, conc: 1, priority: 'low'/.test(up) && /day: \[this\.earthU, 'dayMap'\][^\n]*mh: \[this\.moonU, 'heightMap'\]/.test(up) && /this\.moonU\.hSize\.value\.set\(\.\.\.t\.userData\.size\)/.test(up) &&
+    /old\.dispose\(\)/.test(up) && /if \(!t\) continue;/.test(up) && /swap\(old, t\);/.test(up));
+  check('yükseltme: eski doku sahnedeki her malzemede (özellikler ve uniform\'lar) yenisiyle değişir, sonra atılır (iniş arazisi Ay renk dokusunu map olarak kullanır)',
+    /this\.scene\.traverse\(/.test(up) && /if \(m\[k\] === old\) \{ m\[k\] = t; m\.needsUpdate = true; \}/.test(up) && /if \(u && u\.value === old\) u\.value = t;/.test(up) && up.indexOf('swap(old, t)') < up.indexOf('old.dispose()') && /map: A\.mcol/.test(sc));
+  const surf = rd('../js/surfaceview.js');
+  check('yüzey parçaları Dünya/Ay uniform nesnelerini paylaşır ({ ...eu }, { ...mu }): yükseltilen doku parçalarda da görünür', /uniforms: \{ \.\.\.eu,/.test(surf) && /uniforms: \{ \.\.\.mu,/.test(surf));
 }
 
 console.log(fail ? `\n${fail} HATA` : '\nTüm denetimler geçti');

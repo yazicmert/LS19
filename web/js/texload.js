@@ -83,11 +83,12 @@ async function upload(renderer, t) {
 }
 
 // { day, night, clouds, spec, enorm, mcol, mnorm, mh, stars } → THREE.Texture | null; tick(ad): ilerleme (doku başına 2 çağrı: çözüldü, GPU'da)
-export async function loadTextures(renderer, base, { specs = TEX, lowmem = false, tick = () => {}, conc = lowmem ? 2 : 3 } = {}) {
+// priority: fetch önceliği (tam çözünürlüğe yükseltme 'low' ister: etkileşimi ve parça indirmelerini geciktirmesin)
+export async function loadTextures(renderer, base, { specs = TEX, lowmem = false, tick = () => {}, conc = lowmem ? 2 : 3, priority = null } = {}) {
   const useBm = await bitmapSupported();
   // index.html'deki erken indirme (#earlyFetch) bu dosyayı başlattıysa aynı söz kullanılır (tek istek); başarısız indirme bir kez yeniden denenir
   const early = (globalThis.LS19_EARLY && globalThis.LS19_EARLY.tex) || {};
-  const net = (f, n = 1) => fetch(base + 'textures/' + f).then((r) => (r.ok ? r.blob() : null)).catch((e) => {
+  const net = (f, n = 1) => fetch(base + 'textures/' + f, priority ? { priority } : undefined).then((r) => (r.ok ? r.blob() : null)).catch((e) => {
     if (n > 0) return new Promise((res) => setTimeout(res, 400)).then(() => net(f, n - 1));
     console.warn(`Doku indirilemedi (${f}): ${e && e.message}`); return null;
   });
