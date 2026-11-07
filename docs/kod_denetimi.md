@@ -117,7 +117,7 @@ Klavye kısayolları `app.js`'te kaldı (uygulama çapında komut haritası).
 - `npm run lint` denetimi çalıştırır.
 - `npm test` artık tüm testleri koşar (önceden yalnız iki testi koşuyordu); hızlı alt küme `npm run test:quick`'te.
 - `.github/workflows/denetim.yml` her PR'da ve main'e her gönderimde lint ve testleri çalıştırır. Yalnız denetler, hiçbir şey yazmaz.
-- Vercel kurulum yapmadığı için (`installCommand: ""`) geliştirme bağımlılıkları yayını etkilemez.
+- Vercel yayında `npm ci` ile geliştirme bağımlılıklarını kurar (2026-11): yalnız esbuild (küçültme) ve espree (küçültme denetimi) kullanılır; `tools/kucult.mjs` yayımlanacak kopyayı küçültür, depodaki kaynak değişmez. API işlevleri bu paketleri içe aktarmaz.
 
 İlk çalıştırmada 46 bulgu çıktı, hepsi giderildi:
 - **Ölü kod:**

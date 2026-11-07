@@ -13,12 +13,17 @@
 import fs from 'fs';
 import { initConic, Conic } from '../js/conic.js';
 import { solveFixed, solvePDG, replanPDG, controlAt, controlAtSmooth, expm } from '../js/pdg.js';
+import { parca } from './parca.js';
 
-let fail = 0;
-const check = (name, ok, detail = '') => { console.log(`${ok ? 'TAMAM' : 'HATA '} ${name}${detail ? ' — ' + detail : ''}`); if (!ok) fail++; };
+let fail = 0, nCheck = 0;
+const check = (name, ok, detail = '') => { nCheck++; console.log(`${ok ? 'TAMAM' : 'HATA '} ${name}${detail ? ' — ' + detail : ''}`); if (!ok) fail++; };
 const norm = (a) => Math.hypot(...a);
 await initConic();
+// --parca i/n (tools/testler.mjs): birimler ve ölçülen süreleri (sn): 1–7 çözücü denetimleri, 8 tam görev + bozulmalar, 9 profil başına 3 uçuş
+const PROFS = Object.keys(JSON.parse(fs.readFileSync(new URL('../data/designs_default.json', import.meta.url))).profiles);
+const P = parca({ temel: 12, gorev: 37, ...Object.fromEntries(PROFS.map((k) => [k, 6])) });
 
+if (P('temel')) {
 // ---------------------------------------------------------------- 1) konik çözücü
 {
   const C = new Conic(2); C.cost(0, 1); C.cost(1, 1);
@@ -202,8 +207,10 @@ function sub3(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
     `${nre} yeniden çözüm, ${fails} başarısız; kapıda irtifa ${alt.toFixed(1)} m, dikey ${vz.toFixed(2)} m/s, yatay ${vh.toFixed(2)} m/s, konum hatası ${norm(sub3(x.slice(0, 3), gate.rf)).toFixed(1)} m`);
 }
 
+}
+
 // ---------------------------------------------------------------- 8) tam görev: ZEM/ZEV ile optimal modlar (N-cisim motor, J2/C22, Ay dönmesi)
-{
+if (P('gorev')) {
   const _E = await import('../js/engine.js'), { makeLive } = await import('../js/live.js'), { Mission } = await import('../js/mission.js');
   const ab = (f) => { const b = fs.readFileSync(f); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); };
   const eo = JSON.parse(fs.readFileSync(new URL('../data/earth_orient.json', import.meta.url)));
@@ -245,13 +252,14 @@ function sub3(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
 }
 
 // ---------------------------------------------------------------- 9) altı görev profili
-{
+if (PROFS.some((k) => P(k))) {
   const E = await import('../js/engine.js'), EO = await import('../js/earth.js'), { makeLive } = await import('../js/live.js'), { Mission } = await import('../js/mission.js');
   const ab = (f) => { const b = fs.readFileSync(f); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); };
   const SPK = ab(new URL('../data/de440s.bsp', import.meta.url)), PCK = ab(new URL('../data/moon_pa_de440_200625.bpc', import.meta.url));
   const eo = JSON.parse(fs.readFileSync(new URL('../data/earth_orient.json', import.meta.url))); EO.loadEarthOrientation(eo);
   const ALL = JSON.parse(fs.readFileSync(new URL('../data/designs_default.json', import.meta.url)));
   for (const [name, entry] of Object.entries(ALL.profiles)) {
+    if (!P(name)) continue;
     const out = {};
     for (const mode of ['zem', 'opt', 'free']) {
       const D = entry.design; E.setMoonZone(D.profile === 'HALO' ? 1.25 * D.HALO.stats.raKm : E.SOI_M); makeLive(SPK, PCK, eo, ALL.tStart);
@@ -264,4 +272,5 @@ function sub3(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
       `kalan yakıt ZEM ${f('zem').toFixed(0)} · dengeli ${f('opt').toFixed(0)} · serbest ${f('free').toFixed(0)} kg (plan süresi dengeli ${out.opt.descentInfo.tf.toFixed(0)} s, serbest ${out.free.descentInfo.tf.toFixed(0)} s)`);
   }
 }
-console.log(fail ? `\n${fail} HATA` : '\nTAMAM'); process.exit(fail ? 1 : 0);
+if (!P.bitir(nCheck)) fail++;
+console.log(fail ? `\n${fail} HATA${P.label}` : `\nTAMAM${P.label}`); process.exit(fail ? 1 : 0);

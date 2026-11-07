@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "installCommand": "",
-  "buildCommand": "node -e \"console.log('LS19: statik site web/ klasorunden, veri vekili api/ islevlerinden')\"",
+  "installCommand": "npm ci",
+  "buildCommand": "node tools/kucult.mjs --yerinde",
   "outputDirectory": "web",
   "functions": {
     "api/*.js": {
