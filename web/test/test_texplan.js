@@ -4,9 +4,10 @@
 //  3) World.build'in beklediği doku anahtarlarının hepsi planda (ya da dem/model); nearest haritası texelFetch ile okunur
 //  4) lowMemoryFrom doğruluk tablosu (?lowmem=1/0 her şeyden önce gelir)
 //  5) yükleme hattı sözleşmeleri: bitmap kapatma yalnız GPU yüklemesinden sonra, yedek yol, derleme zaman aşımı, bağlam kaybı, boyut userData'dan
-//  6) ilk yükleme her cihazda önceden küçültülmüş dosyalar (index.html erken indirmesi aynı liste); masaüstü tam çözünürlüğe yükseltir
+//  6) ilk yükleme her cihazda önceden küçültülmüş dosyalar (index.html erken indirmesi aynı liste; KTX2 ya da ?ktx=0 ise WebP); masaüstü tam çözünürlüğe yükseltir
+//  (KTX2 dosyalarının kendisi: test/test_ktx2.js)
 import fs from 'fs';
-import { TEX, lowMemoryFrom, fileFor, UPGRADE } from '../js/texplan.js';
+import { TEX, lowMemoryFrom, fileFor, UPGRADE, ktxWanted } from '../js/texplan.js';
 import { sceneSrc } from './scenesrc.js';
 
 let fail = 0;
@@ -131,7 +132,7 @@ function dims(file) {
   const html = rd('../index.html'), m = /<script id="earlyFetch">([\s\S]*?)<\/script>/.exec(html);
   check('index.html: erken indirme betiği var, modül betiklerinden önce', !!m && html.indexOf('id="earlyFetch"') < html.indexOf('type="module"'));
   const vm = await import('node:vm'), cases = [];
-  for (const search of ['', '?lowmem=1', '?lowmem=0']) for (const deviceMemory of [0, 2, 4, 8]) for (const ua of ['Mozilla/5.0 (X11; Linux x86_64) Chrome/130', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Mobile Safari']) cases.push({ search, deviceMemory, ua });
+  for (const search of ['', '?lowmem=1', '?lowmem=0', '?ktx=0', '?lowmem=1&ktx=0']) for (const deviceMemory of [0, 2, 4, 8]) for (const ua of ['Mozilla/5.0 (X11; Linux x86_64) Chrome/130', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Mobile Safari']) cases.push({ search, deviceMemory, ua });
   const bad = [];
   for (const c of cases) {
     const links = [], fetched = [], document = { head: { appendChild: (l) => links.push(l) }, createElement: () => ({ setAttribute(k, v) { this[k] = v; } }) };
@@ -139,11 +140,12 @@ function dims(file) {
     vm.runInNewContext(m[1], { document, window, fetch, location: { search: c.search }, navigator: { deviceMemory: c.deviceMemory || undefined, userAgent: c.ua }, URLSearchParams });
     window.fetch = fetch; fetched.length = 0; links.length = 0;
     vm.runInNewContext(m[1], { document, window, fetch, location: { search: c.search }, navigator: { deviceMemory: c.deviceMemory || undefined, userAgent: c.ua }, URLSearchParams });
-    const tex = fetched.map(([u]) => u.slice(9)), want = TEX.map((s) => fileFor(s, true).file);          // ilk yükleme her cihazda aynı
+    const k = ktxWanted(c.search), tex = fetched.map(([u]) => u.slice(9)), want = TEX.map((s) => fileFor(s, true, false, k).file);          // ilk yükleme her cihazda aynı (KTX2 ya da ?ktx=0 ise WebP)
     if (JSON.stringify(tex) !== JSON.stringify(want) || !fetched.every(([u, o]) => u.startsWith('textures/') && o.priority === 'low') || JSON.stringify(Object.keys(window.LS19_EARLY.tex)) !== JSON.stringify(want)) bad.push(JSON.stringify(c));
     if (!links.some((l) => l.href === 'data/eph/v1/index.json') || !links.some((l) => l.href === 'data/eph/v1/head.bin') || links.some((l) => /textures\//.test(l.href))) bad.push('eph ' + JSON.stringify(c));
+    if (links.some((l) => /basis_transcoder/.test(l.href))) bad.push('çevirici preload ' + JSON.stringify(c));      // büyük preload yanıtı fetch ile eşlenirken ara sıra hata verir (§12.3): texload.js init() ile hemen indirir
   }
-  check(`erken indirme: ${cases.length} durumda (?lowmem, deviceMemory, mobil UA) dokular texload.js'in ilk yüklemede indireceğiyle aynı, fetch ile başlatılır (preload değil) ve sözler LS19_EARLY'de; efemeris dizini preload`, bad.length === 0, bad.slice(0, 2).join(' | '));
+  check(`erken indirme: ${cases.length} durumda (?lowmem, deviceMemory, mobil UA) dokular texload.js'in ilk yüklemede indireceğiyle aynı (KTX2, ?ktx=0 ise WebP), fetch ile başlatılır (preload değil) ve sözler LS19_EARLY'de; efemeris dizini preload (KTX2 çeviricisi değil: texload.js yükleyiciyi kurunca indirir)`, bad.length === 0, bad.slice(0, 2).join(' | '));
   check('texload: erken sözü kullanır (tek istek), yoksa ya da boş dönerse base + "textures/" + dosya adıyla indirir, başarısızsa bir kez yeniden dener', /LS19_EARLY/.test(rd('../js/texload.js')) && /delete early\[f\]/.test(rd('../js/texload.js')) && /fetch\(base \+ 'textures\/' \+ f, priority \? \{ priority \} : undefined\)/.test(rd('../js/texload.js')) && /net\(f, n - 1\)/.test(rd('../js/texload.js')) && /world\.load\('\.\/'/.test(rd('../js/app.js')));
 }
 

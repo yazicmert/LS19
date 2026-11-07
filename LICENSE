@@ -70,10 +70,14 @@ In particular:
     (PIA19956, public domain). Other images under web/textures/ are not
     covered by the MIT grant either.
   - Libraries (web/lib/, pylib/): three.js, satellite.js, Motion, NumberFlow,
-    torph, jplephem (MIT), Clarabel, 3d-tiles-renderer (NASA-AMMOS) and the
-    Draco glTF decoder (Google) (Apache-2.0). Their license texts sit next to
-    them (web/lib/*.LICENSE.md, web/lib/clarabel/, web/lib/addons/libs/draco/,
-    pylib/).
+    torph, jplephem (MIT), Clarabel, 3d-tiles-renderer (NASA-AMMOS), the
+    Draco glTF decoder (Google) and the Basis Universal transcoder (Binomial
+    LLC) (Apache-2.0). Their license texts sit next to them
+    (web/lib/*.LICENSE.md, web/lib/clarabel/, web/lib/addons/libs/draco/,
+    web/lib/addons/libs/basis/, pylib/). The KTX2 textures under
+    web/textures/ are encoded with the official Basis Universal tool
+    (tools/doku_ktx2.mjs, Apache-2.0); the encoder is downloaded at build
+    time and is not part of this repository.
   - Development skills (.claude/skills/): MIT, see .claude/skills/LICENSES.md.
 
 The NASA name, logo and insignia (which also appear on some model textures)

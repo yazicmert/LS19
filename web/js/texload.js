@@ -4,8 +4,12 @@
 // çözülmüş bitmap'ler de (≈1 GB) yaşam boyu bellekte kalıyordu. Plan (hangi dosya, hangi biçim): texplan.js.
 // Tarayıcı farklarına karşı üç savunma (gerçek cihaz/Safari'de sınanamadığı için): flipY yoklaması (<img> yedeği), resize seçeneğini yok sayan tarayıcıda tuvalle küçültme,
 // R8 yüklemesi reddedilirse RGBA'ya dönüş. Düşük bellek katmanı üç yolda da çalışır (aksi halde tam da bellek darken devre dışı kalırdı).
+// KTX2 (Basis Universal; texplan.js "ktx"): renk dokuları ve Dünya normali ekran kartının sıkıştırılmış biçiminde gelir (BC7/BC1 masaüstü, ASTC/ETC2 telefon):
+// bellek RGBA8'in ¼–⅛'i, mip'ler dosyada, GPU'ya yükleme kısa. Biçime çevirme web işçilerinde (three KTX2Loader + basis_transcoder). Tarayıcı uygun
+// biçimi desteklemezse (texplan.js ktxConfig), ?ktx=0 ise ya da dosya inmez/çözülmezse o doku WebP yolundan yüklenir.
 import * as THREE from 'three';
-import { TEX, lowMemoryFrom, fileFor } from './texplan.js';
+import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
+import { TEX, lowMemoryFrom, fileFor, ktxWanted, ktxConfig } from './texplan.js';
 
 export const lowMemory = () => lowMemoryFrom({ search: location.search, deviceMemory: navigator.deviceMemory, ua: navigator.userAgent });
 
@@ -53,6 +57,27 @@ async function decodeBitmap(blob, s, lowmem) {
   if (s.red) { t.format = THREE.RedFormat; t.type = THREE.UnsignedByteType; }                          // R8: gölgelendirici yalnız .r okur
   const b = bm;
   return finish(t, s, b.width, b.height, () => b.close());
+}
+// KTX2: tek yükleyici (çevirici web işçileri + WASM) bir loadTextures çağrısı boyunca yaşar, sonra atılır: işçilerin WASM belleği
+// (8192'lik dokuda ~100 MB) geri verilmez, işçi kapanınca boşalır. Bir sonraki çağrı (tam çözünürlüğe yükseltme) yenisini kurar (çevirici HTTP önbelleğinden).
+function ktxLoader(renderer, base, workers) {
+  try {
+    const l = new KTX2Loader().setTranscoderPath(base + 'lib/addons/libs/basis/').setWorkerLimit(workers).detectSupport(renderer);
+    const c = ktxConfig(l.workerConfig, (n) => renderer.extensions.has(n));
+    if (!c) { l.dispose(); return null; }
+    l.workerConfig = c;
+    l.init().catch(() => {});                                                     // çevirici (JS + WASM, ~0,6 MB) dokularla birlikte hemen insin; hata ilk çevirmede görülür
+    return l;
+  } catch (e) { console.warn('KTX2 kullanılamıyor: ' + (e && e.message)); return null; }
+}
+async function decodeKtx(loader, blob, s) {
+  const buf = await blob.arrayBuffer(), t = await new Promise((res, rej) => loader.parse(buf, res, rej));
+  if (!t || !t.isCompressedTexture) throw new Error('sıkıştırılmış doku değil');      // yalnız sıkıştırmasız RGBA32'ye çevrilebildiyse WebP daha iyi
+  t.colorSpace = s.srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; t.anisotropy = 8;          // DFD ile aynı (tools/doku_ktx2.mjs denetler); mip'ler dosyada
+  t.userData.size = [t.image.width, t.image.height];
+  t.userData.release = () => { t.mipmaps = []; };                                  // GPU'ya yüklendikten sonra çevrilmiş blokları bırak
+  t.userData.ktx = true;
+  return t;
 }
 function decodeImage(blob, s, lowmem) {                                                               // yedek yol (eski davranış): <img>, RGBA; düşük bellekte tuvalle küçültülür
   return new Promise((res, rej) => {
@@ -103,15 +128,21 @@ export async function loadTextures(renderer, base, { specs = TEX, lowmem = false
     console.warn(`Doku indirilemedi (${f}): ${e && e.message}`); return null;
   });
   const get = (f) => { const p = early[f]; delete early[f]; return p ? p.then((b) => b || net(f)) : net(f); };
-  const plans = specs.map((s) => fileFor(s, lowmem)), blobs = plans.map((p) => get(p.file));     // indirmeler birlikte başlar; çözme sınırlı eşzamanlı (tepe bellek)
+  // KTX2: destek WebGL bağlamından bilinir (anında); indirmeler ve çevirici beklemeden başlar. Çevirici işçisi sayısı = eşzamanlı çözme (en çok 2)
+  const kl = ktxWanted(typeof location !== 'undefined' ? location.search : '') && specs.some((s) => s.ktx) ? ktxLoader(renderer, base, Math.min(conc, 2)) : null;
+  const plans = specs.map((s) => fileFor(s, lowmem, false, !!kl)), blobs = plans.map((p) => get(p.file));     // indirmeler birlikte başlar; çözme sınırlı eşzamanlı (tepe bellek)
   const decode = (blob, s) => (useBm ? decodeBitmap(blob, s, lowmem) : decodeImage(blob, s, lowmem));
   const out = {}; let gpu = Promise.resolve(), next = 0;
   const worker = async () => {
     while (next < specs.length) {
-      const i = next++, s = specs[i], blob = await blobs[i]; blobs[i] = null; let t = null;
-      if (blob) { try { t = await decode(blob, plans[i].spec); } catch (e) { t = null; console.warn(`Doku çözülemedi (${plans[i].file}): ${e && e.message}`); } }
-      if (!t && blob) { await gpu; try { t = await decode(blob, plans[i].spec); } catch (e) { t = null; } }          // bellek darken eşzamanlı çözme düşebilir: önceki dokular GPU'ya geçip bitmap belleği bırakılınca bir kez daha
-      if (!t && s.fb && s.fb !== plans[i].file) {                                // WebP çözülemedi (eski tarayıcı) ya da inmedi: özgün JPG/PNG, gerekirse cihazda küçültülür
+      const i = next++, s = specs[i]; let blob = await blobs[i], plan = plans[i], t = null; blobs[i] = null;
+      if (plan.ktx) {
+        if (blob) { try { t = await decodeKtx(kl, blob, s); } catch (e) { t = null; console.warn(`KTX2 doku çevrilemedi (${plan.file}), WebP kullanılıyor: ${e && e.message || e}`); } }
+        if (!t) { plan = fileFor(s, lowmem); blob = await get(plan.file); }        // WebP yolu: aynı doku, aynı katman
+      }
+      if (!t && blob) { try { t = await decode(blob, plan.spec); } catch (e) { t = null; console.warn(`Doku çözülemedi (${plan.file}): ${e && e.message}`); } }
+      if (!t && blob) { await gpu; try { t = await decode(blob, plan.spec); } catch (e) { t = null; } }          // bellek darken eşzamanlı çözme düşebilir: önceki dokular GPU'ya geçip bitmap belleği bırakılınca bir kez daha
+      if (!t && s.fb && s.fb !== plan.file) {                                    // WebP çözülemedi (eski tarayıcı) ya da inmedi: özgün JPG/PNG, gerekirse cihazda küçültülür
         const fb = fileFor(s, lowmem, true), b2 = await get(fb.file);
         if (b2) { try { t = await decode(b2, fb.spec); } catch (e) { t = null; } }
       }
@@ -121,5 +152,6 @@ export async function loadTextures(renderer, base, { specs = TEX, lowmem = false
   };
   await Promise.all(Array.from({ length: Math.min(conc, specs.length) }, worker));
   await gpu;
+  if (kl) kl.dispose();                                                          // çevirici işçileri ve WASM belleği bırakılır
   return out;
 }
