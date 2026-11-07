@@ -1537,6 +1537,7 @@ const dict = {
   "Dünya'nın": "Earth's",
   // ---------------------------------------------------------------- js/texload.js
   "görüntü çözülemedi": "image could not be decoded",
+  "sıkıştırılmış doku değil": "not a compressed texture",
   "(yok)": "(missing)",
   "{0} (GPU, yok)": "{0} (GPU, missing)",
   // ---------------------------------------------------------------- js/tracker.js

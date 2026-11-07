@@ -28,8 +28,11 @@
 <style>html.i18n-wait #app { visibility: hidden; }</style>
 <script id="earlyFetch">
 (function () {
-  // her cihaz ilk yüklemede önceden küçültülmüş dosyaları alır (masaüstü tam çözünürlüğü sonra indirir: js/scene.js upgradeTextures)
-  var lo = ['earth_day_lo.webp', 'earth_night_lo.webp', 'earth_clouds_lo.webp', 'earth_spec.webp', 'earth_normal.webp', 'moon_color_lo.webp', 'moon_normal_lo.webp', 'moon_height_lo.webp', 'stars_lo.webp'];
+  // her cihaz ilk yüklemede önceden küçültülmüş dosyaları alır (masaüstü tam çözünürlüğü sonra indirir: js/scene.js upgradeTextures).
+  // Renk dokuları ve Dünya normali KTX2 (ekran kartında sıkıştırılmış kalır; js/texplan.js "ktx"), ?ktx=0 ise WebP; tek kanallılar, Ay normali ve yüksekliği WebP.
+  // KTX2'yi desteklemeyen tarayıcıda (nadir) bu indirmeler boşa gider, js/texload.js WebP'leri ayrıca indirir.
+  var k = !/[?&]ktx=0(&|$)/.test(location.search), x = k ? '.ktx2' : '.webp';
+  var lo = ['earth_day_lo' + x, 'earth_night_lo' + x, 'earth_clouds_lo.webp', 'earth_spec.webp', 'earth_normal' + x, 'moon_color_lo' + x, 'moon_normal_lo.webp', 'moon_height_lo.webp', 'stars_lo' + x];
   var early = window.LS19_EARLY = { tex: {} };
   if (window.fetch) lo.forEach(function (f) {
     early.tex[f] = fetch('textures/' + f, { priority: 'low' }).then(function (r) { return r.ok ? r.blob() : null; }).catch(function () { return null; });
@@ -66,7 +69,6 @@
 </script>
 <!-- Modül grafiği düz liste olarak paralel indirilir (içe aktarma zinciri tek tek keşfedilirse her seviye bir ağ gidiş-dönüşü); liste test/test_preload.js ile grafikten doğrulanır (node test/test_preload.js --print) -->
 <link rel="modulepreload" href="js/app.js">
-<link rel="modulepreload" href="js/i18n.js">
 <link rel="modulepreload" href="js/engine.js">
 <link rel="modulepreload" href="js/attitude.js">
 <link rel="modulepreload" href="js/vec3.js">
@@ -83,6 +85,7 @@
 <link rel="modulepreload" href="js/geo.js">
 <link rel="modulepreload" href="js/terrain.js">
 <link rel="modulepreload" href="js/terraingen.js">
+<link rel="modulepreload" href="js/i18n.js">
 <link rel="modulepreload" href="js/mission.js">
 <link rel="modulepreload" href="js/halo.js">
 <link rel="modulepreload" href="js/cr3bp.js">
@@ -97,16 +100,6 @@
 <link rel="modulepreload" href="js/launchfx.js">
 <link rel="modulepreload" href="js/padground.js">
 <link rel="modulepreload" href="js/google3d.js">
-<link rel="modulepreload" href="js/g3dpanel.js">
-<link rel="modulepreload" href="js/gpdata.js">
-<link rel="modulepreload" href="js/launchdata.js">
-<link rel="modulepreload" href="js/launches.js">
-<link rel="modulepreload" href="js/launchcal.js">
-<link rel="modulepreload" href="js/launchpanel.js">
-<link rel="modulepreload" href="js/launchdb.js">
-<link rel="modulepreload" href="js/payloads.js">
-<link rel="modulepreload" href="js/payloadui.js">
-<link rel="modulepreload" href="js/payloadresolve.js">
 <link rel="modulepreload" href="js/launchcam.js">
 <link rel="modulepreload" href="js/fx.js">
 <link rel="modulepreload" href="js/planets.js">
@@ -118,6 +111,11 @@
 <link rel="modulepreload" href="js/surfaceview.js">
 <link rel="modulepreload" href="js/tiles.js">
 <link rel="modulepreload" href="js/texload.js">
+<link rel="modulepreload" href="lib/addons/loaders/KTX2Loader.js">
+<link rel="modulepreload" href="lib/addons/utils/WorkerPool.js">
+<link rel="modulepreload" href="lib/addons/libs/ktx-parse.module.js">
+<link rel="modulepreload" href="lib/addons/libs/zstddec.module.js">
+<link rel="modulepreload" href="lib/addons/math/ColorSpaces.js">
 <link rel="modulepreload" href="js/texplan.js">
 <link rel="modulepreload" href="js/bodyshaders.js">
 <link rel="modulepreload" href="js/mixin.js">
@@ -136,6 +134,7 @@
 <link rel="modulepreload" href="js/satlayer.js">
 <link rel="modulepreload" href="lib/satellite.esm.js">
 <link rel="modulepreload" href="js/config.js">
+<link rel="modulepreload" href="js/gpdata.js">
 <link rel="modulepreload" href="js/satmodels.js">
 <link rel="modulepreload" href="js/satcatalog.js">
 <link rel="modulepreload" href="js/satinstancer.js">
@@ -173,6 +172,15 @@
 <link rel="modulepreload" href="js/cinema.js">
 <link rel="modulepreload" href="js/cinemaui.js">
 <link rel="modulepreload" href="js/perfgov.js">
+<link rel="modulepreload" href="js/g3dpanel.js">
+<link rel="modulepreload" href="js/launches.js">
+<link rel="modulepreload" href="js/launchdata.js">
+<link rel="modulepreload" href="js/launchcal.js">
+<link rel="modulepreload" href="js/launchpanel.js">
+<link rel="modulepreload" href="js/launchdb.js">
+<link rel="modulepreload" href="js/payloads.js">
+<link rel="modulepreload" href="js/payloadui.js">
+<link rel="modulepreload" href="js/payloadresolve.js">
 <link rel="modulepreload" href="js/worker.js">
 </head>
 <body data-mode="lab" data-engine="mission" data-exp="ay">

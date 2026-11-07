@@ -8,3 +8,5 @@ __pycache__/
 .DS_Store
 node_modules/
 .vercel/
+# Basis Universal kodlayıcısı (tools/doku_ktx2.mjs indirir, SHA-256 denetler)
+tools/basis/
