@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import * as E from './engine.js';
 import { siteIcrf } from './mission.js';
 import { ellipsoidAlt } from './geo.js';
+import { LANDING_PHASES as POWERED } from './telemetry.js';
 import { CineUI } from './cinemaui.js';
 import { fmtDur } from './format.js';
 import { LOC } from './i18n.js';
@@ -361,9 +362,10 @@ export class Cinema {
     }
     return pose;
   }
+  // irtifa (HUD ile aynı tanım): Dünya'da gerçek kutupla WGS-84, Ay'da ortalama yarıçap; yalnız motorlu inişte (PDI → temas) iniş yeri yüzeyine göre
   alt(x, info) {
     const rs = norm(sub(x.r, E.moonPos(x.t))), nearM = rs < E.MOON_ZONE;
-    return nearM ? (x.local ? x.local.p[2] : rs - E.R_M) : ellipsoidAlt(x.r);
+    return nearM ? (x.local && POWERED.has(x.phase) ? x.local.p[2] : rs - E.R_M) : ellipsoidAlt(x.r, E.earthIcrfToItrf(x.t)[2]);
   }
 
   // ----- her kare (app.js, world.update'ten önce)
