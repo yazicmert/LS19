@@ -5,9 +5,10 @@
 import * as E from './engine.js';
 import { HaloRef } from './halo.js';
 import { conicReady } from './conic.js';
-import { Attitude, qSlerp, qRot, Z_AXIS } from './attitude.js';
+import { Attitude, qSlerp, qRot, qMul, qNormalize, qSwing, vAngle, Z_AXIS } from './attitude.js';
 import { Dyn6 } from './attctl.js';
-import { massProps, freeRot } from './rigidbody.js';
+import { massProps, freeRot, Z_FEET } from './rigidbody.js';
+import { TOUCH, POST_LANDING, velEnvelope, tipOver, surfaceNormal, tiltDeg } from './touchdown.js';
 import { solvePDG, replanPDG, controlAt, controlAtSmooth } from './pdg.js';
 const { add, sub, scale, dot, cross, norm, unit, mv, mtv } = E;
 
@@ -118,6 +119,15 @@ function solve3(J, F) {             // J x = F (Cramer)
   const D = d(J), x = [0, 0, 0];
   for (let k = 0; k < 3; k++) { const M = J.map((row, i) => row.map((v, j) => (j === k ? F[i] : v))); x[k] = d(M) / D; }
   return x;
+}
+
+// dönme matrisinden kuaterniyon [x, y, z, w] (Shepperd): R eylemsiz vektörleri döndürür (R·v)
+function qFromMat(R) {
+  const tr = R[0][0] + R[1][1] + R[2][2];
+  if (tr > 0) { const S = Math.sqrt(tr + 1) * 2; return [(R[2][1] - R[1][2]) / S, (R[0][2] - R[2][0]) / S, (R[1][0] - R[0][1]) / S, 0.25 * S]; }
+  if (R[0][0] > R[1][1] && R[0][0] > R[2][2]) { const S = Math.sqrt(1 + R[0][0] - R[1][1] - R[2][2]) * 2; return [0.25 * S, (R[0][1] + R[1][0]) / S, (R[0][2] + R[2][0]) / S, (R[2][1] - R[1][2]) / S]; }
+  if (R[1][1] > R[2][2]) { const S = Math.sqrt(1 + R[1][1] - R[0][0] - R[2][2]) * 2; return [(R[0][1] + R[1][0]) / S, 0.25 * S, (R[1][2] + R[2][1]) / S, (R[0][2] - R[2][0]) / S]; }
+  const S = Math.sqrt(1 + R[2][2] - R[0][0] - R[1][1]) * 2; return [(R[0][2] + R[2][0]) / S, (R[1][2] + R[2][1]) / S, 0.25 * S, (R[1][0] - R[0][1]) / S];
 }
 
 export class Mission {
@@ -656,10 +666,8 @@ export class Mission {
       const T = this.veh.mass() * norm(at);
       return [Math.min(1.0, Math.max(stg.thr_min, T / stg.T)), mtv(Rf, unit(at))];
     };
-    const stop = (Pp) => norm(Pp.s.seleno()[0]) - R_SITE <= 0.0;
     this.tNext = null;
-    yield* this.until(P.s.t + 1500, ctrl, stop);
-    this.touchdown();
+    yield* this.finalContact(ctrl);
   }
 
   // Optimal iniş: PDI'da yakıt-optimal plan (pdg.js: kayıpsız dışbükeyleştirme + SOCP), planı uygula, her OPT.REPLAN s'de (son dakikada 4 s) sıcak başlangıçlı yeniden çöz;
@@ -725,7 +733,7 @@ export class Mission {
           continue;
         }
         const hit = yield* this.until(Math.min(P.s.t + (tgo > 60 ? O.REPLAN : 4), tEnd), ctrl, (Pp) => surface() || gate());
-        if (hit && surface()) break;
+        if (hit && surface()) { this.touchdown(); return; }
         if (hit || P.s.t >= tEnd - 1e-9) continue;
         const left = tEnd - P.s.t;
         if (left > 8) {
@@ -737,22 +745,110 @@ export class Mission {
             if (st.fails >= 4) { st.mode = 'TERMINAL'; st.sw = smooth ? CMD.HANDOVER : 0; P.phase = 'SON_INIS'; this.log('Optimal iniş planı sürdürülemedi: son iniş yasasına geçildi', 'PLAN_FAIL'); }
           }
         }
-      } else { yield* this.until(P.s.t + 1500, ctrl, surface); break; }
+      } else { yield* this.finalContact(ctrl); return; }
     }
+  }
+
+  // ---------------------------------------------------------------- temas ve yüzey evresi (touchdown.js; NASA TN D-6850, ALSJ Apollo 11)
+  // en alçaktaki ayağın yüzeyden yüksekliği (m): fiziksel nokta ayak düzleminin merkezidir (sahne: model ayak tabanı); gövde θ yatıksa bir ayak R_PAD·sinθ daha alçaktadır
+  padAlt() {
+    const [rs] = this.P.s.seleno(), up = unit(rs), ax = this.P.att ? this.P.att.axis() : up;
+    return (norm(rs) - R_SITE) * 1000 - TOUCH.R_PAD * Math.sqrt(Math.max(0, 1 - dot(ax, up) ** 2));
+  }
+  // temas ışığı: ayakların altından sarkan 1,70 m'lik sondalardan biri yüzeye değdi
+  contactLight() {
+    if (this.contact) return;
+    const { v } = this.localState();
+    this.contact = { t: this.P.s.t, tStop: null };
+    this.log(`Temas ışığı: sonda yüzeye değdi (ayaklar ~${TOUCH.PROBE.toFixed(2)} m yukarıda), dikey hız ${(v[2] * 1000).toFixed(2)} m/s`, 'CONTACT');
+  }
+  // Son metreler (sonda kipi, TN D-6850): güdüm sonda temasına dek sürer → temas ışığı → TOUCH.REACT s sonra motor kesme (itki TOUCH.DECAY s'de söner) →
+  // araç ayaklarına düşer (yönelim kesmedeki eksende tutulur). Temas fiziği touchdown()'da: yönelim fizikten gelir (dikeye ışınlanmaz).
+  *finalContact(ctrl) {
+    const P = this.P, pads = () => this.padAlt() <= 0;
+    if (!this.contact) {
+      yield* this.until(P.s.t + 1500, ctrl, () => this.padAlt() <= TOUCH.PROBE);
+      if (!pads()) this.contactLight();
+    }
+    const h0 = [P.hMaxBurn, P.hMaxCoast]; P.hMaxBurn = Math.min(P.hMaxBurn, 0.02); P.hMaxCoast = Math.min(P.hMaxCoast, 0.02);          // temas anı ~2 cm içinde
+    if (!pads()) yield* this.until(this.contact.t + TOUCH.REACT, ctrl, pads);
+    if (!pads()) {
+      const tc = P.s.t, thr0 = P.lastThr, hold = P.att ? P.att.axis() : unit(siteIcrf(tc));
+      this.contact.tStop = tc;
+      this.log(`Motor durduruldu: temas ışığından ${(tc - this.contact.t).toFixed(1)} s sonra (itki ${TOUCH.DECAY.toFixed(1)} s'de söner), araç ${this.padAlt().toFixed(2)} m'den ayaklarına düşüyor`, 'ENGINE_STOP');
+      const decay = (Pp) => { const f = (Pp.s.t - tc) / TOUCH.DECAY; return [f < 1 ? thr0 * (1 - f) : 0, hold]; };
+      yield* this.until(P.s.t + 120, decay, pads);
+    }
+    [P.hMaxBurn, P.hMaxCoast] = h0;
     this.touchdown();
   }
 
+  // Temas: yüzeye göre hız, yönelim ve açısal hız fizikten; başarı = hız zarfı (10-7-4) + devrilmeme (enerji) + eğim ≤ 12°. Temas yönelimi ya da açısal hız
+  // 3σ zarfını (6°, 6°/s, sapma 1,5°/s) aşarsa iniş 'sınırda' sayılır (uyarı). Sonra yüzey evresi: araç dönen Ay'a bağlanır, saat işlemeye devam eder (surfaceAdvance).
   touchdown(manual = false) {
-    const P = this.P, { p, v } = this.localState();
+    const P = this.P, t = P.s.t, { p, v, Rf } = this.localState(), D2R = Math.PI / 180;
     P.phase = 'INDI';
-    // güvenli temas: Apollo LM iniş takımı tasarım sınırları, dikey 10 ft/s (3,05 m/s), yatay 4 ft/s (1,22 m/s; NASA TN D-6850, başta 5 ft/s idi)
-    const vh = Math.hypot(v[0], v[1]) * 1000, vz = v[2] * 1000, ok = Math.abs(vz) < 3.0 && vh < 1.22;
-    this.result = { t: P.s.t, utc: E.utcString(P.s.t), posErr_m: [p[0] * 1000, p[1] * 1000], v_mps: [v[0] * 1000, v[1] * 1000, vz],
-                    prop: this.veh.active.prop, ok, manual };
-    P.lastThr = 0; if (P.att) P.att.snapTo(unit(siteIcrf(P.s.t)));          // temasta araç bacaklarının üstünde yerel dikeyde durur (kinematik olay)
-    if (this.pushHist) this.pushHist();
+    const vh = Math.hypot(v[0], v[1]) * 1000, vz = v[2] * 1000;
+    const q = P.att ? P.att.q.slice() : null, wB = P.att && P.att.dynamic && P.att.w ? P.att.w : [0, 0, 0];
+    const axis = q ? mv(Rf, qRot(q, Z_AXIS)) : [0, 0, 1], xb = q ? mv(Rf, qRot(q, [1, 0, 0])) : [1, 0, 0], wL = q ? mv(Rf, qRot(q, wB)) : [0, 0, 0];
+    const tilt = tiltDeg(axis), rate = Math.hypot(wB[0], wB[1]) / D2R, yawRate = Math.abs(wB[2]) / D2R;
+    const mp = massProps(this.veh.stages, this.veh.k), [rs] = P.s.seleno(), g = (E.MU_M / norm(rs) ** 2) * 1000;
+    const slope = this.siteSlope || null, slopeDeg = slope ? slope.deg : 0;
+    const tip = tipOver({ axis, xb, v: scale(v, 1000), w: wL, m: mp.m, It: mp.I[0], h: mp.zCg - Z_FEET, g, slope });
+    const env = velEnvelope(vz, vh), attOk = tilt <= TOUCH.TILT, rateOk = rate <= TOUCH.RATE && yawRate <= TOUCH.YAW_RATE, slopeOk = slopeDeg <= TOUCH.SLOPE;
+    const ok = env.ok && tip.stable && slopeOk;
+    const why = [];
+    if (!env.ok) why.push(`hız zarfı aşıldı (dikey sınır ${env.vzMax.toFixed(2)} m/s, yatay ${TOUCH.VH.toFixed(2)} m/s)`);
+    if (!tip.stable) why.push(`araç devrildi (yön ${tip.dirDeg}°)`);
+    if (!slopeOk) why.push(`eğim ${slopeDeg.toFixed(1)}° > ${TOUCH.SLOPE.toFixed(0)}°`);
+    if (ok && !attOk) why.push(`temas yönelimi ${tilt.toFixed(1)}° > ${TOUCH.TILT.toFixed(0)}°`);
+    if (ok && !rateOk) why.push(`temas açısal hızı ${rate.toFixed(1)}°/s (sapma ${yawRate.toFixed(1)}°/s)`);
+    this.result = { t, utc: E.utcString(t), posErr_m: [p[0] * 1000, p[1] * 1000], v_mps: [v[0] * 1000, v[1] * 1000, vz], prop: this.veh.active.prop, ok, manual,
+      grade: !ok ? 'fail' : attOk && rateOk ? 'ok' : 'marginal', tilt_deg: tilt, rate_dps: rate, yawRate_dps: yawRate, slope_deg: slopeDeg,
+      env: { vel: env.ok, vzMax: env.vzMax, att: attOk, rate: rateOk, slope: slopeOk }, tip: { margin: tip.margin, dirDeg: tip.dirDeg, stable: tip.stable, phiDeg: tip.phiDeg },
+      tContact: this.contact ? this.contact.t : null, tStop: this.contact ? this.contact.tStop : null, why };
+    P.lastThr = 0;
+    // yüzey evresi: ayak düzlemi yüzeye (R_SITE) oturur, Ay'a bağlı konum; yönelim TOUCH.SETTLE s'de zemin normaline oturur (sapma korunur)
+    const M0 = E.moonIcrfToMe(t), up = unit(rs), rPin = scale(up, R_SITE), nI = mtv(Rf, surfaceNormal(slope));
+    let qSet = q;
+    if (q) { const a = qRot(q, Z_AXIS), th = vAngle(a, nI); qSet = th > 1e-12 ? qNormalize(qMul(qSwing(a, nI, q, th), q)) : q; }
+    const t0 = this.contact ? this.contact.t : t;
+    this.surf = { t0: t, M0, rMe: mv(M0, rPin), q0: q, q1: qSet, restTilt: q ? vAngle(qRot(qSet, Z_AXIS), up) / D2R : 0,
+      ev: POST_LANDING.map((e) => ({ ...e, t: Math.max(t + 0.05, t0 + e.dt) })), i: 0 };
+    if (this.pushHist) this.pushHist();                                      // temas anındaki durum (çarpma hızıyla); ilk yüzey adımından sonra araç yüzeye bağlanır
+    const tipTxt = tip.margin > 100 ? 'devrilme payı > 100×' : `devrilme payı ${tip.margin.toFixed(1)}×`;
     this.log(`${ok ? 'TEMAS' : 'ÇARPMA'}${manual ? ' (elle)' : ''}: konum hatası ${(Math.hypot(p[0], p[1]) * 1000).toFixed(1)} m, dikey hız ${vz.toFixed(2)} m/s, yatay ${vh.toFixed(2)} m/s, kalan yakıt ${this.veh.active.prop.toFixed(0)} kg`, 'INDI');
+    this.log(`Temas zarfı: eğim ${tilt.toFixed(1)}°, açısal hız ${rate.toFixed(1)}°/s, ${tipTxt}${why.length ? ' — ' + why.join('; ') : ''}`, 'TOUCH_ENV');
     this.done = true;
+  }
+  // yüzeyde: t anında Ay'a bağlı konum/hız ve yönelim (oturma geçişi + Ay'ın dönmesi)
+  pinSurface(t) {
+    const S = this.surf, P = this.P, M = E.moonIcrfToMe(t), rs = mtv(M, S.rMe), vs = cross(E.omegaMoon(t), rs);
+    P.s.t = t;
+    if (P.s.central === 'M') { P.s.r = rs; P.s.v = vs; } else { P.s.r = add(rs, E.moonPos(t)); P.s.v = add(vs, E.moonVel(t)); }
+    if (P.att && S.q0) {
+      const f = Math.min(1, Math.max(0, (t - S.t0) / TOUCH.SETTLE)), qb = qSlerp(S.q0, S.q1, f * f * (3 - 2 * f));
+      const Rm = [0, 1, 2].map((i) => [0, 1, 2].map((j) => M[0][i] * S.M0[0][j] + M[1][i] * S.M0[1][j] + M[2][i] * S.M0[2][j]));      // ICRF(t0) → ICRF(t): Ay'a bağlı dönme
+      const q = qNormalize(qMul(qFromMat(Rm), qb));
+      if (P.att.dynamic) { P.att.set(q, [0, 0, 0]); P.att.tq = [0, 0, 0]; P.att.tqRcs = [0, 0, 0]; P.att.tqTvc = [0, 0, 0]; P.att.duty = [0, 0, 0]; P.att.err = 0; P.att.mode = 'hold'; }
+      else P.att.set(q);
+    }
+    P.lastThr = 0; P.lastU = [0, 0, 0];
+  }
+  // temas sonrası saat: araç Ay yüzeyinde durur, olay çizelgesi (motor emniyeti, duruş raporu, tank tahliyesi, kalış kararı) zamanı gelince günlüğe düşer
+  surfaceAdvance(tTarget) {
+    const S = this.surf, P = this.P; if (!S) return;
+    while (P.s.t < tTarget - 1e-9) {
+      const nx = S.i < S.ev.length ? S.ev[S.i].t : Infinity, dt = P.s.t - S.t0 < TOUCH.SETTLE + 0.5 ? 0.1 : 10;
+      const t = Math.min(tTarget, nx, P.s.t + dt);
+      this.pinSurface(t);
+      while (S.i < S.ev.length && S.ev[S.i].t <= t + 1e-9) {
+        const e = S.ev[S.i++], R = this.result;
+        if (e.key === 'TILT') this.log(`Yüzeyde duruş: araç dikeyden ${S.restTilt.toFixed(1)}° eğik (temasta ${R.tilt_deg.toFixed(1)}°, zemin eğimi ${R.slope_deg.toFixed(1)}°), ${R.ok ? 'kalkış için uygun' : 'araç hasarlı'}`, 'TILT');
+        else this.log(e.msg, e.key);
+      }
+      if (this.pushHist) this.pushHist();
+    }
   }
 
   // ---------------------------------------------------------------- canlı sürüş (worker çağırır)
@@ -806,7 +902,7 @@ export class Mission {
   // tTarget'e kadar ilerle; bütçe (ms) aşılırsa bırak. Döner: 'COMPUTE' | 'DONE' | null
   advance(tTarget, budgetMs, manualCtrl = null, now = () => Date.now()) {
     const P = this.P, t0 = now();
-    if (this.done) return 'DONE';
+    if (this.done) { if (this.surf) this.surfaceAdvance(tTarget); return 'DONE'; }
     if (!this.auto) {                          // elle uçuş: adımlar ekran saatine kırpılır (anında tepki)
       P.tLimit = tTarget;
       while (P.s.t < tTarget - 1e-9 && now() - t0 < budgetMs) {
@@ -864,8 +960,8 @@ export class Mission {
   checkSurface(manual) {
     const P = this.P;
     if (P.s.inMoonFrame()) {
-      const [rs] = P.s.seleno();
-      if (norm(rs) - R_SITE <= 0) { this.touchdown(manual); return true; }
+      if (this.padAlt() <= 0) { this.touchdown(manual); return true; }
+      if (manual && !this.contact && this.padAlt() <= TOUCH.PROBE) this.contactLight();
     } else if (norm(P.s.geo()[0]) < E.R_E + 80) {
       this.log('Dünya atmosferine girdi — görev sona erdi', 'REENTRY'); this.done = true; this.result = { ok: false, reentry: true }; return true;
     }

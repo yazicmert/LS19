@@ -3,6 +3,7 @@
 import { fmt } from './format.js';
 import { ROCKETS } from './rockets.js';
 import { MONTHS_SHORT } from './i18n.js';
+import { TOUCH, velEnvelope } from './touchdown.js';
 const rocketShort = (id) => (id && id !== 'GENEL' && ROCKETS[id] ? ROCKETS[id].short : '');
 
 // Ay görevi deneyinin dört adımı (index.html #lab-ay: sekme kimlikleri tab-<id>); "dv" eski ?tab=dv bağlantılarıyla uyum için Sonuç adımının kimliğidir
@@ -17,8 +18,9 @@ export const AY_TOOLS = ['plan', 'kontrol', 'grafik', 'yorunge', 'efemeris'];
 
 const VEHICLE_SHORT = { two: 'İki kademe', one: 'Tek kademe' };
 const LANDING_SHORT = { opt: 'Optimal', free: 'Optimal (serbest)', zem: 'ZEM/ZEV' };
-// mission.js touchdown(): güvenli temas sınırları (anlatım için; karar result.ok'tan okunur)
-export const SAFE_VZ = 3.0, SAFE_VH = 1.22;
+// mission.js touchdown(): güvenli temas zarfı (anlatım için; karar result.ok'tan okunur). İniş takımının hız zarfı (NASA TN D-6850, touchdown.js):
+// dikey 10 ft/s (3,05 m/s) yatay hız yokken, yatay 4 ft/s'de (1,22 m/s) dikey 7 ft/s (2,13 m/s); aradaki dikey sınır yatay hızla doğrusal azalır.
+export const SAFE_VZ = TOUCH.VZ0, SAFE_VH = TOUCH.VH;
 
 const AY = MONTHS_SHORT;
 // '2026-10-13' → '13 Eki 2026'
@@ -71,13 +73,16 @@ export function verdict(result, { dvUsed = null, dvNominal = null, profileName =
   if (!result) return { kind: 'info', title: 'Görev sürüyor', detail: 'Sonuç Ay yüzeyine temasla belli olur. Uçuş adımında Başlat ile görevi uçurun; zaman hızı ya da çizelgedeki olaya atlama uçuşu kısaltır.', rows: [] };
   if (result.reentry) return { kind: 'bad', title: 'Görev sona erdi', detail: 'Araç Dünya atmosferine girdi: yörünge Ay\'a ulaşmadı. Elle yakışları ya da bozulmaları geri alıp görevi baştan uçurun.', rows: [] };
   const [ex, ey] = result.posErr_m || [NaN, NaN], [vx, vy, vz] = result.v_mps || [NaN, NaN, NaN];
-  const pos = Math.hypot(ex, ey), vh = Math.hypot(vx, vy);
+  const pos = Math.hypot(ex, ey), vh = Math.hypot(vx, vy), vzMax = velEnvelope(vz, vh).vzMax;
   const rows = [
     ['İniş yerine uzaklık', pos < 1000 ? fmt(pos, 1) + ' m' : fmt(pos / 1000, 2) + ' km'],
-    ['Dikey hız', fmt(Math.abs(vz), 2) + ' m/s' + (Math.abs(vz) < SAFE_VZ ? '' : ' (sınır ' + fmt(SAFE_VZ, 1) + ')')],
-    ['Yatay hız', fmt(vh, 2) + ' m/s' + (vh < SAFE_VH ? '' : ' (sınır ' + fmt(SAFE_VH, 2) + ')')],
+    ['Dikey hız', fmt(Math.abs(vz), 2) + ' m/s' + (Math.abs(vz) <= vzMax ? '' : ' (sınır ' + fmt(vzMax, 2) + ')')],
+    ['Yatay hız', fmt(vh, 2) + ' m/s' + (vh <= SAFE_VH ? '' : ' (sınır ' + fmt(SAFE_VH, 2) + ')')],
     ['Kalan yakıt', fmt(result.prop, 0) + ' kg'],
   ];
+  if (Number.isFinite(result.tilt_deg)) rows.push(['Temasta eğim', fmt(result.tilt_deg, 1) + '°' + (result.tilt_deg <= TOUCH.TILT ? '' : ' (3σ zarfı ' + fmt(TOUCH.TILT, 0) + '°)')]);
+  if (Number.isFinite(result.rate_dps)) rows.push(['Temasta açısal hız', fmt(result.rate_dps, 1) + '°/s' + (result.rate_dps <= TOUCH.RATE ? '' : ' (3σ zarfı ' + fmt(TOUCH.RATE, 0) + '°/s)')]);
+  if (result.tip) rows.push(['Devrilme payı', !result.tip.stable ? 'yok: araç devrildi' : result.tip.margin > 100 ? '> 100×' : fmt(result.tip.margin, 1) + '×']);
   if (Number.isFinite(dvUsed)) rows.push(['Kullanılan Δv', fmt(dvUsed, 1) + ' m/s']);
   if (Number.isFinite(dvUsed) && Number.isFinite(dvNominal) && dvNominal > 0) {
     const d = dvUsed - dvNominal;
@@ -86,7 +91,11 @@ export function verdict(result, { dvUsed = null, dvNominal = null, profileName =
   const setup = [rocketShort(rocket), profileShort(profileName), VEHICLE_SHORT[vehicle], LANDING_SHORT[landing]].filter(Boolean).join(', ');
   if (result.ok) {
     return { kind: 'good', title: 'İniş başarılı', rows,
-      detail: `${setup ? setup + ': ' : ''}araç iniş yerine ${rows[0][1]} uzaklıkta, güvenli hızla (dikey < ${fmt(SAFE_VZ, 1)}, yatay < ${fmt(SAFE_VH, 2)} m/s) yere değdi${result.manual ? ' (elle iniş)' : ''}. Başka bir profil ya da güdümle karşılaştırın.` };
+      detail: `${setup ? setup + ': ' : ''}araç iniş yerine ${rows[0][1]} uzaklıkta, güvenli hızla (dikey < ${fmt(SAFE_VZ, 1)}, yatay < ${fmt(SAFE_VH, 2)} m/s) yere değdi${result.manual ? ' (elle iniş)' : ''}.${result.grade === 'marginal' ? ' Temas yönelimi ya da açısal hızı iniş takımının sınandığı 3σ zarfının dışındaydı (sınırda iniş).' : ''} Başka bir profil ya da güdümle karşılaştırın.` };
+  }
+  if (result.tip && !result.tip.stable && !(result.env && result.env.vel === false)) {
+    return { kind: 'bad', title: 'Araç devrildi', rows,
+      detail: `Temas hızı zarf içindeydi ama yatay hız, açısal hız ve yatıklığın taşıdığı enerji aracı ayaklarının üstünden devirmeye yetti. ${result.manual ? 'Elle inişte son metrelerde yatay hızı ve yatıklığı sıfırlayın.' : 'Bozulma eklendiyse ya da seyrüsefer hatası büyükse görevi baştan uçurun.'}` };
   }
   return { kind: 'bad', title: 'Sert temas', rows,
     detail: `Temas hızı güvenli sınırı aştı (dikey < ${fmt(SAFE_VZ, 1)}, yatay < ${fmt(SAFE_VH, 2)} m/s). ${result.manual ? 'Elle inişte son yüz metrede itkiyi artırıp dikey hızı düşürün ya da otopilotla deneyin.' : 'Bozulma eklendiyse ya da yakıt yetmediyse görevi baştan uçurun ya da başka bir güdüm deneyin.'}` };

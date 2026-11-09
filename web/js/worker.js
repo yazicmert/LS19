@@ -74,6 +74,7 @@ function seek(t) {
   while (M.P.s.t < t - 1e-9 && !M.done && performance.now() - t0 < 20000) {
     if (M.advance(t, 20000, null, () => performance.now()) === 'DONE') break;
   }
+  if (M.done && M.surf && t > M.P.s.t) M.surfaceAdvance(t);       // temastan sonraya atlama: yüzey evresi
   tDisp = Math.min(t, M.P.s.t);
 }
 
@@ -112,7 +113,7 @@ function tick() {
   let x = M.stateAt(tDisp) || M.hist[M.hist.length - 1];
   const wEff = chooseWarp(x);
   let res = null;
-  if (!paused && !M.done) {
+  if (!paused && (!M.done || M.surf)) {                         // temastan sonra saat işlemeye devam eder: araç Ay yüzeyinde (M.surfaceAdvance), olay çizelgesi sürer
     const tTarget = tDisp + dtReal * wEff;
     res = M.advance(tTarget, 12, manualCtrl, () => performance.now());
     if (res === 'COMPUTE') status = M.status;
