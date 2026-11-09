@@ -5,7 +5,7 @@ import fs from 'fs';
 import * as E from '../js/engine.js';
 import { makeLive } from '../js/live.js';
 import * as R from '../js/rockets.js';
-import { incPenalty } from '../js/pads.js';
+import { incPenalty, padIndex, siteOf, LEGACY_SITE } from '../js/pads.js';
 import { designMission, normalizeConfig, PROFILES } from '../js/design.js';
 import { Mission, twoStageDesign } from '../js/mission.js';
 import { sceneSrc } from './scenesrc.js';
@@ -44,12 +44,14 @@ const ab = (f) => { const b = fs.readFileSync(f); return b.buffer.slice(b.byteOf
 const eo = JSON.parse(fs.readFileSync(new URL('../data/earth_orient.json', import.meta.url)));
 const spkB = ab(new URL('../data/de440s.bsp', import.meta.url)), pckB = ab(new URL('../data/moon_pa_de440_200625.bpc', import.meta.url));
 const ms = Date.parse('2026-10-13T00:00:00Z'), tStart = (ms / 86400000 + 2440587.5 + 69.18 / 86400 - E.jdTdb(0)) * 86400;
-const design = (rocket, prof = 'APOLLO') => { E.setProvider(null); makeLive(spkB, pckB, eo, tStart); return designMission(E.tFromUtcMs(ms), () => {}, { ...PROFILES[prof].cfg, rocket }); };
+const design = (rocket, prof = 'APOLLO', site) => { E.setProvider(null); makeLive(spkB, pckB, eo, tStart); return designMission(E.tFromUtcMs(ms), () => {}, { ...PROFILES[prof].cfg, rocket, ...(site !== undefined ? { site } : {}) }); };
+// her roket açıkça kendi gerçek rampasından (pads.js ROCKET_PADS): Saturn V LC-39A, SLS LC-39B, Falcon 9 SLC-40, Vulcan SLC-41
+const PADS = padIndex(JSON.parse(read('data/pads.json'))), SITE = { SATURN_V: siteOf(PADS.get(87)), SLS1: LEGACY_SITE, F9: siteOf(PADS.get(80)), VULCAN: siteOf(PADS.get(29)) };
 const res = {};
 for (const id of ['SATURN_V', 'SLS1', 'F9', 'VULCAN']) {
-  const D = design(id), s0 = D.STAGES[0], st = R.ROCKETS[id].stage;
+  const D = design(id, 'APOLLO', SITE[id]), s0 = D.STAGES[0], st = R.ROCKETS[id].stage;
   const pay = D.STAGES.slice(1).reduce((q, x) => q + x.dry + x.prop, 0), avail = R.parkPropellant(id, pay, incPenalty(D.inc));     // park eğimi cezasıyla (pads.js)
-  check(s0.rocket === id && s0.T === st.T && s0.isp === st.isp && s0.dry === st.dry && Math.abs(s0.prop - avail) <= 10, `${id}: TLI kademesi ${s0.name}, park yakıtı ${s0.prop} kg (roketin başarımından)`);
+  check(s0.rocket === id && s0.T === st.T && s0.isp === st.isp && s0.dry === st.dry && Math.abs(s0.prop - avail) <= 10 && D.LAUNCH.siteId === SITE[id].id, `${id}: ${D.LAUNCH.site.replace(/ \(.*$/, '')} rampasından; TLI kademesi ${s0.name}, park yakıtı ${s0.prop} kg (roketin başarımından)`);
   const M = new Mission({ design: twoStageDesign(D) }); M.P.tLimit = Infinity;
   for (;;) { const r = M.gen.next(); if (r.done) break; }
   const mcc = M.events.find((e) => /^MCC-1/.test(e.msg)), dvm = mcc ? +/Δv=([\d.]+)/.exec(mcc.msg)[1] : NaN;
@@ -57,7 +59,7 @@ for (const id of ['SATURN_V', 'SLS1', 'F9', 'VULCAN']) {
   check(res[id].ok && res[id].sep && dvm < 15, `${id}: Ay'a güvenli iniş; "${s0.name} ayrıldı"; MCC-1 ${dvm} m/s (kesme hatası Δv cinsinden)`);
 }
 // yakıt yetmeyen birleşim: Falcon 9 + NRHO (iniş aracı 4,2 t; türetilmiş kapasite ~3,8 t)
-let err = null; try { design('F9', 'NRHO'); } catch (e) { err = e.message; }
+let err = null; try { design('F9', 'NRHO', SITE.F9); } catch (e) { err = e.message; }
 check(err && /Falcon 9 Block 5 bu aracı Ay'a gönderemez: TLI için \d+ kg yakıt gerekir/.test(err), `yetmeyen yakıt anlaşılır hatayla durur: "${(err || '').slice(0, 90)}…"`);
 
 console.log('arayüz ve sahne');
