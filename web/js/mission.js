@@ -5,9 +5,11 @@
 import * as E from './engine.js';
 import { HaloRef } from './halo.js';
 import { conicReady } from './conic.js';
-import { Attitude, qSlerp, qRot, Z_AXIS } from './attitude.js';
+import { Attitude, qSlerp, qRot, qMul, qNormalize, qSwing, vAngle, Z_AXIS } from './attitude.js';
 import { Dyn6 } from './attctl.js';
-import { massProps, freeRot } from './rigidbody.js';
+import { massProps, freeRot, Z_FEET } from './rigidbody.js';
+import { TOUCH, POST_LANDING, velEnvelope, tipOver, surfaceNormal, tiltDeg, dustOnset } from './touchdown.js';
+import { LandNav, NAV } from './landnav.js';
 import { solvePDG, replanPDG, controlAt, controlAtSmooth } from './pdg.js';
 const { add, sub, scale, dot, cross, norm, unit, mv, mtv } = E;
 
@@ -45,7 +47,10 @@ export const LAUNCH = { t_launch: 1082571.0725359619, t_ins: 1083171.0725359619,
 const TLI_DUR_ERROR = 0.05, PDI_ANGLE = 9.0 * Math.PI / 180, H_PDI = 15.0, TF_BRAKE = 310.0, TF_APPROACH = 45.0;
 const GATE_HI = { x: -0.700, z: 1.500, vx: 0.045, vz: -0.035 }, GATE_LO = { x: 0.0, z: 0.250, vx: 0.0, vz: -0.018 };
 const V_TOUCH = -0.001, TILT_MAX_LOW = 40 * Math.PI / 180;
-export const CMD = { FOH: true, JOIN: true, HANDOVER: 4.0 };                                  // FOH: plan düğümlerinde doğrusal ara değer (ZOH yerine); JOIN: yeni planın ilk düğümü önceki komuttan kesintisiz bağlanır; HANDOVER: plandan son iniş yasasına geçişte komutun yumuşak adım süresi (s)
+const CALL_ALT = [1000, 500, 100, 30, 10], CALL_LOW = 0.05;                 // irtifa çağrıları (m); düşük yakıt: kalan/başlangıç (Apollo 11: "Five percent. Quantity light" [ALSJ 102:44:45])
+export const CMD = { FOH: true, JOIN: true, HANDOVER: 4.0, HANDOVER_FAST: 1.0, MINTHR_RATE: 15 };                                  // FOH: plan düğümlerinde doğrusal ara değer (ZOH yerine); JOIN: yeni planın ilk düğümü önceki komuttan kesintisiz bağlanır; HANDOVER: plandan son iniş yasasına geçişte komutun yumuşak adım süresi (s);
+// HANDOVER_FAST: ZEM/ZEV güdümünde (frenleme → yaklaşma → son iniş) aynı yumuşak adım (s; serbest güdümde devir harmanı yok: yatay temas hızını 0,4 → 0,8 m/s artırıyordu); 4 s.lik harman son iniş yasasını geciktirip
+// yakıtı (ZEM'de ~8 kg) ve yatay temas hızını (serbest, tek kademe: 0,4 → 1,0 m/s) artırıyordu, 1 s komut sıçramasını 40–44° → ≤ 8°'ye indirir
 // a'dan b'ye ara değer: büyüklük doğrusal, yön küresel (eşit açısal hızla). Doğrusal vektör karışımı büyüklük değişirken dönmeyi uca yığar (gaz 0,24 → 0,10 inerken adım başına 0,7° → 3,4°).
 function blendVec(a, b, s) {
   const na = norm(a), nb = norm(b), lin = () => add(scale(a, 1 - s), scale(b, s));
@@ -68,9 +73,16 @@ class Join {
     const n = norm(v); return n > 1e-9 ? [Math.min(1.0, Math.max(thrMin, n)), scale(v, 1 / n)] : [thr, dir];
   }
 }
-// yerel çerçevede (x, y yatay, z yukarı) istenen itki ivmesini sınırla: itki ASLA aşağı yönde olamaz (dikey bileşen ≤ 0 ise dikey, en küçük gazla) ve dikeyden TILT_MAX_LOW'dan fazla yatmaz
-function limitTilt(at, maxTilt = TILT_MAX_LOW) {
-  if (at[2] <= 0) { at[0] = 0; at[1] = 0; at[2] = 1e-9; return at; }
+// yerel çerçevede (x, y yatay, z yukarı) istenen itki ivmesini sınırla: itki ASLA aşağı yönde olamaz ve dikeyden TILT_MAX_LOW'dan fazla yatmaz.
+// aMin (km/s²; en küçük gazın ivmesi): istenen itki en küçük gazın altındaysa (ya da aşağı yöndeyse) itki en küçük gazla verilir ve yön, istenen YATAY ivmeyi
+// karşılayacak kadar yatırılır (sin φ = |a_yatay| / aMin, en çok TILT_MAX_LOW). Böylece komut yönü süreklidir: eskiden dikey bileşen sıfırın altına inince
+// komut bir adımda 40° yatıktan dikeye atlıyordu (ZEM/ZEV ve serbest güdümde son iniş yasasının en küçük gaz bölgesi).
+function limitTilt(at, maxTilt = TILT_MAX_LOW, aMin = 0) {
+  if (at[2] <= 0 || (aMin > 0 && Math.hypot(at[0], at[1], at[2]) < aMin)) {
+    const hz = Math.hypot(at[0], at[1]), sn = aMin > 0 && hz > 1e-15 ? Math.min(Math.sin(maxTilt), hz / aMin) : 0, k = 1e-9;          // k: büyüklük (gaz en küçüğe kırpılır)
+    at[0] = hz > 1e-15 ? (at[0] / hz) * sn * k : 0; at[1] = hz > 1e-15 ? (at[1] / hz) * sn * k : 0; at[2] = Math.sqrt(1 - sn * sn) * k;
+    return at;
+  }
   const hz = Math.hypot(at[0], at[1]);
   if (Math.atan2(hz, at[2]) > maxTilt) { const k = (Math.tan(maxTilt) * at[2]) / hz; at[0] *= k; at[1] *= k; }
   return at;
@@ -79,9 +91,9 @@ function limitTilt(at, maxTilt = TILT_MAX_LOW) {
 // Yönelim fizik durumudur (hız sınırlı dönüş); dengeli optimal plan kapıya dikeye yakın biter (OPT_DESCENT CONE çizelgesi), böylece bu yasaya geçişte büyük bir dönme gerekmez.
 // p, v km ve km/s; döner: gereken itki ivmesi (yerel, km/s²)
 export const TERM = { KP: 0.06, KD: 0.5, KV: 1.2 };
-function terminalAccel(p, v, g) {
+function terminalAccel(p, v, g, aMin = 0) {
   const vzr = V_TOUCH - 0.07 * Math.max(p[2], 0.0), a = [-TERM.KP * p[0] - TERM.KD * v[0], -TERM.KP * p[1] - TERM.KD * v[1], TERM.KV * (vzr - v[2])], at = sub(a, g);
-  limitTilt(at);
+  limitTilt(at, TILT_MAX_LOW, aMin);
   if (p[2] < 0.003) { at[0] = 0; at[1] = 0; }
   return at;
 }
@@ -120,13 +132,24 @@ function solve3(J, F) {             // J x = F (Cramer)
   return x;
 }
 
+// dönme matrisinden kuaterniyon [x, y, z, w] (Shepperd): R eylemsiz vektörleri döndürür (R·v)
+function qFromMat(R) {
+  const tr = R[0][0] + R[1][1] + R[2][2];
+  if (tr > 0) { const S = Math.sqrt(tr + 1) * 2; return [(R[2][1] - R[1][2]) / S, (R[0][2] - R[2][0]) / S, (R[1][0] - R[0][1]) / S, 0.25 * S]; }
+  if (R[0][0] > R[1][1] && R[0][0] > R[2][2]) { const S = Math.sqrt(1 + R[0][0] - R[1][1] - R[2][2]) * 2; return [0.25 * S, (R[0][1] + R[1][0]) / S, (R[0][2] + R[2][0]) / S, (R[2][1] - R[1][2]) / S]; }
+  if (R[1][1] > R[2][2]) { const S = Math.sqrt(1 + R[1][1] - R[0][0] - R[2][2]) * 2; return [(R[0][1] + R[1][0]) / S, 0.25 * S, (R[1][2] + R[2][1]) / S, (R[0][2] - R[2][0]) / S]; }
+  const S = Math.sqrt(1 + R[2][2] - R[0][0] - R[1][1]) * 2; return [(R[0][2] + R[2][0]) / S, (R[1][2] + R[2][1]) / S, 0.25 * S, (R[1][0] - R[0][1]) / S];
+}
+
 export class Mission {
   // nbody: true (varsayılan) N-cisim çözücü (tek eylemsiz çerçeve, etki küresi geçişi yok); false etki küresi (iki merkez cisimli) çözücü
   // landing: 'zem' (sıfır-çaba-ıskası güdümü) | 'opt' | 'free' (yakıt-optimal, kayıpsız dışbükeyleştirilmiş SOCP; LANDING_MODES; konik çözücü yüklü değilse ZEM)
   // attitude: 'dyn6' (varsayılan; true) 6-DOF rijit cisim dinamiği (attctl.js: RCS + TVC, Euler denklemleri) | 'kin' kinematik hız sınırlı yönelim (attitude.js) | false yönelimsiz (itki yönü komutla birebir)
-  constructor({ tliError = TLI_DUR_ERROR, verbose = false, compat = false, design = DEFAULT_DESIGN, nbody = true, landing = 'zem', attitude = 'dyn6' } = {}) {
+  // nav: iniş seyrüseferi (landnav.js): {} ya da { seed, faults, … } = açık (güdüm IMU + radar + TRN kestirimini kullanır) | false (varsayılan: güdüm gerçek durumu bilir; hazır nominal veri ve testler bununla)
+  constructor({ tliError = TLI_DUR_ERROR, verbose = false, compat = false, design = DEFAULT_DESIGN, nbody = true, landing = 'zem', attitude = 'dyn6', nav = false } = {}) {
     this.D = design; const { TLI, ARRIVAL, LAUNCH } = design;
     this.nbody = nbody; this.landing = landing; this.descentInfo = null;
+    this.navOpt = compat || nav === false ? null : nav; this.nav = null;
     this.compat = compat;          // true: Python sürümüyle birebir (MCC-3 yok, LOI 20 s kuantalı)
     this.attModel = compat || !attitude ? null : attitude === 'kin' ? 'kin' : 'dyn6';
     this.attitude = !!this.attModel;               // true: itki, dönen GERÇEK yönelim ekseni boyunca uygulanır (6-DOF ya da kinematik); false: itki yönü komutla birebir
@@ -629,37 +652,73 @@ export class Mission {
     return { p, v, g, Rf };
   }
 
+  // ---------------------------------------------------------------- iniş seyrüseferi (landnav.js): güdüm kestirimi kullanır, temas ve yüzey denetimi gerçeği
+  navStart() {
+    if (!this.navOpt) return;
+    const P = this.P, [rs, vs] = P.s.seleno();
+    this.nav = new LandNav(this.navOpt); this.nav.init(P.s.t, rs, vs, this.localState(P.s.t, rs, vs).Rf); this.navFlush();
+  }
+  // her güdüm çağrısında: hata durumunu IMU ile şimdiye ilerlet (son adımda uygulanan gerçek itki ivmesi), sırası gelen ölçümleri işle
+  navTick() {
+    const N = this.nav; if (!N) return;
+    const P = this.P, t = P.s.t, [rs, vs] = P.s.seleno(), st = this.veh.active;
+    const aThr = P.lastThr > 0 && P.lastU ? scale(unit(P.lastU), (P.lastThr * st.T) / this.veh.mass()) : [0, 0, 0];
+    N.propagate(t, aThr, rs, E.MU_M);
+    if (t >= N.tMeas + NAV.DT - 1e-9) { const L = this.localState(t, rs, vs); N.measure(t, { Rf: L.Rf, h: L.p[2] * 1000, vrel: sub(vs, cross(E.omegaMoon(t), rs)) }); this.navFlush(); }
+  }
+  navFlush() { for (const e of this.nav.ev) this.log(e.msg, e.key); this.nav.ev = []; }
+  // Çağrılar (L7, Apollo 11 iniş dökümündeki gibi: "100 feet, 3 1/2 down, 9 forward", "Five percent. Quantity light", "60 seconds", "Picking up some dust" [ALSJ]):
+  // evre geçişi, irtifa/hız çağrıları (kestirim: mürettebatın gördüğü değerler), düşük yakıt (%5) ve askıda kalma yakıtının 60/30 s'ye inmesi, toz kalkışı.
+  callouts() {
+    const P = this.P, c = this.calls || (this.calls = { h: [...CALL_ALT], phase: P.phase, low: false, hov: [60, 30], dust: false });
+    const L = this.localNav(), h = L.p[2] * 1000, vz = L.v[2] * 1000, vh = Math.hypot(L.v[0], L.v[1]) * 1000;
+    if (P.phase !== c.phase) {
+      if (P.phase === 'YAKLASMA') this.log(`Yaklaşma evresi: irtifa ${h.toFixed(0)} m, iniş yerine ${(Math.hypot(L.p[0], L.p[1])).toFixed(2)} km, alçalış ${(-vz).toFixed(1)} m/s`, 'PHASE');
+      else if (P.phase === 'SON_INIS' && !this.events.some((e) => e.key === 'GATE')) this.log(`Son iniş evresi: irtifa ${h.toFixed(0)} m, alçalış ${(-vz).toFixed(1)} m/s, yatay ${vh.toFixed(1)} m/s`, 'PHASE');
+      c.phase = P.phase;
+    }
+    while (c.h.length && h <= c.h[0]) { const H = c.h.shift(); this.log(`${H} m: alçalış ${(-vz).toFixed(1)} m/s, yatay ${vh.toFixed(1)} m/s`, 'CALL'); }
+    const st = this.veh.active, [rs] = P.s.seleno(), g = (E.MU_M / norm(rs) ** 2) * 1000, mdotH = (this.veh.mass() * g) / (st.isp * E.G0 * 1000), tHov = st.prop / mdotH;
+    if (!c.low && st.prop <= CALL_LOW * (st.prop0 || st.prop)) { c.low = true; this.log(`Düşük yakıt: %${(CALL_LOW * 100).toFixed(0)} kaldı (${st.prop.toFixed(0)} kg, askıda ~${tHov.toFixed(0)} s)`, 'LOW_FUEL'); }
+    while (c.hov.length && tHov <= c.hov[0]) { const H = c.hov.shift(); this.log(`Yakıt: askıda kalmaya ${H} s`, 'FUEL'); }
+    const Tn = P.lastThr * st.T * 1000, he = (norm(rs) - R_SITE) * 1000 + TOUCH.EXIT;
+    if (!c.dust && Tn > 0 && he < dustOnset(Tn)) { c.dust = true; this.log(`Toz kalkıyor: motor çıkışı yüzeyden ${he.toFixed(0)} m yukarıda (itki ${(Tn / 1000).toFixed(1)} kN)`, 'DUST'); }
+  }
+  navSel() { const [rs, vs] = this.P.s.seleno(); return this.nav ? this.nav.estimate(rs, vs) : [rs, vs]; }            // güdümün bildiği Ay merkezli durum
+  localNav(t = this.P.s.t) { const [rs, vs] = this.navSel(); return this.localState(t, rs, vs); }                 // güdümün bildiği yerel durum (iniş yerine göre)
+
   *descent() {
     const P = this.P, stg = this.veh.active;
     const [, vs0] = P.s.seleno(), s0 = siteIcrf(P.s.t), up0 = unit(s0);
     this.drAxis = unit(sub(vs0, scale(up0, dot(vs0, up0))));
-    const st = { phase: 'BRAKE', tph: P.s.t };
+    const st = { phase: 'BRAKE', tph: P.s.t }, jn = new Join();
+    if (!this.nav) this.navStart();
     P.phase = 'PDI'; P.hMaxBurn = 0.2;
     this.log(`PDI ateşleme (irtifa ${(norm(P.s.seleno()[0]) - R_SITE).toFixed(2)} km)`, 'PDI');
     const gHi = [GATE_HI.x, 0, GATE_HI.z], vHi = [GATE_HI.vx, 0, GATE_HI.vz], gLo = [GATE_LO.x, 0, GATE_LO.z], vLo = [GATE_LO.vx, 0, GATE_LO.vz];
     const zem = (p, v, g, pf, vf, tgo) => [0, 1, 2].map((k) =>
       (6 * (pf[k] - (p[k] + v[k] * tgo + 0.5 * g[k] * tgo * tgo))) / (tgo * tgo) - (2 * (vf[k] - (v[k] + g[k] * tgo))) / tgo);
     const ctrl = (Pp) => {
-      const { p, v, g, Rf } = this.localState(Pp.s.t); const t = Pp.s.t; let a;
+      this.navTick(); this.callouts(); const { p, v, g, Rf } = this.localNav(Pp.s.t); const t = Pp.s.t; let a;
       if (st.phase === 'BRAKE') {
         const tgo = Math.max(TF_BRAKE - (t - st.tph), 3.0); a = zem(p, v, g, gHi, vHi, tgo);
-        if (t - st.tph >= TF_BRAKE) { st.phase = 'APPROACH'; st.tph = t; Pp.phase = 'YAKLASMA'; }
+        if (t - st.tph >= TF_BRAKE) { st.phase = 'APPROACH'; st.tph = t; Pp.phase = 'YAKLASMA'; st.sw = CMD.HANDOVER_FAST; }
       } else if (st.phase === 'APPROACH') {
         const tgo = Math.max(TF_APPROACH - (t - st.tph), 2.0); a = zem(p, v, g, gLo, vLo, tgo);
-        if (p[2] <= GATE_LO.z + 0.0005 || t - st.tph >= TF_APPROACH) { st.phase = 'TERMINAL'; st.tph = t; Pp.phase = 'SON_INIS'; }
+        if (p[2] <= GATE_LO.z + 0.0005 || t - st.tph >= TF_APPROACH) { st.phase = 'TERMINAL'; st.tph = t; Pp.phase = 'SON_INIS'; st.sw = CMD.HANDOVER_FAST; }
       } else {
-        const atT = terminalAccel(p, v, g), T = this.veh.mass() * norm(atT);
-        return [Math.min(1.0, Math.max(stg.thr_min, T / stg.T)), mtv(Rf, unit(atT))];
+        const atT = terminalAccel(p, v, g, (stg.thr_min * stg.T) / this.veh.mass()), T = this.veh.mass() * norm(atT);
+        if (st.sw) { jn.start(t, st.sw); st.sw = 0; }                        // yaklaşma → son iniş yasası: komut CMD.HANDOVER_FAST s'de yumuşak adımla (dengeli güdümdeki gibi)
+        return jn.apply(t, Math.min(1.0, Math.max(stg.thr_min, T / stg.T)), mtv(Rf, unit(atT)), stg.thr_min);
       }
       const at = sub(a, g);
-      if (st.phase !== 'BRAKE') limitTilt(at);                              // yaklaşma (ve son iniş yasasına geçiş adımı)
+      if (st.phase !== 'BRAKE') limitTilt(at, TILT_MAX_LOW, (stg.thr_min * stg.T) / this.veh.mass());          // yaklaşma (ve son iniş yasasına geçiş adımı)
       const T = this.veh.mass() * norm(at);
-      return [Math.min(1.0, Math.max(stg.thr_min, T / stg.T)), mtv(Rf, unit(at))];
+      if (st.sw && st.phase === 'APPROACH') { jn.start(t, st.sw); st.sw = 0; }          // frenleme → yaklaşma: hedef ve eğim sınırı değişir (eskiden komut ~16° sıçrıyordu)
+      return jn.apply(t, Math.min(1.0, Math.max(stg.thr_min, T / stg.T)), mtv(Rf, unit(at)), stg.thr_min);
     };
-    const stop = (Pp) => norm(Pp.s.seleno()[0]) - R_SITE <= 0.0;
     this.tNext = null;
-    yield* this.until(P.s.t + 1500, ctrl, stop);
-    this.touchdown();
+    yield* this.finalContact(ctrl);
   }
 
   // Optimal iniş: PDI'da yakıt-optimal plan (pdg.js: kayıpsız dışbükeyleştirme + SOCP), planı uygula, her OPT.REPLAN s'de (son dakikada 4 s) sıcak başlangıçlı yeniden çöz;
@@ -670,10 +729,10 @@ export class Mission {
   *descentOptimal() {
     const P = this.P, stg = this.veh.active, O = { ...OPT_DESCENT, ...OPT_DESCENT.PRESETS[this.landing] }, MU = E.MU_M * 1e9, G0m = E.G0 * 1e3;
     O.VD_GATE = 1.0 + 0.07 * O.GATE_H;
-    const smooth = !!O.CONE;                                                  // yumuşak itki yönü (FOH, kesintisiz plan geçişi, devir): yalnız işaretleme koni çizelgeli (dengeli) güdümde; serbest güdüm kapıya hızla gelir, devirde gecikme kaldırmaz
+    const smooth = !!O.CONE;                                                  // yumuşak itki yönü (FOH, kesintisiz plan geçişi): yalnız işaretleme koni çizelgeli (dengeli) güdümde; son iniş yasasına devir (CMD.HANDOVER) tüm güdümlerde yumuşak
     const gfun = (r) => { const n = Math.hypot(r[0], r[1], r[2]), k = -MU / (n * n * n); return [r[0] * k, r[1] * k, r[2] * k]; };
     const mk = (t0) => {
-      const [rs, vs] = P.s.seleno(), m = this.veh.mass();
+      const [rs, vs] = this.navSel(), m = this.veh.mass();
       return { r0: scale(rs, 1000), v0: scale(vs, 1000), m0: m, mDry: m - stg.prop + O.RESERVE, rho1: stg.thr_min * stg.T * 1000, rho2: O.THR_MARGIN * stg.T * 1000, alpha: 1 / (stg.isp * G0m),
         gfun, surfaceR: R_SITE * 1000, floorMargin: 0, soft: O.SOFT,
         point: O.CONE ? { sched: O.CONE.map(([tgo, deg]) => [tgo, Math.cos(deg * Math.PI / 180)]) } : O.POINT_DEG ? { cosTheta: Math.cos(O.POINT_DEG * Math.PI / 180), tail: O.POINT_TAIL } : undefined,
@@ -683,6 +742,7 @@ export class Mission {
           return { rf, vf: sub(vsite, scale(up, O.VD_GATE)), up, vsite }; } };
     };
     const [, vs0] = P.s.seleno(), s0 = siteIcrf(P.s.t), up0 = unit(s0);
+    this.navStart();
     this.status = 'İniş yörüngesi hesaplanıyor…'; yield 'COMPUTE';
     const t0 = P.s.t, R = solvePDG(mk(t0), { Nfinal: O.N });
     this.status = '';
@@ -693,12 +753,13 @@ export class Mission {
     P.phase = 'PDI'; P.hMaxBurn = 0.2;
     this.log(`PDI ateşleme (irtifa ${(norm(P.s.seleno()[0]) - R_SITE).toFixed(2)} km)`, 'PDI');
     this.log(`Optimal iniş planı (SOCP): ${R.tf.toFixed(0)} s, ~${R.fuel.toFixed(0)} kg yakıt (Δv ${(stg.isp * G0m * Math.log(this.veh.mass() / R.sol.m[R.sol.N])).toFixed(0)} m/s), ${R.calls} çözüm / ${R.ms} ms`, 'PLAN', { fuel: R.fuel, tf: R.tf });
-    const alt = () => norm(P.s.seleno()[0]) - R_SITE;                       // km
+    const alt = () => norm(this.navSel()[0]) - R_SITE, altTrue = () => norm(P.s.seleno()[0]) - R_SITE;          // km: güdümün bildiği / gerçek irtifa
     const st = { mode: 'PDG', fails: 0 };
     const clampThr = (T) => Math.min(1.0, Math.max(stg.thr_min, T / stg.T));
     let lastU = null;                                                         // en son uygulanan itki ivmesi vektörü (m/s²): yeni plana kesintisiz geçiş için
     const jn = new Join();                                                    // plandan son iniş yasasına geçişte yumuşak adım
     const ctrl = (Pp) => {
+      this.navTick(); this.callouts();
       if (st.mode === 'PDG') {
         const t = Pp.s.t - plan.t0, c = (smooth && CMD.FOH ? controlAtSmooth : controlAt)(plan.sol, t, plan.join ? 1 : 0); let u = c.u;
         // yeni planın ilk düğümü önceki planın izlediği değeri düzeltir ve sıçrayabilir (bir düğüm süresince, ~15°); ilk aralıkta komut, önceki komuttan ikinci düğüme doğrusal geçer, ikinci aralığın ilk yarısında düğüm 1'de kalır (ilk düğüm hiç karışmaz)
@@ -707,25 +768,29 @@ export class Mission {
         const an = norm(u), a = alt();
         Pp.phase = a > 3.0 ? 'PDI' : 'YAKLASMA';
         const o = [clampThr((this.veh.mass() * an) / 1000), unit(u)];         // kg·m/s² = N → kN
+        // serbest güdüm (ZOH, işaretleme sınırı yok): en küçük gazda planın itki yönü düğümden düğüme ~40° dönebilir (itki istenenden fazla, yön önemsizleşir);
+        // en küçük gazdayken komut yönü CMD.MINTHR_RATE °/s ile sınırlanır (dönme zaten ≤ 15°/s; gazın üstünde plan aynen uygulanır)
+        if (!smooth && st.dPrev && o[0] <= stg.thr_min + 1e-9) { const th = vAngle(st.dPrev, o[1]), mx = CMD.MINTHR_RATE * Math.PI / 180 * Math.max(0, Pp.s.t - st.tPrev); if (th > mx) o[1] = unit(blendVec(st.dPrev, o[1], mx / th)); }
+        st.dPrev = o[1]; st.tPrev = Pp.s.t;
         jn.last = scale(o[1], o[0]); return o;
       }
-      const { p, v, g, Rf } = this.localState(Pp.s.t), at = terminalAccel(p, v, g);
+      const { p, v, g, Rf } = this.localNav(Pp.s.t), at = terminalAccel(p, v, g, (stg.thr_min * stg.T) / this.veh.mass());
       if (st.sw) { jn.start(Pp.s.t, st.sw); st.sw = 0; }
       return jn.apply(Pp.s.t, clampThr(this.veh.mass() * norm(at)), mtv(Rf, unit(at)), stg.thr_min);
     };
-    const surface = () => alt() <= 0.0, gate = () => alt() <= O.GATE_H / 1000 + 0.002;
+    const surface = () => altTrue() <= 0.0, gate = () => alt() <= O.GATE_H / 1000 + 0.002;
     this.tNext = null;
     for (;;) {
       if (st.mode === 'PDG') {
         const tEnd = plan.t0 + plan.sol.tf, tgo = tEnd - P.s.t;
         if (tgo <= 0.5 || gate()) {
           st.mode = 'TERMINAL'; st.sw = smooth ? CMD.HANDOVER : 0; P.phase = 'SON_INIS'; info.gateT = P.s.t;
-          const { v } = this.localState();
+          const { v } = this.localNav();
           this.log(`Son iniş kapısı: irtifa ${(alt() * 1000).toFixed(0)} m, dikey hız ${(v[2] * 1000).toFixed(1)} m/s, yatay ${(Math.hypot(v[0], v[1]) * 1000).toFixed(1)} m/s`, 'GATE');
           continue;
         }
         const hit = yield* this.until(Math.min(P.s.t + (tgo > 60 ? O.REPLAN : 4), tEnd), ctrl, (Pp) => surface() || gate());
-        if (hit && surface()) break;
+        if (hit && surface()) { this.touchdown(); return; }
         if (hit || P.s.t >= tEnd - 1e-9) continue;
         const left = tEnd - P.s.t;
         if (left > 8) {
@@ -737,22 +802,110 @@ export class Mission {
             if (st.fails >= 4) { st.mode = 'TERMINAL'; st.sw = smooth ? CMD.HANDOVER : 0; P.phase = 'SON_INIS'; this.log('Optimal iniş planı sürdürülemedi: son iniş yasasına geçildi', 'PLAN_FAIL'); }
           }
         }
-      } else { yield* this.until(P.s.t + 1500, ctrl, surface); break; }
+      } else { yield* this.finalContact(ctrl); return; }
     }
+  }
+
+  // ---------------------------------------------------------------- temas ve yüzey evresi (touchdown.js; NASA TN D-6850, ALSJ Apollo 11)
+  // en alçaktaki ayağın yüzeyden yüksekliği (m): fiziksel nokta ayak düzleminin merkezidir (sahne: model ayak tabanı); gövde θ yatıksa bir ayak R_PAD·sinθ daha alçaktadır
+  padAlt() {
+    const [rs] = this.P.s.seleno(), up = unit(rs), ax = this.P.att ? this.P.att.axis() : up;
+    return (norm(rs) - R_SITE) * 1000 - TOUCH.R_PAD * Math.sqrt(Math.max(0, 1 - dot(ax, up) ** 2));
+  }
+  // temas ışığı: ayakların altından sarkan 1,70 m'lik sondalardan biri yüzeye değdi
+  contactLight() {
+    if (this.contact) return;
+    const { v } = this.localState();
+    this.contact = { t: this.P.s.t, tStop: null };
+    this.log(`Temas ışığı: sonda yüzeye değdi (ayaklar ~${TOUCH.PROBE.toFixed(2)} m yukarıda), dikey hız ${(v[2] * 1000).toFixed(2)} m/s`, 'CONTACT');
+  }
+  // Son metreler (sonda kipi, TN D-6850): güdüm sonda temasına dek sürer → temas ışığı → TOUCH.REACT s sonra motor kesme (itki TOUCH.DECAY s'de söner) →
+  // araç ayaklarına düşer (yönelim kesmedeki eksende tutulur). Temas fiziği touchdown()'da: yönelim fizikten gelir (dikeye ışınlanmaz).
+  *finalContact(ctrl) {
+    const P = this.P, pads = () => this.padAlt() <= 0;
+    if (!this.contact) {
+      yield* this.until(P.s.t + 1500, ctrl, () => this.padAlt() <= TOUCH.PROBE);
+      if (!pads()) this.contactLight();
+    }
+    const h0 = [P.hMaxBurn, P.hMaxCoast]; P.hMaxBurn = Math.min(P.hMaxBurn, 0.02); P.hMaxCoast = Math.min(P.hMaxCoast, 0.02);          // temas anı ~2 cm içinde
+    if (!pads()) yield* this.until(this.contact.t + TOUCH.REACT, ctrl, pads);
+    if (!pads()) {
+      const tc = P.s.t, thr0 = P.lastThr, hold = P.att ? P.att.axis() : unit(siteIcrf(tc));
+      this.contact.tStop = tc;
+      this.log(`Motor durduruldu: temas ışığından ${(tc - this.contact.t).toFixed(1)} s sonra (itki ${TOUCH.DECAY.toFixed(1)} s'de söner), araç ${this.padAlt().toFixed(2)} m'den ayaklarına düşüyor`, 'ENGINE_STOP');
+      const decay = (Pp) => { const f = (Pp.s.t - tc) / TOUCH.DECAY; return [f < 1 ? thr0 * (1 - f) : 0, hold]; };
+      yield* this.until(P.s.t + 120, decay, pads);
+    }
+    [P.hMaxBurn, P.hMaxCoast] = h0;
     this.touchdown();
   }
 
+  // Temas: yüzeye göre hız, yönelim ve açısal hız fizikten; başarı = hız zarfı (10-7-4) + devrilmeme (enerji) + eğim ≤ 12°. Temas yönelimi ya da açısal hız
+  // 3σ zarfını (6°, 6°/s, sapma 1,5°/s) aşarsa iniş 'sınırda' sayılır (uyarı). Sonra yüzey evresi: araç dönen Ay'a bağlanır, saat işlemeye devam eder (surfaceAdvance).
   touchdown(manual = false) {
-    const P = this.P, { p, v } = this.localState();
+    const P = this.P, t = P.s.t, { p, v, Rf } = this.localState(), D2R = Math.PI / 180;
     P.phase = 'INDI';
-    // güvenli temas: Apollo LM iniş takımı tasarım sınırları, dikey 10 ft/s (3,05 m/s), yatay 4 ft/s (1,22 m/s; NASA TN D-6850, başta 5 ft/s idi)
-    const vh = Math.hypot(v[0], v[1]) * 1000, vz = v[2] * 1000, ok = Math.abs(vz) < 3.0 && vh < 1.22;
-    this.result = { t: P.s.t, utc: E.utcString(P.s.t), posErr_m: [p[0] * 1000, p[1] * 1000], v_mps: [v[0] * 1000, v[1] * 1000, vz],
-                    prop: this.veh.active.prop, ok, manual };
-    P.lastThr = 0; if (P.att) P.att.snapTo(unit(siteIcrf(P.s.t)));          // temasta araç bacaklarının üstünde yerel dikeyde durur (kinematik olay)
-    if (this.pushHist) this.pushHist();
+    const vh = Math.hypot(v[0], v[1]) * 1000, vz = v[2] * 1000;
+    const q = P.att ? P.att.q.slice() : null, wB = P.att && P.att.dynamic && P.att.w ? P.att.w : [0, 0, 0];
+    const axis = q ? mv(Rf, qRot(q, Z_AXIS)) : [0, 0, 1], xb = q ? mv(Rf, qRot(q, [1, 0, 0])) : [1, 0, 0], wL = q ? mv(Rf, qRot(q, wB)) : [0, 0, 0];
+    const tilt = tiltDeg(axis), rate = Math.hypot(wB[0], wB[1]) / D2R, yawRate = Math.abs(wB[2]) / D2R;
+    const mp = massProps(this.veh.stages, this.veh.k), [rs] = P.s.seleno(), g = (E.MU_M / norm(rs) ** 2) * 1000;
+    const slope = this.siteSlope || null, slopeDeg = slope ? slope.deg : 0;
+    const tip = tipOver({ axis, xb, v: scale(v, 1000), w: wL, m: mp.m, It: mp.I[0], h: mp.zCg - Z_FEET, g, slope });
+    const env = velEnvelope(vz, vh), attOk = tilt <= TOUCH.TILT, rateOk = rate <= TOUCH.RATE && yawRate <= TOUCH.YAW_RATE, slopeOk = slopeDeg <= TOUCH.SLOPE;
+    const ok = env.ok && tip.stable && slopeOk;
+    const why = [];
+    if (!env.ok) why.push(`hız zarfı aşıldı (dikey sınır ${env.vzMax.toFixed(2)} m/s, yatay ${TOUCH.VH.toFixed(2)} m/s)`);
+    if (!tip.stable) why.push(`araç devrildi (yön ${tip.dirDeg}°)`);
+    if (!slopeOk) why.push(`eğim ${slopeDeg.toFixed(1)}° > ${TOUCH.SLOPE.toFixed(0)}°`);
+    if (ok && !attOk) why.push(`temas yönelimi ${tilt.toFixed(1)}° > ${TOUCH.TILT.toFixed(0)}°`);
+    if (ok && !rateOk) why.push(`temas açısal hızı ${rate.toFixed(1)}°/s (sapma ${yawRate.toFixed(1)}°/s)`);
+    this.result = { t, utc: E.utcString(t), posErr_m: [p[0] * 1000, p[1] * 1000], v_mps: [v[0] * 1000, v[1] * 1000, vz], prop: this.veh.active.prop, ok, manual,
+      grade: !ok ? 'fail' : attOk && rateOk ? 'ok' : 'marginal', tilt_deg: tilt, rate_dps: rate, yawRate_dps: yawRate, slope_deg: slopeDeg,
+      env: { vel: env.ok, vzMax: env.vzMax, att: attOk, rate: rateOk, slope: slopeOk }, tip: { margin: tip.margin, dirDeg: tip.dirDeg, stable: tip.stable, phiDeg: tip.phiDeg },
+      tContact: this.contact ? this.contact.t : null, tStop: this.contact ? this.contact.tStop : null, why };
+    P.lastThr = 0;
+    // yüzey evresi: ayak düzlemi yüzeye (R_SITE) oturur, Ay'a bağlı konum; yönelim TOUCH.SETTLE s'de zemin normaline oturur (sapma korunur)
+    const M0 = E.moonIcrfToMe(t), up = unit(rs), rPin = scale(up, R_SITE), nI = mtv(Rf, surfaceNormal(slope));
+    let qSet = q;
+    if (q) { const a = qRot(q, Z_AXIS), th = vAngle(a, nI); qSet = th > 1e-12 ? qNormalize(qMul(qSwing(a, nI, q, th), q)) : q; }
+    const t0 = this.contact ? this.contact.t : t;
+    this.surf = { t0: t, M0, rMe: mv(M0, rPin), q0: q, q1: qSet, restTilt: q ? vAngle(qRot(qSet, Z_AXIS), up) / D2R : 0,
+      ev: POST_LANDING.map((e) => ({ ...e, t: Math.max(t + 0.05, t0 + e.dt) })), i: 0 };
+    if (this.pushHist) this.pushHist();                                      // temas anındaki durum (çarpma hızıyla); ilk yüzey adımından sonra araç yüzeye bağlanır
+    const tipTxt = tip.margin > 100 ? 'devrilme payı > 100×' : `devrilme payı ${tip.margin.toFixed(1)}×`;
     this.log(`${ok ? 'TEMAS' : 'ÇARPMA'}${manual ? ' (elle)' : ''}: konum hatası ${(Math.hypot(p[0], p[1]) * 1000).toFixed(1)} m, dikey hız ${vz.toFixed(2)} m/s, yatay ${vh.toFixed(2)} m/s, kalan yakıt ${this.veh.active.prop.toFixed(0)} kg`, 'INDI');
+    this.log(`Temas zarfı: eğim ${tilt.toFixed(1)}°, açısal hız ${rate.toFixed(1)}°/s, ${tipTxt}${why.length ? ' — ' + why.join('; ') : ''}`, 'TOUCH_ENV');
     this.done = true;
+  }
+  // yüzeyde: t anında Ay'a bağlı konum/hız ve yönelim (oturma geçişi + Ay'ın dönmesi)
+  pinSurface(t) {
+    const S = this.surf, P = this.P, M = E.moonIcrfToMe(t), rs = mtv(M, S.rMe), vs = cross(E.omegaMoon(t), rs);
+    P.s.t = t;
+    if (P.s.central === 'M') { P.s.r = rs; P.s.v = vs; } else { P.s.r = add(rs, E.moonPos(t)); P.s.v = add(vs, E.moonVel(t)); }
+    if (P.att && S.q0) {
+      const f = Math.min(1, Math.max(0, (t - S.t0) / TOUCH.SETTLE)), qb = qSlerp(S.q0, S.q1, f * f * (3 - 2 * f));
+      const Rm = [0, 1, 2].map((i) => [0, 1, 2].map((j) => M[0][i] * S.M0[0][j] + M[1][i] * S.M0[1][j] + M[2][i] * S.M0[2][j]));      // ICRF(t0) → ICRF(t): Ay'a bağlı dönme
+      const q = qNormalize(qMul(qFromMat(Rm), qb));
+      if (P.att.dynamic) { P.att.set(q, [0, 0, 0]); P.att.tq = [0, 0, 0]; P.att.tqRcs = [0, 0, 0]; P.att.tqTvc = [0, 0, 0]; P.att.duty = [0, 0, 0]; P.att.err = 0; P.att.mode = 'hold'; }
+      else P.att.set(q);
+    }
+    P.lastThr = 0; P.lastU = [0, 0, 0];
+  }
+  // temas sonrası saat: araç Ay yüzeyinde durur, olay çizelgesi (motor emniyeti, duruş raporu, tank tahliyesi, kalış kararı) zamanı gelince günlüğe düşer
+  surfaceAdvance(tTarget) {
+    const S = this.surf, P = this.P; if (!S) return;
+    while (P.s.t < tTarget - 1e-9) {
+      const nx = S.i < S.ev.length ? S.ev[S.i].t : Infinity, dt = P.s.t - S.t0 < TOUCH.SETTLE + 0.5 ? 0.1 : 10;
+      const t = Math.min(tTarget, nx, P.s.t + dt);
+      this.pinSurface(t);
+      while (S.i < S.ev.length && S.ev[S.i].t <= t + 1e-9) {
+        const e = S.ev[S.i++], R = this.result;
+        if (e.key === 'TILT') this.log(`Yüzeyde duruş: araç dikeyden ${S.restTilt.toFixed(1)}° eğik (temasta ${R.tilt_deg.toFixed(1)}°, zemin eğimi ${R.slope_deg.toFixed(1)}°), ${R.ok ? 'kalkış için uygun' : 'araç hasarlı'}`, 'TILT');
+        else this.log(e.msg, e.key);
+      }
+      if (this.pushHist) this.pushHist();
+    }
   }
 
   // ---------------------------------------------------------------- canlı sürüş (worker çağırır)
@@ -806,7 +959,7 @@ export class Mission {
   // tTarget'e kadar ilerle; bütçe (ms) aşılırsa bırak. Döner: 'COMPUTE' | 'DONE' | null
   advance(tTarget, budgetMs, manualCtrl = null, now = () => Date.now()) {
     const P = this.P, t0 = now();
-    if (this.done) return 'DONE';
+    if (this.done) { if (this.surf) this.surfaceAdvance(tTarget); return 'DONE'; }
     if (!this.auto) {                          // elle uçuş: adımlar ekran saatine kırpılır (anında tepki)
       P.tLimit = tTarget;
       while (P.s.t < tTarget - 1e-9 && now() - t0 < budgetMs) {
@@ -864,8 +1017,8 @@ export class Mission {
   checkSurface(manual) {
     const P = this.P;
     if (P.s.inMoonFrame()) {
-      const [rs] = P.s.seleno();
-      if (norm(rs) - R_SITE <= 0) { this.touchdown(manual); return true; }
+      if (this.padAlt() <= 0) { this.touchdown(manual); return true; }
+      if (manual && !this.contact && this.padAlt() <= TOUCH.PROBE) this.contactLight();
     } else if (norm(P.s.geo()[0]) < E.R_E + 80) {
       this.log('Dünya atmosferine girdi — görev sona erdi', 'REENTRY'); this.done = true; this.result = { ok: false, reentry: true }; return true;
     }

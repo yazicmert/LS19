@@ -25,7 +25,7 @@ export const F_EARTH = WGS84_F;                    // WGS-84 basıklığı (geo.
 export const A_EARTH = WGS84_A;                    // WGS-84 ekvator yarıçapı, km (jeodezik irtifa bununla; E.R_E = 6378,1363 km çekim modelinin yarıçapıdır, 0,7 m farklı)
 export const R_SUN = 695700.0;                     // Güneş yarıçapı, km (IAU 2015)
 const TWO_PI = 2 * Math.PI;
-export const LIMITS = { vz: 3.0, vh: 1.22 };        // temas sınırları, m/s (görev başarı ölçütü: mission.js touchdown)
+export const LIMITS = { vz: 10 * 0.3048, vh: 4 * 0.3048 };        // temas sınırları, m/s: iniş takımının hız zarfı (NASA TN D-6850: dikey 10 ft/s, yatay 4 ft/s; touchdown.js TOUCH ile aynı, görev başarı ölçütü mission.js touchdown)
 export const LANDING_PHASES = new Set(['PDI', 'YAKLASMA', 'SON_INIS', 'INDI']);
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 const mod = (x, m) => ((x % m) + m) % m;
