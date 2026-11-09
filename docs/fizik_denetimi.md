@@ -435,3 +435,21 @@ Renk Güneş yüksekliğine göre gri-beyazdır, aleve yakın kısım turuncudur
 - Duman hacimsel değildir (ışığı kırmaz).
 - Rampa yapıları basittir; LC-39 kulesi yok, SLS'te Mobile Launcher var.
 - Uzaktaki yer, uydu görüntüsünün çözünürlüğündedir.
+
+## 7. Ay'a yolculuk: DEP → LLO düzeltmeleri ve LOI doğruluğu (`mission.js`)
+
+**DEP → LLO rota düzeltmeleri (halo profilleri).** Halo'dan ayrılış (DEP) yakışından LLO girişine (~3,5 gün) kadar hiç düzeltme yoktu: DEP'ten 1 sa sonra 0,7 m/s hata perilünü 56–144 km'ye (hedef 100), 1,5 m/s 7,5 km'ye götürüyor, 2,5 m/s Ay'a çarptırıyordu. Artık **TCM-1** (DEP + 12 sa), **TCM-2** (LLO − 12 sa) ve **TCM-3** (LLO − 5 sa) var (birbirine 6 sa'ten yakın olan düşer); üçü de DEP gibi LLO varış noktasını (konum + zaman) hedefler. Gereken Δv eşiğin (0,05 / 0,05 / 0,1 m/s, v) altındaysa yakılmaz: Artemis II ilk dış yol düzeltmesini rota zaten doğru olduğu için iptal etti ([NASA, 3 Nisan 2026](https://www.nasa.gov/blogs/missions/2026/04/03/artemis-ii-flight-day-3-outbound-trajectory-correction-burn-update/)). Plan girdileri "Transfer düzeltmesi 1–3"; Δv tablosunda DEP satırı düzeltmeleri de toplar. NRHO'da DEP + 1 sa'te 0,7 / 1,5 / 2,5 m/s (6 yön, 18 koşu): TCM-1 0,66–3,08 m/s yakar, TCM-2/3 gerekmez, LLO girişinde periselen 99,7–99,8 km, 18 inişin hepsi başarılı (kalan yakıt 59–60 kg). Bozulmasız uçuşta üçü de atlanır (Δv değişmez).
+
+**LOI doğruluğu: LOI-1 + LOI-2.** Eski LOI "bulunduğu yarıçapta dairesel" hızı hedefliyordu; yakış periselenden tb/2 önce (~7 km yukarıda) başlayıp radyal hızı erken söndürdüğü için yörünge hedefin üstünde bitiyordu. Apollo 11'de olduğu gibi iki yakışa bölündü (Apollo 11: LOI-1, sonra uzak yüzde perilün yakınında ters yönlü LOI-2, sonuç ~54 × 66 deniz mili; [Apollo Flight Journal, LOI-2](https://www.nasa.gov/history/afj/ap11fj/12day4-loi2.html)):
+- **LOI-1** kapalı döngü yörünge hedeflemesidir (kazanılacak hız güdümü: bulunulan noktadan geçen hedef yörüngenin hızı). Ateşleme anı ve hedef, kopya üzerinde uçulan yakışla öngörülür: varış periseleni hedefteyse (Apollo, NRHO) periselende ortalı yakışın osküle periselen hedefi, hedefin altındaysa (L1/L2 halo → LLO transferi hedef noktayı eğik keser: varış periseleni 87–90 km) ateşleme anı düzeltilir.
+- **LOI-2**, bir tur içindeki en yakın noktada kısa düzeltme yakışıdır: hız doğrultusundaki anlık Δv Gauss–Newton ile, sonraki turdaki gerçek yükseklik 24 örnekte hedefe en yakın olacak biçimde (en küçük kareler) çözülür; araç zaten hıza ters hizalı süzüldüğünden yakış için dönmez. Hedef zaten 0,2 km içindeyse ya da LLO tek turluksa yakılmaz. DOI zamanlaması LOI-1'in sonundan sayılır (iniş zamanı değişmez).
+- **Neden gerçek yükseklik:** Ay'ın J2/C22 alanında osküle periselen/aposelen tur boyunca ~1,5 km oynar (110 km'de gerçek uzaklığı 109,98–110,03 km olan yörüngenin osküle aposeleni 110,5–111,4 km okunur). Bu yüzden `LOI_END` iletisindeki periselen/aposelen, yayınımla öngörülen bir turdaki en yakın/en uzak gerçek yüksekliktir (LOI-2'den önceki değerler osküle değil, yine gerçek yüksekliktir).
+
+| profil (hedef) | önce: LOI sonu | sonra: LOI-1 sonu → LOI sonu (gerçek yükseklik) | LOI-2 Δv | kalan yakıt (tek kademe, ZEM) |
+|---|---|---|---|---|
+| Apollo (110 km) | 114,7 × 116,5 km | 110,0 × 111,6 → 109,9 × 110,1 km | 0,36 m/s | 190,3 → 193,0 kg (LOI 832,1 → 829,0 m/s) |
+| NRHO (100 km) | 102,0 × 103,7 km | 100,1 × 100,6 → 99,9 × 100,2 km | 0,15 m/s | 60,1 → 61,4 kg |
+| L2 · L1 (100 km) | — | 100,0 × 100,6 → 100,0 × 100,0 · 100,0 × 100,7 → 100,0 × 100,1 km | 0,13 · 0,16 m/s | 68,6 · 69,6 kg |
+| Apollo 11 · yükseltmeli (110 km) | — | 109,9 × 110,1 · 109,9 × 110,1 km | 0,35 · 0,37 m/s | 193,0 · 192,3 kg |
+
+Python uyumluluk kipinde (`compat`) eski tek yakış korunur. **Sınırlar:** yüksek dereceli Ay çekim alanı (maskonlar) yoktur; gerçek Apollo 11 LOI-2 tam dairesel değil, öngörülen bozulmalar (maskonlar) yörüngeyi zamanla dairesele çeksin diye hedeflenmişti (aynı kaynak). Eşikler ve düzeltme zamanları model değeridir (v).
