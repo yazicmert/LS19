@@ -125,12 +125,14 @@ for (const [name, mode, two] of cases) {
   // ayrılan kademeler
   const kinds = M.debris.map((d) => d.kind), want = two ? ['tli', 'orb'] : ['tli'];
   const frozen = M.debris.every((d) => d.q && Math.abs(Math.hypot(...d.q) - 1) < 1e-12);
-  // ayrılma itkisi kademenin kendi ekseni boyunca, araçtan uzağa: enkaz hızı − araç hızı = −0,5 m/s · eksen (ayrıldığı andaki yönelimle). Enkaz yayınımı ilerletilmedi: başlangıç durumu
+  // ayrılma itkisi yığının ekseni (ayrıldığı andaki yönelim) boyunca, momentum korunumlu (separation.js springSplit): kademe − iniş aracı = −0,5 m/s · eksen,
+  // kademe −Δv_S, iniş aracı +Δv_L, m_L·Δv_L = m_S·Δv_S (d.sep: ayrılma anındaki hızlar; enkaz yayınımı sonra ilerler)
   let sepErr = 0, sepAlong = []; for (const d of M.debris) {
-    const iv = rec.findIndex((r) => r.t === d.t), dv = sub(d.P.s.v, rec[iv].v), ax = qRot(d.q, Z_AXIS);
-    sepErr = Math.max(sepErr, norm(sub(dv, scale(ax, -0.0005)))); sepAlong.push(`${d.kind} ${(dot(dv, unit(rec[iv].v)) * 1000).toFixed(2)} m/s`);
+    const s = d.sep, iv = rec.findIndex((r) => r.t === d.t), ax = qRot(d.q, Z_AXIS), dS = sub(s.vS, rec[iv].v), dL = sub(s.vL, rec[iv].v);
+    sepErr = Math.max(sepErr, norm(sub(s.axis, ax)), norm(sub(sub(s.vS, s.vL), scale(ax, -0.0005))), norm(sub(dS, scale(ax, -s.dvS))), norm(sub(dL, scale(ax, s.dvL))), Math.abs(s.mL * s.dvL - s.mS * s.dvS) / (s.mS * s.dvS));
+    sepAlong.push(`${d.kind} ${(dot(dS, unit(rec[iv].v)) * 1000).toFixed(3)} / araç ${(dot(dL, unit(rec[iv].v)) * 1000).toFixed(3)} m/s`);
   }
-  const sepOk = sepErr < 1e-12 && (!two || dot(sub(M.debris[1].P.s.v, rec[rec.findIndex((r) => r.t === M.debris[1].t)].v), unit(rec[rec.findIndex((r) => r.t === M.debris[1].t)].v)) > 0);       // iki kademeli inişte yörünge kademesi önde (ters yönelim), ileriye ayrılır
+  const sepOk = sepErr < 1e-12 && (!two || dot(sub(M.debris[1].sep.vS, M.debris[1].sep.vL), unit(M.debris[1].sep.vL)) > 0);       // iki kademeli inişte yörünge kademesi önde (ters yönelim), ileriye ayrılır
   const sepEv = M.events.filter((e) => e.key === 'SEP' || e.key === 'SEP2').map((e) => e.key);
   check(`${label}: ayrılan kademeler sırayla ${want.join(' → ')} (${two ? 'SEP, SEP2' : 'SEP'} olayları), ayrıldığı andaki yönelimi taşır, ayrılma itkisi kendi ekseni boyunca araçtan uzağa`, JSON.stringify(kinds) === JSON.stringify(want) && frozen && sepOk && JSON.stringify(sepEv) === JSON.stringify(two ? ['SEP', 'SEP2'] : ['SEP']),
     `enkaz ${kinds.join(', ')}; olaylar ${sepEv.join(', ')}; ${M.debris.map((d) => `${d.name} t=${(d.t - M.t0).toFixed(0)} s`).join(', ')}; ayrılma Δv (hız yönünde): ${sepAlong.join(', ')}`);

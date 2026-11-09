@@ -5,11 +5,12 @@
 import * as E from './engine.js';
 import { HaloRef } from './halo.js';
 import { conicReady } from './conic.js';
-import { Attitude, qSlerp, qRot, qMul, qNormalize, qSwing, vAngle, Z_AXIS } from './attitude.js';
+import { Attitude, qSlerp, qFromZ, qRot, qMul, qNormalize, qSwing, vAngle, Z_AXIS } from './attitude.js';
 import { Dyn6 } from './attctl.js';
 import { massProps, freeRot, Z_FEET } from './rigidbody.js';
 import { TOUCH, POST_LANDING, velEnvelope, tipOver, surfaceNormal, tiltDeg, dustOnset } from './touchdown.js';
 import { LandNav, NAV } from './landnav.js';
+import { SEP, SpentStage, springSplit, tipOff, ccamDir, sepAxis, timeline } from './separation.js';
 import { solvePDG, replanPDG, controlAt, controlAtSmooth } from './pdg.js';
 const { add, sub, scale, dot, cross, norm, unit, mv, mtv } = E;
 
@@ -114,7 +115,19 @@ export const DEFAULT_DESIGN = { TLI, ARRIVAL, LAUNCH, t_L: T_L_TARGET, label: '2
 const TWO_PI = 2 * Math.PI;
 // Yönelim (attitude.js): ateşlemeden bu kadar önce (s) itki yönüne dönmeye başlanır; iniş aracı sınıfı 15°/s ile 180° ≈ 13 s, 2°/s'lik TLI yığını küçük açılar döner
 const ATT_LEAD = 180.0, ATT_H_APPROACH = 5.0;
-const TIPOFF = 0.5 * Math.PI / 180;                         // ayrılma devrilmesi (rad/s): kademe ayrılırken kazandığı enine açısal hız (6-DOF)
+// TLI kesme dağılımı: tohumlu sözde rastgele sayı (mulberry32) + Box–Muller normal dağılım (yeniden üretilebilir Monte Carlo)
+function gaussSeeded(seed) {
+  let a = (seed >>> 0) || 1;
+  const rnd = () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const u1 = Math.max(1e-12, rnd()), u2 = rnd();
+  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+}
+// Dünya'ya göre özgül enerji (km²/s²), J2 potansiyeli dahil: Φ = −μ/r + μJ2R²(3 sin²φ − 1)/(2r³). İtkisiz süzülmede (J2 eksen simetrik, durağan) korunur;
+// bu yüzden TLI kesmesi yakışın bitiş anından ve konumundan bağımsız aynı yörüngeyi hedefler (oskülatör Kepler enerjisi J2 yüzünden ~0,06 km²/s² salınırdı ≈ 6 m/s).
+export function energyJ2(s) {
+  const [r, v] = s.geo(), rn = norm(r), p = E.provider().pole(s.t), sp = dot(r, p) / rn;
+  return 0.5 * dot(v, v) - E.MU_E / rn + E.MU_E * E.J2_E * E.R_E * E.R_E * (3 * sp * sp - 1) / (2 * rn ** 3);
+}
 const mod2pi = (a) => ((a % TWO_PI) + TWO_PI) % TWO_PI;
 
 export const siteMe = () => [Math.cos(SITE_LAT) * Math.cos(SITE_LON), Math.cos(SITE_LAT) * Math.sin(SITE_LON), Math.sin(SITE_LAT)];
@@ -146,7 +159,9 @@ export class Mission {
   // landing: 'zem' (sıfır-çaba-ıskası güdümü) | 'opt' | 'free' (yakıt-optimal, kayıpsız dışbükeyleştirilmiş SOCP; LANDING_MODES; konik çözücü yüklü değilse ZEM)
   // attitude: 'dyn6' (varsayılan; true) 6-DOF rijit cisim dinamiği (attctl.js: RCS + TVC, Euler denklemleri) | 'kin' kinematik hız sınırlı yönelim (attitude.js) | false yönelimsiz (itki yönü komutla birebir)
   // nav: iniş seyrüseferi (landnav.js): {} ya da { seed, faults, … } = açık (güdüm IMU + radar + TRN kestirimini kullanır) | false (varsayılan: güdüm gerçek durumu bilir; hazır nominal veri ve testler bununla)
-  constructor({ tliError = TLI_DUR_ERROR, verbose = false, compat = false, design = DEFAULT_DESIGN, nbody = true, landing = 'zem', attitude = 'dyn6', nav = false } = {}) {
+  // TLI kesmesi güdümle (enerji hedefi): tliCutErr (m/s, işaretli) açık kesme hatası; tliDisp { sigma (m/s, 1σ), seed } tohumlu normal dağılım; tliError (s) eski
+  // zamanlama hatası seçeneği (kesmedeki ivmeyle Δv'ye çevrilir; varsayılan 0). Python uyumunda (compat) TLI eskisi gibi süreli (TLI_DUR_ERROR fazla yakışla).
+  constructor({ tliError = 0, tliCutErr = 0, tliDisp = null, verbose = false, compat = false, design = DEFAULT_DESIGN, nbody = true, landing = 'zem', attitude = 'dyn6', nav = false } = {}) {
     this.D = design; const { TLI, ARRIVAL, LAUNCH } = design;
     this.nbody = nbody; this.landing = landing; this.descentInfo = null;
     this.navOpt = compat || nav === false ? null : nav; this.nav = null;
@@ -160,15 +175,10 @@ export class Mission {
     this.nLlo = design.LLO && design.LLO.revs ? design.LLO.revs : 2;
     this.halo = design.profile === 'HALO' ? new HaloRef(null, design.HALO.patches, design.HALO.tDep, design.HALO.tNri) : null;
     this.veh = new E.Vehicle(design.STAGES || STAGES);
-    this.events = []; this.verbose = verbose; this.tliError = tliError;
-    // TLI kesme hatası: kapalı döngü güdüm hıza göre keser, hata bir Δv hatasıdır. Varsayılan kademede (100 kN) tliError saniyelik zamanlama hatasıdır;
-    // gerçek roketin kademesinde aynı Δv hatasını verecek süreye ölçeklenir (yüksek ivmeli kademede 0,05 s ~6 m/s olurdu: Falcon 9 ikinci kademesi TLI sonunda ~12 g)
-    const S0 = (design.STAGES || STAGES)[0];
-    if (S0 && S0.rocket && S0.rocket !== 'GENEL' && design.DV && design.DV.TLI) {
-      const pay = (design.STAGES || STAGES).slice(1).reduce((q, x) => q + x.dry + x.prop, 0), c = S0.isp * E.G0 * 1000;
-      const mCut = (S0.dry + S0.prop + pay) * Math.exp(-design.DV.TLI / c), aCut = S0.T * 1000 / mCut, aRef = STAGES[0].T * 1000 / (STAGES[0].dry + pay);
-      this.tliError = tliError * aRef / aCut;
-    }
+    this.events = []; this.verbose = verbose; this.tliError = compat ? TLI_DUR_ERROR : tliError;
+    // TLI kesme hatası (km/s, hız yönünde): açık değer + tohumlu dağılım. Gerçek üst kademeler hedef enerjiye (C3) göre keser; kalan hata kesme dağılımıdır.
+    this.tliCutErr = (tliCutErr || 0) / 1000 + (tliDisp && tliDisp.sigma ? (tliDisp.sigma / 1000) * gaussSeeded(tliDisp.seed ?? 1) : 0);
+    this.stage = null;                 // ayrılan TLI kademesi (separation.js SpentStage)
     this.auto = true; this.status = ''; this.tNext = null; this.done = false; this.result = null;
     this.stageP = null; this.t_sep = null; this.local = null; this.drAxis = null;
     // park yörüngesinde TLI ateşlemesinden geriye: giriş anındaki durum (J2 dahil tutarlı)
@@ -189,8 +199,8 @@ export class Mission {
       { key: 'INS', name: 'Yörüngeye giriş', t: LAUNCH.t_ins },
       ...(design.RAISE ? design.RAISE.burns.map((b) => ({ key: 'RAISE-' + b.k, name: `Yörünge yükseltme ${b.k}/${design.RAISE.n} (apoje ${Math.round(b.apo)} km)`, t: b.t })) : []),
       { key: 'TLI', name: 'TLI ateşleme', t: TLI.t_ign },
-      { key: 'SEP', name: 'TLI kademesi ayrılır', t: TLI.t_ign + TLI.x[1] + 1800 },
-      { key: 'MCC-1', name: 'MCC-1', t: TLI.t_ign + TLI.x[1] + 1800 + 20 * 3600 },
+      ...this.sepPlan(TLI.t_ign + TLI.x[1] + this.sepCoast()),
+      { key: 'MCC-1', name: 'MCC-1', t: TLI.t_ign + TLI.x[1] + this.sepCoast() + 20 * 3600 },
       { key: 'MCC-2', name: 'MCC-2', t: ARRIVAL.t_P - 22 * 3600 }];
     if (this.halo) {
       this.plan.push({ key: 'NRI', name: 'Halo girişi (NRI)', t: ARRIVAL.t_P - 60 });
@@ -203,6 +213,16 @@ export class Mission {
     this.gen = this.run();
   }
 
+  // TLI motor kesmeden ayrılmaya süzülme: Artemis I'deki gibi 610 s (separation.js [A1]); Python uyumunda eski 30 dk
+  sepCoast() { return this.compat ? 1800.0 : SEP.coast; }
+  // ayrılma ve kademenin işleri (plan çizelgesi): ayrılma, CCAM, bertaraf yakışı, boşaltma, görev sonu
+  sepPlan(tSep, S = null) {
+    if (this.compat) return [{ key: 'SEP', name: 'TLI kademesi ayrılır', t: tSep }];
+    const T = S ? S.tl : timeline(0, 1);
+    return [{ key: 'SEP', name: 'TLI kademesi ayrılır', t: tSep }, { key: 'SEP-CCAM', name: 'Kademe kaçınma manevrası (CCAM)', t: tSep + SEP.ccam0 },
+      ...(T.disp ? [{ key: 'SEP-DISP', name: 'Kademe bertaraf yakışı', t: tSep + T.disp[0] }] : []),
+      ...(T.bd ? [{ key: 'SEP-BD', name: 'Kademe itici boşaltma', t: tSep + T.bd[0] }] : []), { key: 'SEP-EOM', name: 'Kademe pasifleştirme', t: tSep + T.eom }];
+  }
   // görevin tüm yayınımları aynı çözücüyü kullanır (N-cisim ya da etki küresi)
   prop(state, veh, hMaxCoast, hMaxBurn = 1.0) { return new E.Propagator(state, veh, hMaxCoast, hMaxBurn, { nbody: this.nbody }); }
   // çözücüyü uçuş sırasında değiştir: durum iki çerçeve arasında kesin dönüştürülür (fizik değişmez, yalnız çerçeve)
@@ -228,8 +248,57 @@ export class Mission {
     const h = unit(add(scale(hhat, Math.cos(psi)), scale(cross(phat, hhat), Math.sin(psi))));
     const p = unit(sub(phat, scale(h, dot(phat, h)))), q = cross(h, p);
     const rp = E.R_E + this.hPark, vc = Math.sqrt(E.MU_E / rp);
+    if (this.D.RAISE && this.D.RAISE.n) {                             // yükseltilmiş elips (design.js parkState): perije rp, apoje R_E + ha; phi perijeden gerçek anomali
+      const RA = E.R_E + this.D.RAISE.ha, e = (RA - rp) / (RA + rp), pp = rp * (1 + e), r = pp / (1 + e * Math.cos(phi)), w = Math.sqrt(E.MU_E / pp);
+      const rh = add(scale(p, Math.cos(phi)), scale(q, Math.sin(phi))), th = add(scale(p, -Math.sin(phi)), scale(q, Math.cos(phi)));
+      return new E.State(TLI.t_ign, scale(rh, r), add(scale(rh, w * e * Math.sin(phi)), scale(th, w * (1 + e * Math.cos(phi)))), 'E');
+    }
     return new E.State(TLI.t_ign, add(scale(p, rp * Math.cos(phi)), scale(q, rp * Math.sin(phi))),
       add(scale(p, -vc * Math.sin(phi)), scale(q, vc * Math.cos(phi))), 'E');
+  }
+  // TLI hedefi: tasarımın TLI yakışı (design.js flyTli: aynı başlangıç durumu, araç ve sabit yunuslamalı yönlendirme, tasarım süresi) bittiğinde J2 dahil özgül enerji
+  // ve ayrılma anındaki hız (yayın enerjiye katkısı v·Δv_L için). Tasarımın hedeflediği yörünge budur; araç bu enerjiye ulaşınca keser.
+  tliTarget() {
+    if (this._tliTgt) return this._tliTgt;
+    const D = this.D, [, dur, pitch] = D.TLI.x;
+    const Q = new E.Propagator(this.parkStateAtIgn(), new E.Vehicle(this.tliDesignStages()), 1800.0, 1.0);
+    const c = (Pp) => { const r = Pp.s.r, v = Pp.s.v, vh = unit(v), nh = unit(cross(r, v)), rh = cross(nh, vh); return [1.0, add(scale(vh, Math.cos(pitch)), scale(rh, Math.sin(pitch)))]; };
+    Q.runUntil(D.TLI.t_ign + dur, c);
+    const Et = energyJ2(Q.s), [r, v] = Q.s.geo();
+    Q.runUntil(Q.s.t + this.sepCoast());
+    return (this._tliTgt = { E: Et, c3: dot(v, v) - 2 * E.MU_E / norm(r), vSep: norm(Q.s.geo()[1]) });
+  }
+  // tasarımın TLI yakışındaki araç (design.js flyTli: K.STAGES): yükseltmeli tasarımda kademe yükseltme yakışlarının yakıtını da taşır (D.STAGES'e sonradan eklenir), TLI başında o yakıt yoktur
+  tliDesignStages() {
+    const S = (this.D.STAGES || STAGES).map((x) => ({ ...x }));
+    if (this.D.RAISE && this.D.RAISE.propExtra) S[0].prop = Math.max(0, S[0].prop - Math.round(this.D.RAISE.propExtra));
+    return S;
+  }
+  // Güdümlü TLI kesmesi: her adımda kalan süre τ = (E_hedef − E) / (dE/dt), dE/dt = (T/m)·(v·u); son adım tam τ'ya kesilir (denetim periyodundan bağımsız).
+  // E_hedef = tasarım enerjisi − ayrılma yayının iniş aracına vereceği enerji (v_ayrılma · Δv_L) − motor kuyruk itkisinin enerjisi + kesme hatası (v · δv).
+  *tliBurn(tIgn, dur, ctrl) {
+    const P = this.P, st = this.veh.active, tg = this.tliTarget(), tMax = tIgn + 1.5 * dur + 60;
+    const tailImp = st.eng ? st.eng.tailImp || 0 : 0, tailDur = st.eng ? st.eng.tail[st.eng.tail.length - 1][0] : 0;
+    for (;;) {
+      yield* this.waitClock();
+      const [, v] = P.s.geo(), m = this.veh.mass(), u = P.lastThr > 0 ? P.lastU : ctrl(P)[1], vu = dot(v, u);
+      const mS = st.dry + st.prop, dvL = springSplit(m - mS, mS).dvL, aF = st.T / m;
+      const eT = tg.E - tg.vSep * dvL - vu * tailImp * aF + norm(v) * (this.tliCutErr + this.tliError * aF);
+      const tau = (eT - energyJ2(P.s)) / Math.max(1e-12, aF * vu);
+      if (tau <= 1e-5 || st.prop <= 0 || P.s.t >= tMax) break;
+      P.step(Math.min(tau, P.tLimit - P.s.t), ctrl);
+      yield 1;
+    }
+    this.tliCut = { t: P.s.t, tg };
+    if (tailDur > 0) yield* this.until(P.s.t + tailDur + 1e-3);                 // kuyruk itkisi (motor sönerken)
+  }
+  // TLI kesme günlüğü: yakış süresi, Δv, C3 (hedefle), perije/apoje, kalan yakıt
+  logTliCut() {
+    const P = this.P, st = this.veh.active, e0 = this.events.find((e) => e.key === 'TLI'), [r, v] = P.s.geo(), el = E.elements(r, v, E.MU_E);
+    const c3 = dot(v, v) - 2 * E.MU_E / norm(r), tb = P.s.t - e0.t, dv = (P.dvUsed - e0.dv) * 1000, tg = this.tliCut ? this.tliCut.tg : null;
+    const apo = el.e < 1 ? `${Math.round(el.ra - E.R_E)} km` : '∞';
+    this.log(`TLI motor kesme: yakış ${tb.toFixed(1)} s, Δv ${dv.toFixed(1)} m/s, C3 ${c3.toFixed(3)} km²/s²${tg ? ` (tasarım ${tg.c3.toFixed(3)})` : ''}, perije ${(el.rp - E.R_E).toFixed(1)} km, apoje ${apo}, kademede ${st.prop.toFixed(0)} kg yakıt`,
+      'TLI_CUT', { c3, tb, dvm: dv, rp: el.rp - E.R_E, ra: el.ra - E.R_E });
   }
 
   // ---------------------------------------------------------------- canlı adım ilkelleri
@@ -299,17 +368,19 @@ export class Mission {
       return [1.0, add(scale(vh, Math.cos(pitch)), scale(rh, Math.sin(pitch)))];
     };
     yield* this.approach(tTli, (Pp) => tliCtrl(Pp)[1]);
-    // TLI
+    // TLI: güdümlü kesme (hedef enerji; ayrılma yayının iniş aracına vereceği Δv ve kuyruk itkisi hesaba katılır); Python uyumunda süreli
     P.phase = 'TLI'; this.log('TLI ateşleme', 'TLI');
-    yield* this.until(tTli + dur + this.tliError, tliCtrl);
+    if (this.compat) yield* this.until(tTli + dur + this.tliError, tliCtrl);
+    else yield* this.tliBurn(tTli, dur, tliCtrl);
     this.attMode = null;
-    this.log('TLI motor kesme', 'TLI_CUT');
+    this.logTliCut();
     P.phase = 'SUZULME'; P.hMaxCoast = 120.0;
-    this.tNext = P.s.t + 1800.0;
-    yield* this.until(P.s.t + 1800.0);
-    // kademe ayrılması
+    this.tNext = this.tSepPlan = P.s.t + this.sepCoast();
+    yield* this.until(this.tSepPlan);
+    // kademe ayrılması; kademe kendi yayınımı ve tutum denetimiyle uçar, işleri (CCAM, bertaraf, boşaltma, pasifleştirme) zamanında kaydedilir
     this.separateStage();
     P.hMaxCoast = 1800.0;
+    if (this.stage) yield* this.stageEvents();
     const refS = this.referenceTrajectory(), ref = (t) => this.refAt(refS, t);
     yield* this.mcc(this.t_sep + 20 * 3600, ARRIVAL.t_P - 8 * 3600, ref, 'MCC-1', 'pos');
     if (this.halo) {
@@ -416,30 +487,83 @@ export class Mission {
     yield* this.mcc(D.DEP.t - tb / 2, D.LLO.tP, rP2geo, 'DEP', 'pos', 0, 'TRANSFER', 'DEP', dv0);
   }
 
-  // etkin kademeyi ayır (sonraki kademe varsa): TLI kademesi TLI'dan 30 dk sonra; iki kademeli inişte Ay yörünge kademesi PDI'dan önce
+  // etkin kademeyi ayır (sonraki kademe varsa): TLI kademesi TLI kesmeden 610 s sonra (Artemis I), iki kademeli inişte Ay yörünge kademesi PDI'dan önce.
+  // Kelepçe bandı açılır, yaylar ayrılma ekseni (yığının gövde +z ekseni; süzülmede TLI'dan sonra ileri, inişte geri yönelimli) boyunca SEP.dvRel bağıl hız verir;
+  // momentum korunur (separation.js springSplit): iniş aracı +Δv_L, kademe −Δv_S, kütlelerle ters orantılı. 6-DOF'ta iki gövde ayrılma dönmesi (tip-off) alır:
+  // iniş aracı SEP.tipL (Atlas V sınırları içinde), kademe eşit ve zıt açısal momentum. TLI kademesi kendi tutum denetimiyle uçan bir SpentStage olur (CCAM, bertaraf,
+  // boşaltma, pasifleştirme, takla); Ay yörünge kademesi ayrılır ayrılmaz denetimsizdir (torksuz serbest dönme). Döner: şimdi ayrıldıysa true.
   separateStage() {
     const P = this.P, k = this.veh.k, st = this.veh.stages[k];
-    if (k >= this.veh.stages.length - 1) return;
-    // ayrılma itkisi 0,5 m/s, kademenin KENDİ ekseni boyunca (araçtan uzağa, −z): TLI'da araç ileri yönelimlidir (kademe geride, geriye iter), inişte ters yönelimlidir (kademe önde, ileriye iter)
-    const sst = P.s.copy(), axis = P.att ? qRot(P.att.q, Z_AXIS) : unit(sst.v); sst.v = sub(sst.v, scale(axis, 0.0005));
-    this.stageP = this.prop(sst, new E.Vehicle([{ name: 'kademe', dry: st.dry, prop: st.prop, T: 0, isp: 1 }]), k === 0 ? 1800.0 : 60.0);
-    // ayrılan kademe kendi rijit cismidir (JEOD'daki detach gibi): ayrıldığı andaki yönelim ve açısal hız (araçtan devralınan + ayrılma devrilmesi) ile torksuz serbest dönmeye başlar (6-DOF);
-    // kinematik/yönelimsiz modelde yönelimi eylemsiz sabit kalır. Araç da karşı yönde küçük bir devrilme alır (açısal momentumun korunması)
-    let rot = null;
-    if (P.att && P.att.dynamic) {
-      const idx = this.debris.length, ph = (idx + 1) * 2.399963, A = TIPOFF, tip = [A * Math.cos(ph), A * Math.sin(ph), 0.2 * A];
-      const mpD = massProps([{ ...st }], 0), mpV = massProps(this.veh.stages, k + 1);      // ayrılan kademe tek başına (kendi rolü ve geometrisi) / kalan araç
-      rot = { q: P.att.q.slice(), w: [P.att.w[0] + tip[0], P.att.w[1] + tip[1], P.att.w[2] + tip[2]], I: mpD.I, t: P.s.t };
-      P.att.w = [P.att.w[0] - tip[0] * mpD.I[0] / mpV.I[0], P.att.w[1] - tip[1] * mpD.I[1] / mpV.I[1], P.att.w[2] - tip[2] * mpD.I[2] / mpV.I[2]];
-      P.att.mode = 'dyn'; P.att.cPrev = null;
+    if (k >= this.veh.stages.length - 1) return false;
+    if (this.compat) {                                                  // Python sürümü: kademe 0,5 m/s geri, iniş aracına itki yok
+      const sst = P.s.copy(); sst.v = sub(sst.v, scale(unit(sst.v), 0.0005));
+      this.stageP = this.prop(sst, new E.Vehicle([{ name: 'kademe', dry: st.dry, prop: st.prop, T: 0, isp: 1 }]), 1800.0);
+      this.debris.push({ id: this.debris.length, kind: k === 0 ? 'tli' : 'orb', name: st.name, P: this.stageP, q: null, rot: null, t: P.s.t });
+      if (k === 0) this.t_sep = P.s.t; else this.t_sep2 = P.s.t;
+      this.veh.separate(); this.log(`${st.name} ayrıldı`, k === 0 ? 'SEP' : 'SEP2');
+      return true;
     }
-    this.debris.push({ id: this.debris.length, kind: k === 0 ? 'tli' : 'orb', name: st.name, P: this.stageP, q: P.att ? P.att.q.slice() : null, rot, t: P.s.t });
-    if (k === 0) this.t_sep = P.s.t; else this.t_sep2 = P.s.t;
+    const axis = sepAxis(P), mS = st.dry + st.prop, mL = this.veh.mass() - mS, { dvL, dvS } = springSplit(mL, mS);
+    const sst = P.s.copy(); sst.v = sub(sst.v, scale(axis, dvS));
+    const q0 = P.att ? P.att.q.slice() : null;
+    let rot = null, wS = [0, 0, 0];
+    if (P.att && P.att.dynamic) {
+      const mpS = massProps([{ ...st }], 0), mpL = massProps(this.veh.stages, k + 1), tip = tipOff(mpL.I, mpS.I);       // ayrılan kademe tek başına (kendi rolü ve geometrisi) / kalan araç
+      wS = add(P.att.w, tip.wS); P.att.w = add(P.att.w, tip.wL);
+      P.att.mode = 'dyn'; P.att.cPrev = null;
+      if (k > 0) rot = { q: q0.slice(), w: wS, I: mpS.I, t: P.s.t };
+    }
+    const sep = { t: P.s.t, axis, dvL, dvS, mL, mS, vS: sst.v.slice(), vL: add(P.s.v, scale(axis, dvL)), v0: P.s.v.slice() };
     this.veh.separate();
-    this.log(k === 0 ? `${st.name} ayrıldı` : `${st.name} ayrıldı (irtifa ${(norm(P.s.seleno()[0]) - R_SITE).toFixed(1)} km, ${st.prop.toFixed(0)} kg yakıt atıldı); iniş kademesi ${this.veh.mass().toFixed(0)} kg`, k === 0 ? 'SEP' : 'SEP2');
+    P.s.v = sep.vL.slice();
+    if (this.pushHist) this.pushHist();                                 // ayrılma anı: yay itişi sonrası durum (ekran ara değeri sıçramayı karıştırmasın)
+    if (k === 0) {
+      const S = this.stage = new SpentStage(sst, st, q0 || qFromZ(axis), wS, axis, ccamDir(P.s.geo()[0], axis), (s, v) => this.prop(s, v, 1800.0, 1.0), { mL, mS, dvL, dvS });
+      this.stageP = S;
+      this.debris.push({ id: this.debris.length, kind: 'tli', name: st.name, P: S, S, q: q0, get rot() { return S.rot; }, t: P.s.t, sep });
+      this.t_sep = P.s.t;
+    } else {
+      this.stageP = this.prop(sst, new E.Vehicle([{ name: 'kademe', dry: st.dry, prop: st.prop, T: 0, isp: 1 }]), 60.0);
+      this.debris.push({ id: this.debris.length, kind: 'orb', name: st.name, P: this.stageP, q: q0, rot, t: P.s.t, sep });
+      this.t_sep2 = P.s.t;
+    }
+    if (k === 0) {
+      this.log(`${st.name} ayrıldı`, 'SEP', { dvL: dvL * 1000, dvS: dvS * 1000 });
+      this.log(`Kelepçe bandı açıldı: yaylar ${SEP.dvRel.toFixed(1)} m/s bağıl hız verdi (iniş aracı +${(dvL * 1e6).toFixed(0)} mm/s, kademe −${(dvS * 1e6).toFixed(0)} mm/s, momentum korunur); kademede ${st.prop.toFixed(0)} kg yakıt`, 'SEP-SPRING');
+    } else this.log(`${st.name} ayrıldı (irtifa ${(norm(P.s.seleno()[0]) - R_SITE).toFixed(1)} km, ${st.prop.toFixed(0)} kg yakıt atıldı); iniş kademesi ${this.veh.mass().toFixed(0)} kg`, 'SEP2', { dvL: dvL * 1000, dvS: dvS * 1000 });
+    return true;
   }
-  // ayrılan kademenin t anındaki yönelimi: 6-DOF'ta torksuz serbest dönme (Euler denklemleri), yoksa ayrıldığı andaki sabit yönelim
+  // ayrılan TLI kademesinin işleri: kademe kendi yayınımıyla uçar; görev her işin anında kademeyi oraya dek ilerletir ve kaydeder
+  *stageEvents() {
+    const S = this.stage, t0 = S.t0;
+    const at = function* (self, dt, key, msg) { self.tNext = t0 + dt; yield* self.until(t0 + dt); S.runUntil(t0 + dt); self.log(msg(), key); };
+    yield* at(this, SEP.turn0, 'SEP-TURN', () => 'TLI kademesi CCAM yönelimine dönüyor (90°, itici gazı iniş aracından uzağa)');
+    yield* at(this, SEP.ccam0, 'SEP-CCAM', () => `TLI kademesi CCAM: 4 × 27 N hidrazin iticisi ${(SEP.ccam1 - SEP.ccam0).toFixed(0)} s`);
+    yield* at(this, SEP.ccam1, 'SEP-CCAM_END', () => `TLI kademesi CCAM tamam: iniş aracına uzaklık ${(this.stageRange() * 1000).toFixed(0)} m`);
+    yield* this.stageDisposal();
+    const T = S.tl;
+    this.plan = this.plan.filter((p) => !/^SEP-/.test(p.key));
+    this.plan.splice(this.plan.findIndex((p) => p.key === 'SEP') + 1, 0, ...this.sepPlan(t0, S).slice(1));
+    if (T.bd) yield* at(this, T.bd[0], 'SEP-BD', () => `TLI kademesi kalan ${S.st.prop.toFixed(0)} kg LOX/LH2'yi motordan boşaltıyor`);
+    this.tNext = t0 + T.eom; yield* this.until(t0 + T.eom); S.runUntil(t0 + T.eom); if (!S.rot) S.passivate();
+    this.log(`TLI kademesi pasifleştirildi: görev sonu, tutum denetimi kapandı, denetimsiz süzülüyor (iniş aracına uzaklık ${this.stageRange().toFixed(1)} km)`, 'SEP-EOM');
+  }
+  // bertaraf yakışı (kademenin ana motoru): stageDisposalPlan çözer; çözüm yoksa yakış yapılmaz
+  *stageDisposal() {
+    const S = this.stage, plan = this.stageDisposalPlan ? this.stageDisposalPlan() : null;
+    if (plan && plan.dv) S.setDisposal(plan.dv);
+  }
+  // ayrılan TLI kademesinin iniş aracına uzaklığı (km): kademe şimdiki görev anına ilerletilir
+  stageRange() {
+    const S = this.stage; if (!S) return null;
+    if (S.s.t < this.P.s.t) S.runUntil(this.P.s.t);
+    const Q = this.prop(this.P.s.copy(), E.dummyVehicle(), 60.0); Q.runUntil(S.s.t);
+    return norm(sub(S.s.geo()[0], Q.s.geo()[0]));
+  }
+  // ayrılan kademenin t anındaki yönelimi: TLI kademesi görev sonuna dek kendi denetimiyle, sonra (ve Ay yörünge kademesi hep) torksuz serbest dönme (Euler denklemleri);
+  // kinematik/yönelimsiz modelde Ay yörünge kademesinin yönelimi ayrıldığı andaki gibi sabit kalır
   debrisQ(d, t) {
+    if (d.S) return d.S.qAt(t) || d.q;
     const r = d.rot; if (!r) return d.q;
     if (t > r.t + 1e-9) { const s = freeRot(r.q, r.w, r.I, t - r.t); r.q = s.q; r.w = s.w; r.t = t; }
     return r.q;
