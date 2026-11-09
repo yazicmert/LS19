@@ -130,7 +130,7 @@ body.cine-on #view { cursor: none; }
   .cine-hint { left: 24px; max-width: calc(100vw - 150px); font-size: 10px; }
   .cine-exit { right: 16px; }
   .cine-mute { right: 98px; }
-  .cine-cue { right: 24px; left: 24px; max-width: none; top: calc(var(--bar) + 40px); bottom: auto; font-size: 10px; letter-spacing: 0.16em; }
+  .cine-cue { right: 24px; left: 24px; max-width: none; top: calc(var(--bar) + 58px); bottom: auto; font-size: 10px; letter-spacing: 0.16em; }
 }
 
 /* kısa ekran (yatay telefon): başlıklar yüksekliğe göre ölçeklenir, kartlar sıkılaşır */
