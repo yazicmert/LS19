@@ -172,7 +172,8 @@ export class Mission {
     if (this.halo) {
       this.plan.push({ key: 'NRI', name: 'Halo girişi (NRI)', t: ARRIVAL.t_P - 60 });
       this.skTimes().forEach((sk, i) => this.plan.push({ key: 'SK-' + (i + 1), name: `İstasyon tutma ${i + 1}`, t: sk.t }));
-      this.plan.push({ key: 'DEP', name: "Halo'dan ayrılış", t: design.DEP.t - 90 }, { key: 'LOI', name: 'LLO girişi', t: design.LLO.tP - 84 });
+      this.plan.push({ key: 'DEP', name: "Halo'dan ayrılış", t: design.DEP.t - 90 }, ...this.tcmTimes().map((c, i) => ({ key: c.key, name: `Transfer düzeltmesi ${i + 1}`, t: c.t })),
+        { key: 'LOI', name: 'LLO girişi', t: design.LLO.tP - 84 });
     } else this.plan.push({ key: 'LOI', name: 'LOI', t: ARRIVAL.t_P - 84 });
     // SEP2 zamanı yaklaşıktır: alçalış yayında hSep irtifasına ulaşma, profile göre PDI'dan ~140–240 s önce
     this.plan.push({ key: 'DOI', name: 'DOI', t: design.t_L - 1620 - 395 - 0.5 * Pl + 60 }, ...(design.SEP2 ? [{ key: 'SEP2', name: 'Ay yörünge kademesi ayrılır', t: design.t_L - 2015 - 200 }] : []), { key: 'PDI', name: 'PDI', t: design.t_L - 2015 },
@@ -391,6 +392,19 @@ export class Mission {
     const dv0 = D.DEP.dv, tb = burnTime(this.veh, norm(dv0));
     const rP2geo = (t) => [add(D.DEP.rP2, E.moonPos(D.LLO.tP)), add(D.DEP.vP2, E.moonVel(D.LLO.tP))];
     yield* this.mcc(D.DEP.t - tb / 2, D.LLO.tP, rP2geo, 'DEP', 'pos', 0, 'TRANSFER', 'DEP', dv0);
+    // DEP → LLO transferinde rota düzeltmeleri (TCM): ayrılış yakışının hatası (ör. 0,7 m/s) 3,5 günde perilünü ±50 km kaydırır, 2,5 m/s Ay'a çarptırır.
+    // Her biri aynı LLO varış noktasını (konum + zaman) hedefler; gereken Δv eşiğin altındaysa yakılmaz (Artemis II ilk dış yol düzeltmesini rota zaten doğru olduğu için iptal etti).
+    for (const c of this.tcmTimes()) yield* this.mcc(c.t, D.LLO.tP, rP2geo, c.key, 'pos', c.min, 'TRANSFER');
+  }
+  // DEP → LLO düzeltme zamanları: DEP + 12 sa, LLO − 12 sa, LLO − 5 sa; eşikler 0,05 / 0,05 / 0,1 m/s (v). Kısa transferde birbirine 6 sa'ten yakın olanlar düşer.
+  tcmTimes() {
+    const D = this.D; if (!this.halo || !D.DEP || !D.LLO) return [];
+    const H = 3600, t0 = D.DEP.t, t1 = D.LLO.tP, out = [];
+    for (const [t, min] of [[t0 + 12 * H, 0.05], [t1 - 12 * H, 0.05], [t1 - 5 * H, 0.1]]) {
+      if (t < t0 + 2 * H || t > t1 - 3 * H || (out.length && t < out[out.length - 1].t + 6 * H)) continue;
+      out.push({ t, min });
+    }
+    return out.map((c, i) => ({ ...c, key: 'TCM-' + (i + 1) }));
   }
 
   // etkin kademeyi ayır (sonraki kademe varsa): TLI kademesi TLI'dan 30 dk sonra; iki kademeli inişte Ay yörünge kademesi PDI'dan önce

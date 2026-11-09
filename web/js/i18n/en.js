@@ -1152,6 +1152,7 @@ const dict = {
   "TLI ateşleme": "TLI ignition",
   "TLI kademesi ayrılır": "TLI stage separates",
   "İstasyon tutma {0}": "Station keeping {0}",
+  "Transfer düzeltmesi {0}": "Transfer correction {0}",
   "Ay yörünge kademesi ayrılır": "Lunar orbit stage separates",
   "Yörüngeye giriş (fırlatma {0}, {1}, azimut {2}°) — {3} km park yörüngesi": "Orbit insertion (launch {0}, {1}, azimuth {2}°) — {3} km parking orbit",
   "Yörünge yükseltme {0}/{1}: {2} s, hedef apoje ~{3} km": "Orbit raising {0}/{1}: {2} s, target apogee ~{3} km",
