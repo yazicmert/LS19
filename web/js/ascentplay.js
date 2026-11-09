@@ -13,6 +13,7 @@ import { fmt } from './format.js';
 import { launchHour } from './weather.js';
 import { isEn } from './i18n.js';
 import { cloudState, wxSummary } from './clouds.js';
+import { padKey } from './padmodels.js';
 
 // (0,0,1) → d döndüren birim kuaterniyon [x, y, z, w]
 function quatZto(d) {
@@ -122,7 +123,7 @@ export class AscentPlayer {
     this.warp = 1; this.userWarp = this.quiet; this.camUser = 'auto';
     // kalkıştaki alev: birinci kademenin yakıtı (Saturn V S-IC, Falcon: gazyağı; SLS, Vulcan: katı iticiler baskın)
     // rampa: SLS'te NASA Mobile Launcher, diğerlerinde beton platform; çevresi Sentinel-2 görüntüsü
-    await this.world.setAscent({ lv: A.lv, prop: { saturnv: 'kerolox', f9: 'kerolox', fh: 'kerolox', generic: 'kerolox', sls: 'solid', vulcan: 'solid' }[A.lv] || 'kerolox', pad: A.lv === 'sls' ? 'ml' : 'concrete', site });
+    await this.world.setAscent({ lv: A.lv, prop: { saturnv: 'kerolox', f9: 'kerolox', fh: 'kerolox', generic: 'kerolox', sls: 'solid', vulcan: 'solid' }[A.lv] || 'kerolox', pad: A.lv === 'sls' ? 'ml' : 'concrete', padKey: padKey(L.site || rk.pad), site });
     this.debris = []; this.done = new Set(); this.prevCut = 0; this.hiddenNow = [];
     this.active = true; this.lastEv = null; this.qShown = false; this.buildTele();      // model yüklendikten sonra oynamaya başla
     if (!this.quiet) {

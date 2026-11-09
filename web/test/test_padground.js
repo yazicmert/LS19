@@ -2,6 +2,10 @@
 //  Mercator koordinatı ve karo penceresi (bilinen karo), büyük daire varış noktası (uzaklık ve azimut geri hesapla), Terrarium çözme, çift doğrusal örnekleme,
 //  yer tutucu ayıklama, üstel köşe aralığı, ızgara (eğrilik, düz rampa çevresi, Mercator kayması ↔ seviye dönüşümü).
 import * as P from '../js/padground.js';
+import * as PM from '../js/padmodels.js';
+import { register } from 'node:module';
+register('./importmap_loader.mjs', import.meta.url);
+const THREE = await import('three'), { mergeGeometries } = await import('three/addons/utils/BufferGeometryUtils.js');
 
 let fail = 0;
 const check = (name, ok, detail = '') => { console.log(`${ok ? 'TAMAM' : 'HATA '} ${name}${detail ? ' — ' + detail : ''}`); if (!ok) fail++; };
@@ -74,5 +78,24 @@ const G3 = P.buildGround({ lat: 9.05, lon: 167.74, nSeg: 32, rMax: 1.65e6 });
 let maxJump = 0; for (let j = 0; j < 33; j++) for (let i = 0; i < 32; i++) maxJump = Math.max(maxJump, Math.abs(G3.mxy[(j * 33 + i + 1) * 2] - G3.mxy[(j * 33 + i) * 2]));
 check('180. meridyeni aşan ızgarada Mercator kayması sürekli', maxJump < 2 ** 18 * 0.2, `en büyük sıçrama ${maxJump.toFixed(0)} karo`);
 
+// rampa yapıları (padmodels.js)
+{
+  const k = ['Kennedy Uzay Merkezi LC-39B (28.6271°N, 80.6210°W)', 'KSC LC-39A', 'CCSFS SLC-40', 'Cape Canaveral SLC-41', 'Baikonur Site 1/5'].map(PM.padKey);
+  check('rampa adı tanınır (LC-39A/B, SLC-40/41; diğerleri genel)', k.join() === 'LC-39B,LC-39A,SLC-40,SLC-41,generic', k.join());
+  const A = PM.padLayout('LC-39A'), B = PM.padLayout('LC-39B'), Bml = PM.padLayout('LC-39B', { ml: true });
+  const fss = A.find((p) => p.type === 'lattice'), lm = A.find((p) => p.type === 'mast' && p.y0), tr = A.find((p) => p.type === 'trench'), wt = A.find((p) => p.type === 'water');
+  check('LC-39A: FSS 75 m, yıldırım direğiyle 106 m; hendek 137 × 17,7 m; su kulesi 88 m [NASA KSC]', Math.abs(fss.h - 75.3) < 0.2 && Math.abs(lm.y0 + lm.h - 105.8) < 0.2 && Math.abs(tr.len - 137.2) < 0.2 && Math.abs(tr.w - 17.7) < 0.1 && Math.abs(wt.h - 88.4) < 0.2,
+    `FSS ${fss.h.toFixed(1)} m, direk tepesi ${(lm.y0 + lm.h).toFixed(1)} m, hendek ${tr.len.toFixed(1)} × ${tr.w.toFixed(1)} m, su kulesi ${wt.h.toFixed(1)} m`);
+  const m3 = B.filter((p) => p.type === 'mast'), w3 = B.filter((p) => p.type === 'wire');
+  check('LC-39B: üç 183 m yıldırım kulesi ve aralarında üç katener tel; Mobile Launcher varken hendek çizilmez', m3.length === 3 && m3.every((m) => Math.abs(m.h - 182.9) < 0.2) && w3.length === 3 && B.some((p) => p.type === 'trench') && !Bml.some((p) => p.type === 'trench'));
+  const all = ['LC-39A', 'LC-39B', 'SLC-40', 'SLC-41', 'generic'].map((key) => [key, PM.padLayout(key)]);
+  const fin = all.every(([, L]) => L.every((p) => Object.values(p).flat(2).every((v) => typeof v !== 'number' || Number.isFinite(v))));
+  const clear = all.every(([, L]) => L.filter((p) => p.type === 'lattice' || p.type === 'mast' || p.type === 'water' || p.type === 'box').every((p) => Math.hypot(p.x, p.z) - (p.w || 0) / 2 > 12));   // roketten (orijin) uzakta
+  const vif = PM.padLayout('SLC-41').find((p) => p.type === 'box');
+  check('her rampada sayılar sonlu, yapılar roket ekseninden > 12 m; SLC-41 VIF 89 m, rampanın 550 m güneyinde', fin && clear && Math.abs(vif.h - 89) < 0.1 && vif.z === 550);
+  let built = true, why = '';
+  for (const [key] of all) { try { const r = PM.buildPad(THREE, mergeGeometries, key); if (!r.parts.length || r.parts.some((o) => !o.geometry)) { built = false; why += key + ' '; } } catch (e) { built = false; why += `${key}: ${e.message} `; } }
+  check('her rampa three.js ile kurulur (birleştirilmiş kafes, tel, su kulesi)', built, why);
+}
 console.log(fail ? `\n${fail} HATA` : '\nTüm denetimler geçti');
 process.exit(fail ? 1 : 0);

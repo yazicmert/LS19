@@ -5,6 +5,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { makeLaunchVehicle } from './rocketmodels.js';
 import { LaunchSmoke } from './launchfx.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { buildPad } from './padmodels.js';
 import { CloudLayers, hazeLength, sunDim as cloudSunDim } from './clouds.js';
 import { PadGround, R_M } from './padground.js';
 import { Google3D, g3dSettings, g3dUsable } from './google3d.js';
@@ -66,13 +68,9 @@ export class AscentView {
       const ml = await glb('ml', 'models/rockets/ml.glb');
       // Mobile Launcher: roket ekseni modelde (−7,8; 16; 1,4) m — platform üstü yere oturur (kaideler gösterilmez)
       if (ml) { const m = ml.clone(true); m.position.set(7.77, -16, -1.41); pad.add(m); }
-    } else {
-      // beton (üstü zemin görüntüsünün 0,15 m üstünde: padground.js zemini rampa düzeyinden 0,25 m yukarıda) ve alev çukuru
-      const conc = new THREE.Mesh(new THREE.BoxGeometry(60, 2.4, 60), new THREE.MeshLambertMaterial({ color: 0x9a978f })); conc.position.y = -0.8; pad.add(conc);
-      const trench = new THREE.Mesh(new THREE.BoxGeometry(12, 2.2, 40), new THREE.MeshLambertMaterial({ color: 0x3a3936 })); trench.position.set(0, -0.55, 14); pad.add(trench);
-      padProps.push(conc, trench);
-      for (const [x, z] of [[-26, -26], [26, 26]]) { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 1.0, 90, 8), new THREE.MeshLambertMaterial({ color: 0xb8b6b0 })); t.position.set(x, 45, z); pad.add(t); padProps.push(t); }   // yıldırım direkleri
     }
+    // rampa yapıları (padmodels.js; rampaya göre: servis kulesi, alev hendeği, yıldırım kuleleri ve telleri, su kulesi, VIF): Google 3B karolar varken gizlenir
+    { const B = buildPad(THREE, mergeGeometries, spec.padKey || 'generic', { ml: spec.pad === 'ml' }); pad.add(B.group); padProps.push(...B.parts); }
     const len = new THREE.Box3().setFromObject(template).getSize(new THREE.Vector3()).y;      // roket boyu (m, +Y): kalkış kamerasının kadrajı
     const radius = { saturnv: 5.05, sls: 4.2, fh: 1.83, f9: 1.83, vulcan: 2.7 }[spec.lv] || 2.0;     // gövde yarıçapı (m): araç üstü kameranın yeri
     const big = spec.lv === 'saturnv' || spec.lv === 'sls' || spec.lv === 'fh';
