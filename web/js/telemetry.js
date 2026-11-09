@@ -12,7 +12,7 @@
 //   İtki/ağırlık  azami itki ÷ (kütle × baskın cismin o yarıçaptaki μ/r²).
 //   Özgül kuvvet  itki ÷ kütle (yerçekimi dışı ivme): mürettebatın hissedeceği ivme; birimi g₀ = 9,80665 m/s².
 import * as E from './engine.js';
-import { OMEGA_E, WGS84_F, geodetic as geodeticG } from './geo.js';
+import { OMEGA_E, WGS84_A, WGS84_F, geodetic as geodeticG } from './geo.js';
 import { dvKeys } from './dvbudget.js';
 import { massProps, stageSpec } from './rigidbody.js';
 import { CTL } from './attctl.js';
@@ -22,6 +22,7 @@ const { add, sub, scale, dot, cross, norm, unit } = E;
 const C_LIGHT = 299792.458;                 // ışık hızı, km/s
 export const OMEGA_EARTH = OMEGA_E;               // Dünya'nın yıldız dönme hızı, rad/s (geo.js)
 export const F_EARTH = WGS84_F;                    // WGS-84 basıklığı (geo.js)
+export const A_EARTH = WGS84_A;                    // WGS-84 ekvator yarıçapı, km (jeodezik irtifa bununla; E.R_E = 6378,1363 km çekim modelinin yarıçapıdır, 0,7 m farklı)
 export const R_SUN = 695700.0;                     // Güneş yarıçapı, km (IAU 2015)
 const TWO_PI = 2 * Math.PI;
 export const LIMITS = { vz: 3.0, vh: 1.22 };        // temas sınırları, m/s (görev başarı ölçütü: mission.js touchdown)
@@ -32,7 +33,7 @@ const mod = (x, m) => ((x % m) + m) % m;
 // ------------------------------------------------------------------ yer ölçüleri
 // Merkez cisme göre konumdan jeodezik enlem ve elipsoid üstü yükseklik (km). pole: dönme ekseni (birim), a: ekvator yarıçapı, f: basıklık.
 // Sabit nokta yinelemesi (Bowring); kutupta ve kutuptan uzakta (Ay mesafesi dahil) yakınsar.
-export const geodetic = (r, pole, a = E.R_E, f = F_EARTH) => geodeticG(r, pole, a, f);     // geo.js (Bowring yinelemesi)
+export const geodetic = (r, pole, a = A_EARTH, f = F_EARTH) => geodeticG(r, pole, a, f);     // geo.js (Bowring yinelemesi)
 
 // Cismin gövdeye bağlı eksenleri (satırlar, ICRF bileşenleri; x,y,z) ve dönme vektörü ω (rad/s, ICRF).
 // Dünya: ITRS (Greenwich), Ay: ortalama yer/dönme ekseni (ME). Ay'ın ω'sı yönelim matrisinin türevidir (serbest dönme + libration).

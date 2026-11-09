@@ -10,6 +10,7 @@ import { fmt, fmtDur } from './format.js';
 
 import { ellipsoidAlt } from './geo.js';
 import { linkState, shadowAt, envAt, stationById, NET_NAME, HANDOVER_KM } from './groundnet.js';
+import { LANDING_PHASES } from './telemetry.js';
 import { $, setText, setWidth, utcShort } from './uiutil.js';
 import { mixin } from './mixin.js';
 import { PickCard } from './pickcard.js';
@@ -343,11 +344,12 @@ export class UI {
     for (const q of points) {
       const rm = E.moonPos(q.t), rsv = E.sub(q.r, rm), rs = E.norm(rsv), nearM = rs < E.MOON_ZONE;
       let alt, vv;
+      // Ay: ortalama yarıçapa göre (Ay yörüngesi panel ve günlükle aynı); motorlu inişte (q.ph: PDI → temas) iniş yeri yüzeyine göre ve yüzeye göre hız
       if (nearM) {
-        const vs = E.sub(q.v, E.moonVel(q.t));
-        alt = rs - R_SITE;
-        vv = alt < 50 ? E.norm(E.sub(vs, E.cross(E.omegaMoon(q.t), rsv))) : E.norm(vs);
-      } else { alt = ellipsoidAlt(q.r); vv = E.norm(q.v); }
+        const vs = E.sub(q.v, E.moonVel(q.t)), powered = LANDING_PHASES.has(q.ph);
+        alt = powered ? rs - R_SITE : rs - E.R_M;
+        vv = powered ? E.norm(E.sub(vs, E.cross(E.omegaMoon(q.t), rsv))) : E.norm(vs);
+      } else { alt = ellipsoidAlt(q.r, E.earthIcrfToItrf(q.t)[2]); vv = E.norm(q.v); }
       this.series.t.push((q.t - this.tLaunch) / 3600); this.series.alt.push(Math.max(alt, 0.001)); this.series.spd.push(vv);
     }
     if (this.series.t.length > 8000) for (const k of ['t', 'alt', 'spd']) this.series[k].splice(0, 2000);
@@ -390,15 +392,17 @@ export class UI {
     setText(H.utc, E.utcString(t).replace(/ UTC$/, ''));                                    // başlık zaten "UTC"
     setText(H.met, met < 0 ? 'T−' + fmtDur(-met) : 'T+' + fmtDur(met));
     setText(H.phase, this.phaseLabel(s.phase));
-    // Dünya: WGS-84 elipsoidine göre (yaklaşık), Ay: iniş yakınında iniş yeri yüzeyine, değilse ortalama yarıçapa göre
-    let alt = s.altKm != null ? s.altKm : nearM ? (s.local ? s.local.p[2] : rs - E.R_M) : ellipsoidAlt(s.r);          // altKm: kalkış canlandırmasının WGS-84 irtifası (yaklaşık formül rampada ~12 m sapar)
+    // irtifa: Dünya'da WGS-84 elipsoidine göre (gerçek kutupla: ICRF z alınsaydı ~40 m sapardı), Ay'da ortalama yarıçapa (1737,4 km) göre — kontrol paneli, grafik ve
+    // günlükle aynı tanım; yalnız motorlu inişte (PDI → temas) iniş yeri yüzeyine göre. altKm: kalkış canlandırmasının (aynı tanımla) irtifası
+    const powered = nearM && !!s.local && LANDING_PHASES.has(s.phase);
+    let alt = s.altKm != null ? s.altKm : nearM ? (powered ? s.local.p[2] : rs - E.R_M) : ellipsoidAlt(s.r, E.earthIcrfToItrf(t)[2]);
     if (Math.abs(alt) < 5e-5) alt = 0;                          // yüzeyde "−0,0 m" görünmesin
-    const surf = nearM && s.local && s.local.p[2] < 50;
+    const surf = powered && s.local.p[2] < 50;
     const vRelVec = nearM ? E.sub(s.v, E.moonVel(t)) : s.v;
-    // kalkış canlandırması (s.asc): yere göre hız (Dünya ile dönen çerçeve; alttaki bantla aynı) — rampada 0; eylemsiz hız Florida'da dönüşten ~0,41 km/s olurdu
+    // kalkış canlandırması (s.asc): birincil yere göre hız (Dünya ile dönen çerçeve; alttaki bantla aynı) — rampada 0; eylemsiz hız ayrıca yazılır (ascentplay.js)
     const A = s.asc, vRel = A ? A.spd : surf ? E.norm(s.local.v) : E.norm(vRelVec);
-    setText(H.altRef, nearM ? (s.local ? 'iniş yerine göre' : "Ay'a göre") : "Dünya'ya göre");
-    setText(H.spdRef, A ? 'yere göre' : surf ? 'yüzeye göre' : nearM ? "Ay'a göre" : "Dünya'ya göre");
+    setText(H.altRef, nearM ? (powered ? 'iniş yerine göre' : 'Ay ort. yarıçapı') : 'WGS-84');
+    setText(H.spdRef, A ? 'yere göre' : surf ? 'yüzeye göre' : nearM ? "Ay'a göre, eylemsiz" : "Dünya'ya göre, eylemsiz");
     setText(H.alt, alt > 100 ? fmt(alt, 0) + ' km' : alt > 2 ? fmt(alt, 2) + ' km' : fmt(alt * 1000, 1) + ' m');
     setText(H.spd, vRel > 0.1 ? fmt(vRel, 3) + ' km/s' : fmt(vRel * 1000, 2) + ' m/s');
     if (s.local && s.local.p[2] < 20) {

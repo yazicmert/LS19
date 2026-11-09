@@ -203,9 +203,10 @@ export class ControlPanel {
       this.el.alerts.hidden = !al.length;
     }
     // ana göstergeler
-    const C = this.cards, onSite = tel.isMoon && tel.altSite != null && tel.alt < 300, altV = onSite ? tel.altSite : tel.alt;
+    // irtifa kartı HUD ile aynı tanım: Ay'da ortalama yarıçap, yalnız motorlu inişte (PDI → temas) iniş yeri yüzeyi
+    const C = this.cards, onSite = tel.isMoon && tel.altSite != null && T.LANDING_PHASES.has(s.phase), altV = onSite ? tel.altSite : tel.alt;
     setBig(C.alt.v, km(altV)); setText(C.alt.s, tel.isMoon ? (onSite ? 'iniş yeri yüzeyine göre' : 'Ay ortalama yarıçapına göre') : 'WGS-84 elipsoidine göre');
-    const surf = tel.isMoon && tel.altSite != null && tel.altSite < 50;           // HUD gibi: yüzeye göre hız yalnız iniş yerinin yakınında birincil
+    const surf = onSite && tel.altSite < 50;                                       // HUD gibi: yüzeye göre hız yalnız motorlu inişte, iniş yerinin yakınında birincil
     setBig(C.spd.v, spd(surf ? tel.vRel : tel.v)); setText(C.spd.s, surf ? 'yüzeye göre' : `${tel.body} merkezine göre, eylemsiz`);
     setBig(C.vz.v, (tel.vr < 0 ? '↓ ' : tel.vr > 0 ? '↑ ' : '') + spd(Math.abs(tel.vr))); setText(C.vz.s, `yatay ${spd(surf ? tel.vRelH : tel.vt)}`);
     C.vz.c.classList.toggle('bad', risk);

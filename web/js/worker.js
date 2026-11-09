@@ -53,7 +53,7 @@ function sampleTrail() {
   const p = nearM ? rs : h.r, step = nearM ? Math.max(0.5, E.norm(rs) * 0.004) : Math.max(2, E.norm(h.r) * 0.003);
   const dtLog = Math.max(1, 0.003 * (h.t - M.t0));          // grafikler için log-zaman örneklemesi
   if (!trailLast || trailLast.c !== nearM || E.norm(E.sub(p, trailLast.p)) > step || h.t - trailLast.t > dtLog) {
-    trailPending.push({ t: h.t, r: h.r, v: h.v, thr: h.thr }); trailLast = { p, c: nearM, t: h.t };
+    trailPending.push({ t: h.t, r: h.r, v: h.v, thr: h.thr, ph: h.phase }); trailLast = { p, c: nearM, t: h.t };          // ph: grafik irtifa tanımı (motorlu inişte iniş yeri)
   }
 }
 // ------------------------------------------------------------------ gösterim olayları (fizik değil): iletişim ve gölge (groundnet.js)
