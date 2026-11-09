@@ -46,6 +46,14 @@ check('beklenmeyen gölgelendiricide yama yapılmaz', G.patchShader({ vertexShad
 
 // ayarlar (Node'da bellekte)
 let s = G.saveG3dSettings({ key: '  AIzaTEST  ', on: true });
+{ // kendi kurulumun sunucu anahtarı (Docker: LS19_GOOGLE_3D_KEY → /api/yapilandirma)
+  G.clearG3dSettings();
+  G.setServerG3dKey('SRV'); const a = G.g3dSettings();
+  G.saveG3dSettings({ key: 'OWN' }); const b = G.g3dSettings();
+  G.saveG3dSettings({ key: '', on: false }); const c = G.g3dSettings();
+  G.setServerG3dKey(''); G.clearG3dSettings();
+  check('sunucu anahtarı: verilince katman kendiliğinden açık (server); tarayıcıda girilen anahtar öncelikli; açıkça kapatılınca kapalı kalır', a.key === 'SRV' && a.on && a.server && G.g3dUsable(a) && b.key === 'OWN' && !b.server && !c.on && !G.g3dUsable(c), JSON.stringify({ a, b, c }));
+}
 check('özellik bayrağı açık; katman yalnız anahtar (ya da adres) girilip açılınca başlar, bayrak kapalıyken hiç başlamaz', G.G3D_ENABLED === true && G.g3dUsable({ on: true, key: 'x', url: '' }) && !G.g3dUsable({ on: false, key: 'x', url: '' }) && !G.g3dUsable({ on: true, key: '', url: '' }) && !G.g3dUsable({ on: true, key: 'x', url: '' }, false));
 check('ayar: anahtar kırpılır, açık (bayrak açıkken kullanılır)', s.key === 'AIzaTEST' && s.on && G.g3dUsable(s, true));
 s = G.saveG3dSettings({ key: '', on: false });

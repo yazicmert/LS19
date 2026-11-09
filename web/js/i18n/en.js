@@ -554,6 +554,10 @@ const dict = {
   "YÖRÜNGEDE": "IN ORBIT",
   "Park yörüngesi · {0} km · {1} km/s": "Parking orbit · {0} km · {1} km/s",
   "KALKIŞ": "LAUNCH",
+  "MVT: bilinmeyen tel türü {0}": "MVT: unknown wire type {0}",
+  "© OpenStreetMap katkıcıları · OpenFreeMap": "© OpenStreetMap contributors · OpenFreeMap",
+  "Sunucunun anahtarı kullanılıyor (LS19_GOOGLE_3D_KEY)": "Using the server's key (LS19_GOOGLE_3D_KEY)",
+  "istek sınırı": "request limit",
   "Hava verisi yok ({0}): açık hava": "No weather data ({0}): clear sky",
   "alçak bulut {0}": "low cloud {0}",
   "orta bulut {0}": "mid cloud {0}",
@@ -2195,6 +2199,7 @@ export const manual = {
 // Kaynakta Türkçe gibi görünen ama çevrilmeyecek metinler (ad, kısaltma, bağlantı): çıkarıcı bulur, sözlüğe girmez.
 export const same = [
  "AIza…",
+ "api/yapilandirma",
  "en-US",
  "GENEL",
  "models/ast/katalog.json",

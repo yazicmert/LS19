@@ -7,6 +7,7 @@ import { makeLaunchVehicle } from './rocketmodels.js';
 import { LaunchSmoke } from './launchfx.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildPad } from './padmodels.js';
+import { OsmBuildings } from './osmbuildings.js';
 import { CloudLayers, hazeLength, sunDim as cloudSunDim } from './clouds.js';
 import { PadGround, R_M } from './padground.js';
 import { Google3D, g3dSettings, g3dUsable } from './google3d.js';
@@ -30,7 +31,7 @@ export class AscentView {
   // olanlar (booster, fairing, las) gizlenir. null: kalkış biter, araç geri gelir.
   async setAscent(spec) {
     const veh = this.vehicle;
-    if (this.asc) { veh.remove(this.asc.root); if (this.asc.smoke) this.asc.smoke.dispose(); if (this.asc.ground) this.asc.ground.dispose(); if (this.asc.clouds) this.asc.clouds.dispose(); if (this.asc.g3d) this.asc.g3d.dispose(); if (this.asc.world) { this.scene.remove(this.asc.world); this.asc.world.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); } this.asc = null; }
+    if (this.asc) { veh.remove(this.asc.root); if (this.asc.smoke) this.asc.smoke.dispose(); if (this.asc.ground) this.asc.ground.dispose(); if (this.asc.clouds) this.asc.clouds.dispose(); if (this.asc.osm) this.asc.osm.dispose(); if (this.asc.g3d) this.asc.g3d.dispose(); if (this.asc.world) { this.scene.remove(this.asc.world); this.asc.world.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); } this.asc = null; }
     for (const c of veh.children) if (c.userData.ascHidden !== undefined) { c.visible = c.userData.ascHidden; delete c.userData.ascHidden; }
     this.renderer.localClippingEnabled = false;
     if (!spec) return;
@@ -80,6 +81,11 @@ export class AscentView {
     if (spec.site) {
       const ground = this.asc.ground = new PadGround(THREE, pad, spec.site, { onProgress: (G) => { if (this.asc && this.asc.ground === G) this.asc.credit = G.credit(); } });
       ground.load();
+      // açık veri 3B binalar (anahtarsız; herkese açık sitenin varsayılanı): OSM binaları OpenFreeMap karolarından; rampa çevresinde yeterince yapı varsa
+      // prosedürel kuleler gizlenir (gerçek yapılar OSM'de), yoksa kalır. Google 3B karolar açıkken bu katman da gizlenir.
+      const A = this.asc;
+      A.osm = new OsmBuildings(THREE, pad, spec.site, { onReady: (O) => { if (this.asc === A) { A.osmPad = O.nearPad() >= 3; A.creditT = 0; } } });
+      A.osm.load();
       if (g3dUsable()) this.setGoogle3D(true);                                          // isteğe bağlı: rampa çevresi Google 3B karolarıyla (google3d.js)
     }
     this.asc.clouds = new CloudLayers(THREE, pad);                                    // gerçek hava (setAscentWeather): veri gelene dek açık hava
@@ -181,11 +187,18 @@ export class AscentView {
       if (A.ground) {                                                                      // zemin: Güneş, kamera irtifası (pus), alevin ışığı (dünya km)
         const plume = PLUME_COL[o.prop] || PLUME_COL.kerolox, pc = plume[2], pm = Math.max(pc.r, pc.g, pc.b);
         A.ground.frame({ sunDir: o.sunDir, sunUp: o.sunUp, h: camH, plumeW: base, thr: o.thr, plumeCol: pc.clone().multiplyScalar(1 / pm) });
-        if (A.g3d) {                                                                     // Google 3B: aynı ışık/pus; hazırken zemin içeriyi boşaltır, temsilî rampa gizlenir
+        let on = false;
+        if (A.g3d) {                                                                     // Google 3B: aynı ışık/pus; hazırken zemin içeriyi boşaltır, temsilî rampa ve OSM binaları gizlenir
           A.g3d.frame(A.ground.u, camH);
-          const on = A.g3d.ready && A.g3d.visible; A.ground.u.holeR.value = on ? A.g3d.radiusM * 0.985 : 0;
-          for (const p of A.padProps) if (p.visible === on) p.visible = !on;
-          const now = performance.now(); if (!A.creditT || now - A.creditT > 1000) { A.creditT = now; const g = A.g3d.attribution(); A.credit = A.ground.credit() + (g ? ' · ' + g : ''); }
+          on = A.g3d.ready && A.g3d.visible; A.ground.u.holeR.value = on ? A.g3d.radiusM * 0.985 : 0;
+        }
+        // görünürlük: rampa zemini/hendek Google yokken; prosedürel kuleler OSM'de rampa yapıları yoksa (osmPad) ve Google yokken; OSM binaları Google yokken
+        for (const p of A.padProps) { const v = !on && !(A.osmPad && p.userData.kind === 'struct'); if (p.visible !== v) p.visible = v; }
+        if (A.osm) A.osm.visible = !on;
+        const now = performance.now();
+        if (!A.creditT || now - A.creditT > 1000) {                                      // atıf: zemin görüntüsü + görünen 3B katman (OSM ya da Google)
+          A.creditT = now; const g = on ? A.g3d.attribution() : A.osm ? A.osm.credit() : '';
+          A.credit = [A.ground.credit(), g].filter(Boolean).join(' · ');
         }
       }
       if (A.clouds) { const cm2 = new THREE.Vector3().applyMatrix4(A.pad.matrix.clone().invert()); A.clouds.frame({ sunUp: o.sunUp, cam: [cm2.x, cm2.y, cm2.z], dt: o.dtFlight ?? 0 }); }   // bulut katmanları: kamera rampa çerçevesinde (m)

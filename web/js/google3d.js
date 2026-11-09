@@ -68,13 +68,25 @@ const mem = {};
 const store = () => { try { return typeof localStorage !== 'undefined' ? localStorage : null; } catch (e) { return null; } };
 const get = (k) => { const s = store(); try { return s ? s.getItem(k) : mem[k] ?? null; } catch (e) { return mem[k] ?? null; } };
 const put = (k, v) => { const s = store(); try { if (v == null) { if (s) s.removeItem(k); delete mem[k]; } else if (s) s.setItem(k, v); else mem[k] = v; } catch (e) { mem[k] = v; } };
-export function g3dSettings() { return { key: get(KEY) || '', on: get(ON) === '1', url: get(URL_KEY) || '' }; }
+// kendi kurulumun sunucusu (Docker: LS19_GOOGLE_3D_KEY → /api/yapilandirma) bir anahtar verebilir; tarayıcıda girilen anahtar önceliklidir.
+// Sunucu anahtarı varken katman, kullanıcı açıkça kapatmadıkça (ON = '0') açıktır. Herkese açık dağıtımda uç yoktur: anahtar yok, OSM binaları kullanılır.
+const SERVER = { key: '' };
+export async function loadServerG3d(fetchFn = (u) => fetch(u)) {
+  try { const r = await fetchFn('api/yapilandirma'); if (!r.ok) return false; const j = await r.json(); SERVER.key = typeof j.g3dKey === 'string' ? j.g3dKey.trim() : ''; } catch (e) { SERVER.key = ''; }
+  return !!SERVER.key;
+}
+export const setServerG3dKey = (k) => { SERVER.key = k || ''; };                // testler için
+export function g3dSettings() {
+  const own = get(KEY) || '', on = get(ON);
+  return { key: own || SERVER.key, on: on === '1' || (on == null && !own && !!SERVER.key), url: get(URL_KEY) || '', server: !own && !!SERVER.key };
+}
 export function saveG3dSettings({ key, on, url } = {}) {
   if (key !== undefined) put(KEY, key ? String(key).trim() : null);
-  if (on !== undefined) put(ON, on ? '1' : null);
+  if (on !== undefined) put(ON, on ? '1' : '0');                                // '0': açıkça kapatıldı (sunucu anahtarı varken de kapalı kalır)
   if (url !== undefined) put(URL_KEY, url ? String(url).trim() : null);
   return g3dSettings();
 }
+export function clearG3dSettings() { put(KEY, null); put(ON, null); put(URL_KEY, null); }      // tüm ayarlar silinir (testler; "Anahtarı sil" değil)
 export const g3dUsable = (s = g3dSettings(), enabled = G3D_ENABLED) => enabled && s.on && !!(s.key || s.url);
 
 // ---------------------------------------------------------------- tarayıcı tarafı

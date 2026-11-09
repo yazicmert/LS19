@@ -138,7 +138,7 @@ export class AscentPlayer {
     if (tMs != null) launchHour(site.lat, site.lon, tMs).then((r) => {
       if (!this.active) return;
       const c = cloudState(r.h); if (this.world.setAscentWeather) this.world.setAscentWeather(c);
-      setTimeout(() => { if (this.active) this.flash(r.h ? wxSummary(c, isEn) : `Hava verisi yok (${r.why}): açık hava`, 4500); }, 5200);
+      setTimeout(() => { if (this.active) this.flash(r.h ? wxSummary(c, isEn) : `Hava verisi yok (${/limit|429/i.test(r.why || '') ? 'istek sınırı' : String(r.why || '').slice(0, 40)}): açık hava`, 4500); }, 5200);
     });
     return true;
   }

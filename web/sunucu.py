@@ -12,6 +12,8 @@
 #   /api/launches                 fırlatma kataloğu: yaklaşan 30 + son 20 (The Space Devs Launch Library 2; yedek RocketLaunch.Live) — 30 dk
 #   /api/surum                    kaynak sürümleri: tarayıcı 10 dakikada bir sorar, değişen katmanı yeniden yükler
 #   /api/durum                    sunucu ve önbellek bilgisi
+#   /api/yapilandirma             kendi kurulumun ayarları: Google 3B karolar anahtarı (LS19_GOOGLE_3D_KEY; yalnız tanımlıysa döner — herkese açık
+#                                 sunucuda tanımlamayın: anahtar her ziyaretçinin tarayıcısına gider, Google karoları zaten tarayıcıdan ister)
 # Arka planda 10 dakikada bir denetim: süresi dolan kaynak (CelesTrak 2 sa, SBDB/Sentry 24 sa, fırlatmalar 30 dk) önceden yenilenir.
 # Yalnız Python standart kütüphanesi. Kullanım: python3 sunucu.py   (LS19_PORT ile farklı kapı; LS19_HOST ile dinlenen adres,
 # varsayılan 127.0.0.1 yalnız bu bilgisayar — Docker kapsayıcısında 0.0.0.0, kapıyı dışarıya compose.yaml yine yalnız 127.0.0.1'e açar)
@@ -641,6 +643,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return self.send_json(200, horizons(cmd, start, stop, step))
             if u.path == '/api/surum':
                 return self.send_json(200, versions())
+            if u.path == '/api/yapilandirma':
+                key = os.environ.get('LS19_GOOGLE_3D_KEY', '').strip()
+                return self.send_json(200, {'g3dKey': key} if key else {})
             if u.path == '/api/durum':
                 return self.send_json(200, {'sunucu': 'LS19', 'onbellek': sorted(os.listdir(CACHE)), **versions()})
         except Exception as e:

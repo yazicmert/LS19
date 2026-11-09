@@ -3,6 +3,9 @@
 //  yer tutucu ayıklama, üstel köşe aralığı, ızgara (eğrilik, düz rampa çevresi, Mercator kayması ↔ seviye dönüşümü).
 import * as P from '../js/padground.js';
 import * as PM from '../js/padmodels.js';
+import * as OB from '../js/osmbuildings.js';
+import { decodeTile } from '../js/mvt.js';
+import fs from 'node:fs';
 import { register } from 'node:module';
 register('./importmap_loader.mjs', import.meta.url);
 const THREE = await import('three'), { mergeGeometries } = await import('three/addons/utils/BufferGeometryUtils.js');
@@ -96,6 +99,24 @@ check('180. meridyeni aşan ızgarada Mercator kayması sürekli', maxJump < 2 *
   let built = true, why = '';
   for (const [key] of all) { try { const r = PM.buildPad(THREE, mergeGeometries, key); if (!r.parts.length || r.parts.some((o) => !o.geometry)) { built = false; why += key + ' '; } } catch (e) { built = false; why += `${key}: ${e.message} `; } }
   check('her rampa three.js ile kurulur (birleştirilmiş kafes, tel, su kulesi)', built, why);
+}
+// açık veri 3B binalar (osmbuildings.js, mvt.js): gerçek bir OpenFreeMap karosu (LC-39B, z14 4522/6831; test/fixtures)
+{
+  const site = { lat: 28.62711, lon: -80.62102 }, tile = { x: 4522, y: 6831, z: 14 };
+  const L = decodeTile(new Uint8Array(fs.readFileSync(new URL('./fixtures/osm_14_4522_6831.pbf', import.meta.url))));
+  const B = L.building, polys = OB.polygonsFromLayer(B, tile, site);
+  check('MVT çözücü: OpenMapTiles katmanları ve bina özellikleri (render_height, render_min_height)', B && B.extent === 4096 && B.features.length === 12 && 'water' in L && B.features.every((f) => Number.isFinite(f.props.render_height)), Object.keys(L).join(', '));
+  const tank = polys.find((p) => p.minH >= 80 && p.h >= 88), tall = Math.max(...polys.map((p) => p.h));
+  check('OSM binaları rampa çerçevesinde: yükseltilmiş su kulesi tankı (80–88 m) ve 147 m yapı rampanın ~150 m çevresinde; 2,5 m altı atılır',
+    !!tank && tank.d < 250 && tall === 147 && polys.every((p) => p.h >= OB.MIN_H && p.outer.length >= 3 && p.outer.every(([x, z]) => Number.isFinite(x) && Number.isFinite(z))),
+    `${polys.length} çokgen, tank ${tank ? tank.d.toFixed(0) + ' m' : '—'}, en yüksek ${tall} m`);
+  const sq = [[0, 0], [10, 0], [10, 10], [0, 10]];
+  check('halka yönü: MVT dış halkası (y aşağı, saat yönü) pozitif alan, delik negatif', OB.ringArea(sq) > 0 && OB.ringArea([...sq].reverse()) < 0);
+  const T = OB.tilesAround(site.lat, site.lon), m = 2 * Math.PI * 6378137 * Math.cos(site.lat * Math.PI / 180) / 2 ** 14;
+  check(`rampa çevresi karoları: ${OB.RADIUS_M / 1000} km yarıçapı kapsar, rampanın karosu ilk, yinelenen yok`, T[0].x === 4522 && T[0].y === 6831 && new Set(T.map((t) => t.x + '/' + t.y)).size === T.length && T.length * m * m > Math.PI * OB.RADIUS_M ** 2 * 0.9 && T.length < 90, `${T.length} karo × ${(m / 1000).toFixed(2)} km`);
+  const O = new OB.OsmBuildings(THREE, new THREE.Group(), site, { fetchFn: () => Promise.reject(new Error('ağ yok')) });
+  O.polys = polys; O.build();
+  check('binalar tek birleştirilmiş geometri (duvar + çatı + yükseltilmiş taban), köşe renkli; rampa yakınında yapı sayısı', O.mesh && O.mesh.geometry.attributes.position.count > 100 && O.mesh.geometry.attributes.color && O.nearPad() >= 3 && O.credit().includes('OpenStreetMap'), `${O.mesh ? O.mesh.geometry.attributes.position.count : 0} köşe, rampa yakını ${O.nearPad()}`);
 }
 console.log(fail ? `\n${fail} HATA` : '\nTüm denetimler geçti');
 process.exit(fail ? 1 : 0);

@@ -55,9 +55,11 @@ export function buildPad(THREE, mergeGeometries, key, opts = {}) {
   const group = new THREE.Group(), parts = [], L = padLayout(key, opts);
   const steel = new THREE.MeshLambertMaterial({ color: 0x8e9196 }), conc = new THREE.MeshLambertMaterial({ color: 0x9a978f }), dark = new THREE.MeshLambertMaterial({ color: 0x3a3936 });
   const white = new THREE.MeshLambertMaterial({ color: 0xe6e4de }), red = new THREE.MeshLambertMaterial({ color: 0xb8432f });
-  const add = (m) => { group.add(m); parts.push(m); return m; };
+  let kind = 'struct';                                                                         // 'base': rampa zemini ve hendek (OSM binaları varken de kalır)
+  const add = (m) => { m.userData.kind = kind; group.add(m); parts.push(m); return m; };
   const box = (w, h, d, x, y, z) => { const g = new THREE.BoxGeometry(w, h, d); g.translate(x, y, z); return g; };
   for (const p of L) {
+    kind = p.type === 'octagon' || p.type === 'trench' ? 'base' : 'struct';
     if (p.type === 'octagon') {
       const g = new THREE.CylinderGeometry(p.r, p.r, p.h + 1.6, 8); g.rotateY(Math.PI / 8); g.translate(0, p.h / 2 - 0.8, 0); add(new THREE.Mesh(g, conc));
     } else if (p.type === 'trench') {                                                          // hendek: koyu taban ve iki duvar (rampa yüzeyinin hemen üstünde; derinlik görünmez)
