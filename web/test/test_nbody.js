@@ -79,7 +79,8 @@ const live = () => makeLive(SPK, PCK, eo, T_START);
   runTo(plan['MCC-2'] + 60);
   leg('MCC-2 → LOI (etki küresine giriş dahil)', plan['MCC-2'] + 60, plan.LOI - 5, 2);
   // alçak Ay yörüngesi: LOI tamam → DOI öncesi
-  runTo((plan['LOI-2'] ?? plan.LOI) + 600);                                  // LOI-2 (dairesel düzeltme) varsa ondan sonra
+  // LOI-2 (dairesel düzeltme) bitene dek: zamanı yayınım seçer (GRAIL alanında plandan bir tur sonra olabilir)
+  for (let t = (plan['LOI-2'] ?? plan.LOI) + 600; !M.events.some((e) => e.key === 'LOI_END') && t < plan.DOI - 600; t += 600) runTo(t);
   const tLoiEnd = M.events.find((e) => e.key === 'LOI_END').t;
   runTo(tLoiEnd + 30);
   leg('alçak Ay yörüngesi (LOI → DOI)', tLoiEnd + 30, plan.DOI - 60, 1, 60);
@@ -117,7 +118,7 @@ const live = () => makeLive(SPK, PCK, eo, T_START);
   check('kuvvet dökümü: Güneş\'in doğrudan çekimi ~6e-3 m/s² ama etkin (bozucu) ~1e-7…1e-6 (ortak kısım Dünya\'yla düşer)', f.sun > 5e-3 && f.sun < 7e-3 && f.sunEff > 1e-7 && f.sunEff < 1e-6, `doğrudan ${f.sun.toExponential(2)}, etkin ${f.sunEff.toExponential(2)}`);
   check('kuvvet dökümü: Ay\'ın LEO\'daki gelgit etkisi ~1e-6 m/s², Ay figürü kapsam dışı', f.moonEff > 3e-7 && f.moonEff < 3e-6 && f.moonFig === 0, `${f.moonEff.toExponential(2)}, Ay figürü ${f.moonFig}`);
   const g = E.accelBreakdown(t, [rm[0] + E.R_M + 110, rm[1], rm[2]], 'N');
-  check('kuvvet dökümü: LLO\'da baskın cisim Ay (≈1,4 m/s²), Ay figürü ≈4e-4 m/s²', g.frame === 'M' && g.moon > 1.2 && g.moon < 1.7 && g.moonEff === g.moon && g.moonFig > 1e-4 && g.moonFig < 2e-3, `Ay ${g.moon.toFixed(3)}, J2/C22 ${g.moonFig.toExponential(2)}`);
+  check('kuvvet dökümü: LLO\'da baskın cisim Ay (≈1,4 m/s²), Ay figürü ≈4e-4 m/s²', g.frame === 'M' && g.moon > 1.2 && g.moon < 1.7 && g.moonEff === g.moon && g.moonFig > 1e-4 && g.moonFig < 2e-3, `Ay ${g.moon.toFixed(3)}, Ay figürü ${g.moonFig.toExponential(2)}`);
   check('kuvvet dökümü: LLO\'da Dünya\'nın etkin (gelgit) ivmesi ~3e-5 m/s² (doğrudan çekimi 2,7e-3)', g.earthEff > 5e-6 && g.earthEff < 2e-4 && g.earth > 2e-3 && g.earth < 4e-3, `doğrudan ${g.earth.toExponential(2)}, etkin ${g.earthEff.toExponential(2)}`);
   const h = E.accelBreakdown(t, E.sub(E.add(rm, [E.R_M + 110, 0, 0]), rm), 'M');
   check('kuvvet dökümü: aynı durum Ay çerçevesinde verilince aynı sonuç', Math.abs(h.moon - g.moon) < 1e-9 && Math.abs(h.earthEff - g.earthEff) < 1e-12);

@@ -1,11 +1,12 @@
 // Bağımsız N-cisim referansı (yalnız doğrulama için): motorun merkez cisim + üçüncü cisim formülünden bağımsız yazılmıştır.
 // Aracı Dünya'ya göre ofset y = x − E(t) olarak entegre eder; hareket denklemi barisentrik N-cisim denkleminden türetilir:
-//   ÿ = Σᵢ GMᵢ (Rᵢ − y)/|Rᵢ − y|³ (tüm cisimler, Dünya dahil, nokta kütle) + Dünya J2 (gerçek kutup) + Ay J2/C22 + Güneş 1PN − Ë(t)
+//   ÿ = Σᵢ GMᵢ (Rᵢ − y)/|Rᵢ − y|³ (tüm cisimler, Dünya dahil, nokta kütle) + Dünya J2 (gerçek kutup) + Ay figürü + Güneş 1PN − Ë(t)
 // Ë(t): efemerisin kendi Dünya ivmesi (DE440 başlangıçlı N-cisim entegrasyonunun hızından sayısal türev); böylece dolaylı terimler
 // motorun analitik formülüne bağlı kalmaz, efemerisle tutarlıdır (Dünya'nın J2/figür tepkisi ve 1PN dahil).
 import * as E from '../js/engine.js';
 import * as EO from '../js/earth.js';
 import { BODIES, qToMat } from '../js/ephem.js';
+import { moonHarmonic } from '../js/moongrav.js';
 
 const GM = BODIES.map((b) => b.gm), IS = 0, IE = 3, IM = 4, C2 = 299792.458 ** 2;
 const R_E = 6378.1363, J2_E = 1.0826267e-3, R_MREF = 1738.0, J2_M = 2.03213e-4, C22_M = 2.2382e-5;
@@ -27,7 +28,10 @@ export function makeRef(L, { pn = true } = {}) {
     const pole = EO.truePoleFast(E.jdTdb(t)), rn = norm(y), z = dot(y, pole), k = (1.5 * J2_E * GM[IE] * R_E * R_E) / rn ** 5, f = 5 * z * z / (rn * rn) - 1;
     a = add(a, [k * (f * y[0] - 2 * z * pole[0]), k * (f * y[1] - 2 * z * pole[1]), k * (f * y[2] - 2 * z * pole[2])]);
     const s = sub(y, Rm), sn = norm(s);
-    if (sn < 200000) {                                                    // Ay J2/C22 (PA çerçevesi, entegre edilen yönelim)
+    if (sn < 200000 && E.OPTS.moonGravDeg >= 2) {                         // Ay figürü: GRAIL küresel harmonikleri (test_moongrav'da bağımsız denetlenir)
+      const Mb = qToMat(L.moonAttitude(et).q);
+      a = add(a, mv(Mb, moonHarmonic(mtv(Mb, s), GM[IM], E.OPTS.moonGravDeg)));
+    } else if (sn < 200000) {                                             // Ay J2/C22 (PA çerçevesi, entegre edilen yönelim)
       const Mb = qToMat(L.moonAttitude(et).q), [x, yy, zz] = mtv(Mb, s), r2 = sn * sn, r5 = r2 * r2 * sn, r7 = r5 * r2, Rr = R_MREF * R_MREF, mu = GM[IM];
       const kJ = (-1.5 * J2_M * mu * Rr) / r5, qq = (5 * zz * zz) / r2, kC = 3 * mu * Rr * C22_M, w = x * x - yy * yy;
       a = add(a, mv(Mb, [kJ * x * (1 - qq) + kC * (2 * x / r5 - 5 * w * x / r7), kJ * yy * (1 - qq) + kC * (-2 * yy / r5 - 5 * w * yy / r7), kJ * zz * (3 - qq) + kC * (-5 * w * zz / r7)]));

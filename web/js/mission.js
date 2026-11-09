@@ -49,7 +49,8 @@ const TLI_DUR_ERROR = 0.05, PDI_ANGLE = 9.0 * Math.PI / 180, H_PDI = 15.0, TF_BR
 const GATE_HI = { x: -0.700, z: 1.500, vx: 0.045, vz: -0.035 }, GATE_LO = { x: 0.0, z: 0.250, vx: 0.0, vz: -0.018 };
 const V_TOUCH = -0.001, TILT_MAX_LOW = 40 * Math.PI / 180;
 const CALL_ALT = [1000, 500, 100, 30, 10], CALL_LOW = 0.05;                 // irtifa çağrıları (m); düşük yakıt: kalan/başlangıç (Apollo 11: "Five percent. Quantity light" [ALSJ 102:44:45])
-export const CMD = { FOH: true, JOIN: true, HANDOVER: 4.0, HANDOVER_FAST: 1.0, MINTHR_RATE: 15 };                                  // FOH: plan düğümlerinde doğrusal ara değer (ZOH yerine); JOIN: yeni planın ilk düğümü önceki komuttan kesintisiz bağlanır; HANDOVER: plandan son iniş yasasına geçişte komutun yumuşak adım süresi (s);
+export const CMD = { FOH: true, JOIN: true, HANDOVER: 4.0, HANDOVER_FAST: 1.0, MINTHR_RATE: 15, PRE: 10.0 };                                  // FOH: plan düğümlerinde doğrusal ara değer (ZOH yerine); JOIN: yeni planın ilk düğümü önceki komuttan kesintisiz bağlanır; HANDOVER: plandan son iniş yasasına geçişte komutun yumuşak adım süresi (s);
+// PRE: dengeli güdümde kapıya bu kadar s kala itki yönü son iniş yasasınınkine döner (ön geçiş; bkz. descentOptimal);
 // HANDOVER_FAST: ZEM/ZEV güdümünde (frenleme → yaklaşma → son iniş) aynı yumuşak adım (s; serbest güdümde devir harmanı yok: yatay temas hızını 0,4 → 0,8 m/s artırıyordu); 4 s.lik harman son iniş yasasını geciktirip
 // yakıtı (ZEM'de ~8 kg) ve yatay temas hızını (serbest, tek kademe: 0,4 → 1,0 m/s) artırıyordu, 1 s komut sıçramasını 40–44° → ≤ 8°'ye indirir
 // a'dan b'ye ara değer: büyüklük doğrusal, yön küresel (eşit açısal hızla). Doğrusal vektör karışımı büyüklük değişirken dönmeyi uca yığar (gaz 0,24 → 0,10 inerken adım başına 0,7° → 3,4°).
@@ -816,12 +817,13 @@ export class Mission {
       ctrl: (Pp) => { const dv = gap(Pp), amax = stg.T / veh.mass(); return [Math.min(1.0, Math.max(stg.thr_min, norm(dv) / (amax * 2.0))), unit(dv)]; },
       stop: (Pp) => { const g = norm(gap(Pp)); if (g < LOI_TRIM.DV_STOP || (best < 0.002 && g > best + 1e-4)) return true; best = Math.min(best, g); return false; } };
   }
-  // LOI-2: bir tur içindeki en yakın noktada (yayınımla bulunur) hız doğrultusunda anlık Δv Gauss–Newton ile çözülür: sonraki turda gerçek yükseklik 24 örnekte hedefe
-  // en yakın olsun (en küçük kareler). Yakış o noktada ortalanır.
+  // LOI-2: LOI-1'den 0,3–0,8 tur sonraki en yakın noktada (yayınımla bulunur; planda yarım tur) hız doğrultusunda anlık Δv Gauss–Newton ile çözülür: sonraki turda
+  // gerçek yükseklik 24 örnekte hedefe en yakın olsun (en küçük kareler). Yakış o noktada ortalanır. Pencere tam tur değil: GRAIL alanında maskonlar yarıçapı tur
+  // boyunca dalgalandırır, en alçak nokta bir sonraki tura kayıp Ay yörüngesini bir tur kısaltabilirdi (en küçük kareler yakış yerine duyarsız).
   *loi2(hdir, rT, Tp) {
     const P = this.P, sNow = P.s.copy();
     let tMin = null;
-    { const Q = this.prop(sNow.copy(), E.dummyVehicle(), 30.0), t1 = sNow.t + 1.3 * Tp; let lo = Infinity;
+    { const Q = this.prop(sNow.copy(), E.dummyVehicle(), 30.0), t1 = sNow.t + 0.8 * Tp; let lo = Infinity;
       while (Q.s.t < t1 - 1e-9) { Q.step(Math.min(30.0, t1 - Q.s.t)); const r = norm(Q.s.seleno()[0]); if (Q.s.t > sNow.t + 0.3 * Tp && r < lo) { lo = r; tMin = Q.s.t; } } }
     // yalnız hız doğrultusunda (en yakın noktada radyal hız ~0): araç zaten hıza ters hizalı süzüldüğünden yakış için dönmez
     const s2 = this.coastCopy(sNow, tMin), [rs2, vs2] = s2.seleno(), vh = unit(vs2);
@@ -1018,8 +1020,16 @@ export class Mission {
       this.navTick(); this.callouts();
       if (st.mode === 'PDG') {
         const t = Pp.s.t - plan.t0, c = (smooth && CMD.FOH ? controlAtSmooth : controlAt)(plan.sol, t, plan.join ? 1 : 0); let u = c.u;
-        // yeni planın ilk düğümü önceki planın izlediği değeri düzeltir ve sıçrayabilir (bir düğüm süresince, ~15°); ilk aralıkta komut, önceki komuttan ikinci düğüme doğrusal geçer, ikinci aralığın ilk yarısında düğüm 1'de kalır (ilk düğüm hiç karışmaz)
-        if (plan.join && c.k === 0 && plan.sol.N > 1) u = blendVec(plan.join, plan.sol.u[1], Math.min(1, Math.max(0, t / plan.sol.dt)));
+        // yeni planın ilk düğümü önceki planın izlediği değeri düzeltir ve sıçrayabilir (bir düğüm süresince, ~15°); ilk aralıkta komutun yönü önceki komuttan (ja) ikinci
+        // düğüme (jb) küresel ara değerle döner, ikinci aralığın ilk yarısında düğüm 1'de kalır. Büyüklük iki parçalı doğrusaldır: orta değer, aralık ortalaması planın
+        // |u₀|'ı olacak biçimde seçilir (¼|ja| + ½mc + ¼|jb| = |u₀|). Doğrudan |ja| → |jb| geçişi u₀'ı yok sayıyordu; plan u₀'da gaz basamağındaysa (tam itki ↔ en küçük gaz)
+        // aralığın itkisi 20+ m/s şaşıyor, kapıya hunideki ~9 m/s yerine 14–16 m/s alçalışla varılıyor ve kalan yakıt küçük bozulmalara (ör. Ay çekim alanının derecesi)
+        // ±15 kg duyarlı oluyordu. Yön düzeltilmez: açık gazdan gelir, yönü değiştirmek dönme yükünü artırır (test/test_dynamics6)
+        if (plan.join && c.k === 0 && plan.sol.N > 1) {
+          const ja = plan.join, jb = plan.sol.u[1], na = norm(ja), nb = norm(jb), mc = Math.max(0, 2 * norm(plan.sol.u[0]) - 0.5 * (na + nb)), x = Math.min(1, Math.max(0, t / plan.sol.dt));
+          const d = blendVec(ja, jb, x), nd = norm(d), m = x < 0.5 ? na + (mc - na) * 2 * x : mc + (nb - mc) * (2 * x - 1);
+          u = nd > 1e-12 ? scale(d, m / nd) : d;
+        }
         lastU = u;
         const an = norm(u), a = alt();
         Pp.phase = a > 3.0 ? 'PDI' : 'YAKLASMA';
@@ -1027,6 +1037,16 @@ export class Mission {
         // serbest güdüm (ZOH, işaretleme sınırı yok): en küçük gazda planın itki yönü düğümden düğüme ~40° dönebilir (itki istenenden fazla, yön önemsizleşir);
         // en küçük gazdayken komut yönü CMD.MINTHR_RATE °/s ile sınırlanır (dönme zaten ≤ 15°/s; gazın üstünde plan aynen uygulanır)
         if (!smooth && st.dPrev && o[0] <= stg.thr_min + 1e-9) { const th = vAngle(st.dPrev, o[1]), mx = CMD.MINTHR_RATE * Math.PI / 180 * Math.max(0, Pp.s.t - st.tPrev); if (th > mx) o[1] = unit(blendVec(st.dPrev, o[1], mx / th)); }
+        // ön geçiş (dengeli): kapıya CMD.PRE s kala itki YÖNÜ son iniş yasasının yönüne smoothstep ile döner, büyüklük planda kalır. Plan kapıya koninin
+        // kenarında (~19° eğik) varır, son iniş yasası ise dikeye yakın (2–4°) ister; dönüş kapıda en küçük gaza yakın itkiyle (TVC yetkisi az) yapılınca
+        // eksen hatası 13°'ye, |ω| 8°/s'ye çıkıyordu. Kapıya kalan süre: plan süresi ile irtifa/alçalış hızının küçüğü.
+        if (smooth && CMD.PRE > 0) {
+          const nav = this.localNav(Pp.s.t), ga = alt() * 1000 - O.GATE_H, tg = Math.min(plan.t0 + plan.sol.tf - Pp.s.t, ga > 0 ? ga / Math.max(1, -nav.v[2] * 1000) : 0);
+          if (tg < CMD.PRE) {
+            const at = terminalAccel(nav.p, nav.v, nav.g, (stg.thr_min * stg.T) / this.veh.mass()), x = Math.min(1, Math.max(0, 1 - tg / CMD.PRE));
+            o[1] = unit(blendVec(o[1], mtv(nav.Rf, unit(at)), x * x * (3 - 2 * x)));
+          }
+        }
         st.dPrev = o[1]; st.tPrev = Pp.s.t;
         jn.last = scale(o[1], o[0]); return o;
       }
