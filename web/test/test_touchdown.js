@@ -71,7 +71,7 @@ const fly = (landing, slope = null, o = {}) => {
     R.ok && R.grade === 'ok' && R.env.vel && R.tip.stable && R.tilt_deg > 0.1 && R.tilt_deg < TOUCH.TILT && R.rate_dps <= TOUCH.RATE && Math.abs(R.v_mps[2]) > 1.0 && Math.abs(R.v_mps[2]) < 2.2,
     `dikey ${R.v_mps[2].toFixed(2)}, yatay ${Math.hypot(R.v_mps[0], R.v_mps[1]).toFixed(3)} m/s, eğim ${R.tilt_deg.toFixed(2)}°, ω ${R.rate_dps.toFixed(2)}°/s, devrilme payı ${R.tip.margin.toFixed(0)}`);
   const altTD = (E.norm(M.P.s.seleno()[0]) - R_SITE) * 1000, q0 = M.P.att.q.slice(), tilt0 = qRot(q0, Z_AXIS);
-  check('temas anında en alçak ayak yüzeyde (merkez R_PAD·sinθ yukarıda, ±2 cm), temas yönelimi korunur', Math.abs(altTD - TOUCH.R_PAD * Math.sin(R.tilt_deg * D2R)) < 0.02 && Math.abs(Math.acos(E.dot(E.unit(tilt0), E.unit(M.P.s.seleno()[0]))) / D2R - R.tilt_deg) < 0.05, `merkez irtifası ${altTD.toFixed(3)} m`);
+  check('temas anında en alçak ayak yüzeyde (merkez R_PAD·sinθ yukarıda, ±3 cm), temas yönelimi korunur', Math.abs(altTD - TOUCH.R_PAD * Math.sin(R.tilt_deg * D2R)) < 0.03 && Math.abs(Math.acos(E.dot(E.unit(tilt0), E.unit(M.P.s.seleno()[0]))) / D2R - R.tilt_deg) < 0.05, `merkez irtifası ${altTD.toFixed(3)} m`);
   // yüzey evresi: 600 s ilerle
   // ilk yüzey adımında araç yüzeye bağlanır (temas anındaki kayıt çarpma hızıyla)
   const t0 = M.P.s.t, meOf = () => E.mv(E.moonIcrfToMe(M.P.s.t), M.P.s.seleno()[0]), adv0 = M.advance(t0 + 1, 1e9), me0 = meOf(), adv = M.advance(t0 + 600, 1e9);

@@ -590,9 +590,11 @@ export class World {
       this._m4 = this._m4 || new THREE.Matrix4(); this._m4.makeBasis(V3(xx), V3(yy), V3(up)); dg.group.quaternion.setFromRotationMatrix(this._m4); rel(sitePt, dg.group.position);
       if (lander && thr > 0.02) {
         const zA = [zNow.x, zNow.y, zNow.z], eng = add(info.vehPos, scale(zA, this.place.lander.exitZ * KM)), h = dot(sub(eng, sitePt), up) * 1000, cosT = dot(zA, up);
-        if (h > 0.4 && h < 48 && cosT > 0.5) {
+        // toz başlangıç yüksekliği itkiyle ölçeklenir (touchdown.js dustOnset: SCALPSS/Blue Ghost ~15 m @ ~1 kN, h ∝ √T); itki = itki ivmesi (worker forces) × kütle
+        const Tn = x.forces && x.forces.thrust ? x.forces.thrust * x.m : 0, hOn = 15 * Math.sqrt(Math.max(0, Tn) / 1000);
+        if (h > 0.4 && h < hOn && cosT > 0.5) {
           const imp = add(eng, scale(zA, -(h / cosT) * KM)), px = dot(sub(imp, sitePt), xx) * 1000, py = dot(sub(imp, sitePt), yy) * 1000;
-          const rate = 4200 * Math.min(1, thr * 1.4) * (1 - Math.min(1, Math.max(0, (h - 6) / 42))), nn = rate * dt + Math.random();
+          const rate = 4200 * Math.min(1, thr * 1.4) * (1 - Math.min(1, Math.max(0, (h - 0.125 * hOn) / (0.875 * hOn)))), nn = rate * dt + Math.random();
           const sinE = Math.max(0, dot(unit(sub(E.sunPos(t), sitePt)), up));
           for (let i = 0; i < Math.floor(nn); i++) {            // ince parçacıklar, yere yakın radyal tabaka (vakumda sürtünme/bulut yok): yatay hız baskın, dikey küçük
             const th = Math.random() * Math.PI * 2, ct = Math.cos(th), st = Math.sin(th), sp = (7 + Math.random() * 46) * (0.55 + 0.7 * Math.min(1, thr)), r0 = 0.5 + h * 0.1 * Math.random();

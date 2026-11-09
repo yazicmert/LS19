@@ -20,6 +20,7 @@ export const TOUCH = {
   TILT: 6.0, RATE: 6.0, YAW_RATE: 1.5,             // °, °/s: temasta yönelim ve açısal hız (Apollo 11 analizinin 3σ sınırları) [R şekil 12]
   SLOPE: 12.0,                  // °: etkin yüzey eğimi sınırı [R s. 3]
   R_PAD: 2.4,                   // m: ayak izi yarıçapı. LM'de 167 inç (4,24 m) [R]; sahnedeki 4 m'lik LM modeli (gerçek LM ~7 m) aynı oranla 2,4 m (v; modelde ayaklar ±2,57 m'ye uzanır)
+  EXIT: 0.25,                   // m: motor çıkışının ayak düzleminden yüksekliği (sahnedeki LM modeli: çıkış −2,65 m, ayak −2,9 m; tools/apollo_modelleri.mjs)
   SETTLE: 1.5,                  // s: temastan sonra araç dört ayağına oturur (v; Apollo 11'de yönelim geçişleri ~1,5 s sürdü [R şekil 16])
 };
 // Temas sonrası olay çizelgesi (temas ışığından saniye; Apollo 11 zamanları [A])
@@ -70,3 +71,9 @@ export function surfaceNormal(slope) {
   return [Math.sin(s) * Math.cos(az), Math.sin(s) * Math.sin(az), Math.cos(s)];
 }
 export const tiltDeg = (axisLocal) => Math.acos(Math.max(-1, Math.min(1, axisLocal[2] / norm(axisLocal)))) / D2R;
+
+// Toz kalkışının başladığı yükseklik (m, motor çıkışından yüzeye): plüm yüzeyde ~T/h² basınç yaratır (uzak alan), aşınma eşiği sabit basınçta başlar → h ∝ √T.
+// Ölçek: NASA SCALPSS 1.1, Blue Ghost M1 (2 Mart 2025): plüm-yüzey etkileşimi ~15 m'de başladı (https://www.nasa.gov/?p=832917); Blue Ghost'un ana motoru ~1 kN
+// (Nammo LEROS 4; kuru kütle 469 kg, inişte ~0,6 t ≈ 1 kN Ay ağırlığı). Apollo LM (~12 kN) için ~50 m verir. √T ölçeklemesi kaynaksız model varsayımıdır (v).
+export const DUST = { H_REF: 15, T_REF: 1000 };
+export const dustOnset = (thrustN) => DUST.H_REF * Math.sqrt(Math.max(0, thrustN) / DUST.T_REF);
