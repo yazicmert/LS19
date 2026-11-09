@@ -98,7 +98,11 @@ body.cine-on #view { cursor: none; }
 .cine-exit { position: absolute; top: calc(var(--bar) + 10px); right: clamp(18px, 3vw, 40px); pointer-events: auto; background: rgba(0, 0, 0, 0.5); border-color: rgba(243, 239, 230, 0.3); color: var(--cine-ink);
   opacity: 0; transition: opacity 0.4s var(--cine-out), background-color 0.18s ease; }
 .cine.active .cine-exit, .cine-exit:focus-visible { opacity: 1; }
-@media (hover: none) { .cine-exit { opacity: 0.8; } }
+.cine-mute { position: absolute; top: calc(var(--bar) + 10px); right: calc(clamp(18px, 3vw, 40px) + 82px); pointer-events: auto; background: rgba(0, 0, 0, 0.5); border-color: rgba(243, 239, 230, 0.3); color: var(--cine-ink);
+  opacity: 0; transition: opacity 0.4s var(--cine-out), background-color 0.18s ease; }
+.cine.active .cine-mute, .cine-mute:focus-visible { opacity: 1; }
+.cine-mute[aria-pressed="true"] { color: var(--cine-ink-2); }
+@media (hover: none) { .cine-exit, .cine-mute { opacity: 0.8; } }
 @media (hover: hover) and (pointer: fine) { .cine-exit:hover { background: rgba(255, 255, 255, 0.16); } }
 
 /* geçişler: kararma ve ayrılma parlaması */
@@ -125,6 +129,7 @@ body.cine-on #view { cursor: none; }
   .cc-sval { font-size: clamp(15px, 4.6vw, 22px); }
   .cine-hint { left: 24px; max-width: calc(100vw - 150px); font-size: 10px; }
   .cine-exit { right: 16px; }
+  .cine-mute { right: 98px; }
   .cine-cue { right: 24px; left: 24px; max-width: none; top: calc(var(--bar) + 40px); bottom: auto; font-size: 10px; letter-spacing: 0.16em; }
 }
 

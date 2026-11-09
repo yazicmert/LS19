@@ -73,6 +73,17 @@ const rd = (f) => fs.readFileSync(new URL(f, import.meta.url), 'utf8');
     disp[0] && /Ay'ın arkasında/.test(disp[0].text) && disp[1] && /46 dk/.test(disp[1].text) && disp[2] && /Derin Uzay/.test(disp[2].text) && disp[3] && disp[3].pri === 1 && disp[4] === null && disp[5] === null && disp[6] === null, disp.map((c) => (c ? c.text : '—')).join(' | '));
 }
 
+// ---------------------------------------------------------------- 1d) ses (cineaudio.js): motor düzeyi ve akorlar (Web Audio tarayıcıda; burada saf işlevler)
+{
+  const AU = await import('../js/cineaudio.js');
+  const off = AU.engineLevel(0, 1, true), lift = AU.engineLevel(1, 1, true), vac = AU.engineLevel(1, 1, false), low = AU.engineLevel(0.2, 1, false), fast = AU.engineLevel(1, 300, false), mid = AU.engineLevel(1, 130, false);
+  check('ses: motor gaz 0\'da sessiz; kalkışta (atmosfer) uzaydakinden güçlü, parlak ve çatırtılı; uzayda gazla artar; ×60 üstünde söner, ×200\'de sessiz',
+    off.gain === 0 && lift.gain > 2 * vac.gain && lift.cutoff > vac.cutoff && lift.crackle > 0 && vac.crackle === 0 && low.gain < vac.gain && fast.gain === 0 && mid.gain > 0 && mid.gain < vac.gain,
+    `kalkış ${lift.gain.toFixed(2)} / uzay ${vac.gain.toFixed(2)} / ×130 ${mid.gain.toFixed(2)}`);
+  const ok = AU.CHORDS.every((_, i) => { const f = AU.chordFreqs(i); return f.length === 4 && f.every((x, k) => x > 50 && x < 700 && (k === 0 || x > f[k - 1])); });
+  check('ses: akorlar dört sesli, artan, 50–700 Hz; bölüm numarası döngüsel (negatif ve büyük değerler)', ok && Math.abs(AU.midiHz(69) - 440) < 1e-9 && AU.chordFreqs(-1)[0] === AU.chordFreqs(AU.CHORDS.length - 1)[0] && AU.chordFreqs(99).length === 4);
+}
+
 // ---------------------------------------------------------------- 2) çekim listesi
 const ab = (f) => { const b = fs.readFileSync(new URL(f, import.meta.url)); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); };
 const SPK = ab('../data/de440s.bsp'), PCK = ab('../data/moon_pa_de440_200625.bpc');

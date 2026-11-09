@@ -12,6 +12,7 @@ Kod: `web/js/cinema.js` (yönetmen), `web/js/cinemaui.js` + `web/css/cinema.css`
 | Başlat | alt çubukta **film simgesi** düğmesi, `C` tuşu ya da adreste `?cine=1` (sayı süre ölçeğidir: `?cine=0.5` iki kat hızlı) |
 | Çık | `Esc` ya da sağ üstteki **Çık** düğmesi (fare oynayınca belirir); kamera, otomatik zaman hızı ve oynatma durumu eski haline döner |
 | Duraklat / sürdür | `Boşluk` |
+| Ses aç / kapat | `M` ya da sağ üstteki **Ses** düğmesi |
 | Sonraki çekim | `→` |
 | Yeniden izle | gösterim bitince `R` |
 
@@ -64,6 +65,17 @@ Bindirmeler DOM'dur (canvas'ın üstünde); hareket **yalnız `transform`, `opac
 * **Dar / dikey ekran (telefon):** veri şeridi 2×2 ızgaraya, bölüm kartları tam genişliğe geçer, kapanış kartı üstte durur; letterbox çubuğu dikey ekranda yüksekliğin en çok %15'i kadardır (resim alanı kalsın); kısa (yatay telefon) ekranda başlıklar yüksekliğe göre ölçeklenir. Kamera tarafında `cineFov`: en-boy oranı 1,4'ün altına indikçe dikey görüş açısı büyütülür (en çok 2,2×), böylece araç dar kadrajda taşmaz.
 * Normal arayüz (HUD, panel, alt çubuk) sinematik kipte `opacity` ile kapanır; işaretçiler, etiketler ve yardımcı çizgiler gizlenir (iz çizgileri yalnız geniş çekimlerde).
 
+## 3.1 Ses (`web/js/cineaudio.js`)
+
+Hepsi Web Audio ile üretilir (ses dosyası yok); `M` ya da sağ üstteki **Ses** düğmesi sessize alır (tercih tarayıcıda saklanır).
+
+| Katman | Nasıl | Ne zaman |
+|---|---|---|
+| Müzik | dört ses × iki osilatör (hafif akort farkı) → alçak geçiren süzgeç (yavaş LFO); 8 akorluk döngü | her bölüm kartında akor değişir (0,9 s geçiş) ve süzgeç 1,2 s'de açılıp kapanır (kabarma); kapanışta çözülme akoru |
+| Motor | döngülü kahverengi gürültü → alçak geçiren; kalkışta ek bant geçiren "çatırtı" | `engineLevel(gaz, zaman hızı, atmosfer)`: kalkışta güçlü ve parlak, uzayda gazla artan alçak uğultu; ×60 üstünde söner, ×200'de sessiz |
+| Tek seferlik | alçak sinüs + gürültü patlaması (ayrılma), iki kısa 1180 Hz bip (temas ışığı) | kalkıştaki her ayrılma, görevdeki kademe ayrılmaları; temas ışığı alt yazısı |
+| Anonslar | Web Speech (`tr-TR` / `en-US`) | geri sayım (5…1), "Ateşleme… kalkış!", Ay'ın arkasında sinyal kaybı ve alımı, Ay yörüngesi, temas ışığı, motor kesme, kalış kararı |
+
 ## 4. Son işlem hattı (yalnız sinematik kip)
 
 `web/js/post.js`, three.js r170 eklentileriyle (`lib/addons/postprocessing`, MIT) ilk kullanımda kurulur (normal görünümün açılışı yavaşlamaz): **HDR sahne (yarı kayan, 4× MSAA ayrı hedef)** → **UnrealBloom** (eşik 2,0: yalnız yansımalar, plüm çekirdeği, Güneş) → **anamorfik çizgi parlama** (yatay geniş, dikey dar ikinci bloom; yalnız çok parlak noktalar) → **OutputPass** (ACES ton eşleme + sRGB) → **film geçişi** (vinyet, kromatik sapma, hafif S eğrisi, sıcak parlak alan/soğuk gölge, hareketli tane). Tüm özel gölgelendiriciler zaten HDR üretir (ton eşleme son geçişte yapılır). Sinematik kipte ek olarak: Güneş ışıltısı HDR büyür, kameradan soğuk bir **dolgu ışığı** gelir (tutulmada biraz güçlenir; gölgedeki gövde silüete dönmesin), pozlama 0,92'dir.
@@ -86,5 +98,5 @@ Bindirmeler DOM'dur (canvas'ın üstünde); hareket **yalnız `transform`, `opac
 * Kalkış açılışı kinematik kalkış canlandırmasıdır (`ascent.js`, `ascentplay.js`; fizik worker'ı onun süresince duraklar), görev fiziği yörüngeye girişten başlar. Düşük kare hızında (yazılımla çizim) kalkış oynatıcısının kare başına adımı 0,1 s ile sınırlı olduğundan kalkış duvar saatinde uzar; ilerleme çubuğu uçuş zamanına göre yürür.
 * Araç yığını fizik yığınıdır (gerçek Apollo düzeni değil; bkz. [modeller.md](modeller.md)); komuta modülü yoktur.
 * Gösterim süresi tasarıma bağlıdır; çok uzun yolculuklu profillerde (halo) yolculuk çekimleri fiziğin yetişebildiği hızla (≤ ×40 000) uzar. Hesap duraklamaları (iniş planlaması) çekimi uzatabilir; kararma altında yakalama bunu toparlar.
-* Ses yoktur.
+* Ses tamamen üretilmiştir (Web Audio; ses dosyası yok) ve stilizedir: vakumda motor sesi duyulmaz, burada gövdeden duyulan titreşim gibi alçak bir uğultudur. Anonslar tarayıcının konuşma sentezidir (ses ve kalite tarayıcıya/işletim sistemine göre değişir; yoksa atlanır). Tarayıcı kendiliğinden ses başlatmayı engellerse ilk dokunuşta açılır.
 * Doğrulama: `node test/test_cinema.js` (çekim listesi altı profil × tek/iki kademe, zaman eğrileri, plüm geometrisi, parçacıklar, CSS kuralları, bağlantılar) ve tarayıcıda (Chromium + SwiftShader, yazılımla çizim ≈ 1 kare/sn) tam gösterim: denetim çizimden bağımsız olduğu için çekim süreleri gerçek zamanda yürür; kare kare görünümler önizleme (`LS19.cinema.preview(çekim, τ)`) ile alınır.

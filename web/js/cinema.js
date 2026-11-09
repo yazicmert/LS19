@@ -10,8 +10,9 @@ import { ellipsoidAlt } from './geo.js';
 import { LANDING_PHASES as POWERED } from './telemetry.js';
 import { CineUI } from './cinemaui.js';
 import { fmtDur } from './format.js';
-import { LOC } from './i18n.js';
 import { rocketOf } from './rockets.js';
+import { CineAudio } from './cineaudio.js';
+import { LOC, translateText, isEn } from './i18n.js';
 
 const { add, sub, scale, dot, cross, norm, unit } = E;
 const KM = 0.001;
@@ -268,6 +269,9 @@ export function buildShots(P, opts = {}) {
 }
 
 const tStart0 = (s, P) => s.T(P)[0][1];
+// görev kontrol anonsları (konuşma sentezi): olay anahtarı → kısa söz (alt yazı gösterilirken söylenir)
+const SAY = { CONTACT: 'Temas ışığı', ENGINE_STOP: 'Motor durduruldu', LOS: "Ay'ın arkasındayız, sinyal kaybı", AOS: 'Sinyal alındı', LOI_END: 'Ay yörüngesindeyiz', STAY_T1: 'Yüzeyde kalış kararı: kal' };
+const COUNT = isEn ? ['one', 'two', 'three', 'four', 'five'] : ['bir', 'iki', 'üç', 'dört', 'beş'];
 // ---------------------------------------------------------------- yönetmen
 export class Cinema {
   // host: { world, send(msg), ui, root (DOM), latest() → son durum, play(on), running() }
@@ -291,6 +295,9 @@ export class Cinema {
     await W.setCinematic(true, { onLevel: (l) => this.onLevel(l), level: this.opts.quality });
     if (!this.on) { await W.setCinematic(false); return false; }                 // yüklenirken iptal
     const ui = this.ui; ui.enter(); ui.fade(1, 0);
+    if (this.audio) this.audio.stop();
+    this.audio = new CineAudio(); if (!this.opts.preview) this.audio.start();
+    ui.setMuted(this.audio.muted); ui.muteBtn.onclick = () => this.toggleMute();
     this.keyHandler = (e) => this.key(e); window.addEventListener('keydown', this.keyHandler, true);
     this.moveHandler = () => { ui.root.classList.add('active'); clearTimeout(this.activeTimer); this.activeTimer = setTimeout(() => ui.root.classList.remove('active'), 2600); };
     window.addEventListener('pointermove', this.moveHandler, { passive: true });
@@ -327,6 +334,7 @@ export class Cinema {
     if (!this.on) return;
     this.on = false; this.state = 'idle'; clearInterval(this.timer); this.timer = 0;
     this.stopAscent();
+    if (this.audio) { this.audio.stop(); this.audio = null; }
     const W = this.h.world, ui = this.cu;
     window.removeEventListener('keydown', this.keyHandler, true); window.removeEventListener('pointermove', this.moveHandler);
     W.cine.rig = null; W.cine.lines = false; W.cine.osc = false; W.cine.beacon = false;
@@ -346,16 +354,18 @@ export class Cinema {
     if (k === 'escape') { e.preventDefault(); e.stopPropagation(); this.stop(); return; }
     if (k === ' ') { e.preventDefault(); e.stopPropagation(); this.setPaused(!this.paused); return; }
     if (k === 'arrowright') { e.preventDefault(); e.stopPropagation(); this.skip(); return; }
+    if (k === 'm') { e.preventDefault(); e.stopPropagation(); this.toggleMute(); return; }
     if (k === 'r' && (this.state === 'ended' || this.state === 'run')) { e.preventDefault(); e.stopPropagation(); this.restart(); return; }
     e.stopPropagation();                                                          // sinematik kipte diğer kısayollar kapalı
   }
   setPaused(on) {
     this.paused = on; if (this.state !== 'ascent' && this.state !== 'asc-boot') this.h.play(!on); this.ui.paused = on;   // kalkışta fizik zaten duraklı (kalkış oynatıcısı hızı 0'a çeker)
-    const hint = this.ui.f.hint; hint.innerHTML = on ? '<kbd>Boşluk</kbd> devam · <kbd>Esc</kbd> çık' : '<kbd>Esc</kbd> çık · <kbd>Boşluk</kbd> duraklat · <kbd>→</kbd> sonraki çekim'; hint.classList.toggle('show', on);
+    const hint = this.ui.f.hint; hint.innerHTML = on ? '<kbd>Boşluk</kbd> devam · <kbd>Esc</kbd> çık' : '<kbd>Esc</kbd> çık · <kbd>Boşluk</kbd> duraklat · <kbd>→</kbd> sonraki çekim · <kbd>M</kbd> ses aç/kapat'; hint.classList.toggle('show', on);
     if (!on) this.ui.showHint(false);
   }
+  toggleMute() { if (!this.audio) return; this.audio.setMuted(!this.audio.muted); this.ui.setMuted(this.audio.muted); }
   skip() { if (this.state === 'ascent') { this.stopAscent(); return; } if (this.shot && !this.shot.closing) this.endShot(true); }
-  async restart() { const o = this.opts; this.stopAscent(); this.ui.leave(true); this.on = false; this.state = 'idle'; clearInterval(this.timer); this.timer = 0; window.removeEventListener('keydown', this.keyHandler, true); window.removeEventListener('pointermove', this.moveHandler); this.h.world.cine.rig = null; await this.h.world.setCinematic(false); await this.start(o); }
+  async restart() { const o = this.opts; this.stopAscent(); if (this.audio) { this.audio.stop(); this.audio = null; } this.ui.leave(true); this.on = false; this.state = 'idle'; clearInterval(this.timer); this.timer = 0; window.removeEventListener('keydown', this.keyHandler, true); window.removeEventListener('pointermove', this.moveHandler); this.h.world.cine.rig = null; await this.h.world.setCinematic(false); await this.start(o); }
 
   // ----- çekim yaşam döngüsü
   // çekimi kur (zaman eğrisi, kamera, bayraklar); atlama mantığı startShot'ta
@@ -423,7 +433,8 @@ export class Cinema {
     const ok = await A.start({ quiet: true, from: ASC.FROM, onCue: (text, ms) => { if (this.on && this.state === 'ascent') ui.cue(text, Math.min(ms || 3200, 3600)); } });
     if (!this.on) { if (ok) await A.stop(); return; }
     if (!ok) { this.asc = null; ui.ticks(this.tickMarks()); this.h.send({ cmd: 'warp', value: 1 }); this.h.play(true); this.wall = 0; this.startShot(0); return; }
-    a.wall0 = this.wall; a.card = false; a.chap = false; a.warp = 1; a.real = ASC.FROM;
+    a.wall0 = this.wall; a.card = false; a.chap = false; a.warp = 1; a.real = ASC.FROM; a.prev = ASC.FROM;
+    if (this.audio) this.audio.chapter(0);
     this.state = 'ascent'; ui.root.classList.remove('nostrip'); ui.fade(0, 900);
   }
   stopAscent() { const A = this.h.ascent && this.h.ascent(); if (A && A.active) A.stop(); }
@@ -431,13 +442,22 @@ export class Cinema {
     const A = this.h.ascent(), a = this.asc, ui = this.ui;
     if (!A.active) { this.state = 'post-asc'; this.restartAt = performance.now(); ui.fade(1, 0); return; }   // bitti: app.js onEnd görevi girişe sarar
     if (!this.paused) this.wall += dt;
-    const real = A.real ?? ASC.FROM; a.real = real;
+    const real = A.real ?? ASC.FROM, prev = a.prev ?? real; a.real = real; a.prev = real;
+    // ses: geri sayım (5 … 1), kalkış anonsu, motor (atmosferde güçlü), ayrılmalarda çarpma
+    const au = this.audio;
+    if (au) {
+      for (let n = 5; n >= 1; n--) if (prev < -n && real >= -n) au.say('cd' + n, COUNT[n - 1]);
+      if (prev < 0 && real >= 0) au.say('lift', translateText('Ateşleme… kalkış!'));
+      for (const e of a.events) if ((e.cut != null || e.part) && prev < e.t && real >= e.t) au.thump();
+      const h = A.hud, thr = h && h.asc ? h.asc.thr : real >= 0 ? 1 : 0;
+      au.update(this.paused ? 0 : thr, this.paused ? 1 : a.warp, !h || (h.altKm || 0) < 70);
+    }
     const wT = this.paused ? 0 : ascentWarp(real, a.events, a.tIns);
     a.warp = wT > a.warp ? a.warp + (wT - a.warp) * (1 - Math.exp(-dt / 0.35)) : wT;          // artışta yumuşak, azalışta anında (pencereyi kaçırmasın)
     A.warp = a.warp;
     const el = this.wall - a.wall0;
     if (!a.card && el >= 0.5) { a.card = true; ui.card({ kind: 'open', title: 'LS19', sub: "Dünya'dan Ay'a · gerçek efemeris · N-cisim fiziği", hold: 4.2 }); }
-    if (!a.chap && real >= 2.5) { a.chap = true; ui.card({ kind: 'chapter', idx: 1, total: this.chTotal, title: 'KALKIŞ', sub: `${a.rocket}${a.site ? ' · ' + a.site : ''}`, hold: 3.8 }); }
+    if (!a.chap && real >= 2.5) { a.chap = true; if (this.audio) this.audio.chapter(1); ui.card({ kind: 'chapter', idx: 1, total: this.chTotal, title: 'KALKIŞ', sub: `${a.rocket}${a.site ? ' · ' + a.site : ''}`, hold: 3.8 }); }
     // veri şeridi: kalkış oynatıcısının göstergesi (WGS-84 irtifa, yere göre hız)
     const now = performance.now();
     if (now - this.lastStrip >= 120 && A.hud) {
@@ -484,7 +504,7 @@ export class Cinema {
   onEvents(evs, disp) {
     if (!this.on || (this.state !== 'run' && this.state !== 'ended') || this.pending) return;      // bitişten sonra da (yüzey olayları sürer)
     const q = this.cues || (this.cues = []);
-    for (const e of [...evs, ...disp]) { const c = cueOf(e); if (c) q.push({ ...c, at: this.wall }); }
+    for (const e of [...evs, ...disp]) { const c = cueOf(e); if (c) q.push({ ...c, key: e.key, at: this.wall }); }
     if (q.length > 3) { q.sort((a, b) => b.pri - a.pri || a.at - b.at); q.length = 3; q.sort((a, b) => a.at - b.at); }
   }
   tickCues() {
@@ -492,6 +512,7 @@ export class Cinema {
     while (q.length && this.wall - q[0].at > 8) q.shift();
     const c = q.shift(); if (!c) return;
     this.ui.cue(c.text, 2600); this.cueNext = this.wall + 2.4;
+    if (this.audio) { if (c.key === 'CONTACT') this.audio.beep(); if (SAY[c.key]) this.audio.say(c.key + (c.key === 'LOS' || c.key === 'AOS' ? Math.floor(this.wall) : ''), translateText(SAY[c.key])); }
   }
 
   // ----- her kare (app.js, world.update'ten önce)
@@ -547,15 +568,17 @@ export class Cinema {
     this.warpCmd = w > this.warpCmd ? this.warpCmd + (w - this.warpCmd) * (1 - Math.exp(-dt / 0.35)) : w;
     if (performance.now() - this.lastSend > 60 && Math.abs(this.warpCmd - (this.lastWarp || 0)) > Math.max(0.02, 0.02 * this.warpCmd)) { this.lastSend = performance.now(); this.lastWarp = this.warpCmd; this.h.send({ cmd: 'warp', value: this.warpCmd }); }
     // olaylar: ayrılma parlaması
-    const nd = (x.debris || []).length; if (nd > this.sepSeen) { if (s.flashOnSep && !this.reduced) ui.flash(); this.sepSeen = nd; }
+    const nd = (x.debris || []).length; if (nd > this.sepSeen) { if (s.flashOnSep && !this.reduced) ui.flash(); if (this.audio) this.audio.thump(); this.sepSeen = nd; }
+    if (this.audio) this.audio.update(this.paused || !isBurn(x) ? 0 : x.thr, this.warpCmd, false);
     // kartlar
     const atT = s.chapter && (s.chapter.at === 'land' ? (this.landT != null ? this.shotT - this.landT >= 0.2 : false) : this.shotT >= s.chapter.at);
     if (!this.cardDone && s.chapter && atT) {
       this.cardDone = true; const c = this.ctxText(x), ch = s.chapter;
+      if (this.audio) this.audio.chapter(s.chIdx);
       ui.card({ kind: 'chapter', idx: s.chIdx, total: this.chTotal, title: ch.title, sub: typeof ch.sub === 'function' ? ch.sub(c) : ch.sub, hold: ch.hold });
     }
     if (!this.cardDone && s.card && this.shotT >= s.card.at) { this.cardDone = true; ui.card({ kind: s.card.kind, title: s.card.title, sub: s.card.sub, hold: s.card.hold }); }
-    if (s.closing && !this.cardDone && this.shotT >= 3.2) { this.cardDone = true; this.closingCard(x); }
+    if (s.closing && !this.cardDone && this.shotT >= 3.2) { this.cardDone = true; if (this.audio) this.audio.chapter(7); this.closingCard(x); }
     this.tickCues();
     // veri şeridi (8 Hz) ve ilerleme
     this.strip(x); ui.progress(this.progressAt(this.i, tau));

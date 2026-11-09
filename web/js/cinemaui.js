@@ -1,6 +1,6 @@
 // LS19 sinematik bindirmeler (DOM): letterbox, bölüm kartları, veri şeridi, zaman çizelgesi, geçiş (kararma/parlama), kapanış özeti.
 // Hareket yalnız transform / opacity / clip-path ile ve css/cinema.css'teki geçişlerle yapılır; JS yalnız sınıf ve metin değiştirir.
-import { applyIcons } from './icons.js';
+import { applyIcons, setBtn } from './icons.js';
 import { LOC } from './i18n.js';
 
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -24,13 +24,14 @@ export class CineUI {
         <div class="cs-cell cs-warp"><span class="cs-k">Zaman</span><span class="cs-v" data-f="warp">×1</span></div>
       </div>
       <div class="cine-timeline" aria-hidden="true"><i class="ct-track"></i><i class="ct-prog" data-f="prog"></i><span class="ct-ticks" data-f="ticks"></span></div>
-      <div class="cine-hint" data-f="hint"><kbd>Esc</kbd> çık · <kbd>Boşluk</kbd> duraklat · <kbd>→</kbd> sonraki çekim</div>
+      <div class="cine-hint" data-f="hint"><kbd>Esc</kbd> çık · <kbd>Boşluk</kbd> duraklat · <kbd>→</kbd> sonraki çekim · <kbd>M</kbd> ses aç/kapat</div>
+      <button class="cine-mute" type="button" aria-pressed="false" aria-label="Sesi kapat"><i data-icon="volume"></i><span>Ses</span></button>
       <button class="cine-exit" type="button" aria-label="Sinematik gösterimden çık"><i data-icon="x"></i><span>Çık</span></button>
       <div class="cine-flash"></div>
       <div class="cine-fade"></div>`;
     parent.appendChild(root); applyIcons(root);
     this.f = {}; root.querySelectorAll('[data-f]').forEach((n) => { this.f[n.dataset.f] = n; });
-    this.cards = root.querySelector('.cine-cards'); this.flashEl = root.querySelector('.cine-flash'); this.fadeEl = root.querySelector('.cine-fade'); this.exitBtn = root.querySelector('.cine-exit');
+    this.cards = root.querySelector('.cine-cards'); this.flashEl = root.querySelector('.cine-flash'); this.fadeEl = root.querySelector('.cine-fade'); this.exitBtn = root.querySelector('.cine-exit'); this.muteBtn = root.querySelector('.cine-mute');
   }
 
   after(ms, fn) { const id = setTimeout(() => { this.timers.delete(id); fn(); }, ms); this.timers.add(id); return id; }
@@ -69,6 +70,8 @@ export class CineUI {
   ticks(list) { this.f.ticks.innerHTML = list.map((p) => `<i style="left:${(p * 100).toFixed(2)}%"></i>`).join(''); }
   showHint(on) { this.f.hint.classList.toggle('show', on); if (on) this.after(5200, () => this.f.hint.classList.remove('show')); }
 
+  // ses düğmesi: sessizse "Sessiz" (üstü çizili hoparlör)
+  setMuted(on) { const b = this.muteBtn; if (!b) return; setBtn(b, on ? 'mute' : 'volume', on ? 'Sessiz' : 'Ses'); b.setAttribute('aria-pressed', String(!!on)); b.setAttribute('aria-label', on ? 'Sesi aç' : 'Sesi kapat'); }
   // olay alt yazısı (kalkış anonsları, Ay'ın arkası, temas ışığı…): sağ altta kısa süre; yenisi eskisinin yerine geçer
   cue(text, ms = 3200) {
     const c = this.f.cue; if (!c) return;
