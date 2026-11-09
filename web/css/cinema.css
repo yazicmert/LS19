@@ -87,6 +87,8 @@ body.cine-on #view { cursor: none; }
 .ct-ticks i { position: absolute; top: -3px; width: 1px; height: 8px; background: rgba(243, 239, 230, 0.6); }
 
 /* ipucu ve çıkış düğmesi */
+/* görüntü atfı: alt siyah bandın içinde, küçük ve soluk (sağlayıcı koşulları gereği görünür) */
+.cine-credit { position: absolute; right: clamp(24px, 6vw, 96px); bottom: 6px; max-width: 70vw; font: 400 10px var(--mono); letter-spacing: 0.04em; color: rgba(243, 239, 230, 0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* olay alt yazısı: sağ altta, veri şeridinin üstünde; girişte sağdan hafif kayma, çıkışta sönme */
 .cine-cue { position: absolute; right: clamp(24px, 6vw, 96px); bottom: calc(var(--bar) + clamp(78px, 12vh, 140px)); max-width: min(440px, 34vw); text-align: right;
   font: 500 clamp(10px, 1.05vw, 13px) / 1.5 var(--mono); letter-spacing: 0.22em; text-transform: uppercase; color: var(--cine-ink); text-shadow: 0 1px 12px rgba(0, 0, 0, 0.9);

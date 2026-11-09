@@ -430,7 +430,7 @@ export class Cinema {
   async startAscent() {
     const A = this.h.ascent(), a = this.asc, ui = this.ui;
     this.state = 'asc-boot';
-    const ok = await A.start({ quiet: true, from: ASC.FROM, onCue: (text, ms) => { if (this.on && this.state === 'ascent') ui.cue(text, Math.min(ms || 3200, 3600)); } });
+    const ok = await A.start({ quiet: true, from: ASC.FROM, onCue: (text, ms) => { if (this.on && this.state === 'ascent') ui.cue(text, Math.min(ms || 3200, 3600)); }, onCredit: (text) => { if (this.on) ui.credit(text); } });
     if (!this.on) { if (ok) await A.stop(); return; }
     if (!ok) { this.asc = null; ui.ticks(this.tickMarks()); this.h.send({ cmd: 'warp', value: 1 }); this.h.play(true); this.wall = 0; this.startShot(0); return; }
     a.wall0 = this.wall; a.card = false; a.chap = false; a.warp = 1; a.real = ASC.FROM; a.prev = ASC.FROM;
@@ -440,7 +440,7 @@ export class Cinema {
   stopAscent() { const A = this.h.ascent && this.h.ascent(); if (A && A.active) A.stop(); }
   tickAscent(dt) {
     const A = this.h.ascent(), a = this.asc, ui = this.ui;
-    if (!A.active) { this.state = 'post-asc'; this.restartAt = performance.now(); ui.fade(1, 0); return; }   // bitti: app.js onEnd görevi girişe sarar
+    if (!A.active) { this.state = 'post-asc'; this.restartAt = performance.now(); ui.fade(1, 0); ui.credit(''); return; }   // bitti: app.js onEnd görevi girişe sarar
     if (!this.paused) this.wall += dt;
     const real = A.real ?? ASC.FROM, prev = a.prev ?? real; a.real = real; a.prev = real;
     // ses: geri sayım (5 … 1), kalkış anonsu, motor (atmosferde güçlü), ayrılmalarda çarpma

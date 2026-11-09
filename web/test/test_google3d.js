@@ -46,7 +46,7 @@ check('beklenmeyen gölgelendiricide yama yapılmaz', G.patchShader({ vertexShad
 
 // ayarlar (Node'da bellekte)
 let s = G.saveG3dSettings({ key: '  AIzaTEST  ', on: true });
-check('özellik bayrağı pasif: kayıtlı anahtar olsa da katman başlamaz', G.G3D_ENABLED === false && !G.g3dUsable(s) && !G.g3dUsable({ on: true, key: 'x', url: '' }));
+check('özellik bayrağı açık; katman yalnız anahtar (ya da adres) girilip açılınca başlar, bayrak kapalıyken hiç başlamaz', G.G3D_ENABLED === true && G.g3dUsable({ on: true, key: 'x', url: '' }) && !G.g3dUsable({ on: false, key: 'x', url: '' }) && !G.g3dUsable({ on: true, key: '', url: '' }) && !G.g3dUsable({ on: true, key: 'x', url: '' }, false));
 check('ayar: anahtar kırpılır, açık (bayrak açıkken kullanılır)', s.key === 'AIzaTEST' && s.on && G.g3dUsable(s, true));
 s = G.saveG3dSettings({ key: '', on: false });
 check('ayar: anahtar silinir, kapalı', s.key === '' && !s.on && !G.g3dUsable(s, true));

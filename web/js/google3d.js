@@ -16,9 +16,9 @@
 export const WGS84_A = 6378137, WGS84_F = 1 / 298.257223563, WGS84_E2 = WGS84_F * (2 - WGS84_F);
 export const RADIUS_M = 12000;                         // 3B karoların çizildiği yarıçap (m); dışı Esri zemini
 export const MAX_CAM_KM = 25;                          // kamera bu irtifanın üstündeyse karolar kapanır (çok küçük kalır; Esri zemini yeter)
-// Özellik bayrağı: şimdilik PASİF. false iken "3B şehir" düğmesi gizlidir ve katman hiç başlamaz (kayıtlı anahtar olsa bile); kütüphane de inmez.
-// Açmak için true yapın (gerçek Google karolarıyla renk, hizalama ve performans henüz denenmedi: docs/fizik_denetimi.md).
-export const G3D_ENABLED = false;
+// Özellik bayrağı: AÇIK — kalkış çubuğunda "3B şehir" düğmesi görünür; katman yalnız kullanıcı kendi anahtarını girip açınca başlar (kütüphane de o zaman iner).
+// false yapılırsa düğme gizlenir ve katman hiç başlamaz. Not: gerçek Google karolarıyla renk, hizalama ve performans henüz denenmedi (docs/fizik_denetimi.md).
+export const G3D_ENABLED = true;
 const D2R = Math.PI / 180;
 const KEY = 'ls19.g3d.key', ON = 'ls19.g3d.on', URL_KEY = 'ls19.g3d.url';
 

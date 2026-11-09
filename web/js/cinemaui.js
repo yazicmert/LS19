@@ -16,6 +16,7 @@ export class CineUI {
       <div class="cine-scrim"></div>
       <div class="cine-cards" aria-live="polite"></div>
       <div class="cine-cue" data-f="cue" aria-live="polite"></div>
+      <small class="cine-credit" data-f="credit"></small>
       <div class="cine-strip">
         <div class="cs-cell"><span class="cs-k">Görev süresi</span><span class="cs-v" data-f="met">T+0g 00:00:00</span></div>
         <div class="cs-cell cs-phase"><span class="cs-k" data-f="chap">Bölüm</span><span class="cs-v" data-f="phase">—</span></div>
@@ -46,7 +47,7 @@ export class CineUI {
   leave(instant = false) {
     this.clearTimers();
     this.root.classList.remove('on'); document.body.classList.remove('cine-on');
-    this.cards.textContent = ''; this.numbers = []; clearTimeout(this.cueT); if (this.f.cue) this.f.cue.classList.remove('in');
+    this.cards.textContent = ''; this.numbers = []; this.credit(''); clearTimeout(this.cueT); if (this.f.cue) this.f.cue.classList.remove('in');
     this.fade(0, 0); this.cache = {};
     if (instant) this.root.classList.remove('live'); else this.after(700, () => this.root.classList.remove('live'));
   }
@@ -70,6 +71,8 @@ export class CineUI {
   ticks(list) { this.f.ticks.innerHTML = list.map((p) => `<i style="left:${(p * 100).toFixed(2)}%"></i>`).join(''); }
   showHint(on) { this.f.hint.classList.toggle('show', on); if (on) this.after(5200, () => this.f.hint.classList.remove('show')); }
 
+  // görüntü atfı (kalkış: Esri / Google 3B karolar): alt siyah bantta küçük satır
+  credit(text) { const c = this.f.credit; if (c && c.textContent !== (text || '')) c.textContent = text || ''; }
   // ses düğmesi: sessizse "Sessiz" (üstü çizili hoparlör)
   setMuted(on) { const b = this.muteBtn; if (!b) return; setBtn(b, on ? 'mute' : 'volume', on ? 'Sessiz' : 'Ses'); b.setAttribute('aria-pressed', String(!!on)); b.setAttribute('aria-label', on ? 'Sesi aç' : 'Sesi kapat'); }
   // olay alt yazısı (kalkış anonsları, Ay'ın arkası, temas ışığı…): sağ altta kısa süre; yenisi eskisinin yerine geçer

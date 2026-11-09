@@ -96,11 +96,11 @@ export class AscentPlayer {
     this.tl.forEach((e, i) => E.ev[i].classList.toggle('done', real >= e.t));
   }
   // opts.quiet: sinematik fragman kipi — kontrol çubuğu, yayın bandı ve panel gizleme yok (fragmanın kendi bindirmesi var), hızı fragman verir
-  // (this.warp, userWarp), olay alt yazıları onCue(text, ms) ile iletilir; opts.from: başlangıç (kalkışa göre s, varsayılan −10)
+  // (this.warp, userWarp), olay alt yazıları onCue(text, ms), görüntü atfı onCredit(text) ile iletilir; opts.from: başlangıç (kalkışa göre s, varsayılan −10)
   async start(opts = {}) {
     const D = this.getDesign(), ins = this.getIns(), base = this.getState();
     if (this.active || !D || !ins || !base) return false;
-    this.quiet = !!opts.quiet; this.onCue = opts.onCue || null;
+    this.quiet = !!opts.quiet; this.onCue = opts.onCue || null; this.onCredit = opts.onCredit || null; this.lastCredit = null;
     const L = D.LAUNCH, rk = rocketOf(D.STAGES && D.STAGES[0] ? D.STAGES[0].rocket : null), A = rk.ascent;
     if (!A) return false;
     const site = { lat: L.lat ?? LEGACY_SITE.lat, lon: L.lon ?? LEGACY_SITE.lon };
@@ -195,7 +195,9 @@ export class AscentPlayer {
     else if (mq && !this.qShown && real >= mq.t && real < mq.t + 20) { this.qShown = true; this.flash(`MAX-Q · ${(mq.q / 1000).toFixed(0)} kPa`); }
     const full = msg + ` · irtifa ${hG.toFixed(hG < 10 ? 1 : 0)} km` + (s.q != null && met > 0 && h < 100 ? ` · q ${(s.q / 1000).toFixed(1)} kPa` : '') + nearQ;
     if (full !== this.lastMsg) { this.txt.textContent = full; this.lastMsg = full; }
-    const cr = this.world.asc && h < 40 ? this.world.asc.credit : ''; if (this.credit && this.credit.textContent !== cr) { this.credit.textContent = cr; this.placeTele(); }
+    const cr = this.world.asc && h < 40 ? this.world.asc.credit : '';
+    if (this.quiet) { if (cr !== this.lastCredit) { this.lastCredit = cr; if (this.onCredit) this.onCredit(cr); } }      // sessiz kip: atıf fragmanın bindirmesinde
+    else if (this.credit && this.credit.textContent !== cr) { this.credit.textContent = cr; this.placeTele(); }
     const x = { ...this.base, t: this.t, r: s.r, v: s.v, q, k: 0, thr: 0, phase: 'KALKIS', debris: [], local: null, att: null };
     // gösterge (ui.js hud): kalkışta roketin kendi değerleri — yere göre hız (bantla aynı), yaklaşık kütle (kalkış kütlesi × model oranı), yanan kademenin
     // kalan yakıtı, itki; görev aracının (yörüngede başlayan fizik) kütlesi ve yakıtı değil
