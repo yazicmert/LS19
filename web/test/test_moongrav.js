@@ -2,8 +2,9 @@
 //   1) potansiyel, bağımsız normalleştirilmiş Legendre toplamıyla aynı
 //   2) ivme, potansiyelin sayısal gradyanıyla aynı (100. derece, yüzeyde ve yörüngede)
 //   3) 2. derece, motordaki kapalı biçimli J2/C22 terimiyle aynı (J2 = −√5·C̄20, C22 = √(5/12)·C̄22)
-//   4) motor: OPTS.moonGravDeg = 0 eski J2/C22'ye döner; uzakta (≥ 20 000 km) yüksek dereceler etkisiz
-import { moonHarmonic, moonHarmonicPotential, degreeAt } from '../js/moongrav.js';
+//   4) alçak irtifa ızgarası (≤ 30 km): aradeğerleme hatası ≤ 0,01 mm/s² (60. derecenin kesme hatası ~0,4 mm/s²)
+//   5) motor: OPTS.moonGravDeg = 0 eski J2/C22'ye döner; uzakta (≥ 20 000 km) yüksek dereceler etkisiz
+import { moonHarmonic, moonHarmonicPotential, moonGravity, degreeAt } from '../js/moongrav.js';
 import { GRGM } from '../js/moongrav_data.js';
 import fs from 'node:fs';
 import * as E from '../js/engine.js';
@@ -42,8 +43,8 @@ let eU = 0, eG = 0;
 for (const p of pts) {
   const U = moonHarmonicPotential(p, mu, 100);
   eU = Math.max(eU, Math.abs(U / legendreU(p, 100) - 1));
-  const a = moonHarmonic(p, mu, 100), h = 1e-3;
-  const g = [0, 1, 2].map((i) => { const pp = p.slice(), pm = p.slice(); pp[i] += h; pm[i] -= h; return (moonHarmonicPotential(pp, mu, 100) - moonHarmonicPotential(pm, mu, 100)) / (2 * h); });
+  const a = moonHarmonic(p, mu, 100), h = 1e-3, N = degreeAt(nrm(p), 100);           // uzakta derece kısalır: gradyan aynı dereceyle
+  const g = [0, 1, 2].map((i) => { const pp = p.slice(), pm = p.slice(); pp[i] += h; pm[i] -= h; return (moonHarmonicPotential(pp, mu, N) - moonHarmonicPotential(pm, mu, N)) / (2 * h); });
   eG = Math.max(eG, dif(a, g) / nrm(a));
 }
 check('potansiyel = bağımsız Legendre toplamı (100. derece)', eU < 1e-12, `en büyük göreli fark ${eU.toExponential(1)}`);
@@ -62,8 +63,27 @@ check('2. derece = kapalı biçimli J2/C22 (C21, S21, S22 ≈ 0)', e2 < 1e-4, `e
 const pL = [1837.4, 0, 0];
 const aFull = moonHarmonic(pL, mu, 60), a2 = moonHarmonic(pL, mu, 2);
 check('100 km\'de 3–60. derece katkısı belirgin (≥ 0,05 mm/s²)', dif(aFull, a2) * 1e6 > 0.05, `${(dif(aFull, a2) * 1e6).toFixed(3)} mm/s²`);
-check('derece uzaklıkla kısalır', degreeAt(1838, 60) === 60 && degreeAt(20000, 60) < 10 && degreeAt(150000, 60) <= 6,
-  `1838 km: ${degreeAt(1838, 60)}, 20 000 km: ${degreeAt(20000, 60)}, 150 000 km: ${degreeAt(150000, 60)}`);
+check('derece uzaklıkla kısalır', degreeAt(1838, 60) === 60 && degreeAt(5000, 60) <= 12 && degreeAt(20000, 60) <= 7 && degreeAt(150000, 60) <= 6,
+  `1838 km: ${degreeAt(1838, 60)}, 5000 km: ${degreeAt(5000, 60)}, 20 000 km: ${degreeAt(20000, 60)}, 150 000 km: ${degreeAt(150000, 60)}`);
+
+{
+  let mx = 0;
+  for (let i = 0; i < 2000; i++) {
+    const r = 1737.4 + 0.5 + 29 * ((i * 0.7548) % 1), z = 2 * ((i * 0.618034) % 1) - 1, l = i * 2.39996, c = Math.sqrt(1 - z * z);
+    const p = [r * c * Math.cos(l), r * c * Math.sin(l), r * z];
+    mx = Math.max(mx, dif(moonHarmonic(p, mu, 60), moonGravity(p, mu, 60)));
+  }
+  let mf = 0;                                                                     // kısa adım (fine): 30–200 km de ızgaradan
+  for (let i = 0; i < 2000; i++) {
+    const r = 1737.4 + 30 + 170 * ((i * 0.7548) % 1), z = 2 * ((i * 0.618034) % 1) - 1, l = i * 2.39996, c = Math.sqrt(1 - z * z);
+    const p = [r * c * Math.cos(l), r * c * Math.sin(l), r * z];
+    mf = Math.max(mf, dif(moonHarmonic(p, mu, 60), moonGravity(p, mu, 60, true)));
+  }
+  check('kısa adımda 30–200 km ızgarası: aradeğerleme hatası ≤ 0,01 mm/s²', mf * 1e6 < 0.01, `en büyük ${(mf * 1e6).toFixed(4)} mm/s²`);
+  const far = [1900, 100, -50];
+  check('alçak irtifa ızgarası: aradeğerleme hatası ≤ 0,01 mm/s²; 30 km üstünde doğrudan', mx * 1e6 < 0.01 && dif(moonGravity(far, mu, 60), moonHarmonic(far, mu, 60)) === 0,
+    `en büyük ${(mx * 1e6).toFixed(4)} mm/s²`);
+}
 
 // motor: Ay merkezli çerçevede ivme farkı
 const t = 3 * 86400, rLow = [1837.4, 0, 0], rFar = [25000, 3000, -2000], thr = null;

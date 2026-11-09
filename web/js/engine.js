@@ -13,7 +13,7 @@
 // uygulanır; yoksa itki yönü komutla birebir (eski davranış). Dyn6'da dönme Euler denklemleriyle, her denetim periyodunda (itkili ya da dönerken ≤ 0,05–0,1 s) ilerler; ötelemeyi bu dosyanın DOPRI5'i taşır.
 import { attStep, D2R } from './attitude.js';
 import { massProps } from './rigidbody.js';
-import { moonHarmonic } from './moongrav.js';
+import { moonGravity } from './moongrav.js';
 
 export const MU_E = 398600.435507, MU_M = 4902.800118, MU_S = 132712440041.279;
 export const R_E = 6378.1363, J2_E = 1.0826267e-3;
@@ -25,6 +25,7 @@ const MOON_FIG_RANGE = 150000.0;
 // motor seçenekleri: exactMass=false eski davranış (itki ivmesi adım başı kütleyle sabit; TLI'da Δv'yi ~%0,14 eksik uygular)
 // moonGravDeg: Ay çekim alanının derecesi (GRAIL GRGM1200A, en çok 100). 0 → yalnız J2/C22 (eski model). 60. derece 100 km'de
 //   2–100. derece ivmesinin %98'ini verir (rms fark 0,013 mm/s²); yüzeye yakın kesme hatası ~0,4 mm/s² (güdüm kapalı döngüde karşılar).
+//   30 km altında moongrav.js ızgaradan aradeğerler (hata ≤ 0,002 mm/s²).
 export const OPTS = { exactMass: true, moonGravDeg: 60 };
 // görüntü/arayüz için 'Ay çevresi' yarıçapı (fizikteki merkez cisim geçişinden bağımsız): halo görevlerinde halo'yu kapsar
 export let MOON_ZONE = SOI_M;
@@ -152,8 +153,9 @@ function gmst82(t) {
 // ------------------------------------------------------------------ kuvvet modeli
 // Ay'ın figür ivmesi (merkez terim hariç): r Ay'a göre konum (ICRF), M ICRF -> PA dönüşü; sonuç ICRF'de.
 // OPTS.moonGravDeg ≥ 2 ise GRAIL küresel harmonikleri (moongrav.js), 0 ise yalnız J2/C22 (kapalı biçim).
-function moonFigure(M, r, rn2, rn) {
-  if (OPTS.moonGravDeg >= 2) return mtv(M, moonHarmonic(mv(M, r), MU_M, OPTS.moonGravDeg));
+// fine: kısa adım (yakış, iniş): alçak yörüngede de ızgaradan aradeğerlenir (moongrav.js); büyük adımlı süzülmede doğrudan toplam.
+function moonFigure(M, r, rn2, rn, fine = false) {
+  if (OPTS.moonGravDeg >= 2) return mtv(M, moonGravity(mv(M, r), MU_M, OPTS.moonGravDeg, fine));
   const [x, y, zz] = mv(M, r);
   const Rr = R_M_REF * R_M_REF, r5 = rn2 * rn2 * rn, r7 = r5 * rn2;
   const kJ = (-1.5 * J2_M * MU_M * Rr) / r5, q = (5 * zz * zz) / rn2;
@@ -164,7 +166,7 @@ function moonFigure(M, r, rn2, rn) {
   return mtv(M, loc);
 }
 // 'E' ve 'N': Dünya merkezli (eylemsiz) çerçeve. 'N' ek olarak Ay figürünü Ay'ın yakınında uygular; etki küresi geçişi yoktur.
-export function accel(t, r, central, thr, pole, Mpa) {
+export function accel(t, r, central, thr, pole, Mpa, fine = false) {
   const rm = moonPos(t), rs = sunPos(t);
   const rn2 = dot(r, r), rn = Math.sqrt(rn2);
   let ax, ay, az;
@@ -186,14 +188,14 @@ export function accel(t, r, central, thr, pole, Mpa) {
     if (central === 'N') {                                   // N-cisim: Ay'ın figürü (yalnız yakınında anlamlı)
       const s = sub(r, rm), sn2 = dot(s, s);
       if (sn2 < MOON_FIG_RANGE * MOON_FIG_RANGE) {
-        const g = moonFigure(Mpa || moonIcrfToPa(t), s, sn2, Math.sqrt(sn2));
+        const g = moonFigure(Mpa || moonIcrfToPa(t), s, sn2, Math.sqrt(sn2), fine);
         ax += g[0]; ay += g[1]; az += g[2];
       }
     }
   } else {
     const k0 = -MU_M / (rn2 * rn);
     ax = k0 * r[0]; ay = k0 * r[1]; az = k0 * r[2];
-    const g = moonFigure(Mpa || moonIcrfToPa(t), r, rn2, rn);
+    const g = moonFigure(Mpa || moonIcrfToPa(t), r, rn2, rn, fine);
     ax += g[0]; ay += g[1]; az += g[2];
     const re = [-rm[0], -rm[1], -rm[2]];
     let d = sub(re, r), dn = norm(d), ren = norm(re), q1 = MU_E / (dn * dn * dn), q2 = MU_E / (ren * ren * ren);
@@ -280,6 +282,8 @@ export class State {
 // ------------------------------------------------------------------ DOPRI5
 const A = DP_A, Cc = DP_C, B5 = DP_B5, B4 = DP_B4;              // Dormand–Prince 5(4) tablosu (dopri.js)
 const TOL = { ATOL_R: 1e-5, ATOL_V: 1e-8, RTOL: 1e-12 };
+// bu adımdan kısa DOPRI adımlarında Ay çekimi alçak yörüngede (≤ 200 km) ızgaradan aradeğerlenir (moongrav.js: yakışlar 0,05 s adımla)
+const FINE_H = 2.0;
 
 // thrust: null | [ax, ay, az] (sabit itki ivmesi, km/s²) | { u, T, m, mdot } (birim yön, itki kN, adım başı kütle kg, kütle akışı kg/s):
 // ikincisinde itki ivmesi her aşamada o aşamanın kütlesiyle (m − ṁ·Cᵢ·h) hesaplanır
@@ -291,7 +295,7 @@ export function dopriStep(st, h, thrust) {
   else if (c === 'N') { const s = sub(r, moonPos(t)); if (dot(s, s) < MOON_FIG_RANGE * MOON_FIG_RANGE) Mpa = moonIcrfToPa(t + h / 2); }
   const thrAt = !thrust ? () => null : Array.isArray(thrust) ? () => thrust
     : (i) => { const k = thrust.T / (thrust.m - thrust.mdot * Cc[i] * h); return [thrust.u[0] * k, thrust.u[1] * k, thrust.u[2] * k]; };
-  const kr = [], kv = [];
+  const kr = [], kv = [], fine = h < FINE_H;
   for (let i = 0; i < 7; i++) {
     let ri = r, vi = v;
     const Ai = A[i];
@@ -305,7 +309,7 @@ export function dopriStep(st, h, thrust) {
       }
     }
     kr.push(vi);
-    kv.push(accel(t + Cc[i] * h, ri, c, thrAt(i), pole, Mpa));
+    kv.push(accel(t + Cc[i] * h, ri, c, thrAt(i), pole, Mpa, fine));
   }
   const r5 = r.slice(), v5 = v.slice(), r4 = r.slice(), v4 = v.slice();
   for (let i = 0; i < 7; i++) {

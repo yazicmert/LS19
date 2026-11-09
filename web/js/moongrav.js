@@ -2,13 +2,14 @@
 // Yöntem: Cunningham V/W özyinelemesi (Montenbruck & Gill, "Satellite Orbits", §3.2.4), tam normalleştirilmiş biçimde
 //   (V̄nm = Nnm·Vnm, Nnm = √((2−δm0)(2n+1)(n−m)!/(n+m)!)); normalleştirme ~100. derecede faktöriyel taşmasını önler.
 // Merkez terim (μ/r²) DAHİL DEĞİL: yalnız n ≥ 2 terimleri (J2, C22 ve üstü) döner — engine.js merkez çekimi ayrıca ekler.
-// Derece uzaklıkla kısalır: (R/r)^n · 3,6e-4/n² (Kaula kuralı) ≤ TOL·(R/r)² olunca bırakılır; böylece Ay'dan uzakta (ör. 10 000 km)
-// birkaç derece hesaplanır, alçak yörüngede (≤ 100 km) tam derece. Bırakılan terimin ivmesi ≤ ~1e-15 km/s² (sınır sıçraması önemsiz).
+// Derece uzaklıkla kısalır: n. derecenin merkez çekime göre payı ~(R/r)^(n−2) · 3,6e-4/n² (Kaula kuralı) 1e-9'un altına inince bırakılır;
+// böylece Ay'dan uzakta (ör. 5000 km'de 10, 20 000 km'de ~5 derece) birkaç derece hesaplanır, alçak yörüngede (100 km) tam derece.
+// Bırakılan terimin ivmesi merkez çekimin ~1e-9'u (LLO'da ~1e-9 m/s²; sınır sıçraması önemsiz).
 import { GRGM } from './moongrav_data.js';
 
 const NMAX = GRGM.N, R = GRGM.R;
 
-const TOL = 1e-12;
+const TOL = 1e-9;
 const idx = (n, m) => (n * (n + 1)) / 2 + m;
 // özyineleme katsayıları (n ≤ NMAX + 1)
 const L = NMAX + 2, A = new Float64Array(idx(L, L) + 1), B = new Float64Array(idx(L, L) + 1), D = new Float64Array(L + 1);
@@ -109,4 +110,45 @@ export function moonHarmonicPotential(p, mu, N = NMAX) {
   let u = 0;
   for (let n = 2; n <= N; n++) for (let m = 0; m <= n; m++) { const k = idx(n, m); u += GRGM.C[k] * v[k] + GRGM.S[k] * w[k]; }
   return (mu / R) * u;
+}
+
+// ------------------------------------------------------------------ alçak irtifa: ızgaradan aradeğerleme
+// İnişte ve yakışlarda adımlar 0,05–0,1 s ve her adımda tam derece pahalıdır. r < R_GRID içinde (fine: kısa adımda r < R_FINE) ivme (r, enlem, boylam) ızgarasının düğümlerinden
+// üç doğrusal aradeğerlenir; düğümler gerektikçe hesaplanır ve saklanır (değerleri çağrı sırasından bağımsız: sonuç belirlenimci).
+// Aralık 1 km ve 0,1° (~3 km): 60. derecede en kısa dalga boyu ~180 km, aradeğerleme hatası alanın ~%0,1'i (yüzeyde ≤ ~0,003 mm/s²),
+// 60. derecenin kendi kesme hatasının (~0,4 mm/s², bkz. engine.js OPTS) çok altında.
+const R_LO = 1700.0, R_GRID = 1737.4 + 30.0, R_FINE = 1737.4 + 200.0, H_R = 1.0, H_A = 0.1, NLAT = 1800, NLON = 3600, D2R = Math.PI / 180;
+const NODES = new Map(), NODE_MAX = 400000;
+let nodeDeg = -1;
+function node(ir, ila, ilo, nmax) {
+  const key = (ir * (NLAT + 1) + ila) * NLON + ilo;
+  let a = NODES.get(key);
+  if (a) return a;
+  if (NODES.size >= NODE_MAX) NODES.clear();
+  const r = R_LO + ir * H_R, la = (ila * H_A - 90) * D2R, lo = ilo * H_A * D2R, c = Math.cos(la);
+  a = moonHarmonic([r * c * Math.cos(lo), r * c * Math.sin(lo), r * Math.sin(la)], 1.0, nmax);
+  NODES.set(key, a);
+  return a;
+}
+// moonHarmonic ile aynı arayüz; r < R_GRID ise ızgaradan. Dış seri Ay'ın içinde (r < R) ıraksar: R_LO'nun (Ay'ın en alçak noktasından ~29 km
+// aşağısı) altında yalnız 2. derece, R_LO küresine izdüşürülmüş noktada (sınırlı ve ucuz; buraya yalnız Ay'ın içinden geçen deneme
+// yörüngeleri — ör. tasarım aramaları — düşer, gerçek uçuş daha önce yüzeye değer).
+// fine: çağıran kısa adımla ilerliyor (yakış): 200 km'ye dek ızgara. Büyük adımlı süzülmede her çağrı yeni düğümler isteyeceğinden doğrudan toplam daha ucuzdur.
+export function moonGravity(p, mu, nmax = NMAX, fine = false) {
+  const x = p[0], y = p[1], z = p[2], rxy = Math.hypot(x, y), r = Math.hypot(rxy, z);
+  if (r >= (fine ? R_FINE : R_GRID)) return moonHarmonic(p, mu, nmax);
+  if (r <= R_LO) { if (r === 0) return [0, 0, 0]; const k = R_LO / r; return moonHarmonic([k * x, k * y, k * z], mu, 2); }
+  if (nmax !== nodeDeg) { NODES.clear(); nodeDeg = nmax; }
+  const fr = (r - R_LO) / H_R, fa = (Math.atan2(z, rxy) / D2R + 90) / H_A;
+  let fo = Math.atan2(y, x) / D2R / H_A; if (fo < 0) fo += NLON;
+  const ir = Math.floor(fr), ia = Math.min(Math.floor(fa), NLAT - 1), io = Math.floor(fo) % NLON, io1 = (io + 1) % NLON;
+  const wr = fr - ir, wa = fa - ia, wo = fo - Math.floor(fo);
+  const out = [0, 0, 0];
+  for (let dr = 0; dr < 2; dr++) for (let da = 0; da < 2; da++) for (let dl = 0; dl < 2; dl++) {
+    const w = (dr ? wr : 1 - wr) * (da ? wa : 1 - wa) * (dl ? wo : 1 - wo);
+    if (w === 0) continue;
+    const a = node(ir + dr, ia + da, dl ? io1 : io, nmax);
+    out[0] += w * a[0]; out[1] += w * a[1]; out[2] += w * a[2];
+  }
+  return [mu * out[0], mu * out[1], mu * out[2]];
 }

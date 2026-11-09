@@ -816,12 +816,13 @@ export class Mission {
       ctrl: (Pp) => { const dv = gap(Pp), amax = stg.T / veh.mass(); return [Math.min(1.0, Math.max(stg.thr_min, norm(dv) / (amax * 2.0))), unit(dv)]; },
       stop: (Pp) => { const g = norm(gap(Pp)); if (g < LOI_TRIM.DV_STOP || (best < 0.002 && g > best + 1e-4)) return true; best = Math.min(best, g); return false; } };
   }
-  // LOI-2: bir tur içindeki en yakın noktada (yayınımla bulunur) hız doğrultusunda anlık Δv Gauss–Newton ile çözülür: sonraki turda gerçek yükseklik 24 örnekte hedefe
-  // en yakın olsun (en küçük kareler). Yakış o noktada ortalanır.
+  // LOI-2: LOI-1'den 0,3–0,8 tur sonraki en yakın noktada (yayınımla bulunur; planda yarım tur) hız doğrultusunda anlık Δv Gauss–Newton ile çözülür: sonraki turda
+  // gerçek yükseklik 24 örnekte hedefe en yakın olsun (en küçük kareler). Yakış o noktada ortalanır. Pencere tam tur değil: GRAIL alanında maskonlar yarıçapı tur
+  // boyunca dalgalandırır, en alçak nokta bir sonraki tura kayıp Ay yörüngesini bir tur kısaltabilirdi (en küçük kareler yakış yerine duyarsız).
   *loi2(hdir, rT, Tp) {
     const P = this.P, sNow = P.s.copy();
     let tMin = null;
-    { const Q = this.prop(sNow.copy(), E.dummyVehicle(), 30.0), t1 = sNow.t + 1.3 * Tp; let lo = Infinity;
+    { const Q = this.prop(sNow.copy(), E.dummyVehicle(), 30.0), t1 = sNow.t + 0.8 * Tp; let lo = Infinity;
       while (Q.s.t < t1 - 1e-9) { Q.step(Math.min(30.0, t1 - Q.s.t)); const r = norm(Q.s.seleno()[0]); if (Q.s.t > sNow.t + 0.3 * Tp && r < lo) { lo = r; tMin = Q.s.t; } } }
     // yalnız hız doğrultusunda (en yakın noktada radyal hız ~0): araç zaten hıza ters hizalı süzüldüğünden yakış için dönmez
     const s2 = this.coastCopy(sNow, tMin), [rs2, vs2] = s2.seleno(), vh = unit(vs2);
