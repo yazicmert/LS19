@@ -116,7 +116,7 @@ const FS = /* glsl */`
 #include <common>
 #include <logdepthbuf_pars_fragment>
 ${LEVELS.map((_, k) => `uniform sampler2D t${k}; uniform vec4 L${k};`).join('\n')}
-uniform float N; uniform vec3 sunDir; uniform float day, camH, sunI; uniform vec3 plumeW, plumeCol; uniform float plumeI, holeR;
+uniform float N; uniform vec3 sunDir; uniform float day, camH, sunI, hazeL, sunDim; uniform vec3 plumeW, plumeCol; uniform float plumeI, holeR;
 varying vec2 vM; varying vec3 vW; varying vec3 vNw; varying vec3 vUpW; varying vec2 vLoc;
 vec4 lvl(sampler2D t, vec4 L) {
   vec2 uv = (vM * L.x + L.yz) / N; float e = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
@@ -133,14 +133,14 @@ void main() {
   // aydınlanma: görüntüde gölge zaten var — kabartmanın düzlemden farkı (yamaç) ve Güneş yüksekliği; gece alevin ışığı
   vec3 L = normalize(sunDir), Nf = normalize(vUpW), Nt = normalize(vNw);
   float sf = max(dot(Nf, L), 0.0), st = max(dot(Nt, L), 0.0), relief = (0.35 + 0.65 * st) / (0.35 + 0.65 * sf);
-  float sunAmt = smoothstep(-0.08, 0.25, dot(Nf, L));
+  float sunAmt = smoothstep(-0.08, 0.25, dot(Nf, L)) * sunDim;                // bulut altında doğrudan Güneş azalır (clouds.js sunDim)
   vec3 lit = col * (0.04 + 0.96 * sunAmt) * mix(1.0, relief, 0.8) * mix(vec3(1.0, 0.72, 0.5), vec3(1.0), smoothstep(0.0, 0.3, sf));
   float dp = distance(vW, plumeW); lit += col * plumeCol * plumeI / (1.0 + dp * dp / 0.04);
   // hava perspektifi: pus alçak katmanda (ölçek yüksekliği H ≈ 2 km) yoğun. Işının deniz düzeyi eşdeğeri yolu = H·(1 − e^(−h/H)) / sin(görüş açısı)
-  // (yerdeki kamerada bu uzaklığın kendisi; yüksekten aşağı bakınca kısa, ufka doğru uzun); sönüm uzunluğu L0 ≈ 22 km
+  // (yerdeki kamerada bu uzaklığın kendisi; yüksekten aşağı bakınca kısa, ufka doğru uzun); sönüm uzunluğu hazeL (varsayılan 22 km; gerçek havada görüşten: clouds.js hazeLength)
   float dist = length(vW), sinE = max(dot(normalize(-vW), Nf), 0.02), H = 2.0;
-  float path = min(dist, H * (1.0 - exp(-max(camH, 0.0) / H)) / sinE + (camH < 0.05 ? dist : 0.0)), hz = (1.0 - exp(-path / 22.0)) * 0.92;
-  vec3 hazeC = mix(vec3(0.015, 0.02, 0.035), vec3(0.62, 0.72, 0.86), day);
+  float path = min(dist, H * (1.0 - exp(-max(camH, 0.0) / H)) / sinE + (camH < 0.05 ? dist : 0.0)), hz = (1.0 - exp(-path / hazeL)) * 0.92;
+  vec3 hazeC = mix(vec3(0.015, 0.02, 0.035), mix(vec3(0.6, 0.62, 0.64), vec3(0.62, 0.72, 0.86), sunDim), day);   // kapalı havada pus grileşir
   gl_FragColor = vec4(mix(lit * sunI, hazeC, hz), 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -150,7 +150,7 @@ export class PadGround {
   // THREE: three.js modülü · parent: rampa grubu (ölçek KM, birim m) · site: { lat, lon }
   constructor(THREE, parent, site, { onProgress } = {}) {
     this.T = THREE; this.site = site; this.onProgress = onProgress; this.ctl = new AbortController(); this.provider = null; this.hasDem = false; this.ready = false;
-    const u = { N: { value: LEVEL_N }, sunDir: { value: new THREE.Vector3(0, 1, 0) }, day: { value: 1 }, camH: { value: 0 }, sunI: { value: 1.25 }, radius: { value: R_M },
+    const u = { N: { value: LEVEL_N }, sunDir: { value: new THREE.Vector3(0, 1, 0) }, day: { value: 1 }, camH: { value: 0 }, sunI: { value: 1.25 }, radius: { value: R_M }, hazeL: { value: 22 }, sunDim: { value: 1 },
       plumeW: { value: new THREE.Vector3() }, plumeCol: { value: new THREE.Color(1, 0.6, 0.3) }, plumeI: { value: 0 }, holeR: { value: 0 } };
     this.rects = LEVELS.map((z) => levelRect(site.lat, site.lon, z, LEVEL_N));
     this.rects.forEach((r, k) => { const [s, ox, oy] = levelXf(r); u['t' + k] = { value: null }; u['L' + k] = { value: new THREE.Vector4(s, ox, oy, 0) }; });

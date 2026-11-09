@@ -5,6 +5,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { makeLaunchVehicle } from './rocketmodels.js';
 import { LaunchSmoke } from './launchfx.js';
+import { CloudLayers, hazeLength, sunDim as cloudSunDim } from './clouds.js';
 import { PadGround, R_M } from './padground.js';
 import { Google3D, g3dSettings, g3dUsable } from './google3d.js';
 import { shake as camShake, SITES, siteEye } from './launchcam.js';
@@ -27,7 +28,7 @@ export class AscentView {
   // olanlar (booster, fairing, las) gizlenir. null: kalkış biter, araç geri gelir.
   async setAscent(spec) {
     const veh = this.vehicle;
-    if (this.asc) { veh.remove(this.asc.root); if (this.asc.smoke) this.asc.smoke.dispose(); if (this.asc.ground) this.asc.ground.dispose(); if (this.asc.g3d) this.asc.g3d.dispose(); if (this.asc.world) { this.scene.remove(this.asc.world); this.asc.world.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); } this.asc = null; }
+    if (this.asc) { veh.remove(this.asc.root); if (this.asc.smoke) this.asc.smoke.dispose(); if (this.asc.ground) this.asc.ground.dispose(); if (this.asc.clouds) this.asc.clouds.dispose(); if (this.asc.g3d) this.asc.g3d.dispose(); if (this.asc.world) { this.scene.remove(this.asc.world); this.asc.world.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); } this.asc = null; }
     for (const c of veh.children) if (c.userData.ascHidden !== undefined) { c.visible = c.userData.ascHidden; delete c.userData.ascHidden; }
     this.renderer.localClippingEnabled = false;
     if (!spec) return;
@@ -83,7 +84,15 @@ export class AscentView {
       ground.load();
       if (g3dUsable()) this.setGoogle3D(true);                                          // isteğe bağlı: rampa çevresi Google 3B karolarıyla (google3d.js)
     }
+    this.asc.clouds = new CloudLayers(THREE, pad);                                    // gerçek hava (setAscentWeather): veri gelene dek açık hava
+    this.asc.wxDim = 1;
     this.renderer.localClippingEnabled = true;
+  }
+  // kalkış saatinin gerçek havası (clouds.js cloudState: alçak/orta/yüksek örtü, görüş): bulut katmanları, zemin pusu, bulut altında Güneş ve gökyüzü
+  setAscentWeather(c) {
+    const A = this.asc; if (!A || !c) return;
+    A.clouds.set(c); A.wx = c; A.wxDim = cloudSunDim(c);
+    if (A.ground) { A.ground.u.hazeL.value = hazeLength(c.visKm); A.ground.u.sunDim.value = A.wxDim; }
   }
   // Google 3B karoları (google3d.js): kalkış sürerken aç/kapa; ayarlar (anahtar) google3d.js'te. onStatus: durum değişince (ayar paneli)
   setGoogle3D(on) {
@@ -141,7 +150,7 @@ export class AscentView {
     if (SM.userData.preetham) {
       // irtifada gökyüzü koyulaşırken griye değil laciverde döner (saçılan ışık maviye kayar; Preetham modeli gözlemciyi yerde varsayar)
       const hb = Math.max(0, Math.min(1, (h - 2) / 23)), sb = hb * hb * (3 - 2 * hb); SM.uniforms.skyTint.value.set(1 - 0.75 * sb, 1 - 0.45 * sb, 1 + 0.3 * sb);
-      SM.uniforms.skyGain.value = 0.8 * expo;
+      SM.uniforms.skyGain.value = 0.8 * expo * (0.55 + 0.45 * (this.asc.wxDim ?? 1));                 // kapalı havada gökyüzü sönük (bulut altında)
       SM.uniforms.skyFade.value = Math.min(0.985, Math.exp(-h / 22) * (0.35 + 0.65 * day)); if (sunDir) SM.uniforms.sunPosition.value.set(...sunDir); SM.uniforms.up.value.set(...up);
     } else { SM.opacity = Math.min(0.97, op); SM.color.setRGB(0.04 + 0.30 * day, 0.06 + 0.50 * day, 0.12 + 0.82 * day); }
   }
@@ -181,6 +190,7 @@ export class AscentView {
           const now = performance.now(); if (!A.creditT || now - A.creditT > 1000) { A.creditT = now; const g = A.g3d.attribution(); A.credit = A.ground.credit() + (g ? ' · ' + g : ''); }
         }
       }
+      if (A.clouds) { const cm2 = new THREE.Vector3().applyMatrix4(A.pad.matrix.clone().invert()); A.clouds.frame({ sunUp: o.sunUp, cam: [cm2.x, cm2.y, cm2.z], dt: o.dtFlight ?? 0 }); }   // bulut katmanları: kamera rampa çerçevesinde (m)
       if (A.smoke) {                                                                       // kalkış bulutu rampa çerçevesinde (m): roket tabanı ve kamera oraya taşınır
         const inv = A.pad.matrix.clone().invert(), rb = base.clone().applyMatrix4(inv), cm = new THREE.Vector3().applyMatrix4(inv);
         A.smoke.update(o.met ?? 0, o.dtFlight ?? 0, { rocket: [rb.x, rb.y, rb.z], thr: o.thr, sunUp: o.sunUp, cam: [cm.x, cm.y, cm.z], sunDir: o.sunDir });

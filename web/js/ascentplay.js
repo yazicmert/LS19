@@ -10,6 +10,9 @@ import { directShot, autoWarp, timeline, SHOT_NAMES, SITES, siteEye, sight, asce
 import { MU_E as MU, OMEGA_E as OMEGA, ellipsoidAlt } from './geo.js';
 import { $ } from './uiutil.js';
 import { fmt } from './format.js';
+import { launchHour } from './weather.js';
+import { isEn } from './i18n.js';
+import { cloudState, wxSummary } from './clouds.js';
 
 // (0,0,1) → d döndüren birim kuaterniyon [x, y, z, w]
 function quatZto(d) {
@@ -129,6 +132,13 @@ export class AscentPlayer {
       window.addEventListener('resize', this.onResize);
     }
     this.flash(`${rk.name} · ${L.site || rk.pad || ''}`.replace(/ · $/, ''), 5000);
+    // kalkış saatinin gerçek havası (Open-Meteo): bulut katmanları, pus; gelmezse açık hava kalır ve nedeni alt yazıda
+    const tMs = this.E.utcMsFromT ? this.E.utcMsFromT(L.t_launch) : null;
+    if (tMs != null) launchHour(site.lat, site.lon, tMs).then((r) => {
+      if (!this.active) return;
+      const c = cloudState(r.h); if (this.world.setAscentWeather) this.world.setAscentWeather(c);
+      setTimeout(() => { if (this.active) this.flash(r.h ? wxSummary(c, isEn) : `Hava verisi yok (${r.why}): açık hava`, 4500); }, 5200);
+    });
     return true;
   }
   // çizim konumu: sahnede Dünya küre (R_E), rampa ise WGS-84 elipsoidinde — alçakta küre yüzeyine yaslanır (20 km'de söner); telemetri gerçek konumu kullanır
