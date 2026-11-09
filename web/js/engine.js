@@ -1,11 +1,11 @@
 // LS19 fizik motoru — rocsim_mission_engine.py'nin JavaScript karşılığı (N-cisim çerçevesi ve değişken kütleli itki eklendi)
 // Birimler: km, s, kg. Zaman: TDB saniye (JD0 = 2026-10-01 00:00 TDB'den). Çerçeve: ICRF.
-// Kuvvetler: merkez cisim (Dünya/Ay) + Dünya J2 (presesyonlu kutup) + Ay J2/C22 (PA çerçevesi)
+// Kuvvetler: merkez cisim (Dünya/Ay) + Dünya J2 (presesyonlu kutup) + Ay çekim alanı (GRAIL GRGM1200A, varsayılan 60. derece; PA çerçevesi; moongrav.js)
 //            + Ay/Dünya/Güneş (ve canlı efemeriste gezegenler) üçüncü cisim çekimi (DE440 konumları) + sonlu itki.
 // Çerçeve ('central'):
 //   'E' Dünya merkezli, 'M' Ay merkezli (Ay'ın etki küresine girince/çıkınca durum kesin dönüşümle değişir) — iki merkez cisimli (patched) çerçeve.
 //   'N' N-cisim: tek eylemsiz çerçeve (Dünya merkezli, ICRF eksenli), etki küresi geçişi YOK. Dünya, Ay, Güneş (+gezegenler) araca her an birlikte
-//       çeker; Dünya J2 her yerde, Ay J2/C22 Ay'ın MOON_FIG_RANGE yakınında uygulanır. Üçüncü cisimler dolaylı terimiyle (Dünya'nın ivmesi) alınır,
+//       çeker; Dünya J2 her yerde, Ay figürü (küresel harmonikler) Ay'ın MOON_FIG_RANGE yakınında uygulanır. Üçüncü cisimler dolaylı terimiyle (Dünya'nın ivmesi) alınır,
 //       yani uzay aracının barisentrik hareket denklemiyle eşdeğerdir (bağımsız barisentrik entegrasyonla ≤ 1 m uyum: test/test_nbody.js).
 // Sonlu itki: itki ivmesi her DOPRI aşamasında o aşamanın kütlesiyle (m₀ − ṁ·Δt) hesaplanır; böylece uygulanan Δv roket denklemine uyar.
 // Entegratör: Dormand–Prince 5(4), uyarlamalı adım.
@@ -13,6 +13,7 @@
 // uygulanır; yoksa itki yönü komutla birebir (eski davranış). Dyn6'da dönme Euler denklemleriyle, her denetim periyodunda (itkili ya da dönerken ≤ 0,05–0,1 s) ilerler; ötelemeyi bu dosyanın DOPRI5'i taşır.
 import { attStep, D2R } from './attitude.js';
 import { massProps } from './rigidbody.js';
+import { moonHarmonic } from './moongrav.js';
 
 export const MU_E = 398600.435507, MU_M = 4902.800118, MU_S = 132712440041.279;
 export const R_E = 6378.1363, J2_E = 1.0826267e-3;
@@ -22,7 +23,9 @@ const TT_UTC = 69.184, DAY = 86400.0;
 // N-cisim çerçevesinde Ay figür (J2/C22) terimi bu uzaklığın içinde uygulanır (km; sınırdaki ivme ~1e-14 km/s²)
 const MOON_FIG_RANGE = 150000.0;
 // motor seçenekleri: exactMass=false eski davranış (itki ivmesi adım başı kütleyle sabit; TLI'da Δv'yi ~%0,14 eksik uygular)
-export const OPTS = { exactMass: true };
+// moonGravDeg: Ay çekim alanının derecesi (GRAIL GRGM1200A, en çok 100). 0 → yalnız J2/C22 (eski model). 60. derece 100 km'de
+//   2–100. derece ivmesinin %98'ini verir (rms fark 0,013 mm/s²); yüzeye yakın kesme hatası ~0,4 mm/s² (güdüm kapalı döngüde karşılar).
+export const OPTS = { exactMass: true, moonGravDeg: 60 };
 // görüntü/arayüz için 'Ay çevresi' yarıçapı (fizikteki merkez cisim geçişinden bağımsız): halo görevlerinde halo'yu kapsar
 export let MOON_ZONE = SOI_M;
 export function setMoonZone(r) { MOON_ZONE = r; }
@@ -147,8 +150,10 @@ function gmst82(t) {
 }
 
 // ------------------------------------------------------------------ kuvvet modeli
-// Ay'ın figür (J2, C22) ivmesi: r Ay'a göre konum (ICRF), M ICRF -> PA dönüşü; sonuç ICRF'de
+// Ay'ın figür ivmesi (merkez terim hariç): r Ay'a göre konum (ICRF), M ICRF -> PA dönüşü; sonuç ICRF'de.
+// OPTS.moonGravDeg ≥ 2 ise GRAIL küresel harmonikleri (moongrav.js), 0 ise yalnız J2/C22 (kapalı biçim).
 function moonFigure(M, r, rn2, rn) {
+  if (OPTS.moonGravDeg >= 2) return mtv(M, moonHarmonic(mv(M, r), MU_M, OPTS.moonGravDeg));
   const [x, y, zz] = mv(M, r);
   const Rr = R_M_REF * R_M_REF, r5 = rn2 * rn2 * rn, r7 = r5 * rn2;
   const kJ = (-1.5 * J2_M * MU_M * Rr) / r5, q = (5 * zz * zz) / rn2;

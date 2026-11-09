@@ -23,6 +23,7 @@ Doğrulama testi: `test/test_moonframe.js` (PA → ME matrisi Skyfield'ın SPICE
 | GM değerleri (Güneş, Merkür … Plüton, Dünya, Ay) | JPL Astrodynamic Parameters (DE440) | Aynı |
 | Güneş 1PN düzeltmesi: a = GM/(c²r³)[(4GM/r − v²) r + 4(r·v) v] | Moyer; Montenbruck & Gill | Aynı |
 | Dünya J2 (gerçek kutupla), Ay J2 + C22 (PA çerçevesi) | Potansiyelin gradyanı | Doğru; C22 terimi 3μR²C22(x²−y²)/r⁵'in türevi |
+| Ay çekim alanı: GRAIL GRGM1200A (NASA PDS, `gggrx_1200a_sha.tab`), varsayılan 60. derece (veri 100. dereceye kadar), PA çerçevesi; normalleştirilmiş Cunningham V/W özyinelemesi (`js/moongrav.js`) | Bağımsız Legendre toplamı; potansiyelin sayısal gradyanı; 2. derecede kapalı biçimli J2/C22 (`test/test_moongrav.js`) | Potansiyel 3e-14, ivme 1e-8, 2. derece 5e-5 göreli (C21/S22 ≈ 0 ve sabitlerin küçük farkı). 100 km'de 3–60. derecenin katkısı ~0,2–0,35 mm/s²; 60. derecenin 100. dereceye göre rms farkı 100 km'de 0,013, 15 km'de 0,40 mm/s² |
 | Üçüncü cisim (dolaylı terimli), değişken kütleli itki (aşama kütlesi m − ṁcᵢh) | Standart | Doğru |
 | DOPRI5 katsayıları ve hata tahmini (b5 − b4), adım denetimi (üs 1/5) | Dormand–Prince tablosu | Tam eşit (elle hesap) |
 | Kepler çözümü, öğe → durum, ekliptik eğikliği 84381,448″ | Standart | Doğru |
