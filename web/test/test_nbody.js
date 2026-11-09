@@ -79,7 +79,7 @@ const live = () => makeLive(SPK, PCK, eo, T_START);
   runTo(plan['MCC-2'] + 60);
   leg('MCC-2 → LOI (etki küresine giriş dahil)', plan['MCC-2'] + 60, plan.LOI - 5, 2);
   // alçak Ay yörüngesi: LOI tamam → DOI öncesi
-  runTo(plan.LOI + 600);
+  runTo((plan['LOI-2'] ?? plan.LOI) + 600);                                  // LOI-2 (dairesel düzeltme) varsa ondan sonra
   const tLoiEnd = M.events.find((e) => e.key === 'LOI_END').t;
   runTo(tLoiEnd + 30);
   leg('alçak Ay yörüngesi (LOI → DOI)', tLoiEnd + 30, plan.DOI - 60, 1, 60);

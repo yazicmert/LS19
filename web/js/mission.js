@@ -102,8 +102,11 @@ export const DEFAULT_DESIGN = { TLI, ARRIVAL, LAUNCH, t_L: T_L_TARGET, label: '2
 const TWO_PI = 2 * Math.PI;
 // Yönelim (attitude.js): ateşlemeden bu kadar önce (s) itki yönüne dönmeye başlanır; iniş aracı sınıfı 15°/s ile 180° ≈ 13 s, 2°/s'lik TLI yığını küçük açılar döner
 const ATT_LEAD = 180.0, ATT_H_APPROACH = 5.0;
-const TIPOFF = 0.5 * Math.PI / 180;                         // ayrılma devrilmesi (rad/s): kademe ayrılırken kazandığı enine açısal hız (6-DOF)
+// LOI doğruluğu: HA1 LOI-1'in hedef aposeleni (hedef irtifanın üstü, km; 0: yakışın bittiği yükseklik), DV_STOP kapalı döngü yakışın kesme eşiği (km/s), TOL bu kadar (km) içindeyse LOI-2 yakılmaz (v)
+export const LOI_TRIM = { HA1: 0, DV_STOP: 0.00005, TOL: 0.2 };
+const TIPOFF = 0.5 * Math.PI / 180;                       // ayrılma devrilmesi (rad/s): kademe ayrılırken kazandığı enine açısal hız (6-DOF)
 const mod2pi = (a) => ((a % TWO_PI) + TWO_PI) % TWO_PI;
+const dot2 = (a, b) => a.reduce((s, x, i) => s + x * b[i], 0);
 
 export const siteMe = () => [Math.cos(SITE_LAT) * Math.cos(SITE_LON), Math.cos(SITE_LAT) * Math.sin(SITE_LON), Math.sin(SITE_LAT)];
 export const siteIcrf = (t) => scale(mtv(E.moonIcrfToMe(t), siteMe()), R_SITE);
@@ -175,6 +178,8 @@ export class Mission {
       this.plan.push({ key: 'DEP', name: "Halo'dan ayrılış", t: design.DEP.t - 90 }, ...this.tcmTimes().map((c, i) => ({ key: c.key, name: `Transfer düzeltmesi ${i + 1}`, t: c.t })),
         { key: 'LOI', name: 'LLO girişi', t: design.LLO.tP - 84 });
     } else this.plan.push({ key: 'LOI', name: 'LOI', t: ARRIVAL.t_P - 84 });
+    // LOI-2: LOI-1'den yaklaşık yarım tur sonra (en yakın noktada) kısa düzeltme yakışı; tek turluk LLO'da ve Python uyumluluk kipinde yok
+    if (!compat && this.nLlo >= 2) this.plan.push({ key: 'LOI-2', name: 'LOI-2 (dairesel yörünge düzeltmesi)', t: (this.halo ? design.LLO.tP : ARRIVAL.t_P) + 120 + 0.5 * Pl });
     // SEP2 zamanı yaklaşıktır: alçalış yayında hSep irtifasına ulaşma, profile göre PDI'dan ~140–240 s önce
     this.plan.push({ key: 'DOI', name: 'DOI', t: design.t_L - 1620 - 395 - 0.5 * Pl + 60 }, ...(design.SEP2 ? [{ key: 'SEP2', name: 'Ay yörünge kademesi ayrılır', t: design.t_L - 2015 - 200 }] : []), { key: 'PDI', name: 'PDI', t: design.t_L - 2015 },
       { key: 'INDI', name: 'Temas', t: design.t_L - 1620 });
@@ -563,26 +568,139 @@ export class Mission {
         // Python sürümünde ateşleme anı adım boyuna (20 s) kuantalanıyordu; burada 0.05 s'ye inceltilir
         if (rn < 20000) P.hMaxCoast = (dot(rs, vs) < 0 && !this.compat) ? Math.max(0.05, Math.min(20.0, rem * 0.5)) : 20.0;
         const tp = this.timeToPeriapsis(); this.tNext = tp !== null ? P.s.t + tp - tb / 2 : this.tNext;
+        if (!this.compat && rem < ATT_LEAD + 120 && dot(rs, vs) < 0) break;               // ateşleme anı ve hedef öngörüyle (loiPlan) seçilir
         if (this.attitude && !this.attMode && rem < ATT_LEAD && dot(rs, vs) < 0) this.attMode = dirLoi;
         if (rem <= 0 && dot(rs, vs) < 0) break;
       } else this.tNext = tArr - 90;
       yield* this.stepOnce();
     }
+    let lp = null;
+    if (!this.compat) {
+      this.status = 'LOI hedefleniyor…'; yield 'COMPUTE';
+      lp = this.loiPlan(P.s, planeN ? unit(planeN) : unit(cross(...P.s.seleno())));
+      this.status = ''; this.tNext = lp.tIgn;
+      yield* this.approach(lp.tIgn, dirLoi, Math.min(ATT_LEAD, Math.max(0, lp.tIgn - P.s.t - 1)));
+    }
     P.phase = 'LOI'; P.hMaxBurn = 0.5;
-    const hdir = planeN ? unit(planeN) : unit(cross(...P.s.seleno()));
-    this.log(`${this.halo ? 'LLO girişi' : 'LOI'} ateşleme (periselen irtifası ~${this.periAlt().toFixed(1)} km)`, 'LOI');
-    const vt = (rs) => scale(unit(cross(hdir, rs)), Math.sqrt(E.MU_M / norm(rs)));
-    const loiCtrl = (Pp) => {
-      const [rs, vs] = Pp.s.seleno(), dv = sub(vt(rs), vs), amax = stg.T / this.veh.mass();
-      return [Math.min(1.0, Math.max(stg.thr_min, norm(dv) / (amax * 2.0))), unit(dv)];
-    };
-    const loiStop = (Pp) => { const [rs, vs] = Pp.s.seleno(); return norm(sub(vt(rs), vs)) < 0.0004; };
-    P.hMaxBurn = 0.2;
-    yield* this.until(P.s.t + 2000, loiCtrl, loiStop);
-    this.attMode = null;
-    const [rs, vs] = P.s.seleno(), el = E.elements(rs, vs, E.MU_M);
-    this.log(`${this.halo ? 'LLO girişi' : 'LOI'} tamam: periselen ${(el.rp - E.R_M).toFixed(1)} km, aposelen ${(el.ra - E.R_M).toFixed(1)} km`, 'LOI_END');
+    const hdir = planeN ? unit(planeN) : unit(cross(...P.s.seleno())), nm = this.halo ? 'LLO girişi' : 'LOI';
+    this.log(`${nm} ateşleme (periselen irtifası ~${this.periAlt().toFixed(1)} km)`, 'LOI');
+    const orbit = () => { const [rs, vs] = P.s.seleno(), el = E.elements(rs, vs, E.MU_M); return [el.rp - E.R_M, el.ra - E.R_M]; };
+    if (this.compat) {                                  // Python sürümü: tek yakış, bittiği yarıçapta dairesel (hedef irtifadan 2–5 km yüksek biter)
+      const vt = (rs) => scale(unit(cross(hdir, rs)), Math.sqrt(E.MU_M / norm(rs)));
+      const loiCtrl = (Pp) => {
+        const [rs, vs] = Pp.s.seleno(), dv = sub(vt(rs), vs), amax = stg.T / this.veh.mass();
+        return [Math.min(1.0, Math.max(stg.thr_min, norm(dv) / (amax * 2.0))), unit(dv)];
+      };
+      const loiStop = (Pp) => { const [rs, vs] = Pp.s.seleno(); return norm(sub(vt(rs), vs)) < 0.0004; };
+      P.hMaxBurn = 0.2;
+      yield* this.until(P.s.t + 2000, loiCtrl, loiStop);
+      this.attMode = null;
+    } else {
+      // Ay'ın J2/C22 alanında osküle periselen/aposelen tur boyunca ~1,5 km oynar (110 km'de gerçekten dairesel bir yörüngenin osküle aposeleni 0,5–1,5 km yüksek okunur):
+      // hedef, aracın GERÇEK uzaklığıdır (yayınımla öngörülen bir turdaki en yakın/en uzak yükseklik). Eski yasa "bulunduğu yarıçapta dairesel" hedefliyordu; yakış periselenden
+      // tb/2 önce (~7 km yukarıda) başlayıp radyal hızı erken söndürdüğü için yörünge hedefin 2–6 km üstünde bitiyordu (Apollo 114,7 × 116,5, NRHO 102,0 × 103,7 km).
+      const rT = E.R_M + this.hLlo, Tp = TWO_PI * Math.sqrt(rT ** 3 / E.MU_M);
+      // LOI-1 (kapalı döngü): periselen hedefte, aposelen olabildiğince alçak. Osküle periselen hedefi, kopya üzerinde uçulan yakıştan sonraki GERÇEK en yakın yükseklik hedefe eşit olana dek düzeltilir.
+      { const L = this.loiLaw(hdir, lp.rpT, rT, this.veh); P.hMaxBurn = 0.05; yield* this.until(P.s.t + 2000, L.ctrl, L.stop); this.attMode = null; }
+      const [p1, a1] = this.rRange(P.s, 1.2 * Tp);
+      this.tLlo = P.s.t;                                // Ay yörüngesinin başlangıcı: DOI zamanlaması buna göre (LOI-2 araya girse de iniş zamanı değişmez)
+      this.log(`${nm} 1. yakış tamam: periselen ${p1.toFixed(1)} km, aposelen ${a1.toFixed(1)} km`, 'LOI-1_END');
+      P.phase = 'AY_YORUNGESI'; P.hMaxCoast = 60.0;
+      // LOI-2 (Apollo 11'de LOI-1'den iki tur sonra periselende daireselleştirme): en yakın noktada kısa düzeltme yakışı; yörünge hedefe zaten yakınsa yakılmaz.
+      // Tek turluk LLO'da (DOI yarım turdan sonra) yer yoktur.
+      if (Math.abs(p1 - this.hLlo) > LOI_TRIM.TOL || Math.abs(a1 - this.hLlo) > LOI_TRIM.TOL) {
+        if (this.nLlo >= 2) yield* this.loi2(hdir, rT, Tp);
+        else this.log(`LOI-2 atlandı: tek turluk Ay yörüngesinde zaman yok (periselen ${p1.toFixed(1)} km, aposelen ${a1.toFixed(1)} km)`, 'LOI-2_SKIP');
+      } else this.log(`LOI-2 gerekmedi: yörünge hedeften en çok ${LOI_TRIM.TOL} km sapıyor`, 'LOI-2_SKIP');
+    }
+    const [rp, ra] = this.compat ? orbit() : this.rRange(P.s, 1.2 * TWO_PI * Math.sqrt((E.R_M + this.hLlo) ** 3 / E.MU_M));
+    this.log(`${nm} tamam: periselen ${rp.toFixed(1)} km, aposelen ${ra.toFixed(1)} km`, 'LOI_END');
     P.phase = 'AY_YORUNGESI'; P.hMaxCoast = 60.0;
+  }
+  // LOI-1 öngörüsü (kopya üzerinde uçulan kapalı döngü yakış): ateşleme anı ve osküle periselen hedefi, yakıştan sonraki bir turda GERÇEK en yakın yükseklik hedefe eşit olacak
+  // biçimde düzeltilir: varış periseleni hedefteyse periselende ortalı yakışın osküle periselen hedefi, hedefin altındaysa (halo → LLO transferi hedef noktayı eğik keser)
+  // "bulunduğu yarıçapta dairesel" yakışın ateşleme anı. Döner { tIgn, rpT }.
+  loiPlan(s0, hdir) {
+    const rT = E.R_M + this.hLlo, Tp = TWO_PI * Math.sqrt(rT ** 3 / E.MU_M), [rs, vs] = s0.seleno(), el = E.elements(rs, vs, E.MU_M), e = el.e, a = Math.abs(el.a), r = norm(rs);
+    const tAt = (nu) => { if (e > 1) { const F = 2 * Math.atanh(Math.sqrt((e - 1) / (e + 1)) * Math.tan(nu / 2)); return (e * Math.sinh(F) - F) * Math.sqrt(a ** 3 / E.MU_M); }
+      const Ea = 2 * Math.atan(Math.sqrt((1 - e) / (1 + e)) * Math.tan(nu / 2)); return (Ea - e * Math.sin(Ea)) * Math.sqrt(a ** 3 / E.MU_M); };
+    const nu0 = -Math.acos(Math.max(-1, Math.min(1, (el.p / r - 1) / e))), nuS = el.rp >= rT ? 0 : -Math.acos(Math.max(-1, Math.min(1, (el.p / rT - 1) / e)));
+    const vS = Math.sqrt(E.MU_M * (2 / Math.max(el.rp, rT) - (e < 1 ? 1 / a : -1 / a))), tb = burnTime(this.veh, Math.max(0.05, vS - Math.sqrt(E.MU_M / rT)));
+    const tMinIgn = s0.t + 30;
+    let tIgn = Math.max(tMinIgn, s0.t + tAt(nuS) - tAt(nu0) - tb / 2), rpT = rT;
+    const sim = (t, rp) => {
+      const Q = this.prop(this.coastCopy(s0, t), this.veh.clone(), 60.0, 0.05), L = this.loiLaw(hdir, rp, rT, Q.veh);
+      Q.runUntil(Q.s.t + 2000, L.ctrl, L.stop);
+      return this.rRange(Q.s, 1.2 * Tp)[0] - this.hLlo;
+    };
+    if (el.rp >= rT - 3) {                              // varış periseleni hedefte (Apollo, NRHO): periselende ortalı, osküle periselen hedefi düzeltilir
+      for (let it = 0; it < 4; it++) { const f = sim(tIgn, rpT); if (Math.abs(f) < 0.02) break; rpT -= f; }
+    } else {                                            // hedefin altından geçen varış (L1/L2 halo → LLO): bulunduğu yarıçapta dairesel; ateşleme anı (kiriş yöntemi) yakış hedef yükseklikte bitsin diye
+      rpT = Infinity;
+      let t0 = tIgn, f0 = sim(t0, rpT), t1 = Math.max(tMinIgn, t0 - 20), f1 = sim(t1, rpT);
+      for (let it = 0; it < 8 && Math.abs(f1) > 0.02 && Math.abs(f1 - f0) > 1e-6; it++) {
+        const t2 = Math.max(tMinIgn, Math.min(t0 + 120, t1 - f1 * (t1 - t0) / (f1 - f0)));
+        t0 = t1; f0 = f1; t1 = t2; f1 = sim(t1, rpT);
+      }
+      tIgn = t1;
+    }
+    return { tIgn, rpT };
+  }
+  // s durumundan T boyunca itkisiz yayınımda Ay yüzeyine (R_M) göre en küçük ve en büyük GERÇEK yükseklik (km); dv: başta eklenen anlık hız (km/s, isteğe bağlı)
+  rRange(s, T, dv = null) {
+    const s0 = s.copy(); if (dv) s0.v = add(s0.v, dv);
+    const Q = this.prop(s0, E.dummyVehicle(), 30.0), t1 = s0.t + T; let lo = Infinity, hi = -Infinity;
+    while (Q.s.t < t1 - 1e-9) { Q.step(Math.min(30.0, t1 - Q.s.t)); const h = norm(Q.s.seleno()[0]) - E.R_M; lo = Math.min(lo, h); hi = Math.max(hi, h); }
+    return [lo, hi];
+  }
+  // Kapalı döngü yörünge hedefleme (kazanılacak hız güdümü): her adımda, bulunulan noktadan geçen ve osküle periselen/aposeleni (rpT, raT) olan yörüngenin (hdir düzleminde) hızı istenir;
+  // itki farka doğru, bitişe yaklaştıkça kısılır; fark LOI_TRIM.DV_STOP'un altına inince (ya da en küçük değerinden artmaya başlayınca) kesilir.
+  // Nokta hedef periselenin altındaysa periselen orada, aposelen hedefinin üstündeyse aposelen orada alınır (yörünge bulunulan noktadan geçmek zorundadır).
+  loiLaw(hdir, rpT, raT, veh) {
+    const stg = veh.active;
+    const vReq = (rs, vs) => {
+      const r = norm(rs), rh = scale(rs, 1 / r), th = unit(cross(hdir, rh)), rp = Math.min(rpT, r), ra = Math.max(raT, r), a = 0.5 * (rp + ra);
+      const vt = Math.sqrt(E.MU_M * 2 * rp * ra / (rp + ra)) / r, vr2 = E.MU_M * (2 / r - 1 / a) - vt * vt;
+      return add(scale(th, vt), scale(rh, Math.sqrt(Math.max(0, vr2)) * Math.sign(dot(rs, vs) || 1)));
+    };
+    const gap = (Pp) => { const [rs, vs] = Pp.s.seleno(); return sub(vReq(rs, vs), vs); };
+    let best = Infinity;
+    return {
+      ctrl: (Pp) => { const dv = gap(Pp), amax = stg.T / veh.mass(); return [Math.min(1.0, Math.max(stg.thr_min, norm(dv) / (amax * 2.0))), unit(dv)]; },
+      stop: (Pp) => { const g = norm(gap(Pp)); if (g < LOI_TRIM.DV_STOP || (best < 0.002 && g > best + 1e-4)) return true; best = Math.min(best, g); return false; } };
+  }
+  // LOI-2: bir tur içindeki en yakın noktada (yayınımla bulunur) hız doğrultusunda anlık Δv Gauss–Newton ile çözülür: sonraki turda gerçek yükseklik 24 örnekte hedefe
+  // en yakın olsun (en küçük kareler). Yakış o noktada ortalanır.
+  *loi2(hdir, rT, Tp) {
+    const P = this.P, sNow = P.s.copy();
+    let tMin = null;
+    { const Q = this.prop(sNow.copy(), E.dummyVehicle(), 30.0), t1 = sNow.t + 1.3 * Tp; let lo = Infinity;
+      while (Q.s.t < t1 - 1e-9) { Q.step(Math.min(30.0, t1 - Q.s.t)); const r = norm(Q.s.seleno()[0]); if (Q.s.t > sNow.t + 0.3 * Tp && r < lo) { lo = r; tMin = Q.s.t; } } }
+    // yalnız hız doğrultusunda (en yakın noktada radyal hız ~0): araç zaten hıza ters hizalı süzüldüğünden yakış için dönmez
+    const s2 = this.coastCopy(sNow, tMin), [rs2, vs2] = s2.seleno(), vh = unit(vs2);
+    const resid = (x) => {
+      const s0 = s2.copy(); s0.v = add(s0.v, scale(vh, x));
+      const Q = this.prop(s0, E.dummyVehicle(), 30.0), out = [];
+      for (let k = 1; k <= 24; k++) { Q.runUntil(s2.t + k * Tp / 24); out.push(norm(Q.s.seleno()[0]) - rT); }
+      return out;
+    };
+    let x = 0;
+    for (let it = 0; it < 5; it++) {                    // tek bilinmeyenli Gauss–Newton (en küçük kareler)
+      const F = resid(x), hh = 1e-6, Fj = resid(x + hh), J = Fj.map((f, i) => (f - F[i]) / hh), jj = dot2(J, J);
+      if (!(jj > 0)) break;
+      const d = -dot2(J, F) / jj; x += d;
+      if (Math.abs(d) < 2e-7) break;
+    }
+    const dv = scale(vh, x), dvm = norm(dv);
+    const lo1 = norm(rs2) - E.R_M;
+    if (dvm < 1e-7) { this.log(`LOI-2 gerekmedi: yörünge hedeften en çok ${LOI_TRIM.TOL} km sapıyor`, 'LOI-2_SKIP'); return; }
+    const tb = burnTime(this.veh, dvm), sg = Math.sign(x), u = (Pp) => scale(this.prograde(Pp), sg);         // hız doğrultusunu izler (sabit eylemsiz yön ATT_LEAD s'de yörüngeyle ~9° kayardı)
+    this.tNext = tMin - tb / 2;
+    yield* this.approach(tMin - tb / 2, u);
+    P.phase = 'LOI-2'; P.hMaxBurn = 0.05;
+    this.log(`LOI-2 ateşleme: Δv=${(dvm * 1000).toFixed(2)} m/s (en yakın nokta ${lo1.toFixed(1)} km → ${this.hLlo.toFixed(1)} km dairesel)`, 'LOI-2', { dvm: dvm * 1000 });
+    yield* this.until(P.s.t + tb, (Pp) => [1.0, u(Pp)]);
+    this.attMode = null;
   }
 
   periAlt() { const [rs, vs] = this.P.s.seleno(); return E.elements(rs, vs, E.MU_M).rp - E.R_M; }
@@ -596,7 +714,7 @@ export class Mission {
   *lunarOps() {
     const P = this.P, stg = this.veh.active;
     const n = Math.sqrt(E.MU_M / (E.R_M + this.hLlo) ** 3), Tp = TWO_PI / n;
-    const tMinDoi = P.s.t + (this.nLlo - 0.5) * Tp, doiAng = Math.PI + PDI_ANGLE;
+    const tMinDoi = (this.tLlo ?? P.s.t) + (this.nLlo - 0.5) * Tp, doiAng = Math.PI + PDI_ANGLE;          // LLO başlangıcından (LOI-1 sonu; LOI-2 araya girse de)
     P.hMaxCoast = 60.0;
     this.tNext = tMinDoi + 600;
     yield* this.until(tMinDoi);
