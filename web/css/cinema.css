@@ -87,6 +87,11 @@ body.cine-on #view { cursor: none; }
 .ct-ticks i { position: absolute; top: -3px; width: 1px; height: 8px; background: rgba(243, 239, 230, 0.6); }
 
 /* ipucu ve çıkış düğmesi */
+/* olay alt yazısı: sağ altta, veri şeridinin üstünde; girişte sağdan hafif kayma, çıkışta sönme */
+.cine-cue { position: absolute; right: clamp(24px, 6vw, 96px); bottom: calc(var(--bar) + clamp(78px, 12vh, 140px)); max-width: min(440px, 34vw); text-align: right;
+  font: 500 clamp(10px, 1.05vw, 13px) / 1.5 var(--mono); letter-spacing: 0.22em; text-transform: uppercase; color: var(--cine-ink); text-shadow: 0 1px 12px rgba(0, 0, 0, 0.9);
+  padding-right: 12px; border-right: 2px solid var(--cine-accent); opacity: 0; transform: translateX(10px); transition: opacity 0.5s var(--cine-out), transform 0.5s var(--cine-out); }
+.cine-cue.in { opacity: 1; transform: none; }
 .cine-hint { position: absolute; top: calc(var(--bar) + 14px); left: clamp(24px, 6vw, 96px); font: 500 11px var(--mono); letter-spacing: 0.12em; color: var(--cine-ink-2); text-shadow: 0 1px 10px rgba(0, 0, 0, 0.9); opacity: 0; transition: opacity 0.5s var(--cine-out); }
 .cine-hint.show { opacity: 1; }
 .cine-hint kbd { background: rgba(0, 0, 0, 0.45); border-color: rgba(243, 239, 230, 0.35); color: var(--cine-ink); }
@@ -120,6 +125,7 @@ body.cine-on #view { cursor: none; }
   .cc-sval { font-size: clamp(15px, 4.6vw, 22px); }
   .cine-hint { left: 24px; max-width: calc(100vw - 150px); font-size: 10px; }
   .cine-exit { right: 16px; }
+  .cine-cue { right: 24px; left: 24px; max-width: none; top: calc(var(--bar) + 40px); bottom: auto; font-size: 10px; letter-spacing: 0.16em; }
 }
 
 /* kısa ekran (yatay telefon): başlıklar yüksekliğe göre ölçeklenir, kartlar sıkılaşır */
@@ -144,4 +150,5 @@ body.cine-on #view { cursor: none; }
   .cine-card.in .cc-rule { opacity: 1; }
   .cc-s, .cine-strip { transform: none; transition: opacity 0.5s ease; }
   .cine-flash.go { animation: none; }
+  .cine-cue { transform: none; transition: opacity 0.5s ease; }
 }

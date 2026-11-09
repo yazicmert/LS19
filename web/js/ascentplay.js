@@ -60,6 +60,7 @@ export class AscentPlayer {
   }
   // yayın alt yazısı: olay adı bandın üstünde birkaç saniye görünür (Max-Q, ayrılmalar; açılışta roket ve rampa)
   flash(text, ms = 4200) {
+    if (this.quiet) { if (this.onCue) this.onCue(text, ms); return; }                 // sessiz kip (sinematik fragman): alt yazı fragmanın bindirmesine gider
     const f = this.teleEl && this.teleEl.flash; if (!f) return;
     f.textContent = text; f.classList.add('on'); clearTimeout(this.flashT);
     this.flashT = setTimeout(() => f.classList.remove('on'), ms);
@@ -70,10 +71,10 @@ export class AscentPlayer {
   }
   // yayın tarzı telemetri bandı: aşama, yere göre hız (km/sa), irtifa, T+ saati ve olay zaman çizgisi (Max-Q, ayrılmalar, yörünge)
   buildTele() {
-    const T = this.tele; if (!T) return;
     // çıkış durumundan anonslar (kule geçildi, Mach 1, kademe motor kesmeleri; gaz değişimi varsa): zaman çizgisinde küçük nokta, geçilince alt yazı
     this.callouts = this.path.sim ? ascentCallouts({ samples: this.path.sim.samples, veh: this.A.veh, towerM: TOWER_M[this.A.lv] ?? TOWER_M.generic, tempK: (h) => atmosphere(h).T }) : [];
     this.coShown = new Set();
+    const T = this.tele; if (!T || this.quiet) return;
     const tl = this.tl = timeline(this.A.events, this.path.sim && this.path.sim.maxQ, this.A.tIns, this.callouts), tEnd = this.A.tIns, t0 = -10;
     const x = (t) => ((t - t0) / (tEnd - t0) * 100).toFixed(2) + '%';            // uçlara yakın etiketler bandın içine doğru hizalanır (at-l, at-r)
     T.innerHTML = `<div class="at-row"><span class="at-st" id="atSt"></span><span class="at-k">HIZ</span><b id="atV">0</b><span class="at-u">km/sa</span><span class="at-k">İRTİFA</span><b id="atH">0</b><span class="at-u">km</span>`
@@ -94,15 +95,18 @@ export class AscentPlayer {
     E.st.textContent = stageName; E.fill.style.width = this.teleX(Math.max(-10, real)); E.cam.textContent = SHOT_NAMES[shot.shot] || ''; E.note.textContent = shot.note || '';
     this.tl.forEach((e, i) => E.ev[i].classList.toggle('done', real >= e.t));
   }
-  async start() {
+  // opts.quiet: sinematik fragman kipi — kontrol çubuğu, yayın bandı ve panel gizleme yok (fragmanın kendi bindirmesi var), hızı fragman verir
+  // (this.warp, userWarp), olay alt yazıları onCue(text, ms) ile iletilir; opts.from: başlangıç (kalkışa göre s, varsayılan −10)
+  async start(opts = {}) {
     const D = this.getDesign(), ins = this.getIns(), base = this.getState();
     if (this.active || !D || !ins || !base) return false;
+    this.quiet = !!opts.quiet; this.onCue = opts.onCue || null;
     const L = D.LAUNCH, rk = rocketOf(D.STAGES && D.STAGES[0] ? D.STAGES[0].rocket : null), A = rk.ascent;
     if (!A) return false;
     const site = { lat: L.lat ?? LEGACY_SITE.lat, lon: L.lon ?? LEGACY_SITE.lon };
     this.path = buildAscent({ site, tLaunch: L.t_launch, ins, icrfToItrf: this.E.earthIcrfToItrf, rE: this.E.R_E, veh: A.veh, tInsReal: A.tIns, inc: D.inc });
     this.events = scaleEvents(A.events, A.tIns, this.path.T); this.A = A; this.rk = rk; this.base = base;
-    this.t = L.t_launch - 10; this.lastMsg = '';
+    this.t = L.t_launch + (opts.from ?? -10); this.lastMsg = '';
     this.send({ cmd: 'pause', on: true });
     const cam = this.world.cam; this.camPrev = { mode: cam.mode, auto: cam.auto, dist: cam.dist, el: cam.el, az: cam.az };
     // kamera: yerden izleme → takip (scene.js LAUNCH); takipte roketin arkasında, biraz yanda ve üstte
@@ -112,15 +116,18 @@ export class AscentPlayer {
       const e = [-d0[1], d0[0], 0], en = Math.hypot(...e), ea = e.map((c) => c / en), na = [d0[1] * ea[2] - d0[2] * ea[1], d0[2] * ea[0] - d0[0] * ea[2], d0[0] * ea[1] - d0[1] * ea[0]];
       const ke = hz[0] * ea[0] + hz[1] * ea[1] + hz[2] * ea[2], kn = hz[0] * na[0] + hz[1] * na[1] + hz[2] * na[2], kk = Math.hypot(ke, kn) || 1; this.drEN = [ke / kk, kn / kk]; }
     // kalkış gerçek hızda (×1) izlenir; T+20 s'den sonra ×10, kademe ayrılmaları ×2 (kullanıcı hız seçtiyse dokunulmaz) — launchcam.autoWarp
-    this.warp = 1; this.userWarp = false; this.camUser = 'auto';
+    this.warp = 1; this.userWarp = this.quiet; this.camUser = 'auto';
     // kalkıştaki alev: birinci kademenin yakıtı (Saturn V S-IC, Falcon: gazyağı; SLS, Vulcan: katı iticiler baskın)
     // rampa: SLS'te NASA Mobile Launcher, diğerlerinde beton platform; çevresi Sentinel-2 görüntüsü
     await this.world.setAscent({ lv: A.lv, prop: { saturnv: 'kerolox', f9: 'kerolox', fh: 'kerolox', generic: 'kerolox', sls: 'solid', vulcan: 'solid' }[A.lv] || 'kerolox', pad: A.lv === 'sls' ? 'ml' : 'concrete', site });
     this.debris = []; this.done = new Set(); this.prevCut = 0; this.hiddenNow = [];
-    this.active = true; this.bar.hidden = false; this.syncBar(); this.buildTele();      // model yüklendikten sonra oynamaya başla
-    this.cine = true; this.lastEv = null; this.qShown = false; this.applyCine(); this.poke(4500);
-    for (const ev of ['pointermove', 'pointerdown', 'keydown']) window.addEventListener(ev, this.onPoke, { passive: true });
-    window.addEventListener('resize', this.onResize);
+    this.active = true; this.lastEv = null; this.qShown = false; this.buildTele();      // model yüklendikten sonra oynamaya başla
+    if (!this.quiet) {
+      this.bar.hidden = false; this.syncBar();
+      this.cine = true; this.applyCine(); this.poke(4500);
+      for (const ev of ['pointermove', 'pointerdown', 'keydown']) window.addEventListener(ev, this.onPoke, { passive: true });
+      window.addEventListener('resize', this.onResize);
+    }
     this.flash(`${rk.name} · ${L.site || rk.pad || ''}`.replace(/ · $/, ''), 5000);
     return true;
   }
@@ -143,6 +150,7 @@ export class AscentPlayer {
     const dts = dt * this.warp; this.t += dts;
     if (this.t >= P.tIns) { this.stop(); return null; }
     const s = P.at(this.t), met = this.t - P.tLaunch, real = met * this.A.tIns / P.T, q = quatZto(s.dir);
+    this.real = real;                                                                 // gerçek uçuş zamanı (kalkışa göre s): fragman hızı buna göre verir
     let cut = 0; const hidden = new Set(); let last = null;
     for (const e of this.events) if (met >= e.tScaled) {
       if (e.cut != null) cut = Math.max(cut, e.cut); if (e.part) hidden.add(e.part); last = e;

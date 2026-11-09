@@ -11,6 +11,7 @@ import { LANDING_PHASES as POWERED } from './telemetry.js';
 import { CineUI } from './cinemaui.js';
 import { fmtDur } from './format.js';
 import { LOC } from './i18n.js';
+import { rocketOf } from './rockets.js';
 
 const { add, sub, scale, dot, cross, norm, unit } = E;
 const KM = 0.001;
@@ -122,6 +123,28 @@ export function limbCam(x, dist, theta) {
   return { mode: 'EARTH', az: Math.atan2(ev[1], ev[0]), el: Math.asin(clamp(ev[2], -1, 1)), dist };
 }
 
+// ---------------------------------------------------------------- kalkış açılışı (ascentplay.js sessiz kipte oynar; hız buradan)
+// Kalkış zaman hızı (gerçek uçuş saniyesine göre): geri sayım ve kalkış (kule, ilk saniyeler) gerçek zamanda; her ayrılmanın (kademe, yan/katı itici, burun
+// kaportası, kaçış kulesi: araç üstü kameradan görünür) çevresi yavaş; aralar ×24, son ayrılmadan sonra ×50. Geçişler uzaklığa göre doğrusal rampadır:
+// pencereye d uçuş saniyesi kala hız ≈ yavaş + 2·d (ekranda ~1–2 s).
+export const ASC = { FROM: -6, LIFT: 10, SLOW: 1.6, PRE: 2, POST: 4, MID: 24, LATE: 50, RAMP: 2 };
+export function ascentWarp(real, events, tIns) {
+  const seps = (events || []).filter((e) => (e.cut != null || e.part) && e.t > ASC.LIFT && e.t < tIns).map((e) => e.t);
+  const lastSep = seps.length ? Math.max(...seps) : ASC.LIFT;
+  let w = real >= lastSep + ASC.POST ? ASC.LATE : ASC.MID;
+  w = Math.min(w, 1 + ASC.RAMP * Math.max(0, real - ASC.LIFT));                      // kalkıştan sonra yavaşça hızlan
+  for (const t of seps) {                                                           // ayrılma penceresi [t − PRE, t + POST]
+    const d = real < t - ASC.PRE ? t - ASC.PRE - real : real > t + ASC.POST ? real - t - ASC.POST : 0;
+    w = Math.min(w, ASC.SLOW + ASC.RAMP * d);
+  }
+  return Math.max(1, Math.min(ASC.LATE, w));
+}
+// kalkış açılışının ekran süresi (s): hız çizelgesinin tersinin tümlevi, from → to (uçuş s; varsayılan yörüngeye giriş)
+export function ascentDuration(events, tIns, from = ASC.FROM, to = tIns) {
+  let sum = 0; for (let r = from; r < Math.min(to, tIns); r += 0.25) sum += Math.min(0.25, Math.min(to, tIns) - r) / ascentWarp(r + 0.125, events, tIns);
+  return sum;
+}
+
 // ---------------------------------------------------------------- çekim listesi (plan olaylarından); P: anahtar → benzetim zamanı (s); durum x: worker durumu
 const isBurn = (x) => (x.thr || 0) > 0.01;
 export function buildShots(P, opts = {}) {
@@ -130,7 +153,10 @@ export function buildShots(P, opts = {}) {
   const t = (k, o = 0) => P[k] + o;
   const land = opts.landing === 'zem' ? 'ZEM/ZEV güdümü' : 'Yakıt-optimal güdüm';
   // 0 açılış
-  add_({ id: 'open', dur: 6.5, wmax: 80, T: () => [[0, P.INS], [1, P.INS + 180]], card: { kind: 'open', at: 0.9, hold: 4.4, title: 'LS19', sub: "Dünya'dan Ay'a · gerçek efemeris · N-cisim fiziği" },
+  // kalkış açılışı oynandıysa (opts.ascent) LS19 kartı kalkışta gösterilmiştir: açılış çekimi yörüngeye girişin bölüm kartını taşır
+  const openCard = opts.ascent ? { chapter: { title: 'YÖRÜNGEDE', sub: (c) => `Park yörüngesi · ${fmt(c.alt, 0)} km · ${fmt(norm(c.x.v), 2)} km/s`, at: 0.8, hold: 3.8 } }
+    : { card: { kind: 'open', at: 0.9, hold: 4.4, title: 'LS19', sub: "Dünya'dan Ay'a · gerçek efemeris · N-cisim fiziği" } };
+  add_({ id: 'open', dur: 6.5, wmax: 80, T: () => [[0, P.INS], [1, P.INS + 180]], ...openCard,
     rig: { type: 'wide', cam: (c, e) => limbCam(c.x, lerp(26000, 19500, e), lerp(1.12, 1.0, e)), tilt: (c, e, cam) => Math.asin(Math.min(0.99, E.R_E / cam.dist)) + 0.11, fov: 42 }, beacon: true, noStrip: true, dip: false });
   // 1 park yörüngesi: geniş zaman atlaması, sonra araca yaklaşma
   if (has('TLI')) {
@@ -226,10 +252,15 @@ export class Cinema {
     ui.exitBtn.onclick = () => this.stop();
     // görev baştan: worker 'restarted' dönünce (app.js onRestarted) çekimler başlar
     this.h.send({ cmd: 'autoWarp', on: false });
-    this.shots = buildShots(this.planMap(), { landing: this.h.landing && this.h.landing() });
+    // kalkış açılışı: tasarımın roketi kalkış verisi taşıyorsa ve kalkış oynatıcısı varsa (önizlemede yok)
+    const D = this.h.ui.design, rk = D && D.STAGES && D.STAGES[0] ? rocketOf(D.STAGES[0].rocket) : null, RA = rk && rk.ascent;
+    this.asc = !this.opts.preview && this.opts.ascent !== false && RA && this.h.ascent && this.h.ascent()
+      ? { events: RA.events || [], tIns: RA.tIns, dur: ascentDuration(RA.events || [], RA.tIns), rocket: rk.name, site: ((D.LAUNCH && D.LAUNCH.site) || rk.pad || '').replace(/\s*\([^()]*\)\s*$/, '') } : null;          // rampa adı (koordinatsız)
+    this.shots = buildShots(this.planMap(), { landing: this.h.landing && this.h.landing(), ascent: !!this.asc });
     this.i = -1; this.shot = null; this.paused = false; this.pending = null; this.lastStep = performance.now();
-    const total = this.shots.filter((s) => s.chapter).length; this.chTotal = total; let n = 0;
+    let n = this.asc ? 1 : 0;                                                       // kalkış bölümü 01
     for (const s of this.shots) if (s.chapter) s.chIdx = ++n;
+    this.chTotal = n;
     ui.ticks(this.tickMarks());
     if (this.opts.preview) { this.state = 'preview'; ui.fade(0, 0); }               // deneme: çekimler elle (preview) gösterilir, görev yeniden kurulmaz
     else { this.h.send({ cmd: 'restart' }); this.restartAt = performance.now(); }
@@ -237,7 +268,8 @@ export class Cinema {
     this.timer = setInterval(() => { const now = performance.now(), dt = Math.min(0.25, (now - this.lastStep) / 1000); this.lastStep = now; this.tick(dt); }, 30);
     return true;
   }
-  tickMarks() { const sum = this.shots.reduce((a, s) => a + this.durOf(s), 0); let acc = 0; const out = []; for (const s of this.shots) { if (s.chapter) out.push(acc / sum); acc += this.durOf(s); } return out; }
+  ascDur() { return this.asc ? this.asc.dur * this.opts.scale : 0; }
+  tickMarks() { const a = this.ascDur(), sum = a + this.shots.reduce((q, s) => q + this.durOf(s), 0); let acc = a; const out = this.asc ? [0] : []; for (const s of this.shots) { if (s.chapter) out.push(acc / sum); acc += this.durOf(s); } return out; }
   durOf(s) { return (s.durEff || s.dur) * this.opts.scale; }
 
   onRestarted() {
@@ -248,6 +280,7 @@ export class Cinema {
   stop() {
     if (!this.on) return;
     this.on = false; this.state = 'idle'; clearInterval(this.timer); this.timer = 0;
+    this.stopAscent();
     const W = this.h.world, ui = this.cu;
     window.removeEventListener('keydown', this.keyHandler, true); window.removeEventListener('pointermove', this.moveHandler);
     W.cine.rig = null; W.cine.lines = false; W.cine.osc = false; W.cine.beacon = false;
@@ -271,12 +304,12 @@ export class Cinema {
     e.stopPropagation();                                                          // sinematik kipte diğer kısayollar kapalı
   }
   setPaused(on) {
-    this.paused = on; this.h.play(!on); this.ui.paused = on;
+    this.paused = on; if (this.state !== 'ascent' && this.state !== 'asc-boot') this.h.play(!on); this.ui.paused = on;   // kalkışta fizik zaten duraklı (kalkış oynatıcısı hızı 0'a çeker)
     const hint = this.ui.f.hint; hint.innerHTML = on ? '<kbd>Boşluk</kbd> devam · <kbd>Esc</kbd> çık' : '<kbd>Esc</kbd> çık · <kbd>Boşluk</kbd> duraklat · <kbd>→</kbd> sonraki çekim'; hint.classList.toggle('show', on);
     if (!on) this.ui.showHint(false);
   }
-  skip() { if (this.shot && !this.shot.closing) this.endShot(true); }
-  async restart() { const o = this.opts; this.ui.leave(true); this.on = false; this.state = 'idle'; clearInterval(this.timer); this.timer = 0; window.removeEventListener('keydown', this.keyHandler, true); window.removeEventListener('pointermove', this.moveHandler); this.h.world.cine.rig = null; await this.h.world.setCinematic(false); await this.start(o); }
+  skip() { if (this.state === 'ascent') { this.stopAscent(); return; } if (this.shot && !this.shot.closing) this.endShot(true); }
+  async restart() { const o = this.opts; this.stopAscent(); this.ui.leave(true); this.on = false; this.state = 'idle'; clearInterval(this.timer); this.timer = 0; window.removeEventListener('keydown', this.keyHandler, true); window.removeEventListener('pointermove', this.moveHandler); this.h.world.cine.rig = null; await this.h.world.setCinematic(false); await this.start(o); }
 
   // ----- çekim yaşam döngüsü
   // çekimi kur (zaman eğrisi, kamera, bayraklar); atlama mantığı startShot'ta
@@ -332,8 +365,41 @@ export class Cinema {
   }
 
   progressAt(i, tau) {
-    let sum = 0, acc = 0; for (let k = 0; k < this.shots.length; k++) { const d = this.durOf(this.shots[k]); if (k < i) acc += d; sum += d; }
+    const a = this.ascDur(); let sum = a, acc = a; for (let k = 0; k < this.shots.length; k++) { const d = this.durOf(this.shots[k]); if (k < i) acc += d; sum += d; }
+    if (i < 0) return (tau * a) / Math.max(1, sum);                                // kalkış açılışı (tau: oynatılan kesir)
     return (acc + tau * this.durOf(this.shots[i])) / Math.max(1, sum);
+  }
+
+  // ----- kalkış açılışı: kalkış oynatıcısı (ascentplay.js) sessiz kipte; fizik worker'ı onun süresince duraklar, bitince görev girişten sürer (app.js onEnd)
+  async startAscent() {
+    const A = this.h.ascent(), a = this.asc, ui = this.ui;
+    this.state = 'asc-boot';
+    const ok = await A.start({ quiet: true, from: ASC.FROM, onCue: (text, ms) => { if (this.on && this.state === 'ascent') ui.cue(text, Math.min(ms || 3200, 3600)); } });
+    if (!this.on) { if (ok) await A.stop(); return; }
+    if (!ok) { this.asc = null; ui.ticks(this.tickMarks()); this.h.send({ cmd: 'warp', value: 1 }); this.h.play(true); this.wall = 0; this.startShot(0); return; }
+    a.wall0 = this.wall; a.card = false; a.chap = false; a.warp = 1; a.real = ASC.FROM;
+    this.state = 'ascent'; ui.root.classList.remove('nostrip'); ui.fade(0, 900);
+  }
+  stopAscent() { const A = this.h.ascent && this.h.ascent(); if (A && A.active) A.stop(); }
+  tickAscent(dt) {
+    const A = this.h.ascent(), a = this.asc, ui = this.ui;
+    if (!A.active) { this.state = 'post-asc'; this.restartAt = performance.now(); ui.fade(1, 0); return; }   // bitti: app.js onEnd görevi girişe sarar
+    if (!this.paused) this.wall += dt;
+    const real = A.real ?? ASC.FROM; a.real = real;
+    const wT = this.paused ? 0 : ascentWarp(real, a.events, a.tIns);
+    a.warp = wT > a.warp ? a.warp + (wT - a.warp) * (1 - Math.exp(-dt / 0.35)) : wT;          // artışta yumuşak, azalışta anında (pencereyi kaçırmasın)
+    A.warp = a.warp;
+    const el = this.wall - a.wall0;
+    if (!a.card && el >= 0.5) { a.card = true; ui.card({ kind: 'open', title: 'LS19', sub: "Dünya'dan Ay'a · gerçek efemeris · N-cisim fiziği", hold: 4.2 }); }
+    if (!a.chap && real >= 2.5) { a.chap = true; ui.card({ kind: 'chapter', idx: 1, total: this.chTotal, title: 'KALKIŞ', sub: `${a.rocket}${a.site ? ' · ' + a.site : ''}`, hold: 3.8 }); }
+    // veri şeridi: kalkış oynatıcısının göstergesi (WGS-84 irtifa, yere göre hız)
+    const now = performance.now();
+    if (now - this.lastStrip >= 120 && A.hud) {
+      this.lastStrip = now; const h = A.hud, met = Math.round(real), spd = h.asc ? h.asc.spd : 0;
+      const fa = (x) => (x > 2 ? fmt(x, x > 100 ? 0 : 1) + ' km' : fmt(x * 1000, 0) + ' m'), fv = (v) => (v > 0.1 ? fmt(v, 3) + ' km/s' : fmt(v * 1000, 0) + ' m/s');
+      ui.strip({ met: met < 0 ? 'T−' + fmtDur(-met) : 'T+' + fmtDur(met), phase: real < 0 ? 'Geri sayım' : 'Kalkış', chap: 'Aşama', k1: 'İrtifa', v1: fa(Math.max(0, h.altKm || 0)), k2: 'Hız', v2: fv(spd), warp: '×' + fmt(A.warp, A.warp < 10 ? 1 : 0) });
+    }
+    ui.progress(this.progressAt(-1, clamp(ascentDuration(a.events, a.tIns, ASC.FROM, real) / Math.max(1, a.dur), 0, 1)));   // uçuş zamanına göre (kare hızından bağımsız)
   }
 
   // kamera pozu (scene.cameraPose → CINE kipi)
@@ -375,7 +441,13 @@ export class Cinema {
     this.reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.dt = dt;
     const ui = this.ui;
-    if (this.state === 'boot' || this.state === 'preview') return;
+    if (this.state === 'boot' || this.state === 'preview' || this.state === 'asc-boot') return;
+    if (this.state === 'ascent') { this.tickAscent(dt); return; }
+    if (this.state === 'post-asc') {                                                // kalkış bitti: görev girişe sarılınca (t ≈ INS) çekimler başlar
+      const P = this.planMap();
+      if (performance.now() - this.restartAt > 250 && Math.abs(x.t - P.INS) < 400) { this.h.send({ cmd: 'warp', value: 1 }); this.h.play(true); this.startShot(0); }
+      return;
+    }
     if (this.state === 'catch') {
       const c = this.catchUp, behind = c.tStart - x.t;
       if (behind <= 0.8 || this.wall - c.t0 > 30) { this.state = 'run'; this.warpCmd = 1; this.h.send({ cmd: 'warp', value: 1 }); this.startShotNoCatch(c.i); }
@@ -385,7 +457,11 @@ export class Cinema {
     if (this.state === 'wait') {
       // yeni görev kuruldu ve ilk durum geldi mi (t ≈ INS)
       const P = this.planMap();
-      if (performance.now() - this.restartAt > 250 && Math.abs(x.t - P.INS) < 400) { this.h.send({ cmd: 'warp', value: 1 }); this.h.play(true); this.wall = 0; this.startShot(0); }
+      if (performance.now() - this.restartAt > 250 && Math.abs(x.t - P.INS) < 400) {
+        this.wall = 0;
+        if (this.asc) { this.h.play(false); this.startAscent(); }
+        else { this.h.send({ cmd: 'warp', value: 1 }); this.h.play(true); this.startShot(0); }
+      }
       return;
     }
     if (this.paused) { this.dt = 0; }
@@ -436,7 +512,7 @@ export class Cinema {
     const rm = E.moonPos(x.t), rs = sub(x.r, rm), vrel = norm(sub(x.v, E.moonVel(x.t)));
     const r = x.result, touch = r && r.v_mps ? `dikey ${fmt(Math.abs(r.v_mps[2]), 2)} m/s · yatay ${fmt(Math.hypot(r.v_mps[0], r.v_mps[1]), 2)} m/s` : 'iniş tamamlandı';
     const st = (this.h.ui.design && this.h.ui.design.STAGES && this.h.ui.design.STAGES[0] && this.h.ui.design.STAGES[0].name) || 'TLI kademesi';
-    return { alt: this.alt(x), rE: norm(x.r), rM: norm(rs), vrel, touch, stage: st };
+    return { x, alt: this.alt(x), rE: norm(x.r), rM: norm(rs), vrel, touch, stage: st };
   }
 
   strip(x) {

@@ -15,6 +15,7 @@ export class CineUI {
       <div class="cine-bar bottom"></div>
       <div class="cine-scrim"></div>
       <div class="cine-cards" aria-live="polite"></div>
+      <div class="cine-cue" data-f="cue" aria-live="polite"></div>
       <div class="cine-strip">
         <div class="cs-cell"><span class="cs-k">Görev süresi</span><span class="cs-v" data-f="met">T+0g 00:00:00</span></div>
         <div class="cs-cell cs-phase"><span class="cs-k" data-f="chap">Bölüm</span><span class="cs-v" data-f="phase">—</span></div>
@@ -44,7 +45,7 @@ export class CineUI {
   leave(instant = false) {
     this.clearTimers();
     this.root.classList.remove('on'); document.body.classList.remove('cine-on');
-    this.cards.textContent = ''; this.numbers = [];
+    this.cards.textContent = ''; this.numbers = []; clearTimeout(this.cueT); if (this.f.cue) this.f.cue.classList.remove('in');
     this.fade(0, 0); this.cache = {};
     if (instant) this.root.classList.remove('live'); else this.after(700, () => this.root.classList.remove('live'));
   }
@@ -68,6 +69,12 @@ export class CineUI {
   ticks(list) { this.f.ticks.innerHTML = list.map((p) => `<i style="left:${(p * 100).toFixed(2)}%"></i>`).join(''); }
   showHint(on) { this.f.hint.classList.toggle('show', on); if (on) this.after(5200, () => this.f.hint.classList.remove('show')); }
 
+  // olay alt yazısı (kalkış anonsları, Ay'ın arkası, temas ışığı…): sağ altta kısa süre; yenisi eskisinin yerine geçer
+  cue(text, ms = 3200) {
+    const c = this.f.cue; if (!c) return;
+    c.textContent = text; c.classList.remove('in'); void c.offsetWidth; c.classList.add('in');
+    clearTimeout(this.cueT); this.cueT = setTimeout(() => c.classList.remove('in'), ms);
+  }
   // kararma geçişi: to 0..1 (1 = siyah), ms
   fade(to, ms = 350) { this.fadeEl.style.transitionDuration = `${ms}ms`; this.fadeEl.style.opacity = String(to); }
   // ayrılma parlaması

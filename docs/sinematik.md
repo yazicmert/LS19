@@ -15,7 +15,7 @@ Kod: `web/js/cinema.js` (yönetmen), `web/js/cinemaui.js` + `web/css/cinema.css`
 | Sonraki çekim | `→` |
 | Yeniden izle | gösterim bitince `R` |
 
-Gösterim yaklaşık **2 dakika** sürer (Apollo profilinde ~134 s anma süre; halo profillerinde uzun yolculuk nedeniyle 2,5–3 dakikayı bulabilir). Gerçek bir ekran kartında kare hızı düşerse kalite kendiliğinden azalır (bkz. §5).
+Gösterim yaklaşık **3 dakika** sürer: ~42–54 s kalkış açılışı (rokete göre) + görev çekimleri (Apollo profilinde ~134 s anma süre; halo profillerinde uzun yolculuk nedeniyle 2,5–3 dakikayı bulabilir). Kalkış açılışında `→` kalkışı bitirip görevi yörüngeye girişten sürdürür; `?cine=1` adresine kalkış eklenmesin istenirse `LS19.cinema.start({ ascent: false })`. Gerçek bir ekran kartında kare hızı düşerse kalite kendiliğinden azalır (bkz. §5).
 
 ## 2. Çekim listesi
 
@@ -23,7 +23,8 @@ Gösterim yaklaşık **2 dakika** sürer (Apollo profilinde ~134 s anma süre; h
 
 | # | Çekim | Kamera | Zaman davranışı |
 |---|---|---|---|
-| 0 | **açılış** "LS19" | Dünya kıyısı: araç görünen diskin kenarında, aydınlık yüz kameraya dönük; yavaş geri çekilme | yavaş (×5…×30) |
+| — | **kalkış açılışı** (`01 KALKIŞ`; geri sayımda "LS19" kartı) | kalkış canlandırmasının gerçek yayın kameraları (`launchcam.js`: rampa, yer izleme, takip uçağı, araç üstü; görünürlük gerçek) | uçuş zamanına göre (`ascentWarp`): T−6 → T+10 ×1, her ayrılmanın (kademe, itici, kaporta, kaçış kulesi) çevresi ×1,6 (−2/+4 s), aralar ×24, son ayrılmadan sonra ×50; geçişler rampalı |
+| 0 | **açılış** (kalkış oynandıysa "YÖRÜNGEDE" bölüm kartı, oynanmadıysa "LS19") | Dünya kıyısı: araç görünen diskin kenarında, aydınlık yüz kameraya dönük; yavaş geri çekilme | yavaş (×5…×30) |
 | 1 | **park yörüngesi** (geniş) → **yaklaşma** | Dünya etrafında geniş (yörünge elipsi ve araç ışıltısı) → araç çevresinde LVLH, yavaş dönüş | ×~1000 zaman atlaması → ×1'e yavaşlama |
 | 2 | **TLI** ateşleme → yakış | gövde çerçevesinde motor yakın planı (el kamerası titreşimi) → aracın arkasından geniş açı | ateşlemeye kadar ×2, ilk 2 s ×1, sonra ×28 (yakış süresi tasarıma bağlı; **TLI motor kesme**'de biter) |
 | 3 | **kademe ayrılması** | omuz üstü (Dünya arkada) → ayrılma düzleminde yakın plan | ×600 → ×1; ayrılma anında **parlama + pufları** |
@@ -36,6 +37,8 @@ Gösterim yaklaşık **2 dakika** sürer (Apollo profilinde ~134 s anma süre; h
 | 10 | **kapanış** | aracın çevresinde yavaş yükselen kamera; bakış hafifçe sola döndürülür, araç kadrajın sağında kalır (kart solda) | temas özeti: süre, Δv, temas hızı, kalan yakıt (sayılar `number-flow` ile yuvarlanır); kart açılınca veri şeridi söner (aynı değerler kartta) |
 
 Dokuz **bölüm kartı** vardır (`01 / 09` …): sol altta büyük, geniş aralıklı başlık, ince çizgi ve alt yazı; altta **veri şeridi** (görev süresi, aşama, irtifa/hız ya da Dünya–Ay uzaklığı, zaman hızı) ve **zaman çizelgesi** (bölüm işaretleri). Alt yazılardaki sayılar o anki durumdan gelir.
+
+**Olay alt yazısı** (`.cine-cue`, sağ alt): kalkış anonsları (kule geçildi, Mach 1, Max-Q, ayrılmalar; `ascentplay.js` sessiz kipte `onCue` ile iletir).
 
 ### 2.1 Zaman hızı denetimi
 
@@ -80,7 +83,7 @@ Bindirmeler DOM'dur (canvas'ın üstünde); hareket **yalnız `transform`, `opac
 ## 6. Sınırlar (dürüstçe)
 
 * Plüm renkleri ve parlaklıkları **stilize**dir: gerçekte vakumda hipergolik (SPS/iniş motoru) ve LH2/LOX alevleri neredeyse görünmezdir; burada görünür ve anlaşılır kılmak için ışıtılırlar.
-* Fırlatma gösterilmez (görev park yörüngesinden başlar); "fırlatma" planda yalnız zaman bilgisidir.
+* Kalkış açılışı kinematik kalkış canlandırmasıdır (`ascent.js`, `ascentplay.js`; fizik worker'ı onun süresince duraklar), görev fiziği yörüngeye girişten başlar. Düşük kare hızında (yazılımla çizim) kalkış oynatıcısının kare başına adımı 0,1 s ile sınırlı olduğundan kalkış duvar saatinde uzar; ilerleme çubuğu uçuş zamanına göre yürür.
 * Araç yığını fizik yığınıdır (gerçek Apollo düzeni değil; bkz. [modeller.md](modeller.md)); komuta modülü yoktur.
 * Gösterim süresi tasarıma bağlıdır; çok uzun yolculuklu profillerde (halo) yolculuk çekimleri fiziğin yetişebildiği hızla (≤ ×40 000) uzar. Hesap duraklamaları (iniş planlaması) çekimi uzatabilir; kararma altında yakalama bunu toparlar.
 * Ses yoktur.

@@ -32,6 +32,26 @@ const rd = (f) => fs.readFileSync(new URL(f, import.meta.url), 'utf8');
   check('pchip: sabit veri (aralık 0) sabit kalır, türevi 0', g(0.4)[0] === 100 && g(0.4)[1] === 0);
 }
 
+// ---------------------------------------------------------------- 1b) kalkış açılışı: hız çizelgesi (rockets.js'teki her roketin kalkış olaylarıyla)
+{
+  const { ROCKETS } = await import('../js/rockets.js');
+  const list = Object.values(ROCKETS).filter((r) => r.ascent && r.ascent.events);
+  let ok = list.length > 0, why = '', durs = [];
+  for (const rk of list) {
+    const A = rk.ascent, seps = A.events.filter((e) => (e.cut != null || e.part) && e.t > C.ASC.LIFT && e.t < A.tIns);
+    const w = (r) => C.ascentWarp(r, A.events, A.tIns);
+    if (!(w(-3) === 1 && w(0) === 1 && w(C.ASC.LIFT - 1) === 1)) { ok = false; why += ` ${rk.name}: kalkış ×1 değil`; }
+    for (const e of seps) if (!(w(e.t) <= C.ASC.SLOW + 1e-9 && w(e.t - C.ASC.PRE) <= C.ASC.SLOW + 1e-9 && w(e.t + C.ASC.POST) <= C.ASC.SLOW + 1e-9)) { ok = false; why += ` ${rk.name}: ${e.name} yavaş değil`; }
+    let prev = w(C.ASC.FROM), jump = 0; for (let r = C.ASC.FROM; r < A.tIns; r += 0.1) { const v = w(r); jump = Math.max(jump, Math.abs(v - prev)); prev = v; if (!(v >= 1 && v <= C.ASC.LATE)) { ok = false; why += ` ${rk.name}: aralık dışı`; break; } }
+    if (jump > 0.1 * C.ASC.RAMP + 1e-9) { ok = false; why += ` ${rk.name}: sıçrama ${jump.toFixed(2)}`; }       // 0,1 s adımda en çok RAMP·0,1
+    const d = C.ascentDuration(A.events, A.tIns); durs.push(`${rk.name} ${d.toFixed(0)} s`);
+    if (!(d > 20 && d < 60)) { ok = false; why += ` ${rk.name}: süre ${d.toFixed(0)} s`; }
+  }
+  check('kalkış açılışı: geri sayım ve kalkış ×1, her ayrılma (kademe, itici, kaporta) yavaş (×1,6), hız sürekli (rampa), ekran süresi 20–60 s', ok, (why || durs.join(' · ')).trim());
+  const P0 = { INS: 0, TLI: 5000 }, a = C.buildShots(P0, { ascent: true })[0], b = C.buildShots(P0, {})[0];
+  check('kalkış açılışı oynanınca açılış çekimi LS19 kartı yerine "YÖRÜNGEDE" bölüm kartı taşır', a.chapter && a.chapter.title === 'YÖRÜNGEDE' && !a.card && b.card && b.card.title === 'LS19' && !b.chapter);
+}
+
 // ---------------------------------------------------------------- 2) çekim listesi
 const ab = (f) => { const b = fs.readFileSync(new URL(f, import.meta.url)); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); };
 const SPK = ab('../data/de440s.bsp'), PCK = ab('../data/moon_pa_de440_200625.bpc');
