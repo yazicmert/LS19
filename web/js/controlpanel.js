@@ -7,6 +7,7 @@ import { LANDING_MODES } from './mission.js';
 import { fmt } from './format.js';
 import { mk } from './uiutil.js';
 import { DAY, ns, ew } from './i18n.js';
+import { linkState, NET_NAME, DSN } from './groundnet.js';
 
 const D = 180 / Math.PI, AU = 149597870.7;
 const km = (x) => { if (x === Infinity) return '∞'; if (!Number.isFinite(x)) return '—'; if (Math.abs(x) < 5e-5) x = 0; const a = Math.abs(x); return a >= 10000 ? fmt(x, 0) + ' km' : a >= 100 ? fmt(x, 1) + ' km' : a >= 1 ? fmt(x, 2) + ' km' : fmt(x * 1000, a >= 0.1 ? 0 : 1) + ' m'; };
@@ -20,6 +21,9 @@ const dur = (s) => {
 };
 const latlon = (lat, lon) => `${fmt(Math.abs(lat * D), 2)}° ${ns(lat)} · ${fmt(Math.abs(lon * D), 2)}° ${ew(lon)}`;
 const sg = (x, f) => (x > 0 ? '+' : x < 0 ? '−' : '') + f(Math.abs(x));
+const linkName = (q) => (q.net === 'DSN' ? `${q.name} (${q.id})` : q.name);
+// DSN kompleksi satırı: yükseklik · azimut · menzil; durum (bağlantı, ufuk altı, Ay engeli)
+const stRow = (q) => [`${ang(q.el, 1)} · ${ang(q.az, 0)} · ${km(q.range)}${q.moon && q.above ? ' · Ay engelliyor' : !q.above ? ' · ufuk altı' : ''}`, q.ok ? 'good' : null];
 // büyük gösterge metni: son boşluktan sonrası birimdir, küçük yazılır (dar kartta sığsın)
 const setText = (el, t) => { if (el._t !== t) { el._t = t; el.textContent = t; } };
 const setW = (el, w) => { if (el._w !== w) { el._w = w; el.style.width = w; } };     // aynı metni yeniden yazma (düğüm yenilenmez, stil/düzen geçersiz kılınmaz)
@@ -101,9 +105,13 @@ const SECTIONS = [
     ['Dairesel · kaçış hızı', (t) => `${fmt(t.orbit.vCirc, 3)} · ${fmt(t.orbit.vEsc, 3)} km/s (v/v_k ${fmt(t.v / t.orbit.vEsc, 3)})`, 'bu yarıçapta v_c = √(μ/r), v_kaçış = √(2μ/r); v_k: kaçış hızı'],
     ['Koniğin geçerliliği', (t) => { const r = t.pertRatio.toExponential(1).replace('.', ','); return t.pertRatio < 1e-3 ? [`iyi (bozucu/merkezi ${r})`, 'good'] : t.pertRatio < 1e-2 ? [`yaklaşık (${r})`, 'warn'] : [`kaba: periapsis/apoapsis güvenilmez (${r})`, 'bad']; }, 'Üçüncü cisimlerin (Ay/Dünya, Güneş) bozucu ivmesi ÷ merkezi çekim. Küçükse konik gelecek hareketi iyi tarif eder; büyükse periapsis/apoapsis yaklaşıktır.'],
   ], canvas: 'orbit' },
-  { id: 'ortam', title: 'Ortam ve haberleşme', open: false, rows: [
+  { id: 'ortam', title: 'Ortam ve haberleşme', open: true, rows: [
     ['Dünya\'ya uzaklık', (t) => `${km(t.dEarth)} (yüzeyden ${km(t.dEarth - R_E)})`, 'Dünya merkezine; parantez içinde yüzeyden'],
-    ['Işık süresi', (t) => `${fmt(t.lightTime, 3)} s tek yön · ${fmt(2 * t.lightTime, 3)} s gidiş-dönüş`, 'd/c, c = 299.792,458 km/s'],
+    ['Görevli ağ', (t, c) => (c.link ? NET_NAME[c.link.net] : null), 'Dünya\'dan 35.406 km\'ye (22.000 mil) dek Yakın Uzay Ağı (TDRS röle uyduları), ötesinde Derin Uzay Ağı (DSN). Artemis I bu uzaklıkta DSN\'e devredildi (NASA).'],
+    ['Etkin istasyon', (t, c) => (!c.link ? null : c.link.active ? [`${linkName(c.link.active)}${c.link.active.el != null ? ` · yükseklik ${ang(c.link.active.el, 1)}` : ''}${c.link.active.up ? '' : ' · yalnız alma'}`, 'good']
+      : [`LOS — ${c.link.cause === 'moon' ? 'Ay engelliyor' : 'ufkun üstünde istasyon yok'}`, 'warn']), 'DSN: bağlantısı olan komplekslerden aracı en yüksekte göreni; alma maskesi 6° (anten mekanik sınırı), gönderme 10,2–10,4° (DSN 810-005 301). TDRS: en yakın, hattı Dünya\'ya (+100 km) ve Ay\'a değmeyen röle.'],
+    ['Işık süresi (istasyondan)', (t, c) => (c.link && c.link.active ? `${fmt(c.link.oneWay, 3)} s tek yön · ${fmt(c.link.rtlt, 3)} s gidiş-dönüş` : `${fmt(t.lightTime, 3)} s tek yön (Dünya merkezinden)`), 'menzil/c (c = 299.792,458 km/s); TDRS\'te araç → röle → yer terminali (White Sands / Guam). Gidiş-dönüş ≈ 2 × tek yön (ışık yolculuğundaki hareket ihmal: ~10⁻⁵).'],
+    ...DSN.map((S, i) => [`DSN ${S.name}`, (t, c) => (c.link ? stRow(c.link.stations[i]) : null), 'DSN kompleksi (70 m anten, WGS-84: DSN 810-005 301 Tablo 5): yükseklik · azimut (kuzeyden) · menzil; Ay engeli istasyon–araç doğrusuyla']),
     ['Dünya ile görüş hattı', (t) => (t.earthVisible ? ['açık', 'good'] : ['Ay engelliyor', 'warn']), 'araç–Dünya merkezi doğrusunu Ay küresi kesiyor mu'],
     ['Dünya\'nın ufuk yüksekliği', (t) => (t.earthElev != null ? ang(t.earthElev, 1) : '—'), 'Ay çevresinde yerel ufka göre; negatifse ufkun altında'],
     ['Ay\'a uzaklık · hız', (t) => `${km(t.dMoon)} · ${sg(t.rangeRateMoon, spd)}`, 'eksi: Ay\'a yaklaşıyor; d(|r−r_ay|)/dt'],
@@ -180,7 +188,7 @@ export class ControlPanel {
     const L = tel.land, risk = T.touchRisk(tel);
     const bh = badge(tel.F > 0 ? 'MOTOR AÇIK' : 'MOTOR KAPALI', tel.F > 0 ? 'on' : '') + badge(s.auto ? 'OTOPİLOT' : 'ELLE', s.auto ? '' : 'warn') + badge(s.nbody ? 'N-CİSİM' : 'ETKİ KÜRESİ') + (s.paused ? badge('DURAKLATILDI', 'warn') : badge('×' + fmt(s.warp, s.warp < 10 ? 1 : 0)));
     if (bh !== this.badgeHtml) { this.badgeHtml = bh; this.el.badges.innerHTML = bh; }               // rozetler yalnız değişince yeniden kurulur
-    setText(this.el.next, s.done ? '' : c.next ? `Sıradaki: ${c.next.name} · T−${dur(Math.max(0, c.next.dt))}` : '');
+    setText(this.el.next, s.done ? '' : c.next ? `Sıradaki: ${c.next.name} · ${c.next.label || 'kalan ' + dur(Math.max(0, c.next.dt))}` : '');
     const R = s.done ? s.result : null;
     this.el.result.hidden = !R;
     if (R) {
@@ -218,7 +226,8 @@ export class ControlPanel {
     setText(this.budgetNote, (c.nominal && Object.keys(c.nominal).length ? 'Gerekli: bozulmasız (nominal) uçuşun kalan manevraları.' : 'Gerekli: tasarım tahmini (nominal uçuş hesaplanıyor).') + ' Pay = kalan − gerekli; plan dışı harcama payı azaltır.');
     // satırlar
     const showLand = !!L && (T.LANDING_PHASES.has(s.phase) || L.h < 30);
-    const ctx2 = { rSite: c.rSite, touchCls: risk ? 'warn' : null, landing: s.landing && s.opt !== undefined && T.LANDING_PHASES.has(s.phase) ? s.landing : null, opt: s.opt };
+    let link = null; try { link = linkState(s.t, s.r); } catch (err) { link = null; }
+    const ctx2 = { rSite: c.rSite, touchCls: risk ? 'warn' : null, landing: s.landing && s.opt !== undefined && T.LANDING_PHASES.has(s.phase) ? s.landing : null, opt: s.opt, link };
     for (const row of this.rows) {
       const q = row.fn(tel, ctx2), txt = Array.isArray(q) ? q[0] : q, cls = Array.isArray(q) ? q[1] || '' : '';
       if (txt == null) { if (!row.tr.hidden) row.tr.hidden = true; continue; }

@@ -9,6 +9,7 @@ import { dvKeys, DV_NAMES, dvFromEvents } from './dvbudget.js';
 import { fmt, fmtDur } from './format.js';
 
 import { ellipsoidAlt } from './geo.js';
+import { linkState, shadowAt, envAt, stationById, NET_NAME, HANDOVER_KM } from './groundnet.js';
 import { $, setText, setWidth, utcShort } from './uiutil.js';
 import { mixin } from './mixin.js';
 import { PickCard } from './pickcard.js';
@@ -23,6 +24,24 @@ const PHASE_TR = { KALKIS: 'Kalkış (canlandırma; fizik yörüngeye girişte b
   SON_INIS: 'Son iniş', INDI: 'Yüzeyde', NRI: 'Halo yörüngesine giriş (NRI)', HALO: 'Halo yörüngesinde', DEP: "Halo'dan ayrılış yakışı",
   TRANSFER: "LLO'ya iniş transferi" };
 const phaseName = (p) => PHASE_TR[p] || (/^SK-\d+$/.test(p) ? `İstasyon tutma yakışı (${p})` : /^RAISE-\d+$/.test(p) ? `Yörünge yükseltme yakışı ${p.slice(6)}` : p);
+// gösterim olayları (groundnet.js; fizik değil): iletişim ve gölge. Ad, günlük metni ve HUD'daki kısa ad
+const stName = (id) => { const s = stationById(id); return s ? (s.net === 'DSN' ? `${s.name} (${s.id})` : s.name) : id || '—'; };
+const shadowOf = (by) => (by === 'Ay' ? "Ay'ın gölgesi" : "Dünya'nın gölgesi");
+const DISP_SHORT = { LOS: 'LOS', AOS: 'AOS', ECL_IN: 'Gölgeye giriş', ECL_OUT: 'Gölgeden çıkış', HANDOVER: 'İstasyon devri', NET: 'Ağ devri' };
+function dispText(e) {
+  switch (e.key) {
+    case 'LOS': return e.cause === 'moon' ? `LOS: ${stName(e.from)} ile bağlantı kesildi — Ay araç ile Dünya arasında` : `LOS: ${stName(e.from)} ile bağlantı kesildi — ufkun üstünde istasyon yok`;
+    case 'AOS': return e.dur != null ? `AOS: ${stName(e.to)} bağlantıyı aldı (LOS süresi ${fmtDur(e.dur)})` : `AOS: ${stName(e.to)} bağlantıyı aldı`;
+    case 'HANDOVER': return `İstasyon devri: ${stName(e.from)} → ${stName(e.to)}`;
+    case 'NET': return `Ağ devri: ${NET_NAME.NSN} → ${NET_NAME.DSN} (Dünya'dan ~${fmt(HANDOVER_KM, 0)} km; Artemis I'de olduğu gibi) · ${stName(e.to)}`;
+    case 'ECL_IN': return `Gölgeye giriş: ${shadowOf(e.by)}`;
+    case 'ECL_OUT': return e.dur != null ? `Gölgeden çıkış: ${shadowOf(e.by)} (gölgede ${fmtDur(e.dur)})` : `Gölgeden çıkış: ${shadowOf(e.by)}`;
+    default: return e.key;
+  }
+}
+// sayaç öneki: yakışlar ateşlemeye kalan süre (TIG−, time of ignition), diğer olaylar "kalan"; görev saati (T±) ile karışmasın
+const BURN_KEYS = /^(TLI|MCC-\d|LOI|NRI|DEP|DOI|PDI|SK-\d+|RAISE-\d+)$/;
+const countdown = (key, dt) => (BURN_KEYS.test(key || '') ? 'TIG−' : 'kalan ') + fmtDur(Math.max(0, dt));
 const sameCfg = (a, b) => JSON.stringify(normalizeConfig(a)) === JSON.stringify(normalizeConfig(b));
 // roket kartı: ad, durum, rampa; TLI kademesi; türetilmiş TLI kapasitesi (rockets.js)
 function rocketCard(id) {
@@ -44,7 +63,7 @@ const DATE_MIN = '1850-01-01', DATE_MAX = '2149-12-01';        // de440s kapsam�
 export class UI {
   constructor(world, send) {
     this.world = world; this.send = send;
-    this.events = []; this.plan = []; this.t0 = 0; this.tLaunch = 0;
+    this.events = []; this.plan = []; this.t0 = 0; this.tLaunch = 0; this.dispEvents = []; this.fc = null; this.fcSig = '';
     this.series = { t: [], alt: [], spd: [] }; this.lastSample = -Infinity;
     this.lastHud = 0; this.lastEph = 0; this.tab = 'gorev'; this.nominal = null; this.live = null; this.design = null;
     this.skyTab = 'takip';
@@ -221,7 +240,39 @@ export class UI {
   reset(plan, t0, tLaunch) {
     this.plan = plan; this.t0 = t0; this.tLaunch = tLaunch; this.events = []; this.evVer = (this.evVer || 0) + 1; this.planUi = null;
     this.series = { t: [], alt: [], spd: [] }; this.lastSample = -Infinity;
+    this.dispEvents = []; this.fc = null; this.fcSig = '';
     $('#log').replaceChildren(); this.renderPlan(t0); this.renderDv(); this.cp.reset();
+  }
+  // gösterim olayları (worker: groundnet taraması): gerçekleşenler günlüğe; öngörü (N-cisim yolu boyunca beklenenler) çizelgenin altına ve HUD'a
+  addDispEvents(evs) {
+    for (const e of evs) {
+      this.dispEvents.push(e);
+      const li = document.createElement('li'); li.className = 'disp ' + (e.key === 'LOS' || e.key === 'ECL_IN' ? 'dk' : '');
+      const tm = document.createElement('span'); tm.className = 'ev-t'; tm.textContent = 'T+' + fmtDur(e.t - this.tLaunch);
+      const tx = document.createElement('span'); tx.className = 'ev-m'; tx.textContent = dispText(e);
+      li.append(tm, tx); $('#log').prepend(li);
+    }
+  }
+  onState(d) {
+    if (d.disp && d.disp.length) this.addDispEvents(d.disp);
+    if (d.fc !== undefined) { this.fc = d.fc; this.fcSig = ''; }
+  }
+  // yaklaşan iletişim ve gölge olayları (öngörü): en çok 8, ekran saatine göre kalan süreyle
+  renderComm(t) {
+    const ul = $('#commPlan'); if (!ul) return;
+    const F = this.fc, ev = F ? F.ev.filter((e) => e.t > t) : [], sig = (F ? F.ver : 'x') + ':' + ev.length;
+    if (sig !== this.fcSig) {
+      this.fcSig = sig; ul.replaceChildren(); this.commItems = [];
+      for (const e of ev.slice(0, 8)) {
+        const li = document.createElement('li'), dot = document.createElement('span'), name = document.createElement('span'), when = document.createElement('span');
+        dot.className = 'pl-dot'; name.className = 'pl-n'; name.textContent = dispText(e).replace(/ \(LOS süresi .*\)$| \(gölgede .*\)$/, '') + (e.dur != null ? ` · ${fmtDur(e.dur)}` : '');
+        when.className = 'pl-t'; li.className = 'later comm ' + (e.key === 'LOS' || e.key === 'ECL_IN' ? 'dk' : ''); li.append(dot, name, when); ul.appendChild(li);
+        this.commItems.push({ e, when });
+      }
+      const note = $('#commNote');
+      if (note) note.textContent = F ? `Öngörü: şimdiki durumdan itkisiz N-cisim yayınımı (Dünya, Ay, Güneş)${F.burn ? `, ${F.burn} ateşlemesine dek` : ''}; küçük rota düzeltmeleri dahil değil.` : 'Öngörü yok: motor çalışıyor ya da görev bitti.';
+    }
+    for (const it of this.commItems || []) setText(it.when, '~' + E.utcString(it.e.t).slice(11, 16) + ' · kalan ' + fmtDur(Math.max(0, it.e.t - t)));
   }
   addEvents(evs) {
     if (evs.length) this.evVer = (this.evVer || 0) + 1;
@@ -261,11 +312,12 @@ export class UI {
       const p = it.p, ev = U.done.get(p.key) || U.done.get(p.key + '_SKIP');
       let cls, when;
       if (ev) { cls = 'done'; if (it.evFor !== ev) { it.evFor = ev; it.evTxt = E.utcString(ev.t).slice(5, 19); } when = it.evTxt; }
-      else if (!nextMarked) { cls = 'next'; nextMarked = true; const tn = this.tNext != null && this.tNext > t + 1 ? this.tNext : p.t; when = 'T−' + fmtDur(Math.max(0, tn - t)); }
+      else if (!nextMarked) { cls = 'next'; nextMarked = true; const tn = this.tNext != null && this.tNext > t + 1 ? this.tNext : p.t; when = countdown(p.key, tn - t); }
       else { cls = 'later'; if (!it.laterTxt) it.laterTxt = '~' + E.utcString(p.t).slice(5, 16); when = it.laterTxt; }
       if (it.cls !== cls) { it.cls = cls; it.li.className = cls; }
       setText(it.when, when);
     }
+    this.renderComm(t);
   }
 
   renderDv() {
@@ -285,7 +337,6 @@ export class UI {
     $('#dvNom').textContent = N ? fmt(sumNom, 1) : 'hesaplanıyor…';
   }
 
-  onState(s) {}
   // grafik örnekleri worker'ın yol noktalarından (olaya atlamada geçmiş de gelir)
   addSamples(points, reset) {
     if (reset) this.series = { t: [], alt: [], spd: [] };
@@ -307,7 +358,9 @@ export class UI {
   // sıradaki planlı olay ve ona kalan süre (görev çizelgesiyle aynı mantık)
   nextEvent(t) {
     const done = new Set(this.events.map((e) => e.key)), p = this.plan.find((q) => !done.has(q.key) && !done.has(q.key + '_SKIP'));
-    return p ? { name: p.name, dt: (this.tNext != null && this.tNext > t + 1 ? this.tNext : p.t) - t } : null;
+    if (!p) return null;
+    const dt = (this.tNext != null && this.tNext > t + 1 ? this.tNext : p.t) - t;
+    return { name: p.name, key: p.key, dt, label: countdown(p.key, dt) };
   }
   // kontrol paneli bağlamı: araç kademeleri, tasarım, olaylar, nominal Δv, iniş yeri
   cpCtx(t) {
@@ -315,9 +368,23 @@ export class UI {
     return { stages: (D && D.STAGES) || STAGES, design: D, events: this.events, nominal: this.nominal, siteIcrf, rSite: R_SITE, tLaunch: this.tLaunch, phaseName: (p) => this.phaseLabel(p), next: this.nextEvent(t) };
   }
 
+  // HUD bağlantı satırı (DSN Now gibi): etkin ağ ve istasyon, istasyondan yükseklik, gidiş-dönüş ışık süresi; LOS ve nedeni; gölge; öngörüdeki sıradaki LOS/AOS/gölge olayı
+  hudLink(s, H) {
+    if (!H.linkSt) return;
+    let L, sh;
+    try { const en = envAt(s.t); L = linkState(s.t, s.r, en); sh = shadowAt(s.r, en); } catch (err) { return; }
+    const A = L.active, D = 180 / Math.PI;
+    const st = A ? `${A.net === 'DSN' ? 'DSN' : 'NSN'} ${stName(A.id)}${A.el != null ? ` · ${fmt(A.el * D, 1)}°` : ''} · gidiş-dönüş ${fmt(L.rtlt, 2)} s`
+      : `LOS — ${L.cause === 'moon' ? 'Ay engelliyor' : 'ufkun üstünde istasyon yok'}`;
+    setText(H.linkSt, st + (sh.by === 'Ay' ? " · Ay'ın gölgesinde" : sh.by ? " · Dünya'nın gölgesinde" : ''));
+    if (H.link) H.link.classList.toggle('los', !A);
+    const F = this.fc, nx = F ? F.ev.find((e) => e.t > s.t && e.key !== 'HANDOVER' && e.key !== 'NET') : null;
+    setText(H.linkNext, nx ? `Sıradaki: ${DISP_SHORT[nx.key]}${nx.key === 'AOS' ? ' ' + stName(nx.to) : ''} · kalan ${fmtDur(nx.t - s.t)} (öngörü)` : '');
+  }
+
   hud(s, now) {
     if (now - this.lastHud < 100) return; this.lastHud = now;
-    const H = this.hudRefs || (this.hudRefs = Object.fromEntries(['utc', 'met', 'phase', 'altRef', 'spdRef', 'alt', 'spd', 'vv', 'mass', 'dvu', 'propName', 'propVal', 'propBar', 'thrBar', 'thrVal', 'warpVal', 'status'].map((k) => [k, $('#' + k)])));
+    const H = this.hudRefs || (this.hudRefs = Object.fromEntries(['utc', 'met', 'phase', 'altRef', 'spdRef', 'alt', 'spd', 'vv', 'mass', 'dvu', 'propName', 'propVal', 'propBar', 'thrBar', 'thrVal', 'warpVal', 'status', 'linkSt', 'linkNext', 'link'].map((k) => [k, $('#' + k)])));
     const t = s.t, met = t - this.tLaunch, rm = E.moonPos(t), rsv = E.sub(s.r, rm), rs = E.norm(rsv);
     const nearM = rs < E.MOON_ZONE;
     setText(H.utc, E.utcString(t).replace(/ UTC$/, ''));                                    // başlık zaten "UTC"
@@ -339,6 +406,7 @@ export class UI {
       const vz = E.dot(vr, up), vh = E.norm(E.sub(vr, E.scale(up, vz))), rng = Math.hypot(s.local.p[0], s.local.p[1]);
       setText(H.vv, `dikey ${fmt(vz * 1000, 1)} m/s · yatay ${fmt(vh * 1000, 1)} m/s · iniş yerine ${rng > 5 ? fmt(rng, 1) + ' km' : fmt(rng * 1000, 0) + ' m'}`);
     } else setText(H.vv, `Ay'a uzaklık ${fmt(rs, 0)} km · Dünya'ya ${fmt(E.norm(s.r), 0)} km`);
+    this.hudLink(s, H);
     if (A) {                                                                             // kalkış: roketin yaklaşık kütlesi, yanan kademenin kalan yakıtı, itkisi
       setText(H.mass, A.m != null ? '≈ ' + fmt(A.m, 0) + ' kg' : '—'); setText(H.dvu, '—');
       setText(H.propName, A.stage); setText(H.propVal, A.left != null ? '%' + fmt(100 * A.left, 0) : '—');                          // "<kademe> yakıtı" (index.html)

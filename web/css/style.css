@@ -112,6 +112,12 @@ body[data-mode="lab"][data-engine="sky"] [data-for]:not([data-for~="lab"]):not([
 .log li { display: grid; grid-template-columns: auto 1fr; gap: 8px; padding: 5px 0; font-size: 12.5px; border-bottom: 1px solid #1a1f27; }
 .ev-t { font-variant-numeric: tabular-nums; color: var(--text-muted); white-space: nowrap; }
 .log li.warn .ev-m { color: var(--warn); } .log li.bad .ev-m { color: var(--bad); }
+/* gösterim olayları (iletişim, gölge; groundnet.js): fizik olaylarından ayrı, daha sönük */
+.log li.disp .ev-m { color: var(--text-secondary); } .log li.disp.dk .ev-m { color: #c9b27a; }
+.plan.comm li .pl-dot { border-style: dashed; } .plan.comm li.dk .pl-n { color: #c9b27a; }
+.hudlink { display: flex; flex-direction: column; gap: 1px; margin-top: -4px; }
+.hudlink.los #linkSt { color: var(--warn); }
+#linkNext:empty { display: none; }
 .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
 .tbl th, .tbl td { padding: 6px 4px; border-bottom: 1px solid #1d222b; text-align: left; }
 .tbl th { color: var(--text-muted); font-weight: 500; }

@@ -6,6 +6,7 @@ import { initConic, conicReady } from './conic.js';
 import { makeLive, etOf } from './live.js';
 import { EphStore } from './ephstore.js';
 import { designMission } from './design.js';
+import { EventScanner, hermitePos, scanPath } from './groundnet.js';
 
 let K = null, DESIGN = null, T_START = 0, landingMode = 'opt', conicErr = null;     // landingMode: iniş güdümü (LANDING_MODES); konik çözücü yüklenemezse ZEM kullanılır
 async function loadKernels() {
@@ -55,10 +56,67 @@ function sampleTrail() {
     trailPending.push({ t: h.t, r: h.r, v: h.v, thr: h.thr }); trailLast = { p, c: nearM, t: h.t };
   }
 }
+// ------------------------------------------------------------------ gösterim olayları (fizik değil): iletişim ve gölge (groundnet.js)
+// Gerçekleşen: her fizik adımında araç geçmişi taranır (LOS/AOS, istasyon/ağ devri, gölge giriş/çıkış; ikiye bölmeyle ~0,5 s); olay ekran saati geçince gönderilir.
+// Öngörü: araç itkisizken şimdiki durumdan N-cisim yayınımla (Dünya, Ay, Güneş; çözücü seçiminden bağımsız) sıradaki büyük yakışa dek yol ve o yoldaki olaylar.
+let scan = null, scanLast = null, dispPending = [];
+function scanHook() {
+  const H = M.hist, b = H[H.length - 1]; if (!b) return;
+  if (!scan) { scan = new EventScanner(); scan.start(b.t, b.r); scanLast = b; return; }
+  if (b.t < scan.t - 1e-6) {                                               // geri sarma (elle uçuş, bozulma): ekranın ötesindeki olaylar geçersiz
+    dispPending = dispPending.filter((e) => e.t <= b.t); scan.start(b.t, b.r, { losT: scan.losT, shT: scan.shT }); scanLast = b; return;
+  }
+  if (b.thr > 0 && b.t - scanLast.t < 2) return;                         // yakışta (0,05 s adımlar) en çok 2 s'de bir
+  dispPending.push(...scan.scan(b.t, hermitePos(scanLast, b))); scanLast = b;
+}
+const MAJOR = /^(TLI|LOI|NRI|DEP|DOI|PDI|INDI|SEP2|RAISE-\d+)$/, FC_MAX = 6 * 86400;
+let fc = null, fcVer = 0, fcSent = -1, fcReal = -1e9;
+function makeForecast(x) {
+  const done = new Set(M.events.map((e) => e.key)), nx = M.plan.find((p) => p.t > x.t + 30 && MAJOR.test(p.key) && !done.has(p.key) && !done.has(p.key + '_SKIP'));
+  const tBurn = nx ? nx.t : x.t + FC_MAX, tEnd = Math.min(x.t + FC_MAX, tBurn + (nx && /^(LOI|NRI)$/.test(nx.key) ? 900 : 0));   // Ay'a varışta en yakın geçiş dahil
+  if (tEnd - x.t < 120) return null;
+  const rm = E.moonPos(x.t), nearM = E.norm(E.sub(x.r, rm)) < E.MOON_ZONE, mu = nearM ? E.MU_M : E.MU_E;
+  const el = nearM ? E.elements(E.sub(x.r, rm), E.sub(x.v, E.moonVel(x.t)), mu) : E.elements(x.r, x.v, mu);
+  const hMax = el.e < 1 && el.a > 0 ? Math.max(20, Math.min(600, 2 * Math.PI * Math.sqrt(el.a ** 3 / mu) / 120)) : 600;
+  const Q = new E.Propagator(new E.State(x.t, x.r, x.v, 'E'), E.dummyVehicle(), hMax, 1.0, { nbody: true }), pts = [{ t: x.t, r: x.r.slice(), v: x.v.slice() }];
+  Q.onStep = (P) => { const [r, v] = P.s.geo(); pts.push({ t: P.s.t, r, v }); };
+  const t0 = performance.now();
+  Q.runUntil(tEnd, null, () => pts.length > 3000 || performance.now() - t0 > 150);
+  // Ay'a en yakın geçiş (örnekler arası Hermite ile 1 s'ye dek)
+  let ca = null;
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i], f = hermitePos(a, b), dist = (t) => E.norm(E.sub(f(t), E.moonPos(t)));
+    let lo = a.t, hi = b.t; for (let k = 0; k < 40 && hi - lo > 1; k++) { const m1 = lo + (hi - lo) * 0.382, m2 = lo + (hi - lo) * 0.618; if (dist(m1) < dist(m2)) hi = m2; else lo = m1; }
+    const tm = 0.5 * (lo + hi), d = dist(tm); if (!ca || d < ca.d) ca = { t: tm, d, r: f(tm) };
+  }
+  const ev = scanPath(pts, scan ? { losT: scan.losT, shT: scan.shT } : {}).filter((e) => e.t > x.t && e.t <= tBurn);
+  const flat = new Float64Array(pts.length * 4); pts.forEach((p, i) => { flat[4 * i] = p.t; flat[4 * i + 1] = p.r[0]; flat[4 * i + 2] = p.r[1]; flat[4 * i + 3] = p.r[2]; });
+  return { ver: ++fcVer, t0: x.t, t1: pts[pts.length - 1].t, tBurn, burn: nx ? nx.key : null, pts: flat, ev, ca: ca && ca.d < E.MOON_ZONE ? { t: ca.t, d: ca.d, r: ca.r } : null, nev: M.events.length, tRefresh: x.t + Math.min(0.25 * (tEnd - x.t), 6 * 3600) };
+}
+// öngörü yalnız itkisiz süzülürken; yakış başlayınca, olay (yakış, bozulma) eklenince ya da süresinin dörtte biri geçince yenilenir (en çok saniyede bir)
+function forecastTick(x, now) {
+  const coasting = !(x.thr > 0) && !M.done && !(M.P.lastThr > 0 && M.P.s.t - x.t < 5);
+  if (!coasting) { if (fc) { fc = null; fcVer++; } return; }
+  if ((!fc || M.events.length !== fc.nev || x.t > fc.tRefresh || x.t < fc.t0 - 1) && now - fcReal > 1000) {
+    fcReal = now;
+    try { fc = makeForecast(x); } catch (err) { fc = null; }
+    if (!fc) fcVer++;
+  }
+}
+// durum iletisine eklenenler: yeni gerçekleşen gösterim olayları (ekran saatine dek) ve değiştiyse öngörü
+function obsTick(x, now) {
+  forecastTick(x, now);
+  let i = 0; while (i < dispPending.length && dispPending[i].t <= x.t + 1e-6) i++;
+  const out = { disp: dispPending.splice(0, i) };
+  if (fcSent !== fcVer) { fcSent = fcVer; out.fc = fc; }
+  return out;
+}
+
 function newMission() {
   M = new Mission({ design: DESIGN, nbody, landing: conicReady() ? landingMode : 'zem' });
   M.attachHistory();
-  const push = M.P.onStep; M.P.onStep = (...a) => { push(...a); sampleTrail(); };
+  scan = null; scanLast = null; dispPending = []; fc = null; fcVer++; fcReal = -1e9;
+  const push = M.P.onStep; M.P.onStep = (...a) => { push(...a); sampleTrail(); scanHook(); };
   tDisp = M.P.s.t; sentEvents = 0; status = '';
   trailPending = []; trailLast = null; trailReset = true; sampleTrail();
   manual = { throttle: 0, mode: 'PRO', hold: null };
@@ -143,7 +201,7 @@ function tick() {
     lastForces = now;
     try { forces = E.accelBreakdown(x.t, x.r, 'N'); const st = M.veh.stages[x.k]; forces.thrust = st && x.thr > 0 ? (1000 * x.thr * st.T) / x.m : 0; } catch (err) { forces = null; }
   }
-  postMessage({ type: 'state', t: x.t, r: x.r, v: x.v, m: x.m, prop: x.prop, k: x.k, thr: x.thr, u: x.u, q: x.q, w: x.w, att: x.att, rcsUsed: x.rcsUsed, phase: x.phase, nbody, forces,
+  postMessage({ ...obsTick(x, now), type: 'state', t: x.t, r: x.r, v: x.v, m: x.m, prop: x.prop, k: x.k, thr: x.thr, u: x.u, q: x.q, w: x.w, att: x.att, rcsUsed: x.rcsUsed, phase: x.phase, nbody, forces,
     dv: x.dv, stage, debris, local, auto: M.auto, done: M.done, result: M.result, paused, warp: wEff, warpSet: warp, autoWarp,
     tNext: M.tNext, status, events: newEv, drAxis: M.drAxis, manual, trail, trailReset: reset, landing: M.landing, opt: M.descentInfo ? { tf: M.descentInfo.tf, fuel: M.descentInfo.fuel, replans: M.descentInfo.replans, fails: M.descentInfo.fails } : null });
 }
