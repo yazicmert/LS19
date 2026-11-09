@@ -110,6 +110,9 @@ check('180. meridyeni aşan ızgarada Mercator kayması sürekli', maxJump < 2 *
   check('OSM binaları rampa çerçevesinde: yükseltilmiş su kulesi tankı (80–88 m) ve 147 m yapı rampanın ~150 m çevresinde; 2,5 m altı atılır',
     !!tank && tank.d < 250 && tall === 147 && polys.every((p) => p.h >= OB.MIN_H && p.outer.length >= 3 && p.outer.every(([x, z]) => Number.isFinite(x) && Number.isFinite(z))),
     `${polys.length} çokgen, tank ${tank ? tank.d.toFixed(0) + ' m' : '—'}, en yüksek ${tall} m`);
+  const sl = polys.filter(OB.isSlender), beams = OB.latticeBeams(sl[0]), top = Math.max(...beams.flat().map((q) => q[1]));
+  check('narin yapılar (LC-39B\'nin üç 147 m yıldırım kulesi; delikli üçgen) kafes kule olarak çizilir; su kulesinin 3 m\'lik ayakları dolu kalır; kule tepeye daralır',
+    sl.length === 3 && sl.every((p) => p.h === 147) && !polys.some((p) => p.h === 85 && OB.isSlender(p)) && Math.abs(top - 147) < 1e-9 && beams.length > 30, `${sl.length} kule, ${beams.length} kiriş`);
   const sq = [[0, 0], [10, 0], [10, 10], [0, 10]];
   check('halka yönü: MVT dış halkası (y aşağı, saat yönü) pozitif alan, delik negatif', OB.ringArea(sq) > 0 && OB.ringArea([...sq].reverse()) < 0);
   const T = OB.tilesAround(site.lat, site.lon), m = 2 * Math.PI * 6378137 * Math.cos(site.lat * Math.PI / 180) / 2 ** 14;

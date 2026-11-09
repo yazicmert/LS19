@@ -56,6 +56,27 @@ export function polygonsFromLayer(layer, tile, site, { radius = RADIUS_M, minH =
   return out.filter((p) => { const c = p.outer.reduce((a, q) => [a[0] + q[0] / p.outer.length, a[1] + q[1] / p.outer.length], [0, 0]); p.c = c; p.d = Math.hypot(c[0], c[1]); return p.d <= radius; });
 }
 
+// narin yapı (kule: yıldırım kuleleri, anten, servis kulesi): OSM'de taban alanı + yükseklikle "bina"; dolu prizma duvar gibi görünür → kafes kule çizilir
+export const isSlender = (p) => {
+  if (p.outer.length > 8 || p.h - p.minH < 40) return false;                       // delikler önemsiz (kafes kuleler OSM'de delikli çokgen olabilir)
+  const xs = p.outer.map((q) => q[0]), zs = p.outer.map((q) => q[1]), span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs));
+  return span >= 6 && (p.h - p.minH) / span >= 4;                                  // 6 m'den ince direkler (su kulesi ayakları) dolu kalır
+};
+// kafes kule kirişleri: tabanın köşelerinden tepeye daralan ayaklar (tepe TOP oranında), yatay kuşaklar ve çaprazlar → [[a, b], …] (rampa çerçevesi, m)
+export function latticeBeams(p, { top = 0.22, bay = 12 } = {}) {
+  const [cx, cz] = p.c || p.outer.reduce((a, q) => [a[0] + q[0] / p.outer.length, a[1] + q[1] / p.outer.length], [0, 0]);
+  const H = p.h - p.minH, nB = Math.max(2, Math.round(H / bay)), out = [];
+  const at = (q, k) => { const s = 1 - (1 - top) * k; return [cx + (q[0] - cx) * s, p.minH + H * k, cz + (q[1] - cz) * s]; };
+  const V = p.outer;
+  for (const q of V) out.push([at(q, 0), at(q, 1)]);                                                  // ayaklar
+  for (let i = 0; i <= nB; i++) for (let j = 0; j < V.length; j++) {
+    const a = V[j], b = V[(j + 1) % V.length], k0 = i / nB, k1 = (i + 1) / nB;
+    out.push([at(a, k0), at(b, k0)]);                                                                  // kuşak
+    if (i < nB) out.push(i % 2 ? [at(a, k0), at(b, k1)] : [at(b, k0), at(a, k1)]);                     // çapraz (zikzak)
+  }
+  return out;
+}
+
 export class OsmBuildings {
   // THREE: three.js · parent: rampa grubu (ölçek KM, birim m) · site: { lat, lon } · onReady(this): binalar eklendi
   constructor(THREE, parent, site, { onReady, fetchFn = (u, o) => fetch(u, o) } = {}) {
@@ -87,9 +108,26 @@ export class OsmBuildings {
     const THREE = this.T, pos = [], col = [], c = new THREE.Color();
     const drop = (x, z) => -(x * x + z * z) / (2 * R_E);                         // Dünya eğriliği (12 km'de ~11 m)
     for (const p of this.polys) {
-      try { c.set(p.color || '#d8d6d0'); } catch (e) { c.set('#d8d6d0'); }
+      if (p.rgb) c.setRGB(p.rgb[0], p.rgb[1], p.rgb[2], THREE.SRGBColorSpace);         // uydu görüntüsünden çatı rengi (recolor)
+      else { try { c.set(p.color || '#d8d6d0'); } catch (e) { c.set('#d8d6d0'); } }
       const tone = 0.85 + 0.15 * ((p.h * 7.3) % 1), cr = c.r * tone, cg = c.g * tone, cb = c.b * tone;
       const put = (x, y, z, k = 1) => { pos.push(x, y + drop(x, z), z); col.push(cr * k, cg * k, cb * k); };
+      if (isSlender(p)) {                                                                    // kafes kule: her kiriş ince kare kesitli çubuk
+        const w = Math.max(0.35, Math.min(1.2, (p.h - p.minH) / 300));
+        for (const [a, b] of latticeBeams(p)) {
+          const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], L = Math.hypot(...d); if (L < 1e-6) continue;
+          const u = d.map((v) => v / L), ref = Math.abs(u[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
+          let n1 = [u[1] * ref[2] - u[2] * ref[1], u[2] * ref[0] - u[0] * ref[2], u[0] * ref[1] - u[1] * ref[0]]; const l1 = Math.hypot(...n1); n1 = n1.map((v) => (v / l1) * w / 2);
+          const n2 = [u[1] * n1[2] - u[2] * n1[1], u[2] * n1[0] - u[0] * n1[2], u[0] * n1[1] - u[1] * n1[0]];
+          const corner = (P, s1, s2) => [P[0] + s1 * n1[0] + s2 * n2[0], P[1] + s1 * n1[1] + s2 * n2[1], P[2] + s1 * n1[2] + s2 * n2[2]];
+          const sq = [[1, 1], [-1, 1], [-1, -1], [1, -1]];
+          for (let k = 0; k < 4; k++) {
+            const [s1, s2] = sq[k], [t1, t2] = sq[(k + 1) % 4], A0 = corner(a, s1, s2), A1 = corner(a, t1, t2), B0 = corner(b, s1, s2), B1 = corner(b, t1, t2), sh = k % 2 ? 0.8 : 1;
+            for (const q of [A0, A1, B1, A0, B1, B0]) put(q[0], q[1], q[2], sh);
+          }
+        }
+        continue;
+      }
       for (const ring of [p.outer, ...p.holes]) for (let i = 0; i < ring.length; i++) {        // duvarlar
         const [x0, z0] = ring[i], [x1, z1] = ring[(i + 1) % ring.length];
         put(x0, p.minH, z0, 0.8); put(x1, p.minH, z1, 0.8); put(x1, p.h, z1); put(x0, p.minH, z0, 0.8); put(x1, p.h, z1); put(x0, p.h, z0);
@@ -105,6 +143,20 @@ export class OsmBuildings {
     g.computeVertexNormals();
     this.mesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, emissive: 0x3a3a3a }));   // öz ışıma: Güneş görmeyen yüzler simsiyah olmasın (gökyüzü ışığı yerine)
     this.mesh.frustumCulled = false; this.group.add(this.mesh);
+  }
+  // çatı renkleri uydu görüntüsünden: sampler(lat, lon) → [r, g, b] (sRGB 0..1) | null; geometri yeniden kurulur. Çok koyu/çok açık örnekler
+  // (gölge, parlama) sınırlanır; narin yapılar (kafes kuleler) görüntüde zemin rengini verir, onlar OSM rengiyle kalır.
+  recolor(sampler) {
+    let n = 0;
+    for (const p of this.polys) {
+      if (isSlender(p)) continue;
+      const lat = this.site.lat - p.c[1] / R_E / D2R, lon = this.site.lon + p.c[0] / (R_E * Math.cos(this.site.lat * D2R)) / D2R, v = sampler(lat, lon);
+      if (!v) continue;
+      const m = (v[0] + v[1] + v[2]) / 3, k = m < 0.25 ? 0.25 / Math.max(m, 0.01) : m > 0.92 ? 0.92 / m : 1;
+      p.rgb = v.map((x) => Math.min(1, x * k)); n++;
+    }
+    if (this.mesh) { this.group.remove(this.mesh); this.mesh.geometry.dispose(); this.mesh.material.dispose(); this.mesh = null; }
+    this.build(); return n;
   }
   set visible(v) { this.group.visible = v; }
   dispose() { this.ctl.abort(); if (this.group.parent) this.group.parent.remove(this.group); if (this.mesh) { this.mesh.geometry.dispose(); this.mesh.material.dispose(); } }

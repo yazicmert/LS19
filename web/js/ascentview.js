@@ -193,7 +193,10 @@ export class AscentView {
           on = A.g3d.ready && A.g3d.visible; A.ground.u.holeR.value = on ? A.g3d.radiusM * 0.985 : 0;
         }
         // görünürlük: rampa zemini/hendek Google yokken; prosedürel kuleler OSM'de rampa yapıları yoksa (osmPad) ve Google yokken; OSM binaları Google yokken
-        for (const p of A.padProps) { const v = !on && !(A.osmPad && p.userData.kind === 'struct'); if (p.visible !== v) p.visible = v; }
+        // uydu görüntüsü (en ince seviye) gelince: OSM çatıları görüntüden boyanır; prosedürel rampa zemini ve hendek gizlenir (gerçekleri görüntüde)
+        const imgFine = A.ground.u.L0 && A.ground.u.L0.value.w > 0;
+        if (A.osm && A.osm.ready && !A.osmColored && (imgFine || A.ground.done)) { A.osmColored = true; A.osm.recolor((la, lo) => A.ground.sample(la, lo)); }
+        for (const p of A.padProps) { const v = !on && !(A.osmPad && p.userData.kind === 'struct') && !(imgFine && p.userData.kind === 'base'); if (p.visible !== v) p.visible = v; }
         if (A.osm) A.osm.visible = !on;
         const now = performance.now();
         if (!A.creditT || now - A.creditT > 1000) {                                      // atıf: zemin görüntüsü + görünen 3B katman (OSM ya da Google)

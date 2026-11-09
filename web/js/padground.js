@@ -174,13 +174,29 @@ export class PadGround {
         if (this.ctl.signal.aborted) return false;
         const r = this.rects[k]; if (r.z > prov.maxZ) continue;
         const tex = await this.loadLevel(prov, r);
-        if (tex) { const U = this.u; if (U['t' + k].value) U['t' + k].value.dispose(); U['t' + k].value = tex; U['L' + k].value.w = 1; okAny = true; this.provider = this.provider || prov.name; this.mesh.visible = true; this.ready = true; if (this.onProgress) this.onProgress(this); }
+        if (tex) { const U = this.u; if (U['t' + k].value) U['t' + k].value.dispose(); U['t' + k].value = tex; this.cv = this.cv || []; this.cv[k] = tex.image; U['L' + k].value.w = 1; okAny = true; this.provider = this.provider || prov.name; this.mesh.visible = true; this.ready = true; if (this.onProgress) this.onProgress(this); }
         else if (!okAny) break;                                                    // ilk (en kaba) seviye bile gelmediyse bu kaynağı bırak
       }
       if (okAny) break;
     }
     await dem;
+    this.done = true; if (this.onProgress) this.onProgress(this);
     return this.ready;
+  }
+  // uydu görüntüsünden renk (sRGB 0..1): noktayı kapsayan en ince seviyenin tuvalinden r piksellik kare ortalaması; yoksa null (OSM bina çatıları)
+  sample(lat, lon, r = 2) {
+    if (!this.cv) return null;
+    for (let k = 0; k < LEVELS.length; k++) {
+      const cv = this.cv[k], R = this.rects[k]; if (!cv) continue;
+      const [X, Y] = merc01(lat, lon), s = 2 ** R.z, px = Math.round((X * s - R.x0) * 256), py = Math.round((Y * s - R.y0) * 256), W = R.n * 256;
+      if (px < r || py < r || px >= W - r || py >= W - r) continue;
+      try {
+        const d = cv.getContext('2d', { willReadFrequently: true }).getImageData(px - r, py - r, 2 * r + 1, 2 * r + 1).data; let a = 0; const c = [0, 0, 0];
+        for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 200) { c[0] += d[i]; c[1] += d[i + 1]; c[2] += d[i + 2]; a++; }
+        if (a) return [c[0] / a / 255, c[1] / a / 255, c[2] / a / 255];
+      } catch (e) { return null; }
+    }
+    return null;
   }
   async loadLevel(prov, r) {
     const T = this.T, n = r.n, cv = document.createElement('canvas'); cv.width = cv.height = n * 256; const g = cv.getContext('2d', { willReadFrequently: true }); let got = 0;
