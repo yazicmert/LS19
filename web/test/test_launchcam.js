@@ -1,7 +1,7 @@
 // Kalkış yayını kurgusu (launchcam.js) ve bağlantıları: cd web && node test/test_launchcam.js
 import fs from 'fs';
-import { directShot, onboardWindows, autoWarp, shake, timeline, SITES, SHOT_NAMES, siteEye, lineOfSight, sight, groundCovers, AUTO_TRACK_KM, AUTO_AIR_KM } from '../js/launchcam.js';
-import { massState } from '../js/ascentsim.js';
+import { directShot, onboardWindows, autoWarp, shake, timeline, SITES, SHOT_NAMES, siteEye, lineOfSight, sight, groundCovers, AUTO_TRACK_KM, AUTO_AIR_KM, ascentCallouts, soundSpeed, TOWER_M } from '../js/launchcam.js';
+import { massState, solveAscent, atmosphere } from '../js/ascentsim.js';
 import { ROCKETS } from '../js/rockets.js';
 let fail = 0;
 const check = (name, ok, detail = '') => { console.log(`${ok ? 'TAMAM' : 'HATA '} ${name}${detail ? ' — ' + detail : ''}`); if (!ok) fail++; };
@@ -50,6 +50,20 @@ check('sarsıntı: ateşlemeden önce yok, kalkışta var (< 6 m), zamanla söne
 check('sarsıntı deterministik', JSON.stringify(shake('onboard', 12.3, { q: 20000 })) === JSON.stringify(shake('onboard', 12.3, { q: 20000 })));
 const tl = timeline(SV.events, mq, SV.tIns);
 check('zaman çizgisi sıralı, Max-Q ve yörüngeyi içerir', tl[0].name === 'Max-Q' && tl[tl.length - 1].kind === 'orbit' && tl.every((e, i) => !i || e.t >= tl[i - 1].t));
+// çıkış anonsları: Saturn V benzetiminden (ascentsim) kule geçildi, Mach 1, üç kademe motor kesme; Apollo 11'de Mach 1 T+66,3 s (NASA SP-4029)
+check('ses hızı deniz düzeyinde 340,3 m/s (γRT, 288,15 K)', Math.abs(soundSpeed(288.15) * 1000 - 340.29) < 0.05);
+{
+  const Ssv = solveAscent(SV.veh, { r0: 6373.2, r1: 6378.137 + 185, v1: 7.793, inc: 28.7, tEnd: SV.tIns });
+  const co = ascentCallouts({ samples: Ssv.samples, veh: SV.veh, towerM: TOWER_M.saturnv, tempK: (h) => atmosphere(h).T }), by = (k) => co.filter((c) => c.kind === k);
+  const tw = by('tw')[0], m1 = by('m1')[0], cut = by('co');
+  check('anonslar (Saturn V): kule T+5–15 s, Mach 1 T+55–75 s (Apollo 11: 66,3 s), 3 kademe motor kesme kademe sonlarında, gaz verisi yoksa gaz anonsu yok',
+    tw && tw.t > 5 && tw.t < 15 && m1 && m1.t > 55 && m1.t < 75 && cut.length === 3 && cut.every((c, i) => c.t === SV.veh.stages[i].t1) && !by('thr').length, `kule T+${tw && tw.t.toFixed(1)} s, Mach 1 T+${m1 && m1.t.toFixed(1)} s`);
+  const tl2 = timeline(SV.events, Ssv.maxQ, SV.tIns, co);
+  check('zaman çizgisi anonsları içerir, sıralı, yörüngeyle biter', tl2.length === tl.length + co.length - co.filter((c) => !(c.t > 0 && c.t < SV.tIns)).length && tl2.every((e, i) => !i || e.t >= tl2[i - 1].t) && tl2[tl2.length - 1].kind === 'orbit');
+  const fake = [{ t: 0, h: 0, vrel: 0, stage: 0, thr: 1 }, { t: 60, h: 10, vrel: 0.3, stage: 0, thr: 1 }, { t: 61, h: 10.5, vrel: 0.31, stage: 0, thr: 0.8 }, { t: 62, h: 11, vrel: 0.32, stage: 0, thr: 0.7 }, { t: 90, h: 20, vrel: 0.6, stage: 0, thr: 0.7 }, { t: 91, h: 21, vrel: 0.62, stage: 0, thr: 1 }];
+  const ct = ascentCallouts({ samples: fake, veh: { stages: [] }, towerM: 100, tempK: (h) => atmosphere(h).T }).filter((c) => c.kind === 'thr');
+  check('gaz verisi varsa: tek gaz azaltma (rampa birleşir) ve tek gaz artırma', ct.length === 2 && ct[0].name === 'Gaz azaltma' && ct[0].t === 60 && ct[1].name === 'Gaz artırma' && ct[1].t === 90);
+}
 const sc = sceneSrc(), Sky = fs.readFileSync(new URL('../lib/addons/objects/Sky.js', import.meta.url), 'utf8');
 check('Sky eklentisi (three r170) yamalanacak satırları içerir', Sky.includes('gl_Position.z = gl_Position.w; // set z to camera.far') && Sky.includes('gl_FragColor = vec4( retColor, 1.0 );') && Sky.includes('vec3 direction = normalize( vWorldPosition - cameraPosition );'));
 check('scene.js: kalkışta Sky, alev ışığı, bulut ve çekimler bağlı', /skyMaterial\(\)/.test(sc) && /plumeLight/.test(sc) && /new LaunchSmoke\(/.test(sc) && /shot === 'onboard'/.test(sc) && /shot === 'air'/.test(sc));
@@ -60,7 +74,7 @@ check('ascentview: izleme hatası görüş açısıyla sınırlı (dar açıda r
 check('surfaceview: rampa zemini yalnız kameranın gördüğü yeri kapsıyorsa; değilse küre ve yüzey parçaları (uzaktan kara küre + kare olmaz)', /groundCovers\(eyeE, padP\.pos, E\.R_E\)/.test(sc) && /AG\.mesh\.visible = padGround/.test(sc));
 const ap = fs.readFileSync(new URL('../js/ascentplay.js', import.meta.url), 'utf8'), uiSrc = fs.readFileSync(new URL('../js/ui.js', import.meta.url), 'utf8'), html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 check('bant T± görev saatiyle (sol üst gösterge, fmtDur ile aynı yuvarlama) aynı; görüş kamera yerlerinden hesaplanır; "gerçek uçuşta" yalnız eski (ölçekli) tasarımda',
-  /updTele\(real, met, h, vRel/.test(ap) && /Math\.floor\(Math\.abs\(met\)\)/.test(ap) && /scaled \? `\$\{this\.rk\.name\} · gerçek uçuşta/.test(ap) && /sight\(siteEye\(padP, SITES\.track\)/.test(ap));
+  /updTele\(real, met, hG, vRel/.test(ap) && /Math\.floor\(Math\.abs\(met\)\)/.test(ap) && /scaled \? `\$\{this\.rk\.name\} · gerçek uçuşta/.test(ap) && /sight\(siteEye\(padP, SITES\.track\)/.test(ap));
 // canlandırma gerçek zamanlı: tasarım roketin kendi giriş süresini kullanır (görev saati = roketin uçuş saati)
 const dsrc = fs.readFileSync(new URL('../js/design.js', import.meta.url), 'utf8');
 const { ascentTime } = await import('../js/design.js');

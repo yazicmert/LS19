@@ -18,9 +18,25 @@ export const DEFAULT_PAD_ID = 4;
 export const LEGACY_SITE = { id: 0, name: 'Kennedy Uzay Merkezi LC-39B', short: 'KSC LC-39B', lat: 28.62711, lon: -80.62102, legacy: true, az: [35, 120] };
 
 // Roketlerin gerçekte fırlatıldığı rampalar (LL2 kimlikleri): gerçek roket yalnız bunlardan seçilebilir; genel kademe her rampadan
-//   Saturn V: LC-39A (12 uçuş), LC-39B (Apollo 10) · SLS: LC-39B · Falcon 9: SLC-40, LC-39A, SLC-4E (Vandenberg) · Falcon Heavy: LC-39A · Vulcan: SLC-41
+//   Saturn V: LC-39A (12 uçuş), LC-39B (Apollo 10) · SLS: LC-39B · Falcon 9: SLC-40, LC-39A, SLC-4E (Vandenberg) · Falcon Heavy: LC-39A
+//   Vulcan: SLC-41 — ULA Vulcan Launch Systems User's Guide (Ekim 2023) Tablo 1.5-1 (SLC-41 CCSFS ve SLC-3E VSFB; VSFB'den henüz uçmadı),
+//   Cert-1: https://ulalaunch.com/missions/next-launch/vulcan-cert-1
 export const ROCKET_PADS = { SATURN_V: [87, 4], SLS1: [4], F9: [80, 87, 16], FH: [87], VULCAN: [29] };
-export const padAllowed = (rocket, padId) => !ROCKET_PADS[rocket] || padId === 0 || ROCKET_PADS[rocket].includes(padId);
+// rampa 0 (site yok / eski kayıt) = varsayılan LC-39B'nin kendisi (LL2 4): Vulcan ya da Falcon onu "varsayılan" diye kullanamaz
+export const padAllowed = (rocket, padId) => !ROCKET_PADS[rocket] || ROCKET_PADS[rocket].includes(padId === 0 ? DEFAULT_PAD_ID : padId);
+// Roketin kendi rampası (yapılandırmada site yokken): varsayılan LC-39B'den fırlayabilen roket (SLS, Saturn V, genel kademe) orada kalır (null),
+// diğeri ilk gerçek rampasından: Vulcan → SLC-41, Falcon 9 → SLC-40, Falcon Heavy → LC-39A. Kayıtlar data/pads.json ile aynı (LL2; test_pads.js denetler),
+// tasarım Node'da ve worker'da rampa listesi olmadan da kurulabilsin diye burada.
+const HOME_PADS = {
+  29: { id: 29, name: 'Space Launch Complex 41', loc: 'Cape Canaveral SFS, FL, USA', lat: 28.58341, lon: -80.58304 },
+  80: { id: 80, name: 'Space Launch Complex 40', loc: 'Cape Canaveral SFS, FL, USA', lat: 28.56194, lon: -80.57736 },
+  87: { id: 87, name: 'Launch Complex 39A', loc: 'Kennedy Space Center, FL, USA', lat: 28.60823, lon: -80.60428 },
+};
+export function homeSite(rocket) {
+  if (padAllowed(rocket, DEFAULT_PAD_ID)) return null;
+  const p = HOME_PADS[ROCKET_PADS[rocket][0]];
+  return p ? siteOf(p) : null;
+}
 
 const D2R = Math.PI / 180;
 // Menzil güvenliği: yerleşim yerleri üzerinden uçmamak için izinli fırlatma azimutları (°, kuzeyden saat yönü). Yalnız kaynağı olan menziller;

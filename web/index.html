@@ -70,6 +70,7 @@
 <!-- Modül grafiği düz liste olarak paralel indirilir (içe aktarma zinciri tek tek keşfedilirse her seviye bir ağ gidiş-dönüşü); liste test/test_preload.js ile grafikten doğrulanır (node test/test_preload.js --print) -->
 <link rel="modulepreload" href="js/app.js">
 <link rel="modulepreload" href="js/engine.js">
+<link rel="modulepreload" href="js/separation.js">
 <link rel="modulepreload" href="js/attitude.js">
 <link rel="modulepreload" href="js/vec3.js">
 <link rel="modulepreload" href="js/rigidbody.js">
@@ -124,6 +125,7 @@
 <link rel="modulepreload" href="js/ui.js">
 <link rel="modulepreload" href="js/controlpanel.js">
 <link rel="modulepreload" href="js/telemetry.js">
+<link rel="modulepreload" href="js/groundnet.js">
 <link rel="modulepreload" href="js/dvbudget.js">
 <link rel="modulepreload" href="js/format.js">
 <link rel="modulepreload" href="js/uiutil.js">
@@ -161,6 +163,8 @@
 <link rel="modulepreload" href="js/labui.js">
 <link rel="modulepreload" href="js/ayui.js">
 <link rel="modulepreload" href="js/aytext.js">
+<link rel="modulepreload" href="js/touchdown.js">
+<link rel="modulepreload" href="js/landnav.js">
 <link rel="modulepreload" href="js/deflectui.js">
 <link rel="modulepreload" href="js/updater.js">
 <link rel="modulepreload" href="js/tracker.js">
@@ -211,6 +215,7 @@
       <div><span class="k">Hız <em id="spdRef"></em></span><span id="spd" class="bv">—</span></div>
     </div>
     <div id="vv" class="sub">—</div>
+    <div id="link" class="sub hudlink" title="Haberleşme: görevli ağ (Dünya'dan 35.406 km'ye dek Yakın Uzay Ağı / TDRS, ötesinde Derin Uzay Ağı), etkin istasyon ve aracın o istasyondan yüksekliği, istasyondan gidiş-dönüş ışık süresi; LOS: bağlantı yok (Ay engelliyor ya da istasyon ufkun altında). Sıradaki olay itkisiz N-cisim öngörüsündendir."><span id="linkSt">—</span><span id="linkNext"></span></div>
     <div class="grid2">
       <div><span class="k">Kütle</span> <span id="mass" class="v">—</span></div>
       <div><span class="k">Kullanılan Δv</span> <span id="dvu" class="v">—</span></div>
@@ -519,6 +524,9 @@
           <div class="daterow"><button id="btnAscent" class="sm" type="button">▶ Kalkışı izle</button><span class="note">Seçili roket rampada tam boyuyla; kademeler gerçek uçuş zamanlarına göre ayrılır. Kinematik canlandırma: görev fiziği yörüngeye girişte başlar.</span></div>
           <h3>Görev çizelgesi</h3>
           <ul id="plan" class="plan"></ul>
+          <h3>İletişim ve gölge (öngörü)</h3>
+          <ul id="commPlan" class="plan comm"></ul>
+          <p id="commNote" class="note"></p>
           <h3>Olay günlüğü</h3>
           <ul id="log" class="log"></ul>
         </div>
@@ -526,7 +534,7 @@
         <div id="tab-grafik" class="tabpage" role="tabpanel" hidden>
           <canvas id="chartAlt" class="chart"></canvas>
           <canvas id="chartSpd" class="chart"></canvas>
-          <p class="note">İrtifa logaritmik ölçekte. Ay'ın etki küresinde değerler Ay'a (inişte iniş yerine) göre.</p>
+          <p class="note">İrtifa logaritmik ölçekte. Dünya'da WGS-84 elipsoidine (gerçek kutupla), Ay'ın etki küresinde Ay'ın ortalama yarıçapına (1737,4 km) göre; yalnız motorlu inişte (PDI → temas) iniş yeri yüzeyine göre ve hız yüzeye göre.</p>
         </div>
         <div id="tab-yorunge" class="tabpage" role="tabpanel" hidden>
           <h3>Anlık yörünge elemanları</h3>

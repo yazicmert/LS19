@@ -17,6 +17,7 @@ import { Mission, R_SITE, SITE_LAT, SITE_LON, siteIcrf } from '../js/mission.js'
 import { stageSpec } from '../js/rigidbody.js';
 import { dvFromEvents } from '../js/dvbudget.js';
 import * as T from '../js/telemetry.js';
+import { ellipsoidAlt } from '../js/geo.js';
 
 let fail = 0;
 const check = (name, ok, detail = '') => { console.log(`${ok ? 'TAMAM' : 'HATA '} ${name}${detail ? ' — ' + detail : ''}`); if (!ok) fail++; };
@@ -40,7 +41,7 @@ function rayLit(rv, sunPos, bodies, K = 60) {
 
 // ---------------------------------------------------------------- 1) yer ölçüleri (ephemeris gerekmez)
 {
-  const a = E.R_E, f = T.F_EARTH, e2 = f * (2 - f);
+  const a = T.A_EARTH, f = T.F_EARTH, e2 = f * (2 - f);
   const fromGeo = (lat, h, lon = 0.7) => { const N = a / Math.sqrt(1 - e2 * Math.sin(lat) ** 2); return [(N + h) * Math.cos(lat) * Math.cos(lon), (N + h) * Math.cos(lat) * Math.sin(lon), (N * (1 - e2) + h) * Math.sin(lat)]; };
   let wl = 0, wh = 0, n = 0;
   for (const lat of [0, 0.3, 0.785398, -0.5236, 1.2, 1.5, -1.55, Math.PI / 2, -Math.PI / 2]) for (const h of [-5, 0, 188, 1000, 35786, 384400]) {
@@ -167,7 +168,7 @@ const mkState = (t, r, v, over = {}) => ({ t, r, v, m: 3000, prop: 1500, k: 1, t
   live();
   const t = 1100000;
   // Dünya: KSC LC-39B'de yüzeyde duran nokta (yerküre ile birlikte döner)
-  const lat = 28.62711 * D2R, lon = -80.62102 * D2R, a = E.R_E, e2 = T.F_EARTH * (2 - T.F_EARTH), N = a / Math.sqrt(1 - e2 * Math.sin(lat) ** 2);
+  const lat = 28.62711 * D2R, lon = -80.62102 * D2R, a = T.A_EARTH, e2 = T.F_EARTH * (2 - T.F_EARTH), N = a / Math.sqrt(1 - e2 * Math.sin(lat) ** 2);
   const ecef = [N * Math.cos(lat) * Math.cos(lon), N * Math.cos(lat) * Math.sin(lon), N * (1 - e2) * Math.sin(lat)];
   const Mi = E.earthIcrfToItrf(t), r = E.mtv(Mi, ecef), om = scale(Mi[2], T.OMEGA_EARTH), v = cross(om, r);
   const tel = T.computeTelemetry(mkState(t, r, v, { k: 0, prop: 6200, m: 12100 }), O);
@@ -189,7 +190,7 @@ const mkState = (t, r, v, over = {}) => ({ t, r, v, m: 3000, prop: 1500, k: 1, t
 }
 { // jeodezik yükseklik/boylam için bağımsız referans: elipsoide dik-nokta koşulu z·cosφ − p·sinφ + N·e²·sinφ·cosφ = 0'ın kökü (ikiye bölme)
   var geodRef = (P) => {
-    const a = E.R_E, f = T.F_EARTH, e2 = f * (2 - f), p = Math.hypot(P[0], P[1]), z = P[2];
+    const a = T.A_EARTH, f = T.F_EARTH, e2 = f * (2 - f), p = Math.hypot(P[0], P[1]), z = P[2];
     const g = (phi) => { const s_ = Math.sin(phi), c_ = Math.cos(phi), N = a / Math.sqrt(1 - e2 * s_ * s_); return z * c_ - p * s_ + N * e2 * s_ * c_; };
     let lo = -Math.PI / 2, hi = Math.PI / 2;                       // g(−π/2) = p ≥ 0, g(π/2) = −p ≤ 0
     for (let i = 0; i < 200; i++) { const m = 0.5 * (lo + hi); if (g(m) > 0) lo = m; else hi = m; }
@@ -203,12 +204,13 @@ live();
 const M = new Mission({ design: D, attitude: false }); M.P.tLimit = Infinity; M.attachHistory();
 const samples = [], tliSteps = [];                                  // samples: { h, nev } (olay sayısı); tliSteps: TLI yakışının tüm fizik adımları
 {
-  let last = -1e9, n = 0;
+  let last = -1e9, n = 0, lastPh = '';
   for (;;) {
     if (M.gen.next().done) break;
     const h = M.hist[M.hist.length - 1];
     if (h.phase === 'TLI' && h.thr > 0 && (!tliSteps.length || h.t > tliSteps[tliSteps.length - 1].t)) tliSteps.push({ ...h });
-    if (h.t - last > (h.thr > 0 ? 20 : h.phase === 'SUZULME' ? 3000 : 600)) { last = h.t; samples.push({ h: { ...h }, nev: M.events.length }); }
+    if (h.t - last > (h.thr > 0 ? 20 : h.phase === 'SUZULME' ? 3000 : 600) || (h.thr > 0 && h.phase !== lastPh)) { last = h.t; samples.push({ h: { ...h }, nev: M.events.length }); }      // her yakışın ilk adımı da (kısa MCC'ler)
+    lastPh = h.phase;
     if (++n > 6e6) break;
   }
   const h = M.hist[M.hist.length - 1]; samples.push({ h: { ...h }, nev: M.events.length });
@@ -230,6 +232,11 @@ const telOf = (smp, extra = {}) => T.computeTelemetry({ ...smp.h, ...extra }, O)
     wh = Math.max(wh, Math.abs(g.h - tl.alt)); wl = Math.max(wl, Math.abs(g.lat - tl.lat)); wo = Math.max(wo, Math.abs(wrap(g.lon - tl.lon))); n++;
   }
   check('Dünya konumu: jeodezik yükseklik, enlem ve boylam bağımsız en yakın-nokta aramasıyla', wh < 1e-6 && wl < 1e-9 && wo < 1e-12, `${n} durum, Δh ${(wh * 1e6).toFixed(2)} mm, Δenlem ${wl.toExponential(1)} rad, Δboylam ${wo.toExponential(1)} rad`);
+}
+{ // gösterge irtifası (HUD, grafik, sinematik: geo.ellipsoidAlt) gerçek kutupla telemetriyle aynı; ICRF z kutup alınırsa park yörüngesinde onlarca metre sapar
+  let wTrue = 0, wZ = 0;
+  for (const smp of samples) { if (smp.h.phase !== 'PARK') continue; const tl = telOf(smp); wTrue = Math.max(wTrue, Math.abs(ellipsoidAlt(smp.h.r, E.earthIcrfToItrf(smp.h.t)[2]) - tl.alt)); wZ = Math.max(wZ, Math.abs(ellipsoidAlt(smp.h.r) - tl.alt)); }
+  check('gösterge irtifası: gerçek kutupla (ITRS z) telemetrinin jeodezik irtifasıyla aynı; ICRF z ile 10 m üstü sapma (düzeltilen hata)', wTrue < 1e-9 && wZ > 0.01, `gerçek kutup ${(wTrue * 1e6).toExponential(1)} mm, ICRF z ${(wZ * 1000).toFixed(1)} m`);
 }
 { // TLI yakışı: ölçülen özgül kuvvet, Δv korunumu
   const burn = []; for (let i = 1; i < tliSteps.length; i++) burn.push([tliSteps[i - 1], tliSteps[i]]);

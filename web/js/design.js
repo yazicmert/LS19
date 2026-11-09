@@ -16,7 +16,7 @@
 import * as E from './engine.js';
 import { STAGES as BASE_STAGES, siteIcrf, R_SITE } from './mission.js';
 import { ROCKETS, DEFAULT_ROCKET, stageRecord, parkPropellant, rocketOf } from './rockets.js';
-import { LEGACY_SITE, minIncl, incPenalty, padAllowed, inclRange, azInRange } from './pads.js';
+import { LEGACY_SITE, minIncl, incPenalty, padAllowed, homeSite, inclRange, azInRange } from './pads.js';
 import { HALO_PRESETS, haloMember, ephemerisHalo } from './halo.js';
 import * as CR from './cr3bp.js';
 import { solve as linSolve } from './linalg.js';
@@ -486,6 +486,10 @@ function* designSteps(tFrom, progress, cfg0) {
   const log = (m, f) => progress(m, f);
   log('Yapılandırma: ' + configLabel(cfg), 0.01);
   if (cfg.rocket && cfg.site && !padAllowed(cfg.rocket, cfg.site.id)) throw new Error(`${rocketOf(cfg.rocket).name} ${cfg.site.name} rampasından fırlatılmıyor (gerçek rampaları dışında seçilemez; her rampa için genel TLI kademesini seçin)`);
+  // rampa verilmemişse gerçek roket kendi rampasından (pads.js homeSite: Vulcan → SLC-41, Falcon 9 → SLC-40, Falcon Heavy → LC-39A; SLS/Saturn V LC-39B'de kalır).
+  // Yapılandırmaya yazılmaz (cfg aynı kalır: önbellek anahtarı değişmez); fırlatma kaydı (LAUNCH.site, siteId, lat, lon) bu rampadandır
+  const home = cfg.rocket && !cfg.site ? homeSite(cfg.rocket) : null;
+  if (home) { K.site = home; K.SITE = home; log(`Rampa: ${home.name} (roketin kendi rampası)`, 0.015); }
   if (cfg.rocket) { const r = rocketOf(cfg.rocket), st = r.stage; log(`Fırlatma aracı: ${r.name} (${r.pad}); TLI kademesi ${st.name}: ${st.engine}, ${st.T} kN, Isp ${st.isp} s, kuru ${st.dry} kg`, 0.02); }
   let D = null;
   for (;;) {

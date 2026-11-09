@@ -16,6 +16,7 @@ export function dvFromEvents(events) {
   const raise = events.filter((e) => /^RAISE-\d+$/.test(e.key)).map((e) => ev(e.key + '_CUT') ? (ev(e.key + '_CUT').dv - e.dv) * 1000 : null);
   return { RAISE: raise.length && raise.every((x) => x != null) ? raise.reduce((a, b) => a + b, 0) : null, TLI: diff('TLI', 'TLI_CUT'), 'MCC-1': mcc('MCC-1'), 'MCC-2': mcc('MCC-2'), 'MCC-3': mcc('MCC-3'),
     LOI: diff('LOI', 'LOI_END'), LLOI: diff('LOI', 'LOI_END'), NRI: diff('NRI', 'NRI_END'),
-    SK: sk.length ? sk.reduce((s, e) => s + (e.dvm || 0), 0) : (skSkip ? 0 : null), DEP: ev('DEP')?.dvm ?? null,
+    SK: sk.length ? sk.reduce((s, e) => s + (e.dvm || 0), 0) : (skSkip ? 0 : null),
+    DEP: ev('DEP') ? ev('DEP').dvm + events.filter((e) => /^TCM-\d+$/.test(e.key)).reduce((s, e) => s + (e.dvm || 0), 0) : null,     // ayrılış + DEP → LLO düzeltmeleri (TCM)
     DOI: diff('DOI', 'DOI_END'), PDI: diff('PDI', 'INDI') };
 }

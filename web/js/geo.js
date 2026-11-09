@@ -36,5 +36,7 @@ export function geodetic(r, pole, a = WGS84_A, f = WGS84_F) {
   return { lat, h };
 }
 const Z = [0, 0, 1];
-// gösterge irtifası: ICRF konumundan elipsoid üstü yükseklik (kutup ≈ ICRF z; presesyonun etkisi LEO'da metre altı)
-export const ellipsoidAlt = (r) => geodetic(r, Z).h;
+// gösterge irtifası: ICRF konumundan elipsoid üstü yükseklik. pole: Dünya'nın gerçek dönme ekseni (ICRF bileşenleriyle birim vektör; engine.earthIcrfToItrf(t)[2],
+// ITRS z ekseni). Verilmezse ICRF z alınır — bu yaklaşık değildir: 2026'da presesyon + nütasyon kutbu ~0,15° kaydırır, alçak yörüngede irtifa ~40 m'ye dek sapar
+// (elipsoidde enlem hatası × (a − b)·sin 2φ); göstergeler (HUD, sinematik, grafik) gerçek kutbu verir.
+export const ellipsoidAlt = (r, pole = Z) => geodetic(r, pole).h;

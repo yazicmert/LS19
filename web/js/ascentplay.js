@@ -4,10 +4,10 @@
 import { buildAscent, scaleEvents, fmtMet } from './ascent.js';
 import { rocketOf } from './rockets.js';
 import { LEGACY_SITE } from './pads.js';
-import { atmosphere, massState } from './ascentsim.js';
+import { atmosphere, massState, sampleAt } from './ascentsim.js';
 import { qMul } from './attitude.js';
-import { directShot, autoWarp, timeline, SHOT_NAMES, SITES, siteEye, sight } from './launchcam.js';
-import { MU_E as MU, OMEGA_E as OMEGA } from './geo.js';
+import { directShot, autoWarp, timeline, SHOT_NAMES, SITES, siteEye, sight, ascentCallouts, soundSpeed, TOWER_M } from './launchcam.js';
+import { MU_E as MU, OMEGA_E as OMEGA, ellipsoidAlt } from './geo.js';
 import { $ } from './uiutil.js';
 import { fmt } from './format.js';
 
@@ -17,6 +17,8 @@ function quatZto(d) {
   const ax = [-d[1], d[0], 0], s = Math.sqrt((1 + c) * 2);
   return [ax[0] / s, ax[1] / s, ax[2] / s, s / 2];
 }
+
+const MINOR = new Set(['tw', 'm1', 'co', 'thr']);                  // zaman çizgisinde etiketsiz küçük noktalar (anons alt yazısı yeter)
 
 export class AscentPlayer {
   constructor({ world, E, send, getDesign, getIns, getState, onEnd }) {
@@ -69,21 +71,26 @@ export class AscentPlayer {
   // yayın tarzı telemetri bandı: aşama, yere göre hız (km/sa), irtifa, T+ saati ve olay zaman çizgisi (Max-Q, ayrılmalar, yörünge)
   buildTele() {
     const T = this.tele; if (!T) return;
-    const tl = this.tl = timeline(this.A.events, this.path.sim && this.path.sim.maxQ, this.A.tIns), tEnd = this.A.tIns, t0 = -10;
+    // çıkış durumundan anonslar (kule geçildi, Mach 1, kademe motor kesmeleri; gaz değişimi varsa): zaman çizgisinde küçük nokta, geçilince alt yazı
+    this.callouts = this.path.sim ? ascentCallouts({ samples: this.path.sim.samples, veh: this.A.veh, towerM: TOWER_M[this.A.lv] ?? TOWER_M.generic, tempK: (h) => atmosphere(h).T }) : [];
+    this.coShown = new Set();
+    const tl = this.tl = timeline(this.A.events, this.path.sim && this.path.sim.maxQ, this.A.tIns, this.callouts), tEnd = this.A.tIns, t0 = -10;
     const x = (t) => ((t - t0) / (tEnd - t0) * 100).toFixed(2) + '%';            // uçlara yakın etiketler bandın içine doğru hizalanır (at-l, at-r)
     T.innerHTML = `<div class="at-row"><span class="at-st" id="atSt"></span><span class="at-k">HIZ</span><b id="atV">0</b><span class="at-u">km/sa</span><span class="at-k">İRTİFA</span><b id="atH">0</b><span class="at-u">km</span>`
-      + `<b id="atT" class="at-t">T−00:10</b><span class="at-cam"><span id="atCam"></span><small id="atCamNote"></small></span></div><div class="at-flash" id="atFlash"></div>`
-      + `<div class="at-line"><i id="atFill"></i>${tl.map((e, i) => { const px = parseFloat(x(e.t)), edge = px > 80 ? ' at-r' : px < 20 ? ' at-l' : ''; return `<span class="at-ev at-${e.kind}${edge}" style="left:${x(e.t)}" data-i="${i}"><em>${e.name}</em></span>`; }).join('')}<span class="at-ev at-zero" style="left:${x(0)}"></span></div>`;
-    this.teleEl = { st: T.querySelector('#atSt'), v: T.querySelector('#atV'), h: T.querySelector('#atH'), t: T.querySelector('#atT'), fill: T.querySelector('#atFill'), ev: [...T.querySelectorAll('[data-i]')], cam: T.querySelector('#atCam'), note: T.querySelector('#atCamNote'), flash: T.querySelector('#atFlash') };
+      + `<b id="atT" class="at-t">T−00:10</b><span class="at-cam"><span id="atCam"></span><small id="atCamNote"></small></span></div>`
+      + `<div class="at-row at-sub"><span class="at-k">MACH</span><i id="atM">—</i><span class="at-k">MENZİL</span><i id="atR">0</i><span class="at-u">km</span><span class="at-k">EKSENEL İVME</span><i id="atG">—</i><span class="at-u">g</span><span class="at-k">EYLEMSİZ HIZ</span><i id="atVi">—</i><span class="at-u">km/sa</span></div><div class="at-flash" id="atFlash"></div>`
+      + `<div class="at-line"><i id="atFill"></i>${tl.map((e, i) => { const px = parseFloat(x(e.t)), edge = px > 80 ? ' at-r' : px < 20 ? ' at-l' : ''; return `<span class="at-ev at-${e.kind}${edge}${MINOR.has(e.kind) ? ' at-minor' : ''}" style="left:${x(e.t)}" data-i="${i}"><em>${e.name}</em></span>`; }).join('')}<span class="at-ev at-zero" style="left:${x(0)}"></span></div>`;
+    this.teleEl = { st: T.querySelector('#atSt'), v: T.querySelector('#atV'), h: T.querySelector('#atH'), t: T.querySelector('#atT'), m: T.querySelector('#atM'), r: T.querySelector('#atR'), g: T.querySelector('#atG'), vi: T.querySelector('#atVi'), fill: T.querySelector('#atFill'), ev: [...T.querySelectorAll('[data-i]')], cam: T.querySelector('#atCam'), note: T.querySelector('#atCamNote'), flash: T.querySelector('#atFlash') };
     this.teleX = x; this.teleLast = 0; T.hidden = false; this.placeTele();
   }
   // T± görev saatidir (sol üst gösterge ve görev çizelgesiyle aynı); olay noktaları ve dolgu roketin uçuş zamanında (tasarım roketin giriş süresini kullandığından ikisi aynı)
-  updTele(real, met, h, vRel, stageName, shot) {
+  updTele(real, met, h, vRel, stageName, shot, X = null) {
     const E = this.teleEl; if (!E) return;
     const now = performance.now(); if (now - this.teleLast < 90) return; this.teleLast = now;            // ~11 Hz (yayın göstergesi gibi; her karede DOM yazılmaz)
     const k = Math.max(0, Math.floor(Math.abs(met))), sgn = met < 0 ? '−' : '+';                     // sol üst göstergeyle aynı yuvarlama (format.js fmtDur)
     E.t.textContent = `T${sgn}${String(Math.floor(k / 60)).padStart(2, '0')}:${String(k % 60).padStart(2, '0')}`;
     E.v.textContent = fmt(vRel * 3600, 0); E.h.textContent = fmt(h, h < 10 ? 1 : 0);
+    if (X) { E.m.textContent = X.mach != null ? fmt(X.mach, X.mach < 10 ? 2 : 1) : '—'; E.r.textContent = fmt(X.down, X.down < 10 ? 1 : 0); E.g.textContent = X.gAx != null ? fmt(X.gAx, 2) : '—'; E.vi.textContent = fmt(X.vIn * 3600, 0); }
     E.st.textContent = stageName; E.fill.style.width = this.teleX(Math.max(-10, real)); E.cam.textContent = SHOT_NAMES[shot.shot] || ''; E.note.textContent = shot.note || '';
     this.tl.forEach((e, i) => E.ev[i].classList.toggle('done', real >= e.t));
   }
@@ -162,8 +169,11 @@ export class AscentPlayer {
     const shot = directShot({ met: real, events: this.A.events, maxQ: P.sim && P.sim.maxQ, user: this.camUser, see });
     if (!this.userWarp) { const w = autoWarp(real, shot.slow); if (w !== this.warp) { this.warp = w; this.syncBar(); } }
     const vRel = s.vRel ? Math.hypot(...s.vRel) : 0;
+    // gösterge değerleri: irtifa HUD ile aynı tanım (WGS-84, gerçek kutup; yol yüksekliği h rampa yarıçapına göredir ve girişte görev irtifasından ~70 m sapardı),
+    // Mach, yer menzili, eksenel (hissedilen) ivme, eylemsiz hız (görev fiziğine geçişte gösterge bununla sürer)
+    const hG = ellipsoidAlt(s.r, this.E.earthIcrfToItrf(this.t)[2]), X = this.ascX(s, real, met, hG, vRel);
     const nSep = (this.A.events || []).filter((e) => e.cut != null && real >= e.t).length;                // kademe süzülmesinde de doğru kademe
-    this.updTele(real, met, h, vRel, met < 0 ? 'GERİ SAYIM' : `${nSep + 1}. KADEME`, shot);
+    this.updTele(real, met, hG, vRel, met < 0 ? 'GERİ SAYIM' : `${nSep + 1}. KADEME`, shot, X);
     this.world.ascentFrame({ cut, hidden, thr: thrNow, h, pAmb: atmosphere(h).p, sunUp, prop: (this.A.props || [])[st], shot, met: real, dtFlight: dts * k0, q: s.q || 0,
       sunDir: sd.map((c) => c / sn), upV: up,
       pad: { pos: padP.pos, east, north, up: pu, dr },
@@ -172,9 +182,10 @@ export class AscentPlayer {
     const scaled = Math.abs(k0 - 1) > 0.005, msg = met < 0 ? `${this.rk.name} rampada · T−${Math.floor(-met)} s`
       : scaled ? `${this.rk.name} · gerçek uçuşta ${fmtMet(real)}${last ? ` · ${last.name} (${fmtMet(last.t)})` : ''}` : `${this.rk.name}${last ? ` · ${last.name} (${fmtMet(last.t)})` : ''}`;
     const mq = P.sim && P.sim.maxQ, nearQ = mq && Math.abs(real - mq.t) < 6 ? ` · MAX-Q ${(mq.q / 1000).toFixed(0)} kPa` : '';
+    for (const c of this.callouts || []) if (real >= c.t && real < c.t + 8 && !this.coShown.has(c)) { this.coShown.add(c); this.flash(c.name, 3000); }   // anonslar (kule, Mach 1, motor kesme)
     if (last && last !== this.lastEv) { this.lastEv = last; this.flash(last.name); }                            // yeni olay: yayın alt yazısı
     else if (mq && !this.qShown && real >= mq.t && real < mq.t + 20) { this.qShown = true; this.flash(`MAX-Q · ${(mq.q / 1000).toFixed(0)} kPa`); }
-    const full = msg + ` · irtifa ${h.toFixed(h < 10 ? 1 : 0)} km` + (s.q != null && met > 0 && h < 100 ? ` · q ${(s.q / 1000).toFixed(1)} kPa` : '') + nearQ;
+    const full = msg + ` · irtifa ${hG.toFixed(hG < 10 ? 1 : 0)} km` + (s.q != null && met > 0 && h < 100 ? ` · q ${(s.q / 1000).toFixed(1)} kPa` : '') + nearQ;
     if (full !== this.lastMsg) { this.txt.textContent = full; this.lastMsg = full; }
     const cr = this.world.asc && h < 40 ? this.world.asc.credit : ''; if (this.credit && this.credit.textContent !== cr) { this.credit.textContent = cr; this.placeTele(); }
     const x = { ...this.base, t: this.t, r: s.r, v: s.v, q, k: 0, thr: 0, phase: 'KALKIS', debris: [], local: null, att: null };
@@ -183,9 +194,23 @@ export class AscentPlayer {
     const veh = this.A.veh, ms = veh ? massState(veh, real) : null;
     // yakıt satırı: yanan kademe (kalan yakıt oranı); kademe arası süzülmede ateşlenecek kademe (dolu), son yanma bittiyse son kademe
     const lastT1 = veh ? veh.stages[veh.stages.length - 1].t1 : 0, burning = met < 0 || (ms && ms.si >= 0), after = !burning && real >= lastT1;
-    const asc = { spd: vRel, m: ms && veh.m0 && met >= 0 ? veh.m0 * 1000 * ms.frac : veh && veh.m0 ? veh.m0 * 1000 : null, thr: thrNow,
+    const asc = { spd: vRel, ...X, m: ms && veh.m0 && met >= 0 ? veh.m0 * 1000 * ms.frac : veh && veh.m0 ? veh.m0 * 1000 : null, thr: thrNow,
       stage: burning ? 'Yanan kademe' : after ? 'Son kademe' : 'Sıradaki kademe', left: met < 0 ? 1 : burning ? ms.left : after ? null : 1 };
-    this.hud = { ...x, altKm: h, asc }; return { ...x, r: this.drawR(s.r) };
+    this.hud = { ...x, altKm: hG, asc }; return { ...x, r: this.drawR(s.r) };
+  }
+  // kalkış göstergesinin türetilmiş değerleri: Mach (yere göre hız / ses hızı; U.S. Standard Atmosphere 1976, 86 km'ye dek), yer menzili (rampa ile alt nokta arası yay,
+  // rampa yarıçapıyla), eksenel ivme (benzetimin hız türevi − yerçekimi: itki − sürüklenme, g₀ biriminde; kademe arası süzülmede ~0), eylemsiz hız (km/s)
+  ascX(s, real, met, hG, vRel) {
+    const P = this.path, u = s.r.map((c) => c / Math.hypot(...s.r)), pad = P.padAt(this.t);
+    const down = P.R0 * Math.acos(Math.max(-1, Math.min(1, u[0] * pad[0] + u[1] * pad[1] + u[2] * pad[2])));
+    const mach = met > 0 && hG < 86 ? vRel / soundSpeed(atmosphere(hG).T) : met > 0 ? null : 0;
+    let gAx = met > 0 ? null : 1;
+    if (met > 0 && P.sim) {
+      const a = sampleAt(P.sim.samples, real - 0.5), b = sampleAt(P.sim.samples, real + 0.5), dt = (b.t - a.t) || 1, r = 0.5 * (a.r + b.r), vr = 0.5 * (a.vr + b.vr), vt = 0.5 * (a.vt + b.vt);
+      const ar = (b.vr - a.vr) / dt - vt * vt / r + MU / (r * r), at = (b.vt - a.vt) / dt + vr * vt / r;
+      gAx = Math.hypot(ar, at) / 9.80665e-3;
+    }
+    return { mach, down, gAx, vIn: Math.hypot(...s.v) };
   }
   async stop() {
     if (!this.active) return;

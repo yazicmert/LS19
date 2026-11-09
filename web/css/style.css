@@ -112,6 +112,12 @@ body[data-mode="lab"][data-engine="sky"] [data-for]:not([data-for~="lab"]):not([
 .log li { display: grid; grid-template-columns: auto 1fr; gap: 8px; padding: 5px 0; font-size: 12.5px; border-bottom: 1px solid #1a1f27; }
 .ev-t { font-variant-numeric: tabular-nums; color: var(--text-muted); white-space: nowrap; }
 .log li.warn .ev-m { color: var(--warn); } .log li.bad .ev-m { color: var(--bad); }
+/* gösterim olayları (iletişim, gölge; groundnet.js): fizik olaylarından ayrı, daha sönük */
+.log li.disp .ev-m { color: var(--text-secondary); } .log li.disp.dk .ev-m { color: #c9b27a; }
+.plan.comm li .pl-dot { border-style: dashed; } .plan.comm li.dk .pl-n { color: #c9b27a; }
+.hudlink { display: flex; flex-direction: column; gap: 1px; margin-top: -4px; }
+.hudlink.los #linkSt { color: var(--warn); }
+#linkNext:empty { display: none; }
 .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
 .tbl th, .tbl td { padding: 6px 4px; border-bottom: 1px solid #1d222b; text-align: left; }
 .tbl th { color: var(--text-muted); font-weight: 500; }
@@ -855,6 +861,11 @@ body.rs-open { overflow: hidden; }
 .asctele .at-ev:nth-child(odd) em { top: 24px; }
 .asctele .at-ev.at-r em { left: auto; right: -2px; transform: none; }
 .asctele .at-ev.at-l em { left: -2px; transform: none; }
+/* ikinci satır: Mach, menzil, eksenel ivme, eylemsiz hız (küçük); anons noktaları etiketsiz */
+.asctele .at-sub { margin-top: 1px; } .asctele .at-sub .at-k { margin-left: 0; } .asctele .at-sub .at-k ~ .at-k { margin-left: 10px; }
+.asctele .at-sub i { font-style: normal; font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; min-width: 3ch; text-align: right; }
+.asctele .at-ev.at-minor { width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-width: 1px; } .asctele .at-ev.at-minor em { display: none; }
+@media (max-width: 760px) { .asctele .at-sub { flex-wrap: wrap; white-space: normal; row-gap: 0; } .asctele .at-sub .at-k ~ .at-k { margin-left: 6px; } }
 @media (max-width: 760px) { .asctele { bottom: 200px; padding: 6px 10px 2px; } .asctele b { font-size: 16px; } .asctele .at-cam { display: none; } .asctele .at-ev em { display: none; } .asctele .at-line { margin: 10px 4px 10px; } .asctele .at-cam small { display: none; } }
 .asccredit { flex-basis: 100%; text-align: center; font-size: 10.5px; color: var(--text-muted); }
 .asccredit:empty { display: none; }

@@ -50,7 +50,7 @@ for (const [name, entry] of Object.entries(ALL.profiles)) {
     out[mode] = { one, two };
   }
   flights[name] = out;
-  const okAll = Object.values(out).every(({ two }) => two.result && two.result.ok && Math.abs(two.result.v_mps[2]) < 1.2 && Math.hypot(...two.result.posErr_m) < 5 && two.veh.k === 2);
+  const okAll = Object.values(out).every(({ two }) => two.result && two.result.ok && Math.abs(two.result.v_mps[2]) < 1.8 && Math.hypot(...two.result.posErr_m) < 5 && two.veh.k === 2);
   const sep = (M) => M.events.filter((e) => e.key === 'SEP2'), pdi = (M) => M.events.find((e) => e.key === 'PDI');
   const m = out.opt.two, sp = sep(m);
   const dt = sp.length === 1 ? pdi(m).t - sp[0].t : NaN, alt = sp.length === 1 ? parseFloat(/irtifa ([\d.]+) km/.exec(sp[0].msg)[1]) : NaN;

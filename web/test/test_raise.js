@@ -67,7 +67,7 @@ for (const nbody of [true, false]) {
   const raiseEv = M.events.filter((e) => /^RAISE-\d+_CUT$/.test(e.key));
   check(`uçuş (${name}): 3 yakışın hepsi yapıldı, hedef apojeye ±0,1% ulaşıldı`, raiseEv.length === 3 && raiseEv.every((e, i) => Math.abs(+/apoje (\d+)/.exec(e.msg)[1] + E.R_E - R.burns[i].raEnd) < 0.001 * R.burns[i].raEnd), raiseEv.map((e) => /apoje (\d+)/.exec(e.msg)[1]).join(' → ') + ' km');
   check(`uçuş (${name}): MCC-1 < 10 m/s, MCC-2 < 1 m/s (zincir tasarımla tutarlı)`, dv['MCC-1'] < 10 && dv['MCC-2'] < 1, `MCC-1 ${dv['MCC-1'].toFixed(2)}, MCC-2 ${dv['MCC-2'].toFixed(2)} m/s`);
-  check(`uçuş (${name}): iniş başarılı, dikey hız ≈ −1,07 m/s`, !M.timeout && r && r.ok && Math.abs(r.v_mps[2] + 1.07) < 0.15, r ? `vz ${r.v_mps[2].toFixed(2)} m/s, ${r.utc}` : 'bitmedi');
+  check(`uçuş (${name}): iniş başarılı, dikey hız ≈ −1,4 m/s (sonda kipi: motor temas ışığından 1 s sonra kesilir)`, !M.timeout && r && r.ok && Math.abs(r.v_mps[2] + 1.40) < 0.15, r ? `vz ${r.v_mps[2].toFixed(2)} m/s, ${r.utc}` : 'bitmedi');
   check(`uçuş (${name}): olay Δv'si (RAISE) tasarımla uyumlu`, Math.abs(dv.RAISE - D3.DV.RAISE) < 1, `uçuş ${dv.RAISE.toFixed(2)} / tasarım ${D3.DV.RAISE.toFixed(2)} m/s`);
   const ign = M.events.find((e) => e.key === 'TLI');
   check(`uçuş (${name}): TLI, tasarım anında (perije senkronu nominalde tasarımla aynı)`, Math.abs(ign.t - D3.TLI.t_ign) < 0.5, `fark ${(ign.t - D3.TLI.t_ign).toFixed(3)} s`);

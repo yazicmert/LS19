@@ -227,7 +227,7 @@ if (P('gorev')) {
   for (const mode of ['zem', 'opt', 'free']) {
     const M = res[mode];
     const vhLim = mode === 'free' ? 0.5 : 0.2;        // serbest mod kapıya agresif varır; yönelim artık hız sınırlı bir fizik durumu olduğundan son yatay hız biraz daha büyük kalır
-    check(`tam görev, iniş güdümü ${mode}: temasla biter (|dikey| < 1,2 m/s, yatay < ${vhLim} m/s, konum hatası < 5 m)`, ok(M) && vz(M) < 1.2 && vh(M) < vhLim && er(M) < 5,
+    check(`tam görev, iniş güdümü ${mode}: temasla biter (|dikey| < 1,8 m/s: sonda kipi, yatay < ${vhLim} m/s, konum hatası < 5 m)`, ok(M) && vz(M) < 1.8 && vh(M) < vhLim && er(M) < 5,
       `dikey ${M.result.v_mps[2].toFixed(2)} m/s, yatay ${vh(M).toFixed(2)} m/s, hata ${er(M).toFixed(1)} m, kalan yakıt ${M.result.prop.toFixed(0)} kg${M.descentInfo ? `, ${M.descentInfo.replans} yeniden çözüm (${M.descentInfo.fails} başarısız)` : ''}`);
   }
   // dengeli > ZEM (aşağıdaki profil denetimleriyle aynı ölçüt). Eski 5 kg payı keyfiydi: Ay ME çerçevesi düzeltilip iniş yeri gerçek Apollo 11 konumuna (1,66 km) taşınınca fark 8 → 4 kg oldu
@@ -266,7 +266,7 @@ if (PROFS.some((k) => P(k))) {
       const M = new Mission({ design: D, landing: mode }); M.P.tLimit = Infinity; for (;;) { if (M.gen.next().done) break; }
       out[mode] = M;
     }
-    const okAll = Object.values(out).every((M) => M.result && M.result.ok && Math.abs(M.result.v_mps[2]) < 1.2 && Math.hypot(...M.result.posErr_m) < 5);
+    const okAll = Object.values(out).every((M) => M.result && M.result.ok && Math.abs(M.result.v_mps[2]) < 1.8 && Math.hypot(...M.result.posErr_m) < 5);
     const f = (m) => out[m].result.prop, fails = out.opt.descentInfo.fails + out.free.descentInfo.fails;
     check(`profil ${name}: üç iniş güdümüyle de yumuşak temas; kalan yakıt serbest ≥ dengeli > ZEM/ZEV; başarısız yeniden çözüm yok`, okAll && f('free') >= f('opt') && f('opt') > f('zem') && fails === 0,
       `kalan yakıt ZEM ${f('zem').toFixed(0)} · dengeli ${f('opt').toFixed(0)} · serbest ${f('free').toFixed(0)} kg (plan süresi dengeli ${out.opt.descentInfo.tf.toFixed(0)} s, serbest ${out.free.descentInfo.tf.toFixed(0)} s)`);

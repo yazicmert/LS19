@@ -268,7 +268,7 @@ const ALL = JSON.parse(fs.readFileSync(new URL('../data/designs_default.json', i
     };
     for (;;) { if (M.gen.next().done) break; }
     const R = M.result, used = M.veh.stages.map((s, j) => (s.rcsUsed || 0) / stageSpec(s).rcs.prop), worstUse = Math.max(...used);
-    check(`${name} ${veh === 'two' ? 'iki' : 'tek'} kademe ${mode}: yumuşak temas (|dikey| < 1,2, yatay < 1,0 m/s), ateşlemede itki vektörü hizalı (≤ 1,5°; PDI ≤ 12°)`, R.ok && Math.abs(R.v_mps[2]) < 1.2 && Math.hypot(R.v_mps[0], R.v_mps[1]) < 1.0 && rec.badIgn.length === 0,
+    check(`${name} ${veh === 'two' ? 'iki' : 'tek'} kademe ${mode}: yumuşak temas (|dikey| < 1,8 — sonda kipi: motor temas ışığından 1 s sonra kesilir —, yatay < 1,0 m/s), ateşlemede itki vektörü hizalı (≤ 1,5°; PDI ≤ 12°)`, R.ok && Math.abs(R.v_mps[2]) < 1.8 && Math.hypot(R.v_mps[0], R.v_mps[1]) < 1.0 && rec.badIgn.length === 0,
       `dikey ${R.v_mps[2].toFixed(2)}, yatay ${Math.hypot(R.v_mps[0], R.v_mps[1]).toFixed(2)} m/s, ${rec.ign.length} yakış, en kötü ${Math.max(...rec.ign.map((x) => x[1])).toFixed(2)}° ${rec.badIgn.join(',')}`);
     check(`${name} ${veh === 'two' ? 'iki' : 'tek'} kademe ${mode}: ω ≤ sınır, gimbal ≤ sınır, RCS torku ≤ yetki, q birim, RCS yakıtı ≤ %70 bütçe, denetimsiz adım yok, itki yönelim hatasında aşağı değil`,
       rec.maxW < 1.06 && rec.maxG <= 1 + 1e-9 && rec.tauOver === 0 && rec.qBad < 1e-12 && worstUse < 0.7 && rec.freeSteps === 0 && rec.down === 0,
