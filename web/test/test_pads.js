@@ -20,6 +20,13 @@ check(new Set(J.pads.map((p) => p.id)).size === J.pads.length, 'kimlikler tekil 
 const near = (id, lat, lon, tol = 0.05) => { const p = pad(id); return p && Math.abs(p.lat - lat) < tol && Math.abs(p.lon - lon) < tol; };
 check(near(87, 28.608, -80.604) && near(4, 28.627, -80.621) && near(80, 28.562, -80.577) && near(29, 28.583, -80.583) && near(16, 34.632, -120.611), 'roketlerin rampaları: LC-39A, LC-39B, SLC-40, SLC-41, SLC-4E (bilinen koordinatlar)');
 check(Object.values(P.ROCKET_PADS).flat().every((id) => idx.has(id)), 'roket ↔ rampa eşlemesindeki her kimlik listede');
+// roketin kendi rampası (site yokken): pads.js'teki kayıtlar LL2 listesiyle aynı; rampa 0 = LC-39B (Vulcan/Falcon için "varsayılan" kaçamağı yok)
+const home = Object.fromEntries(['GENEL', 'SATURN_V', 'SLS1', 'F9', 'FH', 'VULCAN'].map((id) => [id, P.homeSite(id)]));
+check(home.VULCAN && home.VULCAN.id === 29 && home.F9.id === 80 && home.FH.id === 87 && home.SLS1 === null && home.SATURN_V === null && home.GENEL === null
+  && ['VULCAN', 'F9', 'FH'].every((id) => JSON.stringify(home[id]) === JSON.stringify(P.siteOf(pad(home[id].id)))),
+  `site yokken roketin kendi rampası: Vulcan → ${home.VULCAN && home.VULCAN.name}, Falcon 9 → SLC-40, Falcon Heavy → LC-39A; SLS, Saturn V, genel kademe LC-39B (kayıtlar pads.json ile aynı)`);
+check(!P.padAllowed('VULCAN', 0) && !P.padAllowed('VULCAN', 4) && P.padAllowed('VULCAN', 29) && !P.padAllowed('F9', 0) && !P.padAllowed('FH', 0) && P.padAllowed('SLS1', 0) && P.padAllowed('SATURN_V', 0) && P.padAllowed('GENEL', 0) && P.padAllowed('GENEL', 32),
+  'rampa 0 (varsayılan) LC-39B sayılır: Vulcan/Falcon için izinsiz, SLS/Saturn V/genel kademe için izinli');
 check(['Baikonur', 'Guiana', 'Wenchang', 'Vandenberg', 'Plesetsk', 'Tanegashima', 'Satish Dhawan'].every((k) => J.pads.some((p) => p.loc.includes(k))), 'dünyadaki başlıca uzay üsleri listede');
 
 console.log('kalkış fiziği');
@@ -55,6 +62,12 @@ for (const [id, label] of [[32, 'Baykonur 1/5'], [67, 'Kourou ELA-4'], [16, 'Van
 }
 let err = null; try { design({ rocket: 'F9', site: P.siteOf(pad(32)) }); } catch (e) { err = e.message; }
 check(err && /Falcon 9 Block 5 .*rampasından fırlatılmıyor/.test(err), 'gerçek roket yalnız kendi rampalarından (Falcon 9 Baykonur\'dan: anlaşılır hata)');
+let errV = null; try { design({ rocket: 'VULCAN', site: P.LEGACY_SITE }); } catch (e) { errV = e.message; }
+let errV4 = null; try { design({ rocket: 'VULCAN', site: { id: 4, name: 'KSC LC-39B', lat: pad(4).lat, lon: pad(4).lon } }); } catch (e) { errV4 = e.message; }
+check(errV && errV4 && /Vulcan Centaur VC2S .*rampasından fırlatılmıyor/.test(errV) && /rampasından fırlatılmıyor/.test(errV4), 'açık Vulcan + LC-39B isteği (rampa 0 ya da LL2 4) anlaşılır hatayla durur');
+const Dv = design({ rocket: 'VULCAN' });
+check(Dv.LAUNCH.siteId === 29 && Math.abs(Dv.LAUNCH.lat - pad(29).lat) < 1e-4 && /Space Launch Complex 41/.test(Dv.LAUNCH.site) && !('site' in Dv.cfg),
+  `site verilmeyen Vulcan kendi rampasından: ${Dv.LAUNCH.site} (yapılandırmaya yazılmaz)`);
 const Df = design({ rocket: 'F9', site: P.siteOf(pad(80)) });
 check(Df.LAUNCH.siteId === 80 && Df.ASCENT && Df.TLI_NEED > 0 && Df.STAGES[0].prop - Df.TLI_NEED > 0 && Df.LANDER_NEED > 0, `Falcon 9 SLC-40: kalkış cezası ${Df.ASCENT.dvPen.toFixed(1)} m/s, TLI payı ${Df.STAGES[0].prop - Df.TLI_NEED} kg`);
 
@@ -62,7 +75,7 @@ console.log('arayüz');
 const html = read('index.html'), app = read('js/app.js') + '\n' + read('js/windowscan.js'), lui = read('js/launchui.js');
 check(/id="padSel"/.test(html) && /id="padInfo"/.test(html) && /id="wxBox"/.test(html) && /id="btnScan"/.test(html) && /id="wintable"/.test(html), '1. adım: rampa seçimi, rampa bilgisi, hava kutusu, pencere tarayıcı');
 check(/launch\.padFor\(id\)/.test(app) && /E\.setProvider\(prov0\)/.test(app) && /scanner\.cancel\(\)/.test(app) && /this\.cancelled/.test(app), 'roket değişince uygun rampaya geçilir; tarama efemeris kaynağını geri yükler ve iptal edilebilir');
-check(/padAllowed\(rk, id\)/.test(lui) && /optgroup/.test(lui), 'rampa listesi ülkelere göre gruplu; seçili roketin uçmadığı rampalar devre dışı');
+check(/padAllowed\(rk, id\)/.test(lui) && /optgroup/.test(lui) && /this\.site \|\| this\.homeSite\(\)/.test(lui), 'rampa listesi ülkelere göre gruplu; seçili roketin uçmadığı rampalar (varsayılan LC-39B dahil) devre dışı; site yokken roketin kendi rampası gösterilir');
 check(/id="btnDay"/.test(html) && /id="daytable"/.test(html) && /async day\(\)/.test(app) && /pickLaunch\(/.test(app) && /dailyIncls\(/.test(app) && /onPickInc/.test(app),
   'günlük fırlatma penceresi: aday eğimler tasarlanır, hava değerlendirilir, önerilen seçilir; satır görevi o eğimle kurar');
 check(/Günün diğer fırsatlarını havayla değerlendir/.test(lui), 'hava uygun değilse hava kutusunda günün diğer fırsatlarına geçiş');

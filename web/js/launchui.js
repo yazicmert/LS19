@@ -1,6 +1,6 @@
 // Ay görevi › 1. adım: fırlatma rampası seçimi (dünyadaki yörüngesel rampalar, data/pads.json), rampa bilgisi (menzil, eğim aralığı, kalkış maliyeti),
 // fırlatma anının hava durumu (weather.js) ve fırlatma penceresi tarayıcısının tablosu. Görevi app.js tasarlar; bu modül yalnız arayüzdür.
-import { padIndex, siteOf, padShort, padAllowed, rangeOf, inclRange, minIncl, ROCKET_PADS, LEGACY_SITE, V_EQ, DEFAULT_PAD_ID } from './pads.js';
+import { padIndex, siteOf, padShort, padAllowed, homeSite, rangeOf, inclRange, minIncl, ROCKET_PADS, LEGACY_SITE, V_EQ, DEFAULT_PAD_ID } from './pads.js';
 import { launchWeather, STATUS_TR, WX_SOURCES } from './weather.js';
 import { fmt } from './format.js';
 import { utcMsFromT } from './engine.js';
@@ -43,30 +43,34 @@ export class LaunchUI {
     }
     this.syncRocket(); this.setSite(this.site);
   }
-  // seçili roket yalnız gerçek rampalarından fırlayabilir: diğerleri devre dışı
+  // seçili roket yalnız gerçek rampalarından fırlayabilir: diğerleri devre dışı (varsayılan LC-39B de: Vulcan ve Falcon oradan fırlamaz)
   syncRocket() {
     const rk = this.getRocket ? this.getRocket() : null;
-    for (const o of this.sel.querySelectorAll('option')) { const id = +o.value; o.disabled = !!(id && rk && !padAllowed(rk, id)); }
-    this.renderInfo();
+    for (const o of this.sel.querySelectorAll('option')) { const id = +o.value; o.disabled = !!(rk && !padAllowed(rk, id)); }
+    this.setSite(this.site);
   }
-  // roket için rampa değişikliği: undefined = gerek yok; yoksa roketin ilk gerçek rampası (null = varsayılan LC-39B)
+  // site yokken tasarımın kullandığı rampa: roketin kendi rampası (design.js; LC-39B'den fırlayan rokette null = varsayılan)
+  homeSite() { const rk = this.getRocket ? this.getRocket() : null; return rk ? homeSite(rk) : null; }
+  // roket için rampa değişikliği: undefined = gerek yok; null = varsayılan LC-39B (roket oradan fırlayabiliyorsa: SLS, Saturn V); yoksa ilk gerçek rampası
   padFor(rocket) {
     const cur = this.site ? this.site.id : 0;
     if (padAllowed(rocket, cur)) return undefined;
-    const p = this.pads.get((ROCKET_PADS[rocket] || [])[0]); return p ? siteOf(p) : undefined;
+    if (padAllowed(rocket, DEFAULT_PAD_ID)) return null;
+    const p = this.pads.get((ROCKET_PADS[rocket] || [])[0]); return p ? siteOf(p) : homeSite(rocket) || undefined;
   }
   setSite(site) {
     this.site = site && site.id ? site : null;
-    this.sel.value = String(this.site ? this.site.id : 0);
-    if (this.site && this.sel.value !== String(this.site.id)) this.sel.value = '0';
+    const eff = this.site || this.homeSite();
+    this.sel.value = String(eff ? eff.id : 0);
+    if (eff && this.sel.value !== String(eff.id)) this.sel.value = '0';
     this.renderInfo();
   }
   renderInfo() {
-    const s = this.site || LEGACY_SITE, p = this.site ? this.pads.get(this.site.id) : null, r = p ? rangeOf(p.loc) : { name: 'Doğu Menzili', az: [35, 120] };
+    const eff = this.site || this.homeSite(), s = eff || LEGACY_SITE, p = eff ? this.pads.get(eff.id) : null, r = p ? rangeOf(p.loc) : { name: 'Doğu Menzili', az: [35, 120] };
     const ir = s.az ? inclRange(s.lat, s.az) : [minIncl(s.lat), 90];
     const lat = `${Math.abs(s.lat).toFixed(3)}° ${ns(s.lat)}`, lon = `${Math.abs(s.lon).toFixed(3)}° ${ew(s.lon)}`;
     const t = [];
-    t.push(`${p ? `${p.loc} · ${p.name}` : LEGACY_SITE.name + ' (varsayılan)'} — ${lat}, ${lon}.`);
+    t.push(`${p ? `${p.loc} · ${p.name}` : eff ? eff.name : LEGACY_SITE.name + ' (varsayılan)'} — ${lat}, ${lon}.`);
     t.push(r ? `${r.name}: izinli azimut ${r.az[0]}°–${r.az[1]}° → park eğimi ${ir ? `${fmt(ir[0], 1)}°–${fmt(ir[1], 1)}°` : 'yok'}.` : `Menzil güvenliği sınırı verisi yok: yalnız enlem sınırı (eğim ≥ ${fmt(minIncl(s.lat), 1)}°).`);
     t.push(`Dünya dönüşünün katkısı ${fmt(V_EQ * 1000, 0)}·cos i m/s; en düşük eğimde ${fmt(V_EQ * 1000 * Math.cos((ir ? ir[0] : minIncl(s.lat)) * Math.PI / 180), 0)} m/s (Florida 28,5° için ${fmt(V_EQ * 1000 * Math.cos(28.5 * Math.PI / 180), 0)} m/s).`);
     this.info.replaceChildren(document.createTextNode(t.join(' ')));

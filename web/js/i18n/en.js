@@ -851,6 +851,7 @@ const dict = {
   "Yapılandırma: {0}": "Configuration: {0}",
   "{0} {1} rampasından fırlatılmıyor (gerçek rampaları dışında seçilemez; her rampa için genel TLI kademesini seçin)": "{0} does not launch from pad {1} (it cannot be chosen outside its real pads; choose the generic TLI stage for any pad)",
   "Fırlatma aracı: {0} ({1}); TLI kademesi {2}: {3}, {4} kN, Isp {5} s, kuru {6} kg": "Launch vehicle: {0} ({1}); TLI stage {2}: {3}, {4} kN, Isp {5} s, dry {6} kg",
+  "Rampa: {0} (roketin kendi rampası)": "Pad: {0} (the rocket's own pad)",
   "{0}: park eğimi {1}° ile yeniden deneniyor": "{0}: retrying with parking inclination {1}°",
   "Araç: toplam {0} kg (TLI kademesi yakıtı {1} kg, iniş aracı yakıtı {2} kg)": "Vehicle: total {0} kg (TLI stage propellant {1} kg, lander propellant {2} kg)",
   "Tasarım tamam: fırlatma {0}, iniş ~{1}, Güneş {2}°": "Design complete: launch {0}, landing ~{1}, Sun {2}°",
