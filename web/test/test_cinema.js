@@ -59,11 +59,14 @@ const rd = (f) => fs.readFileSync(new URL(f, import.meta.url), 'utf8');
   const D0 = JSON.parse(rd('../data/designs_default.json'));
   E.setMoonZone(E.SOI_M); makeLive(ab0('../data/de440s.bsp'), ab0('../data/moon_pa_de440_200625.bpc'), eo0, D0.tStart);
   const M = new MI.Mission({ design: D0.profiles.APOLLO.design, landing: 'zem' }); M.P.tLimit = Infinity; for (;;) { if (M.gen.next().done) break; }
-  const want = ['SEP-SPRING', 'SEP-TURN', 'SEP-CCAM', 'SEP-CCAM_END', 'SEP-EOM', 'MCC-1', 'LOI-1_END', 'LOI_END', 'DOI'];
+  const want = ['SEP-SPRING', 'SEP-TURN', 'SEP-CCAM', 'SEP-CCAM_END', 'SEP-EOM', 'MCC-1', 'LOI-1_END', 'LOI_END', 'DOI', 'CALL', 'DUST', 'CONTACT', 'ENGINE_STOP', 'TOUCH_ENV'];
   const got = new Map(); for (const e of M.events) { const c = C.cueOf(e); if (c) got.set(e.key, c.text); }
   const bad = [...got.values()].filter((t) => /undefined|NaN|null/.test(t)), miss = want.filter((k) => !got.has(k));
   const numOk = /\d/.test(got.get('SEP-CCAM_END') || '') && /\d.*×.*\d/.test(got.get('LOI_END') || '') && /\d/.test(got.get('SEP-SPRING') || '');
-  check('olay alt yazıları: APOLLO görevinin ayrılma/CCAM, MCC, LOI ve DOI olayları kısa metne döner; sayılar iletiden okunur', !miss.length && !bad.length && numOk,
+  { const TD = await import('../js/touchdown.js'), post = TD.POST_LANDING.map((e) => C.cueOf({ ...e, msg: e.key === 'TILT' ? 'Yüzeyde duruş: araç dikeyden 1.2° eğik (temasta 0.9°, zemin eğimi 0.4°), kalkışa uygun' : e.msg }));
+    check('yüzey evresi: motor emniyeti, duruş raporu (eğim iletiden), tank tahliyesi ve kalış kararı alt yazıları; kapanış çekimi temastan +96 s\'ye dek sürer (son olay +89 s)',
+      post.every((c) => c && c.pri === 3) && /1,2°|1\.2°/.test(post[1].text) && Math.max(...TD.POST_LANDING.map((e) => e.dt)) < 96 - 5, post.map((c) => (c ? c.text : '—')).join(' | ')); }
+  check('olay alt yazıları: APOLLO görevinin ayrılma/CCAM, MCC, LOI, DOI, irtifa çağrıları, toz, temas ışığı ve motor kesme olayları kısa metne döner; sayılar iletiden okunur', !miss.length && !bad.length && numOk,
     miss.length ? `eksik: ${miss.join(', ')}` : bad.length ? `bozuk: ${bad.join(' | ')}` : [...got].map(([k, t]) => `${k}: ${t}`).slice(0, 4).join(' | '));
   const disp = [{ key: 'LOS', cause: 'moon' }, { key: 'AOS', dur: 2760 }, { key: 'NET', net: 'DSN' }, { key: 'ECL_IN', by: 'Ay' }, { key: 'HANDOVER' }, { key: 'LOS', cause: 'horizon' }, { key: 'AOS', dur: 35 }].map((e) => C.cueOf(e));
   check("gösterim olayları: LOS (Ay'ın arkası), AOS (sessizlik süresi), ağ devri ve gölge alt yazıları; istasyon devri, ufuk LOS'u ve kısa AOS gösterilmez",

@@ -168,6 +168,20 @@ export function cueOf(e) {
   if (k === 'LOS') return e.cause === 'moon' ? { text: "LOS · Ay'ın arkasında, Dünya ile bağlantı yok", pri: 3 } : null;
   if (k === 'AOS') return e.dur != null && e.dur >= 300 ? { text: `AOS · bağlantı yeniden kuruldu (${fmt(e.dur / 60, 0)} dk sessizlik)`, pri: 3 } : null;
   if (k === 'NET') return { text: `Ağ devri · ${NET_TXT.NSN} → ${NET_TXT[e.net] || e.net}`, pri: 3 };
+  // motorlu iniş ve son metreler (Apollo 11 çağrıları gibi)
+  if (k === 'CALL') { const c = num(m, /^(\d+) m: alçalış ([\d.]+) m\/s/); return c ? { text: `${fmt(c[0], 0)} m · alçalış ${fmt(c[1], 1)} m/s`, pri: 2 } : null; }
+  if (k === 'GATE') { const c = num(m, /irtifa (\d+) m/); return { text: c ? `Son iniş kapısı · ${fmt(c[0], 0)} m` : 'Son iniş kapısı', pri: 2 }; }
+  if (k === 'LOW_FUEL') return { text: 'Düşük yakıt · %5', pri: 3 };
+  if (k === 'FUEL') { const c = num(m, /(\d+) s/); return c ? { text: `Yakıt · askıda kalmaya ${fmt(c[0], 0)} s`, pri: 3 } : null; }
+  if (k === 'DUST') { const c = num(m, /yüzeyden (\d+) m/); return { text: c ? `Toz kalkıyor · motor çıkışı ${fmt(c[0], 0)} m yukarıda` : 'Toz kalkıyor', pri: 2 }; }
+  if (k === 'CONTACT') return { text: 'Temas ışığı · sonda yüzeye değdi', pri: 3 };
+  if (k === 'ENGINE_STOP') return { text: 'Motor durduruldu · araç ayaklarına oturuyor', pri: 3 };
+  if (k === 'TOUCH_ENV') { const c = num(m, /eğim ([\d.]+)°/); return { text: c ? `Temas zarfı içinde · eğim ${fmt(c[0], 1)}°` : 'Temas zarfı', pri: 1 }; }
+  // yüzey evresi (touchdown.js POST_LANDING; Apollo 11 zamanları)
+  if (k === 'ENGINE_SAFE') return { text: 'Motor emniyete alındı', pri: 3 };
+  if (k === 'TILT') { const c = num(m, /dikeyden ([\d.]+)°/); return { text: c ? `Yüzeyde duruş · dikeyden ${fmt(c[0], 1)}° eğik` : 'Yüzeyde duruş raporu', pri: 3 }; }
+  if (k === 'DPS_VENT') return { text: 'İniş kademesi tankları tahliye ediliyor', pri: 3 };
+  if (k === 'STAY_T1') return { text: 'Yüzeyde kalış kararı (T1): KAL', pri: 3 };
   if (k === 'ECL_IN') return { text: e.by === 'Ay' ? "Ay'ın gölgesine giriş" : "Dünya'nın gölgesine giriş", pri: 1 };
   if (k === 'ECL_OUT') return { text: e.by === 'Ay' ? "Ay'ın gölgesinden çıkış" : "Dünya'nın gölgesinden çıkış", pri: 1 };
   return null;
@@ -246,7 +260,8 @@ export function buildShots(P, opts = {}) {
       until: (x, c) => (x.phase === 'INDI' || x.done) && c.sinceLand > 4.5, minT: 4, shake: 0.25,
       chapter: { title: 'TEMAS', sub: (c) => c.touch, at: 'land', hold: 3.8 },
       rig: { type: 'ground', fixed: true, x: [-40, -34], y: [118, 108], h: [1.7, 1.6], frame: [23, 11], fovMin: 10, fovMax: 46, aimUp: [7.5, 3.2] } });
-    add_({ id: 'outro', dur: 13, wmin: 1, wmax: 3, T: () => [[0, P.INDI + 5], [1, P.INDI + 8]], closing: true,
+    // kapanış: yüzey evresi (temastan +7 s motor emniyeti, +18 s duruş raporu, +45 s tank tahliyesi, +89 s kalış kararı; alt yazılar) — ~×7
+    add_({ id: 'outro', dur: 14, wmin: 1, wmax: 9, T: () => [[0, P.INDI + 5], [0.2, P.INDI + 10], [1, P.INDI + 96]], closing: true,
       rig: { type: 'lvlh', az: [-2.5, -1.7], el: [0.1, 0.3], dist: [0.03, 0.075], fov: [34, 30], look: -1.2, yaw: [0.2, 0.26] } });
   }
   return S;
@@ -264,12 +279,12 @@ export class Cinema {
   }
   get ui() { return this.cu || (this.cu = new CineUI(this.h.root)); }
 
-  // plan (ui.plan) → anahtar:zaman
-  planMap() { const P = {}; for (const p of this.h.ui.plan || []) P[p.key] = p.t; return P; }
+  // plan (ui.plan) → anahtar:zaman; temas gerçekleştiyse INDI gerçek temas anıdır (plan tahmini ±40 s sapar: kapanış çekimi yüzey olaylarını kaçırmasın)
+  planMap() { const P = {}; for (const p of this.h.ui.plan || []) P[p.key] = p.t; if (this.simLand != null) P.INDI = this.simLand; return P; }
 
   async start(opts = {}) {
     if (this.on || !this.h.latest() || !this.h.ui.plan || !this.h.ui.plan.length) return false;
-    this.on = true; this.state = 'boot'; this.opts = { scale: 1, ...opts };
+    this.on = true; this.state = 'boot'; this.opts = { scale: 1, ...opts }; this.simLand = null;
     const W = this.h.world, chk = document.querySelector('#chkAutoWarp');
     this.saved = { cam: { ...W.cam }, autoWarp: chk ? chk.checked : true, running: this.h.running(), warp: (this.h.latest() || {}).warpSet || 1 };
     this.h.onStart && this.h.onStart();
@@ -286,7 +301,8 @@ export class Cinema {
     const D = this.h.ui.design, rk = D && D.STAGES && D.STAGES[0] ? rocketOf(D.STAGES[0].rocket) : null, RA = rk && rk.ascent;
     this.asc = !this.opts.preview && this.opts.ascent !== false && RA && this.h.ascent && this.h.ascent()
       ? { events: RA.events || [], tIns: RA.tIns, dur: ascentDuration(RA.events || [], RA.tIns), rocket: rk.name, site: ((D.LAUNCH && D.LAUNCH.site) || rk.pad || '').replace(/\s*\([^()]*\)\s*$/, '') } : null;          // rampa adı (koordinatsız)
-    this.shots = buildShots(this.planMap(), { landing: this.h.landing && this.h.landing(), ascent: !!this.asc });
+    this.P0 = this.planMap();                                                         // çekim eğrileri bu nesneyi kapanışta tutar (temas anı sonradan buraya yazılır)
+    this.shots = buildShots(this.P0, { landing: this.h.landing && this.h.landing(), ascent: !!this.asc });
     this.i = -1; this.shot = null; this.paused = false; this.pending = null; this.lastStep = performance.now(); this.cues = []; this.cueNext = 0;
     let n = this.asc ? 1 : 0;                                                       // kalkış bölümü 01
     for (const s of this.shots) if (s.chapter) s.chIdx = ++n;
@@ -466,7 +482,7 @@ export class Cinema {
 
   // ----- olay alt yazıları: kuyruk, en az CUE_GAP s arayla; yüksek zaman hızında art arda gelenlerden eskiler (> CUE_AGE s) ve düşük öncelikliler düşer
   onEvents(evs, disp) {
-    if (!this.on || this.state !== 'run' || this.pending) return;
+    if (!this.on || (this.state !== 'run' && this.state !== 'ended') || this.pending) return;      // bitişten sonra da (yüzey olayları sürer)
     const q = this.cues || (this.cues = []);
     for (const e of [...evs, ...disp]) { const c = cueOf(e); if (c) q.push({ ...c, at: this.wall }); }
     if (q.length > 3) { q.sort((a, b) => b.pri - a.pri || a.at - b.at); q.length = 3; q.sort((a, b) => a.at - b.at); }
@@ -512,7 +528,7 @@ export class Cinema {
     else this.wall += dt;
     if (this.pending && this.wall >= this.pending.at) { const n = this.pending.i; this.pending = null; this.startShot(n); }
     const s = this.shot; if (!s) return;
-    if (this.state === 'ended') { this.strip(x); return; }
+    if (this.state === 'ended') { this.tickCues(); this.strip(x); return; }
     if (!this.paused) this.shotT += dt;
     const dur = this.durOf(s), tau = clamp(this.shotT / dur, 0, 1);
     // zaman hızı: ileri besleme (eğri türevi) + hata düzeltmesi; yakışta üst sınır
@@ -525,7 +541,7 @@ export class Cinema {
     // yaklaşma sınırlayıcı: zaman hedefli çekimlerde kalan benzetim süresi / 0.45 s'den hızlı gidilmez (worker→ana iş parçacığı gecikmesi yüzünden hedef aşılmasın)
     if (!s.wf && !s.until) w = Math.min(w, Math.max(s.wmin ?? 1, (s.tEnd - x.t) / 0.45));
     w = clamp(w, s.wmin ?? 1, Math.min(s.wmax || 20000, wBurn));
-    if (x.phase === 'INDI' || x.done) { if (this.landT == null) this.landT = this.shotT; } else this.landT = null;
+    if (x.phase === 'INDI' || x.done) { if (this.landT == null) this.landT = this.shotT; if (this.simLand == null) { this.simLand = x.result && x.result.tContact != null ? x.result.tContact : x.t; if (this.P0) this.P0.INDI = this.simLand; } } else this.landT = null;
     if (this.paused) w = 1;
     // artışta yumuşak, azalışta anında (olayı geçmesin)
     this.warpCmd = w > this.warpCmd ? this.warpCmd + (w - this.warpCmd) * (1 - Math.exp(-dt / 0.35)) : w;
