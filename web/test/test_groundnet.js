@@ -86,7 +86,9 @@ const tLoi = ev('LOI').t, tLlo0 = ev('LOI_END').t, tDoi = ev('DOI').t, tPdi = ev
   const losIv = []; let open = null;
   for (const e of evs) { if (e.key === 'LOS') open = e.t; if (e.key === 'AOS' && open != null) { losIv.push([open, e.t]); open = null; } }
   const inLos = (a, b) => losIv.some(([x, y]) => a >= x && b <= y);
-  check('LOI yakışı tümüyle Ay\'ın arkasında (Apollo LOI gibi)', inLos(tLoi, ev('LOI_END').t), `LOS aralıkları ${losIv.map(([a, b]) => `${E.utcString(a).slice(11, 19)}–${E.utcString(b).slice(11, 19)}`).join(', ')}`);
+  // LOI ana yakışı (LOI-1); LOI-2 yarım tur sonraki kısa düzeltmedir (Apollo'da LOI-2 de Ay'ın arkasındaydı, burada en yakın noktada)
+  const tLoi1 = (ev('LOI-1_END') || ev('LOI_END')).t;
+  check('LOI yakışı tümüyle Ay\'ın arkasında (Apollo LOI gibi)', inLos(tLoi, tLoi1), `LOS aralıkları ${losIv.map(([a, b]) => `${E.utcString(a).slice(11, 19)}–${E.utcString(b).slice(11, 19)}`).join(', ')}`);
   check('DOI yakışı Ay\'ın arkasında', inLos(tDoi, ev('DOI_END').t));
   const at = (t) => { let j = rec.findIndex((x) => x.t >= t); if (j < 0) j = rec.length - 1; return rec[j]; };
   const dsnUp = (t) => G.linkState(t, at(t).r).stations.filter((q) => q.net === 'DSN' && q.el > 10 * D2R && !q.moon);
@@ -130,7 +132,8 @@ const tLoi = ev('LOI').t, tLlo0 = ev('LOI_END').t, tDoi = ev('DOI').t, tPdi = ev
   Q.runUntil(tDoi - 60);
   const pred = G.scanPath(pts).filter((e) => e.key !== 'HANDOVER'), real = evs.filter((e) => e.t > x.t && e.t < tDoi - 60 && e.key !== 'HANDOVER');
   const worst = pred.length === real.length ? Math.max(...pred.map((e, i) => (e.key === real[i].key ? Math.abs(e.t - real[i].t) : Infinity))) : Infinity;
-  check('öngörü: LLO\'da beklenen LOS/AOS ve gölge olayları gerçekleşenlerle aynı (±3 s)', pred.length >= 6 && worst < 3, `${pred.length} olay, en kötü ${worst.toFixed(2)} s`);
+  // LOI-2'den (LOI_END) DOI'ye kadarki itkisiz süzülme; LOI-2 araya girdiğinden Ay yörüngesinin ilk yarım turu öngörüye girmez
+  check('öngörü: LLO\'da beklenen LOS/AOS ve gölge olayları gerçekleşenlerle aynı (±3 s)', pred.length >= 4 && worst < 3, `${pred.length} olay, en kötü ${worst.toFixed(2)} s`);
 }
 
 console.log(fail ? `\n${fail} HATA` : '\nTüm denetimler geçti');
