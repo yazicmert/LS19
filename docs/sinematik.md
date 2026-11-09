@@ -27,7 +27,7 @@ Gösterim yaklaşık **3 dakika** sürer: ~42–54 s kalkış açılışı (roke
 | 0 | **açılış** (kalkış oynandıysa "YÖRÜNGEDE" bölüm kartı, oynanmadıysa "LS19") | Dünya kıyısı: araç görünen diskin kenarında, aydınlık yüz kameraya dönük; yavaş geri çekilme | yavaş (×5…×30) |
 | 1 | **park yörüngesi** (geniş) → **yaklaşma** | Dünya etrafında geniş (yörünge elipsi ve araç ışıltısı) → araç çevresinde LVLH, yavaş dönüş | ×~1000 zaman atlaması → ×1'e yavaşlama |
 | 2 | **TLI** ateşleme → yakış | gövde çerçevesinde motor yakın planı (el kamerası titreşimi) → aracın arkasından geniş açı | ateşlemeye kadar ×2, ilk 2 s ×1, sonra ×28 (yakış süresi tasarıma bağlı; **TLI motor kesme**'de biter) |
-| 3 | **kademe ayrılması** | omuz üstü (Dünya arkada) → ayrılma düzleminde yakın plan | ×600 → ×1; ayrılma anında **parlama + pufları** |
+| 3 | **kademe ayrılması** → **CCAM** | omuz üstü (Dünya arkada) → ayrılma düzleminde yakın plan → geri çekilme (iniş aracı ve uzaklaşan kademe) | ×600 → ×1 → ×~100 (SEP + 400 s); ayrılma anında **parlama + pufları**, CCAM alt yazıları |
 | 4 | **Ay'a yolculuk** | Dünya geri çekilirken omuz üstü → Dünya–Ay sistemi (yörünge izi, Dünya/Ay/araç ışıltıları) → Ay'a yaklaşma | ×10⁴ … 4·10⁴ (kadar fizik yetişir) |
 | 5 | **LOI** | Ay'ın üstünden omuz üstü → motor yakın planı → araç çevresi | ateşlemeye ×1,5'a yavaşlar, yakışta ×18 |
 | 6 | **Ay yörüngesi** | Ay etrafında geniş: Güneş'in aydınlattığı yüz kameraya dönük (gece yüzü değil), Ay kadrajın sağında (kart solda); anlık yörünge elipsi, araç ışıltısı | ×~2000 (en çok ~2,7 tur gösterilir; kalanı kararma altında geçilir) |
@@ -38,7 +38,7 @@ Gösterim yaklaşık **3 dakika** sürer: ~42–54 s kalkış açılışı (roke
 
 Dokuz **bölüm kartı** vardır (`01 / 09` …): sol altta büyük, geniş aralıklı başlık, ince çizgi ve alt yazı; altta **veri şeridi** (görev süresi, aşama, irtifa/hız ya da Dünya–Ay uzaklığı, zaman hızı) ve **zaman çizelgesi** (bölüm işaretleri). Alt yazılardaki sayılar o anki durumdan gelir.
 
-**Olay alt yazısı** (`.cine-cue`, sağ alt): kalkış anonsları (kule geçildi, Mach 1, Max-Q, ayrılmalar; `ascentplay.js` sessiz kipte `onCue` ile iletir).
+**Olay alt yazısı** (`.cine-cue`, sağ alt): kalkış anonsları (kule geçildi, Mach 1, Max-Q, ayrılmalar; `ascentplay.js` sessiz kipte `onCue` ile iletir) ve görevin gerçek olayları: kelepçe bandı ve yaylar, kademenin CCAM dönüşü/itişi/sonu (iniş aracına uzaklık), yakıt boşaltma, pasifleştirme, MCC/TCM rota düzeltmeleri (Δv), LOI-1 ve LOI-2 (yörünge), DOI, Ay'ın arkasında LOS ve AOS (sessizlik süresi), NSN → DSN ağ devri, gölgeye giriş/çıkış. Metin `cueOf` ile olaydan (mission.js günlüğü, groundnet.js gösterim olayları) kurulur; kuyrukta en az 2,4 s arayla, 8 s'den eski ve fazla (> 3) olanlar önceliğe göre düşer. İstasyon devri, ufuk LOS'u ve 5 dakikadan kısa AOS gösterilmez (yolculukta ×10⁴ hızda gürültü). Kademe ayrılması çekimi CCAM'i kapsayacak biçimde SEP + 400 s'ye uzar (kamera geri çekilir).
 
 ### 2.1 Zaman hızı denetimi
 

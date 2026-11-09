@@ -52,6 +52,24 @@ const rd = (f) => fs.readFileSync(new URL(f, import.meta.url), 'utf8');
   check('kalkış açılışı oynanınca açılış çekimi LS19 kartı yerine "YÖRÜNGEDE" bölüm kartı taşır', a.chapter && a.chapter.title === 'YÖRÜNGEDE' && !a.card && b.card && b.card.title === 'LS19' && !b.chapter);
 }
 
+// ---------------------------------------------------------------- 1c) olay alt yazıları (cueOf): gerçek görev olayları ve gösterim olayları
+{
+  const ab0 = (f) => { const b = fs.readFileSync(new URL(f, import.meta.url)); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); };
+  const eo0 = JSON.parse(rd('../data/earth_orient.json')); EO.loadEarthOrientation(eo0);
+  const D0 = JSON.parse(rd('../data/designs_default.json'));
+  E.setMoonZone(E.SOI_M); makeLive(ab0('../data/de440s.bsp'), ab0('../data/moon_pa_de440_200625.bpc'), eo0, D0.tStart);
+  const M = new MI.Mission({ design: D0.profiles.APOLLO.design, landing: 'zem' }); M.P.tLimit = Infinity; for (;;) { if (M.gen.next().done) break; }
+  const want = ['SEP-SPRING', 'SEP-TURN', 'SEP-CCAM', 'SEP-CCAM_END', 'SEP-EOM', 'MCC-1', 'LOI-1_END', 'LOI_END', 'DOI'];
+  const got = new Map(); for (const e of M.events) { const c = C.cueOf(e); if (c) got.set(e.key, c.text); }
+  const bad = [...got.values()].filter((t) => /undefined|NaN|null/.test(t)), miss = want.filter((k) => !got.has(k));
+  const numOk = /\d/.test(got.get('SEP-CCAM_END') || '') && /\d.*×.*\d/.test(got.get('LOI_END') || '') && /\d/.test(got.get('SEP-SPRING') || '');
+  check('olay alt yazıları: APOLLO görevinin ayrılma/CCAM, MCC, LOI ve DOI olayları kısa metne döner; sayılar iletiden okunur', !miss.length && !bad.length && numOk,
+    miss.length ? `eksik: ${miss.join(', ')}` : bad.length ? `bozuk: ${bad.join(' | ')}` : [...got].map(([k, t]) => `${k}: ${t}`).slice(0, 4).join(' | '));
+  const disp = [{ key: 'LOS', cause: 'moon' }, { key: 'AOS', dur: 2760 }, { key: 'NET', net: 'DSN' }, { key: 'ECL_IN', by: 'Ay' }, { key: 'HANDOVER' }, { key: 'LOS', cause: 'horizon' }, { key: 'AOS', dur: 35 }].map((e) => C.cueOf(e));
+  check("gösterim olayları: LOS (Ay'ın arkası), AOS (sessizlik süresi), ağ devri ve gölge alt yazıları; istasyon devri, ufuk LOS'u ve kısa AOS gösterilmez",
+    disp[0] && /Ay'ın arkasında/.test(disp[0].text) && disp[1] && /46 dk/.test(disp[1].text) && disp[2] && /Derin Uzay/.test(disp[2].text) && disp[3] && disp[3].pri === 1 && disp[4] === null && disp[5] === null && disp[6] === null, disp.map((c) => (c ? c.text : '—')).join(' | '));
+}
+
 // ---------------------------------------------------------------- 2) çekim listesi
 const ab = (f) => { const b = fs.readFileSync(new URL(f, import.meta.url)); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); };
 const SPK = ab('../data/de440s.bsp'), PCK = ab('../data/moon_pa_de440_200625.bpc');

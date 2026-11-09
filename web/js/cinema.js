@@ -145,6 +145,34 @@ export function ascentDuration(events, tIns, from = ASC.FROM, to = tIns) {
   return sum;
 }
 
+// ---------------------------------------------------------------- olay alt yazıları: görev olayları (mission.js log) ve gösterim olayları (groundnet.js)
+// cueOf(e) → { text, pri } | null. pri: 3 yakış, ayrılma, Ay'ın arkası, ağ devri; 1 gölge, pasifleştirme. İstasyon devri ve kısa LOS/AOS gösterilmez (sık ve önemsiz).
+const num = (m, re) => { const r = re.exec(m || ''); return r ? r.slice(1).map(Number) : null; };
+const NET_TXT = { NSN: 'Yakın Uzay Ağı', DSN: 'Derin Uzay Ağı', TDRS: 'TDRS' };
+export function cueOf(e) {
+  const k = e.key || '', m = e.msg || '';
+  if (k === 'SEP-SPRING') { const d = num(m, /yaylar ([\d.]+) m\/s/); return { text: d ? `Kelepçe bandı açıldı · yaylar ${fmt(d[0], 1)} m/s` : 'Kelepçe bandı açıldı', pri: 3 }; }
+  if (k === 'SEP-TURN') return { text: 'Kademe CCAM yönelimine dönüyor', pri: 3 };
+  if (k === 'SEP-CCAM') return { text: 'CCAM · kademe hidrazin iticileriyle uzaklaşıyor', pri: 3 };
+  if (k === 'SEP-CCAM_END') { const d = num(m, /uzaklık ([\d.]+) m/); return { text: d ? `CCAM tamam · iniş aracına ${fmt(d[0], 0)} m` : 'CCAM tamam', pri: 3 }; }
+  if (k === 'SEP-BD') return { text: 'Kademe kalan yakıtını boşaltıyor', pri: 3 };
+  if (k === 'SEP-EOM') return { text: 'TLI kademesi pasifleştirildi', pri: 1 };
+  if (/^MCC-\d$/.test(k)) return { text: `${k} · rota düzeltmesi Δv ${fmt(e.dvm ?? 0, 2)} m/s`, pri: 3 };
+  if (/^TCM-\d$/.test(k)) return { text: `${k} · rota düzeltmesi Δv ${fmt(e.dvm ?? 0, 2)} m/s`, pri: 3 };
+  if (k === 'LOI-1_END') { const p = num(m, /periselen ([\d.]+) km, aposelen ([\d.]+) km/); return { text: p ? `LOI-1 tamam · ${fmt(p[0], 1)} × ${fmt(p[1], 1)} km` : 'LOI-1 tamam', pri: 3 }; }
+  if (k === 'LOI-2') return { text: `LOI-2 · daireselleştirme Δv ${fmt(e.dvm ?? 0, 2)} m/s`, pri: 3 };
+  if (k === 'LOI_END') { const p = num(m, /periselen ([\d.]+) km, aposelen ([\d.]+) km/); return { text: p ? `Ay yörüngesi · ${fmt(p[0], 1)} × ${fmt(p[1], 1)} km` : 'Ay yörüngesinde', pri: 3 }; }
+  if (k === 'DOI') return { text: 'DOI · alçalma yörüngesine geçiş', pri: 3 };
+  if (k === 'DOI_END') { const p = num(m, /periselen ([\d.]+) km/); return { text: p ? `DOI tamam · periselen ${fmt(p[0], 1)} km` : 'DOI tamam', pri: 3 }; }
+  // LOS/AOS: yalnız Ay'ın arkası ve uzun sessizlik (yolculukta istasyonlar arası kısa boşluklar ×10⁴ hızda gürültüdür)
+  if (k === 'LOS') return e.cause === 'moon' ? { text: "LOS · Ay'ın arkasında, Dünya ile bağlantı yok", pri: 3 } : null;
+  if (k === 'AOS') return e.dur != null && e.dur >= 300 ? { text: `AOS · bağlantı yeniden kuruldu (${fmt(e.dur / 60, 0)} dk sessizlik)`, pri: 3 } : null;
+  if (k === 'NET') return { text: `Ağ devri · ${NET_TXT.NSN} → ${NET_TXT[e.net] || e.net}`, pri: 3 };
+  if (k === 'ECL_IN') return { text: e.by === 'Ay' ? "Ay'ın gölgesine giriş" : "Dünya'nın gölgesine giriş", pri: 1 };
+  if (k === 'ECL_OUT') return { text: e.by === 'Ay' ? "Ay'ın gölgesinden çıkış" : "Dünya'nın gölgesinden çıkış", pri: 1 };
+  return null;
+}
+
 // ---------------------------------------------------------------- çekim listesi (plan olaylarından); P: anahtar → benzetim zamanı (s); durum x: worker durumu
 const isBurn = (x) => (x.thr || 0) > 0.01;
 export function buildShots(P, opts = {}) {
@@ -172,12 +200,14 @@ export function buildShots(P, opts = {}) {
   }
   // 3 kademe ayrılması
   if (has('SEP')) {
-    add_({ id: 'sep', dur: 9, wmax: 5000, T: () => [[0, Math.max(t('TLI', tliBurn + 40), P.SEP - 2400)], [0.42, t('SEP', -50)], [0.56, t('SEP', -3)], [1, t('SEP', 32)]],
-      chapter: { title: 'KADEME AYRILMASI', sub: 'TLI kademesi atılır', at: 3.6, hold: 3.4 }, flashOnSep: true,
-      rigs: [{ to: 0.42, rig: { type: 'ots', body: 'E', dist: [70, 95], side: [34, 22], lift: [14, 18], aim: 0.06, fov: [32, 36], look: 'mid' } },
-        { to: 1, rig: { type: 'lvlh', az: [1.15, 1.95], el: [0.1, 0.2], dist: [0.07, 0.095], fov: [34, 38], look: -7 } }] });
+    // ayrılma, sonra kademenin CCAM'i (SEP + 100…370 s: dönüş, hidrazin itişi; alt yazılar) — kamera geri çekilir, iniş aracı ve uzaklaşan kademe birlikte
+    add_({ id: 'sep', dur: 12, wmax: 5000, T: () => [[0, Math.max(t('TLI', tliBurn + 40), P.SEP - 2400)], [0.32, t('SEP', -50)], [0.43, t('SEP', -3)], [0.68, t('SEP', 32)], [1, t('SEP', 400)]],
+      chapter: { title: 'KADEME AYRILMASI', sub: 'TLI kademesi atılır', at: 4.6, hold: 3.4 }, flashOnSep: true,
+      rigs: [{ to: 0.32, rig: { type: 'ots', body: 'E', dist: [70, 95], side: [34, 22], lift: [14, 18], aim: 0.06, fov: [32, 36], look: 'mid' } },
+        { to: 0.68, rig: { type: 'lvlh', az: [1.15, 1.95], el: [0.1, 0.2], dist: [0.07, 0.095], fov: [34, 38], look: -7 } },
+        { to: 1, rig: { type: 'lvlh', az: [1.95, 2.45], el: [0.2, 0.32], dist: [0.095, 0.32], fov: [38, 34], look: -7 } }] });
     // 4 Ay'a yolculuk
-    const tc0 = t('SEP', 32), tcEnd = (has('LOI') ? P.LOI : P.SEP + 300000) - 1200, span = Math.max(4000, tcEnd - tc0), a = Math.min(span * 0.18, 90000), b = Math.min(span * 0.12, 40000);
+    const tc0 = t('SEP', 400), tcEnd = (has('LOI') ? P.LOI : P.SEP + 300000) - 1200, span = Math.max(4000, tcEnd - tc0), a = Math.min(span * 0.18, 90000), b = Math.min(span * 0.12, 40000);
     add_({ id: 'coast-a', dur: 4.5, wmax: 30000, T: () => [[0, tc0], [1, tc0 + a]], chapter: { title: "AY'A YOLCULUK", sub: (c) => `Dünya'dan ${fmt(c.rE, 0)} km uzakta`, at: 0.3, hold: 3.4 },
       rig: { type: 'ots', body: 'E', dist: [58, 88], side: [30, 42], lift: [10, 15], aim: 0.05, fov: [34, 38], look: 'mid' }, dip: true });
     add_({ id: 'coast-b', dur: 8.5, wmax: 40000, T: () => [[0, tc0 + a], [1, tcEnd - b]], rig: { type: 'wide', cam: { mode: 'SYSTEM', az: [-1.7, -1.0], el: [0.3, 0.2], dist: [1050000, 880000] }, fov: 40, yaw: -0.17 }, lines: true, beacon: true, dip: true });
@@ -257,7 +287,7 @@ export class Cinema {
     this.asc = !this.opts.preview && this.opts.ascent !== false && RA && this.h.ascent && this.h.ascent()
       ? { events: RA.events || [], tIns: RA.tIns, dur: ascentDuration(RA.events || [], RA.tIns), rocket: rk.name, site: ((D.LAUNCH && D.LAUNCH.site) || rk.pad || '').replace(/\s*\([^()]*\)\s*$/, '') } : null;          // rampa adı (koordinatsız)
     this.shots = buildShots(this.planMap(), { landing: this.h.landing && this.h.landing(), ascent: !!this.asc });
-    this.i = -1; this.shot = null; this.paused = false; this.pending = null; this.lastStep = performance.now();
+    this.i = -1; this.shot = null; this.paused = false; this.pending = null; this.lastStep = performance.now(); this.cues = []; this.cueNext = 0;
     let n = this.asc ? 1 : 0;                                                       // kalkış bölümü 01
     for (const s of this.shots) if (s.chapter) s.chIdx = ++n;
     this.chTotal = n;
@@ -434,6 +464,20 @@ export class Cinema {
     return nearM ? (x.local && POWERED.has(x.phase) ? x.local.p[2] : rs - E.R_M) : ellipsoidAlt(x.r, E.earthIcrfToItrf(x.t)[2]);
   }
 
+  // ----- olay alt yazıları: kuyruk, en az CUE_GAP s arayla; yüksek zaman hızında art arda gelenlerden eskiler (> CUE_AGE s) ve düşük öncelikliler düşer
+  onEvents(evs, disp) {
+    if (!this.on || this.state !== 'run' || this.pending) return;
+    const q = this.cues || (this.cues = []);
+    for (const e of [...evs, ...disp]) { const c = cueOf(e); if (c) q.push({ ...c, at: this.wall }); }
+    if (q.length > 3) { q.sort((a, b) => b.pri - a.pri || a.at - b.at); q.length = 3; q.sort((a, b) => a.at - b.at); }
+  }
+  tickCues() {
+    const q = this.cues; if (!q || !q.length || this.wall < (this.cueNext || 0)) return;
+    while (q.length && this.wall - q[0].at > 8) q.shift();
+    const c = q.shift(); if (!c) return;
+    this.ui.cue(c.text, 2600); this.cueNext = this.wall + 2.4;
+  }
+
   // ----- her kare (app.js, world.update'ten önce)
   tick(dt) {
     if (!this.on) return;
@@ -496,6 +540,7 @@ export class Cinema {
     }
     if (!this.cardDone && s.card && this.shotT >= s.card.at) { this.cardDone = true; ui.card({ kind: s.card.kind, title: s.card.title, sub: s.card.sub, hold: s.card.hold }); }
     if (s.closing && !this.cardDone && this.shotT >= 3.2) { this.cardDone = true; this.closingCard(x); }
+    this.tickCues();
     // veri şeridi (8 Hz) ve ilerleme
     this.strip(x); ui.progress(this.progressAt(this.i, tau));
     // çekim sonu: sim hedefine vardı mı / erken bitiş koşulu / zaman aşımı
