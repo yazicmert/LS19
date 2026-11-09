@@ -270,7 +270,7 @@ export function buildShots(P, opts = {}) {
 
 const tStart0 = (s, P) => s.T(P)[0][1];
 // görev kontrol anonsları (konuşma sentezi): olay anahtarı → kısa söz (alt yazı gösterilirken söylenir)
-const SAY = { CONTACT: 'Temas ışığı', ENGINE_STOP: 'Motor durduruldu', LOS: "Ay'ın arkasındayız, sinyal kaybı", AOS: 'Sinyal alındı', LOI_END: 'Ay yörüngesindeyiz', STAY_T1: 'Yüzeyde kalış kararı: kal' };
+export const SAY = { CONTACT: 'Temas ışığı', ENGINE_STOP: 'Motor durduruldu', LOS: "Ay'ın arkasındayız, sinyal kaybı", AOS: 'Sinyal alındı', LOI_END: 'Ay yörüngesindeyiz', STAY_T1: 'Yüzeyde kalış kararı: kal' };
 const COUNT = isEn ? ['one', 'two', 'three', 'four', 'five'] : ['bir', 'iki', 'üç', 'dört', 'beş'];
 // ---------------------------------------------------------------- yönetmen
 export class Cinema {

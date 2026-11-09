@@ -68,6 +68,13 @@ const rd = (f) => fs.readFileSync(new URL(f, import.meta.url), 'utf8');
       post.every((c) => c && c.pri === 3) && /1,2°|1\.2°/.test(post[1].text) && Math.max(...TD.POST_LANDING.map((e) => e.dt)) < 96 - 5, post.map((c) => (c ? c.text : '—')).join(' | ')); }
   check('olay alt yazıları: APOLLO görevinin ayrılma/CCAM, MCC, LOI, DOI, irtifa çağrıları, toz, temas ışığı ve motor kesme olayları kısa metne döner; sayılar iletiden okunur', !miss.length && !bad.length && numOk,
     miss.length ? `eksik: ${miss.join(', ')}` : bad.length ? `bozuk: ${bad.join(' | ')}` : [...got].map(([k, t]) => `${k}: ${t}`).slice(0, 4).join(' | '));
+  { // İngilizce arayüz: alt yazılar (DOM çevirmeniyle) ve anonslar (translateText) sözlükle tamamen İngilizce olmalı
+    const I = await import('../js/i18n.js'), EN = (await import('../js/i18n/en.js')).default;
+    I.useDictionary(EN);
+    const texts = [...got.values(), ...Object.values(C.SAY), 'Ateşleme… kalkış!'], left = texts.map((t) => I.translateText(t)).filter((t) => I.isTurkish(t) || /[çğıöşüİĞŞÇÖÜ]/.test(t));
+    I.useDictionary(null);
+    check('İngilizce arayüzde görev alt yazıları ve görev kontrol anonsları tamamen İngilizce (sözlükte karşılıksız Türkçe kalmaz)', !left.length, left.length ? left.join(' | ') : `${texts.length} metin`);
+  }
   const disp = [{ key: 'LOS', cause: 'moon' }, { key: 'AOS', dur: 2760 }, { key: 'NET', net: 'DSN' }, { key: 'ECL_IN', by: 'Ay' }, { key: 'HANDOVER' }, { key: 'LOS', cause: 'horizon' }, { key: 'AOS', dur: 35 }].map((e) => C.cueOf(e));
   check("gösterim olayları: LOS (Ay'ın arkası), AOS (sessizlik süresi), ağ devri ve gölge alt yazıları; istasyon devri, ufuk LOS'u ve kısa AOS gösterilmez",
     disp[0] && /Ay'ın arkasında/.test(disp[0].text) && disp[1] && /46 dk/.test(disp[1].text) && disp[2] && /Derin Uzay/.test(disp[2].text) && disp[3] && disp[3].pri === 1 && disp[4] === null && disp[5] === null && disp[6] === null, disp.map((c) => (c ? c.text : '—')).join(' | '));

@@ -18,6 +18,8 @@ Kod: `web/js/cinema.js` (yönetmen), `web/js/cinemaui.js` + `web/css/cinema.css`
 
 Gösterim yaklaşık **3 dakika** sürer: ~42–54 s kalkış açılışı (rokete göre) + görev çekimleri (Apollo profilinde ~134 s anma süre; halo profillerinde uzun yolculuk nedeniyle 2,5–3 dakikayı bulabilir). Kalkış açılışında `→` kalkışı bitirip görevi yörüngeye girişten sürdürür; `?cine=1` adresine kalkış eklenmesin istenirse `LS19.cinema.start({ ascent: false })`. Gerçek bir ekran kartında kare hızı düşerse kalite kendiliğinden azalır (bkz. §5).
 
+**Dil:** fragman arayüzün dilini izler (`?lang=en`, kayıtlı tercih ya da tarayıcı dili). İngilizcede kartlar, veri şeridi, alt yazılar, hava bildirimi ve kapanış özeti sayfanın DOM çevirmeniyle (`i18n.js`, `i18n/en.js`), görev kontrol anonsları `translateText` ve `en-US` sesiyle, geri sayım İngilizce sayılarla söylenir; sayılar `LOC` biçimindedir. İngilizce uçtan uca koşuda fragman katmanındaki 869 metnin hiçbiri Türkçe kalmadı; `test_cinema` görev alt yazılarını ve anonsları sözlükle denetler.
+
 ## 2. Çekim listesi
 
 Çekimler görev planındaki olaylara (INS, TLI, SEP, MCC, LOI, DOI, SEP2, PDI, INDI) ve araç durumuna bağlıdır; altı profilin ve tek/iki kademeli aracın hepsi için aynı kod listeyi plandan kurar (`buildShots`, testte doğrulanır). Sayılar Apollo profili, iki kademe içindir.
