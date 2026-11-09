@@ -1019,13 +1019,15 @@ export class Mission {
       this.navTick(); this.callouts();
       if (st.mode === 'PDG') {
         const t = Pp.s.t - plan.t0, c = (smooth && CMD.FOH ? controlAtSmooth : controlAt)(plan.sol, t, plan.join ? 1 : 0); let u = c.u;
-        // yeni planın ilk düğümü önceki planın izlediği değeri düzeltir ve sıçrayabilir (bir düğüm süresince, ~15°); ilk aralıkta komut önceki komuttan (ja) ikinci düğüme (jb)
-        // iki parçalı geçer, ikinci aralığın ilk yarısında düğüm 1'de kalır. Ara değer jc, aralık ortalaması planın u₀'ı olacak biçimde seçilir (¼ja + ½jc + ¼jb = u₀):
-        // doğrudan ja → jb geçişi u₀'ı yok sayıyordu; plan u₀'da gaz basamağındaysa (tam itki ↔ en küçük gaz) aralığın itkisi 20+ m/s şaşıyor, kapıya hunideki
-        // ~9 m/s yerine 14–16 m/s alçalışla varılıyor ve sonuç küçük bozulmalara (ör. Ay çekim alanının derecesi) ±15 kg yakıtla duyarlı oluyordu
+        // yeni planın ilk düğümü önceki planın izlediği değeri düzeltir ve sıçrayabilir (bir düğüm süresince, ~15°); ilk aralıkta komutun yönü önceki komuttan (ja) ikinci
+        // düğüme (jb) küresel ara değerle döner, ikinci aralığın ilk yarısında düğüm 1'de kalır. Büyüklük iki parçalı doğrusaldır: orta değer, aralık ortalaması planın
+        // |u₀|'ı olacak biçimde seçilir (¼|ja| + ½mc + ¼|jb| = |u₀|). Doğrudan |ja| → |jb| geçişi u₀'ı yok sayıyordu; plan u₀'da gaz basamağındaysa (tam itki ↔ en küçük gaz)
+        // aralığın itkisi 20+ m/s şaşıyor, kapıya hunideki ~9 m/s yerine 14–16 m/s alçalışla varılıyor ve kalan yakıt küçük bozulmalara (ör. Ay çekim alanının derecesi)
+        // ±15 kg duyarlı oluyordu. Yön düzeltilmez: açık gazdan gelir, yönü değiştirmek dönme yükünü artırır (test/test_dynamics6)
         if (plan.join && c.k === 0 && plan.sol.N > 1) {
-          const ja = plan.join, jb = plan.sol.u[1], u0 = plan.sol.u[0], jc = [0, 1, 2].map((i) => 2 * u0[i] - 0.5 * (ja[i] + jb[i])), x = Math.min(1, Math.max(0, t / plan.sol.dt));
-          u = x < 0.5 ? blendVec(ja, jc, 2 * x) : blendVec(jc, jb, 2 * x - 1);
+          const ja = plan.join, jb = plan.sol.u[1], na = norm(ja), nb = norm(jb), mc = Math.max(0, 2 * norm(plan.sol.u[0]) - 0.5 * (na + nb)), x = Math.min(1, Math.max(0, t / plan.sol.dt));
+          const d = blendVec(ja, jb, x), nd = norm(d), m = x < 0.5 ? na + (mc - na) * 2 * x : mc + (nb - mc) * (2 * x - 1);
+          u = nd > 1e-12 ? scale(d, m / nd) : d;
         }
         lastU = u;
         const an = norm(u), a = alt();
