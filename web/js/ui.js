@@ -8,7 +8,7 @@ import { ROCKET_INFO } from './rocketinfo.js';
 import { dvKeys, DV_NAMES, dvFromEvents } from './dvbudget.js';
 import { fmt, fmtDur } from './format.js';
 
-import { ellipsoidAlt } from './geo.js';
+import { ellipsoidAlt, OMEGA_E } from './geo.js';
 import { linkState, shadowAt, envAt, stationById, NET_NAME, HANDOVER_KM } from './groundnet.js';
 import { LANDING_PHASES } from './telemetry.js';
 import { $, setText, setWidth, utcShort } from './uiutil.js';
@@ -409,6 +409,11 @@ export class UI {
       const up = E.unit(rsv), vs = E.sub(s.v, E.moonVel(t)), vr = E.sub(vs, E.cross(E.omegaMoon(t), rsv));
       const vz = E.dot(vr, up), vh = E.norm(E.sub(vr, E.scale(up, vz))), rng = Math.hypot(s.local.p[0], s.local.p[1]);
       setText(H.vv, `dikey ${fmt(vz * 1000, 1)} m/s · yatay ${fmt(vh * 1000, 1)} m/s · iniş yerine ${rng > 5 ? fmt(rng, 1) + ' km' : fmt(rng * 1000, 0) + ' m'}`);
+    } else if (A && A.vIn != null) {                                                     // kalkış: eylemsiz hız da (girişte gösterge buna geçer), Mach, menzil, eksenel ivme
+      setText(H.vv, `eylemsiz ${fmt(A.vIn, 3)} km/s · Mach ${A.mach != null ? fmt(A.mach, 2) : '—'} · menzil ${fmt(A.down, 0)} km · eksenel ${A.gAx != null ? fmt(A.gAx, 2) : '—'} g`);
+    } else if (!nearM && alt < 2000) {                                                   // alçak yörünge: yere göre hız da (kalkış bandının hızıyla aynı tanım: v − ω×r, gerçek kutup)
+      const w = E.scale(E.earthIcrfToItrf(t)[2], OMEGA_E), vg = E.norm(E.sub(s.v, E.cross(w, s.r)));
+      setText(H.vv, `yere göre ${fmt(vg, 3)} km/s · Ay'a uzaklık ${fmt(rs, 0)} km`);
     } else setText(H.vv, `Ay'a uzaklık ${fmt(rs, 0)} km · Dünya'ya ${fmt(E.norm(s.r), 0)} km`);
     this.hudLink(s, H);
     if (A) {                                                                             // kalkış: roketin yaklaşık kütlesi, yanan kademenin kalan yakıtı, itkisi

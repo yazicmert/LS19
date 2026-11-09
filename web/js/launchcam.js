@@ -82,11 +82,43 @@ export function shake(shot, met, { thr = 1, q = 0, dist = 1 } = {}) {
   return [a * (s(37.1, 0.3) * 0.6 + s(13.7, 1.1) * 0.4), a * (s(41.3, 2.0) * 0.6 + s(17.9, 0.7) * 0.4), a * (s(29.7, 4.1) * 0.6 + s(11.3, 2.9) * 0.4)];
 }
 
-// telemetri zaman çizgisi: [{ t, name, kind }] gerçek s, yörüngeye girişle biter
-export function timeline(events, maxQ, tIns) {
+// telemetri zaman çizgisi: [{ t, name, kind }] gerçek s, yörüngeye girişle biter. extra: çıkış durumundan türetilen anonslar (ascentCallouts)
+export function timeline(events, maxQ, tIns, extra = []) {
   const out = [];
   if (maxQ && maxQ.t > 0) out.push({ t: maxQ.t, name: 'Max-Q', kind: 'q' });
   for (const e of events || []) out.push({ t: e.t, name: e.name, kind: e.cut != null ? 'sep' : 'part' });
+  for (const e of extra || []) if (e.t > 0 && e.t < tIns) out.push(e);
   out.push({ t: tIns, name: 'Yörünge', kind: 'orbit' });
+  return out.sort((a, b) => a.t - b.t);
+}
+
+// Ses hızı (km/s): a = √(γ·R·T), γ = 1,4, R = 287,053 J/(kg·K) (U.S. Standard Atmosphere 1976; T ascentsim.atmosphere'den)
+export const soundSpeed = (T) => Math.sqrt(1.4 * 287.053 * T) / 1000;
+// Rampa kulesi yüksekliği (m; roketin tabanı bunu geçince "kule geçildi" anonsu). Saturn V: fırlatma göbek kulesi (LUT) güverteden ~120 m + platform ~10 m (v);
+// SLS: Mobile Launcher kulesi ~107 m (v); Falcon: LC-39A sabit servis kulesi ~105 m (v); Vulcan: VIF dışında taşınabilir platform göbek direği ~60 m (v); genel 100 m (v)
+export const TOWER_M = { saturnv: 130, sls: 107, f9: 105, fh: 105, vulcan: 60, generic: 100 };
+// Çıkış durumundan anonslar (yayındaki gibi): kule geçildi, Mach 1, kademe yanma sonları (her kademenin t1'i; son kademe yörüngeye girişten önce) ve örneklerde gaz
+// (thr) varsa gaz azaltma/artırma. samples: ascentsim örnekleri ({ t, h (km), vrel (km/s, atmosfere göre), thr? }); veh: { stages: [{ t0, t1 }] };
+// tempK(h): sıcaklık (K). Dönüş: [{ t (gerçek s), name, kind }]
+export function ascentCallouts({ samples, veh, towerM = 100, tempK }) {
+  const out = [];
+  if (!samples || samples.length < 2) return out;
+  const cross = (f) => { for (let i = 1; i < samples.length; i++) { const a = samples[i - 1], b = samples[i], fa = f(a), fb = f(b); if (fa < 0 && fb >= 0) return a.t + (b.t - a.t) * (-fa / (fb - fa)); } return null; };
+  const tTower = cross((s) => s.h * 1000 - towerM);
+  if (tTower != null) out.push({ t: tTower, name: 'Kule geçildi', kind: 'tw' });
+  const tM1 = cross((s) => (s.h < 86 ? s.vrel / soundSpeed(tempK(s.h)) - 1 : -1));
+  if (tM1 != null) out.push({ t: tM1, name: 'Mach 1', kind: 'm1' });
+  const S = (veh && veh.stages) || [];
+  S.forEach((s, i) => out.push({ t: s.t1, name: `${i + 1}. kademe motor kesme`, kind: 'co' }));
+  if (samples.some((s) => typeof s.thr === 'number')) {                       // gaz değişimi (aynı kademe içinde, ≥ %5; bir rampa tek anons, 10 s içinde yinelenmez)
+    let last = { dn: -Infinity, up: -Infinity };
+    for (let i = 1; i < samples.length; i++) {
+      const a = samples[i - 1], b = samples[i];
+      if (!(a.stage >= 0 && b.stage === a.stage) || typeof a.thr !== 'number' || typeof b.thr !== 'number') continue;
+      if (b.thr < a.thr - 0.02 && b.t - last.dn > 10) { out.push({ t: a.t, name: 'Gaz azaltma', kind: 'thr' }); last.dn = b.t; }
+      else if (b.thr > a.thr + 0.02 && b.t - last.up > 10) { out.push({ t: a.t, name: 'Gaz artırma', kind: 'thr' }); last.up = b.t; }
+      if (b.thr < a.thr - 0.02) last.dn = b.t; else if (b.thr > a.thr + 0.02) last.up = b.t;
+    }
+  }
   return out.sort((a, b) => a.t - b.t);
 }
