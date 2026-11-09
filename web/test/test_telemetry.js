@@ -203,12 +203,13 @@ live();
 const M = new Mission({ design: D, attitude: false }); M.P.tLimit = Infinity; M.attachHistory();
 const samples = [], tliSteps = [];                                  // samples: { h, nev } (olay sayısı); tliSteps: TLI yakışının tüm fizik adımları
 {
-  let last = -1e9, n = 0;
+  let last = -1e9, n = 0, lastPh = '';
   for (;;) {
     if (M.gen.next().done) break;
     const h = M.hist[M.hist.length - 1];
     if (h.phase === 'TLI' && h.thr > 0 && (!tliSteps.length || h.t > tliSteps[tliSteps.length - 1].t)) tliSteps.push({ ...h });
-    if (h.t - last > (h.thr > 0 ? 20 : h.phase === 'SUZULME' ? 3000 : 600)) { last = h.t; samples.push({ h: { ...h }, nev: M.events.length }); }
+    if (h.t - last > (h.thr > 0 ? 20 : h.phase === 'SUZULME' ? 3000 : 600) || (h.thr > 0 && h.phase !== lastPh)) { last = h.t; samples.push({ h: { ...h }, nev: M.events.length }); }      // her yakışın ilk adımı da (kısa MCC'ler)
+    lastPh = h.phase;
     if (++n > 6e6) break;
   }
   const h = M.hist[M.hist.length - 1]; samples.push({ h: { ...h }, nev: M.events.length });
