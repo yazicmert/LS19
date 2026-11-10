@@ -20,9 +20,11 @@ export class CameraRig {
       const cen = c.mode === 'EARTH' ? [0, 0, 0] : rm;
       return { eye: add(cen, scale(sph(c.az, c.el), c.dist)), target: cen, up: [0, 0, 1] };
     }
-    if (c.mode === 'SYSTEM' || c.mode === 'EMB') {          // Dünya–Ay kütle merkezine bağlı, eylemsiz (ICRF eksenli, Ay yörünge düzlemine göre)
+    if (c.mode === 'SYSTEM' || c.mode === 'EMB') {          // Dünya–Ay kütle merkezine bağlı (Ay yörünge düzlemine göre)
       const vm = E.moonVel(t), z = unit(cross(rm, vm)), cen = scale(rm, K_EMB);
-      const ref = this.embRef || (this.embRef = unit(rm)), xx = unit(sub(ref, scale(z, dot(ref, z)))), y = cross(z, xx);
+      // EMB: eylemsiz eksenler (ilk karedeki Dünya→Ay yönü sabit kalır). SYSTEM (Dünya–Ay): Ay'la birlikte dönen çerçeve — Dünya–Ay doğrusu ekranda sabit;
+      // görev izi de bu çerçevede çizilir (scene.js trail.S): Ay'a gidiş yolu klasik S / sekiz biçiminde görünür
+      const ref = c.mode === 'SYSTEM' ? unit(rm) : this.embRef || (this.embRef = unit(rm)), xx = unit(sub(ref, scale(z, dot(ref, z)))), y = cross(z, xx);
       return { eye: add(cen, scale(fromBasis([xx, y, z], sph(c.az, c.el)), c.dist)), target: cen, up: z };
     }
     if (c.mode === 'FOCUS' && c.focus) {                    // seçilen gezegen ya da uydu etrafında

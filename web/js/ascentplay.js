@@ -103,7 +103,7 @@ export class AscentPlayer {
   // (this.warp, userWarp), olay alt yazıları onCue(text, ms), görüntü atfı onCredit(text) ile iletilir; opts.from: başlangıç (kalkışa göre s, varsayılan −10)
   async start(opts = {}) {
     const D = this.getDesign(), ins = this.getIns(), base = this.getState();
-    if (this.active || !D || !ins || !base) return false;
+    if (this.active || this.starting || !D || !ins || !base) return false;          // starting: model yüklenirken ikinci başlatma (çift tıklama) yok sayılır
     this.quiet = !!opts.quiet; this.onCue = opts.onCue || null; this.onCredit = opts.onCredit || null; this.lastCredit = null;
     const L = D.LAUNCH, rk = rocketOf(D.STAGES && D.STAGES[0] ? D.STAGES[0].rocket : null), A = rk.ascent;
     if (!A) return false;
@@ -123,7 +123,8 @@ export class AscentPlayer {
     this.warp = 1; this.userWarp = this.quiet; this.camUser = 'auto';
     // kalkıştaki alev: birinci kademenin yakıtı (Saturn V S-IC, Falcon: gazyağı; SLS, Vulcan: katı iticiler baskın)
     // rampa: SLS'te NASA Mobile Launcher, diğerlerinde beton platform; çevresi Sentinel-2 görüntüsü
-    await this.world.setAscent({ lv: A.lv, prop: { saturnv: 'kerolox', f9: 'kerolox', fh: 'kerolox', generic: 'kerolox', sls: 'solid', vulcan: 'solid' }[A.lv] || 'kerolox', pad: A.lv === 'sls' ? 'ml' : 'concrete', padKey: padKey(L.site || rk.pad), site });
+    this.starting = true;
+    try { await this.world.setAscent({ lv: A.lv, prop: { saturnv: 'kerolox', f9: 'kerolox', fh: 'kerolox', generic: 'kerolox', sls: 'solid', vulcan: 'solid' }[A.lv] || 'kerolox', pad: A.lv === 'sls' ? 'ml' : 'concrete', padKey: padKey(L.site || rk.pad), site }); } finally { this.starting = false; }
     this.debris = []; this.debId = 0; this.done = new Set(); this.prevCut = 0; this.hiddenNow = [];
     this.active = true; this.lastEv = null; this.qShown = false; this.buildTele();      // model yüklendikten sonra oynamaya başla
     if (!this.quiet) {

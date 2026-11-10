@@ -105,4 +105,10 @@ for (const id of ['GENEL', 'SATURN_V', 'F9', 'VULCAN']) {
   }
   check(above === 0 && !rose, `${id}: ayrılan kademe (T ${Q.T.toFixed(0)} s, gerçek ${A.tIns} s) hiç aracın üstüne çıkmaz, tepesi ${hMax.toFixed(0)} km, düşerken yeniden yükselmez${d.gone ? ', yere iner' : ''}`);
 }
+// "Kalkışı izle" yeniden basılınca çift başlamaz: oynatıcı yüklenirken ikinci başlatmayı, sahne de yerini yeni çağrı alan kurulumu yok sayar; beklemeler sahneye dokunmadan önce
+{
+  const av = read('js/ascentview.js'), iGen = av.indexOf('if (gen !== this._ascGen) return false;'), iAdd = av.indexOf('veh.add(L.root)'), body = av.slice(iGen, av.indexOf('setAscentWeather(c)'));
+  check(/this\.active \|\| this\.starting/.test(ap) && /finally \{ this\.starting = false; \}/.test(ap) && iGen > 0 && iAdd > iGen && !/\bawait\b/.test(body) && /delete this\._lvCache\[k\]/.test(av) && /btn\.disabled = true/.test(app),
+    'kalkış kurulumu: çift başlatma korumalı (oynatıcı + sahne çağrı kimliği + düğme), yüklenemeyen model önbellekte kalmaz, Saturn V modeli gelmezse genel roket');
+}
 console.log(ok ? 'TAMAM' : 'HATA'); process.exit(ok ? 0 : 1);

@@ -1,5 +1,7 @@
 // LS19 sinematik fragman sesi (Web Audio; ses dosyası yok, hepsi üretilir):
-//   · müzik: yavaş değişen ortam tınısı (dört ses, testere/üçgen, alçak geçiren süzgeç ve yavaş LFO); akor her bölüm kartında değişir (2,5 s geçiş, kabarma)
+//   · müzik: yumuşak ortam tınısı (dört ses: üçgen + sinüs, alt bas, alçak geçiren süzgeç ve yavaş LFO) üretilmiş yankı odasında; akorun seslerinden seyrek çan notaları;
+//     akor her bölüm kartında değişir (2,5 s geçiş, kabarma)
+//   · görev kontrol havası: anonsların başında ve sonunda Quindar tonları (Apollo hattının 2525/2475 Hz bip'leri), geri sayımda saniye tıkları
 //   · motor: kahverengi gürültü → alçak geçiren süzgeç; düzey ve kesim gaza göre. Kalkışta (atmosfer) güçlü ve çatırtılı, uzayda alçak bir uğultu
 //     (gerçekte vakumda ses yoktur: fragman alışkanlığı, gövdeden duyulan titreşim gibi stilize), yüksek zaman hızında susar
 //   · tek seferlik: ayrılma (boğuk çarpma), temas ışığı (iki kısa bip), bölüm kabarması
@@ -31,17 +33,27 @@ export class CineAudio {
     const comp = c.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 3;
     this.master.connect(comp); comp.connect(c.destination);
     this.master.gain.setTargetAtTime(this.muted ? 0 : 0.8, now, 0.8);
-    // müzik: dört ses × iki osilatör (hafif akort farkı) → süzgeç (LFO) → kazanç
-    this.music = c.createGain(); this.music.gain.value = 0.0; this.music.connect(this.master);
-    const lp = this.musicLp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 700; lp.Q.value = 0.7; lp.connect(this.music);
-    const lfo = c.createOscillator(), lfoG = c.createGain(); lfo.frequency.value = 0.05; lfoG.gain.value = 280; lfo.connect(lfoG); lfoG.connect(lp.frequency); lfo.start();
-    this.voices = chordFreqs(0).map((f, i) => {
-      const g = c.createGain(); g.gain.value = i === 0 ? 0.11 : 0.06; g.connect(lp);
-      const o1 = c.createOscillator(), o2 = c.createOscillator(); o1.type = i === 0 ? 'triangle' : 'sawtooth'; o2.type = 'triangle';
-      o1.frequency.value = f; o2.frequency.value = f; o1.detune.value = -6; o2.detune.value = 7; o1.connect(g); o2.connect(g); o1.start(); o2.start();
-      return { o1, o2, g };
+    // yankı: üretilmiş dürtü yanıtı (üstel sönen gürültü, 3,2 s) — müzik ve çanlar geniş bir odada
+    const rev = c.createConvolver(); rev.buffer = this.impulse(3.2); const wet = c.createGain(); wet.gain.value = 0.55; rev.connect(wet); wet.connect(this.master);
+    // müzik: dört ses (üçgen + bir oktav üstü sinüs, hafif akort farkı) + alt bas → süzgeç (LFO) → kazanç → kuru + yankı
+    this.music = c.createGain(); this.music.gain.value = 0.0; this.music.connect(this.master); this.music.connect(rev);
+    const lp = this.musicLp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 620; lp.Q.value = 0.5; lp.connect(this.music);
+    const lfo = c.createOscillator(), lfoG = c.createGain(); lfo.frequency.value = 0.045; lfoG.gain.value = 180; lfo.connect(lfoG); lfoG.connect(lp.frequency); lfo.start();
+    const fs0 = chordFreqs(0);
+    this.voices = fs0.map((f, i) => {
+      const g = c.createGain(); g.gain.value = i === 0 ? 0.13 : 0.07; g.connect(lp);
+      const o1 = c.createOscillator(), o2 = c.createOscillator(); o1.type = 'triangle'; o2.type = 'sine';
+      o1.frequency.value = f; o2.frequency.value = f * 2; o1.detune.value = -5; o2.detune.value = 6; o1.connect(g);
+      const g2 = c.createGain(); g2.gain.value = 0.35; o2.connect(g2); g2.connect(g); o1.start(); o2.start();
+      // her sesin kendi yavaş nefesi (0,05–0,09 Hz): tını durağan kalmaz
+      const tr = c.createOscillator(), trG = c.createGain(); tr.frequency.value = 0.05 + 0.013 * i; trG.gain.value = g.gain.value * 0.45; tr.connect(trG); trG.connect(g.gain); tr.start();
+      return { o1, o2, g, k2: 2 };
     });
-    this.music.gain.setTargetAtTime(0.32, now, 2.5);
+    this.sub = c.createOscillator(); this.sub.type = 'sine'; this.sub.frequency.value = fs0[0] / 2; const subG = c.createGain(); subG.gain.value = 0.16; this.sub.connect(subG); subG.connect(this.music); this.sub.start();
+    this.music.gain.setTargetAtTime(0.3, now, 2.5);
+    // çanlar: akorun seslerinden seyrek, yumuşak notalar (sinüs, 2,6 s sönüm) yankıya; müziğe hareket verir
+    this.bellOut = c.createGain(); this.bellOut.gain.value = 0.5; this.bellOut.connect(rev); const bd = c.createGain(); bd.gain.value = 0.25; this.bellOut.connect(bd); bd.connect(this.master);
+    this.bellN = 0; this.bellTimer = setInterval(() => this.bell(), 2300);
     // motor: döngülü kahverengi gürültü → alçak geçiren → kazanç; çatırtı: aynı gürültü → yüksek geçiren → kazanç (rastgele genlik)
     const noise = this.noiseBuffer(4);
     const src = c.createBufferSource(); src.buffer = noise; src.loop = true;
@@ -53,6 +65,29 @@ export class CineAudio {
     // tarayıcı kendiliğinden başlatmayı engellediyse ilk dokunuşta sürdür
     if (c.state === 'suspended') { this.resume = () => { c.resume(); }; window.addEventListener('pointerdown', this.resume, { once: true }); window.addEventListener('keydown', this.resume, { once: true }); }
   }
+  // yankı dürtü yanıtı: iki kanal, üstel sönen beyaz gürültü
+  impulse(sec) {
+    const c = this.ctx, n = Math.floor(c.sampleRate * sec), b = c.createBuffer(2, n, c.sampleRate);
+    for (let ch = 0; ch < 2; ch++) { const d = b.getChannelData(ch); for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 2.6); }
+    return b;
+  }
+  // çan notası: akorun bir sesi (bir ya da iki oktav üstte), sırayla dolaşır; ara sıra susar
+  bell() {
+    const c = this.ctx; if (!c || c.state !== 'running') return;
+    const k = this.bellN++; if (k % 5 === 4) return;
+    const fs = chordFreqs(Math.max(0, this.chord)), f = fs[[0, 2, 1, 3, 2][k % 5]] * (k % 3 === 0 ? 4 : 2), t = c.currentTime + 0.05;
+    const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.value = f;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.085, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0008, t + 2.6);
+    o.connect(g); g.connect(this.bellOut); o.start(t); o.stop(t + 2.7);
+  }
+  // kısa ton (görev kontrol hattı): Quindar giriş 2525 Hz / çıkış 2475 Hz (250 ms), geri sayım tıkı
+  tone(f, dur = 0.25, gain = 0.07, delay = 0) {
+    const c = this.ctx; if (!c) return; const t = c.currentTime + delay, o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.value = f;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t + 0.008); g.gain.setValueAtTime(gain, t + dur - 0.012); g.gain.linearRampToValueAtTime(0, t + dur);
+    o.connect(g); g.connect(this.master); o.start(t); o.stop(t + dur + 0.02);
+  }
+  // geri sayım tıkı: her saniyede kısa bip, kalkışta uzun ve bir oktav üstü (konuşma sentezi olmasa da geri sayım duyulur)
+  tick(last = false) { this.tone(last ? 1320 : 660, last ? 0.5 : 0.09, last ? 0.11 : 0.09); }
   // kahverengi (1/f²) gürültü: rastgele yürüyüş, sızıntılı
   noiseBuffer(sec) {
     const c = this.ctx, n = Math.floor(c.sampleRate * sec), b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0); let last = 0;
@@ -62,6 +97,7 @@ export class CineAudio {
   stop() {
     const c = this.ctx; if (!c) return;
     if (this.resume) { window.removeEventListener('pointerdown', this.resume); window.removeEventListener('keydown', this.resume); }
+    clearInterval(this.bellTimer); this.utter = [];
     try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) { /* yok */ }
     this.master.gain.setTargetAtTime(0, c.currentTime, 0.25);
     this.ctx = null; setTimeout(() => c.close(), 1200);
@@ -82,9 +118,10 @@ export class CineAudio {
   chapter(i) {
     const c = this.ctx; if (!c || i === this.chord) return;
     this.chord = i; const t = c.currentTime, fs = chordFreqs(i);
-    this.voices.forEach((v, k) => { v.o1.frequency.setTargetAtTime(fs[k], t, 0.9); v.o2.frequency.setTargetAtTime(fs[k], t, 0.9); });
-    const f = this.musicLp.frequency; f.cancelScheduledValues(t); f.setValueAtTime(f.value, t); f.linearRampToValueAtTime(1500, t + 1.2); f.linearRampToValueAtTime(700, t + 4.5);
-    this.music.gain.setTargetAtTime(0.42, t, 0.6); this.music.gain.setTargetAtTime(0.32, t + 2.5, 1.5);
+    this.voices.forEach((v, k) => { v.o1.frequency.setTargetAtTime(fs[k], t, 0.9); v.o2.frequency.setTargetAtTime(fs[k] * 2, t, 0.9); });
+    this.sub.frequency.setTargetAtTime(fs[0] / 2, t, 1.2);
+    const f = this.musicLp.frequency; f.cancelScheduledValues(t); f.setValueAtTime(f.value, t); f.linearRampToValueAtTime(1300, t + 1.2); f.linearRampToValueAtTime(620, t + 4.5);
+    this.music.gain.setTargetAtTime(0.4, t, 0.6); this.music.gain.setTargetAtTime(0.3, t + 2.5, 1.5);
   }
   // ayrılma: boğuk çarpma (alçak sinüs ve gürültü patlaması, hızlı sönüm)
   thump() {
@@ -99,13 +136,21 @@ export class CineAudio {
     const c = this.ctx; if (!c) return; const t = c.currentTime;
     for (const d of [0, 0.22]) { const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.value = 1180; g.gain.setValueAtTime(0, t + d); g.gain.linearRampToValueAtTime(0.16, t + d + 0.01); g.gain.setValueAtTime(0.16, t + d + 0.12); g.gain.linearRampToValueAtTime(0, t + d + 0.14); o.connect(g); g.connect(this.master); o.start(t + d); o.stop(t + d + 0.16); }
   }
-  // görev kontrol anonsu (Web Speech): aynı anahtar bir kez; sessizse ya da tarayıcıda yoksa atlanır
-  say(key, text) {
+  // görev kontrol anonsu (Web Speech): aynı anahtar bir kez; sessizse ya da tarayıcıda yoksa atlanır. urgent (geri sayım): bekleyen anons varsa kuyruk boşaltılır
+  // (sayılar birikip gecikmesin). Sözceler bitene dek saklanır: bazı tarayıcılar başvurusu kalmayan sözceyi çöpe atıp kuyruğu durdurur (yalnız ilk sayı duyulurdu).
+  // quindar: anonsun başında ve sonunda hat tonları.
+  say(key, text, { urgent = false, quindar = !urgent } = {}) {
     if (this.muted || !this.ctx || this.spoken.has(key)) return; this.spoken.add(key);
+    if (quindar) this.tone(2525, 0.25, 0.05);
     try {
       const S = window.speechSynthesis; if (!S || typeof SpeechSynthesisUtterance !== 'function') return;
-      const u = new SpeechSynthesisUtterance(text); u.lang = isEn ? 'en-US' : 'tr-TR'; u.rate = 1.04; u.pitch = 0.92; u.volume = 0.9;
+      if (S.paused) S.resume();
+      if (urgent && (S.pending || S.speaking)) S.cancel();
+      const u = new SpeechSynthesisUtterance(text); u.lang = isEn ? 'en-US' : 'tr-TR'; u.rate = urgent ? 1.15 : 1.04; u.pitch = 0.92; u.volume = 0.9;
       const v = S.getVoices().find((x) => x.lang && x.lang.toLowerCase().startsWith(isEn ? 'en' : 'tr')); if (v) u.voice = v;
+      this.utter = this.utter || []; this.utter.push(u);
+      const done = () => { this.utter = (this.utter || []).filter((x) => x !== u); if (quindar && this.ctx && !this.muted) this.tone(2475, 0.25, 0.05); };
+      u.onend = done; u.onerror = done;
       S.speak(u);
     } catch (e) { /* konuşma sentezi yok */ }
   }

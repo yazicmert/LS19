@@ -14,7 +14,7 @@ import { CloudLayers, hazeLength, sunDim as cloudSunDim } from './clouds.js';
 import { PadGround, R_M } from './padground.js';
 import { Google3D, g3dSettings, g3dUsable } from './google3d.js';
 import { shake as camShake, SITES, siteEye } from './launchcam.js';
-import { setPlume } from './fx.js';
+import { setPlume, makeGlow } from './fx.js';
 import { add, sub, scale, dot, cross, norm, unit } from './vec3.js';
 
 const KM = 0.001;                        // m -> km
@@ -32,15 +32,20 @@ export class AscentView {
   // Model birimi metre, roket ekseni +Y, taban y = 0 → gövde çerçevesi (+z itki ekseni). Kademe ayrılması: kesme düzlemiyle (cut, m) alt kısım çizilmez; parça etiketli
   // olanlar (booster, fairing, las) gizlenir. null: kalkış biter, araç geri gelir.
   async setAscent(spec) {
-    const veh = this.vehicle;
+    const veh = this.vehicle, gen = this._ascGen = (this._ascGen || 0) + 1;                // çağrı kimliği: yükleme sürerken gelen yeni çağrı eskisini geçersiz kılar
     if (this.asc) { veh.remove(this.asc.root); if (this.asc.smoke) this.asc.smoke.dispose(); if (this.asc.ground) this.asc.ground.dispose(); if (this.asc.clouds) this.asc.clouds.dispose(); if (this.asc.osm) this.asc.osm.dispose(); if (this.asc.nature) this.asc.nature.dispose(); if (this.asc.g3d) this.asc.g3d.dispose(); if (this.asc.world) { this.scene.remove(this.asc.world); this.asc.world.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); } this.asc = null; }
     for (const c of veh.children) if (c.userData.ascHidden !== undefined) { c.visible = c.userData.ascHidden; delete c.userData.ascHidden; }
     this.renderer.localClippingEnabled = false;
     if (!spec) return;
     this._lvCache = this._lvCache || {};
-    const glb = (k, f) => this._lvCache[k] || (this._lvCache[k] = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(this.base + f).then((g) => g.scene).catch(() => null));
-    const template = spec.lv === 'saturnv' ? await glb('saturnv', 'models/rockets/saturnv.glb') : makeLaunchVehicle(spec.lv);
-    if (!template) return;
+    // yüklenemeyen model önbellekte kalmaz (sonraki denemede yeniden istenir)
+    const glb = (k, f) => this._lvCache[k] || (this._lvCache[k] = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(this.base + f).then((g) => g.scene).catch(() => { delete this._lvCache[k]; return null; }));
+    // bütün beklemeler (model, gökyüzü gölgelendiricisi, Mobile Launcher) sahneye dokunmadan ÖNCE: yükleme sürerken ikinci bir çağrı gelirse (ör. yavaş ağda düğmeye
+    // yeniden basılması) bu çağrı hiçbir şey eklemeden çıkar. Eskiden iki çağrı da roket ve dünya grubunu ekliyor, sıraya göre görünen roket gizli kalabiliyordu.
+    // Saturn V modeli yüklenemezse roketsiz kalkış yerine ölçüden çizilen genel roket gösterilir.
+    const template = (spec.lv === 'saturnv' ? await glb('saturnv', 'models/rockets/saturnv.glb') : null) || makeLaunchVehicle(spec.lv === 'saturnv' ? 'generic' : spec.lv);
+    const skyMat = await this.skyMaterial(), mlScene = spec.pad === 'ml' ? await glb('ml', 'models/rockets/ml.glb') : null;
+    if (gen !== this._ascGen) return false;
     // kesme düzlemli kopya: keep = [alt, üst] (m; üst yoksa yalnız alt sınır), parça = yalnız o etiketli parça görünür
     const prep = (src, nPlanes) => {
       const m = src.clone(true), planes = Array.from({ length: nPlanes }, () => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
@@ -57,18 +62,19 @@ export class AscentView {
     const holder = new THREE.Group(); L.root.add(holder);
     // alev rengi: gazyağı turuncu, katı yakıt (alüminyum) parlak beyaz-sarı, hidrolox soluk
     const hot = sol ? C(3.2, 2.8, 2.2) : ker ? C(2.6, 1.7, 0.9) : C(1.9, 2.2, 3.2), cool = sol ? C(0.9, 0.6, 0.35) : ker ? C(0.7, 0.32, 0.12) : C(0.12, 0.24, 1.3);
-    const flame = this._addPlume(holder, { exitZ: 0, exitR: plumeR }, plumeR * 14, hot, cool, 0.9, { widen: 2.4, diamonds: 0.3, kS: 3.0 }, sol ? C(2.0, 1.7, 1.2) : ker ? C(1.7, 1.0, 0.5) : C(0.8, 1.0, 1.7), 3.0);
+    const flame = this._addPlume(holder, { exitZ: 0, exitR: plumeR }, plumeR * (sol ? 26 : ker ? 22 : 15), hot, cool, 1.0, { widen: 2.4, diamonds: 0.3, kS: 3.0 }, sol ? C(2.0, 1.7, 1.2) : ker ? C(1.7, 1.0, 0.5) : C(0.8, 1.0, 1.7), 3.0);
+    flame.renderOrder = 6; if (flame.userData.glow) flame.userData.glow.renderOrder = 7;      // kalkış bulutunun (5) üstünde: alev dumanın içinden parlar
     // alevin ışığı: roket gövdesini, rampayı ve kalkış bulutunu turuncu aydınlatır (alevin 3 çap altında; mesafeyle kare azalır)
     const plumeLight = new THREE.PointLight(0xffb070, 0, 0, 2); plumeLight.position.set(0, 0, -plumeR * 3); holder.add(plumeLight);
     // dünya nesneleri (kameraya göre konumlanır): gökyüzü kubbesi, rampa + yer görüntüsü, ayrılan kademeler
     const world = new THREE.Group(); this.scene.add(world);
     // gökyüzü kubbesi: derinlik testiyle (rampa, roket ve Dünya önünde kalır); yarıçap ufkun ötesine (ascentFrame) — yalnız ufkun üstünde görünür
-    const sky = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24), await this.skyMaterial());
+    const sky = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24), skyMat);
     sky.scale.setScalar(80); sky.renderOrder = -9; sky.frustumCulled = false; world.add(sky);
     const pad = new THREE.Group(); pad.scale.setScalar(KM); pad.matrixAutoUpdate = false; world.add(pad);
     const padProps = [];                                                                 // temsilî rampa (beton, çukur, direkler): gerçek 3B karolar varken gizlenir
     if (spec.pad === 'ml') {
-      const ml = await glb('ml', 'models/rockets/ml.glb');
+      const ml = mlScene;
       // Mobile Launcher: roket ekseni modelde (−7,8; 16; 1,4) m — platform üstü yere oturur (kaideler gösterilmez)
       if (ml) { const m = ml.clone(true); m.position.set(7.77, -16, -1.41); pad.add(m); }
     }
@@ -249,9 +255,16 @@ export class AscentView {
       const lo = d.part ? -1e4 : d.lo, hi = d.part ? 1e4 : d.hi;
       const b0 = e.inner.localToWorld(new THREE.Vector3(0, lo, 0)), b1 = e.inner.localToWorld(new THREE.Vector3(0, hi, 0)), n = b1.clone().sub(b0).normalize();
       e.planes[0].setFromNormalAndCoplanarPoint(n, b0); e.planes[1].setFromNormalAndCoplanarPoint(n.clone().negate(), b1);
+      // tele kameralarda (yer izleme, takip uçağı) ayrılan parça gövdesi birkaç pikselin altına inince Güneş'te parlayan nokta olarak izlenir (gerçek izleme
+      // görüntülerindeki gibi): yer kamerasında kademe "kaybolup" uçak kamerasında yeniden belirmez, iki çekimde de aynı parça görünür
+      if (!e.glint) { e.glint = makeGlow(new THREE.Color(1.5, 1.45, 1.35), 1); e.glint.renderOrder = 4; A.world.add(e.glint); }
+      const dKm = e.root.position.length(), Hpx = this.canvas.clientHeight || 800, pxKm = dKm * 2 * Math.tan((this.camera.fov * Math.PI / 180) / 2) / Hpx;
+      const bodyPx = (d.part ? 12 : Math.max(8, d.hi - d.lo)) / 1000 / Math.max(1e-12, pxKm), kG = tele ? Math.min(1, Math.max(0, (7 - bodyPx) / 4)) : 0;
+      e.glint.visible = kG > 0.01 && (o.sunUp ?? 1) > -0.12;
+      if (e.glint.visible) { e.glint.position.copy(e.root.position); const sG = pxKm * (d.part ? 5 : 7); e.glint.scale.set(sG, sG, 1); e.glint.material.opacity = kG; }
       seen.add(d.id);
     }
-    for (const [id, e] of A.debris) if (!seen.has(id)) { A.world.remove(e.root); A.debris.delete(id); }
+    for (const [id, e] of A.debris) if (!seen.has(id)) { A.world.remove(e.root); if (e.glint) { A.world.remove(e.glint); e.glint.material.dispose(); } A.debris.delete(id); }
   }
 
   // LAUNCH (kalkış canlandırması): her çekim gerçek bir yayın kamerasıdır (launchcam.js kurgu ve görünürlük):

@@ -383,10 +383,15 @@ const ascent = new AscentPlayer({ world, E, send, getDesign: () => S.DESIGN, get
   onEnd: () => { send({ cmd: 'seek', t: ui.t0 }); } });
 initG3dPanel(world);                                                                // Google 3B karolar ayarları (kalkış çubuğu)
 $('#btnAscent').addEventListener('click', async () => {
-  if (S.designing || ascent.active) return;
-  if (!insState) { send({ cmd: 'seek', t: ui.t0 }); await new Promise((r) => setTimeout(r, 400)); }
-  if (S.running) setPlay(false);
-  if (!(await ascent.start())) ui.designMsg && ui.designMsg('Kalkış canlandırması başlatılamadı (görev henüz hazır değil).');
+  const btn = $('#btnAscent');
+  if (S.designing || ascent.active || btn.disabled) return;
+  btn.disabled = true; btn.setAttribute('aria-busy', 'true');                      // model ve gökyüzü yüklenirken düğme kapalı: yeniden basılınca ikinci kez başlamaz
+  try {
+    if (!insState) { send({ cmd: 'seek', t: ui.t0 }); await new Promise((r) => setTimeout(r, 400)); }
+    if (S.running) setPlay(false);
+    if (!(await ascent.start())) ui.designMsg && ui.designMsg('Kalkış canlandırması başlatılamadı (görev henüz hazır değil).');
+  } catch (e) { console.error(e); ui.designMsg && ui.designMsg('Kalkış canlandırması başlatılamadı (görev henüz hazır değil).'); }
+  finally { btn.disabled = false; btn.removeAttribute('aria-busy'); }
 });
 // fırlatma rampası (dünyadaki yörüngesel rampalar) ve fırlatma pencereleri tarayıcısı (launchui.js)
 const siteIncl = (st) => (st ? (st.az ? inclRange(st.lat, st.az) : [minIncl(st.lat), 90]) : inclRange(LEGACY_SITE.lat, LEGACY_SITE.az));

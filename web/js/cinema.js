@@ -225,7 +225,7 @@ export function buildShots(P, opts = {}) {
     const tc0 = t('SEP', 400), tcEnd = (has('LOI') ? P.LOI : P.SEP + 300000) - 1200, span = Math.max(4000, tcEnd - tc0), a = Math.min(span * 0.18, 90000), b = Math.min(span * 0.12, 40000);
     add_({ id: 'coast-a', dur: 4.5, wmax: 30000, T: () => [[0, tc0], [1, tc0 + a]], chapter: { title: "AY'A YOLCULUK", sub: (c) => `Dünya'dan ${fmt(c.rE, 0)} km uzakta`, at: 0.3, hold: 3.4 },
       rig: { type: 'ots', body: 'E', dist: [58, 88], side: [30, 42], lift: [10, 15], aim: 0.05, fov: [34, 38], look: 'mid' }, dip: true });
-    add_({ id: 'coast-b', dur: 8.5, wmax: 40000, T: () => [[0, tc0 + a], [1, tcEnd - b]], rig: { type: 'wide', cam: { mode: 'SYSTEM', az: [-1.7, -1.0], el: [0.3, 0.2], dist: [1050000, 880000] }, fov: 40, yaw: -0.17 }, lines: true, beacon: true, dip: true });
+    add_({ id: 'coast-b', dur: 8.5, wmax: 40000, T: () => [[0, tc0 + a], [1, tcEnd - b]], rig: { type: 'wide', cam: { mode: 'SYSTEM', az: [-1.75, -1.4], el: [0.95, 0.7], dist: [1000000, 860000] }, fov: 40, yaw: -0.17 }, lines: true, syn: true, beacon: true, dip: true });   // Ay'la dönen çerçeve, yörünge düzlemine yukarıdan: Dünya solda, Ay sağda, gidiş yolu S biçiminde
     add_({ id: 'coast-c', dur: 4.5, wmax: 20000, T: () => [[0, tcEnd - b], [1, tcEnd]], rig: { type: 'wide', cam: (c, e) => ({ mode: 'MOON', az: lerp(0.9, 1.5, e), el: 0.32, dist: lerp(90000, 9000, smooth(e)) }), fov: 40 }, lines: true, beacon: true, dip: false });
   }
   // 5 LOI
@@ -337,7 +337,7 @@ export class Cinema {
     if (this.audio) { this.audio.stop(); this.audio = null; }
     const W = this.h.world, ui = this.cu;
     window.removeEventListener('keydown', this.keyHandler, true); window.removeEventListener('pointermove', this.moveHandler);
-    W.cine.rig = null; W.cine.lines = false; W.cine.osc = false; W.cine.beacon = false;
+    W.cine.rig = null; W.cine.syn = false; W.cine.lines = false; W.cine.osc = false; W.cine.beacon = false;
     Object.assign(W.cam, this.saved.cam);
     this.h.send({ cmd: 'autoWarp', on: this.saved.autoWarp }); this.h.send({ cmd: 'warp', value: this.saved.warp });
     const chk = document.querySelector('#chkAutoWarp'); if (chk) chk.checked = this.saved.autoWarp;
@@ -376,7 +376,7 @@ export class Cinema {
     // süre: istenen zaman hızı sınırını aşmasın (aşıyorsa uzar)
     const span = Math.max(0, s.tEnd - s.tStart); s.durEff = Math.max(s.dur, span / ((s.wmax || 20000) * 0.85));
     W.cam.auto = false; W.cam.mode = 'CINE'; W.cine.rig = (xx, info, ww) => this.pose(xx, info, ww);
-    W.cine.lines = !!s.lines; W.cine.osc = !!s.osc; W.cine.beacon = !!s.beacon;
+    W.cine.lines = !!s.lines; W.cine.syn = !!s.syn; W.cine.osc = !!s.osc; W.cine.beacon = !!s.beacon;
     const ui = this.ui; ui.root.classList.toggle('nostrip', !!s.noStrip);
     ui.progress(this.progressAt(i, tau0));
   }
@@ -446,8 +446,9 @@ export class Cinema {
     // ses: geri sayım (5 … 1), kalkış anonsu, motor (atmosferde güçlü), ayrılmalarda çarpma
     const au = this.audio;
     if (au) {
-      for (let n = 5; n >= 1; n--) if (prev < -n && real >= -n) au.say('cd' + n, COUNT[n - 1]);
-      if (prev < 0 && real >= 0) au.say('lift', translateText('Ateşleme… kalkış!'));
+      // geri sayım: her saniye tık + sayı (yalnız en son geçilen sayı söylenir: kare atlarsa sayılar üst üste binmez); kalkışta uzun ton
+      for (let n = 5; n >= 1; n--) if (prev < -n && real >= -n) { au.tick(); if (real < -n + 0.6) au.say('cd' + n, COUNT[n - 1], { urgent: true }); }
+      if (prev < 0 && real >= 0) { au.tick(true); au.say('lift', translateText('Ateşleme… kalkış!'), { urgent: true }); }
       for (const e of a.events) if ((e.cut != null || e.part) && prev < e.t && real >= e.t) au.thump();
       const h = A.hud, thr = h && h.asc ? h.asc.thr : real >= 0 ? 1 : 0;
       au.update(this.paused ? 0 : thr, this.paused ? 1 : a.warp, !h || (h.altKm || 0) < 70);
