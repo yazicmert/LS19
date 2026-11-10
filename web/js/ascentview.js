@@ -8,6 +8,7 @@ import { LaunchSmoke } from './launchfx.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildPad } from './padmodels.js';
 import { OsmBuildings } from './osmbuildings.js';
+import { OsmNature } from './osmnature.js';
 import { CloudLayers, hazeLength, sunDim as cloudSunDim } from './clouds.js';
 import { PadGround, R_M } from './padground.js';
 import { Google3D, g3dSettings, g3dUsable } from './google3d.js';
@@ -31,7 +32,7 @@ export class AscentView {
   // olanlar (booster, fairing, las) gizlenir. null: kalkış biter, araç geri gelir.
   async setAscent(spec) {
     const veh = this.vehicle;
-    if (this.asc) { veh.remove(this.asc.root); if (this.asc.smoke) this.asc.smoke.dispose(); if (this.asc.ground) this.asc.ground.dispose(); if (this.asc.clouds) this.asc.clouds.dispose(); if (this.asc.osm) this.asc.osm.dispose(); if (this.asc.g3d) this.asc.g3d.dispose(); if (this.asc.world) { this.scene.remove(this.asc.world); this.asc.world.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); } this.asc = null; }
+    if (this.asc) { veh.remove(this.asc.root); if (this.asc.smoke) this.asc.smoke.dispose(); if (this.asc.ground) this.asc.ground.dispose(); if (this.asc.clouds) this.asc.clouds.dispose(); if (this.asc.osm) this.asc.osm.dispose(); if (this.asc.nature) this.asc.nature.dispose(); if (this.asc.g3d) this.asc.g3d.dispose(); if (this.asc.world) { this.scene.remove(this.asc.world); this.asc.world.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); } this.asc = null; }
     for (const c of veh.children) if (c.userData.ascHidden !== undefined) { c.visible = c.userData.ascHidden; delete c.userData.ascHidden; }
     this.renderer.localClippingEnabled = false;
     if (!spec) return;
@@ -195,7 +196,13 @@ export class AscentView {
         // görünürlük: rampa zemini/hendek Google yokken; prosedürel kuleler OSM'de rampa yapıları yoksa (osmPad) ve Google yokken; OSM binaları Google yokken
         // uydu görüntüsü (en ince seviye) gelince: OSM çatıları görüntüden boyanır; prosedürel rampa zemini ve hendek gizlenir (gerçekleri görüntüde)
         const imgFine = A.ground.u.L0 && A.ground.u.L0.value.w > 0;
-        if (A.osm && A.osm.ready && !A.osmColored && (imgFine || A.ground.done)) { A.osmColored = true; A.osm.recolor((la, lo) => A.ground.sample(la, lo)); }
+        if (A.osm && A.osm.ready && !A.osmColored && (imgFine || A.ground.done)) { A.osmColored = true; A.osm.recolor((la, lo) => A.ground.sample(la, lo), A.ground.heightAt ? (e, s) => A.ground.groundAt(e, s) : null); }
+        // doğal unsurlar (osmnature.js): zemin tamamlanınca (görüntü + kabartma) kurulur; kabartma sonradan gelirse binalar ve doğa yeniden oturtulur
+        if (A.osm && A.osm.ready && A.osmColored && !A.nature && (A.ground.done || A.ground.hasDem)) {
+          A.nature = new OsmNature(THREE, A.pad, A.spec.site); A.nature.addTiles(A.osm.tiles); A.nature.build(A.ground); A.natureDem = A.ground.hasDem;
+        }
+        if (A.nature && !A.natureDem && A.ground.hasDem) { A.natureDem = true; A.nature.build(A.ground); A.osm.recolor((la, lo) => A.ground.sample(la, lo), (e, s) => A.ground.groundAt(e, s)); }
+        if (A.nature) { const nowN = performance.now(); A.nature.visible = !on; A.nature.frame({ pad: A.pad, sunDir: o.sunDir, day: A.ground.u.day.value, dt: Math.min(0.1, (nowN - (A.natT || nowN)) / 1000), camH }); A.natT = nowN; }
         for (const p of A.padProps) { const v = !on && !(A.osmPad && p.userData.kind === 'struct') && !(imgFine && p.userData.kind === 'base'); if (p.visible !== v) p.visible = v; }
         if (A.osm) A.osm.visible = !on;
         const now = performance.now();

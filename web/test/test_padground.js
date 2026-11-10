@@ -4,6 +4,7 @@
 import * as P from '../js/padground.js';
 import * as PM from '../js/padmodels.js';
 import * as OB from '../js/osmbuildings.js';
+import * as ON from '../js/osmnature.js';
 import { decodeTile } from '../js/mvt.js';
 import fs from 'node:fs';
 import { register } from 'node:module';
@@ -120,6 +121,25 @@ check('180. meridyeni aşan ızgarada Mercator kayması sürekli', maxJump < 2 *
   const O = new OB.OsmBuildings(THREE, new THREE.Group(), site, { fetchFn: () => Promise.reject(new Error('ağ yok')) });
   O.polys = polys; O.build();
   check('binalar tek birleştirilmiş geometri (duvar + çatı + yükseltilmiş taban), köşe renkli; rampa yakınında yapı sayısı', O.mesh && O.mesh.geometry.attributes.position.count > 100 && O.mesh.geometry.attributes.color && O.nearPad() >= 3 && O.credit().includes('OpenStreetMap'), `${O.mesh ? O.mesh.geometry.attributes.position.count : 0} köşe, rampa yakını ${O.nearPad()}`);
+}
+// doğal unsurlar (osmnature.js): aynı karonun landcover ve water katmanları
+{
+  const site = { lat: 28.62711, lon: -80.62102 }, tile = { x: 4522, y: 6831, z: 14 };
+  const L = decodeTile(new Uint8Array(fs.readFileSync(new URL('./fixtures/osm_14_4522_6831.pbf', import.meta.url))));
+  const N = ON.naturePolygons(L, tile, site), cnt = (k) => N.filter((p) => p.kind === k).length;
+  check('doğa çokgenleri: orman, çalılık, sulak alan, su (göl/gölet/nehir) gerçek karodan', cnt('wood') >= 4 && cnt('scrub') >= 6 && cnt('wetland') >= 50 && cnt('water') >= 30, `orman ${cnt('wood')}, çalı ${cnt('scrub')}, sulak ${cnt('wetland')}, su ${cnt('water')}`);
+  const sq = { outer: [[0, 0], [10, 0], [10, 10], [0, 10]], holes: [[[3, 3], [6, 3], [6, 6], [3, 6]]] };
+  check('çokgen içi: delik dışarıda', ON.inPolygon(1, 1, sq) && !ON.inPolygon(4, 4, sq) && !ON.inPolygon(11, 5, sq));
+  const a = ON.scatter(N, 7), b = ON.scatter(N, 7), near = a.filter((q) => Math.hypot(q.x, q.z) < 1500).length, far = a.filter((q) => Math.hypot(q.x, q.z) > 3000).length;
+  const inside = a.slice(0, 300).every((q) => N.some((p) => p.kind === q.kind && ON.inPolygon(q.x, q.z, p)));
+  check('bitki yerleşimi belirlenimci (aynı tohum aynı sonuç), çokgenin içinde, rampanın 120 m\'si boş, uzaklıkla seyrelir', a.length > 200 && a.length === b.length && a.every((q, i) => q.x === b[i].x && q.z === b[i].z) && inside && a.every((q) => Math.hypot(q.x, q.z) >= 120) && a.every((q) => Math.hypot(q.x, q.z) <= ON.TREE_R) && (near === 0 || near >= far / 4),
+    `${a.length} bitki (1,5 km içinde ${near}, 3 km dışında ${far})`);
+  const NA = new ON.OsmNature(THREE, new THREE.Group(), site); NA.addTiles([{ t: tile, layers: L }]);
+  NA.build({ heightAt: () => 0, groundAt: () => 0.25, sample: () => [0.2, 0.35, 0.15] });
+  const ims = NA.group.children.filter((c) => c.isInstancedMesh), inst = ims.reduce((s2, m) => s2 + m.count, 0);
+  check('doğa three.js ile kurulur: örneklenmiş ağaç/çalı ağları (renk uydu görüntüsünden), su yüzeyi (gölgelendirici)', ims.length >= 2 && inst === Math.min(NA.plants.length, inst) && inst > 200 && !!NA.water && NA.water.geometry.attributes.position.count > 100,
+    `${ims.length} ağ, ${inst} örnek, su ${NA.water ? NA.water.geometry.attributes.position.count / 3 : 0} üçgen`);
+  NA.dispose();
 }
 console.log(fail ? `\n${fail} HATA` : '\nTüm denetimler geçti');
 process.exit(fail ? 1 : 0);

@@ -81,7 +81,7 @@ export class OsmBuildings {
   // THREE: three.js · parent: rampa grubu (ölçek KM, birim m) · site: { lat, lon } · onReady(this): binalar eklendi
   constructor(THREE, parent, site, { onReady, fetchFn = (u, o) => fetch(u, o) } = {}) {
     this.T = THREE; this.parent = parent; this.site = site; this.onReady = onReady; this.fetch = fetchFn;
-    this.ctl = new AbortController(); this.group = new THREE.Group(); parent.add(this.group); this.polys = []; this.ready = false; this.status = 'loading';
+    this.ctl = new AbortController(); this.group = new THREE.Group(); parent.add(this.group); this.polys = []; this.tiles = []; this.ready = false; this.status = 'loading'; this.groundAt = null;
   }
   credit() { return this.polys.length ? ATTRIB : ''; }
   // rampanın r metresi içinde h metreden yüksek bina sayısı (prosedürel rampa yapılarını gizleme kararı)
@@ -97,7 +97,8 @@ export class OsmBuildings {
           if (!r.ok) return;
           let buf = new Uint8Array(await r.arrayBuffer());
           if (buf[0] === 0x1f && buf[1] === 0x8b && typeof DecompressionStream === 'function') buf = new Uint8Array(await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
-          this.polys.push(...polygonsFromLayer(decodeTile(buf).building, t, this.site));
+          const layers = decodeTile(buf); this.tiles.push({ t, layers: { landcover: layers.landcover, water: layers.water } });     // doğal unsurlar (osmnature.js) için
+          this.polys.push(...polygonsFromLayer(layers.building, t, this.site));
         } catch (e) { if (e.name === 'AbortError') throw e; }
       }));
       if (this.ctl.signal.aborted) return;
@@ -111,7 +112,8 @@ export class OsmBuildings {
       if (p.rgb) c.setRGB(p.rgb[0], p.rgb[1], p.rgb[2], THREE.SRGBColorSpace);         // uydu görüntüsünden çatı rengi (recolor)
       else { try { c.set(p.color || '#d8d6d0'); } catch (e) { c.set('#d8d6d0'); } }
       const tone = 0.85 + 0.15 * ((p.h * 7.3) % 1), cr = c.r * tone, cg = c.g * tone, cb = c.b * tone;
-      const put = (x, y, z, k = 1) => { pos.push(x, y + drop(x, z), z); col.push(cr * k, cg * k, cb * k); };
+      const y0 = this.groundAt ? this.groundAt(p.c[0], p.c[1]) - 0.25 : 0;                  // zeminin kabartması (rampa düzeyine göre; düz zeminde 0)
+      const put = (x, y, z, k = 1) => { pos.push(x, y + y0 + drop(x, z), z); col.push(cr * k, cg * k, cb * k); };
       if (isSlender(p)) {                                                                    // kafes kule: her kiriş ince kare kesitli çubuk
         const w = Math.max(0.35, Math.min(1.2, (p.h - p.minH) / 300));
         for (const [a, b] of latticeBeams(p)) {
@@ -144,9 +146,10 @@ export class OsmBuildings {
     this.mesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, emissive: 0x3a3a3a }));   // öz ışıma: Güneş görmeyen yüzler simsiyah olmasın (gökyüzü ışığı yerine)
     this.mesh.frustumCulled = false; this.group.add(this.mesh);
   }
-  // çatı renkleri uydu görüntüsünden: sampler(lat, lon) → [r, g, b] (sRGB 0..1) | null; geometri yeniden kurulur. Çok koyu/çok açık örnekler
+  // çatı renkleri uydu görüntüsünden: sampler(lat, lon) → [r, g, b] (sRGB 0..1) | null; groundAt(e, s): zeminin yüksekliği (binalar kabartmaya oturur); geometri yeniden kurulur. Çok koyu/çok açık örnekler
   // (gölge, parlama) sınırlanır; narin yapılar (kafes kuleler) görüntüde zemin rengini verir, onlar OSM rengiyle kalır.
-  recolor(sampler) {
+  recolor(sampler, groundAt = null) {
+    if (groundAt) this.groundAt = groundAt;
     let n = 0;
     for (const p of this.polys) {
       if (isSlender(p)) continue;
