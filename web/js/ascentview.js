@@ -32,15 +32,20 @@ export class AscentView {
   // Model birimi metre, roket ekseni +Y, taban y = 0 → gövde çerçevesi (+z itki ekseni). Kademe ayrılması: kesme düzlemiyle (cut, m) alt kısım çizilmez; parça etiketli
   // olanlar (booster, fairing, las) gizlenir. null: kalkış biter, araç geri gelir.
   async setAscent(spec) {
-    const veh = this.vehicle;
+    const veh = this.vehicle, gen = this._ascGen = (this._ascGen || 0) + 1;                // çağrı kimliği: yükleme sürerken gelen yeni çağrı eskisini geçersiz kılar
     if (this.asc) { veh.remove(this.asc.root); if (this.asc.smoke) this.asc.smoke.dispose(); if (this.asc.ground) this.asc.ground.dispose(); if (this.asc.clouds) this.asc.clouds.dispose(); if (this.asc.osm) this.asc.osm.dispose(); if (this.asc.nature) this.asc.nature.dispose(); if (this.asc.g3d) this.asc.g3d.dispose(); if (this.asc.world) { this.scene.remove(this.asc.world); this.asc.world.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); } this.asc = null; }
     for (const c of veh.children) if (c.userData.ascHidden !== undefined) { c.visible = c.userData.ascHidden; delete c.userData.ascHidden; }
     this.renderer.localClippingEnabled = false;
     if (!spec) return;
     this._lvCache = this._lvCache || {};
-    const glb = (k, f) => this._lvCache[k] || (this._lvCache[k] = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(this.base + f).then((g) => g.scene).catch(() => null));
-    const template = spec.lv === 'saturnv' ? await glb('saturnv', 'models/rockets/saturnv.glb') : makeLaunchVehicle(spec.lv);
-    if (!template) return;
+    // yüklenemeyen model önbellekte kalmaz (sonraki denemede yeniden istenir)
+    const glb = (k, f) => this._lvCache[k] || (this._lvCache[k] = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(this.base + f).then((g) => g.scene).catch(() => { delete this._lvCache[k]; return null; }));
+    // bütün beklemeler (model, gökyüzü gölgelendiricisi, Mobile Launcher) sahneye dokunmadan ÖNCE: yükleme sürerken ikinci bir çağrı gelirse (ör. yavaş ağda düğmeye
+    // yeniden basılması) bu çağrı hiçbir şey eklemeden çıkar. Eskiden iki çağrı da roket ve dünya grubunu ekliyor, sıraya göre görünen roket gizli kalabiliyordu.
+    // Saturn V modeli yüklenemezse roketsiz kalkış yerine ölçüden çizilen genel roket gösterilir.
+    const template = (spec.lv === 'saturnv' ? await glb('saturnv', 'models/rockets/saturnv.glb') : null) || makeLaunchVehicle(spec.lv === 'saturnv' ? 'generic' : spec.lv);
+    const skyMat = await this.skyMaterial(), mlScene = spec.pad === 'ml' ? await glb('ml', 'models/rockets/ml.glb') : null;
+    if (gen !== this._ascGen) return false;
     // kesme düzlemli kopya: keep = [alt, üst] (m; üst yoksa yalnız alt sınır), parça = yalnız o etiketli parça görünür
     const prep = (src, nPlanes) => {
       const m = src.clone(true), planes = Array.from({ length: nPlanes }, () => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
@@ -63,12 +68,12 @@ export class AscentView {
     // dünya nesneleri (kameraya göre konumlanır): gökyüzü kubbesi, rampa + yer görüntüsü, ayrılan kademeler
     const world = new THREE.Group(); this.scene.add(world);
     // gökyüzü kubbesi: derinlik testiyle (rampa, roket ve Dünya önünde kalır); yarıçap ufkun ötesine (ascentFrame) — yalnız ufkun üstünde görünür
-    const sky = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24), await this.skyMaterial());
+    const sky = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24), skyMat);
     sky.scale.setScalar(80); sky.renderOrder = -9; sky.frustumCulled = false; world.add(sky);
     const pad = new THREE.Group(); pad.scale.setScalar(KM); pad.matrixAutoUpdate = false; world.add(pad);
     const padProps = [];                                                                 // temsilî rampa (beton, çukur, direkler): gerçek 3B karolar varken gizlenir
     if (spec.pad === 'ml') {
-      const ml = await glb('ml', 'models/rockets/ml.glb');
+      const ml = mlScene;
       // Mobile Launcher: roket ekseni modelde (−7,8; 16; 1,4) m — platform üstü yere oturur (kaideler gösterilmez)
       if (ml) { const m = ml.clone(true); m.position.set(7.77, -16, -1.41); pad.add(m); }
     }
