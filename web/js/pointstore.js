@@ -19,3 +19,12 @@ export class PointStore {
     return this.n;
   }
 }
+
+// Ay'la dönen (sinodik) çerçevenin eksenleri: x Dünya→Ay, z Ay'ın yörünge normali, y = z × x (rm, vm: Ay'ın Dünya merkezli konumu ve hızı)
+export function synodicBasis(rm, vm) {
+  const u = (a) => { const n = Math.hypot(a[0], a[1], a[2]); return [a[0] / n, a[1] / n, a[2] / n]; }, cr = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const ex = u(rm), ez = u(cr(rm, vm)); return [ex, cr(ez, ex), ez];
+}
+// Dünya merkezli noktanın sinodik koordinatları (o anki eksenlerde) ve başka bir anın eksenlerine geri taşınması
+export const toSynodic = (r, B) => [0, 1, 2].map((k) => r[0] * B[k][0] + r[1] * B[k][1] + r[2] * B[k][2]);
+export const fromSynodic = (s, B) => [0, 1, 2].map((k) => s[0] * B[0][k] + s[1] * B[1][k] + s[2] * B[2][k]);

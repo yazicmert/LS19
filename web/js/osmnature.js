@@ -62,24 +62,63 @@ void main() { vec4 wp = modelMatrix * vec4(position, 1.0); vW = wp.xyz; gl_Posit
 const WATER_FS = /* glsl */`
 #include <common>
 #include <logdepthbuf_pars_fragment>
-uniform vec3 upW, eW, sW, sunDir, skyCol, deepCol; uniform float day, time;
+uniform vec3 upW, eW, sW, sunDir, skyCol, deepCol, padW; uniform float day, time, fade;
 varying vec3 vW;
 void main() {
   #include <logdepthbuf_fragment>
   // dalga: iki yönlü küçük sinüsler (eğim), rampa çerçevesinin yatay eksenlerinde (dünya birimi km → m)
   vec2 p = vec2(dot(vW, eW), dot(vW, sW)) * 1000.0;
+  // uzakta dalga ve parıltı söner (metre ölçekli sinüsler piksel altına inince beyaz lekeler ve hareli desen üretir)
+  float dist = length(cameraPosition - vW) * 1000.0, near = 1.0 / (1.0 + pow(dist / 500.0, 2.0));
   float a = sin(p.x * 0.21 + time * 1.3) + sin(p.y * 0.17 - time * 1.1) * 0.8 + sin((p.x + p.y) * 0.41 + time * 2.1) * 0.4;
   float b = cos(p.y * 0.23 + time * 1.2) + cos(p.x * 0.19 - time * 0.9) * 0.8 + cos((p.x - p.y) * 0.37 + time * 1.7) * 0.4;
-  vec3 N = normalize(upW + (eW * a + sW * b) * 0.035);
+  vec3 N = normalize(upW + (eW * a + sW * b) * 0.035 * near);
   vec3 V = normalize(cameraPosition - vW), L = normalize(sunDir);
   float fr = 0.02 + 0.98 * pow(1.0 - max(dot(N, V), 0.0), 5.0);                // Schlick (su n ≈ 1,33)
-  vec3 R = reflect(-V, N); float spec = pow(max(dot(R, L), 0.0), 220.0) * smoothstep(-0.05, 0.1, dot(upW, L));
+  vec3 R = reflect(-V, N); float spec = pow(max(dot(R, L), 0.0), 220.0) * smoothstep(-0.05, 0.1, dot(upW, L)) * near;
   vec3 col = mix(deepCol * (0.25 + 0.75 * day), skyCol * (0.15 + 0.85 * day), fr) + vec3(1.0, 0.95, 0.85) * spec * 2.2 * day;
-  gl_FragColor = vec4(col, 0.94);
+  // saydamlık: yakında su yüzeyi, uzakta ve yüksekten uydu görüntüsünün kendi denizi (karo sınırları ve düz renk görünmez);
+  // rampadan uzaklaştıkça (yüklenen karoların kenarına doğru) ve kamera yükseldikçe (fade) söner
+  vec2 q = vec2(dot(vW - padW, eW), dot(vW - padW, sW)) * 1000.0;
+  float al = 0.9 * fade * (1.0 - smoothstep(2500.0, 6000.0, length(q))) * (1.0 - smoothstep(3000.0, 9000.0, dist));
+  gl_FragColor = vec4(col, al);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
 }`;
 
+// ağaç geometrisi (birim boy; köşe rengi + yumuşak normal). conifer: gövde + üç kademeli koni; broadleaf: gövde + yumrulu taç; bush: basık yumrulu küme.
+// Köşe sayısı düşük tutulur (örnek başına ~35–90 üçgen): on binlerce örnek tek çizimde.
+export function treeGeo(THREE, kind) {
+  const pos = [], nor = [], col = [];
+  const add = (g, shade) => {
+    const n = g.index ? g.toNonIndexed() : g, P = n.attributes.position, N = n.attributes.normal;
+    for (let i = 0; i < P.count; i++) { pos.push(P.getX(i), P.getY(i), P.getZ(i)); nor.push(N.getX(i), N.getY(i), N.getZ(i)); const c = shade(P.getX(i), P.getY(i), P.getZ(i)); col.push(c[0], c[1], c[2]); }
+    g.dispose(); if (n !== g) n.dispose();
+  };
+  const trunk = (h, r) => { const g = new THREE.CylinderGeometry(r * 0.7, r, h, 5, 1, true); g.translate(0, h / 2, 0); add(g, () => [0.5, 0.36, 0.26]); };
+  // yumru: bozulmuş ikosahedron (ayrıntı 1), normali merkezden dışa (yumuşak gölge); altı koyu, üstü açık
+  const lump = (cx, cy, cz, rx, ry, seed, det = 1) => {
+    const g = new THREE.IcosahedronGeometry(1, det), P = g.attributes.position, N = g.attributes.normal;
+    for (let i = 0; i < P.count; i++) {
+      const x = P.getX(i), y = P.getY(i), z = P.getZ(i), k = 1 + 0.16 * Math.sin(x * 5.1 + seed) * Math.cos(z * 4.3 - seed) + 0.1 * Math.sin(y * 6.7 + seed * 2);
+      N.setXYZ(i, x, y, z); P.setXYZ(i, cx + x * rx * k, cy + y * ry * k, cz + z * rx * k);
+    }
+    add(g, (x, y) => { const t = Math.min(1, Math.max(0, (y - (cy - ry)) / (2 * ry))), v = 0.55 + 0.6 * t; return [v, v, v * 0.95]; });
+  };
+  if (kind === 'conifer') {
+    trunk(0.22, 0.045);
+    for (const [y0, h, r] of [[0.14, 0.42, 0.42], [0.36, 0.36, 0.32], [0.58, 0.42, 0.21]]) {                 // üç kademe, alttan üste daralır
+      const g = new THREE.ConeGeometry(r, h, 8, 1, true); g.translate(0, y0 + h / 2, 0);
+      add(g, (x, y) => { const t = (y - y0) / h, v = 0.5 + 0.7 * t; return [v * 0.92, v, v * 0.9]; });
+    }
+  } else if (kind === 'broadleaf') {
+    trunk(0.38, 0.05);
+    lump(0, 0.66, 0, 0.42, 0.34, 1.3); lump(0.2, 0.5, 0.1, 0.26, 0.2, 4.1, 0); lump(-0.17, 0.54, -0.14, 0.27, 0.21, 7.7, 0);
+  } else { lump(0, 0.4, 0, 0.62, 0.42, 2.2, 0); lump(0.36, 0.3, 0.2, 0.4, 0.3, 5.4, 0); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return g;
+}
 export class OsmNature {
   // THREE · parent: rampa grubu (ölçek KM, birim m) · site
   constructor(THREE, parent, site) { this.T = THREE; this.parent = parent; this.site = site; this.group = new THREE.Group(); parent.add(this.group); this.polys = []; this.plants = []; this.t = 0; }
@@ -91,17 +130,16 @@ export class OsmNature {
     const drop = (x, z) => -(x * x + z * z) / (2 * R_E), gy = (x, z) => (ground && ground.heightAt ? ground.groundAt(x, z) : 0.25) + drop(x, z);
     const D2R = Math.PI / 180, ll = (x, z) => [this.site.lat - z / R_E / D2R, this.site.lon + x / (R_E * Math.cos(this.site.lat * D2R)) / D2R];
     // bitkiler: üç örneklenmiş ağ (koni ağaç, yuvarlak ağaç, çalı); boy ve renk örnek başına
-    const cone = new THREE.ConeGeometry(0.42, 1, 6, 1); cone.translate(0, 0.5, 0);
-    const ball = new THREE.IcosahedronGeometry(0.5, 0); ball.scale(1, 0.85, 1); ball.translate(0, 0.62, 0);
-    const bush = new THREE.IcosahedronGeometry(0.5, 0); bush.scale(1.3, 0.75, 1.3); bush.translate(0, 0.35, 0);
-    const mat = () => new THREE.MeshLambertMaterial({ emissive: 0x16200f });
+    // birim boyda (yükseklik 1, taban y = 0) ağaç biçimleri: gövde + taç; köşe rengi taç içi gölgeyi taşır (altı ve içi koyu, ucu açık), örnek rengiyle çarpılır
+    const cone = treeGeo(THREE, 'conifer'), ball = treeGeo(THREE, 'broadleaf'), bush = treeGeo(THREE, 'bush');
+    const mat = () => new THREE.MeshLambertMaterial({ emissive: 0x121a0c, vertexColors: true });
     const sets = { cone: [], ball: [], bush: [] };
     let nT = 0, nB = 0;
     for (const q of this.plants) {
       const tree = q.kind === 'wood';
       if (tree ? nT++ >= MAX_TREES : nB++ >= MAX_BUSHES) continue;
       const h = tree ? 6 + 10 * q.s : q.kind === 'scrub' ? 1 + 2 * q.s : 0.6 + 0.9 * q.s;
-      sets[tree ? (q.cone ? 'cone' : 'ball') : 'bush'].push({ ...q, h, w: tree ? h * (q.cone ? 0.42 : 0.6) : h * 1.4 });
+      sets[tree ? (q.cone ? 'cone' : 'ball') : 'bush'].push({ ...q, h, w: tree ? h * (q.cone ? 0.75 : 1.0) : h * 1.5 });
     }
     const m4 = new THREE.Matrix4(), c = new THREE.Color(), quat = new THREE.Quaternion(), sc = new THREE.Vector3(), ps = new THREE.Vector3();
     for (const [k, geo] of [['cone', cone], ['ball', ball], ['bush', bush]]) {
@@ -129,7 +167,7 @@ export class OsmNature {
     if (pos.length) {
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
       this.water = new THREE.Mesh(g, new THREE.ShaderMaterial({ vertexShader: WATER_VS, fragmentShader: WATER_FS, transparent: true, depthWrite: false, side: THREE.DoubleSide,
-        uniforms: { upW: { value: new THREE.Vector3(0, 1, 0) }, eW: { value: new THREE.Vector3(1, 0, 0) }, sW: { value: new THREE.Vector3(0, 0, 1) }, sunDir: { value: new THREE.Vector3(0, 1, 0) },
+        uniforms: { upW: { value: new THREE.Vector3(0, 1, 0) }, eW: { value: new THREE.Vector3(1, 0, 0) }, sW: { value: new THREE.Vector3(0, 0, 1) }, sunDir: { value: new THREE.Vector3(0, 1, 0) }, padW: { value: new THREE.Vector3() }, fade: { value: 1 },
           skyCol: { value: new THREE.Color(0.55, 0.68, 0.84) }, deepCol: { value: new THREE.Color(0.04, 0.11, 0.13) }, day: { value: 1 }, time: { value: 0 } } }));
       this.water.renderOrder = 1; this.water.frustumCulled = false; this.group.add(this.water);
     }
@@ -141,7 +179,9 @@ export class OsmNature {
     if (!this.water || !pad) return;
     const U = this.water.material.uniforms, e = pad.matrixWorld.elements;
     U.eW.value.set(e[0], e[1], e[2]).normalize(); U.upW.value.set(e[4], e[5], e[6]).normalize(); U.sW.value.set(e[8], e[9], e[10]).normalize();
+    U.padW.value.set(e[12], e[13], e[14]);
     if (sunDir) U.sunDir.value.set(sunDir[0], sunDir[1], sunDir[2]); U.day.value = day; U.time.value = this.t;
+    U.fade.value = 1 - Math.min(1, Math.max(0, (camH - 1.2) / 3.8)); this.water.visible = U.fade.value > 0.01;   // 1,2 → 5 km arasında söner: yüksekten yalnız uydu görüntüsü
   }
   clear() { for (const ch of [...this.group.children]) { this.group.remove(ch); ch.geometry.dispose(); ch.material.dispose(); } this.water = null; }
   dispose() { this.clear(); if (this.group.parent) this.group.parent.remove(this.group); }

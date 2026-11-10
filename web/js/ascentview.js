@@ -14,7 +14,7 @@ import { CloudLayers, hazeLength, sunDim as cloudSunDim } from './clouds.js';
 import { PadGround, R_M } from './padground.js';
 import { Google3D, g3dSettings, g3dUsable } from './google3d.js';
 import { shake as camShake, SITES, siteEye } from './launchcam.js';
-import { setPlume } from './fx.js';
+import { setPlume, makeGlow } from './fx.js';
 import { add, sub, scale, dot, cross, norm, unit } from './vec3.js';
 
 const KM = 0.001;                        // m -> km
@@ -249,9 +249,16 @@ export class AscentView {
       const lo = d.part ? -1e4 : d.lo, hi = d.part ? 1e4 : d.hi;
       const b0 = e.inner.localToWorld(new THREE.Vector3(0, lo, 0)), b1 = e.inner.localToWorld(new THREE.Vector3(0, hi, 0)), n = b1.clone().sub(b0).normalize();
       e.planes[0].setFromNormalAndCoplanarPoint(n, b0); e.planes[1].setFromNormalAndCoplanarPoint(n.clone().negate(), b1);
+      // tele kameralarda (yer izleme, takip uçağı) ayrılan parça gövdesi birkaç pikselin altına inince Güneş'te parlayan nokta olarak izlenir (gerçek izleme
+      // görüntülerindeki gibi): yer kamerasında kademe "kaybolup" uçak kamerasında yeniden belirmez, iki çekimde de aynı parça görünür
+      if (!e.glint) { e.glint = makeGlow(new THREE.Color(1.5, 1.45, 1.35), 1); e.glint.renderOrder = 4; A.world.add(e.glint); }
+      const dKm = e.root.position.length(), Hpx = this.canvas.clientHeight || 800, pxKm = dKm * 2 * Math.tan((this.camera.fov * Math.PI / 180) / 2) / Hpx;
+      const bodyPx = (d.part ? 12 : Math.max(8, d.hi - d.lo)) / 1000 / Math.max(1e-12, pxKm), kG = tele ? Math.min(1, Math.max(0, (7 - bodyPx) / 4)) : 0;
+      e.glint.visible = kG > 0.01 && (o.sunUp ?? 1) > -0.12;
+      if (e.glint.visible) { e.glint.position.copy(e.root.position); const sG = pxKm * (d.part ? 5 : 7); e.glint.scale.set(sG, sG, 1); e.glint.material.opacity = kG; }
       seen.add(d.id);
     }
-    for (const [id, e] of A.debris) if (!seen.has(id)) { A.world.remove(e.root); A.debris.delete(id); }
+    for (const [id, e] of A.debris) if (!seen.has(id)) { A.world.remove(e.root); if (e.glint) { A.world.remove(e.glint); e.glint.material.dispose(); } A.debris.delete(id); }
   }
 
   // LAUNCH (kalkış canlandırması): her çekim gerçek bir yayın kamerasıdır (launchcam.js kurgu ve görünürlük):

@@ -222,5 +222,19 @@ check('Apollo iki kademe: dokuz bölüm, anma süre 110–150 s, açılış INS\
   for (const f of ['EffectComposer', 'RenderPass', 'ShaderPass', 'UnrealBloomPass', 'OutputPass', 'MaskPass', 'Pass']) if (!fs.existsSync(new URL(`../lib/addons/postprocessing/${f}.js`, import.meta.url))) { check(`lib/addons/postprocessing/${f}.js var`, false); }
   check('lib/addons: son işlem eklentileri (three r170, MIT) ve gölgelendiriciler yerel', ['CopyShader', 'LuminosityHighPassShader', 'OutputShader'].every((f) => fs.existsSync(new URL(`../lib/addons/shaders/${f}.js`, import.meta.url))));
 }
+// ---------------------------------------------------------------- Dünya–Ay görünümü: iz Ay'la dönen çerçevede (pointstore.js synodicBasis)
+{
+  const PS = await import('../js/pointstore.js'), E2 = await import('../js/engine.js');
+  const t1 = ALL.tStart + 5 * 86400, B1 = PS.synodicBasis(E2.moonPos(t1), E2.moonVel(t1)); let worst = 0, rt = 0, orth = 0;
+  for (let k = 0; k <= 12; k++) {
+    const tp = t1 - k * 21600, rm = E2.moonPos(tp), B = PS.synodicBasis(rm, E2.moonVel(tp)), p = PS.fromSynodic(PS.toSynodic(rm, B), B1), n = Math.hypot(...p);
+    worst = Math.max(worst, Math.acos(Math.min(1, (p[0] * B1[0][0] + p[1] * B1[0][1] + p[2] * B1[0][2]) / n)));
+    const q = [1234, -567, 89], back = PS.fromSynodic(PS.toSynodic(q, B), B); rt = Math.max(rt, Math.hypot(...back.map((v, i) => v - q[i])));
+    orth = Math.max(orth, Math.abs(B[0][0] * B[1][0] + B[0][1] * B[1][1] + B[0][2] * B[1][2]), Math.abs(Math.hypot(...B[2]) - 1));
+  }
+  const cin = fs.readFileSync(new URL('../js/cinema.js', import.meta.url), 'utf8'), rig = fs.readFileSync(new URL('../js/camerarig.js', import.meta.url), 'utf8');
+  check("Dünya–Ay görünümü: Ay'ın geçmiş konumları dönen çerçevede şimdiki Dünya→Ay eksenine düşer (iz Ay'da biter), eksenler dik, gidiş-dönüş birebir; fragmanın yolculuk çekimi bu çerçevede",
+    worst < 1e-6 && rt < 1e-9 && orth < 1e-12 && /syn: true/.test(cin) && /c\.mode === 'SYSTEM' \? unit\(rm\)/.test(rig) && /cine\.syn/.test(sceneSrc()), `eksen sapması ${worst.toExponential(1)} rad`);
+}
 console.log(fail ? `\n${fail} HATA` : '\nTAMAM');
 process.exit(fail ? 1 : 0);

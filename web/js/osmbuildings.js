@@ -107,7 +107,7 @@ export class OsmBuildings {
     } catch (e) { this.status = 'error'; this.msg = String(e.message || e); }
   }
   build() {
-    const THREE = this.T, pos = [], col = [], c = new THREE.Color();
+    const THREE = this.T, pos = [], col = [], fac = [], c = new THREE.Color();
     const drop = (x, z) => -(x * x + z * z) / (2 * R_E);                         // Dünya eğriliği (12 km'de ~11 m)
     for (const p of this.polys) {
       if (this.exclude.some((r) => inRect(p.c[0], p.c[1], r))) continue;                  // yerine resmî 3B modeli konan yapı (kscmodels.js: VAB)
@@ -115,7 +115,7 @@ export class OsmBuildings {
       else { try { c.set(p.color || '#d8d6d0'); } catch (e) { c.set('#d8d6d0'); } }
       const tone = 0.85 + 0.15 * ((p.h * 7.3) % 1), cr = c.r * tone, cg = c.g * tone, cb = c.b * tone;
       const y0 = this.groundAt ? this.groundAt(p.c[0], p.c[1]) - 0.25 : 0;                  // zeminin kabartması (rampa düzeyine göre; düz zeminde 0)
-      const put = (x, y, z, k = 1) => { pos.push(x, y + y0 + drop(x, z), z); col.push(cr * k, cg * k, cb * k); };
+      const put = (x, y, z, k = 1, fu = 0, fv = 0, fw = 0) => { pos.push(x, y + y0 + drop(x, z), z); col.push(cr * k, cg * k, cb * k); fac.push(fu, fv, fw); };
       if (isSlender(p)) {                                                                    // kafes kule: her kiriş ince kare kesitli çubuk
         const w = Math.max(0.35, Math.min(1.2, (p.h - p.minH) / 300));
         for (const [a, b] of latticeBeams(p)) {
@@ -134,7 +134,10 @@ export class OsmBuildings {
       }
       for (const ring of [p.outer, ...p.holes]) for (let i = 0; i < ring.length; i++) {        // duvarlar
         const [x0, z0] = ring[i], [x1, z1] = ring[(i + 1) % ring.length];
-        put(x0, p.minH, z0, 0.8); put(x1, p.minH, z1, 0.8); put(x1, p.h, z1); put(x0, p.minH, z0, 0.8); put(x1, p.h, z1); put(x0, p.h, z0);
+        // cephe koordinatı (fac: duvar boyunca m, yerden m, pencere bayrağı): pencere sıraları ve zemin gölgesi gölgelendiricide; pencere yalnız 6–70 m arası
+        // yapılarda ve 6 m'den uzun duvarlarda (tank, baraka, kule ayağı düz kalır); bayrak 2: yalnız zemin gölgesi
+        const L = Math.hypot(x1 - x0, z1 - z0), H = p.h - p.minH, w = H >= 6 && H <= 70 && L >= 6 && p.minH === 0 ? 1 : 2, u1 = Math.max(1, Math.round(L / 3.2)) * 3.2, v1 = w === 1 ? Math.max(1, Math.round(H / 3.4)) * 3.4 : H;
+        put(x0, p.minH, z0, 0.92, 0, 0, w); put(x1, p.minH, z1, 0.92, u1, 0, w); put(x1, p.h, z1, 1, u1, v1, w); put(x0, p.minH, z0, 0.92, 0, 0, w); put(x1, p.h, z1, 1, u1, v1, w); put(x0, p.h, z0, 1, 0, v1, w);
       }
       const o2 = p.outer.map(([x, z]) => new THREE.Vector2(x, z)), h2 = p.holes.map((h) => h.map(([x, z]) => new THREE.Vector2(x, z)));
       const all = [...o2, ...h2.flat()];
@@ -144,8 +147,24 @@ export class OsmBuildings {
     if (!pos.length) return;
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.setAttribute('fac', new THREE.Float32BufferAttribute(fac, 3));
     g.computeVertexNormals();
-    this.mesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, emissive: 0x3a3a3a }));   // öz ışıma: Güneş görmeyen yüzler simsiyah olmasın (gökyüzü ışığı yerine)
+    const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, emissive: 0x3a3a3a });
+    // cephe ayrıntısı: kat/aks ızgarasında koyu cam pencereler (uzakta, ızgara piksel altına inince söner: hare yok) ve duvar dibinde zemin gölgesi
+    mat.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec3 fac; varying vec3 vFac;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvFac = fac;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vFac;').replace('#include <color_fragment>', `#include <color_fragment>
+        if (vFac.z > 0.5) {
+          diffuseColor.rgb *= mix(0.7, 1.0, smoothstep(0.0, 2.2, vFac.y));
+          if (vFac.z < 1.5) {
+            vec2 gq = vec2(vFac.x / 3.2, vFac.y / 3.4), gf = fract(gq);
+            float aa = clamp(1.0 - 2.5 * max(fwidth(gq.x), fwidth(gq.y)), 0.0, 1.0);
+            float win = smoothstep(0.2, 0.26, gf.x) * smoothstep(0.8, 0.74, gf.x) * smoothstep(0.34, 0.4, gf.y) * smoothstep(0.82, 0.76, gf.y);
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.13, 0.18, 0.25), win * 0.7 * aa);
+          }
+        }`);
+    };
+    this.mesh = new THREE.Mesh(g, mat);   // öz ışıma: Güneş görmeyen yüzler simsiyah olmasın (gökyüzü ışığı yerine)
     this.mesh.frustumCulled = false; this.group.add(this.mesh);
   }
   // çatı renkleri uydu görüntüsünden: sampler(lat, lon) → [r, g, b] (sRGB 0..1) | null; groundAt(e, s): zeminin yüksekliği (binalar kabartmaya oturur); geometri yeniden kurulur. Çok koyu/çok açık örnekler

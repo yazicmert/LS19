@@ -21,7 +21,7 @@ import { mixin } from './mixin.js';
 export { conicEach, conicPoints };
 import { PLANETS, poleVec, PLANET_VIS, planetMaterial, atmosphereMesh, ringMaterial } from './planets.js';
 import { makeSpaceEnv, ENV_HALF_DEG, makePlume, plumeGeometry, setPlume, plumeTick, makeGlow, Particles } from './fx.js';
-import { PointStore } from './pointstore.js';
+import { PointStore, synodicBasis } from './pointstore.js';
 import { mergeByMaterial } from './meshmerge.js';
 import { loadTextures, lowMemory } from './texload.js';
 import { TEX, UPGRADE } from './texplan.js';
@@ -38,6 +38,8 @@ const PBR = {
   stage: { 'blinn1SG': [0.0, 0.42], 'blinn2SG': [0.05, 0.6], 'blinn5SG': [0.25, 0.5] } };
 
 // ------------------------------------------------------------------ dünya
+// ayrılan kademelerin ekrandaki en büyük dönme hızı (rad/s gerçek zaman): 0,2 rad/s ≈ 11°/s (bir tur ~31 s); ×1 ve düşük hızlarda fizikteki dönme bunun çok altındadır
+const DEBRIS_SPIN_MAX = 0.2;
 export class World {
   constructor(canvas, labelsEl) {
     this.canvas = canvas; this.labelsEl = labelsEl;
@@ -56,7 +58,7 @@ export class World {
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(50, 1, 1e-5, 1e11);
     this.cam = { mode: 'VEHICLE', az: -2.3, el: 0.22, dist: 0.055, auto: true, key: '' };
-    this.trail = { E: new PointStore(), M: new PointStore() };          // Dünya ve Ay merkezli iz (düz Float64 depolar)
+    this.trail = { E: new PointStore(), M: new PointStore(), S: new PointStore() };          // Dünya ve Ay merkezli iz (düz Float64 depolar); S: Dünya merkezli izin Ay'la dönen çerçevedeki koordinatları
     this.labels = {};
     this.attQ = null;                // görüntülenen araç yönelimi (THREE.Quaternion): fizik motorundan gelir (durum x.q)
     this.nStages = 2;                // görev tasarımındaki kademe sayısı (2: TLI kademesi + iniş aracı; 3: + Ay yörünge kademesi)
@@ -402,12 +404,13 @@ export class World {
     }
   }
 
-  resetTrail() { this.trail = { E: new PointStore(), M: new PointStore() }; }
+  resetTrail() { this.trail = { E: new PointStore(), M: new PointStore(), S: new PointStore() }; }
   addTrail(points, reset) {
     if (reset) this.resetTrail();
     for (const q of points) {
       const rm = E.moonPos(q.t), rs = sub(q.r, rm);
-      if (norm(rs) < E.MOON_ZONE) this.trail.M.push(rs); else this.trail.E.push(q.r);
+      if (norm(rs) < E.MOON_ZONE) this.trail.M.push(rs);
+      else { this.trail.E.push(q.r); const B = synodicBasis(rm, E.moonVel(q.t)); this.trail.S.push([dot(q.r, B[0]), dot(q.r, B[1]), dot(q.r, B[2])]); }   // o anki Dünya→Ay eksenlerinde
     }
   }
 
@@ -490,7 +493,20 @@ export class World {
       let m = this.debrisMeshes.get(d.id);
       if (!m) { m = (d.kind === 'orb' ? this.orbModel : this.stageModel).clone(true); this.scene.add(m); this.debrisMeshes.set(d.id, m); }
       m.visible = true; rel(d.r, m.position);
-      if (d.q) m.quaternion.set(d.q[0], d.q[1], d.q[2], d.q[3]); else m.quaternion.copy(this.attQ);
+      // yönelim: fizikteki kuaterniyon. Yüksek zaman hızında denetimsiz kademenin yavaş taklası (0,36°/s) saniyede onlarca tur gibi görünür (×1000'de 360°/s) ve hata
+      // izlenimi verir: ekrandaki dönme hızı DEBRIS_SPIN_MAX ile sınırlanır (kare başına gerçek dönme, sınırı aşarsa aynı eksende sınır kadar uygulanır).
+      if (d.q) {
+        const qn = this._dq1 || (this._dq1 = new THREE.Quaternion()), u = m.userData; qn.set(d.q[0], d.q[1], d.q[2], d.q[3]);
+        if (!u.qTrue) { u.qTrue = qn.clone(); m.quaternion.copy(qn); }
+        else {
+          const dq = (this._dq2 || (this._dq2 = new THREE.Quaternion())).copy(u.qTrue).invert().premultiply(qn);          // dq = qn · qTrue⁻¹ (eylemsiz çerçevede kare dönmesi)
+          if (dq.w < 0) dq.set(-dq.x, -dq.y, -dq.z, -dq.w);
+          const ang = 2 * Math.acos(Math.min(1, dq.w)), lim = DEBRIS_SPIN_MAX * Math.max(1e-3, extra.dtReal || 0.016);
+          if (ang <= lim) m.quaternion.copy(qn);                                                                           // yavaş: fizikle birebir
+          else { const sn = Math.sqrt(Math.max(1e-12, 1 - dq.w * dq.w)), ax = (this._dqA || (this._dqA = new THREE.Vector3())).set(dq.x / sn, dq.y / sn, dq.z / sn); dq.setFromAxisAngle(ax, lim); m.quaternion.premultiply(dq).normalize(); }
+          u.qTrue.copy(qn);
+        }
+      } else m.quaternion.copy(this.attQ);
       // ayrıldığı yığın konumundan (araç referans noktasının −z'sinde: TLI kademesi üstü 0,15 m, üç kademeli araçta Ay yörünge kademesinin altında) kopar: ayrılırken sıçrama olmaz
       const off = d.kind === 'orb' ? 0.15 : 0.15 + (this.nStages > 2 ? this.place.orb.len : 0);
       m.position.add(new THREE.Vector3(0, 0, -off * KM).applyQuaternion(m.quaternion));
@@ -644,7 +660,7 @@ export class World {
     this.oscEl = { ...el, central };
     // iz: Dünya merkezli ve Ay merkezli ayrı (Ay yörüngesi Ay'la birlikte taşınır); noktalar fizik worker'ından gelir
     const T = this.trail;
-    if (T.E.n > 39000) T.E.dropFirst(1000); if (T.M.n > 39000) T.M.dropFirst(1000);
+    if (T.E.n > 39000) { T.E.dropFirst(1000); T.S.dropFirst(1000); } if (T.M.n > 39000) T.M.dropFirst(1000);
     const nearGround = !!this.asc || (extra.local && extra.local.p[2] < 20);             // kalkışta görev izi (yörüngeye girişten sonrası) çizilmez: yatay hareket izlenimi vermesin
     const trailsOn = !nearGround && (!this.cine.on || !!this.cine.lines);                 // görünmeyecek iz tamponları doldurulmaz/yüklenmez
     this.trailLineM.visible = !nearGround; this.trailLineE.visible = !nearGround;
@@ -654,7 +670,16 @@ export class World {
       if (n && own) { a[n * 3] = x.r[0] - eye[0]; a[n * 3 + 1] = x.r[1] - eye[1]; a[n * 3 + 2] = x.r[2] - eye[2]; m = n + 1; }       // iz ucu aracın anlık konumuna bağlanır
       line.geometry.setDrawRange(0, m); this.upload(attr, m);
     };
-    if (trailsOn) { fill(this.trailLineE, T.E, [0, 0, 0], central === 'E'); fill(this.trailLineM, T.M, rm, central === 'M'); }
+    // Dünya–Ay görünümü (SYSTEM kamera): Dünya merkezli iz Ay'la birlikte dönen çerçevede çizilir — her nokta kendi anındaki Dünya→Ay eksenlerinde saklanır (T.S),
+    // şimdiki eksenlere taşınır. Dünya–Ay doğrusu sabit kalır; gidiş yolu eylemsiz çerçevedeki yay yerine S biçiminde Ay'a varır (serbest dönüş "sekiz"inin gidiş yarısı).
+    const syn = (this.cam.mode === 'SYSTEM' || (this.cine.on && !!this.cine.syn)) && T.S.n === T.E.n;
+    if (trailsOn && syn) {
+      const B = synodicBasis(rm, E.moonVel(t)), attr = this.trailLineE.geometry.attributes.position, a = attr.array, sa = T.S.a, n = T.S.n;
+      for (let i = 0; i < n * 3; i += 3) { const u = sa[i], v = sa[i + 1], w = sa[i + 2]; a[i] = u * B[0][0] + v * B[1][0] + w * B[2][0] - eye[0]; a[i + 1] = u * B[0][1] + v * B[1][1] + w * B[2][1] - eye[1]; a[i + 2] = u * B[0][2] + v * B[1][2] + w * B[2][2] - eye[2]; }
+      let m = n; if (n && central === 'E') { a[n * 3] = x.r[0] - eye[0]; a[n * 3 + 1] = x.r[1] - eye[1]; a[n * 3 + 2] = x.r[2] - eye[2]; m = n + 1; }
+      this.trailLineE.geometry.setDrawRange(0, m); this.upload(attr, m); fill(this.trailLineM, T.M, rm, central === 'M');
+      this.osc.visible = false;                                                           // anlık yörünge elipsi eylemsiz çerçevededir: dönen çerçevedeki izle çelişir
+    } else if (trailsOn) { fill(this.trailLineE, T.E, [0, 0, 0], central === 'E'); fill(this.trailLineM, T.M, rm, central === 'M'); }
     // Ay'ın yolu (±4 gün)
     const mpVisible = !['EMB', 'SYSTEM', 'SOLAR'].includes(this.cam.mode) && (norm(eye) > 60000 || (norm(sub(rm, eye)) > 30000 && central === 'E'));
     this.drawMoonPath(t, eye, mpVisible);
