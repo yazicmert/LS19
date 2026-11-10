@@ -222,6 +222,8 @@ check('Apollo iki kademe: dokuz bölüm, anma süre 110–150 s, açılış INS\
   for (const f of ['EffectComposer', 'RenderPass', 'ShaderPass', 'UnrealBloomPass', 'OutputPass', 'MaskPass', 'Pass']) if (!fs.existsSync(new URL(`../lib/addons/postprocessing/${f}.js`, import.meta.url))) { check(`lib/addons/postprocessing/${f}.js var`, false); }
   check('lib/addons: son işlem eklentileri (three r170, MIT) ve gölgelendiriciler yerel', ['CopyShader', 'LuminosityHighPassShader', 'OutputShader'].every((f) => fs.existsSync(new URL(`../lib/addons/shaders/${f}.js`, import.meta.url))));
 }
+{ const cin = fs.readFileSync(new URL('../js/cinema.js', import.meta.url), 'utf8');
+  check('kalkıştan sonraki açılış çekiminde karartma kalkar (post-asc → fade 0): "YÖRÜNGEDE" çekimi siyah kalmaz', /this\.state === 'wait' \|\| this\.state === 'post-asc'\) ui\.fade\(0, 900\)/.test(cin)); }
 // ---------------------------------------------------------------- Dünya–Ay görünümü: iz Ay'la dönen çerçevede (pointstore.js synodicBasis)
 {
   const PS = await import('../js/pointstore.js'), E2 = await import('../js/engine.js');

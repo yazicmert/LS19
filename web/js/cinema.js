@@ -389,7 +389,8 @@ export class Cinema {
     if (!s.wf && tStart0(s, P) - x.t > 4) { this.catchUp = { i, tStart: tStart0(s, P), t0: this.wall }; this.state = 'catch'; this.ui.fade(1, 260); return; }
     this.beginShot(i);
     const ui = this.ui;
-    if (s.dip) ui.fade(0, 520); else if (this.state === 'wait') ui.fade(0, 900);
+    // kalkıştan sonra (post-asc) ekran karartılmıştır: açılış çekimi kararma istemese de (dip: false) karartma kalkmalı — yoksa "YÖRÜNGEDE" çekimi boyunca ekran siyah kalır
+    if (s.dip) ui.fade(0, 520); else if (this.state === 'wait' || this.state === 'post-asc') ui.fade(0, 900);
     this.state = 'run'; this.warpCmd = Math.max(1, Math.min(this.warpCmd, 2));
   }
   startShotNoCatch(i) { this.beginShot(i); const s = this.shots[i]; if (s.dip || true) this.ui.fade(0, 520); this.state = 'run'; }
