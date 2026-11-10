@@ -124,7 +124,7 @@ export class AscentPlayer {
     // kalkıştaki alev: birinci kademenin yakıtı (Saturn V S-IC, Falcon: gazyağı; SLS, Vulcan: katı iticiler baskın)
     // rampa: SLS'te NASA Mobile Launcher, diğerlerinde beton platform; çevresi Sentinel-2 görüntüsü
     await this.world.setAscent({ lv: A.lv, prop: { saturnv: 'kerolox', f9: 'kerolox', fh: 'kerolox', generic: 'kerolox', sls: 'solid', vulcan: 'solid' }[A.lv] || 'kerolox', pad: A.lv === 'sls' ? 'ml' : 'concrete', padKey: padKey(L.site || rk.pad), site });
-    this.debris = []; this.done = new Set(); this.prevCut = 0; this.hiddenNow = [];
+    this.debris = []; this.debId = 0; this.done = new Set(); this.prevCut = 0; this.hiddenNow = [];
     this.active = true; this.lastEv = null; this.qShown = false; this.buildTele();      // model yüklendikten sonra oynamaya başla
     if (!this.quiet) {
       this.bar.hidden = false; this.syncBar();
@@ -168,12 +168,16 @@ export class AscentPlayer {
       if (!this.done.has(e)) {                                                       // yeni ayrılma: parça kendi balistik yoluna
         this.done.add(e);
         const back = s.dir.map((c) => -0.004 * c);
-        this.debris.push({ id: this.debris.length + 1, lo: this.prevCut, hi: e.cut ?? 0, part: e.part || null, hidden: [...hidden].filter((p) => p !== e.part),
-          r: s.r.slice(), v: s.v.map((c, k) => c + back[k]), q0: q, age: 0, spin: 0.15 + 0.1 * Math.random() });
+        // kimlik tekil ve artan: listedeki sıradan (length + 1) türetilseydi yere düşüp silinen bir parçanın kimliği sonraki ayrılmaya geçer, sahne o kimliğin
+        // eski modelini (ör. birinci kademe) yeni parçanın yerinde gökyüzünde yeniden gösterirdi
+        this.debris.push({ id: ++this.debId, lo: this.prevCut, hi: e.cut ?? 0, part: e.part || null, hidden: [...hidden].filter((p) => p !== e.part),
+          r: s.r.slice(), v: s.v.map((c, k) => c / k0 + back[k]), q0: q, age: 0, spin: 0.15 + 0.1 * Math.random() });
         if (e.cut != null) this.prevCut = e.cut;
       }
     }
-    for (const d of this.debris) { this.propagate(d, dts); d.age += dts; }
+    // parçalar gerçek zamanda uçar: yolun hızı canlandırma saniyesi başınadır (s.v), çekim gerçek saniyede; canlandırma gerçek uçuştan kısa/uzunsa (k0 ≠ 1)
+    // aynı zaman ölçeğinde birleştirilmezse kademe fazla yükselip aracın üstüne çıkar ve bir süre sonra gökyüzünde yeniden belirirdi
+    for (const d of this.debris) { this.propagate(d, dts * k0); d.age += dts * k0; }
     this.debris = this.debris.filter((d) => !d.gone && d.age < 900);
     const up = s.up, h = s.h;
     // rampa çerçevesi (Dünya ile döner) ve Güneş'in araca göre yüksekliği
