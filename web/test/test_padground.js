@@ -5,6 +5,7 @@ import * as P from '../js/padground.js';
 import * as PM from '../js/padmodels.js';
 import * as OB from '../js/osmbuildings.js';
 import * as ON from '../js/osmnature.js';
+import * as KS from '../js/kscmodels.js';
 import { decodeTile } from '../js/mvt.js';
 import fs from 'node:fs';
 import { register } from 'node:module';
@@ -140,6 +141,25 @@ check('180. meridyeni aşan ızgarada Mercator kayması sürekli', maxJump < 2 *
   check('doğa three.js ile kurulur: örneklenmiş ağaç/çalı ağları (renk uydu görüntüsünden), su yüzeyi (gölgelendirici)', ims.length >= 2 && inst === Math.min(NA.plants.length, inst) && inst > 200 && !!NA.water && NA.water.geometry.attributes.position.count > 100,
     `${ims.length} ağ, ${inst} örnek, su ${NA.water ? NA.water.geometry.attributes.position.count / 3 : 0} üçgen`);
   NA.dispose();
+}
+// NASA modelleri (kscmodels.js): VAB gerçek yerinde ve OSM'deki aynı binayı gizler; Crawler, OSM Crawlerway şeritlerinin ortasında
+{
+  const site = { lat: 28.62711, lon: -80.62102 }, tile = { x: 4522, y: 6831, z: 14 };
+  const L = decodeTile(new Uint8Array(fs.readFileSync(new URL('./fixtures/osm_14_4522_6831.pbf', import.meta.url))));
+  const v = KS.vabPlacement(site), d = Math.hypot(v.x, v.z), az = Math.atan2(v.x, -v.z) * 180 / Math.PI;
+  check('VAB LC-39B\'nin ~5,4 km güneybatısında; 12 km dışındaki rampalarda yok; gizleme dikdörtgeni yalnız kendi çevresini kapsar',
+    d > 5200 && d < 5600 && az < -140 && az > -160 && KS.vabPlacement({ lat: 34.632, lon: -120.611 }) === null && KS.inRect(v.x, v.z, v.rect) && KS.inRect(v.x + 80 * v.rect.u[0], v.z + 80 * v.rect.u[1], v.rect) && !KS.inRect(v.x + 100 * v.rect.u[0], v.z + 100 * v.rect.u[1], v.rect) && !KS.inRect(0, 0, v.rect),
+    `${d.toFixed(0)} m, kerteriz ${az.toFixed(0)}°`);
+  const lines = KS.namedLines(L.transportation_name, tile, site), park = KS.crawlerPark(lines, 900);
+  check('Crawlerway (iki paletli şerit) karodan okunur; Crawler rampadan 900 m\'de iki şeridin ortasında, yol yönünde (kuzey–güney)',
+    lines.length === 2 && park && Math.abs(Math.hypot(park.x, park.z) - 900) < 30 && park.x > 0 && park.x < 28 && Math.abs(Math.abs(park.rotY) - Math.PI / 2) < 0.05 && KS.crawlerPark([], 900) === null,
+    park ? `(${park.x.toFixed(0)}, ${park.z.toFixed(0)}) m, yön ${(park.rotY * 180 / Math.PI).toFixed(0)}°` : 'yok');
+  const O = new OB.OsmBuildings(THREE, new THREE.Group(), site, { fetchFn: () => Promise.reject(new Error('ağ yok')) });
+  O.polys = OB.polygonsFromLayer(L.building, tile, site); O.build(); const n0 = O.mesh.geometry.attributes.position.count;
+  const t = O.polys.find((p) => p.h === 147); O.exclude.push({ c: t.c, u: [1, 0], v: [0, 1], hu: 1, hv: 1 }); O.recolor(() => null);
+  check('gizleme dikdörtgenindeki OSM binası çizilmez (yerine resmî model)', O.mesh.geometry.attributes.position.count < n0, `${n0} → ${O.mesh.geometry.attributes.position.count} köşe`);
+  const glbOk = ['vab', 'crawler'].every((k) => { const b = fs.readFileSync(new URL(`../models/ksc/${k}.glb`, import.meta.url)); return b.toString('ascii', 0, 4) === 'glTF' && b.length < 400e3; });
+  check('NASA modelleri (models/ksc/vab.glb, crawler.glb) GLB ve küçük (< 400 kB)', glbOk);
 }
 console.log(fail ? `\n${fail} HATA` : '\nTüm denetimler geçti');
 process.exit(fail ? 1 : 0);

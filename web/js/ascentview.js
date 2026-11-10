@@ -9,6 +9,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildPad } from './padmodels.js';
 import { OsmBuildings } from './osmbuildings.js';
 import { OsmNature } from './osmnature.js';
+import { VAB, CRAWLER, vabPlacement, namedLines, crawlerPark } from './kscmodels.js';
 import { CloudLayers, hazeLength, sunDim as cloudSunDim } from './clouds.js';
 import { PadGround, R_M } from './padground.js';
 import { Google3D, g3dSettings, g3dUsable } from './google3d.js';
@@ -85,7 +86,20 @@ export class AscentView {
       // açık veri 3B binalar (anahtarsız; herkese açık sitenin varsayılanı): OSM binaları OpenFreeMap karolarından; rampa çevresinde yeterince yapı varsa
       // prosedürel kuleler gizlenir (gerçek yapılar OSM'de), yoksa kalır. Google 3B karolar açıkken bu katman da gizlenir.
       const A = this.asc;
-      A.osm = new OsmBuildings(THREE, pad, spec.site, { onReady: (O) => { if (this.asc === A) { A.osmPad = O.nearPad() >= 3; A.creditT = 0; } } });
+      // NASA 3D Resources modelleri (kscmodels.js): VAB gerçek yerinde (OSM'deki aynı bina gizlenir); SLS'in rampası LC-39B'de Crawler, Crawlerway üzerinde park hâlinde
+      A.ksc = [];
+      const put = (key, file, x, z, rotY) => glb(key, file).then((m) => {
+        if (this.asc !== A || !m) return;
+        const o = m.clone(true); o.position.set(x, -(x * x + z * z) / (2 * R_M), z); o.rotation.y = rotY; o.userData.xz = [x, z]; pad.add(o); A.ksc.push(o); A.kscDem = false;
+      });
+      const vab = vabPlacement(spec.site);
+      A.osm = new OsmBuildings(THREE, pad, spec.site, { onReady: (O) => {
+        if (this.asc !== A) return;
+        A.osmPad = O.nearPad() >= 3; A.creditT = 0;
+        const park = (spec.pad === 'ml' || spec.padKey === 'LC-39B') && crawlerPark(O.tiles.flatMap(({ t, layers }) => namedLines(layers.transportation_name, t, spec.site)));
+        if (park) put('crawler', CRAWLER.file, park.x, park.z, park.rotY);
+      } });
+      if (vab) { A.osm.exclude.push(vab.rect); put('vab', VAB.file, vab.x, vab.z, vab.rotY); }
       A.osm.load();
       if (g3dUsable()) this.setGoogle3D(true);                                          // isteğe bağlı: rampa çevresi Google 3B karolarıyla (google3d.js)
     }
@@ -205,6 +219,11 @@ export class AscentView {
         if (A.nature) { const nowN = performance.now(); A.nature.visible = !on; A.nature.frame({ pad: A.pad, sunDir: o.sunDir, day: A.ground.u.day.value, dt: Math.min(0.1, (nowN - (A.natT || nowN)) / 1000), camH }); A.natT = nowN; }
         for (const p of A.padProps) { const v = !on && !(A.osmPad && p.userData.kind === 'struct') && !(imgFine && p.userData.kind === 'base'); if (p.visible !== v) p.visible = v; }
         if (A.osm) A.osm.visible = !on;
+        if (A.ksc) for (const k of A.ksc) {                                              // NASA modelleri: Google 3B açıkken gizli; kabartma gelince zemine oturur
+          k.visible = !on;
+          if (!A.kscDem && A.ground.hasDem) { const [x, z] = k.userData.xz; k.position.y = A.ground.groundAt(x, z) - 0.5 - (x * x + z * z) / (2 * R_M); }
+        }
+        if (A.ksc && A.ground.hasDem) A.kscDem = true;
         const now = performance.now();
         if (!A.creditT || now - A.creditT > 1000) {                                      // atıf: zemin görüntüsü + görünen 3B katman (OSM ya da Google)
           A.creditT = now; const g = on ? A.g3d.attribution() : A.osm ? A.osm.credit() : '';

@@ -8,6 +8,7 @@
 //   · Çizim: duvarlar (dörtgenler) + çatı (ShapeUtils üçgenlemesi), tek birleştirilmiş geometri, köşe renkleri (OSM colour ya da açık gri), Lambert ışığı
 // Saf yardımcılar (tilesAround, ringArea, polygonsFromLayer, padXZ) Node'da sınanır: test/test_padground.js.
 import { decodeTile } from './mvt.js';
+import { inRect } from './kscmodels.js';
 
 export const TILEJSON = 'https://tiles.openfreemap.org/planet';
 export const Z = 14, RADIUS_M = 8000, MIN_H = 2.5;
@@ -81,7 +82,7 @@ export class OsmBuildings {
   // THREE: three.js · parent: rampa grubu (ölçek KM, birim m) · site: { lat, lon } · onReady(this): binalar eklendi
   constructor(THREE, parent, site, { onReady, fetchFn = (u, o) => fetch(u, o) } = {}) {
     this.T = THREE; this.parent = parent; this.site = site; this.onReady = onReady; this.fetch = fetchFn;
-    this.ctl = new AbortController(); this.group = new THREE.Group(); parent.add(this.group); this.polys = []; this.tiles = []; this.ready = false; this.status = 'loading'; this.groundAt = null;
+    this.ctl = new AbortController(); this.group = new THREE.Group(); parent.add(this.group); this.polys = []; this.tiles = []; this.exclude = []; this.ready = false; this.status = 'loading'; this.groundAt = null;
   }
   credit() { return this.polys.length ? ATTRIB : ''; }
   // rampanın r metresi içinde h metreden yüksek bina sayısı (prosedürel rampa yapılarını gizleme kararı)
@@ -97,7 +98,7 @@ export class OsmBuildings {
           if (!r.ok) return;
           let buf = new Uint8Array(await r.arrayBuffer());
           if (buf[0] === 0x1f && buf[1] === 0x8b && typeof DecompressionStream === 'function') buf = new Uint8Array(await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
-          const layers = decodeTile(buf); this.tiles.push({ t, layers: { landcover: layers.landcover, water: layers.water } });     // doğal unsurlar (osmnature.js) için
+          const layers = decodeTile(buf); this.tiles.push({ t, layers: { landcover: layers.landcover, water: layers.water, transportation_name: layers.transportation_name } });     // doğal unsurlar (osmnature.js), Crawlerway (kscmodels.js)
           this.polys.push(...polygonsFromLayer(layers.building, t, this.site));
         } catch (e) { if (e.name === 'AbortError') throw e; }
       }));
@@ -109,6 +110,7 @@ export class OsmBuildings {
     const THREE = this.T, pos = [], col = [], c = new THREE.Color();
     const drop = (x, z) => -(x * x + z * z) / (2 * R_E);                         // Dünya eğriliği (12 km'de ~11 m)
     for (const p of this.polys) {
+      if (this.exclude.some((r) => inRect(p.c[0], p.c[1], r))) continue;                  // yerine resmî 3B modeli konan yapı (kscmodels.js: VAB)
       if (p.rgb) c.setRGB(p.rgb[0], p.rgb[1], p.rgb[2], THREE.SRGBColorSpace);         // uydu görüntüsünden çatı rengi (recolor)
       else { try { c.set(p.color || '#d8d6d0'); } catch (e) { c.set('#d8d6d0'); } }
       const tone = 0.85 + 0.15 * ((p.h * 7.3) % 1), cr = c.r * tone, cg = c.g * tone, cb = c.b * tone;
