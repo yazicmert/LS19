@@ -16,9 +16,9 @@
 export const WGS84_A = 6378137, WGS84_F = 1 / 298.257223563, WGS84_E2 = WGS84_F * (2 - WGS84_F);
 export const RADIUS_M = 12000;                         // 3B karoların çizildiği yarıçap (m); dışı Esri zemini
 export const MAX_CAM_KM = 25;                          // kamera bu irtifanın üstündeyse karolar kapanır (çok küçük kalır; Esri zemini yeter)
-// Özellik bayrağı: şimdilik PASİF. false iken "3B şehir" düğmesi gizlidir ve katman hiç başlamaz (kayıtlı anahtar olsa bile); kütüphane de inmez.
-// Açmak için true yapın (gerçek Google karolarıyla renk, hizalama ve performans henüz denenmedi: docs/fizik_denetimi.md).
-export const G3D_ENABLED = false;
+// Özellik bayrağı: AÇIK — kalkış çubuğunda "3B şehir" düğmesi görünür; katman yalnız kullanıcı kendi anahtarını girip açınca başlar (kütüphane de o zaman iner).
+// false yapılırsa düğme gizlenir ve katman hiç başlamaz. Not: gerçek Google karolarıyla renk, hizalama ve performans henüz denenmedi (docs/fizik_denetimi.md).
+export const G3D_ENABLED = true;
 const D2R = Math.PI / 180;
 const KEY = 'ls19.g3d.key', ON = 'ls19.g3d.on', URL_KEY = 'ls19.g3d.url';
 
@@ -44,20 +44,20 @@ export function lowPercentile(xs, q = 0.25) { if (!xs.length) return null; const
 
 // three'nin MeshBasic/MeshStandard gölgelendiricilerine yama: ışıksız fotoğraf rengi + padground.js ile aynı gece/alev/pus; yarıçap dışı atılır.
 // Değişkenler dünya biriminde (km; kamera başlangıçta). Dönen: yamalandı mı (beklenen işaretler bulunamadıysa false, malzeme olduğu gibi kalır).
-export const G3D_UNIFORMS = ['g3Pad', 'g3Up', 'g3R2', 'g3Sun', 'g3Day', 'g3CamH', 'g3SunI', 'g3Plume', 'g3PlumeCol', 'g3PlumeI'];
+export const G3D_UNIFORMS = ['g3Pad', 'g3Up', 'g3R2', 'g3Sun', 'g3Day', 'g3CamH', 'g3SunI', 'g3Plume', 'g3PlumeCol', 'g3PlumeI', 'g3HazeL', 'g3SunDim'];
 export function patchShader(sh) {
   const V0 = '#include <common>', V1 = '#include <project_vertex>', F0 = '#include <common>', F1 = '#include <opaque_fragment>';
   if (!sh.vertexShader.includes(V0) || !sh.vertexShader.includes(V1) || !sh.fragmentShader.includes(F0) || !sh.fragmentShader.includes(F1)) return false;
   sh.vertexShader = sh.vertexShader.replace(V0, V0 + '\nvarying vec3 vG3;').replace(V1, V1 + '\nvG3 = (modelMatrix * vec4(transformed, 1.0)).xyz;');
   sh.fragmentShader = sh.fragmentShader.replace(F0, F0 + `
-varying vec3 vG3; uniform vec3 g3Pad, g3Up, g3Sun, g3Plume, g3PlumeCol; uniform float g3R2, g3Day, g3CamH, g3SunI, g3PlumeI;`).replace(F1, `{
+varying vec3 vG3; uniform vec3 g3Pad, g3Up, g3Sun, g3Plume, g3PlumeCol; uniform float g3R2, g3Day, g3CamH, g3SunI, g3PlumeI, g3HazeL, g3SunDim;`).replace(F1, `{
   vec3 rel = vG3 - g3Pad; float dv = dot(rel, g3Up); if (dot(rel, rel) - dv * dv > g3R2) discard;
   vec3 c0 = diffuseColor.rgb, Lw = normalize(g3Sun);
-  float sunAmt = smoothstep(-0.08, 0.25, dot(g3Up, Lw)), dp = distance(vG3, g3Plume);
+  float sunAmt = smoothstep(-0.08, 0.25, dot(g3Up, Lw)) * g3SunDim, dp = distance(vG3, g3Plume);
   vec3 lit = c0 * (0.04 + 0.96 * sunAmt) * g3SunI + c0 * g3PlumeCol * g3PlumeI / (1.0 + dp * dp / 0.04);
   float dist = length(vG3), sinE = max(dot(normalize(-vG3), g3Up), 0.02), H = 2.0;
-  float path = min(dist, H * (1.0 - exp(-max(g3CamH, 0.0) / H)) / sinE + (g3CamH < 0.05 ? dist : 0.0)), hz = (1.0 - exp(-path / 22.0)) * 0.92;
-  outgoingLight = mix(lit, mix(vec3(0.015, 0.02, 0.035), vec3(0.62, 0.72, 0.86), g3Day), hz);
+  float path = min(dist, H * (1.0 - exp(-max(g3CamH, 0.0) / H)) / sinE + (g3CamH < 0.05 ? dist : 0.0)), hz = (1.0 - exp(-path / g3HazeL)) * 0.92;
+  outgoingLight = mix(lit, mix(vec3(0.015, 0.02, 0.035), mix(vec3(0.6, 0.62, 0.64), vec3(0.62, 0.72, 0.86), g3SunDim), g3Day), hz);
 }
 ` + F1);
   return true;
@@ -68,13 +68,25 @@ const mem = {};
 const store = () => { try { return typeof localStorage !== 'undefined' ? localStorage : null; } catch (e) { return null; } };
 const get = (k) => { const s = store(); try { return s ? s.getItem(k) : mem[k] ?? null; } catch (e) { return mem[k] ?? null; } };
 const put = (k, v) => { const s = store(); try { if (v == null) { if (s) s.removeItem(k); delete mem[k]; } else if (s) s.setItem(k, v); else mem[k] = v; } catch (e) { mem[k] = v; } };
-export function g3dSettings() { return { key: get(KEY) || '', on: get(ON) === '1', url: get(URL_KEY) || '' }; }
+// kendi kurulumun sunucusu (Docker: LS19_GOOGLE_3D_KEY → /api/yapilandirma) bir anahtar verebilir; tarayıcıda girilen anahtar önceliklidir.
+// Sunucu anahtarı varken katman, kullanıcı açıkça kapatmadıkça (ON = '0') açıktır. Herkese açık dağıtımda uç yoktur: anahtar yok, OSM binaları kullanılır.
+const SERVER = { key: '' };
+export async function loadServerG3d(fetchFn = (u) => fetch(u)) {
+  try { const r = await fetchFn('api/yapilandirma'); if (!r.ok) return false; const j = await r.json(); SERVER.key = typeof j.g3dKey === 'string' ? j.g3dKey.trim() : ''; } catch (e) { SERVER.key = ''; }
+  return !!SERVER.key;
+}
+export const setServerG3dKey = (k) => { SERVER.key = k || ''; };                // testler için
+export function g3dSettings() {
+  const own = get(KEY) || '', on = get(ON);
+  return { key: own || SERVER.key, on: on === '1' || (on == null && !own && !!SERVER.key), url: get(URL_KEY) || '', server: !own && !!SERVER.key };
+}
 export function saveG3dSettings({ key, on, url } = {}) {
   if (key !== undefined) put(KEY, key ? String(key).trim() : null);
-  if (on !== undefined) put(ON, on ? '1' : null);
+  if (on !== undefined) put(ON, on ? '1' : '0');                                // '0': açıkça kapatıldı (sunucu anahtarı varken de kapalı kalır)
   if (url !== undefined) put(URL_KEY, url ? String(url).trim() : null);
   return g3dSettings();
 }
+export function clearG3dSettings() { put(KEY, null); put(ON, null); put(URL_KEY, null); }      // tüm ayarlar silinir (testler; "Anahtarı sil" değil)
 export const g3dUsable = (s = g3dSettings(), enabled = G3D_ENABLED) => enabled && s.on && !!(s.key || s.url);
 
 // ---------------------------------------------------------------- tarayıcı tarafı
@@ -85,7 +97,7 @@ export class Google3D {
     this.status = 'idle'; this.ready = false; this.visible = true; this.h0 = 0; this.aligned = false; this.lastAlign = 0; this.errors = 0; this.surf = new Map();
     const V = () => new THREE.Vector3();
     this.u = { g3Pad: { value: V() }, g3Up: { value: new THREE.Vector3(0, 1, 0) }, g3R2: { value: (radiusM / 1000) ** 2 }, g3Sun: { value: new THREE.Vector3(0, 1, 0) },
-      g3Day: { value: 1 }, g3CamH: { value: 0 }, g3SunI: { value: 1.25 }, g3Plume: { value: V() }, g3PlumeCol: { value: new THREE.Color(1, 0.6, 0.3) }, g3PlumeI: { value: 0 } };
+      g3Day: { value: 1 }, g3CamH: { value: 0 }, g3SunI: { value: 1.25 }, g3Plume: { value: V() }, g3PlumeCol: { value: new THREE.Color(1, 0.6, 0.3) }, g3PlumeI: { value: 0 }, g3HazeL: { value: 22 }, g3SunDim: { value: 1 } };
   }
   setStatus(s, msg = '') { this.status = s; this.msg = msg; if (this.onStatus) this.onStatus(this); }
   async start() {
@@ -124,7 +136,7 @@ export class Google3D {
   frame(gu, camH) {
     const U = this.u; if (!this.tiles) return;
     this.visible = camH < MAX_CAM_KM; this.tiles.group.visible = this.visible;
-    U.g3Sun.value.copy(gu.sunDir.value); U.g3Day.value = gu.day.value; U.g3CamH.value = camH; U.g3SunI.value = gu.sunI.value;
+    U.g3Sun.value.copy(gu.sunDir.value); U.g3Day.value = gu.day.value; U.g3CamH.value = camH; U.g3SunI.value = gu.sunI.value; U.g3HazeL.value = gu.hazeL.value; U.g3SunDim.value = gu.sunDim.value;
     U.g3Plume.value.copy(gu.plumeW.value); U.g3PlumeCol.value.copy(gu.plumeCol.value); U.g3PlumeI.value = gu.plumeI.value;
     this.parent.updateMatrixWorld(true);
     U.g3Pad.value.setFromMatrixPosition(this.parent.matrixWorld);

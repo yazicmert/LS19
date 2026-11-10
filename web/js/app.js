@@ -76,7 +76,7 @@ function ayState() {
 let lastAy = 0;
 const ayRefresh = () => { lastAy = performance.now(); ayui.update(ayState()); };
 // sinematik "fragman" gösterimi (cinema.js): görevi baştan oynatır; kamera, zaman hızı ve bindirmeleri yönetir
-const cinema = new Cinema({ world, send, ui, root: $('#app'), latest: () => S.latest, play: (on) => setPlay(on), running: () => S.running, landing: () => landingMode,
+const cinema = new Cinema({ world, send, ui, root: $('#app'), latest: () => S.latest, play: (on) => setPlay(on), running: () => S.running, landing: () => landingMode, ascent: () => ascent,
   onStart: () => { document.querySelectorAll('.tm-pop').forEach((p) => { p.hidden = true; }); ui.hidePick(); $('#hoverTip').hidden = true; },
   onStop: () => { resize(); } });
 
@@ -467,6 +467,7 @@ worker.onmessage = (e) => {
     if (d.trail && (d.trail.length || d.trailReset)) withMission(() => { world.addTrail(d.trail, d.trailReset); ui.addSamples(d.trail, d.trailReset); });
     if (d.events && d.events.length) ui.addEvents(d.events);
     ui.onState(d);
+    if (cinema.on && ((d.events && d.events.length) || (d.disp && d.disp.length))) cinema.onEvents(d.events || [], d.disp || []);   // fragman alt yazıları
     if (d.auto !== autoPilot) { autoPilot = d.auto; syncAuto(); }
   }
 };

@@ -2,6 +2,7 @@
 // Kurallar (NASA Artemis I hava kriterleri, 45. Hava Filosu) örnek Open-Meteo yanıtlarıyla; kapsam (16 gün ileri, 92 gün geri); istek adresi; önbellek ve hata.
 import { evaluate, hourAt, coverage, weatherUrl, launchWeather, HOURLY, WX_SOURCES, pickLaunch } from '../js/weather.js';
 import { dailyIncls } from '../js/pads.js';
+import { cloudState, hazeLength, sunDim, wxSummary, LAYERS } from '../js/clouds.js';
 
 let ok = true;
 const check = (c, m) => { console.log((c ? '  ✓ ' : '  ✗ ') + m); ok = ok && !!c; };
@@ -42,4 +43,16 @@ check(pickLaunch([R(5, 100, 'na'), R(2, 100, 'na')]).index === 1 && /verisi yok/
 const di = dailyIncls(28.7, 59.7), dv = dailyIncls(58.1, 90);
 check(di[0] === 28.7 && di.includes(32.5) && di.every((i) => i <= 59.7) && di.length === 7 && dv[0] === 58.1 && dv.every((i) => i <= 90), `günlük pencerenin aday eğimleri (Florida: ${di.join(', ')})`);
 check(WX_SOURCES.length >= 3 && WX_SOURCES.every((s) => /^https:\/\//.test(s.u)), 'kural kaynakları (NASA, 45. Hava Filosu, Open-Meteo)');
+// kalkış canlandırmasının gerçek havası (clouds.js)
+{
+  const c = cloudState({ cloud_cover: 60, cloud_cover_low: 40, cloud_cover_mid: 10, cloud_cover_high: 80, visibility: 16000, precipitation: 0 });
+  check(c.known && c.low === 0.4 && c.mid === 0.1 && c.high === 0.8 && c.visKm === 16 && !c.rain, `bulut katmanları ve görüş Open-Meteo saatinden (${JSON.stringify(c)})`);
+  const n = cloudState(null), t = cloudState({ cloud_cover: 70 });
+  check(!n.known && n.low === 0 && n.visKm === 40 && t.low === 0.7 && t.mid === 0, 'veri yoksa açık hava; yalnız toplam örtü varsa alçak katman sayılır');
+  check(HOURLY.includes('cloud_cover_low') && HOURLY.includes('cloud_cover_high') && HOURLY.includes('visibility') && weatherUrl(28.6, -80.6, Date.UTC(2026, 9, 13), Date.UTC(2026, 9, 10)).includes('visibility'), 'istekte bulut katmanları ve görüş var');
+  check(hazeLength(80) === 30 && hazeLength(0.2) === 1.5 && Math.abs(hazeLength(16) - 16 / 3.9 * 1.5) < 1e-9, `pus sönüm uzunluğu görüşten (16 km → ${hazeLength(16).toFixed(1)} km), 1,5–30 km`);
+  check(sunDim({ low: 0, mid: 0, high: 0 }) === 1 && sunDim({ low: 1, mid: 0, high: 0 }) < 0.31 && sunDim({ low: 0, mid: 0, high: 1 }) > 0.8, 'bulut altında Güneş: alçak katman en çok karartır');
+  check(wxSummary(c) === 'Hava · alçak bulut %40 · orta bulut %10 · yüksek bulut %80 · görüş 16 km' && wxSummary(n) === 'Hava · açık · görüş 40 km', `alt yazı: ${wxSummary(c)}`);
+  check(LAYERS.every((L, i) => i === 0 || L.h > LAYERS[i - 1].h) && LAYERS[0].h >= 1000 && LAYERS[2].h <= 12000, 'katman yükseklikleri: alçak < orta < yüksek, 1–12 km');
+}
 console.log(ok ? 'TAMAM' : 'HATA'); process.exit(ok ? 0 : 1);

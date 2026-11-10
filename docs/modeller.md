@@ -53,3 +53,22 @@ cp <depo>/tools/apollo_modelleri.mjs . && node apollo_modelleri.mjs      # → o
 ```
 
 Betikteki sabitler (ölçekler, kesme düzlemlerinin yerleri, F-1 çanının boyutu) kaynak modellerin birimlerinden elle ölçülmüş değerlerdir; yorumlarında hangi model ölçüsüne dayandıkları yazılıdır.
+
+## 5. Kennedy Uzay Merkezi yapıları (kalkış sahnesi)
+
+NASA 3D Resources'taki rampa çevresi modelleri araştırıldı: *Vehicle Assembly Building (VAB)*, *Crawler* (paletli taşıyıcı), *Gantry* (Mekik dönemi LC-39 sabit/döner servis kulesi), *Mobile Launcher* (SLS ML-1; zaten `web/models/rockets/ml.glb`).
+Kalkış sahnesine ikisi eklendi (`tools/ksc_modelleri.mjs` → `web/models/ksc/`; yerleşim `web/js/kscmodels.js`):
+
+| Dosya | NASA modeli | Ne yapıldı | Sahnede |
+|---|---|---|---|
+| `vab.glb` | *Vehicle Assembly Building (VAB)* | yalnız yüksek bölme gövdesi alındı (modeldeki temsili kontrol merkezi, tanklar ve su kulesi atıldı); 160 m × 157 m × 137 m'ye ölçeklendi, metalik = 0; 1.548 üçgen, 41 kB | gerçek yerinde (rampaya 12 km'den yakınsa: LC-39A/B, SLC-40/41): OSM'deki VAB yüksek bölme çokgenine oturur, kapılar doğu–batı; OSM'deki aynı bina çizilmez (alçak bölme ve kontrol merkezi OSM'den kalır) |
+| `crawler.glb` | *Crawler* | 40 m boya ölçeklendi, kaba sadeleştirme (`simplifySloppy`, 279.800 → 38.864 üçgen), metalik = 0; 151 kB | LC-39B kalkışında (ve SLS'in rampasında) OSM'deki *Crawlerway*'in iki şeridinin ortasında, rampadan 900 m uzakta, yol yönünde park hâlinde |
+
+- **Temsili kalan kısımlar (dürüstçe):** VAB modeli biçimlendirilmiştir; kısa kenarı gerçeğe oturması için tek eksende %27 genişletildi (o eksende kapı ve bayrak dokuları biraz geniş). Crawler'ın park yeri gerçek bir kalkıştaki konumu değil, güvenli uzaklıkta temsili bir yerdir.
+- *Gantry* (Mekik dönemi servis yapısı) eklenmedi: LC-39A'nın bugünkü kulesi (FSS) prosedürel kafes kule ve OSM'den gelir, LC-39B'de 2011'den beri servis kulesi yoktur. *Mobile Launcher (pad only)* ise SLS'in ML-1'iyle aynı kaynaktır.
+- Google 3B karolar açıkken bu modeller de gizlenir (gerçek yapılar fotogrametride vardır). Kabartma (yükselti) gelince zemine oturur.
+
+```
+# aynı paketlerle; NASA-3D-Resources'tan "Vehicle Assembly Building (VAB).glb" → raw_vab.glb, "Crawler.glb" → raw_crawler.glb
+cp <depo>/tools/ksc_modelleri.mjs . && node ksc_modelleri.mjs      # → out/ksc/vab.glb, out/ksc/crawler.glb (bayt bayt aynı)
+```

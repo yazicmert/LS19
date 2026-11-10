@@ -2,6 +2,15 @@
 //  Mercator koordinatı ve karo penceresi (bilinen karo), büyük daire varış noktası (uzaklık ve azimut geri hesapla), Terrarium çözme, çift doğrusal örnekleme,
 //  yer tutucu ayıklama, üstel köşe aralığı, ızgara (eğrilik, düz rampa çevresi, Mercator kayması ↔ seviye dönüşümü).
 import * as P from '../js/padground.js';
+import * as PM from '../js/padmodels.js';
+import * as OB from '../js/osmbuildings.js';
+import * as ON from '../js/osmnature.js';
+import * as KS from '../js/kscmodels.js';
+import { decodeTile } from '../js/mvt.js';
+import fs from 'node:fs';
+import { register } from 'node:module';
+register('./importmap_loader.mjs', import.meta.url);
+const THREE = await import('three'), { mergeGeometries } = await import('three/addons/utils/BufferGeometryUtils.js');
 
 let fail = 0;
 const check = (name, ok, detail = '') => { console.log(`${ok ? 'TAMAM' : 'HATA '} ${name}${detail ? ' — ' + detail : ''}`); if (!ok) fail++; };
@@ -74,5 +83,83 @@ const G3 = P.buildGround({ lat: 9.05, lon: 167.74, nSeg: 32, rMax: 1.65e6 });
 let maxJump = 0; for (let j = 0; j < 33; j++) for (let i = 0; i < 32; i++) maxJump = Math.max(maxJump, Math.abs(G3.mxy[(j * 33 + i + 1) * 2] - G3.mxy[(j * 33 + i) * 2]));
 check('180. meridyeni aşan ızgarada Mercator kayması sürekli', maxJump < 2 ** 18 * 0.2, `en büyük sıçrama ${maxJump.toFixed(0)} karo`);
 
+// rampa yapıları (padmodels.js)
+{
+  const k = ['Kennedy Uzay Merkezi LC-39B (28.6271°N, 80.6210°W)', 'KSC LC-39A', 'CCSFS SLC-40', 'Cape Canaveral SLC-41', 'Baikonur Site 1/5'].map(PM.padKey);
+  check('rampa adı tanınır (LC-39A/B, SLC-40/41; diğerleri genel)', k.join() === 'LC-39B,LC-39A,SLC-40,SLC-41,generic', k.join());
+  const A = PM.padLayout('LC-39A'), B = PM.padLayout('LC-39B'), Bml = PM.padLayout('LC-39B', { ml: true });
+  const fss = A.find((p) => p.type === 'lattice'), lm = A.find((p) => p.type === 'mast' && p.y0), tr = A.find((p) => p.type === 'trench'), wt = A.find((p) => p.type === 'water');
+  check('LC-39A: FSS 75 m, yıldırım direğiyle 106 m; hendek 137 × 17,7 m; su kulesi 88 m [NASA KSC]', Math.abs(fss.h - 75.3) < 0.2 && Math.abs(lm.y0 + lm.h - 105.8) < 0.2 && Math.abs(tr.len - 137.2) < 0.2 && Math.abs(tr.w - 17.7) < 0.1 && Math.abs(wt.h - 88.4) < 0.2,
+    `FSS ${fss.h.toFixed(1)} m, direk tepesi ${(lm.y0 + lm.h).toFixed(1)} m, hendek ${tr.len.toFixed(1)} × ${tr.w.toFixed(1)} m, su kulesi ${wt.h.toFixed(1)} m`);
+  const m3 = B.filter((p) => p.type === 'mast'), w3 = B.filter((p) => p.type === 'wire');
+  check('LC-39B: üç 183 m yıldırım kulesi ve aralarında üç katener tel; Mobile Launcher varken hendek çizilmez', m3.length === 3 && m3.every((m) => Math.abs(m.h - 182.9) < 0.2) && w3.length === 3 && B.some((p) => p.type === 'trench') && !Bml.some((p) => p.type === 'trench'));
+  const all = ['LC-39A', 'LC-39B', 'SLC-40', 'SLC-41', 'generic'].map((key) => [key, PM.padLayout(key)]);
+  const fin = all.every(([, L]) => L.every((p) => Object.values(p).flat(2).every((v) => typeof v !== 'number' || Number.isFinite(v))));
+  const clear = all.every(([, L]) => L.filter((p) => p.type === 'lattice' || p.type === 'mast' || p.type === 'water' || p.type === 'box').every((p) => Math.hypot(p.x, p.z) - (p.w || 0) / 2 > 12));   // roketten (orijin) uzakta
+  const vif = PM.padLayout('SLC-41').find((p) => p.type === 'box');
+  check('her rampada sayılar sonlu, yapılar roket ekseninden > 12 m; SLC-41 VIF 89 m, rampanın 550 m güneyinde', fin && clear && Math.abs(vif.h - 89) < 0.1 && vif.z === 550);
+  let built = true, why = '';
+  for (const [key] of all) { try { const r = PM.buildPad(THREE, mergeGeometries, key); if (!r.parts.length || r.parts.some((o) => !o.geometry)) { built = false; why += key + ' '; } } catch (e) { built = false; why += `${key}: ${e.message} `; } }
+  check('her rampa three.js ile kurulur (birleştirilmiş kafes, tel, su kulesi)', built, why);
+}
+// açık veri 3B binalar (osmbuildings.js, mvt.js): gerçek bir OpenFreeMap karosu (LC-39B, z14 4522/6831; test/fixtures)
+{
+  const site = { lat: 28.62711, lon: -80.62102 }, tile = { x: 4522, y: 6831, z: 14 };
+  const L = decodeTile(new Uint8Array(fs.readFileSync(new URL('./fixtures/osm_14_4522_6831.pbf', import.meta.url))));
+  const B = L.building, polys = OB.polygonsFromLayer(B, tile, site);
+  check('MVT çözücü: OpenMapTiles katmanları ve bina özellikleri (render_height, render_min_height)', B && B.extent === 4096 && B.features.length === 12 && 'water' in L && B.features.every((f) => Number.isFinite(f.props.render_height)), Object.keys(L).join(', '));
+  const tank = polys.find((p) => p.minH >= 80 && p.h >= 88), tall = Math.max(...polys.map((p) => p.h));
+  check('OSM binaları rampa çerçevesinde: yükseltilmiş su kulesi tankı (80–88 m) ve 147 m yapı rampanın ~150 m çevresinde; 2,5 m altı atılır',
+    !!tank && tank.d < 250 && tall === 147 && polys.every((p) => p.h >= OB.MIN_H && p.outer.length >= 3 && p.outer.every(([x, z]) => Number.isFinite(x) && Number.isFinite(z))),
+    `${polys.length} çokgen, tank ${tank ? tank.d.toFixed(0) + ' m' : '—'}, en yüksek ${tall} m`);
+  const sl = polys.filter(OB.isSlender), beams = OB.latticeBeams(sl[0]), top = Math.max(...beams.flat().map((q) => q[1]));
+  check('narin yapılar (LC-39B\'nin üç 147 m yıldırım kulesi; delikli üçgen) kafes kule olarak çizilir; su kulesinin 3 m\'lik ayakları dolu kalır; kule tepeye daralır',
+    sl.length === 3 && sl.every((p) => p.h === 147) && !polys.some((p) => p.h === 85 && OB.isSlender(p)) && Math.abs(top - 147) < 1e-9 && beams.length > 30, `${sl.length} kule, ${beams.length} kiriş`);
+  const sq = [[0, 0], [10, 0], [10, 10], [0, 10]];
+  check('halka yönü: MVT dış halkası (y aşağı, saat yönü) pozitif alan, delik negatif', OB.ringArea(sq) > 0 && OB.ringArea([...sq].reverse()) < 0);
+  const T = OB.tilesAround(site.lat, site.lon), m = 2 * Math.PI * 6378137 * Math.cos(site.lat * Math.PI / 180) / 2 ** 14;
+  check(`rampa çevresi karoları: ${OB.RADIUS_M / 1000} km yarıçapı kapsar, rampanın karosu ilk, yinelenen yok`, T[0].x === 4522 && T[0].y === 6831 && new Set(T.map((t) => t.x + '/' + t.y)).size === T.length && T.length * m * m > Math.PI * OB.RADIUS_M ** 2 * 0.9 && T.length < 90, `${T.length} karo × ${(m / 1000).toFixed(2)} km`);
+  const O = new OB.OsmBuildings(THREE, new THREE.Group(), site, { fetchFn: () => Promise.reject(new Error('ağ yok')) });
+  O.polys = polys; O.build();
+  check('binalar tek birleştirilmiş geometri (duvar + çatı + yükseltilmiş taban), köşe renkli; rampa yakınında yapı sayısı', O.mesh && O.mesh.geometry.attributes.position.count > 100 && O.mesh.geometry.attributes.color && O.nearPad() >= 3 && O.credit().includes('OpenStreetMap'), `${O.mesh ? O.mesh.geometry.attributes.position.count : 0} köşe, rampa yakını ${O.nearPad()}`);
+}
+// doğal unsurlar (osmnature.js): aynı karonun landcover ve water katmanları
+{
+  const site = { lat: 28.62711, lon: -80.62102 }, tile = { x: 4522, y: 6831, z: 14 };
+  const L = decodeTile(new Uint8Array(fs.readFileSync(new URL('./fixtures/osm_14_4522_6831.pbf', import.meta.url))));
+  const N = ON.naturePolygons(L, tile, site), cnt = (k) => N.filter((p) => p.kind === k).length;
+  check('doğa çokgenleri: orman, çalılık, sulak alan, su (göl/gölet/nehir) gerçek karodan', cnt('wood') >= 4 && cnt('scrub') >= 6 && cnt('wetland') >= 50 && cnt('water') >= 30, `orman ${cnt('wood')}, çalı ${cnt('scrub')}, sulak ${cnt('wetland')}, su ${cnt('water')}`);
+  const sq = { outer: [[0, 0], [10, 0], [10, 10], [0, 10]], holes: [[[3, 3], [6, 3], [6, 6], [3, 6]]] };
+  check('çokgen içi: delik dışarıda', ON.inPolygon(1, 1, sq) && !ON.inPolygon(4, 4, sq) && !ON.inPolygon(11, 5, sq));
+  const a = ON.scatter(N, 7), b = ON.scatter(N, 7), near = a.filter((q) => Math.hypot(q.x, q.z) < 1500).length, far = a.filter((q) => Math.hypot(q.x, q.z) > 3000).length;
+  const inside = a.slice(0, 300).every((q) => N.some((p) => p.kind === q.kind && ON.inPolygon(q.x, q.z, p)));
+  check('bitki yerleşimi belirlenimci (aynı tohum aynı sonuç), çokgenin içinde, rampanın 120 m\'si boş, uzaklıkla seyrelir', a.length > 200 && a.length === b.length && a.every((q, i) => q.x === b[i].x && q.z === b[i].z) && inside && a.every((q) => Math.hypot(q.x, q.z) >= 120) && a.every((q) => Math.hypot(q.x, q.z) <= ON.TREE_R) && (near === 0 || near >= far / 4),
+    `${a.length} bitki (1,5 km içinde ${near}, 3 km dışında ${far})`);
+  const NA = new ON.OsmNature(THREE, new THREE.Group(), site); NA.addTiles([{ t: tile, layers: L }]);
+  NA.build({ heightAt: () => 0, groundAt: () => 0.25, sample: () => [0.2, 0.35, 0.15] });
+  const ims = NA.group.children.filter((c) => c.isInstancedMesh), inst = ims.reduce((s2, m) => s2 + m.count, 0);
+  check('doğa three.js ile kurulur: örneklenmiş ağaç/çalı ağları (renk uydu görüntüsünden), su yüzeyi (gölgelendirici)', ims.length >= 2 && inst === Math.min(NA.plants.length, inst) && inst > 200 && !!NA.water && NA.water.geometry.attributes.position.count > 100,
+    `${ims.length} ağ, ${inst} örnek, su ${NA.water ? NA.water.geometry.attributes.position.count / 3 : 0} üçgen`);
+  NA.dispose();
+}
+// NASA modelleri (kscmodels.js): VAB gerçek yerinde ve OSM'deki aynı binayı gizler; Crawler, OSM Crawlerway şeritlerinin ortasında
+{
+  const site = { lat: 28.62711, lon: -80.62102 }, tile = { x: 4522, y: 6831, z: 14 };
+  const L = decodeTile(new Uint8Array(fs.readFileSync(new URL('./fixtures/osm_14_4522_6831.pbf', import.meta.url))));
+  const v = KS.vabPlacement(site), d = Math.hypot(v.x, v.z), az = Math.atan2(v.x, -v.z) * 180 / Math.PI;
+  check('VAB LC-39B\'nin ~5,4 km güneybatısında; 12 km dışındaki rampalarda yok; gizleme dikdörtgeni yalnız kendi çevresini kapsar',
+    d > 5200 && d < 5600 && az < -140 && az > -160 && KS.vabPlacement({ lat: 34.632, lon: -120.611 }) === null && KS.inRect(v.x, v.z, v.rect) && KS.inRect(v.x + 80 * v.rect.u[0], v.z + 80 * v.rect.u[1], v.rect) && !KS.inRect(v.x + 100 * v.rect.u[0], v.z + 100 * v.rect.u[1], v.rect) && !KS.inRect(0, 0, v.rect),
+    `${d.toFixed(0)} m, kerteriz ${az.toFixed(0)}°`);
+  const lines = KS.namedLines(L.transportation_name, tile, site), park = KS.crawlerPark(lines, 900);
+  check('Crawlerway (iki paletli şerit) karodan okunur; Crawler rampadan 900 m\'de iki şeridin ortasında, yol yönünde (kuzey–güney)',
+    lines.length === 2 && park && Math.abs(Math.hypot(park.x, park.z) - 900) < 30 && park.x > 0 && park.x < 28 && Math.abs(Math.abs(park.rotY) - Math.PI / 2) < 0.05 && KS.crawlerPark([], 900) === null,
+    park ? `(${park.x.toFixed(0)}, ${park.z.toFixed(0)}) m, yön ${(park.rotY * 180 / Math.PI).toFixed(0)}°` : 'yok');
+  const O = new OB.OsmBuildings(THREE, new THREE.Group(), site, { fetchFn: () => Promise.reject(new Error('ağ yok')) });
+  O.polys = OB.polygonsFromLayer(L.building, tile, site); O.build(); const n0 = O.mesh.geometry.attributes.position.count;
+  const t = O.polys.find((p) => p.h === 147); O.exclude.push({ c: t.c, u: [1, 0], v: [0, 1], hu: 1, hv: 1 }); O.recolor(() => null);
+  check('gizleme dikdörtgenindeki OSM binası çizilmez (yerine resmî model)', O.mesh.geometry.attributes.position.count < n0, `${n0} → ${O.mesh.geometry.attributes.position.count} köşe`);
+  const glbOk = ['vab', 'crawler'].every((k) => { const b = fs.readFileSync(new URL(`../models/ksc/${k}.glb`, import.meta.url)); return b.toString('ascii', 0, 4) === 'glTF' && b.length < 400e3; });
+  check('NASA modelleri (models/ksc/vab.glb, crawler.glb) GLB ve küçük (< 400 kB)', glbOk);
+}
 console.log(fail ? `\n${fail} HATA` : '\nTüm denetimler geçti');
 process.exit(fail ? 1 : 0);

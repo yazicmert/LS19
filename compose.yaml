@@ -9,6 +9,11 @@ services:
     volumes:
       # canlı veri önbelleği (CelesTrak, JPL): kapsayıcı yeniden kurulsa da kalır, kaynaklara gereksiz istek gitmez
       - ls19-cache:/app/web/data/cache
+    environment:
+      # isteğe bağlı: kendi Google Maps Platform anahtarınız (Map Tiles API açık; Google ücretlendirir) → kalkışta rampa çevresi Google 3B karolarıyla.
+      # Kullanım: LS19_GOOGLE_3D_KEY=AIza… docker compose up   (ya da .env dosyasına yazın). Tanımlı değilse açık veri OSM binaları kullanılır.
+      # Kapı yalnız bu bilgisayara açıksa (127.0.0.1) anahtar yalnız sizin tarayıcınıza gider; herkese açık bir sunucuda tanımlamayın.
+      - LS19_GOOGLE_3D_KEY=${LS19_GOOGLE_3D_KEY:-}
     restart: unless-stopped
 
 volumes:

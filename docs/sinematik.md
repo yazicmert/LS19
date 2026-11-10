@@ -12,10 +12,13 @@ Kod: `web/js/cinema.js` (yönetmen), `web/js/cinemaui.js` + `web/css/cinema.css`
 | Başlat | alt çubukta **film simgesi** düğmesi, `C` tuşu ya da adreste `?cine=1` (sayı süre ölçeğidir: `?cine=0.5` iki kat hızlı) |
 | Çık | `Esc` ya da sağ üstteki **Çık** düğmesi (fare oynayınca belirir); kamera, otomatik zaman hızı ve oynatma durumu eski haline döner |
 | Duraklat / sürdür | `Boşluk` |
+| Ses aç / kapat | `M` ya da sağ üstteki **Ses** düğmesi |
 | Sonraki çekim | `→` |
 | Yeniden izle | gösterim bitince `R` |
 
-Gösterim yaklaşık **2 dakika** sürer (Apollo profilinde ~134 s anma süre; halo profillerinde uzun yolculuk nedeniyle 2,5–3 dakikayı bulabilir). Gerçek bir ekran kartında kare hızı düşerse kalite kendiliğinden azalır (bkz. §5).
+Gösterim yaklaşık **3 dakika** sürer: ~42–54 s kalkış açılışı (rokete göre) + görev çekimleri (Apollo profilinde ~134 s anma süre; halo profillerinde uzun yolculuk nedeniyle 2,5–3 dakikayı bulabilir). Kalkış açılışında `→` kalkışı bitirip görevi yörüngeye girişten sürdürür; `?cine=1` adresine kalkış eklenmesin istenirse `LS19.cinema.start({ ascent: false })`. Gerçek bir ekran kartında kare hızı düşerse kalite kendiliğinden azalır (bkz. §5).
+
+**Dil:** fragman arayüzün dilini izler (`?lang=en`, kayıtlı tercih ya da tarayıcı dili). İngilizcede kartlar, veri şeridi, alt yazılar, hava bildirimi ve kapanış özeti sayfanın DOM çevirmeniyle (`i18n.js`, `i18n/en.js`), görev kontrol anonsları `translateText` ve `en-US` sesiyle, geri sayım İngilizce sayılarla söylenir; sayılar `LOC` biçimindedir. İngilizce uçtan uca koşuda fragman katmanındaki 869 metnin hiçbiri Türkçe kalmadı; `test_cinema` görev alt yazılarını ve anonsları sözlükle denetler.
 
 ## 2. Çekim listesi
 
@@ -23,19 +26,22 @@ Gösterim yaklaşık **2 dakika** sürer (Apollo profilinde ~134 s anma süre; h
 
 | # | Çekim | Kamera | Zaman davranışı |
 |---|---|---|---|
-| 0 | **açılış** "LS19" | Dünya kıyısı: araç görünen diskin kenarında, aydınlık yüz kameraya dönük; yavaş geri çekilme | yavaş (×5…×30) |
+| — | **kalkış açılışı** (`01 KALKIŞ`; geri sayımda "LS19" kartı) | kalkış canlandırmasının gerçek yayın kameraları (`launchcam.js`: rampa, yer izleme, takip uçağı, araç üstü; görünürlük gerçek) | uçuş zamanına göre (`ascentWarp`): T−6 → T+10 ×1, her ayrılmanın (kademe, itici, kaporta, kaçış kulesi) çevresi ×1,6 (−2/+4 s), aralar ×24, son ayrılmadan sonra ×50; geçişler rampalı |
+| 0 | **açılış** (kalkış oynandıysa "YÖRÜNGEDE" bölüm kartı, oynanmadıysa "LS19") | Dünya kıyısı: araç görünen diskin kenarında, aydınlık yüz kameraya dönük; yavaş geri çekilme | yavaş (×5…×30) |
 | 1 | **park yörüngesi** (geniş) → **yaklaşma** | Dünya etrafında geniş (yörünge elipsi ve araç ışıltısı) → araç çevresinde LVLH, yavaş dönüş | ×~1000 zaman atlaması → ×1'e yavaşlama |
 | 2 | **TLI** ateşleme → yakış | gövde çerçevesinde motor yakın planı (el kamerası titreşimi) → aracın arkasından geniş açı | ateşlemeye kadar ×2, ilk 2 s ×1, sonra ×28 (yakış süresi tasarıma bağlı; **TLI motor kesme**'de biter) |
-| 3 | **kademe ayrılması** | omuz üstü (Dünya arkada) → ayrılma düzleminde yakın plan | ×600 → ×1; ayrılma anında **parlama + pufları** |
+| 3 | **kademe ayrılması** → **CCAM** | omuz üstü (Dünya arkada) → ayrılma düzleminde yakın plan → geri çekilme (iniş aracı ve uzaklaşan kademe) | ×600 → ×1 → ×~100 (SEP + 400 s); ayrılma anında **parlama + pufları**, CCAM alt yazıları |
 | 4 | **Ay'a yolculuk** | Dünya geri çekilirken omuz üstü → Dünya–Ay sistemi (yörünge izi, Dünya/Ay/araç ışıltıları) → Ay'a yaklaşma | ×10⁴ … 4·10⁴ (kadar fizik yetişir) |
 | 5 | **LOI** | Ay'ın üstünden omuz üstü → motor yakın planı → araç çevresi | ateşlemeye ×1,5'a yavaşlar, yakışta ×18 |
 | 6 | **Ay yörüngesi** | Ay etrafında geniş: Güneş'in aydınlattığı yüz kameraya dönük (gece yüzü değil), Ay kadrajın sağında (kart solda); anlık yörünge elipsi, araç ışıltısı | ×~2000 (en çok ~2,7 tur gösterilir; kalanı kararma altında geçilir) |
 | 7 | **iniş kademesi ayrılır** | araç çevresinde yakın plan, parlama + pufları | ×6 → ×1 → ×19 |
 | 8 | **motorlu iniş** → **yaklaşma** | motor yakın planı → araç çevresi (yaklaşma eksenine bağlı) | **irtifaya göre**: 12 km üstü ×60 … 1,6 km ×22 … 250 m ×8 … 25 m ×3 … temas ×1 |
 | 9 | **temas** | iniş noktasına bakan **sabit yer kamerası** (tripod; ~118 m uzakta, göz yüksekliği 1,7 m): araç yukarıdan kadraja iner, kadraj ağır ağır yaklaşır (görüş açısı ~21° → ~10°), yüzeye yakın Ay tozu halkası görünür; yaklaşma çekimi aracı kadraja alacak irtifada (34 m) biter | irtifaya göre, temastan sonra 4,5 s |
-| 10 | **kapanış** | aracın çevresinde yavaş yükselen kamera; bakış hafifçe sola döndürülür, araç kadrajın sağında kalır (kart solda) | temas özeti: süre, Δv, temas hızı, kalan yakıt (sayılar `number-flow` ile yuvarlanır); kart açılınca veri şeridi söner (aynı değerler kartta) |
+| 10 | **kapanış** → **yüzey evresi** | aracın çevresinde yavaş yükselen kamera; bakış hafifçe sola döndürülür, araç kadrajın sağında kalır (kart solda) | temastan +5 → +96 s (~×7; zamanlar **gerçek temas anına** göre, plan tahmini ±40 s saptığından): temas özeti (süre, Δv, temas hızı, kalan yakıt; `number-flow`), yüzey olayları alt yazıda (motor emniyeti +7 s, duruş raporu +18 s, tank tahliyesi +45 s, kalış kararı T1 +89 s; Apollo 11 zamanları, `touchdown.js POST_LANDING`); kart açılınca veri şeridi söner |
 
 Dokuz **bölüm kartı** vardır (`01 / 09` …): sol altta büyük, geniş aralıklı başlık, ince çizgi ve alt yazı; altta **veri şeridi** (görev süresi, aşama, irtifa/hız ya da Dünya–Ay uzaklığı, zaman hızı) ve **zaman çizelgesi** (bölüm işaretleri). Alt yazılardaki sayılar o anki durumdan gelir.
+
+**Olay alt yazısı** (`.cine-cue`, sağ alt): kalkış anonsları (kule geçildi, Mach 1, Max-Q, ayrılmalar; `ascentplay.js` sessiz kipte `onCue` ile iletir) ve görevin gerçek olayları: kelepçe bandı ve yaylar, kademenin CCAM dönüşü/itişi/sonu (iniş aracına uzaklık), yakıt boşaltma, pasifleştirme, MCC/TCM rota düzeltmeleri (Δv), LOI-1 ve LOI-2 (yörünge), DOI, motorlu inişte irtifa çağrıları (1000/500/100/30/10 m, alçalış hızı), son iniş kapısı, düşük yakıt, toz, **temas ışığı**, motor kesme, temas zarfı, yüzey evresi, Ay'ın arkasında LOS ve AOS (sessizlik süresi), NSN → DSN ağ devri, gölgeye giriş/çıkış. Metin `cueOf` ile olaydan (mission.js günlüğü, groundnet.js gösterim olayları) kurulur; kuyrukta en az 2,4 s arayla, 8 s'den eski ve fazla (> 3) olanlar önceliğe göre düşer. İstasyon devri, ufuk LOS'u ve 5 dakikadan kısa AOS gösterilmez (yolculukta ×10⁴ hızda gürültü). Kademe ayrılması çekimi CCAM'i kapsayacak biçimde SEP + 400 s'ye uzar (kamera geri çekilir).
 
 ### 2.1 Zaman hızı denetimi
 
@@ -61,6 +67,17 @@ Bindirmeler DOM'dur (canvas'ın üstünde); hareket **yalnız `transform`, `opac
 * **Dar / dikey ekran (telefon):** veri şeridi 2×2 ızgaraya, bölüm kartları tam genişliğe geçer, kapanış kartı üstte durur; letterbox çubuğu dikey ekranda yüksekliğin en çok %15'i kadardır (resim alanı kalsın); kısa (yatay telefon) ekranda başlıklar yüksekliğe göre ölçeklenir. Kamera tarafında `cineFov`: en-boy oranı 1,4'ün altına indikçe dikey görüş açısı büyütülür (en çok 2,2×), böylece araç dar kadrajda taşmaz.
 * Normal arayüz (HUD, panel, alt çubuk) sinematik kipte `opacity` ile kapanır; işaretçiler, etiketler ve yardımcı çizgiler gizlenir (iz çizgileri yalnız geniş çekimlerde).
 
+## 3.1 Ses (`web/js/cineaudio.js`)
+
+Hepsi Web Audio ile üretilir (ses dosyası yok); `M` ya da sağ üstteki **Ses** düğmesi sessize alır (tercih tarayıcıda saklanır).
+
+| Katman | Nasıl | Ne zaman |
+|---|---|---|
+| Müzik | dört ses × iki osilatör (hafif akort farkı) → alçak geçiren süzgeç (yavaş LFO); 8 akorluk döngü | her bölüm kartında akor değişir (0,9 s geçiş) ve süzgeç 1,2 s'de açılıp kapanır (kabarma); kapanışta çözülme akoru |
+| Motor | döngülü kahverengi gürültü → alçak geçiren; kalkışta ek bant geçiren "çatırtı" | `engineLevel(gaz, zaman hızı, atmosfer)`: kalkışta güçlü ve parlak, uzayda gazla artan alçak uğultu; ×60 üstünde söner, ×200'de sessiz |
+| Tek seferlik | alçak sinüs + gürültü patlaması (ayrılma), iki kısa 1180 Hz bip (temas ışığı) | kalkıştaki her ayrılma, görevdeki kademe ayrılmaları; temas ışığı alt yazısı |
+| Anonslar | Web Speech (`tr-TR` / `en-US`) | geri sayım (5…1), "Ateşleme… kalkış!", Ay'ın arkasında sinyal kaybı ve alımı, Ay yörüngesi, temas ışığı, motor kesme, kalış kararı |
+
 ## 4. Son işlem hattı (yalnız sinematik kip)
 
 `web/js/post.js`, three.js r170 eklentileriyle (`lib/addons/postprocessing`, MIT) ilk kullanımda kurulur (normal görünümün açılışı yavaşlamaz): **HDR sahne (yarı kayan, 4× MSAA ayrı hedef)** → **UnrealBloom** (eşik 2,0: yalnız yansımalar, plüm çekirdeği, Güneş) → **anamorfik çizgi parlama** (yatay geniş, dikey dar ikinci bloom; yalnız çok parlak noktalar) → **OutputPass** (ACES ton eşleme + sRGB) → **film geçişi** (vinyet, kromatik sapma, hafif S eğrisi, sıcak parlak alan/soğuk gölge, hareketli tane). Tüm özel gölgelendiriciler zaten HDR üretir (ton eşleme son geçişte yapılır). Sinematik kipte ek olarak: Güneş ışıltısı HDR büyür, kameradan soğuk bir **dolgu ışığı** gelir (tutulmada biraz güçlenir; gölgedeki gövde silüete dönmesin), pozlama 0,92'dir.
@@ -80,8 +97,8 @@ Bindirmeler DOM'dur (canvas'ın üstünde); hareket **yalnız `transform`, `opac
 ## 6. Sınırlar (dürüstçe)
 
 * Plüm renkleri ve parlaklıkları **stilize**dir: gerçekte vakumda hipergolik (SPS/iniş motoru) ve LH2/LOX alevleri neredeyse görünmezdir; burada görünür ve anlaşılır kılmak için ışıtılırlar.
-* Fırlatma gösterilmez (görev park yörüngesinden başlar); "fırlatma" planda yalnız zaman bilgisidir.
+* Kalkış açılışı kinematik kalkış canlandırmasıdır (`ascent.js`, `ascentplay.js`; fizik worker'ı onun süresince duraklar), görev fiziği yörüngeye girişten başlar. Düşük kare hızında (yazılımla çizim) kalkış oynatıcısının kare başına adımı 0,1 s ile sınırlı olduğundan kalkış duvar saatinde uzar; ilerleme çubuğu uçuş zamanına göre yürür.
 * Araç yığını fizik yığınıdır (gerçek Apollo düzeni değil; bkz. [modeller.md](modeller.md)); komuta modülü yoktur.
 * Gösterim süresi tasarıma bağlıdır; çok uzun yolculuklu profillerde (halo) yolculuk çekimleri fiziğin yetişebildiği hızla (≤ ×40 000) uzar. Hesap duraklamaları (iniş planlaması) çekimi uzatabilir; kararma altında yakalama bunu toparlar.
-* Ses yoktur.
+* Ses tamamen üretilmiştir (Web Audio; ses dosyası yok) ve stilizedir: vakumda motor sesi duyulmaz, burada gövdeden duyulan titreşim gibi alçak bir uğultudur. Anonslar tarayıcının konuşma sentezidir (ses ve kalite tarayıcıya/işletim sistemine göre değişir; yoksa atlanır). Tarayıcı kendiliğinden ses başlatmayı engellerse ilk dokunuşta açılır.
 * Doğrulama: `node test/test_cinema.js` (çekim listesi altı profil × tek/iki kademe, zaman eğrileri, plüm geometrisi, parçacıklar, CSS kuralları, bağlantılar) ve tarayıcıda (Chromium + SwiftShader, yazılımla çizim ≈ 1 kare/sn) tam gösterim: denetim çizimden bağımsız olduğu için çekim süreleri gerçek zamanda yürür; kare kare görünümler önizleme (`LS19.cinema.preview(çekim, τ)`) ile alınır.

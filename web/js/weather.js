@@ -15,7 +15,8 @@ export const WX_SOURCES = [
   { t: '45. Hava Filosu — fırlatma tahminleri (ör. Falcon 9 Starlink 6-92)', u: 'https://45thweathersquadron.nebula.spaceforce.mil/assets/LaunchForecasts/Falcon%209%20Starlink%206-92%20L-2%20Forecast%20-%207%20Dec%20Launch.pdf' },
   { t: 'Open-Meteo — hava tahmini API', u: 'https://open-meteo.com/en/docs' },
 ];
-export const HOURLY = ['temperature_2m', 'precipitation', 'precipitation_probability', 'weather_code', 'cloud_cover', 'wind_speed_10m', 'wind_gusts_10m', 'wind_speed_120m', 'cape', 'wind_speed_250hPa'];
+// cloud_cover_low/mid/high ve visibility: kalkış canlandırmasının bulut katmanları ve pusu (clouds.js)
+export const HOURLY = ['temperature_2m', 'precipitation', 'precipitation_probability', 'weather_code', 'cloud_cover', 'cloud_cover_low', 'cloud_cover_mid', 'cloud_cover_high', 'visibility', 'wind_speed_10m', 'wind_gusts_10m', 'wind_speed_120m', 'cape', 'wind_speed_250hPa'];
 const FORECAST_DAYS = 16, PAST_DAYS = 92;
 const DAY = 86400000;
 
@@ -78,15 +79,21 @@ export function pickLaunch(rows) {
 }
 export const STATUS_TR = { go: 'Uygun', risk: 'Riskli', nogo: 'Uygun değil', na: 'Veri yok' };
 
-// tarayıcı: rampa + an için değerlendirme (aynı rampa/gün için bellek önbelleği). Dönüş: { status, checks, time, kind } | { status: 'na', why }
+// tarayıcı: rampa + an için saatlik veri (aynı rampa/gün için bellek önbelleği). Dönüş: { h, kind } | { why }
 const cache = new Map();
-export async function launchWeather(lat, lon, tMs, { nowMs = Date.now(), fetchFn = (u) => fetch(u) } = {}) {
+export async function launchHour(lat, lon, tMs, { nowMs = Date.now(), fetchFn = (u) => fetch(u) } = {}) {
   const cov = coverage(tMs, nowMs);
-  if (cov.kind === 'none') return { status: 'na', why: cov.why };
+  if (cov.kind === 'none') return { why: cov.why };
   const url = weatherUrl(lat, lon, tMs, nowMs), key = url.replace(/past_days=\d+/, '') + '|' + Math.floor(nowMs / 3600000);
   let p = cache.get(key);
   if (!p) { p = fetchFn(url).then(async (r) => { const j = await r.json(); if (!r.ok || j.error) throw new Error(j.reason || 'HTTP ' + r.status); return j; }); cache.set(key, p); p.catch(() => cache.delete(key)); }
-  let data; try { data = await p; } catch (e) { return { status: 'na', why: 'Open-Meteo: ' + String(e.message || e).slice(0, 80) }; }
-  const h = hourAt(data, tMs); if (!h) return { status: 'na', why: 'bu saat için veri yok' };
-  return { ...evaluate(h), time: h.time, kind: cov.kind };
+  let data; try { data = await p; } catch (e) { return { why: 'Open-Meteo: ' + String(e.message || e).slice(0, 80) }; }
+  const h = hourAt(data, tMs); if (!h) return { why: 'bu saat için veri yok' };
+  return { h, kind: cov.kind };
+}
+// rampa + an için değerlendirme. Dönüş: { status, checks, time, kind } | { status: 'na', why }
+export async function launchWeather(lat, lon, tMs, opts = {}) {
+  const r = await launchHour(lat, lon, tMs, opts);
+  if (!r.h) return { status: 'na', why: r.why };
+  return { ...evaluate(r.h), time: r.h.time, kind: r.kind };
 }

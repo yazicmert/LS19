@@ -10,6 +10,10 @@ import { directShot, autoWarp, timeline, SHOT_NAMES, SITES, siteEye, sight, asce
 import { MU_E as MU, OMEGA_E as OMEGA, ellipsoidAlt } from './geo.js';
 import { $ } from './uiutil.js';
 import { fmt } from './format.js';
+import { launchHour } from './weather.js';
+import { isEn } from './i18n.js';
+import { cloudState, wxSummary } from './clouds.js';
+import { padKey } from './padmodels.js';
 
 // (0,0,1) → d döndüren birim kuaterniyon [x, y, z, w]
 function quatZto(d) {
@@ -60,6 +64,7 @@ export class AscentPlayer {
   }
   // yayın alt yazısı: olay adı bandın üstünde birkaç saniye görünür (Max-Q, ayrılmalar; açılışta roket ve rampa)
   flash(text, ms = 4200) {
+    if (this.quiet) { if (this.onCue) this.onCue(text, ms); return; }                 // sessiz kip (sinematik fragman): alt yazı fragmanın bindirmesine gider
     const f = this.teleEl && this.teleEl.flash; if (!f) return;
     f.textContent = text; f.classList.add('on'); clearTimeout(this.flashT);
     this.flashT = setTimeout(() => f.classList.remove('on'), ms);
@@ -70,10 +75,10 @@ export class AscentPlayer {
   }
   // yayın tarzı telemetri bandı: aşama, yere göre hız (km/sa), irtifa, T+ saati ve olay zaman çizgisi (Max-Q, ayrılmalar, yörünge)
   buildTele() {
-    const T = this.tele; if (!T) return;
     // çıkış durumundan anonslar (kule geçildi, Mach 1, kademe motor kesmeleri; gaz değişimi varsa): zaman çizgisinde küçük nokta, geçilince alt yazı
     this.callouts = this.path.sim ? ascentCallouts({ samples: this.path.sim.samples, veh: this.A.veh, towerM: TOWER_M[this.A.lv] ?? TOWER_M.generic, tempK: (h) => atmosphere(h).T }) : [];
     this.coShown = new Set();
+    const T = this.tele; if (!T || this.quiet) return;
     const tl = this.tl = timeline(this.A.events, this.path.sim && this.path.sim.maxQ, this.A.tIns, this.callouts), tEnd = this.A.tIns, t0 = -10;
     const x = (t) => ((t - t0) / (tEnd - t0) * 100).toFixed(2) + '%';            // uçlara yakın etiketler bandın içine doğru hizalanır (at-l, at-r)
     T.innerHTML = `<div class="at-row"><span class="at-st" id="atSt"></span><span class="at-k">HIZ</span><b id="atV">0</b><span class="at-u">km/sa</span><span class="at-k">İRTİFA</span><b id="atH">0</b><span class="at-u">km</span>`
@@ -94,15 +99,18 @@ export class AscentPlayer {
     E.st.textContent = stageName; E.fill.style.width = this.teleX(Math.max(-10, real)); E.cam.textContent = SHOT_NAMES[shot.shot] || ''; E.note.textContent = shot.note || '';
     this.tl.forEach((e, i) => E.ev[i].classList.toggle('done', real >= e.t));
   }
-  async start() {
+  // opts.quiet: sinematik fragman kipi — kontrol çubuğu, yayın bandı ve panel gizleme yok (fragmanın kendi bindirmesi var), hızı fragman verir
+  // (this.warp, userWarp), olay alt yazıları onCue(text, ms), görüntü atfı onCredit(text) ile iletilir; opts.from: başlangıç (kalkışa göre s, varsayılan −10)
+  async start(opts = {}) {
     const D = this.getDesign(), ins = this.getIns(), base = this.getState();
     if (this.active || !D || !ins || !base) return false;
+    this.quiet = !!opts.quiet; this.onCue = opts.onCue || null; this.onCredit = opts.onCredit || null; this.lastCredit = null;
     const L = D.LAUNCH, rk = rocketOf(D.STAGES && D.STAGES[0] ? D.STAGES[0].rocket : null), A = rk.ascent;
     if (!A) return false;
     const site = { lat: L.lat ?? LEGACY_SITE.lat, lon: L.lon ?? LEGACY_SITE.lon };
     this.path = buildAscent({ site, tLaunch: L.t_launch, ins, icrfToItrf: this.E.earthIcrfToItrf, rE: this.E.R_E, veh: A.veh, tInsReal: A.tIns, inc: D.inc });
     this.events = scaleEvents(A.events, A.tIns, this.path.T); this.A = A; this.rk = rk; this.base = base;
-    this.t = L.t_launch - 10; this.lastMsg = '';
+    this.t = L.t_launch + (opts.from ?? -10); this.lastMsg = '';
     this.send({ cmd: 'pause', on: true });
     const cam = this.world.cam; this.camPrev = { mode: cam.mode, auto: cam.auto, dist: cam.dist, el: cam.el, az: cam.az };
     // kamera: yerden izleme → takip (scene.js LAUNCH); takipte roketin arkasında, biraz yanda ve üstte
@@ -112,16 +120,26 @@ export class AscentPlayer {
       const e = [-d0[1], d0[0], 0], en = Math.hypot(...e), ea = e.map((c) => c / en), na = [d0[1] * ea[2] - d0[2] * ea[1], d0[2] * ea[0] - d0[0] * ea[2], d0[0] * ea[1] - d0[1] * ea[0]];
       const ke = hz[0] * ea[0] + hz[1] * ea[1] + hz[2] * ea[2], kn = hz[0] * na[0] + hz[1] * na[1] + hz[2] * na[2], kk = Math.hypot(ke, kn) || 1; this.drEN = [ke / kk, kn / kk]; }
     // kalkış gerçek hızda (×1) izlenir; T+20 s'den sonra ×10, kademe ayrılmaları ×2 (kullanıcı hız seçtiyse dokunulmaz) — launchcam.autoWarp
-    this.warp = 1; this.userWarp = false; this.camUser = 'auto';
+    this.warp = 1; this.userWarp = this.quiet; this.camUser = 'auto';
     // kalkıştaki alev: birinci kademenin yakıtı (Saturn V S-IC, Falcon: gazyağı; SLS, Vulcan: katı iticiler baskın)
     // rampa: SLS'te NASA Mobile Launcher, diğerlerinde beton platform; çevresi Sentinel-2 görüntüsü
-    await this.world.setAscent({ lv: A.lv, prop: { saturnv: 'kerolox', f9: 'kerolox', fh: 'kerolox', generic: 'kerolox', sls: 'solid', vulcan: 'solid' }[A.lv] || 'kerolox', pad: A.lv === 'sls' ? 'ml' : 'concrete', site });
-    this.debris = []; this.done = new Set(); this.prevCut = 0; this.hiddenNow = [];
-    this.active = true; this.bar.hidden = false; this.syncBar(); this.buildTele();      // model yüklendikten sonra oynamaya başla
-    this.cine = true; this.lastEv = null; this.qShown = false; this.applyCine(); this.poke(4500);
-    for (const ev of ['pointermove', 'pointerdown', 'keydown']) window.addEventListener(ev, this.onPoke, { passive: true });
-    window.addEventListener('resize', this.onResize);
+    await this.world.setAscent({ lv: A.lv, prop: { saturnv: 'kerolox', f9: 'kerolox', fh: 'kerolox', generic: 'kerolox', sls: 'solid', vulcan: 'solid' }[A.lv] || 'kerolox', pad: A.lv === 'sls' ? 'ml' : 'concrete', padKey: padKey(L.site || rk.pad), site });
+    this.debris = []; this.debId = 0; this.done = new Set(); this.prevCut = 0; this.hiddenNow = [];
+    this.active = true; this.lastEv = null; this.qShown = false; this.buildTele();      // model yüklendikten sonra oynamaya başla
+    if (!this.quiet) {
+      this.bar.hidden = false; this.syncBar();
+      this.cine = true; this.applyCine(); this.poke(4500);
+      for (const ev of ['pointermove', 'pointerdown', 'keydown']) window.addEventListener(ev, this.onPoke, { passive: true });
+      window.addEventListener('resize', this.onResize);
+    }
     this.flash(`${rk.name} · ${L.site || rk.pad || ''}`.replace(/ · $/, ''), 5000);
+    // kalkış saatinin gerçek havası (Open-Meteo): bulut katmanları, pus; gelmezse açık hava kalır ve nedeni alt yazıda
+    const tMs = this.E.utcMsFromT ? this.E.utcMsFromT(L.t_launch) : null;
+    if (tMs != null) launchHour(site.lat, site.lon, tMs).then((r) => {
+      if (!this.active) return;
+      const c = cloudState(r.h); if (this.world.setAscentWeather) this.world.setAscentWeather(c);
+      setTimeout(() => { if (this.active) this.flash(r.h ? wxSummary(c, isEn) : `Hava verisi yok (${/limit|429/i.test(r.why || '') ? 'istek sınırı' : String(r.why || '').slice(0, 40)}): açık hava`, 4500); }, 5200);
+    });
     return true;
   }
   // çizim konumu: sahnede Dünya küre (R_E), rampa ise WGS-84 elipsoidinde — alçakta küre yüzeyine yaslanır (20 km'de söner); telemetri gerçek konumu kullanır
@@ -143,18 +161,23 @@ export class AscentPlayer {
     const dts = dt * this.warp; this.t += dts;
     if (this.t >= P.tIns) { this.stop(); return null; }
     const s = P.at(this.t), met = this.t - P.tLaunch, real = met * this.A.tIns / P.T, q = quatZto(s.dir);
+    this.real = real;                                                                 // gerçek uçuş zamanı (kalkışa göre s): fragman hızı buna göre verir
     let cut = 0; const hidden = new Set(); let last = null;
     for (const e of this.events) if (met >= e.tScaled) {
       if (e.cut != null) cut = Math.max(cut, e.cut); if (e.part) hidden.add(e.part); last = e;
       if (!this.done.has(e)) {                                                       // yeni ayrılma: parça kendi balistik yoluna
         this.done.add(e);
         const back = s.dir.map((c) => -0.004 * c);
-        this.debris.push({ id: this.debris.length + 1, lo: this.prevCut, hi: e.cut ?? 0, part: e.part || null, hidden: [...hidden].filter((p) => p !== e.part),
-          r: s.r.slice(), v: s.v.map((c, k) => c + back[k]), q0: q, age: 0, spin: 0.15 + 0.1 * Math.random() });
+        // kimlik tekil ve artan: listedeki sıradan (length + 1) türetilseydi yere düşüp silinen bir parçanın kimliği sonraki ayrılmaya geçer, sahne o kimliğin
+        // eski modelini (ör. birinci kademe) yeni parçanın yerinde gökyüzünde yeniden gösterirdi
+        this.debris.push({ id: ++this.debId, lo: this.prevCut, hi: e.cut ?? 0, part: e.part || null, hidden: [...hidden].filter((p) => p !== e.part),
+          r: s.r.slice(), v: s.v.map((c, k) => c / k0 + back[k]), q0: q, age: 0, spin: 0.15 + 0.1 * Math.random() });
         if (e.cut != null) this.prevCut = e.cut;
       }
     }
-    for (const d of this.debris) { this.propagate(d, dts); d.age += dts; }
+    // parçalar gerçek zamanda uçar: yolun hızı canlandırma saniyesi başınadır (s.v), çekim gerçek saniyede; canlandırma gerçek uçuştan kısa/uzunsa (k0 ≠ 1)
+    // aynı zaman ölçeğinde birleştirilmezse kademe fazla yükselip aracın üstüne çıkar ve bir süre sonra gökyüzünde yeniden belirirdi
+    for (const d of this.debris) { this.propagate(d, dts * k0); d.age += dts * k0; }
     this.debris = this.debris.filter((d) => !d.gone && d.age < 900);
     const up = s.up, h = s.h;
     // rampa çerçevesi (Dünya ile döner) ve Güneş'in araca göre yüksekliği
@@ -187,7 +210,9 @@ export class AscentPlayer {
     else if (mq && !this.qShown && real >= mq.t && real < mq.t + 20) { this.qShown = true; this.flash(`MAX-Q · ${(mq.q / 1000).toFixed(0)} kPa`); }
     const full = msg + ` · irtifa ${hG.toFixed(hG < 10 ? 1 : 0)} km` + (s.q != null && met > 0 && h < 100 ? ` · q ${(s.q / 1000).toFixed(1)} kPa` : '') + nearQ;
     if (full !== this.lastMsg) { this.txt.textContent = full; this.lastMsg = full; }
-    const cr = this.world.asc && h < 40 ? this.world.asc.credit : ''; if (this.credit && this.credit.textContent !== cr) { this.credit.textContent = cr; this.placeTele(); }
+    const cr = this.world.asc && h < 40 ? this.world.asc.credit : '';
+    if (this.quiet) { if (cr !== this.lastCredit) { this.lastCredit = cr; if (this.onCredit) this.onCredit(cr); } }      // sessiz kip: atıf fragmanın bindirmesinde
+    else if (this.credit && this.credit.textContent !== cr) { this.credit.textContent = cr; this.placeTele(); }
     const x = { ...this.base, t: this.t, r: s.r, v: s.v, q, k: 0, thr: 0, phase: 'KALKIS', debris: [], local: null, att: null };
     // gösterge (ui.js hud): kalkışta roketin kendi değerleri — yere göre hız (bantla aynı), yaklaşık kütle (kalkış kütlesi × model oranı), yanan kademenin
     // kalan yakıtı, itki; görev aracının (yörüngede başlayan fizik) kütlesi ve yakıtı değil

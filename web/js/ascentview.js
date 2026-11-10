@@ -5,6 +5,12 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { makeLaunchVehicle } from './rocketmodels.js';
 import { LaunchSmoke } from './launchfx.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { buildPad } from './padmodels.js';
+import { OsmBuildings } from './osmbuildings.js';
+import { OsmNature } from './osmnature.js';
+import { VAB, CRAWLER, vabPlacement, namedLines, crawlerPark } from './kscmodels.js';
+import { CloudLayers, hazeLength, sunDim as cloudSunDim } from './clouds.js';
 import { PadGround, R_M } from './padground.js';
 import { Google3D, g3dSettings, g3dUsable } from './google3d.js';
 import { shake as camShake, SITES, siteEye } from './launchcam.js';
@@ -27,7 +33,7 @@ export class AscentView {
   // olanlar (booster, fairing, las) gizlenir. null: kalkış biter, araç geri gelir.
   async setAscent(spec) {
     const veh = this.vehicle;
-    if (this.asc) { veh.remove(this.asc.root); if (this.asc.smoke) this.asc.smoke.dispose(); if (this.asc.ground) this.asc.ground.dispose(); if (this.asc.g3d) this.asc.g3d.dispose(); if (this.asc.world) { this.scene.remove(this.asc.world); this.asc.world.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); } this.asc = null; }
+    if (this.asc) { veh.remove(this.asc.root); if (this.asc.smoke) this.asc.smoke.dispose(); if (this.asc.ground) this.asc.ground.dispose(); if (this.asc.clouds) this.asc.clouds.dispose(); if (this.asc.osm) this.asc.osm.dispose(); if (this.asc.nature) this.asc.nature.dispose(); if (this.asc.g3d) this.asc.g3d.dispose(); if (this.asc.world) { this.scene.remove(this.asc.world); this.asc.world.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); } this.asc = null; }
     for (const c of veh.children) if (c.userData.ascHidden !== undefined) { c.visible = c.userData.ascHidden; delete c.userData.ascHidden; }
     this.renderer.localClippingEnabled = false;
     if (!spec) return;
@@ -65,13 +71,9 @@ export class AscentView {
       const ml = await glb('ml', 'models/rockets/ml.glb');
       // Mobile Launcher: roket ekseni modelde (−7,8; 16; 1,4) m — platform üstü yere oturur (kaideler gösterilmez)
       if (ml) { const m = ml.clone(true); m.position.set(7.77, -16, -1.41); pad.add(m); }
-    } else {
-      // beton (üstü zemin görüntüsünün 0,15 m üstünde: padground.js zemini rampa düzeyinden 0,25 m yukarıda) ve alev çukuru
-      const conc = new THREE.Mesh(new THREE.BoxGeometry(60, 2.4, 60), new THREE.MeshLambertMaterial({ color: 0x9a978f })); conc.position.y = -0.8; pad.add(conc);
-      const trench = new THREE.Mesh(new THREE.BoxGeometry(12, 2.2, 40), new THREE.MeshLambertMaterial({ color: 0x3a3936 })); trench.position.set(0, -0.55, 14); pad.add(trench);
-      padProps.push(conc, trench);
-      for (const [x, z] of [[-26, -26], [26, 26]]) { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 1.0, 90, 8), new THREE.MeshLambertMaterial({ color: 0xb8b6b0 })); t.position.set(x, 45, z); pad.add(t); padProps.push(t); }   // yıldırım direkleri
     }
+    // rampa yapıları (padmodels.js; rampaya göre: servis kulesi, alev hendeği, yıldırım kuleleri ve telleri, su kulesi, VIF): Google 3B karolar varken gizlenir
+    { const B = buildPad(THREE, mergeGeometries, spec.padKey || 'generic', { ml: spec.pad === 'ml' }); pad.add(B.group); padProps.push(...B.parts); }
     const len = new THREE.Box3().setFromObject(template).getSize(new THREE.Vector3()).y;      // roket boyu (m, +Y): kalkış kamerasının kadrajı
     const radius = { saturnv: 5.05, sls: 4.2, fh: 1.83, f9: 1.83, vulcan: 2.7 }[spec.lv] || 2.0;     // gövde yarıçapı (m): araç üstü kameranın yeri
     const big = spec.lv === 'saturnv' || spec.lv === 'sls' || spec.lv === 'fh';
@@ -81,9 +83,35 @@ export class AscentView {
     if (spec.site) {
       const ground = this.asc.ground = new PadGround(THREE, pad, spec.site, { onProgress: (G) => { if (this.asc && this.asc.ground === G) this.asc.credit = G.credit(); } });
       ground.load();
+      // açık veri 3B binalar (anahtarsız; herkese açık sitenin varsayılanı): OSM binaları OpenFreeMap karolarından; rampa çevresinde yeterince yapı varsa
+      // prosedürel kuleler gizlenir (gerçek yapılar OSM'de), yoksa kalır. Google 3B karolar açıkken bu katman da gizlenir.
+      const A = this.asc;
+      // NASA 3D Resources modelleri (kscmodels.js): VAB gerçek yerinde (OSM'deki aynı bina gizlenir); SLS'in rampası LC-39B'de Crawler, Crawlerway üzerinde park hâlinde
+      A.ksc = [];
+      const put = (key, file, x, z, rotY) => glb(key, file).then((m) => {
+        if (this.asc !== A || !m) return;
+        const o = m.clone(true); o.position.set(x, -(x * x + z * z) / (2 * R_M), z); o.rotation.y = rotY; o.userData.xz = [x, z]; pad.add(o); A.ksc.push(o); A.kscDem = false;
+      });
+      const vab = vabPlacement(spec.site);
+      A.osm = new OsmBuildings(THREE, pad, spec.site, { onReady: (O) => {
+        if (this.asc !== A) return;
+        A.osmPad = O.nearPad() >= 3; A.creditT = 0;
+        const park = (spec.pad === 'ml' || spec.padKey === 'LC-39B') && crawlerPark(O.tiles.flatMap(({ t, layers }) => namedLines(layers.transportation_name, t, spec.site)));
+        if (park) put('crawler', CRAWLER.file, park.x, park.z, park.rotY);
+      } });
+      if (vab) { A.osm.exclude.push(vab.rect); put('vab', VAB.file, vab.x, vab.z, vab.rotY); }
+      A.osm.load();
       if (g3dUsable()) this.setGoogle3D(true);                                          // isteğe bağlı: rampa çevresi Google 3B karolarıyla (google3d.js)
     }
+    this.asc.clouds = new CloudLayers(THREE, pad);                                    // gerçek hava (setAscentWeather): veri gelene dek açık hava
+    this.asc.wxDim = 1;
     this.renderer.localClippingEnabled = true;
+  }
+  // kalkış saatinin gerçek havası (clouds.js cloudState: alçak/orta/yüksek örtü, görüş): bulut katmanları, zemin pusu, bulut altında Güneş ve gökyüzü
+  setAscentWeather(c) {
+    const A = this.asc; if (!A || !c) return;
+    A.clouds.set(c); A.wx = c; A.wxDim = cloudSunDim(c);
+    if (A.ground) { A.ground.u.hazeL.value = hazeLength(c.visKm); A.ground.u.sunDim.value = A.wxDim; }
   }
   // Google 3B karoları (google3d.js): kalkış sürerken aç/kapa; ayarlar (anahtar) google3d.js'te. onStatus: durum değişince (ayar paneli)
   setGoogle3D(on) {
@@ -141,7 +169,7 @@ export class AscentView {
     if (SM.userData.preetham) {
       // irtifada gökyüzü koyulaşırken griye değil laciverde döner (saçılan ışık maviye kayar; Preetham modeli gözlemciyi yerde varsayar)
       const hb = Math.max(0, Math.min(1, (h - 2) / 23)), sb = hb * hb * (3 - 2 * hb); SM.uniforms.skyTint.value.set(1 - 0.75 * sb, 1 - 0.45 * sb, 1 + 0.3 * sb);
-      SM.uniforms.skyGain.value = 0.8 * expo;
+      SM.uniforms.skyGain.value = 0.8 * expo * (0.55 + 0.45 * (this.asc.wxDim ?? 1));                 // kapalı havada gökyüzü sönük (bulut altında)
       SM.uniforms.skyFade.value = Math.min(0.985, Math.exp(-h / 22) * (0.35 + 0.65 * day)); if (sunDir) SM.uniforms.sunPosition.value.set(...sunDir); SM.uniforms.up.value.set(...up);
     } else { SM.opacity = Math.min(0.97, op); SM.color.setRGB(0.04 + 0.30 * day, 0.06 + 0.50 * day, 0.12 + 0.82 * day); }
   }
@@ -174,13 +202,35 @@ export class AscentView {
       if (A.ground) {                                                                      // zemin: Güneş, kamera irtifası (pus), alevin ışığı (dünya km)
         const plume = PLUME_COL[o.prop] || PLUME_COL.kerolox, pc = plume[2], pm = Math.max(pc.r, pc.g, pc.b);
         A.ground.frame({ sunDir: o.sunDir, sunUp: o.sunUp, h: camH, plumeW: base, thr: o.thr, plumeCol: pc.clone().multiplyScalar(1 / pm) });
-        if (A.g3d) {                                                                     // Google 3B: aynı ışık/pus; hazırken zemin içeriyi boşaltır, temsilî rampa gizlenir
+        let on = false;
+        if (A.g3d) {                                                                     // Google 3B: aynı ışık/pus; hazırken zemin içeriyi boşaltır, temsilî rampa ve OSM binaları gizlenir
           A.g3d.frame(A.ground.u, camH);
-          const on = A.g3d.ready && A.g3d.visible; A.ground.u.holeR.value = on ? A.g3d.radiusM * 0.985 : 0;
-          for (const p of A.padProps) if (p.visible === on) p.visible = !on;
-          const now = performance.now(); if (!A.creditT || now - A.creditT > 1000) { A.creditT = now; const g = A.g3d.attribution(); A.credit = A.ground.credit() + (g ? ' · ' + g : ''); }
+          on = A.g3d.ready && A.g3d.visible; A.ground.u.holeR.value = on ? A.g3d.radiusM * 0.985 : 0;
+        }
+        // görünürlük: rampa zemini/hendek Google yokken; prosedürel kuleler OSM'de rampa yapıları yoksa (osmPad) ve Google yokken; OSM binaları Google yokken
+        // uydu görüntüsü (en ince seviye) gelince: OSM çatıları görüntüden boyanır; prosedürel rampa zemini ve hendek gizlenir (gerçekleri görüntüde)
+        const imgFine = A.ground.u.L0 && A.ground.u.L0.value.w > 0;
+        if (A.osm && A.osm.ready && !A.osmColored && (imgFine || A.ground.done)) { A.osmColored = true; A.osm.recolor((la, lo) => A.ground.sample(la, lo), A.ground.heightAt ? (e, s) => A.ground.groundAt(e, s) : null); }
+        // doğal unsurlar (osmnature.js): zemin tamamlanınca (görüntü + kabartma) kurulur; kabartma sonradan gelirse binalar ve doğa yeniden oturtulur
+        if (A.osm && A.osm.ready && A.osmColored && !A.nature && (A.ground.done || A.ground.hasDem)) {
+          A.nature = new OsmNature(THREE, A.pad, A.spec.site); A.nature.addTiles(A.osm.tiles); A.nature.build(A.ground); A.natureDem = A.ground.hasDem;
+        }
+        if (A.nature && !A.natureDem && A.ground.hasDem) { A.natureDem = true; A.nature.build(A.ground); A.osm.recolor((la, lo) => A.ground.sample(la, lo), (e, s) => A.ground.groundAt(e, s)); }
+        if (A.nature) { const nowN = performance.now(); A.nature.visible = !on; A.nature.frame({ pad: A.pad, sunDir: o.sunDir, day: A.ground.u.day.value, dt: Math.min(0.1, (nowN - (A.natT || nowN)) / 1000), camH }); A.natT = nowN; }
+        for (const p of A.padProps) { const v = !on && !(A.osmPad && p.userData.kind === 'struct') && !(imgFine && p.userData.kind === 'base'); if (p.visible !== v) p.visible = v; }
+        if (A.osm) A.osm.visible = !on;
+        if (A.ksc) for (const k of A.ksc) {                                              // NASA modelleri: Google 3B açıkken gizli; kabartma gelince zemine oturur
+          k.visible = !on;
+          if (!A.kscDem && A.ground.hasDem) { const [x, z] = k.userData.xz; k.position.y = A.ground.groundAt(x, z) - 0.5 - (x * x + z * z) / (2 * R_M); }
+        }
+        if (A.ksc && A.ground.hasDem) A.kscDem = true;
+        const now = performance.now();
+        if (!A.creditT || now - A.creditT > 1000) {                                      // atıf: zemin görüntüsü + görünen 3B katman (OSM ya da Google)
+          A.creditT = now; const g = on ? A.g3d.attribution() : A.osm ? A.osm.credit() : '';
+          A.credit = [A.ground.credit(), g].filter(Boolean).join(' · ');
         }
       }
+      if (A.clouds) { const cm2 = new THREE.Vector3().applyMatrix4(A.pad.matrix.clone().invert()); A.clouds.frame({ sunUp: o.sunUp, cam: [cm2.x, cm2.y, cm2.z], dt: o.dtFlight ?? 0 }); }   // bulut katmanları: kamera rampa çerçevesinde (m)
       if (A.smoke) {                                                                       // kalkış bulutu rampa çerçevesinde (m): roket tabanı ve kamera oraya taşınır
         const inv = A.pad.matrix.clone().invert(), rb = base.clone().applyMatrix4(inv), cm = new THREE.Vector3().applyMatrix4(inv);
         A.smoke.update(o.met ?? 0, o.dtFlight ?? 0, { rocket: [rb.x, rb.y, rb.z], thr: o.thr, sunUp: o.sunUp, cam: [cm.x, cm.y, cm.z], sunDir: o.sunDir });

@@ -10,6 +10,7 @@ import { solveAscent, sampleAt, atmosphere } from '../js/ascentsim.js';
 import { ROCKETS, ROCKET_IDS } from '../js/rockets.js';
 import { LEGACY_SITE } from '../js/pads.js';
 import { sceneSrc } from './scenesrc.js';
+import { AscentPlayer } from '../js/ascentplay.js';
 
 let ok = true;
 const check = (c, m) => { console.log((c ? '  ✓ ' : '  ✗ ') + m); ok = ok && !!c; };
@@ -87,4 +88,21 @@ check(/PLUME_COL/.test(scene) && /pAmb/.test(scene) && /diamonds\.value = 0\.32 
 check(/A\.sky/.test(scene) && /Math\.sqrt\(2 \* 6378/.test(scene) && /skyFade/.test(scene) && /logdepthbuf_vertex/.test(scene) && !/depthTest: false/.test(scene.slice(scene.indexOf('async skyMaterial'), scene.indexOf('ascentFrame(o)'))),
   'gökyüzü: Preetham (three Sky), Güneş konumuna göre renk, irtifayla sönüm; ufkun ötesinde derinlik testli kubbe (log derinlik)');
 check(/propagate\(d, dt\)/.test(ap) && /atmosphere\(alt\)\.rho/.test(ap) && /debris\.push/.test(ap) && /applyAscent/.test(scene), 'ayrılan kademeler: ayrılma anındaki durumdan balistik (çekim + sürüklenme), takla atarak düşer');
+// ayrılan kademe kalkıştan sonra yeniden belirmez: parça kimlikleri tekil (silinen parçanın kimliği yeni ayrılmaya geçmez) ve parçalar gerçek zaman ölçeğinde uçar
+// (canlandırma süresi T gerçek giriş süresinden farklı olsa da: SLS 496 s / tasarım T) — kademe aracın altında kalır, tepesinden sonra düşer, bir daha yükselmez
+check(/id: \+\+this\.debId/.test(ap) && !/id: this\.debris\.length/.test(ap) && /propagate\(d, dts \* k0\)/.test(ap) && /c \/ k0 \+ back\[k\]/.test(ap), 'ayrılan parçalar: tekil artan kimlik, gerçek zaman ölçeğinde balistik');
+for (const id of ['GENEL', 'SATURN_V', 'F9', 'VULCAN']) {
+  const A = ROCKETS[id].ascent, Q = buildAscent({ site, tLaunch: D.LAUNCH.t_launch, ins, icrfToItrf: E.earthIcrfToItrf, rE: E.R_E, veh: A.veh, tInsReal: A.tIns, inc: D.inc });
+  const k0 = A.tIns / Q.T, ev = scaleEvents(A.events, A.tIns, Q.T).find((e) => e.cut != null), me = { path: Q }, prop = AscentPlayer.prototype.propagate;
+  let t = Q.tLaunch + ev.tScaled; const s0 = Q.at(t), d = { r: s0.r.slice(), v: s0.v.map((c, k) => c / k0 - 0.004 * s0.dir[k]) };
+  let above = 0, hMax = -1, fell = false, rose = false, hPrev = -1; const dt = 0.25;
+  while (t < Q.tIns - 1 && !d.gone) {
+    prop.call(me, d, dt * k0); t += dt;
+    const h = norm(d.r) - Q.R0, hr = norm(Q.at(t).r) - Q.R0;
+    if (h > hr + 0.5) above++;
+    if (hPrev >= 0 && h < hPrev - 1e-6) fell = true; else if (fell && h > hPrev + 1e-3) rose = true;
+    hMax = Math.max(hMax, h); hPrev = h;
+  }
+  check(above === 0 && !rose, `${id}: ayrılan kademe (T ${Q.T.toFixed(0)} s, gerçek ${A.tIns} s) hiç aracın üstüne çıkmaz, tepesi ${hMax.toFixed(0)} km, düşerken yeniden yükselmez${d.gone ? ', yere iner' : ''}`);
+}
 console.log(ok ? 'TAMAM' : 'HATA'); process.exit(ok ? 0 : 1);

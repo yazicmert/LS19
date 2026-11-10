@@ -32,6 +32,65 @@ const rd = (f) => fs.readFileSync(new URL(f, import.meta.url), 'utf8');
   check('pchip: sabit veri (aralık 0) sabit kalır, türevi 0', g(0.4)[0] === 100 && g(0.4)[1] === 0);
 }
 
+// ---------------------------------------------------------------- 1b) kalkış açılışı: hız çizelgesi (rockets.js'teki her roketin kalkış olaylarıyla)
+{
+  const { ROCKETS } = await import('../js/rockets.js');
+  const list = Object.values(ROCKETS).filter((r) => r.ascent && r.ascent.events);
+  let ok = list.length > 0, why = '', durs = [];
+  for (const rk of list) {
+    const A = rk.ascent, seps = A.events.filter((e) => (e.cut != null || e.part) && e.t > C.ASC.LIFT && e.t < A.tIns);
+    const w = (r) => C.ascentWarp(r, A.events, A.tIns);
+    if (!(w(-3) === 1 && w(0) === 1 && w(C.ASC.LIFT - 1) === 1)) { ok = false; why += ` ${rk.name}: kalkış ×1 değil`; }
+    for (const e of seps) if (!(w(e.t) <= C.ASC.SLOW + 1e-9 && w(e.t - C.ASC.PRE) <= C.ASC.SLOW + 1e-9 && w(e.t + C.ASC.POST) <= C.ASC.SLOW + 1e-9)) { ok = false; why += ` ${rk.name}: ${e.name} yavaş değil`; }
+    let prev = w(C.ASC.FROM), jump = 0; for (let r = C.ASC.FROM; r < A.tIns; r += 0.1) { const v = w(r); jump = Math.max(jump, Math.abs(v - prev)); prev = v; if (!(v >= 1 && v <= C.ASC.LATE)) { ok = false; why += ` ${rk.name}: aralık dışı`; break; } }
+    if (jump > 0.1 * C.ASC.RAMP + 1e-9) { ok = false; why += ` ${rk.name}: sıçrama ${jump.toFixed(2)}`; }       // 0,1 s adımda en çok RAMP·0,1
+    const d = C.ascentDuration(A.events, A.tIns); durs.push(`${rk.name} ${d.toFixed(0)} s`);
+    if (!(d > 20 && d < 60)) { ok = false; why += ` ${rk.name}: süre ${d.toFixed(0)} s`; }
+  }
+  check('kalkış açılışı: geri sayım ve kalkış ×1, her ayrılma (kademe, itici, kaporta) yavaş (×1,6), hız sürekli (rampa), ekran süresi 20–60 s', ok, (why || durs.join(' · ')).trim());
+  const P0 = { INS: 0, TLI: 5000 }, a = C.buildShots(P0, { ascent: true })[0], b = C.buildShots(P0, {})[0];
+  check('kalkış açılışı oynanınca açılış çekimi LS19 kartı yerine "YÖRÜNGEDE" bölüm kartı taşır', a.chapter && a.chapter.title === 'YÖRÜNGEDE' && !a.card && b.card && b.card.title === 'LS19' && !b.chapter);
+}
+
+// ---------------------------------------------------------------- 1c) olay alt yazıları (cueOf): gerçek görev olayları ve gösterim olayları
+{
+  const ab0 = (f) => { const b = fs.readFileSync(new URL(f, import.meta.url)); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); };
+  const eo0 = JSON.parse(rd('../data/earth_orient.json')); EO.loadEarthOrientation(eo0);
+  const D0 = JSON.parse(rd('../data/designs_default.json'));
+  E.setMoonZone(E.SOI_M); makeLive(ab0('../data/de440s.bsp'), ab0('../data/moon_pa_de440_200625.bpc'), eo0, D0.tStart);
+  const M = new MI.Mission({ design: D0.profiles.APOLLO.design, landing: 'zem' }); M.P.tLimit = Infinity; for (;;) { if (M.gen.next().done) break; }
+  const want = ['SEP-SPRING', 'SEP-TURN', 'SEP-CCAM', 'SEP-CCAM_END', 'SEP-EOM', 'MCC-1', 'LOI-1_END', 'LOI_END', 'DOI', 'CALL', 'DUST', 'CONTACT', 'ENGINE_STOP', 'TOUCH_ENV'];
+  const got = new Map(); for (const e of M.events) { const c = C.cueOf(e); if (c) got.set(e.key, c.text); }
+  const bad = [...got.values()].filter((t) => /undefined|NaN|null/.test(t)), miss = want.filter((k) => !got.has(k));
+  const numOk = /\d/.test(got.get('SEP-CCAM_END') || '') && /\d.*×.*\d/.test(got.get('LOI_END') || '') && /\d/.test(got.get('SEP-SPRING') || '');
+  { const TD = await import('../js/touchdown.js'), post = TD.POST_LANDING.map((e) => C.cueOf({ ...e, msg: e.key === 'TILT' ? 'Yüzeyde duruş: araç dikeyden 1.2° eğik (temasta 0.9°, zemin eğimi 0.4°), kalkışa uygun' : e.msg }));
+    check('yüzey evresi: motor emniyeti, duruş raporu (eğim iletiden), tank tahliyesi ve kalış kararı alt yazıları; kapanış çekimi temastan +96 s\'ye dek sürer (son olay +89 s)',
+      post.every((c) => c && c.pri === 3) && /1,2°|1\.2°/.test(post[1].text) && Math.max(...TD.POST_LANDING.map((e) => e.dt)) < 96 - 5, post.map((c) => (c ? c.text : '—')).join(' | ')); }
+  check('olay alt yazıları: APOLLO görevinin ayrılma/CCAM, MCC, LOI, DOI, irtifa çağrıları, toz, temas ışığı ve motor kesme olayları kısa metne döner; sayılar iletiden okunur', !miss.length && !bad.length && numOk,
+    miss.length ? `eksik: ${miss.join(', ')}` : bad.length ? `bozuk: ${bad.join(' | ')}` : [...got].map(([k, t]) => `${k}: ${t}`).slice(0, 4).join(' | '));
+  { // İngilizce arayüz: alt yazılar (DOM çevirmeniyle) ve anonslar (translateText) sözlükle tamamen İngilizce olmalı
+    const I = await import('../js/i18n.js'), EN = (await import('../js/i18n/en.js')).default;
+    I.useDictionary(EN);
+    const texts = [...got.values(), ...Object.values(C.SAY), 'Ateşleme… kalkış!'], left = texts.map((t) => I.translateText(t)).filter((t) => I.isTurkish(t) || /[çğıöşüİĞŞÇÖÜ]/.test(t));
+    I.useDictionary(null);
+    check('İngilizce arayüzde görev alt yazıları ve görev kontrol anonsları tamamen İngilizce (sözlükte karşılıksız Türkçe kalmaz)', !left.length, left.length ? left.join(' | ') : `${texts.length} metin`);
+  }
+  const disp = [{ key: 'LOS', cause: 'moon' }, { key: 'AOS', dur: 2760 }, { key: 'NET', net: 'DSN' }, { key: 'ECL_IN', by: 'Ay' }, { key: 'HANDOVER' }, { key: 'LOS', cause: 'horizon' }, { key: 'AOS', dur: 35 }].map((e) => C.cueOf(e));
+  check("gösterim olayları: LOS (Ay'ın arkası), AOS (sessizlik süresi), ağ devri ve gölge alt yazıları; istasyon devri, ufuk LOS'u ve kısa AOS gösterilmez",
+    disp[0] && /Ay'ın arkasında/.test(disp[0].text) && disp[1] && /46 dk/.test(disp[1].text) && disp[2] && /Derin Uzay/.test(disp[2].text) && disp[3] && disp[3].pri === 1 && disp[4] === null && disp[5] === null && disp[6] === null, disp.map((c) => (c ? c.text : '—')).join(' | '));
+}
+
+// ---------------------------------------------------------------- 1d) ses (cineaudio.js): motor düzeyi ve akorlar (Web Audio tarayıcıda; burada saf işlevler)
+{
+  const AU = await import('../js/cineaudio.js');
+  const off = AU.engineLevel(0, 1, true), lift = AU.engineLevel(1, 1, true), vac = AU.engineLevel(1, 1, false), low = AU.engineLevel(0.2, 1, false), fast = AU.engineLevel(1, 300, false), mid = AU.engineLevel(1, 130, false);
+  check('ses: motor gaz 0\'da sessiz; kalkışta (atmosfer) uzaydakinden güçlü, parlak ve çatırtılı; uzayda gazla artar; ×60 üstünde söner, ×200\'de sessiz',
+    off.gain === 0 && lift.gain > 2 * vac.gain && lift.cutoff > vac.cutoff && lift.crackle > 0 && vac.crackle === 0 && low.gain < vac.gain && fast.gain === 0 && mid.gain > 0 && mid.gain < vac.gain,
+    `kalkış ${lift.gain.toFixed(2)} / uzay ${vac.gain.toFixed(2)} / ×130 ${mid.gain.toFixed(2)}`);
+  const ok = AU.CHORDS.every((_, i) => { const f = AU.chordFreqs(i); return f.length === 4 && f.every((x, k) => x > 50 && x < 700 && (k === 0 || x > f[k - 1])); });
+  check('ses: akorlar dört sesli, artan, 50–700 Hz; bölüm numarası döngüsel (negatif ve büyük değerler)', ok && Math.abs(AU.midiHz(69) - 440) < 1e-9 && AU.chordFreqs(-1)[0] === AU.chordFreqs(AU.CHORDS.length - 1)[0] && AU.chordFreqs(99).length === 4);
+}
+
 // ---------------------------------------------------------------- 2) çekim listesi
 const ab = (f) => { const b = fs.readFileSync(new URL(f, import.meta.url)); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); };
 const SPK = ab('../data/de440s.bsp'), PCK = ab('../data/moon_pa_de440_200625.bpc');
