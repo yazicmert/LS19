@@ -23,6 +23,20 @@ const FILM = {
     }`,
 };
 
+// Kalite kademeleri (yüksekten düşüğe): 'ultra' (4K iç çözünürlük) → 'high' → 'medium' → 'low' (son işlem yok)
+export const LEVELS = ['ultra', 'high', 'medium', 'low'];
+export const UHD = [3840, 2160];
+// kademenin piksel oranı: ultra'da çizim tamponu 4K UHD'ye (3840 × 2160) sığan en büyük boyuta çıkar — pencere 4K'dan küçükse üst örnekleme (süper örnekleme),
+// 4K ekranda birebir; oran en az öbür kademelerinki kadar, en çok 4 ve doku sınırı kadar. high/medium: min(cihaz oranı, 1,5). low: cihaz oranı.
+export function targetPixelRatio(level, cssW, cssH, dpr = 1, maxTex = 16384) {
+  const base = Math.min(dpr || 1, 1.5);
+  if (level === 'low') return dpr || 1;
+  if (level !== 'ultra' || !(cssW > 0 && cssH > 0)) return base;
+  return Math.max(base, Math.min(UHD[0] / cssW, UHD[1] / cssH, 4, maxTex / cssW, maxTex / cssH));
+}
+// 4K ile başlanır mı: dokunmatik (telefon/tablet) ve az bellekli cihazlarda hayır (kare süresi ölçümü zaten düşürür, ama açılışta takılma olmasın)
+export function wantsUltra({ touch = false, memGB = 8, maxTex = 16384 } = {}) { return !touch && memGB >= 8 && maxTex >= 8192; }
+
 export class Post {
   static async create(renderer, scene, camera, opts = {}) {
     const [EC, SP, UB, OP, PS, CS] = await Promise.all([import('three/addons/postprocessing/EffectComposer.js'), import('three/addons/postprocessing/ShaderPass.js'),
@@ -33,7 +47,8 @@ export class Post {
   constructor(M, renderer, scene, camera, opts) {
     this.M = M; this.renderer = renderer; this.scene = scene; this.camera = camera;
     this.level = opts.level || 'high'; this.prMax = opts.pixelRatio || Math.min(window.devicePixelRatio || 1, 1.5);
-    this.w = 1; this.h = 1; this.t = 0; this.ema = 16; this.slow = 0; this.fast = 0; this.onLevel = opts.onLevel || null;
+    this.w = 1; this.h = 1; this.t = 0; this.ema = 16; this.slow = 0; this.fast = 0; this.onLevel = opts.onLevel || null; this.applyPr = opts.applyPixelRatio || null;
+    if (this.applyPr) this.applyPr(this.level);
     this.build();
   }
 
@@ -44,9 +59,9 @@ export class Post {
     const composer = this.composer = new M.EffectComposer(r, new THREE.WebGLRenderTarget(W, H, { type: THREE.HalfFloatType }));
     composer.setPixelRatio(1); composer.setSize(W, H);
     // sahne: MSAA'lı ayrı HDR hedef (ortadaki hedefler MSAA'sız: bellek ve süre); sonuç kompozitörün okuma hedefine kopyalanır
-    const self = this, high = this.level === 'high';
+    const self = this, ultra = this.level === 'ultra', high = this.level === 'high' || ultra;
     class ScenePass extends M.Pass {
-      constructor() { super(); this.needsSwap = true; this.rt = new THREE.WebGLRenderTarget(W, H, { type: THREE.HalfFloatType, samples: high ? 4 : 0 }); this.quad = new M.FullScreenQuad(new THREE.ShaderMaterial({ uniforms: THREE.UniformsUtils.clone(M.CopyShader.uniforms), vertexShader: M.CopyShader.vertexShader, fragmentShader: M.CopyShader.fragmentShader, depthTest: false, depthWrite: false })); }
+      constructor() { super(); this.needsSwap = true; this.rt = new THREE.WebGLRenderTarget(W, H, { type: THREE.HalfFloatType, samples: high ? (ultra ? 2 : 4) : 0 }); this.quad = new M.FullScreenQuad(new THREE.ShaderMaterial({ uniforms: THREE.UniformsUtils.clone(M.CopyShader.uniforms), vertexShader: M.CopyShader.vertexShader, fragmentShader: M.CopyShader.fragmentShader, depthTest: false, depthWrite: false })); }
       setSize(w, h) { this.rt.setSize(w, h); }
       render(renderer, writeBuffer) {
         renderer.setRenderTarget(this.rt); renderer.clear(); renderer.render(self.scene, self.camera);
@@ -81,10 +96,11 @@ export class Post {
     this.composer.setSize(W, H); this.film.uniforms.res.value.set(W, H); this.film.uniforms.aspect.value = W / H; this.w = W; this.h = H;
   }
 
-  // kalite: 'high' (MSAA + çizgi parlama) | 'medium' (MSAA yok, çizgi parlama yok) | 'low' (son işlem yok: çağıran düz çizim yapar)
+  // kalite: 'ultra' (4K iç çözünürlük, 2× MSAA + çizgi parlama) | 'high' (4× MSAA + çizgi parlama) | 'medium' (MSAA yok, çizgi parlama yok) | 'low' (son işlem yok: çağıran düz çizim yapar)
   setLevel(level) {
     if (level === this.level) return;
     this.level = level;
+    if (this.applyPr) this.applyPr(level);                              // piksel oranı hedefler kurulmadan önce
     if (level !== 'low') { const sz = this.renderer.getSize(new THREE.Vector2()); this.build(); this.setSize(sz.x, sz.y); }
     if (this.onLevel) this.onLevel(level);
   }
@@ -97,6 +113,6 @@ export class Post {
     this.composer.render(dt);
     const ms = Math.max(1, Math.min(2000, raw * 1000)); this.ema += (ms - this.ema) * 0.1;                 // gerçek kare süresi (kısıtlanmamış)
     if (this.ema > 34 && !this.locked) this.slow += raw; else this.slow = Math.max(0, this.slow - raw * 0.5);
-    if (this.slow > 2.5) { this.slow = 0; this.ema = 16; this.setLevel(this.level === 'high' ? 'medium' : 'low'); }
+    if (this.slow > 2.5) { this.slow = 0; this.ema = 16; this.setLevel(LEVELS[Math.min(LEVELS.length - 1, LEVELS.indexOf(this.level) + 1)]); }
   }
 }

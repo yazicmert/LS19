@@ -415,7 +415,7 @@ export class World {
   }
 
   setPixelRatio(r) { this.renderer.setPixelRatio(r); this.resize(this.canvas.clientWidth, this.canvas.clientHeight); }          // uyarlanır çözünürlük: tampon yeni orana göre yeniden boyutlanır
-  resize(w, h) { this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); if (this.post) this.post.setSize(w, h); }
+  resize(w, h) { if (this.cine.on && this.post && this._prOf) this.renderer.setPixelRatio(this._prOf(this.post.level)); this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); if (this.post) this.post.setSize(w, h); }
 
   // ortak kare yerleşimi (görev ve Canlı Gökyüzü): kamera yönü, Güneş yönü ve görüntüsü, Dünya/Ay konum ve yönelimi, yüzey parçaları, iniş arazisi.
   // Sahne kameraya göre çizilir (kamera orijinde): rel(p) dünya konumunu kameraya göre vektöre çevirir. Dönüş: { eye, rel, sd (Güneş yönü) }
@@ -719,12 +719,22 @@ export class World {
   async setCinematic(on, opts = {}) {
     if (on) {
       if (!this.post) {
-        this._postLoad = this._postLoad || import('./post.js').then(({ Post }) => Post.create(this.renderer, this.scene, this.camera, { onLevel: (l) => { this.cine.level = l; if (l === 'low') this.renderer.setPixelRatio(this._pr0 || 1); if (opts.onLevel) opts.onLevel(l); } }));
+        // çizim çözünürlüğü: kademeye göre piksel oranı (post.js targetPixelRatio); 'ultra' = 4K iç çözünürlük. Kare süresi yetmezse kademe düşer (ultra → high → medium → low)
+        const gl = this.renderer.getContext(), maxTex = Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096, gl.getParameter(gl.MAX_RENDERBUFFER_SIZE) || 4096);
+        this._pr0 = this._pr0 || this.renderer.getPixelRatio();
+        this._postLoad = this._postLoad || import('./post.js').then((PM) => {
+          this._prOf = (l) => PM.targetPixelRatio(l, this.canvas.clientWidth, this.canvas.clientHeight, this._pr0 || 1, maxTex);
+          const touch = typeof matchMedia === 'function' && matchMedia('(hover: none)').matches;
+          return PM.Post.create(this.renderer, this.scene, this.camera, { level: opts.level || (PM.wantsUltra({ touch, memGB: navigator.deviceMemory ?? 8, maxTex }) ? 'ultra' : 'high'),
+            applyPixelRatio: (l) => this.renderer.setPixelRatio(this._prOf(l)),
+            onLevel: (l) => { this.cine.level = l; this.resize(this.canvas.clientWidth, this.canvas.clientHeight); if (this._cineOnLevel) this._cineOnLevel(l); } });
+        });
         this.post = await this._postLoad;
       }
+      this._cineOnLevel = opts.onLevel || null;
       if (opts.level) { if (this.post.level !== opts.level) this.post.setLevel(opts.level); this.post.locked = true; } else this.post.locked = false;       // sabit kalite (deneme/ayar): uyarlama kapalı
       this._pr0 = this._pr0 || this.renderer.getPixelRatio();
-      this.renderer.setPixelRatio(Math.min(this._pr0, this.post.prMax));
+      this.renderer.setPixelRatio(this._prOf(this.post.level));
       this.cine.level = this.post.level;
     } else if (this._pr0) { this.renderer.setPixelRatio(this._pr0); this._pr0 = null; }
     this.cine.on = on;
