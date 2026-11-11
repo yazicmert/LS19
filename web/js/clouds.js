@@ -49,7 +49,7 @@ const FS = /* glsl */`
 #include <common>
 #include <logdepthbuf_pars_fragment>
 uniform float cover, op, scale, aniso, edge, day, sunUp, inside, below;
-uniform vec2 drift; uniform vec3 sunCol;
+uniform vec2 drift; uniform vec3 sunCol, camL;
 varying vec2 vP; varying vec3 vW;
 float h2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -62,7 +62,10 @@ void main() {
   float n = fbm(q), th = 1.0 - cover;                      // örtü: eşiğin üstü bulut (fBm ~0,2–0,8: %100'de her yer)
   float d = smoothstep(th * 0.82 + 0.06, th * 0.82 + 0.22, n);
   float r = length(vP), e = 1.0 - smoothstep(edge * 0.55, edge, r);
-  float a = d * e * op;
+  // ufka doğru sönme: düz katmanın kenarı gökyüzünde yatay bir çizgi (üstü düz gri bant) gibi görünmesin — bakış katmana yatıklaştıkça (yükselme açısı 17° → 3,5°)
+  // bulut pusa karışır; kenara (edge) varıldığında neredeyse saydamdır
+  float hd = max(1.0, length(vP - camL.xz)), el = abs(camL.y) / hd;
+  float a = d * e * op * smoothstep(0.06, 0.3, el);
   a = mix(a, max(a, 0.92), inside);                         // katmanın içinde: yoğun pus
   if (a < 0.01) discard;
   // boyama: üst yüz Güneş'le aydınlık, alt yüz (alttan bakış) gölgeli ve kalınlıkla koyulaşır; gece koyu mavi-gri
@@ -80,7 +83,7 @@ export class CloudLayers {
     this.meshes = LAYERS.map((L) => {
       const g = new THREE.PlaneGeometry(2 * R_EDGE, 2 * R_EDGE, 1, 1); g.rotateX(-Math.PI / 2);
       const u = { cover: { value: 0 }, op: { value: L.op }, scale: { value: L.scale }, aniso: { value: L.aniso }, edge: { value: R_EDGE }, day: { value: 1 }, sunUp: { value: 1 },
-        inside: { value: 0 }, below: { value: 1 }, drift: { value: new THREE.Vector2() }, sunCol: { value: new THREE.Color(1, 1, 1) } };
+        inside: { value: 0 }, below: { value: 1 }, camL: { value: new THREE.Vector3(0, -1500, 0) }, drift: { value: new THREE.Vector2() }, sunCol: { value: new THREE.Color(1, 1, 1) } };
       const m = new THREE.Mesh(g, new THREE.ShaderMaterial({ uniforms: u, vertexShader: VS, fragmentShader: FS, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
       m.position.y = L.h; m.renderOrder = 2; m.frustumCulled = false; m.visible = false; parent.add(m);
       return { L, m, u };
@@ -95,6 +98,7 @@ export class CloudLayers {
       const u = k.u, dy = cam[1] - k.L.h;
       u.day.value = day; u.sunUp.value = sunUp; u.drift.value.set(this.drift, 0.35 * this.drift);
       u.sunCol.value.setRGB(1.0, 0.72 + 0.28 * low, 0.5 + 0.5 * low);                 // alçak Güneş: turuncu
+      u.camL.value.set(cam[0], dy, cam[2]);                                           // kamera katmana göre (x, yükseklik farkı, z)
       u.below.value = dy < 0 ? 1 : 0; u.inside.value = Math.abs(dy) < k.L.thick / 2 ? Math.min(1, 2 * u.cover.value) : 0;
     }
   }
