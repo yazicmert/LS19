@@ -465,8 +465,11 @@ export class Cinema {
     const au = this.audio;
     if (au) {
       // geri sayım: her saniye tık + sayı (yalnız en son geçilen sayı söylenir: kare atlarsa sayılar üst üste binmez); kalkışta uzun ton
-      for (let n = 5; n >= 1; n--) if (prev < -n && real >= -n) { au.tick(); if (real < -n + 0.6) au.say('cd' + n, COUNT[n - 1], { urgent: true }); }
-      if (prev < 0 && real >= 0) { au.tick(true); au.say('lift', translateText('Ateşleme… kalkış!'), { urgent: true }); }
+      // tık tam saniyede çalar; sayı, konuşma sentezinin ölçülen başlama gecikmesi (au.lead) kadar ERKEN söyletilir ki ses tıkla aynı anda duyulsun
+      const ld = au.lead, pl = prev + ld, rl = real + ld;
+      for (let n = 5; n >= 1; n--) { if (prev < -n && real >= -n) au.tick(); if (pl < -n && rl >= -n && rl < -n + 0.6) au.say('cd' + n, COUNT[n - 1], { urgent: true }); }
+      if (prev < 0 && real >= 0) au.tick(true);
+      if (pl < 0 && rl >= 0) au.say('lift', translateText('Ateşleme… kalkış!'), { urgent: true });
       for (const e of a.events) if ((e.cut != null || e.part) && prev < e.t && real >= e.t) au.thump();
       const h = A.hud, thr = h && h.asc ? h.asc.thr : real >= 0 ? 1 : 0;
       au.update(this.paused ? 0 : thr, this.paused ? 1 : a.warp, !h || (h.altKm || 0) < 70);

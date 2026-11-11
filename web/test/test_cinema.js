@@ -234,6 +234,10 @@ check('Apollo iki kademe: dokuz bölüm, anma süre 110–150 s, açılış INS\
   check('4K ile başlama: masaüstü evet; dokunmatik, 4 GB bellek ya da 4096 doku sınırı hayır; kademe sırası ultra → high → medium → low',
     PM.wantsUltra({}) && !PM.wantsUltra({ touch: true }) && !PM.wantsUltra({ memGB: 4 }) && !PM.wantsUltra({ maxTex: 4096 }) && PM.LEVELS.join() === 'ultra,high,medium,low' && /LEVELS\.indexOf\(this\.level\) \+ 1/.test(fs.readFileSync(new URL('../js/post.js', import.meta.url), 'utf8')));
 }
+{ const ca = fs.readFileSync(new URL('../js/cineaudio.js', import.meta.url), 'utf8'), cin = fs.readFileSync(new URL('../js/cinema.js', import.meta.url), 'utf8');
+  check('geri sayım sesi: gösterim boyunca tek ses (bir kez seçilir), sayılar ölçülen konuşma gecikmesi kadar erken söyletilir, tık tam saniyede',
+    /if \(this\.voiceSet\) return this\.voice;/.test(ca) && /this\.voiceSet = true;/.test(ca) && /u\.onstart = /.test(ca) && /get lead\(\)/.test(ca) && !/getVoices\(\)\.find\(\(x\) => x\.lang[^;]*; if \(v\) u\.voice = v;\s*S\.speak/.test(ca)
+    && /const ld = au\.lead, pl = prev \+ ld, rl = real \+ ld;/.test(cin) && /if \(prev < -n && real >= -n\) au\.tick\(\);/.test(cin)); }
 // ---------------------------------------------------------------- Dünya–Ay görünümü: iz Ay'la dönen çerçevede (pointstore.js synodicBasis)
 {
   const PS = await import('../js/pointstore.js'), E2 = await import('../js/engine.js');
