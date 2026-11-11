@@ -550,7 +550,6 @@ const dict = {
   "İNİŞ KADEMESİ AYRILIR": "DESCENT STAGE SEPARATES",
   "Ay yörünge kademesi geride kalır": "The lunar orbit stage is left behind",
   "MOTORLU İNİŞ": "POWERED DESCENT",
-  "KALİTE DÜŞTÜ": "QUALITY REDUCED",
   "YÖRÜNGEDE": "IN ORBIT",
   "Park yörüngesi · {0} km · {1} km/s": "Parking orbit · {0} km · {1} km/s",
   "KALKIŞ": "LAUNCH",
@@ -2193,11 +2192,21 @@ export const manual = {
   "Metin: Vikipedi, CC BY-SA 4.0": "Text: Wikipedia, CC BY-SA 4.0",
   "SSCB": "USSR",
   "Bilim": "Science",
+  "Park": "Parking",
+  "Ayrılma": "Separation",
+  "Yolculuk": "Coast",
+  "Yüksek: 4K yerine ekran çözünürlüğü": "High: screen resolution instead of 4K",
+  "Hızlandırılmış": "Time-lapse",
+  "Gerçek zaman": "Real time",
+  "Efemeris ve yönelim": "Ephemeris and orientation",
+  "Görüntü ve harita": "Imagery and maps",
+  "LS19 · gerçek efemeris, N-cisim fiziği": "LS19 · real ephemeris, N-body physics",
   "Sitesi": "Website",
 };
 
 // Kaynakta Türkçe gibi görünen ama çevrilmeyecek metinler (ad, kısaltma, bağlantı): çıkarıcı bulur, sözlüğe girmez.
 export const same = [
+ "JPL DE440 · IAU/IERS · GRAIL (GRGM)",
  "AIza…",
  "api/yapilandirma",
  "en-US",

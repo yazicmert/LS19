@@ -140,7 +140,7 @@ void main() {
   // (yerdeki kamerada bu uzaklığın kendisi; yüksekten aşağı bakınca kısa, ufka doğru uzun); sönüm uzunluğu hazeL (varsayılan 22 km; gerçek havada görüşten: clouds.js hazeLength)
   float dist = length(vW), sinE = max(dot(normalize(-vW), Nf), 0.02), H = 2.0;
   float path = min(dist, H * (1.0 - exp(-max(camH, 0.0) / H)) / sinE + (camH < 0.05 ? dist : 0.0)), hz = (1.0 - exp(-path / hazeL)) * 0.92;
-  vec3 hazeC = mix(vec3(0.015, 0.02, 0.035), mix(vec3(0.6, 0.62, 0.64), vec3(0.62, 0.72, 0.86), sunDim), day);   // kapalı havada pus grileşir
+  vec3 hazeC = mix(vec3(0.015, 0.02, 0.035), mix(vec3(0.6, 0.62, 0.64), vec3(0.78, 0.83, 0.9), sunDim), day);   // ufuk pusu gökyüzünün ufuk rengine yakın (açık, hafif mavi): uzak zemin gökyüzüne çizgisiz karışır; kapalı havada grileşir
   gl_FragColor = vec4(mix(lit * sunI, hazeC, hz), 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>

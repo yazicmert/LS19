@@ -159,3 +159,63 @@ body.cine-on #view { cursor: none; }
   .cine-flash.go { animation: none; }
   .cine-cue { transform: none; transition: opacity 0.5s ease; }
 }
+
+/* ---- yayın grafikleri ---- */
+/* köşe işareti (yayın "bug"ı): amblem + ad, sağında kalite rozeti */
+.cine-bug { position: absolute; top: calc(var(--bar) + clamp(12px, 2.4vh, 26px)); left: clamp(24px, 6vw, 96px); display: flex; align-items: center; gap: 10px; color: var(--cine-ink);
+  opacity: 0; transition: opacity 0.8s var(--cine-out) 0.9s; text-shadow: 0 1px 10px rgba(0, 0, 0, 0.8); }
+.cine.on .cine-bug { opacity: 0.92; }
+.cine-bug .cine-emblem { width: clamp(26px, 2.6vw, 38px); height: auto; filter: drop-shadow(0 1px 6px rgba(0, 0, 0, 0.7)); }
+.cb-t { display: flex; flex-direction: column; gap: 2px; line-height: 1; }
+.cb-t b { font: 600 clamp(11px, 1.05vw, 14px) var(--font); letter-spacing: 0.34em; }
+.cb-t span { font: 500 9px var(--mono); letter-spacing: 0.26em; text-transform: uppercase; color: var(--cine-ink-2); }
+.cb-q { font: 600 9px var(--mono); font-style: normal; letter-spacing: 0.16em; padding: 3px 6px 2px; border: 1px solid rgba(243, 239, 230, 0.45); border-radius: 3px; color: var(--cine-ink-2); }
+.cb-q:empty { display: none; }
+.cine-hint { top: calc(var(--bar) + clamp(52px, 7.5vh, 76px)); }
+
+/* olay çizelgesi: adlı düğümler; geçilenler dolu, şimdiki vurgulu */
+.ct-ticks i { top: -4px; width: 9px; height: 9px; margin-left: -4.5px; border-radius: 50%; background: #0b0d12; border: 1px solid rgba(243, 239, 230, 0.6); transition: background-color 0.4s var(--cine-out), transform 0.4s var(--cine-out); }
+.ct-ticks i.done { background: var(--cine-accent); border-color: var(--cine-accent); }
+.ct-ticks i.cur { transform: scale(1.35); box-shadow: 0 0 0 3px rgba(255, 179, 92, 0.22); }
+.ct-ticks i b { position: absolute; left: 50%; bottom: 13px; transform: translateX(-50%); font: 500 9px var(--mono); font-style: normal; letter-spacing: 0.16em; text-transform: uppercase; white-space: nowrap;
+  color: rgba(243, 239, 230, 0.5); text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9); }
+.ct-ticks i.done b { color: rgba(243, 239, 230, 0.78); } .ct-ticks i.cur b { color: var(--cine-accent); }
+.ct-ticks i:first-child b { left: 0; transform: none; } .ct-ticks i:last-child b { left: auto; right: 0; transform: none; }
+.cine-strip { bottom: calc(var(--bar) + clamp(40px, 6.4vh, 66px)); }
+.cine-timeline { bottom: calc(var(--bar) + 12px); }
+.cine-card { bottom: calc(var(--bar) + clamp(104px, 15.5vh, 170px)); }
+.cine-cue { bottom: calc(var(--bar) + clamp(104px, 15.5vh, 170px)); }
+
+/* cisim etiketleri (geniş çekim): nokta + kılavuz çizgi + ad + uzaklık */
+.cine-tags { position: absolute; inset: 0; }
+.cine-tag { position: absolute; left: 0; top: 0; padding: 0 0 0 26px; margin-top: -34px; opacity: 0; transition: opacity 0.6s var(--cine-out); white-space: nowrap; text-shadow: 0 1px 10px rgba(0, 0, 0, 0.9); }
+.cine-tag.in { opacity: 1; }
+.cine-tag i { position: absolute; left: 0; top: 34px; width: 22px; height: 1px; background: rgba(243, 239, 230, 0.65); transform-origin: left center; transform: rotate(-52deg); }
+.cine-tag i::before { content: ""; position: absolute; left: -3px; top: -3px; width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--cine-accent); }
+.cine-tag b { display: block; font: 600 clamp(10px, 0.95vw, 12px) var(--mono); letter-spacing: 0.26em; text-transform: uppercase; color: var(--cine-ink); }
+.cine-tag span { display: block; margin-top: 3px; font: 400 10px var(--mono); letter-spacing: 0.1em; color: var(--cine-ink-2); font-variant-numeric: tabular-nums; }
+
+/* başlık kartı: amblem + üst satır + görev adı + ayrıntı */
+.cine-card.title { left: 0; right: 0; bottom: auto; top: 46%; max-width: none; margin: 0 auto; text-align: center; transform: translateY(-50%); }
+.cine-card.title .cine-emblem { width: clamp(64px, 8vw, 118px); height: auto; margin: 0 auto 18px; display: block; color: var(--cine-ink); opacity: 0; transform: scale(0.92); transition: opacity 0.9s var(--cine-out), transform 1s var(--cine-out); }
+.cine-card.title.in .cine-emblem { opacity: 1; transform: none; }
+.cc-over { display: block; margin-bottom: 10px; font: 500 clamp(10px, 1vw, 13px) var(--mono); letter-spacing: 0.42em; text-transform: uppercase; color: var(--cine-accent); opacity: 0; transition: opacity 0.7s var(--cine-out) 0.25s; }
+.cine-card.in .cc-over { opacity: 1; }
+.cine-card.title .cc-h { font-size: clamp(34px, 7vw, 104px); letter-spacing: 0.36em; padding-left: 0.36em; transform: none; clip-path: inset(-0.2em 50% -0.2em 50%); }
+.cine-card.title.in .cc-h { clip-path: inset(-0.2em 0 -0.2em 0); }
+.cine-card.title .cc-rule { margin-left: auto; margin-right: auto; transform-origin: center; width: min(300px, 50%); background: linear-gradient(90deg, rgba(255, 179, 92, 0), var(--cine-accent), rgba(255, 179, 92, 0)); }
+.cine-card.title .cc-s { white-space: pre-line; }
+
+/* kapanış jeneriği: kaynaklar (özetin altında, gecikmeli belirir) */
+.cc-credits { margin-top: 22px; padding-top: 12px; border-top: 1px solid rgba(243, 239, 230, 0.2); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px 30px; opacity: 0; transform: translateY(6px); transition: opacity 0.9s var(--cine-out), transform 0.9s var(--cine-out); }
+.cc-credits.in { opacity: 1; transform: none; }
+.cc-credits span { display: block; font: 500 9px var(--mono); letter-spacing: 0.22em; text-transform: uppercase; color: var(--cine-accent); }
+.cc-credits p { margin: 3px 0 0; font: 400 10px / 1.45 var(--mono); letter-spacing: 0.03em; color: var(--cine-ink-2); }
+
+@media (max-width: 900px), (max-aspect-ratio: 1/1) { .ct-ticks i b { display: none; } .ct-ticks i.cur b { display: block; } .cc-credits { grid-template-columns: 1fr; } .cine-tag span { display: none; } }
+@media (prefers-reduced-motion: reduce) { .cine-card.title .cine-emblem, .cc-credits { transform: none; } }
+.ct-ticks i.tight b { display: none; } .ct-ticks i.tight.cur b { display: block; }
+.ct-ticks i.cur ~ i:not(.tight) b { opacity: 0.85; }
+/* başlık kartının arkasında yumuşak karartma: parlak sahnede (rampa, gökyüzü) yazı okunur kalsın */
+.cine-card.title::before { content: ""; position: absolute; left: 50%; top: 50%; width: min(1100px, 92vw); height: 160%; transform: translate(-50%, -50%); z-index: -1; pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(4, 6, 10, 0.62) 0%, rgba(4, 6, 10, 0.36) 42%, rgba(4, 6, 10, 0) 72%); }

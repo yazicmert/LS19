@@ -62,6 +62,7 @@ export class CineAudio {
     const hp = c.createBiquadFilter(); hp.type = 'bandpass'; hp.frequency.value = 900; hp.Q.value = 0.6;
     this.crk = c.createGain(); this.crk.gain.value = 0; src.connect(hp); hp.connect(this.crk); this.crk.connect(this.master);
     src.start(); this.src = src;
+    this.warmSpeech();
     // tarayıcı kendiliğinden başlatmayı engellediyse ilk dokunuşta sürdür
     if (c.state === 'suspended') { this.resume = () => { c.resume(); }; window.addEventListener('pointerdown', this.resume, { once: true }); window.addEventListener('keydown', this.resume, { once: true }); }
   }
@@ -98,6 +99,7 @@ export class CineAudio {
     const c = this.ctx; if (!c) return;
     if (this.resume) { window.removeEventListener('pointerdown', this.resume); window.removeEventListener('keydown', this.resume); }
     clearInterval(this.bellTimer); this.utter = [];
+    try { if (this.onVoices && window.speechSynthesis && speechSynthesis.removeEventListener) speechSynthesis.removeEventListener('voiceschanged', this.onVoices); } catch (e) { /* yok */ }
     try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) { /* yok */ }
     this.master.gain.setTargetAtTime(0, c.currentTime, 0.25);
     this.ctx = null; setTimeout(() => c.close(), 1200);
@@ -136,8 +138,35 @@ export class CineAudio {
     const c = this.ctx; if (!c) return; const t = c.currentTime;
     for (const d of [0, 0.22]) { const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.value = 1180; g.gain.setValueAtTime(0, t + d); g.gain.linearRampToValueAtTime(0.16, t + d + 0.01); g.gain.setValueAtTime(0.16, t + d + 0.12); g.gain.linearRampToValueAtTime(0, t + d + 0.14); o.connect(g); g.connect(this.master); o.start(t + d); o.stop(t + d + 0.16); }
   }
-  // görev kontrol anonsu (Web Speech): aynı anahtar bir kez; sessizse ya da tarayıcıda yoksa atlanır. urgent (geri sayım): bekleyen anons varsa kuyruk boşaltılır
-  // (sayılar birikip gecikmesin). Sözceler bitene dek saklanır: bazı tarayıcılar başvurusu kalmayan sözceyi çöpe atıp kuyruğu durdurur (yalnız ilk sayı duyulurdu).
+  // konuşma sesi: gösterim boyunca TEK ses. Ses listesi tarayıcıda geç yüklenir; ilk sözce listesiz (dilin varsayılan sesiyle), sonrakiler listeden seçilen başka bir
+  // sesle söylenirse geri sayımda bir kadın bir erkek sesi duyulur. Ses bir kez seçilir ve değişmez: liste hazırsa dilin varsayılanı (yoksa ilk eşleşen),
+  // hazır değilse gösterim sonuna dek dilin varsayılanı (voice atanmaz).
+  pickVoice() {
+    if (this.voiceSet) return this.voice;
+    const S = window.speechSynthesis, lang = isEn ? 'en' : 'tr', L = S ? S.getVoices().filter((x) => x.lang && x.lang.toLowerCase().startsWith(lang)) : [];
+    this.voice = L.find((x) => x.default) || L.find((x) => x.localService) || L[0] || null; this.voiceSet = true;
+    return this.voice;
+  }
+  // konuşma sentezini ısıt: ses listesini yüklet (start'ta çağrılır); liste ilk sözceden önce gelirse ses oradan seçilir
+  warmSpeech() {
+    try {
+      const S = window.speechSynthesis; if (!S) return;
+      S.getVoices(); this.onVoices = () => { if (!this.voiceSet && S.getVoices().length) this.pickVoice(); };
+      if (S.addEventListener) S.addEventListener('voiceschanged', this.onVoices);
+      if (S.getVoices().length) this.pickVoice();
+      // sessiz bir ön sözce: motoru uyandırır (ilk sözcenin gecikmesi en uzunudur) ve başlama gecikmesini geri sayımdan önce ölçer
+      if (!this.muted && typeof SpeechSynthesisUtterance === 'function') {
+        const u = new SpeechSynthesisUtterance('a'); u.volume = 0; u.lang = isEn ? 'en-US' : 'tr-TR'; u.rate = 2; const v = this.voiceSet ? this.voice : null; if (v) u.voice = v;
+        const t0 = performance.now(); u.onstart = () => { const d = (performance.now() - t0) / 1000; if (d >= 0 && d < 2) this.ttsLead = Math.min(d, 0.6); };
+        this.utter = [u]; u.onend = u.onerror = () => { this.utter = (this.utter || []).filter((x) => x !== u); }; S.speak(u);
+      }
+    } catch (e) { /* yok */ }
+  }
+  // sözcenin duyulmaya başlama gecikmesi (s): speak() ile onstart arası ölçülür (üssel ortalama). Geri sayım sayıları bu kadar ERKEN söyletilir ki
+  // ses saniye tıkıyla aynı anda duyulsun (cinema.js tickAscent).
+  get lead() { return Math.max(0, Math.min(0.8, this.ttsLead ?? 0.25)); }
+  // görev kontrol anonsu (Web Speech): aynı anahtar bir kez; sessizse ya da tarayıcıda yoksa atlanır. urgent (geri sayım): önceki sözce hâlâ bekliyorsa
+  // kuyruk boşaltılır (sayılar birikip kaymasın). Sözceler bitene dek saklanır: bazı tarayıcılar başvurusu kalmayan sözceyi atıp kuyruğu durdurur.
   // quindar: anonsun başında ve sonunda hat tonları.
   say(key, text, { urgent = false, quindar = !urgent } = {}) {
     if (this.muted || !this.ctx || this.spoken.has(key)) return; this.spoken.add(key);
@@ -145,10 +174,12 @@ export class CineAudio {
     try {
       const S = window.speechSynthesis; if (!S || typeof SpeechSynthesisUtterance !== 'function') return;
       if (S.paused) S.resume();
-      if (urgent && (S.pending || S.speaking)) S.cancel();
-      const u = new SpeechSynthesisUtterance(text); u.lang = isEn ? 'en-US' : 'tr-TR'; u.rate = urgent ? 1.15 : 1.04; u.pitch = 0.92; u.volume = 0.9;
-      const v = S.getVoices().find((x) => x.lang && x.lang.toLowerCase().startsWith(isEn ? 'en' : 'tr')); if (v) u.voice = v;
+      if (urgent && S.pending) S.cancel();
+      const u = new SpeechSynthesisUtterance(text); u.lang = isEn ? 'en-US' : 'tr-TR'; u.rate = urgent ? 1.2 : 1.04; u.pitch = 0.92; u.volume = 0.9;
+      const v = this.pickVoice(); if (v) u.voice = v;
       this.utter = this.utter || []; this.utter.push(u);
+      const t0 = performance.now();
+      u.onstart = () => { const d = (performance.now() - t0) / 1000; if (d >= 0 && d < 2) this.ttsLead = this.ttsLead == null ? d : this.ttsLead + (d - this.ttsLead) * 0.5; };
       const done = () => { this.utter = (this.utter || []).filter((x) => x !== u); if (quindar && this.ctx && !this.muted) this.tone(2475, 0.25, 0.05); };
       u.onend = done; u.onerror = done;
       S.speak(u);

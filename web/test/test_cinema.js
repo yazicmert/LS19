@@ -218,10 +218,26 @@ check('Apollo iki kademe: dokuz bölüm, anma süre 110–150 s, açılış INS\
       !!m && Math.abs(wide - 40) < 1e-9 && Math.abs(land - 40) < 1e-9 && phone > 40 && phone < 170 && hfov(phone, 390 / 844) > hfov(40, 1.0) && Math.tan(phone * Math.PI / 360) / Math.tan(40 * Math.PI / 360) <= 2.2 + 1e-9, `dikey: 40° → ${phone && phone.toFixed(1)}°`);
   }
   check('post.js: MSAA\'lı HDR sahne → bloom → çizgi parlama → OutputPass → film geçişi; kalite kademeleri (yüksek/orta/düşük) ve gerçek kare süresiyle düşürme',
-    /UnrealBloomPass/.test(post) && /OutputPass/.test(post) && /samples: high \? 4 : 0/.test(post) && /setLevel\(/.test(post) && /'medium'/.test(post) && /raw \* 1000/.test(post) && /vignette/.test(post) && /grain/.test(post));
+    /UnrealBloomPass/.test(post) && /OutputPass/.test(post) && /samples: high \? \(ultra \? 2 : 4\) : 0/.test(post) && /setLevel\(/.test(post) && /'medium'/.test(post) && /raw \* 1000/.test(post) && /vignette/.test(post) && /grain/.test(post));
   for (const f of ['EffectComposer', 'RenderPass', 'ShaderPass', 'UnrealBloomPass', 'OutputPass', 'MaskPass', 'Pass']) if (!fs.existsSync(new URL(`../lib/addons/postprocessing/${f}.js`, import.meta.url))) { check(`lib/addons/postprocessing/${f}.js var`, false); }
   check('lib/addons: son işlem eklentileri (three r170, MIT) ve gölgelendiriciler yerel', ['CopyShader', 'LuminosityHighPassShader', 'OutputShader'].every((f) => fs.existsSync(new URL(`../lib/addons/shaders/${f}.js`, import.meta.url))));
 }
+{ const cin = fs.readFileSync(new URL('../js/cinema.js', import.meta.url), 'utf8');
+  check('kalkıştan sonraki açılış çekiminde karartma kalkar (post-asc → fade 0): "YÖRÜNGEDE" çekimi siyah kalmaz', /this\.state === 'wait' \|\| this\.state === 'post-asc'\) ui\.fade\(0, 900\)/.test(cin)); }
+// 4K çizim (post.js): ultra kademede tampon 3840 × 2160'a sığan en büyük boyut; küçük pencerede üst örnekleme (en çok 4×), 4K ekranda birebir; dokunmatik/az bellekte 4K ile başlanmaz
+{
+  const PM = { ...(await (async () => { const src = fs.readFileSync(new URL('../js/post.js', import.meta.url), 'utf8'); const m = src.slice(src.indexOf('export const LEVELS'), src.indexOf('export class Post')).replace(/export /g, ''); return new Function(m + '; return { LEVELS, UHD, targetPixelRatio, wantsUltra };')(); })()) };
+  const pr = PM.targetPixelRatio, a = pr('ultra', 1920, 1080, 1), b = pr('ultra', 1280, 720, 2), c = pr('ultra', 3840, 2160, 1), d = pr('ultra', 2560, 1080, 1), e = pr('ultra', 800, 450, 1), f = pr('ultra', 1920, 1080, 1, 2048);
+  check('4K çizim: 1080p pencerede 2× (3840 × 2160), 720p\'de 3×, 4K ekranda 1×, ultra geniş 2560 × 1080\'de 1,5× (genişlik sınırı), küçük pencerede en çok 4×, doku sınırına uyar; öbür kademeler min(cihaz, 1,5)',
+    a === 2 && b === 3 && c === 1 && Math.abs(d - 1.5) < 1e-9 && e === 4 && Math.abs(f - 2048 / 1920) < 1e-9 && pr('high', 1920, 1080, 2) === 1.5 && pr('medium', 1920, 1080, 1) === 1 && pr('low', 1920, 1080, 2) === 2,
+    `1080p ${a}×, 720p ${b}×, 4K ${c}×, 2560×1080 ${d}×`);
+  check('4K ile başlama: masaüstü evet; dokunmatik, 4 GB bellek ya da 4096 doku sınırı hayır; kademe sırası ultra → high → medium → low',
+    PM.wantsUltra({}) && !PM.wantsUltra({ touch: true }) && !PM.wantsUltra({ memGB: 4 }) && !PM.wantsUltra({ maxTex: 4096 }) && PM.LEVELS.join() === 'ultra,high,medium,low' && /LEVELS\.indexOf\(this\.level\) \+ 1/.test(fs.readFileSync(new URL('../js/post.js', import.meta.url), 'utf8')));
+}
+{ const ca = fs.readFileSync(new URL('../js/cineaudio.js', import.meta.url), 'utf8'), cin = fs.readFileSync(new URL('../js/cinema.js', import.meta.url), 'utf8');
+  check('geri sayım sesi: gösterim boyunca tek ses (bir kez seçilir), sayılar ölçülen konuşma gecikmesi kadar erken söyletilir, tık tam saniyede',
+    /if \(this\.voiceSet\) return this\.voice;/.test(ca) && /this\.voiceSet = true;/.test(ca) && /u\.onstart = /.test(ca) && /get lead\(\)/.test(ca) && !/getVoices\(\)\.find\(\(x\) => x\.lang[^;]*; if \(v\) u\.voice = v;\s*S\.speak/.test(ca)
+    && /const ld = au\.lead, pl = prev \+ ld, rl = real \+ ld;/.test(cin) && /if \(prev < -n && real >= -n\) au\.tick\(\);/.test(cin)); }
 // ---------------------------------------------------------------- Dünya–Ay görünümü: iz Ay'la dönen çerçevede (pointstore.js synodicBasis)
 {
   const PS = await import('../js/pointstore.js'), E2 = await import('../js/engine.js');
