@@ -76,6 +76,21 @@ Canlı Gökyüzü'nün fiziği (Dünya yönelimi, canlı N-cisim efemerisi ve Ay
 | Gezegen kutupları ve dönme fazları (W₀, Ẇ), yarıçaplar | IAU WGCCRE | Aynı |
 | Yeniden giriş tahmini (B*, Vallado yoğunluğu) | Bkz. §1 #2 | Düzeltildi |
 
+### 4.2a Yeniden giriş tahmini (`impact.js`): ikinci denetim
+
+Çarpma sekmesinin yörünge bozunması modeli bağımsız referanslarla sınandı (aynı fizik ayrıca yazılıp hareket denklemleri doğrudan ya da 4.000–20.000 noktalı ortalamayla tümlendi). Dört kusur bulundu ve düzeltildi:
+
+| Sorun | Kanıt | Düzeltme |
+|---|---|---|
+| **`MEAN_MOTION_DOT`'tan sürüklenme genliği dairesel formülle bulunup perije değeri sayılıyordu** | Modelin kendi bozunmasından üretilen ṅ geri verildiğinde B*/ṅ oranı 300 × 2000 km'de 7,95, 250 × 6000 km'de 11,3 (1 olmalı); B* yokken ömür sonsuz çıkıyordu | Genlik, geçmiş eğimiyle aynı yoldan (modelin yörünge ortalamalı da/dt'siyle ölçekleme) bulunur; oran 1,000 / 1,000 / 0,998 |
+| **Eksantrik yörüngede sabit 24 noktalı toplama perijedeki sürüklenme tepesini kaçırıyordu** | da/dt yakınsak değerin 250 × 20.000 km'de 0,52'si, GTO'da 0,20'si, 200 × 35.786 km'de 0,14'ü | Nokta sayısı tepenin genişliğine (√(H/ae)) göre seçilir; 400 × 420 km'den 130 × 35.786 km'ye sekiz yörüngede referansla fark ≤ %0,25 |
+| **Tümleme (a, e) ile ilerliyordu**: perijeye adım başına −Δa·Δe ikinci derece hatası ekleniyor, adım yalnız perije hızına göre seçiliyordu | 200 × 35.786 km, B* = 10⁻³: model 1.662 gün, ince adımlı referans 6.208 gün (perije 60 km fazla alçalıyordu; gerçek alçalma Δa'nın ~2·10⁻⁴'ü) | Durum (a, perije) olarak ilerletilir; adım a'nın değişimini de sınırlar. Aynı durumda 6.217 gün (%0,14); dört yörüngede fark ≤ %1,2 |
+| **15 yıla kadar tahmin "yüksek" güven alabiliyordu** | Atmosfer sabit, genlik bugünkü Güneş aktivitesine bağlı (uzun vadede ±2–5×); geçmiş eğimi zaten yalnız B*'la uyuşan cisimlerde kullanıldığından uyum bağımsız doğrulama değildir | Yüksek: uyumlu ve < 60 gün, ya da ≥ 6 aylık geçmiş eğimi uyumlu ve < 1 yıl; orta: uyumlu ve < 25 yıl; gerisi düşük |
+
+Kartezyen denetim (`test/test_impact.js`): iki cisim + sürüklenme ivmesi −½Kρ|v|v, RK4 10 s, 300 × 2000 km, 3 gün: Δa 36,55 km ↔ model 36,12 km, Δe 4,195·10⁻³ ↔ 4,147·10⁻³.
+
+**Sınır:** periyodu ≥ 225 dk olan alçak perijeli yörüngelerde (GTO, Molniya) perijeyi Ay–Güneş çekimi yönetir; model yalnız sürüklenmeyi hesaplar. Bu cisimler işaretlenir, güvenleri düşüktür ve "> 300 yıl" yerine sınırı söyleyen metin gösterilir. Model gerçek bir yeniden giriş kaydıyla karşılaştırılmadı; referanslar modelin sayısal çözümünü doğrular, atmosfer ve B* varsayımlarını değil.
+
 ### 4.3 Sınırlar
 
 - Uydu gölgesi silindirik kabul edilir (yarı gölge yok); geçişlerin doğuş/batışı geometrik ufka göredir (kırılma yok: ufukta ≈ 0,57°, birkaç saniye).

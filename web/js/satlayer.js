@@ -9,7 +9,7 @@ import { dataAgeS, isStale, mergeSupGP, ommFromColumns } from './gpdata.js';
 import { SatModels, modelFor, MOON_MODELS, MODELS, showDist } from './satmodels.js';
 import { SatInstancer } from './satinstancer.js';
 import { familyOf, FAMILIES } from './satfamilies.js';
-import { assessSat } from './impact.js';
+import { loadHist, histData, decayOf } from './decayhist.js';
 import { placeScreenLabel } from './screenlabel.js';
 import { workerOpts } from './i18n.js';
 
@@ -382,6 +382,14 @@ export class SatLayer {
     out.sort((a, b) => a.d2 - b.d2 || a.dist - b.dist);
     return out[0] || null;
   }
+  // yeniden giriş tahmini: Çarpma sekmesiyle aynı hesap (geçmiş eğimiyle kalibrasyon dahil; decayhist.js). Kart sık yenilendiği için kayıt ve geçmiş
+  // değişmedikçe sonuç saklanır; geçmiş dosyası ilk kartta istenir, inince tahmin kendiliğinden kalibre edilmiş değere geçer.
+  decayFor(o) {
+    loadHist();
+    const c = this._decay;
+    if (c && c.o === o && c.hist === histData()) return c.r;
+    const r = decayOf(o, Date.now(), false).r; this._decay = { o, hist: histData(), r }; return r;
+  }
   // tıklanan uydunun ayrıntıları (SGP4, o anki durum + ortalama öğeler)
   satDetails(i, t) {
     const o = this.recordOf(this.ids[i]); if (!o) return null;
@@ -391,7 +399,7 @@ export class SatLayer {
     const out = { name: o.OBJECT_NAME, norad: o.NORAD_CAT_ID, cospar: o.OBJECT_ID, group: SAT_GROUPS[this.groups[i]].name,
       periodMin: 1440 / o.MEAN_MOTION, inc: +o.INCLINATION, ecc, perigee: a * (1 - ecc) - E.R_E, apogee: a * (1 + ecc) - E.R_E,
       epochAgeDays: (E.utcMsFromT(t) - Date.parse(o.EPOCH + 'Z')) / 86400000, launchYear: (o.OBJECT_ID || '').slice(0, 4),
-      decay: assessSat(this.gpRecord(this.ids[i]) || o, Date.now(), false), model: modelFor(o.NORAD_CAT_ID, o.OBJECT_NAME), family: FAMILIES[this.famKeys && this.famKeys[i]] || null,
+      decay: this.decayFor(this.gpRecord(this.ids[i]) || o), model: modelFor(o.NORAD_CAT_ID, o.OBJECT_NAME), family: FAMILIES[this.famKeys && this.famKeys[i]] || null,
       source: o._sup ? `CelesTrak SupGP (${o._sup.src || o._sup.file}${o._sup.rms != null ? `, RMS ${o._sup.rms} km` : ''})` : o._extra ? 'CelesTrak GP (tek kayıt, etkin listede değil)' : 'CelesTrak GP' };
     if (pv && pv.position) {
       const p = E.mv(EO.temeToIcrf(E.jdTdb(t)), [pv.position.x, pv.position.y, pv.position.z]);
