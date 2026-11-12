@@ -91,6 +91,8 @@ Kartezyen denetim (`test/test_impact.js`): iki cisim + sürüklenme ivmesi −½
 
 ### 4.2b Gerçek yeniden girişler, Güneş çevrimi, Ay–Güneş çekimi
 
+> Bu bölümdeki Güneş çevrimi ve derin uzay sonuçları §4.2c'de gerçek F10.7 verisi ve gerçek derin uzay yeniden girişleriyle yenilendi; aşağıdaki sayılar o düzeltmelerden öncedir.
+
 **Gerçek kayıtla karşılaştırma.** Halka açık CelesTrak etkin kataloğunun git geçmişinden (github.com/jtmiclat/celestrak-historical; Tem 2025 – Kas 2026, ~4,5 günde bir, 96 anlık görüntü) etkin listeden çıkmış, son TLE perijesi 120–260 km olan 322 cisim seçildi (Starlink/OneWeb/Kuiper ve istasyon araçları hariç; Jilin, ICEYE, Astrocast, Lemur, NuSat ve küp uydular). "Gerçek" yeniden giriş anı = son TLE çağı + modelin o TLE'den kalan süresi (medyan 2,2 gün, %90'ı < 4,2 gün). Her cismin önceki TLE'lerinden tahmin / gerçek kalan süre oranı:
 
 | Yeniden girişe kalan | n | Medyan | %68 aralığı | 2 kat içinde |
@@ -109,6 +111,40 @@ Cisim başına birer girdili bu örnek `web/test/fixtures/reentry_real.json`'dad
 **Ay–Güneş çekimi.** Periyodu ≥ 225 dk olan alçak perijeli yörüngelerde (GTO, Molniya) dış merkezlik ve açısal momentum vektörleri için dörtkutup yaklaşımında yörünge ortalamalı denklemler (Tremaine, Touma & Namouni 2009; Güneş tek, Ay çift ortalama) ve J2'nin düğüm/perije dönmesi sürüklenmeyle birlikte tümlenir (4 günlük adım, 100 yıl ufuk). Doğrudan Kartezyen tümlemeyle (Dünya nokta kütle + J2, Güneş, eğik dairesel yörüngede dolanan Ay; RK4) karşılaştırma: 600 × 35.786 km, i = 28,5°, 1 yıl: perije 58 km oynarken en büyük fark 2,6 km; 900 × 39.400 km, i = 63,4°, 545 gün: perije 900 → 448 km, fark 1,2 km. Örnek: GTO 250 × 35.786 km, B* = 10⁻³: yalnız sürüklenme 70,6 yıl, Ay–Güneş dahil 32,5 yıl.
 
 **Sınırlar.** Birkaç yıldan uzun tahminler gerçek kayıtla sınanamadı (veri 16 ay). Derin uzay yörüngeleri için gerçek yeniden giriş kaydı yok (etkin katalogda bu türden inen cisim bulunmadı); Ay–Güneş modeli ortalamadır (rezonanslar, kısa periyotlu terimler yok) ve bu yörüngeler başlangıç koşullarına çok duyarlıdır: güvenleri hep düşüktür. "Gerçek" yeniden giriş anı son TLE'den modelle tamamlandığı için birkaç günlük bir belirsizlik taşır.
+
+### 4.2c Açık kalan sınırlar için kaynaklar ve sonuçları
+
+§4.2b'de üç sınır kalmıştı: birkaç yıldan uzun tahminler sınanamıyordu, derin uzay yörüngelerinde gerçek yeniden giriş kaydı yoktu ve "gerçek" yeniden giriş anı son TLE'den modelle tamamlanıyordu. Bunlar için kaynak arandı; bulunan ve kullanılabilen kaynaklarla aşağıdakiler yapıldı.
+
+**Gerçek Güneş aktivitesi (F10.7).** Modeldeki ortalama çevrimin genliği yanlıştı: 25. çevrimin düzleştirilmiş F10.7 tepesi Eylül 2024'te 203,6 sfu ([STCE](https://www.stce.be/content/sc25-tracking)); modelde 160 yazıyordu. Gözlenen değerler için kaynak CelesTrak'ın uzay havası dosyası `SW-All.txt` (1957'den bugüne günlük F10.7 ve Ap, ayrıca ~16 yıllık aylık tahmin; lisans yok, yalnız kaynak belirtilsin, en sık 3 saatte bir indirilsin). Bu oturumdan celestrak.org'a erişilemediği için, dosyanın 20 Temmuz 2025'e kadar gözlem içeren bir kopyası PyPI'daki `spaceweather` 0.4.2 paketinden alındı. Kesim tarihi tam olarak sınama penceresinin başı olduğundan sınama adildir: model o gün elde olacak gözlem + tahminle çalışır. `tools/uzay_havasi.mjs` dosyadan aylık tablo (`web/data/f107.json`, 5,6 kB) üretir; uygulama tabloyu `gecmis.json` ile birlikte yükler; yoksa ortalama çevrime (en çok 185 sfu: son dört çevrimin en yüksek yıllık ortalamalarının ortalaması) düşer. Haftalık iş akışı (`gecmis.yml`) tabloyu CelesTrak'tan yeniler.
+
+| | 1 yıllık irtifa düşüşü, tahmin / gözlenen (366 uzun ömürlü cisim) | Gerçek yeniden girişler (681 tahmin), medyan \|ln hata\| | 330 gün kala medyan |
+|---|---|---|---|
+| F10.7 tablosu | 1,04 (%68: 0,86–1,22) | 0,143 | 1,02 |
+| Ortalama çevrim | 0,75 (0,64–0,88) | 0,200 | 1,38 |
+| Sabit atmosfer | 0,88 (0,74–1,03) | 0,208 | 1,19 |
+
+Uzun ömürlü cisim örneği (`fixtures/decay_1yil.json`): 350–700 km, dairesel, manevrasız edilgen cisimlerin ilk TLE'si ve ~1 yıl sonra gözlenen yarı büyük eksen düşüşü. Bu, birkaç yıllık tahminin dayandığı bozunma hızını bir yıllık ölçekte sınar (ömür medyanı ~9 yıl). Gerçek yeniden girişlerle tablo modeli: 45 / 150 / 330 gün kala %68 aralığı 0,85–1,35 / 0,78–1,21 / 0,80–1,24, %97'si 2 kat içinde.
+
+**Derin uzay gerçek yeniden girişleri.** CelesTrak geçmişinde ESA'nın Cluster II uyduları bulundu (a ≈ 72.000 km, e ≈ 0,85; ESA'nın "hedefli doğal bozunma" ile indirdiği uydular; son evrede itki yok, perijeyi Ay–Güneş çekimi bir yılda ~4.600 km'den indirdi). Yeniden giriş anları ESA'dan: Rumba 22 Eki 2025 ([ESA](https://blogs.esa.int/rocketscience/2025/10/10/rumba-expected-to-reenter-on-22-october)), Samba 31 Ağu 2026 21:39:38 UTC ([ESA](https://www.esa.int/articles/samba-s-fiery-farewell-recorded)), Tango 1 Eyl 2026 21:30:31 UTC ([ESA](https://www.esa.int/articles/observing-samba-and-tango-s-reentries)). Bu sınama üç hata buldu:
+
+| Sorun | Kanıt | Düzeltme |
+|---|---|---|
+| Perijesi 1400 km'nin üstündeki derin uzay cisimleri hesaplanmadan "yüksek yörünge" sayılıyordu | Samba 200 gün kala (perije 2.065 km): "> 100 yıl" | Ay–Güneş yörüngelerinde (periyot ≥ 225 dk, e > 0,1) erken çıkış yok; sürüklenme verisi yoksa da tümlenir |
+| Derin uzay TLE'sindeki `MEAN_MOTION_DOT` sürüklenme sayılıyordu | SDP4'te ṅ Ay–Güneş etkisini taşır; perije 1.500 km'ye inince saçma büyük sürüklenme apojeyi bir günde çökertti (tahmin 224 gün, gerçek 397) | Derin uzayda ṅ sürüklenme kaynağı değil |
+| Yeniden giriş 120 km ortalama perijede sayılıyordu | Çok eksantrik yörüngede tek geçiş cismi yakalamaz; TLE'nin ortalama perijesi −36 km gösterirken Samba 16 gün daha uçtu | Bu yörüngelerde eşik 80 km (40–120 km denendi; daha alçak eşikler biraz daha iyi ama yalnız 3 cisme uydurmamak için 80) |
+
+Düzeltmelerden sonra Samba ve Tango için 60–397 gün kala 30 tahminin medyanı gerçeğin 1,04 katı (0,59–1,24); Ay–Güneş çekimi olmadan bunların hiçbiri yeniden girmez görünür. Ortalama model, aynı başlangıçtan doğrudan Kartezyen tümlemeyle (Güneş, Montenbruck & Gill düşük duyarlıklı Ay, J2) her başlangıçta %8 içinde aynı sonucu verir; yani kalan fark ortalamadan değil fizikten ve TLE ortalama elemanlarından gelir. Rumba (25–88 gün kala) tahminleri kısa kalır (0,41–0,77): son haftalarda ortalama elemanlar fiziksel perijeyi göstermez. Örnek: `fixtures/reentry_deep.json`.
+
+**Kalan sınırlar ve onları çözebilecek kaynaklar** (bu oturumdan erişilemeyenler; ağ izni ya da hesap gerekir):
+
+| Sınır | Kaynak | Durum |
+|---|---|---|
+| Birkaç yıldan uzun tahminler gerçek kayıtla sınanamadı (veri 16 ay) | Space-Track `gp_history` (1957'den bugüne tüm TLE'ler; ücretsiz hesap; yeniden dağıtım kısıtlı, yalnız türetilmiş sonuç depolanabilir); toplu indirme aracı [tl3](https://pypi.org/project/tl3) (~28 GB). CelesTrak'ın [geçmiş GP arşivi](https://celestrak.org/NORAD/archives/request.php) (istekle). J. McDowell'in [tarihsel TLE arşivi](https://planet4589.org/space/ele.html) (cisim başına dosya) | Hesap / ağ izni gerekir |
+| "Gerçek" yeniden giriş anı son TLE'den tamamlanıyor (medyan 2,2 gün) | [GCAT](https://planet4589.org/space/gcat/) `satcat.tsv` yeniden giriş tarihleri (CC-BY); Space-Track `decay` / TIP; Aerospace [CORDS](https://aerospace.org/reentries) (2000 sonrası, 2 yıldan eskiler CSV) | GCAT en uygun (CC-BY); planet4589.org ağ izni gerekir |
+| Jeomanyetik fırtınalar (Ap) yok; aylık F10.7 kısa dalgalanmaları düzler | Aynı `SW-All.txt` günlük Ap ve günlük F10.7 içerir | Kaynak hazır; model genişletmesi yapılmadı |
+| GTO roket gövdeleri gibi B*'ı güvenilmez çok eksantrik cisimler | Gondelach, Armellin & Lidtke 2017 ([doi:10.1155/2017/7309637](https://doi.org/10.1155/2017/7309637)): 101 GTO roket gövdesiyle TLE'den balistik katsayı kestirimi ve yeniden giriş tahmini sınaması | Yöntem kaynağı; veri Space-Track'ten |
+| Güneş çevriminin gelecek genliği | NOAA SWPC [tahmini](https://www.swpc.noaa.gov/products/solar-cycle-progression) (`predicted-solar-cycle.json`, aralıklı); CelesTrak aylık tahmini zaten tabloda | Tablo kullanılıyor; NOAA aralıkları belirsizlik bandı için kullanılabilir |
 
 ### 4.3 Sınırlar
 

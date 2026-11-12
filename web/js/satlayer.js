@@ -9,7 +9,7 @@ import { dataAgeS, isStale, mergeSupGP, ommFromColumns } from './gpdata.js';
 import { SatModels, modelFor, MOON_MODELS, MODELS, showDist } from './satmodels.js';
 import { SatInstancer } from './satinstancer.js';
 import { familyOf, FAMILIES } from './satfamilies.js';
-import { loadHist, histData, decayOf } from './decayhist.js';
+import { loadHist, dataVersion, decayOf } from './decayhist.js';
 import { placeScreenLabel } from './screenlabel.js';
 import { workerOpts } from './i18n.js';
 
@@ -383,12 +383,12 @@ export class SatLayer {
     return out[0] || null;
   }
   // yeniden giriş tahmini: Çarpma sekmesiyle aynı hesap (geçmiş eğimiyle kalibrasyon dahil; decayhist.js). Kart sık yenilendiği için kayıt ve geçmiş
-  // değişmedikçe sonuç saklanır; geçmiş dosyası ilk kartta istenir, inince tahmin kendiliğinden kalibre edilmiş değere geçer.
+  // değişmedikçe sonuç saklanır; geçmiş ve F10.7 dosyaları ilk kartta istenir, inince tahmin kendiliğinden güncellenir.
   decayFor(o) {
     loadHist();
     const c = this._decay;
-    if (c && c.o === o && c.hist === histData()) return c.r;
-    const r = decayOf(o, Date.now(), false).r; this._decay = { o, hist: histData(), r }; return r;
+    if (c && c.o === o && c.v === dataVersion()) return c.r;
+    const r = decayOf(o, Date.now(), false).r; this._decay = { o, v: dataVersion(), r }; return r;
   }
   // tıklanan uydunun ayrıntıları (SGP4, o anki durum + ortalama öğeler)
   satDetails(i, t) {

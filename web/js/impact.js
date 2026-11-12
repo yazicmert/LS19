@@ -3,15 +3,16 @@
 // UYDULAR — yörünge bozunması (manevra yapılmazsa doğal yeniden giriş):
 //   • Sürüklenme genliği CelesTrak GP kaydındaki B*'tan (SGP4'ün kendi yoğunluk modeliyle tutarlı: ρ ∝ ((q0−s)/(r−s))⁴) bulunur;
 //     B* yoksa MEAN_MOTION_DOT'tan (gözlenen bozunma) alınır. İkisi de varsa tutarlılığı güven düzeyine yansır.
-//   • Yükseklikle değişim Vallado'nun üstel atmosferinden alınır; Güneş'in 11 yıllık çevrimi ortalama bir F10.7 biçimiyle yoğunluğu ölçekler; yeniden giriş 120 km perije.
+//   • Yükseklikle değişim Vallado'nun üstel atmosferinden alınır; Güneş aktivitesi yoğunluğu F10.7 ile ölçekler (aylık gözlenen + CelesTrak tahmini tablo,
+//     web/data/f107.json; yoksa ortalama 11 yıllık çevrim); yeniden giriş 120 km perije.
 //   • Dairesel yörünge: da/dt = −KρÖ √(μa). Eksantrik yörünge: a ve e için yörünge ortalamalı (Gauss) denklemler; toplama noktası sayısı perije
-//     çevresindeki sürüklenme tepesinin genişliğine (√(H/ae)) göre seçilir (GTO'da ~200–400 nokta; sabit 24 nokta tepeyi kaçırıp sürüklenmeyi 5–7× küçültüyordu).
-//   • Periyodu ≥ 225 dk olan (SGP4'ün derin uzay sınırı: GTO, Molniya) alçak perijeli yörüngelerde perijeyi Ay–Güneş çekimi yönetir: yörünge ortalamalı
-//     Ay–Güneş ve J2 denklemleri sürüklenmeyle birlikte tümlenir (kayıtta yörünge açıları varsa). Bu cisimler `deep` ile işaretlenir, güvenleri düşüktür.
-//   • Gerçek kayıtla karşılaştırma (test/fixtures/reentry_real.json, 322 gerçek yeniden giriş): 45 gün kala tahminlerin %68'i gerçeğin 0,84–1,37 katı,
-//     330 gün kala 0,77–1,48 katı; %96'sı 2 kat içinde.
-//   • Sınırlar: çevrimin gelecekteki genliği ve aylık dalgalanmalar (gözlenen ±%50) bilinemez; küre biçimli Dünya; Starlink gibi aktif uydular yörüngelerini korur;
-//     birkaç yıldan uzun tahminler ve derin uzay yörüngeleri gerçek kayıtla sınanmadı.
+//     çevresindeki sürüklenme tepesinin genişliğine (√(H/ae)) göre seçilir.
+//   • Periyodu ≥ 225 dk ve e > 0,1 olan yörüngelerde (GTO, Molniya, Cluster) perijeyi Ay–Güneş çekimi yönetir: yörünge ortalamalı Ay–Güneş + J2 denklemleri
+//     sürüklenmeyle birlikte tümlenir (yörünge açıları varsa); yeniden giriş 80 km ortalama perijede sayılır. Bu cisimler `deep` ile işaretlenir, güvenleri düşüktür.
+//   • Gerçek kayıtla karşılaştırma (test/test_impact.js): 321 LEO yeniden girişinde 45/150/330 gün kala tahminlerin %68'i gerçeğin 0,85–1,35 / 0,78–1,21 /
+//     0,80–1,24 katı; 366 uzun ömürlü cismin 1 yıllık irtifa düşüşü 0,86–1,22 katı; Cluster II (ESA) 60–397 gün kala 0,59–1,24 katı.
+//   • Sınırlar: birkaç yıldan uzun tahminler sınanamadı (gelecek çevrimlerin genliği bilinmez); jeomanyetik fırtınalar (Ap) modelde yok; küre biçimli Dünya;
+//     aktif uydular yörüngelerini korur; çok eksantrik yörüngelerin son haftalarında ortalama elemanlar fiziksel perijeyi göstermez.
 //   • Durum, güven, yöntem ve sınıf değerleri dilden bağımsız kodlardır (aşağıdaki sabitler); ekranda görünen Türkçe karşılıkları *_TR sözlüklerindedir.
 //
 // ASTEROİTLER — JPL Sentry (sanal çarpıcılar): olasılık ve olası yıllar. Bilinen kesin çarpma yoktur.
@@ -19,6 +20,8 @@ import { LOC, MONTHS_SHORT } from './i18n.js';
 import { fmt } from './format.js';
 const MU = 398600.4418, RE = 6378.135, DAY = 86400;
 const REENTRY_KM = 120, MAX_DAYS = 300 * 365.25, YEAR = 365.25;
+// Çok eksantrik (Ay–Güneş) yörüngede tek perije geçişi cismi yakalamaz: yeniden giriş daha alçak ortalama perijede sayılır (Cluster II ile seçildi, docs/fizik_denetimi.md §4.2c)
+const DEEP_REENTRY_KM = 80;
 export const DEEP_PERIOD_MIN = 225;                                     // SGP4 derin uzay sınırı: bundan uzun periyotta Ay–Güneş çekimi perijeyi değiştirir
 // assessSat().durum: nodata (kayıt geçersiz) · reentry (perije < 120 km) · high (perije > 1400 km) · nodrag (sürüklenme verisi yok) · decaying · long (> 300 yıl)
 // güven kodları ve ekrandaki adları
@@ -51,13 +54,32 @@ export const atmosphereDensity = (hKm) => Math.exp(lnrho(hKm));       // kg/m³
 //   T = 900 + 2,5 (F10.7 − 70) + 1,5 Ap,  m = 27 − 0,012 (h − 200),  H = T/m,  ρ ∝ exp(−(h − 175)/H)      (180–500 km için verilmiş; burada 1000 km'ye dek uzatılır)
 // Buradan yalnız oran kullanılır: ln ρ(h, F) = ln ρ_Vallado(h) − c(F)·(h − 175)·m(h),  c(F) = 1/T(F) − 1/T(140). F = 140'ta 400/600/800 km'de bağıntı Vallado'yla
 // 3,7e-12 ↔ 3,7e-12, 1,05e-13 ↔ 1,45e-13, 7e-15 ↔ 1,2e-14 uyuşur.
-// F10.7(t): 11 yıllık ortalama çevrim biçimi (yumuşatılmış; 25. çevrim: en az Aralık 2019, en çok 2024 sonu ~160 sfu; iniş çıkıştan uzun). Gelecek çevrimler aynı
-// biçimle yinelenir: çevrimin gerçek genliği önceden bilinemez, bu yüzden uzun vadeli tahmin yine belirsizdir (güven kuralları).
-const F_MIN = 70, F_MAX = 160, F_MEAN = 140, CYCLE_YR = 11, CYCLE_RISE_YR = 4.85, CYCLE_T0 = Date.UTC(2019, 11, 15), AP = 15;
-export function solarF107(ms) {
+// F10.7(t): öncelik aylık tablodadır (web/data/f107.json; tools/uzay_havasi.mjs CelesTrak SW-All.txt'ten üretir): 1957'den bugüne gözlenen aylık ortalama ve
+// CelesTrak'ın ~16 yıllık aylık tahmini. Tablo yüklenmediyse ya da tarih tablonun dışındaysa 11 yıllık ortalama çevrim biçimi kullanılır: en az 70 sfu,
+// en çok 185 sfu (son dört çevrimin en yüksek yıllık ortalamalarının ortalaması: 1989 213, 2001 184, 2014 146, 2024 191), 25. çevrim en azı Aralık 2019.
+// Gelecek çevrimlerin gerçek genliği önceden bilinemez: uzun vadeli tahmin yine belirsizdir (güven kuralları).
+const F_MIN = 70, F_MAX = 185, F_MEAN = 140, CYCLE_YR = 11, CYCLE_RISE_YR = 4.85, CYCLE_T0 = Date.UTC(2019, 11, 15), AP = 15;
+export function solarCycleF107(ms) {
   const x = ((((ms - CYCLE_T0) / (YEAR * 864e5)) % CYCLE_YR) + CYCLE_YR) % CYCLE_YR;
   const s = x < CYCLE_RISE_YR ? 0.5 * (1 - Math.cos(Math.PI * x / CYCLE_RISE_YR)) : 0.5 * (1 + Math.cos(Math.PI * (x - CYCLE_RISE_YR) / (CYCLE_YR - CYCLE_RISE_YR)));
   return F_MIN + (F_MAX - F_MIN) * s;
+}
+// aylık tablo: { ilkAy: 'YYYY-AA', f: [sfu…] } (f107.json); null -> ortalama çevrim. Değerler ay ortasına yerleştirilip doğrusal aradeğerlenir.
+let SOLAR = null;
+export function setSolarTable(j) {
+  if (!j || !Array.isArray(j.f) || !/^\d{4}-\d{2}$/.test(j.ilkAy || '')) { SOLAR = null; return false; }
+  const [y, m] = j.ilkAy.split('-').map(Number), mid = (k) => Date.UTC(y, m - 1 + k, 15, 12);
+  SOLAR = { mid, n: j.f.length, f: j.f, t0: mid(0), t1: mid(j.f.length - 1), sonGozlem: j.sonGozlem || null, guncelleme: j.guncelleme || null };
+  return true;
+}
+export const solarTableInfo = () => (SOLAR ? { from: SOLAR.t0, to: SOLAR.t1, sonGozlem: SOLAR.sonGozlem, guncelleme: SOLAR.guncelleme } : null);
+export function solarF107(ms) {
+  if (!SOLAR || ms < SOLAR.t0 || ms > SOLAR.t1) return solarCycleF107(ms);
+  const [y, m] = new Date(SOLAR.t0).toISOString().slice(0, 7).split('-').map(Number), d = new Date(ms);
+  let k = (d.getUTCFullYear() - y) * 12 + d.getUTCMonth() - (m - 1); if (ms < SOLAR.mid(k)) k--;
+  k = Math.max(0, Math.min(SOLAR.n - 2, k));
+  const a = SOLAR.mid(k), b = SOLAR.mid(k + 1), u = (ms - a) / (b - a);
+  return SOLAR.f[k] + (SOLAR.f[k + 1] - SOLAR.f[k]) * u;
 }
 const tInf = (F) => 900 + 2.5 * (F - 70) + 1.5 * AP;
 const actC = (ms) => 1 / tInf(solarF107(ms)) - 1 / tInf(F_MEAN);
@@ -160,21 +182,23 @@ function secularStep(eh, hh, e, a, ms, dt) {
 // o: CelesTrak GP (OMM) kaydı -> yeniden giriş tahmini
 // solar: false -> sabit (ortalama aktivite) atmosfer; varsayılan Güneş çevrimi modeli. lunisolar: false -> derin uzay yörüngesinde de yalnız sürüklenme.
 // curveStepDays: eğri eşit aralıklı örneklenir (varsayılan: seyrekleşen örnekleme)
-export function assessSat(o, nowMs = Date.now(), withCurve = true, hist = null, { solar = true, lunisolar = true, curveStepDays = 0 } = {}) {
+export function assessSat(o, nowMs = Date.now(), withCurve = true, hist = null, { solar = true, lunisolar = true, curveStepDays = 0, deepReentryKm = DEEP_REENTRY_KM } = {}) {
   const n = +o.MEAN_MOTION, e0 = +o.ECCENTRICITY;
   if (!(n > 0) || !(e0 >= 0) || e0 >= 1) return { durum: 'nodata' };
   const a0 = Math.cbrt(MU / (n * 2 * Math.PI / DAY) ** 2), hp0 = a0 * (1 - e0) - RE, ha0 = a0 * (1 + e0) - RE;
   const ep = parseEpoch(o.EPOCH), epochMs = Number.isFinite(ep) ? ep : nowMs;
   const deep = 1440 / n >= DEEP_PERIOD_MIN;                                                              // perijeyi Ay–Güneş çekimi yönetir
   const inc = +o.INCLINATION * RAD, raan = +o.RA_OF_ASC_NODE * RAD, argp = +o.ARG_OF_PERICENTER * RAD;
-  const ls = deep && lunisolar && [o.INCLINATION, o.RA_OF_ASC_NODE, o.ARG_OF_PERICENTER].every((x) => x != null && x !== '' && Number.isFinite(+x));   // açılar yoksa yalnız sürüklenme
-  const base = { perigeeKm: hp0, apogeeKm: ha0, ecc: e0, epochMs, age: ageYears(o, nowMs), deep, lunisolar: ls };
-  if (hp0 < REENTRY_KM) return { ...base, durum: 'reentry', lifeDays: 0, reentryMs: epochMs, conf: 'high', curve: [[0, hp0, ha0]] };
-  if (hp0 > 1400) return { ...base, durum: 'high', lifeDays: Infinity, conf: 'mid' };                    // sürüklenme ihmal edilebilir (yüzyıllar)
+  // Ay–Güneş hesabı: derin uzay, belirgin eksantrik (e > 0,1: GTO, Molniya, Cluster türü; GEO/MEO'da perije atmosfere inemez) ve açılar varsa
+  const ls = deep && lunisolar && e0 > 0.1 && [o.INCLINATION, o.RA_OF_ASC_NODE, o.ARG_OF_PERICENTER].every((x) => x != null && x !== '' && Number.isFinite(+x));
+  const base = { perigeeKm: hp0, apogeeKm: ha0, ecc: e0, epochMs, age: ageYears(o, nowMs), deep, lunisolar: ls }, reK = ls ? deepReentryKm : REENTRY_KM;
+  if (hp0 < reK) return { ...base, durum: 'reentry', lifeDays: 0, reentryMs: epochMs, conf: 'high', curve: [[0, hp0, ha0]] };
+  // sürüklenme ihmal edilebilir (yüzyıllar); Ay–Güneş çekimi perijeyi yine de indirebilir (ör. Cluster II: 2026'da perije 1 yılda 4.600 km'den yeniden girişe)
+  if (hp0 > 1400 && !ls) return { ...base, durum: 'high', lifeDays: Infinity, conf: 'mid' };
   const bstar = +o.BSTAR, ndot = +o.MEAN_MOTION_DOT;
   // genlik çağdaki yoğunluğa (hp0, çağın aktivitesi) bağlanır: B* ve gözlenen bozunma o günkü gerçek atmosferi yansıtır
   const c0 = solar ? actC(epochMs) : 0, lnr0 = lnrho(hp0) - c0 * xm(hp0);
-  const krB = bstar > 1e-7 ? kRhoFromBstar(bstar, hp0) : 0, krN = ndot > 0 ? kRhoFromNdot(ndot, a0, e0, lnr0, c0) : 0;
+  const krB = bstar > 1e-7 ? kRhoFromBstar(bstar, hp0) : 0, krN = ndot > 0 && !deep ? kRhoFromNdot(ndot, a0, e0, lnr0, c0) : 0;   // derin uzay TLE'sinde (SDP4) ṅ Ay–Güneş etkisini taşır, sürüklenmeyi değil
   // geçmiş yörünge eğimi (yarı büyük eksen a(t), manevrasız dilim) varsa sürüklenme genliği oradan kalibre edilir: gözlenen gerçek bozunma, tek anlık B*'tan daha sağlam
   let krH = 0;
   // geçmiş özeti GP kaydıyla aynı döneme aitse kullanılır (haftalık yenilenir; 45 günden eski ya da ileri bir özet başka bir yörünge durumunu anlatır)
@@ -183,15 +207,15 @@ export function assessSat(o, nowMs = Date.now(), withCurve = true, hist = null, 
   // Geçmiş eğimi (aylar boyu ortalama) ile B* (son günler) farklı hataları taşır; ikisi de varsa geometrik ortalamaları kullanılır. Gerçek yeniden girişlerde
   // (docs/fizik_denetimi.md §4.2b) bu, yalnız eğimden ya da yalnız B*'tan daha iyi sonuç verdi (60–480 gün kala medyan |ln hata| 0,12–0,27).
   const kr0 = krH > 0 && krB > 0 ? Math.sqrt(krH * krB) : krH > 0 ? krH : krB > 0 ? krB : krN;
-  if (!(kr0 > 0)) return { ...base, durum: 'nodrag', lifeDays: Infinity, conf: 'low' };
+  if (!(kr0 > 0) && !ls) return { ...base, durum: 'nodrag', lifeDays: Infinity, conf: 'low' };          // Ay–Güneş yörüngesinde sürüklenmesiz de tümlenir
   const ratio = krH > 0 && krB > 0 ? krH / krB : krB > 0 && krN > 0 ? krB / krN : null, method = krH > 0 ? 'hist' : krB > 0 ? 'bstar' : 'ndot';
   let a = a0, e = e0, t = 0, hp = hp0, nextRec = curveStepDays > 0 ? curveStepDays * DAY : 0.5 * DAY, steps = 0;
   let hh = null, eh = null;
   if (ls) { hh = [Math.sin(inc) * Math.sin(raan), -Math.sin(inc) * Math.cos(raan), Math.cos(inc)]; const nd = [Math.cos(raan), Math.sin(raan), 0], q = cross(hh, nd); eh = nd.map((x, i) => x * Math.cos(argp) + q[i] * Math.sin(argp)); }
   const maxS = (ls ? 100 * YEAR : MAX_DAYS) * DAY, maxDt = ls ? 4 * DAY : 60 * DAY;                     // Ay–Güneş terimleri (2λ☉, 2ω) 4 günlük adımla çözülür
   const curve = withCurve ? [[0, hp0, ha0]] : null;
-  while (hp > REENTRY_KM && t < maxS && steps < 60000) {
-    const [dadt, dedt] = derivs(a, e, kr0, lnr0, solar ? actC(epochMs + t * 1000) : 0), drp = dadt * (1 - e) - a * dedt;
+  while (hp > reK && t < maxS && steps < 60000) {
+    const [dadt, dedt] = kr0 > 0 && hp < 1500 ? derivs(a, e, kr0, lnr0, solar ? actC(epochMs + t * 1000) : 0) : [0, 0], drp = dadt * (1 - e) - a * dedt;
     // adım: perije ölçek yüksekliğinin %3'ünden, a da (apoje − perije)/2 + H'nin %2'sinden çok değişmesin (eksantrik yörüngede perije neredeyse sabitken apoje hızla düşer)
     const H = scaleH(hp), dt = Math.min(maxDt, Math.max(30, Math.min(0.03 * H / Math.max(-drp, 1e-18), 0.02 * (a * e + H) / Math.max(-dadt, 1e-18))));
     // durum (a, perije) olarak ilerletilir: (a, e) ile ilerletmek perijeye adım başına −Δa·Δe ikinci derece hatası ekler; GTO'da bu, gerçek perije
@@ -201,14 +225,14 @@ export function assessSat(o, nowMs = Date.now(), withCurve = true, hist = null, 
     t += dt; steps++;
     if (withCurve && t >= nextRec) { curve.push([t / DAY, hp, a * (1 + e) - RE]); if (curveStepDays > 0) nextRec += curveStepDays * DAY; else nextRec *= 1.15; }
   }
-  const capped = hp > REENTRY_KM;
+  const capped = hp > reK;
   const lifeDays = capped ? Infinity : t / DAY;
-  if (withCurve && !capped) curve.push([lifeDays, REENTRY_KM, Math.max(REENTRY_KM, a * (1 + e) - RE)]);
+  if (withCurve && !capped) curve.push([lifeDays, reK, Math.max(reK, a * (1 + e) - RE)]);
   return { ...base, durum: capped ? 'long' : 'decaying', lifeDays, reentryMs: capped ? Infinity : epochMs + lifeDays * DAY * 1000,
     conf: deep ? 'low' : confidence({ ratio, lifeDays }), horizonYears: ls ? 100 : 300, method, ratio, kr0, curve, capped };
 }
-// Güven. Gerçek yeniden girişlerle karşılaştırma (322 cisim, 12.650 tahmin; docs/fizik_denetimi.md §4.2b): 20–60 gün kala tahminlerin %68'i gerçeğin
-// 0,85–1,35 katı, 60–480 gün kala 0,7–1,5 katı; %96'sı 2 kat içinde. Daha uzun süreler sınanamadı; Güneş çevriminin gelecekteki genliği bilinmediğinden
+// Güven. Gerçek yeniden girişlerle karşılaştırma (321 cisim; docs/fizik_denetimi.md §4.2b–c): 45 gün kala tahminlerin %68'i gerçeğin 0,85–1,35 katı,
+// 150–330 gün kala 0,78–1,24 katı; %97'si 2 kat içinde. Birkaç yıldan uzun süreler sınanamadı; gelecek Güneş çevrimlerinin genliği bilinmediğinden
 // süre uzadıkça güven düşer:
 //   yüksek: iki kaynak uyumlu (oran 1/3–3) ve süre < 60 gün
 //   orta:   iki kaynak uyumlu ve süre < 25 yıl; ya da tek kaynak ve süre < 30 gün
@@ -328,7 +352,7 @@ export function fmtDate(ms) {
 }
 // bilgi kartı / liste için tek satır
 // derin uzay yörüngesi notu: Ay–Güneş çekimi hesaba katıldıysa (yörünge açıları varsa) ortalama model, yoksa yalnız sürüklenme
-const deepNote = (r) => (r.lunisolar ? 'Ay–Güneş çekimi dahil (ortalama model; gerçek kayıtla sınanmadı)' : 'Ay–Güneş çekimi modelde yok');
+const deepNote = (r) => (r.lunisolar ? 'Ay–Güneş çekimi dahil (ortalama model; düşük güven)' : 'Ay–Güneş çekimi modelde yok');
 export function fmtReentry(r, nowMs = Date.now()) {
   if (!r || r.durum === 'nodata') return 'hesaplanamadı';
   if (r.durum === 'high') return 'çok yüksek yörünge: sürüklenme ihmal edilebilir (yüzyıllar)';

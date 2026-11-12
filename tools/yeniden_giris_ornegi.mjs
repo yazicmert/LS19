@@ -4,7 +4,10 @@
 //   git clone --filter=blob:none --no-checkout https://github.com/jtmiclat/celestrak-historical repo
 //   git -C repo log --format='%H %ct' -- raw-data/tle-data.txt | sort -k2 -n | awk '{ if ($2 >= n) { print; n = $2 + 4.5*86400 } }' > picks.txt
 //   mkdir snap; xargs -P 6 -n 2 sh -c 'curl -sS -o snap/$1_$0.txt https://raw.githubusercontent.com/jtmiclat/celestrak-historical/$0/raw-data/tle-data.txt' < picks.txt
-// Kullanım: node tools/yeniden_giris_ornegi.mjs --anlik snap [--cikti web/test/fixtures/reentry_real.json]
+// Kullanım: node tools/yeniden_giris_ornegi.mjs --anlik snap [--cikti web/test/fixtures/reentry_real.json] [--uzun web/test/fixtures/decay_1yil.json]
+//                                              [--derin web/test/fixtures/reentry_deep.json]
+// --uzun: uzun ömürlü (350–700 km, dairesel, manevrasız) edilgen cisimlerin ilk TLE'si ve ~1 yıl sonra gözlenen yarı büyük eksen düşüşü (bozunma hızının 1 yıllık sınaması)
+// --derin: ESA'nın açıkladığı Cluster II yeniden giriş anlarıyla (aşağıda, kaynaklı) derin uzay (Ay–Güneş) sınaması
 // Seçim: etkin katalogdan çıkmış (son görüntüden ≥ 20 gün önce kaybolmuş), son TLE perijesi 120–260 km ve modelin o TLE'den kalan süresi < 25 gün olan cisimler;
 // kendi itkisiyle inen/iten büyük takımyıldızlar ve istasyon araçları hariç. "Gerçek" yeniden giriş anı = son TLE çağı + o TLE'den kalan süre (medyan ~2 gün).
 // Cisim başına yeniden girişten ~45, ~150 ve ~330 gün önceki TLE alınır; o güne kadarki a(t) geçmişi tools/gecmis_derle.mjs satır biçiminde eklenir.
@@ -12,7 +15,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import * as M from '../web/js/impact.js';
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
-const SNAP = arg('anlik', ''), OUT = arg('cikti', 'web/test/fixtures/reentry_real.json'), MU = 398600.4418, RE = 6378.135, DAY = 864e5;
+const SNAP = arg('anlik', ''), OUT = arg('cikti', 'web/test/fixtures/reentry_real.json'), OUT_LONG = arg('uzun', ''), OUT_DEEP = arg('derin', ''), MU = 398600.4418, RE = 6378.135, DAY = 864e5;
+// son TLE'den kalan süre de uygulamanın kullandığı Güneş aktivitesi tablosuyla hesaplanır
+if (fs.existsSync(arg('f107', 'web/data/f107.json'))) M.setSolarTable(JSON.parse(fs.readFileSync(arg('f107', 'web/data/f107.json'), 'utf8')));
 if (!SNAP || !fs.existsSync(SNAP)) { console.error('Kullanım: node tools/yeniden_giris_ornegi.mjs --anlik <anlık görüntü klasörü>'); process.exit(2); }
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 const catNo = (s) => { s = s.trim(); return /^[A-Z]/.test(s) ? (10 + ALPHA.indexOf(s[0])) * 10000 + +s.slice(1) : +s; };
@@ -55,3 +60,35 @@ fs.writeFileSync(OUT, JSON.stringify({ meta: { kaynak: `CelesTrak (halka açık)
   gercek: 'yeniden giriş anı = son TLE çağı + modelin o TLE\'den hesapladığı kalan süre (medyan ~2 gün); kalanGun = o an − çağ',
   alanlar: 'gecmis: tools/gecmis_derle.mjs satır biçimi (impact.histRow)', cisim: dec.length, satir: out.length }, satirlar: out }));
 console.log(`yazıldı: ${OUT} · ${dec.length} cisim, ${out.length} satır, ${(fs.statSync(OUT).size / 1024).toFixed(0)} kB`);
+
+// ---- uzun ömürlü cisimler: ilk TLE ve ~1 yıl sonraki gözlenen a düşüşü
+if (OUT_LONG) {
+  const rows = []; let k = 0;
+  for (const [id, s] of S) {
+    const R = s.rec; if (R.length < 40 || BAD.test(s.name) || R[0].e > 0.01) continue;
+    const h0 = aOf(R[0]) - RE; if (h0 < 350 || h0 > 700) continue;
+    const end = R.filter((r) => (r.t - R[0].t) / DAY > 330).pop(); if (!end) continue;
+    const an = M.analyzeHistory(R.map((r) => ({ t: r.t, a: aOf(r) }))); if (an.boostCount || an.slopeRms > 1.5) continue;
+    const drop = aOf(R[0]) - aOf(end); if (!(drop > 1)) continue;
+    if (k++ % 3) continue;                                                                                  // her üç cisimden biri (dosya küçük kalsın)
+    const r = R[0]; rows.push({ id: +id, epoch: new Date(r.t).toISOString().slice(0, 19), n: r.n, e: r.e, bstar: r.b, ndot: r.nd, gun: r4((end.t - r.t) / DAY, 5), dususKm: r4(drop, 5) });
+  }
+  fs.writeFileSync(OUT_LONG, JSON.stringify({ meta: { kaynak: 'CelesTrak (halka açık) · github.com/jtmiclat/celestrak-historical', secim: '350–700 km, e < 0,01, ≥ 40 TLE, manevrasız (analyzeHistory), son TLE ilkinden > 330 gün sonra; her üç cisimden biri',
+    alanlar: 'gun: ilk ve son TLE arası gün; dususKm: o sürede gözlenen yarı büyük eksen düşüşü', satir: rows.length }, satirlar: rows }));
+  console.log(`yazıldı: ${OUT_LONG} · ${rows.length} cisim, ${(fs.statSync(OUT_LONG).size / 1024).toFixed(0)} kB`);
+}
+
+// ---- derin uzay: Cluster II (ESA'nın hedefli doğal bozunmayla indirdiği, çok eksantrik yörüngeli 4 uydu; perijeyi Ay–Güneş çekimi indirdi)
+// Kaynaklar: Rumba 22 Eki 2025 (pencere 16:20–19:45 UTC) https://blogs.esa.int/rocketscience/2025/10/10/rumba-expected-to-reenter-on-22-october
+//            Samba 31 Ağu 2026 21:39:38 UTC https://www.esa.int/articles/samba-s-fiery-farewell-recorded
+//            Tango 1 Eyl 2026 21:30:31 UTC https://www.esa.int/articles/observing-samba-and-tango-s-reentries
+if (OUT_DEEP) {
+  const ESA = { 26463: ['CLUSTER II-FM5 (RUMBA)', Date.UTC(2025, 9, 22, 18, 0)], 26410: ['CLUSTER II-FM7 (SAMBA)', Date.UTC(2026, 7, 31, 21, 39, 38)], 26464: ['CLUSTER II-FM8 (TANGO)', Date.UTC(2026, 8, 1, 21, 30, 31)] };
+  const rows = [];
+  for (const [id, [ad, tAct]] of Object.entries(ESA)) {
+    const s = S.get(+id); if (!s) { console.log('yok:', ad); continue; }
+    s.rec.forEach((r, j) => { const lead = (tAct - r.t) / DAY; if (lead >= 5 && (j % 4 === 0 || j === s.rec.length - 1)) rows.push({ id: +id, ad, epoch: new Date(r.t).toISOString().slice(0, 19), n: r.n, e: r.e, bstar: r.b, ndot: r.nd, i: r.i, raan: r.O, argp: r.w, kalanGun: r4(lead, 5) }); });
+  }
+  fs.writeFileSync(OUT_DEEP, JSON.stringify({ meta: { kaynak: 'TLE: CelesTrak (github.com/jtmiclat/celestrak-historical); yeniden giriş anları: ESA (araçtaki kaynaklar)', satir: rows.length }, satirlar: rows }));
+  console.log(`yazıldı: ${OUT_DEEP} · ${rows.length} satır`);
+}
