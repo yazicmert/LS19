@@ -9,9 +9,10 @@
 //     çevresindeki sürüklenme tepesinin genişliğine (√(H/ae)) göre seçilir.
 //   • Periyodu ≥ 225 dk ve e > 0,1 olan yörüngelerde (GTO, Molniya, Cluster) perijeyi Ay–Güneş çekimi yönetir: yörünge ortalamalı Ay–Güneş + J2 denklemleri
 //     sürüklenmeyle birlikte tümlenir (yörünge açıları varsa); yeniden giriş 80 km ortalama perijede sayılır. Bu cisimler `deep` ile işaretlenir, güvenleri düşüktür.
-//   • Gerçek kayıtla karşılaştırma (test/test_impact.js): 321 LEO yeniden girişinde 45/150/330 gün kala tahminlerin %68'i gerçeğin 0,85–1,35 / 0,78–1,21 /
-//     0,80–1,24 katı; 366 uzun ömürlü cismin 1 yıllık irtifa düşüşü 0,86–1,22 katı; Cluster II (ESA) 60–397 gün kala 0,59–1,24 katı.
-//   • Sınırlar: birkaç yıldan uzun tahminler sınanamadı (gelecek çevrimlerin genliği bilinmez); jeomanyetik fırtınalar (Ap) modelde yok; küre biçimli Dünya;
+//   • Gerçek kayıtla karşılaştırma (test/test_impact.js; gerçek anlar GCAT): 758 cismin 1965–2016 yeniden girişlerinde 1,5–3 / 3–12 yıl kala medyan tahmin/gerçek
+//     1,07 / 1,00, 2 kat içinde %84 / %72 (gözlenen F10.7 ile); 249 cismin 2025–26 yeniden girişlerinde %68'i 0,82–1,33 katı (o günkü tahminle);
+//     Cluster II (ESA) 60–397 gün kala 0,59–1,24 katı.
+//   • Sınırlar: gelecek çevrimlerin genliği bilinmez (gözlenen F10.7 yerine ortalama çevrimle 1,5–12 yıl kala hata ~1,7 kat büyür); aylık Ap kısa fırtınaları düzler; küre biçimli Dünya;
 //     aktif uydular yörüngelerini korur; çok eksantrik yörüngelerin son haftalarında ortalama elemanlar fiziksel perijeyi göstermez.
 //   • Durum, güven, yöntem ve sınıf değerleri dilden bağımsız kodlardır (aşağıdaki sabitler); ekranda görünen Türkçe karşılıkları *_TR sözlüklerindedir.
 //
@@ -69,10 +70,18 @@ let SOLAR = null;
 export function setSolarTable(j) {
   if (!j || !Array.isArray(j.f) || !/^\d{4}-\d{2}$/.test(j.ilkAy || '')) { SOLAR = null; return false; }
   const [y, m] = j.ilkAy.split('-').map(Number), mid = (k) => Date.UTC(y, m - 1 + k, 15, 12);
-  SOLAR = { mid, n: j.f.length, f: j.f, t0: mid(0), t1: mid(j.f.length - 1), sonGozlem: j.sonGozlem || null, guncelleme: j.guncelleme || null };
+  // Ap: gözlenen aylar; sonrası (tahmin) son 12 gözlenen ayın ortalaması
+  const ap = Array.isArray(j.ap) ? j.ap.filter((x) => x != null && x >= 0) : [], apTail = ap.length ? ap.slice(-12).reduce((s, x) => s + x, 0) / Math.min(12, ap.length) : AP;
+  SOLAR = { mid, n: j.f.length, f: j.f, ap: Array.isArray(j.ap) ? j.ap : [], apTail, t0: mid(0), t1: mid(j.f.length - 1), sonGozlem: j.sonGozlem || null, guncelleme: j.guncelleme || null };
   return true;
 }
 export const solarTableInfo = () => (SOLAR ? { from: SOLAR.t0, to: SOLAR.t1, sonGozlem: SOLAR.sonGozlem, guncelleme: SOLAR.guncelleme } : null);
+// aylık ortalama Ap (gözlenen; tablo dışında ya da tahmin aylarında son 12 ayın ortalaması, tablo yoksa 15)
+export function solarAp(ms) {
+  if (!SOLAR || ms < SOLAR.t0 || ms > SOLAR.t1) return SOLAR ? SOLAR.apTail : AP;
+  const d = new Date(ms), [y, m] = new Date(SOLAR.t0).toISOString().slice(0, 7).split('-').map(Number), k = (d.getUTCFullYear() - y) * 12 + d.getUTCMonth() - (m - 1), v = SOLAR.ap[k];
+  return v != null && v >= 0 ? v : SOLAR.apTail;
+}
 export function solarF107(ms) {
   if (!SOLAR || ms < SOLAR.t0 || ms > SOLAR.t1) return solarCycleF107(ms);
   const [y, m] = new Date(SOLAR.t0).toISOString().slice(0, 7).split('-').map(Number), d = new Date(ms);
@@ -81,8 +90,12 @@ export function solarF107(ms) {
   const a = SOLAR.mid(k), b = SOLAR.mid(k + 1), u = (ms - a) / (b - a);
   return SOLAR.f[k] + (SOLAR.f[k + 1] - SOLAR.f[k]) * u;
 }
-const tInf = (F) => 900 + 2.5 * (F - 70) + 1.5 * AP;
-const actC = (ms) => 1 / tInf(solarF107(ms)) - 1 / tInf(F_MEAN);
+const tInf = (F, ap = AP) => 900 + 2.5 * (F - 70) + 1.5 * ap;
+// Duyarlılık katsayısı: bağıntının F10.7 etkisi tek başına zayıf kalıyordu (400 km'de en az–en çok yoğunluk oranı ~4,8; ölçülmüş modellerde ~10).
+// 757 cismin 1965–2016 arası gerçek yeniden girişiyle (GCAT tarihleri, tarihsel TLE'ler, gözlenen F10.7) ayarlandı: on yılların iki yarısında ayrı ayrı
+// en iyi 1,4–1,5; 1,4 ile 1,5–3 yıl kala medyan |ln hata| 0,323 → 0,245, 3–10 yıl kala medyan tahmin/gerçek 1,14 → 0,98 (docs/fizik_denetimi.md §4.2d).
+const SENS = 1.4;
+const actC = (ms) => SENS * (1 / tInf(solarF107(ms), solarAp(ms)) - 1 / tInf(F_MEAN));
 const xm = (h) => { const hc = h < 175 ? 175 : h > 1000 ? 1000 : h; return (hc - 175) * (27 - 0.012 * (hc - 200)); };
 // ortalama aktiviteye göre yoğunluk çarpanı (sınama ve belge için)
 export const solarDensityFactor = (hKm, f107) => Math.exp(-(1 / tInf(f107) - 1 / tInf(F_MEAN)) * xm(hKm));
@@ -206,9 +219,12 @@ export function assessSat(o, nowMs = Date.now(), withCurve = true, hist = null, 
   if (histFresh && hist.slopeKmDay < -1e-4 && hist.segDays >= 45) krH = krFromSlope(hist, a0, e0, lnr0, epochMs, solar);
   // Geçmiş eğimi (aylar boyu ortalama) ile B* (son günler) farklı hataları taşır; ikisi de varsa geometrik ortalamaları kullanılır. Gerçek yeniden girişlerde
   // (docs/fizik_denetimi.md §4.2b) bu, yalnız eğimden ya da yalnız B*'tan daha iyi sonuç verdi (60–480 gün kala medyan |ln hata| 0,12–0,27).
-  const kr0 = krH > 0 && krB > 0 ? Math.sqrt(krH * krB) : krH > 0 ? krH : krB > 0 ? krB : krN;
+  // B* ile gözlenen bozunma (ṅ) 3 kattan çok uyuşmuyorsa gözlenen bozunma kullanılır: tarihsel TLE'lerde B* çoğu kez anlamsız küçüktü (yalnız B* ile
+  // bu tahminler gerçeğin ~130 katı uzun çıkıyordu); geçmiş eğimi varsa o öncelikli
+  const mis = krB > 0 && krN > 0 && (krB / krN < 1 / 3 || krB / krN > 3);
+  const kr0 = krH > 0 && krB > 0 ? Math.sqrt(krH * krB) : krH > 0 ? krH : mis ? krN : krB > 0 ? krB : krN;
   if (!(kr0 > 0) && !ls) return { ...base, durum: 'nodrag', lifeDays: Infinity, conf: 'low' };          // Ay–Güneş yörüngesinde sürüklenmesiz de tümlenir
-  const ratio = krH > 0 && krB > 0 ? krH / krB : krB > 0 && krN > 0 ? krB / krN : null, method = krH > 0 ? 'hist' : krB > 0 ? 'bstar' : 'ndot';
+  const ratio = krH > 0 && krB > 0 ? krH / krB : krB > 0 && krN > 0 ? krB / krN : null, method = krH > 0 ? 'hist' : mis || !(krB > 0) ? 'ndot' : 'bstar';
   let a = a0, e = e0, t = 0, hp = hp0, nextRec = curveStepDays > 0 ? curveStepDays * DAY : 0.5 * DAY, steps = 0;
   let hh = null, eh = null;
   if (ls) { hh = [Math.sin(inc) * Math.sin(raan), -Math.sin(inc) * Math.cos(raan), Math.cos(inc)]; const nd = [Math.cos(raan), Math.sin(raan), 0], q = cross(hh, nd); eh = nd.map((x, i) => x * Math.cos(argp) + q[i] * Math.sin(argp)); }
@@ -231,9 +247,9 @@ export function assessSat(o, nowMs = Date.now(), withCurve = true, hist = null, 
   return { ...base, durum: capped ? 'long' : 'decaying', lifeDays, reentryMs: capped ? Infinity : epochMs + lifeDays * DAY * 1000,
     conf: deep ? 'low' : confidence({ ratio, lifeDays }), horizonYears: ls ? 100 : 300, method, ratio, kr0, curve, capped };
 }
-// Güven. Gerçek yeniden girişlerle karşılaştırma (321 cisim; docs/fizik_denetimi.md §4.2b–c): 45 gün kala tahminlerin %68'i gerçeğin 0,85–1,35 katı,
-// 150–330 gün kala 0,78–1,24 katı; %97'si 2 kat içinde. Birkaç yıldan uzun süreler sınanamadı; gelecek Güneş çevrimlerinin genliği bilinmediğinden
-// süre uzadıkça güven düşer:
+// Güven. Gerçek yeniden girişlerle karşılaştırma (GCAT tarihleri; docs/fizik_denetimi.md §4.2d): "yüksek" verilen tahminlerin %98'i gerçeğin 2 katı içinde
+// (1965–2016: 318 tahmin; 2025–26: 192 tahmin); tüm tahminlerde 2 kat içinde kalma 1,5 yıla kadar %86–94, 1,5–3 yılda %84, 3–12 yılda %72.
+// Gelecek Güneş çevrimlerinin genliği bilinmediğinden süre uzadıkça güven düşer:
 //   yüksek: iki kaynak uyumlu (oran 1/3–3) ve süre < 60 gün
 //   orta:   iki kaynak uyumlu ve süre < 25 yıl; ya da tek kaynak ve süre < 30 gün
 //   düşük:  kaynaklar uyumsuz, tek kaynak, süre ≥ 25 yıl

@@ -114,6 +114,8 @@ Cisim başına birer girdili bu örnek `web/test/fixtures/reentry_real.json`'dad
 
 ### 4.2c Açık kalan sınırlar için kaynaklar ve sonuçları
 
+> Gerçek yeniden giriş anları ve çok yıllık sınama §4.2d'de GCAT ile yenilendi; buradaki LEO sayıları (321 cisim, modelle tamamlanan anlar) o düzeltmeden öncedir.
+
 §4.2b'de üç sınır kalmıştı: birkaç yıldan uzun tahminler sınanamıyordu, derin uzay yörüngelerinde gerçek yeniden giriş kaydı yoktu ve "gerçek" yeniden giriş anı son TLE'den modelle tamamlanıyordu. Bunlar için kaynak arandı; bulunan ve kullanılabilen kaynaklarla aşağıdakiler yapıldı.
 
 **Gerçek Güneş aktivitesi (F10.7).** Modeldeki ortalama çevrimin genliği yanlıştı: 25. çevrimin düzleştirilmiş F10.7 tepesi Eylül 2024'te 203,6 sfu ([STCE](https://www.stce.be/content/sc25-tracking)); modelde 160 yazıyordu. Gözlenen değerler için kaynak CelesTrak'ın uzay havası dosyası `SW-All.txt` (1957'den bugüne günlük F10.7 ve Ap, ayrıca ~16 yıllık aylık tahmin; lisans yok, yalnız kaynak belirtilsin, en sık 3 saatte bir indirilsin). Bu oturumdan celestrak.org'a erişilemediği için, dosyanın 20 Temmuz 2025'e kadar gözlem içeren bir kopyası PyPI'daki `spaceweather` 0.4.2 paketinden alındı. Kesim tarihi tam olarak sınama penceresinin başı olduğundan sınama adildir: model o gün elde olacak gözlem + tahminle çalışır. `tools/uzay_havasi.mjs` dosyadan aylık tablo (`web/data/f107.json`, 5,6 kB) üretir; uygulama tabloyu `gecmis.json` ile birlikte yükler; yoksa ortalama çevrime (en çok 185 sfu: son dört çevrimin en yüksek yıllık ortalamalarının ortalaması) düşer. Haftalık iş akışı (`gecmis.yml`) tabloyu CelesTrak'tan yeniler.
@@ -140,11 +142,44 @@ Düzeltmelerden sonra Samba ve Tango için 60–397 gün kala 30 tahminin medyan
 
 | Sınır | Kaynak | Durum |
 |---|---|---|
-| Birkaç yıldan uzun tahminler gerçek kayıtla sınanamadı (veri 16 ay) | Space-Track `gp_history` (1957'den bugüne tüm TLE'ler; ücretsiz hesap; yeniden dağıtım kısıtlı, yalnız türetilmiş sonuç depolanabilir); toplu indirme aracı [tl3](https://pypi.org/project/tl3) (~28 GB). CelesTrak'ın [geçmiş GP arşivi](https://celestrak.org/NORAD/archives/request.php) (istekle). J. McDowell'in [tarihsel TLE arşivi](https://planet4589.org/space/ele.html) (cisim başına dosya) | Hesap / ağ izni gerekir |
-| "Gerçek" yeniden giriş anı son TLE'den tamamlanıyor (medyan 2,2 gün) | [GCAT](https://planet4589.org/space/gcat/) `satcat.tsv` yeniden giriş tarihleri (CC-BY); Space-Track `decay` / TIP; Aerospace [CORDS](https://aerospace.org/reentries) (2000 sonrası, 2 yıldan eskiler CSV) | GCAT en uygun (CC-BY); planet4589.org ağ izni gerekir |
-| Jeomanyetik fırtınalar (Ap) yok; aylık F10.7 kısa dalgalanmaları düzler | Aynı `SW-All.txt` günlük Ap ve günlük F10.7 içerir | Kaynak hazır; model genişletmesi yapılmadı |
+| ~~Birkaç yıldan uzun tahminler gerçek kayıtla sınanamadı~~ (§4.2d: McDowell arşivi + GCAT ile sınandı) | Space-Track `gp_history` (1957'den bugüne tüm TLE'ler; ücretsiz hesap; yeniden dağıtım kısıtlı, yalnız türetilmiş sonuç depolanabilir); toplu indirme aracı [tl3](https://pypi.org/project/tl3) (~28 GB). CelesTrak'ın [geçmiş GP arşivi](https://celestrak.org/NORAD/archives/request.php) (istekle). J. McDowell'in [tarihsel TLE arşivi](https://planet4589.org/space/ele.html) (cisim başına dosya) | Hesap / ağ izni gerekir |
+| ~~"Gerçek" yeniden giriş anı son TLE'den tamamlanıyor~~ (§4.2d: GCAT DDate) | [GCAT](https://planet4589.org/space/gcat/) `satcat.tsv` yeniden giriş tarihleri (CC-BY); Space-Track `decay` / TIP; Aerospace [CORDS](https://aerospace.org/reentries) (2000 sonrası, 2 yıldan eskiler CSV) | GCAT en uygun (CC-BY); planet4589.org ağ izni gerekir |
+| Jeomanyetik fırtınalar (Ap) yok; aylık F10.7 kısa dalgalanmaları düzler | Aynı `SW-All.txt` günlük Ap ve günlük F10.7 içerir | §4.2d: aylık Ap eklendi; günlük çözünürlük yok |
 | GTO roket gövdeleri gibi B*'ı güvenilmez çok eksantrik cisimler | Gondelach, Armellin & Lidtke 2017 ([doi:10.1155/2017/7309637](https://doi.org/10.1155/2017/7309637)): 101 GTO roket gövdesiyle TLE'den balistik katsayı kestirimi ve yeniden giriş tahmini sınaması | Yöntem kaynağı; veri Space-Track'ten |
 | Güneş çevriminin gelecek genliği | NOAA SWPC [tahmini](https://www.swpc.noaa.gov/products/solar-cycle-progression) (`predicted-solar-cycle.json`, aralıklı); CelesTrak aylık tahmini zaten tabloda | Tablo kullanılıyor; NOAA aralıkları belirsizlik bandı için kullanılabilir |
+
+### 4.2d GCAT ve tarihsel TLE arşiviyle çok yıllık sınama
+
+planet4589.org'a erişim açılınca iki kaynak kullanıldı (ikisi de J. McDowell): [GCAT](https://planet4589.org/space/gcat/) nesne kataloğu (`satcat.tsv`, CC-BY; 69.436 kayıt, her yeniden girişin tarihi) ve [tarihsel TLE arşivi](https://planet4589.org/space/ele.html) (nesne başına dosya; site, ABD hükümeti kaynaklı TLE'lerin yeniden dağıtımı kısıtlamayan kaynaklardan alındığını belirtir).
+
+**Güncel örneğin gerçek anları.** 2025–26 LEO örneğinde "gerçek" an artık GCAT'teki DDate. Modelle tamamlanan anlar GCAT'le medyan 0,01 gün, %90'ı ±1,1 gün içinde uyuşuyordu; ama 6 satırın cismi aslında yeniden girmemişti (GCAT'e göre 3'ü yörüngede, 3'ü istasyona kenetli) ve 71 cismin GCAT tarihi yoktu. Örnek yalnız GCAT'in yeniden girdi dediği 249 cisimle (533 tahmin) yeniden üretildi (`tools/yeniden_giris_ornegi.mjs --gcat`).
+
+**Tarihsel örnek.** `tools/tarihsel_ornek.mjs`: GCAT'ten 1965–2016 arasında yeniden girmiş, ömrü ≥ 1,5 yıl, perije 150–900 km cisimler (9.090 aday), on yıl başına tohumlu rastgele en çok 160; arşivden yeniden girişten ~1 ay ile ~8 yıl önceki TLE'ler ("est/guess" etiketli uydurulmuş elemanlar atılır). Sonuç: 758 cisim, 3.169 tahmin (`fixtures/reentry_hist.json`). Bu dönem için F10.7 ve Ap gözlenmiş olduğundan bu sınama fiziği sınar; ortalama çevrimli koşu, Güneş tahmininin olmadığı durumu temsil eder.
+
+**Bulunan iki kusur ve düzeltmeleri:**
+
+| Sorun | Kanıt | Düzeltme |
+|---|---|---|
+| Yoğunluğun Güneş aktivitesine duyarlılığı zayıftı | Gözlenen F10.7 ile bile düzgün +%15–20 "fazla uzun" eğilim; aktivite artarken 1,32, azalırken 1,07; 400 km'de en az–en çok yoğunluk oranı modelde ~4,8 (ölçülmüş modellerde ~10) | Aktivite terimine 1,4 katsayısı (on yılların iki yarısında ayrı ayrı en iyi 1,4–1,5; fiziksel olarak 400 km'de ~8,6 kat) |
+| B* ile ṅ 3 kattan çok uyuşmadığında yalnız B* kullanılıyordu | 44 tahminde medyan 130 kat fazla uzun: eski TLE'lerde B* çoğu kez anlamsız küçük | Uyuşmazlıkta gözlenen bozunma (ṅ); geçmiş eğimi varsa o öncelikli |
+
+Ayrıca F10.7 tablosuna aylık ortalama Ap eklendi (gözlenen aylar; tahmin aylarında son 12 ayın ortalaması). Etkisi küçük ama tutarlı (1,5–10 yıl kala medyan |ln hata| 0,339 → 0,328).
+
+**Sonuç** (gözlenen F10.7 + Ap; tahmin / gerçek kalan süre):
+
+| Yeniden girişe kalan | n | Medyan | %68 aralığı | 2 kat içinde | Ortalama çevrimle 2× içinde | Sabit atmosferle 2× içinde |
+|---|---|---|---|---|---|---|
+| < 2 ay | 532 | 1,05 | 0,83–1,40 | %94 | %95 | %95 |
+| 2 ay – 1,5 yıl | 1.644 | 1,10 | 0,78–1,71 | %86 | %83 | %75 |
+| 1,5–3 yıl | 489 | 1,07 | 0,74–1,75 | %84 | %80 | %45 |
+| 3–12 yıl | 504 | 1,00 | 0,70–2,41 | %72 | %62 | %34 |
+| "yüksek" güven verilenler | 318 | — | — | %98 | — | — |
+
+1,5–12 yıl kala medyan |ln hata|: gözlenen F10.7 ile 0,250, ortalama çevrimle 0,416, sabit atmosferle 0,938. Yani çok yıllık tahminin hatasının büyük kısmı Güneş aktivitesinin bilinmemesinden gelir; aktivite biliniyorsa model 3–12 yıl kala da yansız (medyan 1,00).
+
+**Güncel veride etkisi** (Temmuz 2025'te bilinen tahminle, adil): 249 cismin 533 tahmini medyan 0,99 (%68: 0,82–1,33), %95'i 2 kat içinde; medyan |ln hata| 0,150 (ortalama çevrimle 0,216, sabit atmosferle 0,218). İstisna: 366 uzun ömürlü cismin 2025–26 bir yıllık düşüşü 1,16 kat fazla tahmin ediliyor (önce 1,04); sabit atmosfer burada 0,88 ile biraz daha iyi. Nedeni Temmuz 2025 CelesTrak tahmininin Ekim–Kasım 2025 aktivitesini yüksek öngörmesi (~162'ye karşı gözlenen ~140 sfu; [Lumara](https://lumara-space.app/solar-cycle-25.html)): daha duyarlı model, tahmin hatasını da büyütür. Bu, gerçek kullanımdaki koşuldur ve testte açıkça sınanır.
+
+**Kalan sınırlar.** Gelecek Güneş çevrimlerinin genliği (kaynak: NOAA SWPC aralıklı çevrim tahmini; bir belirsizlik bandı olarak eklenebilir). Aylık Ap kısa fırtınaları düzler (günlük Ap aynı dosyada). Tarihsel TLE'lerin kalitesi dönemden döneme değişir; 2016 sonrası arşivde seyrek. GTO roket gövdeleri ve çok eksantrik yörüngelerin son haftaları (§4.2c).
 
 ### 4.3 Sınırlar
 

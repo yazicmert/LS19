@@ -8,6 +8,8 @@
 //                                              [--derin web/test/fixtures/reentry_deep.json]
 // --uzun: uzun ömürlü (350–700 km, dairesel, manevrasız) edilgen cisimlerin ilk TLE'si ve ~1 yıl sonra gözlenen yarı büyük eksen düşüşü (bozunma hızının 1 yıllık sınaması)
 // --derin: ESA'nın açıkladığı Cluster II yeniden giriş anlarıyla (aşağıda, kaynaklı) derin uzay (Ay–Güneş) sınaması
+// --gcat satcat.tsv: J. McDowell'in GCAT kataloğu (https://planet4589.org/space/gcat/tsv/cat/satcat.tsv, CC-BY). Verilirse "gerçek" yeniden giriş anı
+//   GCAT'teki DDate'tir ve yalnız GCAT'in yeniden girdi (Status R) dediği cisimler alınır; verilmezse son TLE + modelin kalan süresi.
 // Seçim: etkin katalogdan çıkmış (son görüntüden ≥ 20 gün önce kaybolmuş), son TLE perijesi 120–260 km ve modelin o TLE'den kalan süresi < 25 gün olan cisimler;
 // kendi itkisiyle inen/iten büyük takımyıldızlar ve istasyon araçları hariç. "Gerçek" yeniden giriş anı = son TLE çağı + o TLE'den kalan süre (medyan ~2 gün).
 // Cisim başına yeniden girişten ~45, ~150 ve ~330 gün önceki TLE alınır; o güne kadarki a(t) geçmişi tools/gecmis_derle.mjs satır biçiminde eklenir.
@@ -15,7 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import * as M from '../web/js/impact.js';
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
-const SNAP = arg('anlik', ''), OUT = arg('cikti', 'web/test/fixtures/reentry_real.json'), OUT_LONG = arg('uzun', ''), OUT_DEEP = arg('derin', ''), MU = 398600.4418, RE = 6378.135, DAY = 864e5;
+const GCAT = arg('gcat', ''), SNAP = arg('anlik', ''), OUT = arg('cikti', 'web/test/fixtures/reentry_real.json'), OUT_LONG = arg('uzun', ''), OUT_DEEP = arg('derin', ''), MU = 398600.4418, RE = 6378.135, DAY = 864e5;
 // son TLE'den kalan süre de uygulamanın kullandığı Güneş aktivitesi tablosuyla hesaplanır
 if (fs.existsSync(arg('f107', 'web/data/f107.json'))) M.setSolarTable(JSON.parse(fs.readFileSync(arg('f107', 'web/data/f107.json'), 'utf8')));
 if (!SNAP || !fs.existsSync(SNAP)) { console.error('Kullanım: node tools/yeniden_giris_ornegi.mjs --anlik <anlık görüntü klasörü>'); process.exit(2); }
@@ -39,12 +41,28 @@ for (const f of files) {
 const tEnd = snapT[snapT.length - 1], aOf = (r) => Math.cbrt(MU / (r.n * 2 * Math.PI / 86400) ** 2), hp = (r) => aOf(r) * (1 - r.e) - RE;
 const omm = (r) => ({ EPOCH: new Date(r.t).toISOString().slice(0, 23), MEAN_MOTION: r.n, ECCENTRICITY: r.e, BSTAR: r.b, MEAN_MOTION_DOT: r.nd, INCLINATION: r.i, RA_OF_ASC_NODE: r.O, ARG_OF_PERICENTER: r.w });
 const BAD = /STARLINK|ONEWEB|KUIPER|ISS|TIANGONG|CSS|PROGRESS|SOYUZ|DRAGON|CYGNUS|SHENZHOU|TIANZHOU|HTV|QIANFAN|GUOWANG|HULIANWANG/;
-const dec = [];
+// GCAT: Satcat no -> { t: yeniden giriş anı (ms), kesin: saat belirtilmiş ve ? yok }
+const gcat = new Map();
+if (GCAT) {
+  const MON = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 }; let hdr = null;
+  for (const line of fs.readFileSync(GCAT, 'utf8').split(/\r?\n/)) {
+    if (line.startsWith('#JCAT')) { hdr = line.slice(1).split('\t'); continue; }
+    if (!hdr || line.startsWith('#') || !line) continue;
+    const p = line.split('\t').map((x) => x.trim()), r = Object.fromEntries(hdr.map((h, i) => [h, p[i]]));
+    if (!/^\d+$/.test(r.Satcat || '')) continue;
+    const m = /^(\d{4})\s+([A-Z][a-z]{2})\s+(\d{1,2})(?:\s+(\d{2})(\d{2}))?/.exec(r.DDate || '');
+    gcat.set(+r.Satcat, { status: r.Status, t: m ? Date.UTC(+m[1], MON[m[2]], +m[3], m[4] ? +m[4] : 12, m[5] ? +m[5] : 0) : null, kesin: !!(m && m[4]) && !/\?/.test(r.DDate) });
+  }
+  console.log(`GCAT: ${gcat.size} kayıt`);
+}
+const dec = []; let gcatYok = 0, gcatYorungede = 0;
 for (const [id, s] of S) {
   const R = s.rec, l = R[R.length - 1];
   if (l.st > tEnd - 20 * DAY || hp(l) > 260 || hp(l) < 120 || BAD.test(s.name) || R.length < 6) continue;
   const rem = M.assessSat(omm(l), l.t, false); if (!(rem.lifeDays < 25)) continue;
-  dec.push({ id: +id, name: s.name, R, tAct: l.t + rem.lifeDays * DAY });
+  let tAct = l.t + rem.lifeDays * DAY;
+  if (GCAT) { const g = gcat.get(+id); if (!g || !g.t) { gcatYok++; continue; } if (g.status !== 'R') { gcatYorungede++; continue; } tAct = g.t; }
+  dec.push({ id: +id, name: s.name, R, tAct });
 }
 const out = [], r4 = (x, n = 6) => +x.toPrecision(n);
 for (const d of dec) for (const want of [45, 150, 330]) {
@@ -57,9 +75,9 @@ for (const d of dec) for (const want of [45, 150, 330]) {
 const iso = (t) => new Date(t).toISOString().slice(0, 10);
 fs.writeFileSync(OUT, JSON.stringify({ meta: { kaynak: `CelesTrak (halka açık) · github.com/jtmiclat/celestrak-historical git geçmişi, ${iso(snapT[0])} – ${iso(tEnd)}, ${files.length} anlık görüntü`,
   secim: 'etkin katalogdan çıkmış, son TLE perijesi 120–260 km, modelin son TLE\'den kalan süresi < 25 gün; Starlink/OneWeb/Kuiper/istasyon araçları hariç',
-  gercek: 'yeniden giriş anı = son TLE çağı + modelin o TLE\'den hesapladığı kalan süre (medyan ~2 gün); kalanGun = o an − çağ',
+  gercek: GCAT ? 'yeniden giriş anı = GCAT DDate (J. McDowell, planet4589.org/space/gcat, CC-BY); yalnız GCAT\'in yeniden girdi dediği cisimler; kalanGun = o an − çağ' : 'yeniden giriş anı = son TLE çağı + modelin o TLE\'den hesapladığı kalan süre (medyan ~2 gün); kalanGun = o an − çağ',
   alanlar: 'gecmis: tools/gecmis_derle.mjs satır biçimi (impact.histRow)', cisim: dec.length, satir: out.length }, satirlar: out }));
-console.log(`yazıldı: ${OUT} · ${dec.length} cisim, ${out.length} satır, ${(fs.statSync(OUT).size / 1024).toFixed(0)} kB`);
+console.log(`yazıldı: ${OUT} · ${dec.length} cisim, ${out.length} satır, ${(fs.statSync(OUT).size / 1024).toFixed(0)} kB${GCAT ? ` (GCAT'te tarihi olmayan ${gcatYok}, GCAT'e göre yeniden girmemiş ${gcatYorungede} cisim atıldı)` : ''}`);
 
 // ---- uzun ömürlü cisimler: ilk TLE ve ~1 yıl sonraki gözlenen a düşüşü
 if (OUT_LONG) {
