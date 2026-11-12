@@ -1,5 +1,5 @@
 // Çarpma / yeniden giriş modeli: büyüklük sıraları, tutarlılık, eksantrik yörünge, biçimlendirme, Sentry ayrıştırma
-import { assessSat, atmosphereDensity, fmtReentry, fmtSpan, sentryRows, fmtOdds, launchYear, ageYears, controlNote, analyzeHistory, expectedDecayKmDay, controlFromHistory, confidence, parseEpoch, histRow, calibHist, selectSats, CONF_TR, KLASS_TR, solarF107, solarCycleF107, solarDensityFactor, setSolarTable, solarTableInfo } from '../js/impact.js';
+import { assessSat, atmosphereDensity, fmtReentry, fmtSpan, sentryRows, fmtOdds, launchYear, ageYears, controlNote, analyzeHistory, expectedDecayKmDay, controlFromHistory, confidence, parseEpoch, histRow, calibHist, selectSats, CONF_TR, KLASS_TR, solarF107, solarCycleF107, solarDensityFactor, setSolarTable, solarTableInfo, lifeRange, fmtRange } from '../js/impact.js';
 let fail = 0;
 // model içi tutarlılık ve referans karşılaştırmaları sabit (ortalama aktivite) atmosferle yapılır; Güneş çevrimi ayrıca sınanır
 const assessStatic = (o, t, c, h = null) => assessSat(o, t, c, h, { solar: false });
@@ -270,6 +270,39 @@ function cart(hp, ha, inc, raan, argp, t0, days, flags) {
   ok(mad(t3) < mad(c3) * 0.75 && mad(c3) < mad(s3) * 0.6, `1,5–12 yıl kala medyan |ln hata|: gözlenen F10.7 ${mad(t3).toFixed(3)}, ortalama çevrim ${mad(c3).toFixed(3)}, sabit atmosfer ${mad(s3).toFixed(3)}`);
   const hi = T.filter((x) => x.c === 'high').map((x) => x.q);
   ok(hi.length > 150 && in2(hi) > 0.95, `tarihsel "yüksek" güven: n=${hi.length}, 2× içinde %${(100 * in2(hi)).toFixed(0)}`);
+}
+// ================================================================ GTO/HEO gerçek yeniden girişler (Ay–Güneş çekimi)
+// 1975–2016 arasında yeniden girmiş 464 roket gövdesi ve yük (apoje ≥ 15.000 km; GCAT tarihleri, McDowell arşivi; tools/tarihsel_ornek.mjs --heo)
+{ const fs = await import('node:fs'), H = JSON.parse(fs.readFileSync(new URL('./fixtures/reentry_heo.json', import.meta.url), 'utf8')), TAB = JSON.parse(fs.readFileSync(new URL('../data/f107.json', import.meta.url), 'utf8'));
+  const qt = (a, p) => { const x = [...a].sort((u, v) => u - v); return x[Math.min(x.length - 1, Math.floor(p * x.length))]; };
+  const o = (r) => ({ EPOCH: r.epoch, MEAN_MOTION: r.n, ECCENTRICITY: r.e, BSTAR: r.bstar, MEAN_MOTION_DOT: r.ndot, INCLINATION: r.i, RA_OF_ASC_NODE: r.raan, ARG_OF_PERICENTER: r.argp });
+  setSolarTable(TAB);
+  const R = H.satirlar.map((r) => { const x = assessSat(o(r), Date.parse(r.epoch + 'Z'), false); return { q: x.lifeDays / r.kalanGun, y: r.kalanGun / 365.25, r: x, real: r.kalanGun }; });
+  const N = H.satirlar.map((r) => assessSat(o(r), Date.parse(r.epoch + 'Z'), false, null, { lunisolar: false }).lifeDays / r.kalanGun);
+  const in2 = (a) => a.filter((x) => x > 0.5 && x < 2).length / a.length, med = (a) => qt(a.filter(Number.isFinite), 0.5);
+  const far = R.filter((x) => x.y >= 0.7).map((x) => x.q), mid = R.filter((x) => x.y >= 0.15 && x.y < 0.7).map((x) => x.q), near = R.filter((x) => x.y < 0.15).map((x) => x.q);
+  ok(H.meta.cisim > 400 && R.filter((x) => x.r.deep && x.r.lunisolar).length > 0.97 * R.length, `GTO/HEO örneği: ${H.meta.cisim} cisim, ${H.satirlar.length} tahmin; %${(100 * R.filter((x) => x.r.deep && x.r.lunisolar).length / R.length).toFixed(1)}'i Ay–Güneş hesaplı (gerisi yeniden giriş aşamasında ya da e ≤ 0,1)`);
+  ok(med(far) > 0.85 && med(far) < 1.1 && in2(far) > 0.8, `GTO/HEO 0,7–10 yıl kala (n=${far.length}): medyan ${med(far).toFixed(2)}, %68 ${qt(far, 0.16).toFixed(2)}–${qt(far, 0.84).toFixed(2)}, 2× içinde %${(100 * in2(far)).toFixed(0)}`);
+  ok(med(mid) > 0.65 && med(mid) < 1.1 && in2(mid) > 0.72, `GTO/HEO 2 ay – 0,7 yıl kala (n=${mid.length}): medyan ${med(mid).toFixed(2)}, 2× içinde %${(100 * in2(mid)).toFixed(0)} (bilinen sınır: kısa)`);
+  ok(med(near) > 0.8 && med(near) < 1.3 && in2(near) > 0.65, `GTO/HEO < 2 ay kala (n=${near.length}): medyan ${med(near).toFixed(2)}, 2× içinde %${(100 * in2(near)).toFixed(0)} (60 km eşiği; 80 km'de %53)`);
+  ok(in2(N.filter((_, i) => R[i].y >= 0.7)) < 0.15, `Ay–Güneş çekimi olmadan 0,7+ yıl kala yalnız %${(100 * in2(N.filter((_, i) => R[i].y >= 0.7))).toFixed(0)} 2× içinde`);
+  const cov = R.filter((x) => x.r.range).map((x) => { const t0 = x.r.epochMs, real = t0 + x.real * 864e5; return real >= x.r.range.loMs && real <= x.r.range.hiMs; });
+  ok(cov.length > 1500 && cov.filter(Boolean).length / cov.length > 0.6 && cov.filter(Boolean).length / cov.length < 0.78, `GTO/HEO olası aralık (%68) kapsaması: %${(100 * cov.filter(Boolean).length / cov.length).toFixed(0)}`);
+  setSolarTable(null);
+}
+// ================================================================ olası aralık (%68): biçim ve LEO kapsaması
+{ const fs = await import('node:fs'), TAB = JSON.parse(fs.readFileSync(new URL('../data/f107.json', import.meta.url), 'utf8'));
+  const H = JSON.parse(fs.readFileSync(new URL('./fixtures/reentry_hist.json', import.meta.url), 'utf8')).satirlar, F = JSON.parse(fs.readFileSync(new URL('./fixtures/reentry_real.json', import.meta.url), 'utf8')).satirlar;
+  const r1 = lifeRange(100), r2 = lifeRange(3000, true), r3 = lifeRange(6000);
+  ok(r1.lo < 100 && r1.hi > 100 && r2.lo >= 0.9 * 3000 && !r1.extrap && r3.extrap && lifeRange(Infinity) === null && lifeRange(0) === null, 'lifeRange: tahmini kapsar, derin uzayda HEO bandı, 12 yıldan uzunda "sınanmamış"');
+  const now = Date.UTC(2026, 10, 12), Y = 365.25 * 864e5;
+  ok(fmtRange({ loMs: now + 3 * 864e5, hiMs: now + 20 * 864e5 }, now).split(' – ').length === 2 && /^\d{4}–\d{4}$/.test(fmtRange({ loMs: now + 3 * Y, hiMs: now + 9 * Y }, now)) && /^şimdi – /.test(fmtRange({ loMs: now - 864e5, hiMs: now + 30 * 864e5 }, now)),
+    `aralık metni: kısa süre gün, uzun süre yıl (${fmtRange({ loMs: now + 3 * Y, hiMs: now + 9 * Y }, now)}), geçmişte kalan alt sınır "şimdi"`);
+  const o = (r) => ({ EPOCH: r.epoch, MEAN_MOTION: r.n, ECCENTRICITY: r.e, BSTAR: r.bstar, MEAN_MOTION_DOT: r.ndot });
+  const cover = (rows, hist) => { const c = rows.map((r) => { const t = Date.parse(r.epoch + 'Z'), x = assessSat(o(r), t, false, hist && r.gecmis ? calibHist(histRow(r.gecmis, t)) : null); if (!x.range) return null; const real = t + r.kalanGun * 864e5; return real >= x.range.loMs && real <= x.range.hiMs; }).filter((v) => v != null); return c.filter(Boolean).length / c.length; };
+  const cH = cover(H); setSolarTable(TAB); const cHt = cover(H), cF = cover(F, true); setSolarTable(null);
+  ok(cH > 0.62 && cH < 0.76 && cHt > 0.62 && cF > 0.68, `LEO olası aralık kapsaması: 1965–2016 Güneş bilinmezken %${(100 * cH).toFixed(0)}, gözlenen F10.7 ile %${(100 * cHt).toFixed(0)}; 2025–26 (tahminle) %${(100 * cF).toFixed(0)}`);
+  ok(/olası aralık 20\d\d–20\d\d/.test(fmtReentry(assessSat(rec(420, 420, 2e-4), now, false), now)), `metin: ${fmtReentry(assessSat(rec(420, 420, 2e-4), now, false), now)}`);
 }
 // ================================================================ derin uzay gerçek yeniden girişler (Cluster II, ESA)
 // Çok eksantrik yörüngeli (a ≈ 72.000 km, e ≈ 0,85) Cluster uyduları; perijeyi Ay–Güneş çekimi bir yılda ~4.600 km'den indirdi. TLE: CelesTrak geçmişi;

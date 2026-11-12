@@ -181,6 +181,50 @@ Ayrıca F10.7 tablosuna aylık ortalama Ap eklendi (gözlenen aylar; tahmin ayla
 
 **Kalan sınırlar.** Gelecek Güneş çevrimlerinin genliği (kaynak: NOAA SWPC aralıklı çevrim tahmini; bir belirsizlik bandı olarak eklenebilir). Aylık Ap kısa fırtınaları düzler (günlük Ap aynı dosyada). Tarihsel TLE'lerin kalitesi dönemden döneme değişir; 2016 sonrası arşivde seyrek. GTO roket gövdeleri ve çok eksantrik yörüngelerin son haftaları (§4.2c).
 
+### 4.2e Kalan sınırların kapatılması
+
+§4.2d sonunda dört sınır kalmıştı. Hepsi gerçek kayıtla incelendi.
+
+**1. GTO/HEO roket gövdeleri.** Space-Track gerekmeden, GCAT ve McDowell arşivinden 1975–2016 arasında yeniden girmiş 464 roket gövdesi ve yük (apoje ≥ 15.000 km; 1.678 tahmin; `fixtures/reentry_heo.json`, `tools/tarihsel_ornek.mjs --heo`). Sonuç (tahmin / gerçek):
+
+| Kalan süre | n | Medyan | %68 | 2 kat içinde | Yalnız sürüklenmeyle 2 kat içinde |
+|---|---|---|---|---|---|
+| 0,7–10 yıl | 1.096 | 0,95 | 0,72–1,03 | %86 | %8 |
+| 2 ay – 0,7 yıl | 453 | 0,79 | — | %81 | %5 |
+| < 2 ay | 129 | 1,03 | — | %74 | %5 |
+
+Ay–Güneş modeli bu cisimlerde çok yıllık ölçekte yansız. 2 ay – 0,7 yıl kala tahminler ~%20 kısa kalıyor (bilinen sınır).
+
+**2. Çok eksantrik yörüngelerin son haftaları.** Yeniden giriş eşiği (ortalama perije), Cluster'ın 3 cismine göre seçilmiş 80 km yerine 464 cismin iki yarısında ayrı ayrı sınandı. İki yarıda da en iyisi 50–60 km çıktı, 60 seçildi. Son 2 ay kala 2 kat içinde kalma %53'ten %74'e çıktı; medyan 0,94'ten 1,03'e. Uzun vadeli sonuçlar değişmedi; Cluster Samba/Tango medyan 1,04 (0,63–1,24).
+
+SDP4 ile her perije geçişini izleyip ilk alçak geçişte yeniden giriş saymak da denendi. Ortalama modelden belirgin kötü çıktı (2 ay kala 2 kat içinde %42–47, ortalama modelle %74) ve kullanılmadı.
+
+**3. Gelecek Güneş çevrimi.** Bu belirsizlik giderilemez, ama artık sayısal olarak gösteriliyor. Her tahmine gerçek kayıtla ayarlanmış %68 olası aralık eşlik eder (`lifeRange`, `fmtRange`; ör. "~2031 (4,9 yıl sonra; olası aralık 2029–2034)"). Aralık, gerçek / tahmin oranının %16 ve %84 dilimleridir: LEO için 758 tarihsel cismin tahminleri Güneş aktivitesi bilinmiyormuş gibi (ortalama çevrimle) hesaplanarak, GTO/HEO için 464 cisimden. Dilimler gerçek kalan süreye göre kurulur. Tahmin edilen süreye göre kurulsaydı seçim yanlılığı olurdu: örnek gerçek süreye göre seçildiğinden "uzun tahmin edilip gerçekleşmiş" cisimler zorunlu olarak erken inenlerdir. Uygulamada dilim tahmin edilen süreye göre aranır.
+
+Kapsama:
+- LEO çapraz (cisimlerin iki yarısı): %69 / %69.
+- Gerçek süre dilimlerinde %67–79.
+- 2025–26 gerçek yeniden girişlerinde, uygulamanın tahmin koşulunda: %86 (aralık temkinli).
+- GTO/HEO: %67 (son ay diliminde %44).
+
+12 yıldan uzun sürelerde aralık sınanmamıştır ve metinde böyle yazar.
+
+**4. Aylık Ap.** Günlük F10.7 ve Ap ile aylık ortalamalar karşılaştırıldı (1957–2025, `SW-All.txt`). Yoğunluğun Ap ve F10.7'ye bağlılığı doğrusal olmadığından aylık ortalama, ortalama yoğunluğu biraz düşük verir:
+
+| İrtifa | Medyan sapma | Ayların %95'inde en çok | En kötü ay |
+|---|---|---|---|
+| 300 km | %0,5 | %2 | — |
+| 400 km | %2 | %11 | %59 (büyük fırtına ayı) |
+| 600 km | %7 | %45 | — |
+
+Bu, olası aralığın (±%30–50) yanında küçüktür. Gelecekteki fırtınalar zaten öngörülemez; etkileri gerçek kayıttan türetilen aralığın içindedir. Günlük çözünürlük eklenmedi.
+
+**Hâlâ kalanlar.**
+- GTO/HEO'da 2 ay – 0,7 yıl kala ~%20 kısa tahmin.
+- Çok eksantrik yörüngelerde son ay; aralık kapsaması %44.
+- 12 yıldan uzun tahminlerin aralığı sınanmadı.
+- 2016 sonrası tarihsel TLE arşivi seyrek.
+
 ### 4.3 Sınırlar
 
 - Uydu gölgesi silindirik kabul edilir (yarı gölge yok); geçişlerin doğuş/batışı geometrik ufka göredir (kırılma yok: ufukta ≈ 0,57°, birkaç saniye).
