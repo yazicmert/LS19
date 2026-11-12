@@ -26,7 +26,9 @@ export class ImpactUI {
     for (const id of ['#cpGroup', '#cpCtl', '#cpHorizon', '#cpSatQ', '#cpSort', '#cpYear', '#cpAstQ']) $(id).addEventListener(id.endsWith('Q') ? 'input' : 'change', () => this.renderList());
   }
   // sekme açıldığında: geçmiş yörünge özeti (decayhist.js) inince hesap başlar; inemezse yalnız yaş süzgeci kullanılır
-  open() { loadHist().then(() => this.render()); }
+  open() { loadHist().then(() => { this.opened = true; this.render(); }); }
+  // uydu kataloğu yenilendi (app.js sats.onData): sekme daha önce açıldıysa uydu listesi yeni veriyle hesaplanır (aynı katalogsa bir şey yapmaz)
+  refresh() { if (this.opened && this.mode === 'sat') this.computeSats(); }
   render() {
     document.querySelectorAll('#cpMode button').forEach((b) => b.classList.toggle('on', b.dataset.m === this.mode));
     $('#cpSat').hidden = this.mode !== 'sat'; $('#cpAst').hidden = this.mode !== 'ast';
@@ -61,7 +63,7 @@ export class ImpactUI {
     for (const x of sel.slice(0, LIMIT)) {
       const li = mk('li', 'cp-li' + (x.id === this.selId ? ' on' : '')), left = mk('div'), rem = days(x);
       const ag = ageOf(x);
-      left.append(mk('b', null, x.o.OBJECT_NAME), mk('div', 'k small', `perije ${Math.round(x.r.perigeeKm)} km${x.r.ecc > 0.01 ? ` · apoje ${Math.round(x.r.apogeeKm)} km` : ''}${ag != null ? ` · ${Math.round(ag)} yıllık` : ''}${x.h ? ` · geçmiş: ${KLASS_TR[x.h.ctl.klass]}` : ''}${x.r.deep ? ' · Ay–Güneş etkisi modelde yok' : ''}`));
+      left.append(mk('b', null, x.o.OBJECT_NAME), mk('div', 'k small', `perije ${Math.round(x.r.perigeeKm)} km${x.r.ecc > 0.01 ? ` · apoje ${Math.round(x.r.apogeeKm)} km` : ''}${ag != null ? ` · ${Math.round(ag)} yıllık` : ''}${x.h ? ` · geçmiş: ${KLASS_TR[x.h.ctl.klass]}` : ''}${x.r.deep ? (x.r.lunisolar ? ' · Ay–Güneş çekimi dahil' : ' · Ay–Güneş etkisi modelde yok') : ''}`));
       const right = mk('div', 'cp-r'), dot = mk('i', 'cp-dot'); dot.style.background = DOT[x.r.conf] || DOT.low; dot.title = 'güven: ' + (CONF_TR[x.r.conf] || CONF_TR.low);
       right.append(mk('div', null, rem <= 0 ? 'şimdi' : rem < 730 ? fmtDate(x.r.reentryMs) : String(new Date(x.r.reentryMs).getUTCFullYear())), mk('div', 'k small', rem <= 0 ? '—' : fmtSpan(rem) + ' sonra')); right.prepend(dot);
       li.append(left, right); li.addEventListener('click', () => this.pickSat(x)); ul.appendChild(li);
@@ -73,8 +75,8 @@ export class ImpactUI {
     this.selId = x.id; const i = this.sats.indexOf(x.id); if (i >= 0) this.sats.select(i);
     const { h, r } = decayOf(x.o, Date.now(), true), el = $('#cpSatDet'); el.replaceChildren();
     const rows = [['Tahmini yeniden giriş', fmtReentry(r)], ['Kontrol durumu', controlNote(ageYears(x.o), this.groupOf.get(x.id) === 0)], ['Yörünge', `${Math.round(r.perigeeKm)} × ${Math.round(r.apogeeKm)} km · e ${fmt(r.ecc, 4)}`],
-      ['Sürüklenme kaynağı', r.method === 'hist' ? `gözlenen a(t) eğimi (${h.segDays.toFixed(0)} gün)${r.ratio ? ` · B*'a oran ${fmt(r.ratio, 2)}` : ''}` : r.method === 'bstar' ? `B* = ${sci(+x.o.BSTAR)}${r.ratio ? ` · gözlenen bozunmayla (MEAN_MOTION_DOT) oran ${fmt(r.ratio, 2)}` : ''}` : 'MEAN_MOTION_DOT (gözlenen bozunma)'], ['Veri çağı (epoch)', fmtDate(r.epochMs)]];
-    if (r.deep) rows.splice(1, 0, ['Model sınırı', 'Periyot ≥ 225 dk: perijeyi Ay ve Güneş\'in çekimi değiştirir; bu model yalnız atmosfer sürüklenmesini hesaplar, tahmin güvenilmez']);
+      ['Sürüklenme kaynağı', r.method === 'hist' ? `gözlenen a(t) eğimi (${h.segDays.toFixed(0)} gün)${r.ratio ? ` ile B* birlikte · eğim / B* oranı ${fmt(r.ratio, 2)}` : ''}` : r.method === 'bstar' ? `B* = ${sci(+x.o.BSTAR)}${r.ratio ? ` · gözlenen bozunmayla (MEAN_MOTION_DOT) oran ${fmt(r.ratio, 2)}` : ''}` : 'MEAN_MOTION_DOT (gözlenen bozunma)'], ['Veri çağı (epoch)', fmtDate(r.epochMs)]];
+    if (r.deep) rows.splice(1, 0, ['Model sınırı', r.lunisolar ? 'Periyot ≥ 225 dk: perijeyi Ay ve Güneş\'in çekimi değiştirir. Ortalama (yörünge üzerinden) Ay–Güneş ve J2 modeli kullanılır; rezonanslar ve kısa periyotlu terimler yok, bu tür yörüngeler başlangıç koşullarına çok duyarlıdır ve model gerçek bir yeniden girişle sınanmadı: güven düşük' : 'Periyot ≥ 225 dk: perijeyi Ay ve Güneş\'in çekimi değiştirir; yörünge açıları olmadığından yalnız atmosfer sürüklenmesi hesaplandı, tahmin güvenilmez']);
     if (h) rows.splice(r.deep ? 3 : 2, 0, ['Geçmiş yörünge (CelesTrak, ~' + Math.round(h.spanDays / 30.4) + ' ay)', this.histText(h)]);
     const tb = mk('table', 'tbl'); for (const [k, v] of rows) { const tr = mk('tr'); tr.append(mk('td', 'k', k), mk('td', null, v)); tb.appendChild(tr); } el.appendChild(tb);
     const ser = histData() && histData().seri && histData().seri[x.id];

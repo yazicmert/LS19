@@ -85,11 +85,30 @@ Canlı Gökyüzü'nün fiziği (Dünya yönelimi, canlı N-cisim efemerisi ve Ay
 | **`MEAN_MOTION_DOT`'tan sürüklenme genliği dairesel formülle bulunup perije değeri sayılıyordu** | Modelin kendi bozunmasından üretilen ṅ geri verildiğinde B*/ṅ oranı 300 × 2000 km'de 7,95, 250 × 6000 km'de 11,3 (1 olmalı); B* yokken ömür sonsuz çıkıyordu | Genlik, geçmiş eğimiyle aynı yoldan (modelin yörünge ortalamalı da/dt'siyle ölçekleme) bulunur; oran 1,000 / 1,000 / 0,998 |
 | **Eksantrik yörüngede sabit 24 noktalı toplama perijedeki sürüklenme tepesini kaçırıyordu** | da/dt yakınsak değerin 250 × 20.000 km'de 0,52'si, GTO'da 0,20'si, 200 × 35.786 km'de 0,14'ü | Nokta sayısı tepenin genişliğine (√(H/ae)) göre seçilir; 400 × 420 km'den 130 × 35.786 km'ye sekiz yörüngede referansla fark ≤ %0,25 |
 | **Tümleme (a, e) ile ilerliyordu**: perijeye adım başına −Δa·Δe ikinci derece hatası ekleniyor, adım yalnız perije hızına göre seçiliyordu | 200 × 35.786 km, B* = 10⁻³: model 1.662 gün, ince adımlı referans 6.208 gün (perije 60 km fazla alçalıyordu; gerçek alçalma Δa'nın ~2·10⁻⁴'ü) | Durum (a, perije) olarak ilerletilir; adım a'nın değişimini de sınırlar. Aynı durumda 6.217 gün (%0,14); dört yörüngede fark ≤ %1,2 |
-| **15 yıla kadar tahmin "yüksek" güven alabiliyordu** | Atmosfer sabit, genlik bugünkü Güneş aktivitesine bağlı (uzun vadede ±2–5×); geçmiş eğimi zaten yalnız B*'la uyuşan cisimlerde kullanıldığından uyum bağımsız doğrulama değildir | Yüksek: uyumlu ve < 60 gün, ya da ≥ 6 aylık geçmiş eğimi uyumlu ve < 1 yıl; orta: uyumlu ve < 25 yıl; gerisi düşük |
+| **15 yıla kadar tahmin "yüksek" güven alabiliyordu** | Geçmiş eğimi zaten yalnız B*'la uyuşan cisimlerde kullanıldığından uyum bağımsız doğrulama değildir; gerçek kayıtta da geçmiş kalibrasyonlu tahminler ötekilerden daha isabetli çıkmadı (§4.2b) | Yüksek: iki kaynak uyumlu ve < 60 gün; orta: uyumlu ve < 25 yıl; gerisi düşük |
 
 Kartezyen denetim (`test/test_impact.js`): iki cisim + sürüklenme ivmesi −½Kρ|v|v, RK4 10 s, 300 × 2000 km, 3 gün: Δa 36,55 km ↔ model 36,12 km, Δe 4,195·10⁻³ ↔ 4,147·10⁻³.
 
-**Sınır:** periyodu ≥ 225 dk olan alçak perijeli yörüngelerde (GTO, Molniya) perijeyi Ay–Güneş çekimi yönetir; model yalnız sürüklenmeyi hesaplar. Bu cisimler işaretlenir, güvenleri düşüktür ve "> 300 yıl" yerine sınırı söyleyen metin gösterilir. Model gerçek bir yeniden giriş kaydıyla karşılaştırılmadı; referanslar modelin sayısal çözümünü doğrular, atmosfer ve B* varsayımlarını değil.
+### 4.2b Gerçek yeniden girişler, Güneş çevrimi, Ay–Güneş çekimi
+
+**Gerçek kayıtla karşılaştırma.** Halka açık CelesTrak etkin kataloğunun git geçmişinden (github.com/jtmiclat/celestrak-historical; Tem 2025 – Kas 2026, ~4,5 günde bir, 96 anlık görüntü) etkin listeden çıkmış, son TLE perijesi 120–260 km olan 322 cisim seçildi (Starlink/OneWeb/Kuiper ve istasyon araçları hariç; Jilin, ICEYE, Astrocast, Lemur, NuSat ve küp uydular). "Gerçek" yeniden giriş anı = son TLE çağı + modelin o TLE'den kalan süresi (medyan 2,2 gün, %90'ı < 4,2 gün). Her cismin önceki TLE'lerinden tahmin / gerçek kalan süre oranı:
+
+| Yeniden girişe kalan | n | Medyan | %68 aralığı | 2 kat içinde |
+|---|---|---|---|---|
+| ~45 gün | 315 | 1,05 | 0,84–1,37 | %96 |
+| ~150 gün | 237 | 0,95 | 0,75–1,38 | %97 |
+| ~330 gün | 130 | 1,30 | 0,77–1,48 | %95 |
+| "yüksek" güven verilenler | 255 | 0,99 | 0,82–1,17 | %99 |
+
+Cisim başına birer girdili bu örnek `web/test/fixtures/reentry_real.json`'dadır (`tools/yeniden_giris_ornegi.mjs` üretir) ve `test_impact.js` her koşuda sınar. Tüm TLE'lerle (12.650 tahmin) medyan 0,89–1,05, %96–97'si 2 kat içinde. 330 gün kala medyan 1,30'dur: tahminlerin yapıldığı Ağu–Ara 2025'ten sonra yoğunluk beklenmedik biçimde arttı (aşağıda), cisimler tahminden erken indi.
+
+**Güneş çevrimi.** Sabit atmosfer yerine F10.7'nin 11 yıllık ortalama biçimi (en az 70, en çok 160 sfu; 25. çevrim en az Aralık 2019) yoğunluğu ölçekler: ln ρ(h, F) = ln ρ_Vallado(h) − (1/T(F) − 1/T(140))·(h − 175)·m(h), T = 900 + 2,5(F − 70) + 1,5·Ap, m = 27 − 0,012(h − 200). Çarpan 400 km'de 0,38–1,83, 600 km'de 0,20–2,81. Denetim: edilgen 509 cismin (480–560 km) B*'ı SGP4'ün atmosferi sabit olduğundan gerçek yoğunluğu izler; Ağu 2025 → Kas 2026 gözlenen yoğunluk oranı 0,88, modelinki 0,74 (580–680 km: 0,76 ↔ 0,69). Arada Eki 2025 – Şub 2026'da yoğunluk 1,3–1,7 katına çıktı; çevrim modeli böyle aylık dalgalanmaları öngöremez. 16 aylık gerçek veride çevrim modeli sabit atmosferden daha iyi çıkmadı (medyan |ln hata| 0,216 ↔ 0,208); etkisi yıllar ölçeğindedir (450 km, B* = 1,5·10⁻⁴: en çok aktivitede başlayan tahmin 7,7 yıl, sabit 4,5, en azda başlayan 2,8) ve o ölçek gerçek kayıtla sınanamadı.
+
+**Geçmiş eğimi.** Theil–Sen eğimi dilimin ortasındaki bozunma hızıdır; bugünkü yörüngenin hızı sayılınca genlik küçük çıkıyor, gerçek veride 60–120 gün kala ömür %40 uzun tahmin ediliyordu. Eğim artık dilim ortasındaki yörüngeye ve o günün aktivitesine bağlanır (modelin kendi ürettiği 301 günlük seriden kalan ömür 677 ↔ 662 gün) ve B* ile geometrik ortalaması kullanılır: gerçek veride yalnız eğim 60–120 / 120–240 / 240–480 gün kala medyan |ln hata| 0,16 / 0,31 / 0,36, yalnız B* 0,19 / 0,20 / 0,26, ikisi birlikte 0,12 / 0,21 / 0,27.
+
+**Ay–Güneş çekimi.** Periyodu ≥ 225 dk olan alçak perijeli yörüngelerde (GTO, Molniya) dış merkezlik ve açısal momentum vektörleri için dörtkutup yaklaşımında yörünge ortalamalı denklemler (Tremaine, Touma & Namouni 2009; Güneş tek, Ay çift ortalama) ve J2'nin düğüm/perije dönmesi sürüklenmeyle birlikte tümlenir (4 günlük adım, 100 yıl ufuk). Doğrudan Kartezyen tümlemeyle (Dünya nokta kütle + J2, Güneş, eğik dairesel yörüngede dolanan Ay; RK4) karşılaştırma: 600 × 35.786 km, i = 28,5°, 1 yıl: perije 58 km oynarken en büyük fark 2,6 km; 900 × 39.400 km, i = 63,4°, 545 gün: perije 900 → 448 km, fark 1,2 km. Örnek: GTO 250 × 35.786 km, B* = 10⁻³: yalnız sürüklenme 70,6 yıl, Ay–Güneş dahil 32,5 yıl.
+
+**Sınırlar.** Birkaç yıldan uzun tahminler gerçek kayıtla sınanamadı (veri 16 ay). Derin uzay yörüngeleri için gerçek yeniden giriş kaydı yok (etkin katalogda bu türden inen cisim bulunmadı); Ay–Güneş modeli ortalamadır (rezonanslar, kısa periyotlu terimler yok) ve bu yörüngeler başlangıç koşullarına çok duyarlıdır: güvenleri hep düşüktür. "Gerçek" yeniden giriş anı son TLE'den modelle tamamlandığı için birkaç günlük bir belirsizlik taşır.
 
 ### 4.3 Sınırlar
 
