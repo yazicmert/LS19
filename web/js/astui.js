@@ -87,8 +87,11 @@ export class AstUI {
     if (d.nextCa) rows.push(['Sonraki yakın geçiş (JPL)', `${d.nextCa.cd} · ${dist(d.nextCa.dist)}`]);
     if (d.sentry) rows.push(['Sentry çarpma olasılığı', `${sig(d.sentry.ip, 2)} (${d.sentry.range}, Palermo ${fmt(d.sentry.ps, 2)})`]);
     if (d.discovery) rows.push(['Keşif', d.discovery]);
-    rows.push(['Yörünge belirsizliği (U)', `${d.cc || '—'} (0 en iyi, 9 en kötü)`], ['Gözlem yayı', d.arc ? `${fmt(d.arc, 0)} gün` : '—'],
-      ['Öğelerin yaşı', `${fmt(d.epochAgeDays, 0)} gün (JPL SBDB)`]);
+    const u = uRunout(d.cc);
+    rows.push(['Yörünge belirsizliği (U)', u ? `${d.cc} (0 en iyi, 9 en kötü) · ortalama anomali belirsizliği ${u} / 10 yıl` : `${d.cc ?? '—'} (0 en iyi, 9 en kötü)`],
+      ['Gözlem yayı', d.arc ? `${fmt(d.arc, 0)} gün` : '—'],
+      ['Öğelerin yaşı', d.nbAgeDays != null ? `${fmt(d.epochAgeDays, 0)} gün (JPL dönemi ${fmt(d.nbAgeDays, 0)} gün önce; N-cisim tümlemesiyle taşındı)` : `${fmt(d.epochAgeDays, 0)} gün (JPL SBDB)`]);
+    if (+d.cc >= 7) rows.push(['Konum uyarısı', 'Yörünge zayıf belirlenmiş (az gözlem ya da kayıp cisim): gösterilen konum JPL nominal yörüngesidir, gerçek konum gökyüzünde derecelerce farklı olabilir']);
     if (d.shape) {
       const sh = d.shape, yon = sh.yontem === 'uzay' ? ['Uzay aracı görüntüleme', 'Çok yüksek: yüzey ayrıntıları (krater, kaya) çözülmüş'] : sh.yontem === 'radar' && sh.req_km > 20 ? ['Radar ve uyarlamalı optik', 'Orta: kilometre ölçeğinde genel biçim (büyük çukurlar dahil)'] : sh.yontem === 'radar' ? ['Radar görüntüleme', 'Yüksek: onlarca metre ayrıntı, çukurlar dahil'] :
         ['Işık eğrisi tersine çevirme', sh.nonconvex ? 'Orta: dışbükey olmayan model, ince yüzey ayrıntısı yok' : 'Düşük: dışbükey şekil, çukur ve yüzey ayrıntısı yok (boyut, dönme ve genel biçim güvenilir)'];
@@ -100,4 +103,13 @@ export class AstUI {
     const fn = (d.fullname || '').trim();
     return { title: d.name, sub: `${fn && fn !== d.name ? fn : 'JPL Small-Body Database'}${d.pha ? ' · potansiyel tehlikeli' : ''}`, rows };
   }
+}
+// MPC belirsizlik parametresi U: 10 yılda ortalama anomalideki belirsizlik ("runoff") sınırları, yay saniyesi
+// (https://minorplanetcenter.net/iau/info/UValue.html; JPL SBDB condition_code aynı tanımı kullanır)
+const U_RUNOFF = [0, 1.0, 4.4, 19.6, 86.5, 382, 1692, 7488, 33121, 146502];
+const yay = (x) => (x >= 3600 ? `${sig(x / 3600, 2)}°` : x >= 60 ? `${sig(x / 60, 2)}′` : `${sig(x, 2)}″`);
+export function uRunout(cc) {
+  const u = cc === '' || cc == null ? NaN : +cc;
+  if (!(u >= 0 && u <= 9) || !Number.isInteger(u)) return null;
+  return u === 0 ? `< ${yay(U_RUNOFF[1])}` : u === 9 ? `> ${yay(U_RUNOFF[9])}` : `${yay(U_RUNOFF[u])}–${yay(U_RUNOFF[u + 1])}`;
 }

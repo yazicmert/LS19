@@ -131,6 +131,8 @@ export class AsteroidLayer {
     // DAMIT (ışık eğrisi tersine çevirme, CC BY 4.0): ~4400 asteroit için şekil + dönme ekseni; parçalar gzip'li, seçilince indirilir
     this.damit = null; this.damitShards = new Map();
     fetch('models/ast/damit/damit.json').then((r) => (r.ok ? r.json() : null)).then((j) => { this.damit = j; }).catch(() => {});
+    // eski dönemli NEO'lar: N-cisim ile güncel döneme taşınmış öğeler ve Dünya'ya çarpmış cisimler (tools/neo_epok.mjs, haftalık)
+    this.epokP = fetch('data/neo_epok.json').then((r) => (r.ok ? r.json() : null)).catch(() => null);
     this.onChange = null;
   }
   changed() { if (this.onChange) this.onChange(); }
@@ -143,6 +145,7 @@ export class AsteroidLayer {
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.cols) throw new Error(d.hata || ('HTTP ' + r.status));
       this.sets[set] = d; this.src[set] = { kaynak: d.kaynak || 'JPL SBDB', t: d.t };
+      this.epok = await this.epokP;
       this.combine();
     } catch (err) {
       this.info = { status: 'Asteroit verisi alınamadı: ' + err.message }; this.changed();
@@ -162,6 +165,7 @@ export class AsteroidLayer {
     const keys = ['des', 'name', 'cls', 'pha', 'H', 'D', 'alb', 'ep', 'a', 'e', 'i', 'om', 'w', 'ma', 'moid', 'rot', 'spec', 'cc', 'arc', 'gm'];
     const C = {}; for (const k of keys) C[k] = [];
     for (const s of order) { const c = this.sets[s].cols; for (const k of keys) C[k].push(...(c[k] || new Array(c.a.length).fill(null))); }
+    applyEpok(C, this.epok, keys);
     this.C = C; this.n = C.a.length; this.sel = -1; this.etProp = null;
     this.index = new Map(); for (let i = 0; i < this.n; i++) this.index.set(C.des[i], i);
     this.geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3 * this.n), 3));
@@ -301,7 +305,7 @@ export class AsteroidLayer {
     const out = { name: this.label(i), des: C.des[i], cls: CLASS_TR[C.cls[i]] || C.cls[i], pha: !!C.pha[i], H: C.H[i], D, Dmeas: C.D[i] > 0, alb: C.alb[i],
       rot: C.rot[i], spec: C.spec[i], a: C.a[i], e: C.e[i], inc: C.i[i], q: C.a[i] * (1 - C.e[i]), Q: C.a[i] * (1 + C.e[i]),
       P: Math.pow(C.a[i], 1.5), moid: C.moid[i], cc: C.cc[i], arc: C.arc[i], dSun: Math.hypot(...r) / AU, dEarth: Math.hypot(...geo), v: Math.hypot(...v),
-      shape: this.shapeOf(i), epochAgeDays: (E.jdTdb(t) - C.ep[i]), sentry: sen || null, group: AST_GROUPS[this.groupOf(i)].name, oscA: el.a / AU };
+      shape: this.shapeOf(i), epochAgeDays: (E.jdTdb(t) - C.ep[i]), nbAgeDays: C.ep0[i] != null ? E.jdTdb(t) - C.ep0[i] : null, sentry: sen || null, group: AST_GROUPS[this.groupOf(i)].name, oscA: el.a / AU };
     if (det && det.object) {
       const now = E.jdTdb(t);
       const ca = (det.ca_data || []).map((c) => ({ ...c, jd: +c.jd || null })).filter((c) => c.body === 'Earth');
@@ -409,6 +413,23 @@ function damitMatrix(sh, jd) {
   const m = new THREE.Matrix4().makeRotationX(EPS_J2000);
   m.multiply(new THREE.Matrix4().makeRotationZ(sh.lam * Math.PI / 180)).multiply(new THREE.Matrix4().makeRotationY(Math.PI / 2 - sh.bet * Math.PI / 180)).multiply(new THREE.Matrix4().makeRotationZ(ph));
   return m;
+}
+// tools/neo_epok.mjs çıktısını birleştir: Dünya'ya çarpmış cisimleri çıkar; eski dönemlilerin öğelerini N-cisim ile taşınmış olanlarla değiştir.
+// Değişim yalnız JPL çözümü dosya üretildiğindekiyle aynıysa (aynı dönem ve a) yapılır; JPL yeni gözlemle güncellediyse onun öğeleri kalır.
+// C.ep0: değiştirilen cisimlerde JPL'in özgün dönemi (kartta gösterilir), diğerlerinde null.
+export function applyEpok(C, ep, keys = Object.keys(C)) {
+  const n = C.a.length; C.ep0 = new Array(n).fill(null);
+  if (!ep || !ep.o) return { degisen: 0, cikan: 0 };
+  const gone = new Set((ep.carpan || []).map((c) => c.des));
+  let degisen = 0;
+  for (let i = 0; i < n; i++) {
+    const o = ep.o[C.des[i]];
+    if (!o || Math.abs(o[0] - C.ep[i]) > 1e-4 || Math.abs(o[1] - C.a[i]) > 1e-9 * C.a[i] || !(ep.epok > C.ep[i])) continue;
+    C.ep0[i] = C.ep[i]; C.ep[i] = ep.epok; [C.a[i], C.e[i], C.i[i], C.om[i], C.w[i], C.ma[i]] = o.slice(2); degisen++;
+  }
+  const keep = C.des.map((d) => !gone.has(d)), cikan = n - keep.filter(Boolean).length;
+  if (cikan) for (const k of [...keys, 'ep0']) C[k] = C[k].filter((_, i) => keep[i]);
+  return { degisen, cikan };
 }
 // CAD kaydının JD'si (sbdb.api ca_data'da "jd" alanı yok: "cd" tarih metninden)
 function cadJd(c) {

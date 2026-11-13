@@ -48,6 +48,21 @@ export function helioElements(r, v, mu = GM_SUN) {
   const a = 1 / (2 / rn - v2 / mu), ev = sub(scl(re, v2 / mu - 1 / rn), scl(ve, dot(re, ve) / mu)), e = norm(ev);
   return { a, e, i: Math.acos(h[2] / norm(h)) / D2R, q: a * (1 - e), Q: a * (1 + e), P: a > 0 ? 2 * Math.PI * Math.sqrt(a ** 3 / mu) : NaN };
 }
+// keplerHelio'nun tersi: Güneş merkezli ICRF durumundan (km, km/s) JPL SBDB biçiminde oskülatör öğeler
+// (a AB, açılar derece, J2000 ekliptiği, ma: et anındaki ortalama anomali). Yalnız eliptik yörünge (e < 1).
+export function oscElements(r, v, mu = GM_SUN) {
+  const re = icrfToEcl(r), ve = icrfToEcl(v), rn = norm(re), v2 = dot(ve, ve), h = cross(re, ve), hn = norm(h);
+  const a = 1 / (2 / rn - v2 / mu), ev = sub(scl(re, v2 / mu - 1 / rn), scl(ve, dot(re, ve) / mu)), e = norm(ev);
+  const deg = (x) => ((x / D2R) % 360 + 360) % 360, i = Math.acos(Math.max(-1, Math.min(1, h[2] / hn)));
+  const nv = [-h[1], h[0], 0], nn = Math.hypot(nv[0], nv[1]);
+  const om = nn > 1e-12 * hn ? Math.atan2(nv[1], nv[0]) : 0;
+  const nh = nn > 1e-12 * hn ? [nv[0] / nn, nv[1] / nn, 0] : [1, 0, 0], mh = cross(scl(h, 1 / hn), nh);       // düğüm çizgisi ve yörünge düzlemindeki dik eksen
+  const w = e > 1e-12 ? Math.atan2(dot(ev, mh), dot(ev, nh)) : 0;
+  const ph = [Math.cos(w), Math.sin(w)], P = [nh[0] * ph[0] + mh[0] * ph[1], nh[1] * ph[0] + mh[1] * ph[1], nh[2] * ph[0] + mh[2] * ph[1]];
+  const Q = cross(scl(h, 1 / hn), P), nu = Math.atan2(dot(re, Q), dot(re, P));
+  const E = 2 * Math.atan2(Math.sqrt(1 - e) * Math.sin(nu / 2), Math.sqrt(1 + e) * Math.cos(nu / 2));
+  return { a: a / AU, e, i: i / D2R, om: deg(om), w: deg(w), ma: deg(E - e * Math.sin(E)) };
+}
 
 // ---------------------------------------------------------------- B-düzlemi (Dünya merkezli hiperbol asimptotu)
 // r, v: asteroidin Dünya'ya göre konum/hızı (yakın geçiş civarında), vE: Dünya'nın Güneş'e göre hızı (ζ ekseni yönü için)

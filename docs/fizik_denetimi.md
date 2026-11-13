@@ -71,7 +71,7 @@ Canlı Gökyüzü'nün fiziği (Dünya yönelimi, canlı N-cisim efemerisi ve Ay
 | Beşinci derece Hermite ara değeri ve türevleri | Temel fonksiyonlar | Doğru |
 | SGP4 → TEME → GCRS (`sats.js`) | Vallado | Doğru |
 | Geçiş tahmini: WGS-84, ENU bakış açıları, kapsama açısı λ = acos(R cos e/(R+h)) − e, Almanak Güneş formülü, görünürlük (uydu aydınlık, Güneş < −6°) | Skyfield (7/7 geçiş, 0,6 s, 0,007°) | Uyumlu |
-| Asteroitler: SBDB öğelerinden Kepler çözümü, ekliptik → ICRF, GPU'da kısa süreli ileri taşıma r + v·dt − ½GM r/r³ dt² | Standart | Doğru |
+| Asteroitler: SBDB öğelerinden Kepler çözümü, ekliptik → ICRF, GPU'da kısa süreli ileri taşıma r + v·dt − ½GM r/r³ dt²; dönemi 1 yıldan eski NEO'lar önce N-cisim ile bugüne taşınır (§4.4) | Standart | Doğru |
 | Ay yörüngesindeki uydular: HORIZONS vektörleri (Ay merkezli, ICRF, TDB), Hermite ara değeri, vis-viva periyodu | HORIZONS API parametreleri | Doğru |
 | Gezegen kutupları ve dönme fazları (W₀, Ẇ), yarıçaplar | IAU WGCCRE | Aynı |
 | Yeniden giriş tahmini (B*, Vallado yoğunluğu) | Bkz. §1 #2 | Düzeltildi |
@@ -314,6 +314,22 @@ Edilgen cisimlerin B*'ından yapılan "yoğunluk" ölçümü bu dönemde yanılt
 
 - Uydu gölgesi silindirik kabul edilir (yarı gölge yok); geçişlerin doğuş/batışı geometrik ufka göredir (kırılma yok: ufukta ≈ 0,57°, birkaç saniye).
 - Kutup hareketi ihmal edilir (≤ 15 m).
+
+### 4.4 Asteroitler: NASA (JPL) ve ESA verileriyle karşılaştırma
+
+Kaynaklar 2026-11-13'te alındı: JPL SSD API'leri ([Sentry](https://ssd-api.jpl.nasa.gov/doc/sentry.html), [CAD](https://ssd-api.jpl.nasa.gov/doc/cad.html), [SBDB](https://ssd-api.jpl.nasa.gov/doc/sbdb.html), [SBDB Query](https://ssd-api.jpl.nasa.gov/doc/sbdb_query.html), [Horizons](https://ssd-api.jpl.nasa.gov/doc/horizons.html)) ve [ESA NEOCC](https://neo.ssa.esa.int/) risk listesi, özel risk listesi ve yakın geçiş listesi.
+
+- **Sanal çarpıcılar (Sentry ve ESA risk listesi):** JPL'de 2.247, ESA'da 2.210 cisim var, 1.979'u ortak. Ortak cisimlerde log₁₀(IP_JPL/IP_ESA) medyanı 0,08 (%16–84: −0,20…0,76); 300 cisimde fark 10 katı aşıyor (az gözlenmiş, kısa yaylı cisimler; ör. 2023 VD3, 2025 OB, 2017 LD ve 2023 TB2'de ESA ~10 kat yüksek, 2022 PX1'de JPL yüksek). Yalnız bir listede olanlar var: 2010 RF12 (JPL, 2095 için IP ≈ 0,10) ESA listesinde yok. Uygulama Sentry'yi doğrudan JPL'den aldığından bu fark iki kurumun yörünge çözümleri arasındadır, uygulamada bir hata değildir.
+- **Yakın geçişler (`deflect.js` ↔ JPL CAD):** 2028–2051 arasındaki 60 PHA geçişi (en yakın 30 ve rastgele 30) SBDB öğelerinden (`full-prec=1`) tümlendi. 60/60 bulundu; uzaklık farkı medyan ~%0,000, en kötü %0,03; zaman farkı medyan 0 dk; 59/60 geçiş JPL'in 3σ aralığında (Apophis 2029: JPL 38.011 km, motor 38.013 km). Dışarıda kalan tek geçiş, 162162'nin 21,7 yıllık taşımasında Yarkovsky etkisinden (A2, modellenmiyor) gelen 250 km'lik farktır.
+- **Canlı katman (iki cisim Kepler) ↔ Horizons:** Dönemi yakın (≲200 gün) 69 cisimde bugünkü konum farkı medyan 8.600 km (Dünya'dan 0,002°), +1 yılda medyan 0,02°, +10 yılda 0,5°. Ancak SBDB'deki 43.060 NEO'nun 11.519'unun dönemi 1 yıldan, 7.245'inin 5 yıldan eski (%99,6'sı U = 8–9 kayıp cisimler, ama Bennu gibi iyi belirlenmiş 19 cisim de var). Rastgele 30 eski dönemli cisimde iki cisim Kepler'in Horizons'tan farkı medyan 2,2 milyon km (0,41°), %90'lık dilimde 9,7°, en kötü 22,5°; Bennu'da (JPL dönemi 2011) 6,4 milyon km (1,1°). Ayrıca çarpmadan önce keşfedilen ve Dünya'ya çarpmış cisimler (2008 TC3, 2024 XA1…) katmanda hâlâ yörüngedeymiş gibi görünüyordu.
+
+**Düzeltme (`tools/neo_epok.mjs`, haftalık iş akışı → `web/data/neo_epok.json`):** Dönemi 1 yıldan eski her NEO, SBDB öğelerinden saptırma motorunun tümleyicisiyle (DE440s, Güneş + gezegenler + Ay + Plüton + 1PN genel görelilik) bugüne taşınır ve yeni oskülatör öğeleri yazılır (`oscElements`, `keplerHelio`'nun tersi; gidiş-dönüş farkı < 1 mm). Eski dönemli 31 cisimde Horizons'tan fark en çok 284 km (0,00005°); Bennu'da 6,4 milyon km'den 172 km'ye iner. İstemci yeni öğeleri yalnız JPL çözümü değişmemişse (aynı dönem ve a) kullanır; JPL yeni gözlemle güncellediyse onun öğeleri kalır. Kartta özgün JPL döneminin yaşı ve taşındığı yazılır. Yerçekimsel olmayan kuvvetler yok; bunlar bilinen cisimlerde yüzlerce km'lik farka yol açar ve görüntü için önemsizdir.
+
+**Çarpmış cisimler:** Aynı tümleme sırasında Dünya'nın R⊕ + 100 km'sine giren yörüngeler çarpmış sayılır ve katmandan çıkarılır. MOID'i < 0,002 AB olan tüm NEO'lar dönem yaşından bağımsız denetlenir. Sonuç: çarpmadan önce keşfedilmiş bilinen 13 cismin 13'ü bulundu (2008 TC3, 2014 AA, 2018 LA, 2019 MO, 2022 EB5, 2022 WJ1, 2023 CX1, 2024 BX1, 2024 RW1, 2024 UQ, 2024 XA1, 2026 JN4, 2026 RW1), yanlış alarm yok. En yakın geçiş anları bildirilen atmosfere giriş anlarıyla birkaç dakika içinde uyuşuyor (2024 XA1: 7 dk). Çalışma süresi 14.160 cisim için ~3 dk.
+
+**Belirsizlik notu:** Bilgi kartı U parametresini MPC tanımıyla açıklar: 10 yılda ortalama anomali belirsizliği ([MPC, "Uncertainty Parameter U"](https://minorplanetcenter.net/iau/info/UValue.html); U = 8: 9,2°–41°, U = 9: > 41°). U ≥ 7 olan cisimlerde gösterilen konumun JPL nominal yörüngesi olduğu, gerçek konumun derecelerce farklı olabileceği yazılır.
+
+Sınama: `web/test/test_neoepok.js` (fikstür `neo_epok_ref.json`: Bennu ve 2011 BG10 için SBDB öğeleri ve Horizons konumu, 2024 XA1 öğeleri).
 
 ## 5. Gerçek 3B modeller: asteroitler ve araçlar
 
