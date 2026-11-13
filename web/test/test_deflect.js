@@ -65,6 +65,10 @@ const sc2 = eng.scan(etA, y1, ca.et + 5 * 86400, { maxDist: 0.01 * D.AU });
 const ca2 = sc2.list.reduce((a, b) => (a.dist < b.dist ? a : b)), bp2 = eng.bplaneAt(ca2);
 console.log('  1 cm/s along (2027-01): doğrusal Δξ', dXi.toFixed(1), 'Δζ', dZeta.toFixed(1), ' | doğrusal olmayan Δξ', (bp2.xi - bp.xi).toFixed(1), 'Δζ', (bp2.zeta - bp.zeta).toFixed(1), 'Δt', (ca2.et - ca.et).toFixed(1), 's');
 assert(Math.abs(dZeta - (bp2.zeta - bp.zeta)) < 0.01 * Math.abs(dZeta) && Math.abs(dXi - (bp2.xi - bp.xi)) < 2, 'STM doğrusal tahmini doğrusal olmayan çözümle uyumlu');
+// çekim traktörü (Lu ve Love 2005): 20 t, Apophis (R 170 m, M 4×10¹⁰ kg) merkezinden 340 m → F ≈ 0,46 N; ivme G·m/d² kütleden bağımsız
+{ const F = D.tractorForce(4e10, 2e4, 340); assert(Math.abs(F - 0.4619) < 0.001 && Math.abs(F / 4e10 - D.tractorForce(1, 2e4, 340)) < 1e-20, 'çekim traktörü kuvveti ' + F);
+  // parçalanma eşiği (Benz ve Asphaug 1999, bazalt): ~100 m'de en küçük (birkaç yüz J/kg), km boyunda çekim baskın, cm boyunda dayanım baskın
+  const q = (R) => D.qStarD(R, 2700); assert(q(0.01) > 900 && q(100) < 1000 && q(100) > 100 && q(5000) > q(100) * 10, 'Q*_D eğrisi ' + [q(0.01), q(100), q(5000)].map((x) => x.toFixed(0))); }
 // DART: Dimorphos
 const M = 4.3e9, dvT = D.kineticDv(579.4, 6.1449, 3.61, M);
 const a = 1.206e3, P = 11.921 * 3600, vo = 2 * Math.PI * a / P;

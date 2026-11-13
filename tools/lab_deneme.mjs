@@ -157,6 +157,17 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   const vi = await page.evaluate(() => ({ t: document.querySelector('#dfVT').textContent, dir: [...document.querySelectorAll('#dfOut td')].map((x) => x.textContent).join(' | '), sh: window.LS19.deflect.result && Math.hypot(window.LS19.deflect.result.dXi, window.LS19.deflect.result.dZeta), pred: window.LS19.deflect.pc.best.shift }));
   check('önleme çözümüyle hesap: kayma pencere öngörüsüyle %5 içinde, yön tabloda, bağlantıda yv', /önleme yörüngesinden/.test(vi.dir) && Math.abs(vi.sh - vi.pred) < 0.05 * vi.pred, `${vi.t} — kayma ${vi.sh && vi.sh.toFixed(1)} km, öngörü ${vi.pred.toFixed(1)} km`);
 
+  // ---- çekim traktörü: kuvvet fizikten, sonuç tablosunda; kinetik değilken parçalanma kutusu yok
+  await page.click('#dfAgain'); await page.check('input[name=dfMethod][value=tractor]');
+  const gtF = await txt(page, '#dfGtF');
+  check('çekim traktörü seçilince kuvvet G·M·m/d² ile gösterilir, kinetik alanları ve önleme bölümü gizlenir', /F = G·M·m\/d² ≈ [\d,]+ N/.test(gtF) && !(await vis(page, '#dfKin')) && !(await vis(page, '#dfIc')) && (await vis(page, '#dfGt')), gtF);
+  await page.click('#dfRun');
+  await page.waitForFunction(() => !document.querySelector('#dfResult').hidden && document.querySelector('#dfStale').hidden && /yontem=cek/.test(location.search), null, { timeout: 280000 });
+  const gt = await page.evaluate(() => ({ row: [...document.querySelectorAll('#dfOut tr')].map((r) => r.textContent).find((t) => /Çekim traktörü/.test(t)) || '', need: document.querySelector('#dfNeed').textContent, dis: document.querySelector('#dfDisrupt').hidden, u: document.querySelector('#dfUD').textContent }));
+  check('çekim traktörü sonucu: tablo satırı, "ne kadar gerekir" araç kütlesiyle, belirsizlik yalnız çaptan, parçalanma kutusu yok', /20\.000 kg · 2,0 yarıçap/.test(gt.row) && /yarıçap uzaklıkta/.test(gt.need) && gt.dis && /kütlesinden bağımsızdır/.test(gt.u), `${gt.row} — ${gt.need.slice(0, 90)}`);
+  await page.check('input[name=dfMethod][value=kinetic]'); await page.click('#dfRun');
+  await page.waitForFunction(() => !document.querySelector('#dfResult').hidden && document.querySelector('#dfStale').hidden && /yontem=kin/.test(location.search), null, { timeout: 280000 });
+
   // ---- 3B
   await page.click('#df3d');
   check('"3B\'de göster": yollar etkin, kamera Dünya merkezli', await page.waitForFunction(() => !!window.LS19.deflect.paths && window.LS19.world.cam.mode === 'EARTH' && window.LS19.deflect.pathD.visible, null, { timeout: 60000 }).then(() => true, () => false));

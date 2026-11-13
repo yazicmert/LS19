@@ -324,6 +324,15 @@ export function massOf(p) {
 }
 // kinetik çarpıcı: Δv = β m U / (M + m)  (m/s); β: momentum artış çarpanı (DART: ≈3,6)
 export const kineticDv = (m, U_kms, beta, M) => beta * m * U_kms * 1000 / (M + m);
+// çekim traktörü: aracın asteroidi çektiği kuvvet (N) F = G·M·m/d² (Lu ve Love 2005, Nature 438). d: asteroidin merkezine uzaklık (m).
+// Asteroidin kazandığı ivme F/M = G·m/d²: asteroidin kütlesinden bağımsızdır (yalnız boyutu, araç ne kadar yakına inebileceğini belirler).
+export const G_SI = 6.6743e-11;
+export const tractorForce = (M, m, d) => G_SI * M * m / (d * d);
+// parçalanma: çarpmanın özgül enerjisi Q = ½·m·U²/M (J/kg) ve felaket boyutunda parçalanma eşiği Q*_D (Benz ve Asphaug 1999, Icarus 142; bazalt, 5 km/s):
+//   Q*_D = Q0·(R/1 cm)^a + B·ρ·(R/1 cm)^b, Q0 = 9,0×10⁷ erg/g, a = −0,36, B = 0,5 erg·cm³/g², b = 1,36 (ρ g/cm³; 1 erg/g = 10⁻⁴ J/kg).
+//   Moloz yığını asteroitlerde eşik birkaç kat düşük olabilir (Jutzi vd. 2010): sınır yaklaşık bir göstergedir.
+export const impactQ = (m, U_kms, M) => 0.5 * m * (U_kms * 1000) ** 2 / M;
+export function qStarD(Rm, rho) { const r = Rm * 100, g = rho / 1000; return 1e-4 * (9.0e7 * Math.pow(r, -0.36) + 0.5 * g * Math.pow(r, 1.36)); }
 // itki yönü (ICRF birim vektör) — y: güneş merkezli olmayan SSB durumu, sunY: Güneş durumu
 export function dirVector(kind, r, v, custom) {
   const rh = unit(r), vh = unit(v), nh = unit(cross(r, v)), th = cross(nh, rh);

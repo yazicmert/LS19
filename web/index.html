@@ -649,7 +649,8 @@
             <div class="fttl">Nasıl itilsin?</div>
             <div class="mseg" role="radiogroup" aria-label="Saptırma yöntemi">
               <label class="mcard on"><input type="radio" name="dfMethod" value="kinetic" checked><span><b>Kinetik çarpıcı</b><small>Uzay aracı hızla çarpar (DART gibi)</small></span></label>
-              <label class="mcard"><input type="radio" name="dfMethod" value="thrust"><span><b>Sürekli itki</b><small>İyon motoru ya da çekim traktörü usulca iter</small></span></label>
+              <label class="mcard"><input type="radio" name="dfMethod" value="thrust"><span><b>Sürekli itki</b><small>İyon motoru ya da iyon ışını usulca iter</small></span></label>
+              <label class="mcard"><input type="radio" name="dfMethod" value="tractor"><span><b>Çekim traktörü</b><small>Araç yanında durur, kütle çekimiyle çeker</small></span></label>
             </div>
             <div class="frow3 two" id="dfKin">
               <label>Araç kütlesi<span><input id="dfMass" type="number" value="580" min="1" step="10"> kg</span></label>
@@ -666,6 +667,14 @@
                 <div class="stepnav"><button id="dfIcUse" class="primary sm" type="button">Bu çözümü kullan</button></div>
               </div>
             </details>
+            <div id="dfGt" hidden>
+              <div class="frow3">
+                <label>Araç kütlesi<span><input id="dfGtM" type="number" value="20000" min="1" step="100"> kg</span></label>
+                <label>Uzaklık<span><input id="dfGtK" type="number" value="2" min="1.2" max="20" step="0.1"> × yarıçap</span></label>
+                <label>Süre<span><input id="dfGtDays" type="number" value="730" min="1" step="1"> gün</span></label>
+              </div>
+              <p id="dfGtF" class="k small"></p>
+            </div>
             <div class="frow3 two" id="dfThr" hidden>
               <label>Kuvvet<span><input id="dfF" type="number" value="1" min="0.001" step="any"> N</span></label>
               <label>Süre<span><input id="dfDays" type="number" value="365" min="1" step="1"> gün</span></label>
@@ -706,6 +715,7 @@
                 <div id="dfGauge" class="gauge" hidden><span class="gf"></span><span class="gm"></span></div>
                 <div id="dfGaugeTxt" class="k small"></div>
               </div>
+              <div id="dfDisrupt" class="unc warn" hidden><div id="dfDT" class="ut"></div><div id="dfDD" class="ud"></div></div>
               <div id="dfUnc" class="unc info" role="status" aria-live="polite" hidden><div id="dfUT" class="ut"></div><div id="dfUD" class="ud"></div></div>
               <p id="dfNeed" class="need"></p>
               <canvas id="dfBplane" class="chart sq" role="img" aria-label="Dünya'ya göre geçiş noktası: nominal ve saptırılmış"></canvas>

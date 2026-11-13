@@ -102,6 +102,20 @@ check(/LINK_KEYS/.test(app) && /exp !== 'saptirma'/.test(app), 'app.js: saptırm
   const rows = L.interceptRows({ etL: L.etFromISO('2028-06-27'), etA: L.etFromISO('2028-09-15'), tofDays: 80, C3: 17.7, vinf: 4.21, m: 3629, U: 12.64, dvMps: 0.004129, shift: 149.5 }, 13773, 'Falcon Heavy');
   check(rows.length === 7 && rows[0][1] === '27 Haziran 2028 · Falcon Heavy' && /80 gün → çarpma 15 Eylül 2028/.test(rows[1][1]) && /\(%1\)$/.test(rows[6][1]) && /4,13 mm\/s/.test(rows[5][1]), 'önleme görevi özeti: tarih, roket, C3, kütle, hız, Δv, kayma oranı');
 }
+// çekim traktörü ve parçalanma
+{
+  const st = { des: '99942', start: '2026-11-13', years: 50, caDay: '2029-04-13', method: 'tractor', gm: 20000, gk: 2, days: 730, applyDay: '2027-01-01', dir: 'along', hypo: true };
+  const o = L.linkFromState(st), back = L.stateFromLink(new URLSearchParams(new URLSearchParams(o).toString()));
+  check(o.yontem === 'cek' && o.m === '20000' && o.k === '2' && back.method === 'tractor' && back.gm === 20000 && back.gk === 2 && back.days === 730 && back.m === null, 'bağlantı: çekim traktörü (araç kütlesi, uzaklık, süre)');
+  check(L.stateFromLink({ hedef: '1', yontem: 'cek', k: '0.5' }).gk === null, 'yüzeyin altına (k < 1) inen traktör bağlantısı reddedilir');
+  check(/Çekim traktörü · 20\.000 kg × 730 gün/.test(L.pushSummary({ method: 'tractor', gm: 20000, days: 730 }, '2 yıl önce')), 'itki özeti: çekim traktörü');
+  const r = { dvReqMps: 0.002, b0: { bE: 13773 }, M: 4e10, FreqN: 1.2 }, nt = L.needText(r, { method: 'tractor', gk: 2, R: 170, days: 730 });
+  const mReq = 1.2 * 340 * 340 / (6.6743e-11 * 4e10);
+  check(nt.includes(L.sig(mReq, 3)) && /2,0 yarıçap uzaklıkta 730 gün/.test(nt), '"ne kadar gerekir": traktör için gereken araç kütlesi m = F·d²/(G·M) = ' + L.sig(mReq, 3) + ' kg');
+  const dart = L.disruptionOf(579.4, 6.1449, 4.3e9, 0.151, 2400), big = L.disruptionOf(2.6e5, 6.1, 2.7e10, 0.34, 2600), huge = L.disruptionOf(2e6, 10, 2.7e10, 0.34, 2600);
+  check(dart.kind === 'ok' && dart.ratio < 0.01 && big.kind === 'warn' && huge.kind === 'bad' && /parçalanır/.test(huge.text), 'parçalanma: DART eşiğin %1\'inden az, 260 t uyarı, 2.000 t parçalanır');
+  check(Math.abs(L.disruptionOf(1, 1, 1, 1, 2000).Q - 5e5) < 1e-6, 'Q = ½·m·U²/M');
+}
 const own = (t) => (['gorev', 'kontrol', 'dv', 'grafik', 'yorunge', 'efemeris'].includes(t) ? 'mission' : ['takip', 'uydular', 'asteroit', 'carpma'].includes(t) ? 'sky' : null);
 const rv = (o) => JSON.stringify(resolveView({ tabOwner: own, ...o }));
 check(rv({ mode: 'mission' }) === '{"view":"lab","exp":"ay"}' && rv({ mode: 'sky' }) === '{"view":"sky","exp":null}' && rv({ mode: 'lab' }) === '{"view":"lab","exp":"home"}' && rv({ mode: 'lab', exp: 'saptirma' }) === '{"view":"lab","exp":"saptirma"}' && rv({ mode: 'lab', exp: 'xyz' }) === '{"view":"lab","exp":"home"}', 'adresler: ?mode=mission (eski) → Ay görevi; ?mode=lab[&exp=…]; bilinmeyen deney → ana sayfa');

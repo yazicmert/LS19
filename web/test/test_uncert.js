@@ -24,6 +24,7 @@ check(Math.abs(U.massSigma({ GM: 2, GMsig: 0.2 }) - 0.1) < 1e-12, 'ölçülmüş
 check(Math.abs(U.massSigma({ D: 0.34, Dsig: 0.04, Dmeasured: true }) - Math.hypot(3 * 0.04 / 0.34, 0.3)) < 1e-12, 'ölçülmüş çap (Apophis 0,34 ± 0,04 km) + tahmini yoğunluk');
 check(Math.abs(U.massSigma({}) - Math.hypot(1.05, 0.3)) < 1e-12 && U.massSigma({ rhoMeasured: true, Dmeasured: true }) < U.massSigma({}), 'mutlak parlaklıktan çap: kütle belirsizliği en büyük');
 check(Math.abs(U.dvSigma('kinetic', 0.3) - Math.hypot(0.3, 0.25)) < 1e-12 && U.dvSigma('thrust', 0.3) === 0.3, 'Δv belirsizliği: kinetikte β da katılır');
+check(U.dvSigma('tractor', 1.1, 0.25, 0.35) === 0.7 && U.diamSigma({ Dmeasured: true, D: 0.34, Dsig: 0.04 }) === 0.04 / 0.34, 'çekim traktörü: Δv ∝ 1/R², kütleden bağımsız (σ = 2·σ_D)');
 
 // ---------------------------------------------------------------- 3. Monte Carlo
 {

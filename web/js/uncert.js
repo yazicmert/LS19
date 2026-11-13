@@ -29,6 +29,12 @@ export function rng(seed = 1) {
 //   Çap: ölçülmüşse (radar, termal) SBDB'nin σ'sı, yoksa %10; mutlak parlaklıktan (albedo bilinmiyor) σ_ln D = 0,35 (albedo 0,05–0,25 aralığı),
 //   albedo biliniyorsa SBDB σ'sıyla σ_ln D = ½ σ_ln p. Ölçülmüş GM: SBDB σ'sı ya da %10.
 export const BETA_SIG = 0.25;
+// çapın ln-σ'sı (kütle modeliyle aynı varsayımlar); çekim traktöründe Δv ∝ 1/d² ∝ 1/R²
+export function diamSigma(src = {}) {
+  if (src.Dmeasured) return src.Dsig > 0 && src.D > 0 ? src.Dsig / src.D : 0.10;
+  if (src.alb > 0 && src.albSig > 0) return 0.5 * Math.min(1, src.albSig / src.alb);
+  return 0.35;
+}
 export function massSigma(src = {}) {
   if (src.GM > 0) return src.GMsig > 0 ? src.GMsig / src.GM : 0.1;
   const sRho = src.rhoMeasured ? 0.15 : 0.30;
@@ -38,8 +44,8 @@ export function massSigma(src = {}) {
   else sD = 0.35;
   return Math.hypot(3 * sD, sRho);
 }
-// Δv'nin ln-σ'sı: kinetik Δv = β m U / (M + m) ≈ β m U / M; sürekli itki Δv = F t / M
-export const dvSigma = (method, sM, sBeta = BETA_SIG) => (method === 'kinetic' ? Math.hypot(sM, sBeta) : sM);
+// Δv'nin ln-σ'sı: kinetik Δv = β m U / (M + m) ≈ β m U / M; sürekli itki Δv = F t / M; çekim traktörü Δv = G m t / (k R)² (kütleden bağımsız, yalnız çap)
+export const dvSigma = (method, sM, sBeta = BETA_SIG, sD = sM / 3) => (method === 'kinetic' ? Math.hypot(sM, sBeta) : method === 'tractor' ? 2 * sD : sM);
 
 // ---------------------------------------------------------------- JPL SBDB kovaryansı
 // orbit: SBDB yanıtının orbit nesnesi (cov=mat). Dönüş: { epoch (JD TDB), el: { e, q, tp, om, w, i }, C (6×6; birimler AB, gün, derece) } ya da null.

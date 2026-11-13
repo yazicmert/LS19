@@ -179,7 +179,7 @@ globalThis.onmessage = async (ev) => {
         after: b2 ? { et: ca2.et, dist: ca2.dist, xi: b2.xi, zeta: b2.zeta, b: b2.b, rp: b2.rp, impact: b2.impact } : null,
         dXi, dZeta, lin: { dXi: lin[0], dZeta: lin[1] }, dvMps: dvKms * 1000, dir, M, Fn, dtCa: ca2 ? ca2.et - ca.et : null,
         sensKmPerMps: sens / 1000, dvReqMps: b0.bE / sens * 1000, dvReqHypoMps: b0.bE / sens * 1000,
-        FreqN: p.method === 'thrust' ? M * (b0.bE / sens * 1000) / (p.days * D.DAY) : null,
+        FreqN: p.method !== 'kinetic' ? M * (b0.bE / sens * 1000) / (p.days * D.DAY) : null,
         orbit: { da: oc.da, dP: oc.dP, de: oc.de, di: oc.di, a0: oc.before.a, P0: oc.before.P },
         sweep, pathN, pathD, leadDays: (ca.et - etA) / D.DAY, SB } });
       return;

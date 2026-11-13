@@ -2,14 +2,14 @@
 // Hesap deflectwork.js iş parçacığında (DeflectEngine); bu dosya yalnız arayüz, grafikler ve 3B yollar. Metin/karar mantığı: labtext.js (Node'da sınanır).
 import * as THREE from 'three';
 import * as E from './engine.js';
-import { AU, R_E, massOf, ngFromSbdb } from './deflect.js';
+import { AU, R_E, massOf, ngFromSbdb, tractorForce } from './deflect.js';
 import { CLASS_TR } from './asteroids.js';
 import { fmt } from './format.js';
 import { $, mk } from './uiutil.js';
 import { sig, kmText, distText, caDist, sizeText, dateLong, etToISO, etFromISO, RHO, QUICK_TARGETS, leadChoices, defaultLead, leadText, verdictOf, needText,
-  targetSummary, caSummary, pushSummary, DIRS, dartNote, ngText, LINK_KEYS, linkFromState, stateFromLink, historyRow, historyCsv, uncertText, interceptRows } from './labtext.js';
+  targetSummary, caSummary, pushSummary, DIRS, dartNote, ngText, LINK_KEYS, linkFromState, stateFromLink, historyRow, historyCsv, uncertText, interceptRows, disruptionOf } from './labtext.js';
 import { workerOpts } from './i18n.js';
-import { covFromSbdb, massSigma, dvSigma, monteCarlo, ellipse, BETA_SIG } from './uncert.js';
+import { covFromSbdb, massSigma, diamSigma, dvSigma, monteCarlo, ellipse, BETA_SIG } from './uncert.js';
 import { ROCKET_IDS, rocketOf, tliCapacity } from './rockets.js';
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -54,7 +54,7 @@ export class DeflectUI {
     $('#dfNext2').addEventListener('click', () => { if (this.caSel < 0) return; this.prepareStep3(); this.setStep(3); });
     document.querySelectorAll('input[name=dfMethod]').forEach((r) => r.addEventListener('change', () => { this.syncMethod(); this.inputsChanged(); }));
     document.querySelectorAll('input[name=dfScn]').forEach((r) => r.addEventListener('change', () => { this.syncScenario(); this.inputsChanged(); }));
-    for (const id of ['#dfMass', '#dfU', '#dfBeta', '#dfF', '#dfDays']) $(id).addEventListener('input', () => this.inputsChanged());
+    for (const id of ['#dfMass', '#dfU', '#dfBeta', '#dfF', '#dfDays', '#dfGtM', '#dfGtK', '#dfGtDays']) $(id).addEventListener('input', () => this.inputsChanged());
     $('#dfDir').addEventListener('change', () => this.inputsChanged());
     $('#dfApply').addEventListener('input', () => { this.leadId = null; this.renderLeads(); this.inputsChanged(); });
     for (const id of ['#dfD', '#dfRho']) $(id).addEventListener('input', () => { this.massEdited = true; this.renderMass(); this.inputsChanged(); });
@@ -236,8 +236,9 @@ export class DeflectUI {
     }
     if (this.caSel < 0) return;
     this.prepareStep3();
-    const r = document.querySelector(`input[name=dfMethod][value=${L.method === 'thrust' ? 'thrust' : 'kinetic'}]`); if (r) { r.checked = true; this.syncMethod(); }
-    for (const [k, id] of [['m', '#dfMass'], ['U', '#dfU'], ['beta', '#dfBeta'], ['F', '#dfF'], ['days', '#dfDays']]) if (L[k] != null) $(id).value = L[k];
+    const r = document.querySelector(`input[name=dfMethod][value=${['thrust', 'tractor'].includes(L.method) ? L.method : 'kinetic'}]`); if (r) { r.checked = true; this.syncMethod(); }
+    if (L.method === 'tractor') { if (L.gm) $('#dfGtM').value = L.gm; if (L.gk) $('#dfGtK').value = L.gk; if (L.days) $('#dfGtDays').value = L.days; }
+    for (const [k, id] of [['m', '#dfMass'], ['U', '#dfU'], ['beta', '#dfBeta'], ['F', '#dfF'], ['days', '#dfDays']]) if (L[k] != null && !(L.method === 'tractor' && k === 'days')) $(id).value = L[k];
     if (L.dir === 'vec' && L.dirVec) this.setIcDir(L.dirVec);
     else if (L.dir) $('#dfDir').value = L.dir;
     if (L.hypo != null) this.setScenario(L.hypo);
@@ -250,7 +251,7 @@ export class DeflectUI {
     const T = this.target, ca = this.cas[this.caSel]; if (!T || !ca) return null;
     const q = this.readParams();
     return { des: T.des, start: $('#dfStart').value, years: Math.max(1, Math.min(120, +$('#dfYears').value || 50)), caDay: etToISO(ca.et, false), method: q.method,
-      m: q.m, U: q.U, beta: q.beta, F: q.F, days: q.days, applyDay: $('#dfApply').value, dir: q.dir, dirVec: q.dirVec, hypo: q.hypo,
+      m: q.m, U: q.U, beta: q.beta, F: q.F, days: q.days, gm: q.gm, gk: q.gk, applyDay: $('#dfApply').value, dir: q.dir, dirVec: q.dirVec, hypo: q.hypo,
       ...(this.massEdited ? { D: +$('#dfD').value, rho: +$('#dfRho').value } : {}) };
   }
   // adres çubuğu: saptırma açıkken son hesaplanan denemenin parametreleri (yeni hedef seçilince silinir)
@@ -358,8 +359,8 @@ export class DeflectUI {
   hypo() { const r = document.querySelector('input[name=dfScn]:checked'); return !!r && r.value === 'hypo'; }
   setScenario(h) { const r = document.querySelector(`input[name=dfScn][value=${h ? 'hypo' : 'real'}]`); if (r) { r.checked = true; this.syncScenario(); } }
   syncMethod() {
-    const k = this.method() === 'kinetic';
-    $('#dfKin').hidden = !k; $('#dfThr').hidden = k;
+    const m = this.method(), k = m === 'kinetic';
+    $('#dfKin').hidden = !k; $('#dfThr').hidden = m !== 'thrust'; $('#dfGt').hidden = m !== 'tractor'; $('#dfIc').hidden = !k;
     document.querySelectorAll('input[name=dfMethod]').forEach((r) => r.closest('.mcard').classList.toggle('on', r.checked));
   }
   syncScenario() { document.querySelectorAll('input[name=dfScn]').forEach((r) => r.closest('.mcard').classList.toggle('on', r.checked)); }
@@ -395,12 +396,17 @@ export class DeflectUI {
   readParams() {
     const v = $('#dfApply').value, method = this.method();
     const dir = $('#dfDir').value;
+    if (method === 'tractor') {                                              // çekim traktörü: kuvvet fizikten (F = G·M·m/d², d = k·R)
+      const M = this.mass(), R = parseFloat($('#dfD').value) * 500, gm = +$('#dfGtM').value, gk = +$('#dfGtK').value, days = +$('#dfGtDays').value;
+      return { method, M, etApply: /^\d{4}-\d\d-\d\d$/.test(v) ? etFromISO(v) : NaN, dir, hypo: this.hypo(), gm, gk, R, days, F: tractorForce(M, gm, gk * R), m: +$('#dfMass').value, U: +$('#dfU').value, beta: +$('#dfBeta').value };
+    }
     return { method, M: this.mass(), etApply: /^\d{4}-\d\d-\d\d$/.test(v) ? etFromISO(v) : NaN, dir, ...(dir === 'vec' && this.icDir ? { dirVec: this.icDir } : {}), hypo: this.hypo(),
       m: +$('#dfMass').value, U: +$('#dfU').value, beta: +$('#dfBeta').value, F: +$('#dfF').value, days: +$('#dfDays').value };
   }
   // alanlar değişince: özetleri yenile, hesaplanmış sonuç varsa "eski" işaretle
   inputsChanged() {
     this.applyReadout(); this.setMsg('');
+    if (this.method() === 'tractor') { const q = this.readParams(); $('#dfGtF').textContent = q.F > 0 ? `Çekim kuvveti F = G·M·m/d² ≈ ${sig(q.F, 3)} N (${fmt(q.gk * q.R, 0)} m uzaklıkta); asteroide verdiği ivme G·m/d² kütlesinden bağımsızdır.` : ''; }
     if (this.result && !this.busy) { this.stale = true; $('#dfStale').hidden = false; }
     this.refresh();
   }
@@ -412,8 +418,10 @@ export class DeflectUI {
     if (!(p.etApply < ca.et - 3600)) return 'İtki, yakın geçişten önce olmalı.';
     if (p.method === 'kinetic' && !(p.m > 0 && p.U > 0 && p.beta >= 1)) return 'Araç kütlesi ve çarpma hızı pozitif, β ≥ 1 olmalı.';
     if (p.method === 'thrust' && !(p.F > 0 && p.days > 0)) return 'Kuvvet ve süre pozitif olmalı.';
+    if (p.method === 'tractor' && !(p.gm > 0 && p.days > 0 && p.R > 0)) return 'Araç kütlesi, süre ve asteroidin çapı pozitif olmalı.';
+    if (p.method === 'tractor' && !(p.gk >= 1.2)) return 'Araç yüzeyin üstünde durmalı: uzaklık en az 1,2 yarıçap.';
     if (p.dir === 'vec' && !p.dirVec) return 'Önleme yönü yok: önce fırlatma penceresini hesaplayın ya da başka bir yön seçin.';
-    if (p.method === 'thrust' && p.etApply + p.days * 86400 >= ca.et - 3600) return 'İtki süresi yakın geçişe kadar bitmeli: süreyi kısaltın ya da daha erken başlatın.';
+    if (p.method !== 'kinetic' && p.etApply + p.days * 86400 >= ca.et - 3600) return 'İtki süresi yakın geçişe kadar bitmeli: süreyi kısaltın ya da daha erken başlatın.';
     return '';
   }
   compute() {
@@ -447,6 +455,8 @@ export class DeflectUI {
       $('#dfGaugeTxt').textContent = `Kayma ${kmText(v.dB)} · gereken (yakalama yarıçapı) ${kmText(v.bE)}`;
     }
     $('#dfNeed').textContent = needText(r, p);
+    const dq = p.method === 'kinetic' ? disruptionOf(p.m, p.U, r.M, parseFloat($('#dfD').value), parseFloat($('#dfRho').value)) : null, dbx = $('#dfDisrupt');
+    dbx.hidden = !dq || dq.kind === 'ok'; if (dq) { dbx.className = 'unc ' + (dq.kind === 'bad' ? 'bad' : 'warn'); $('#dfDT').textContent = dq.kind === 'bad' ? 'Asteroit parçalanır' : 'Parçalanma riski'; $('#dfDD').textContent = dq.text; }
     this.renderUnc();
     this.renderTable();
     this.drawCharts();
@@ -455,7 +465,7 @@ export class DeflectUI {
   renderUnc() {
     const r = this.result, p = this.lastP, T = this.target;
     const msrc = this.massEdited ? { D: +$('#dfD').value, Dmeasured: true } : (T.msrc || {});
-    const sM = massSigma(msrc), sBeta = BETA_SIG, sDv = dvSigma(p.method, sM, sBeta), SB = p.hypo ? null : r.SB || null;
+    const sM = massSigma(msrc), sBeta = BETA_SIG, sDv = dvSigma(p.method, sM, sBeta, diamSigma(msrc)), SB = p.hypo ? null : r.SB || null;
     const mc = monteCarlo({ n0: p.hypo ? [0, 0] : [r.b0.xi, r.b0.zeta], shift: [r.dXi, r.dZeta], bE: r.b0.bE, sDv, SB, N: 4000, seed: 19 });
     this.mc = { ...mc, sDv, SB };
     const u = uncertText(mc, { hypo: p.hypo, sM, sBeta, sDv, method: p.method, SB, dvReqMps: r.dvReqMps, M: r.M, p });
@@ -470,7 +480,9 @@ export class DeflectUI {
     row('İtki anı / önceden uyarı', `${etToISO(r.ca.et - r.leadDays * 86400, false)} · ${fmt(r.leadDays, 0)} gün (${fmt(r.leadDays / 365.25, 2)} yıl)`);
     row('Asteroit kütlesi', `${sig(r.M, 3)} kg`);
     if (p.method === 'kinetic') row('Çarpıcı', `${fmt(p.m, 0)} kg · ${fmt(p.U, 2)} km/s · β ${fmt(p.beta, 2)} · momentum ${sig(p.m * p.U * 1000, 3)} kg·m/s`);
+    else if (p.method === 'tractor') row('Çekim traktörü', `${fmt(p.gm, 0)} kg · ${fmt(p.gk, 1)} yarıçap (${fmt(p.gk * p.R, 0)} m) · F ${sig(r.Fn, 3)} N × ${fmt(p.days, 0)} gün`);
     else row('Sürekli kuvvet', `${sig(r.Fn, 3)} N × ${fmt(p.days, 0)} gün · toplam itme ${sig(r.Fn * p.days * 86400, 3)} N·s`);
+    if (p.method === 'kinetic') { const q = disruptionOf(p.m, p.U, r.M, parseFloat($('#dfD').value), parseFloat($('#dfRho').value)); row('Parçalanma (Q / Q*_D)', `${sig(q.Q, 2)} / ${sig(q.Qs, 2)} J/kg (%${fmt(100 * q.ratio, q.ratio < 0.1 ? 1 : 0)})`, q.kind === 'ok' ? '' : 'hl'); }
     row('Hız değişimi Δv', `${sig(r.dvMps * 1000, 3)} mm/s (${DIRS[p.dir]})`);
     row('Yarı büyük eksen / periyot', `${r.orbit.da >= 0 ? '+' : ''}${sig(r.orbit.da, 3)} km / ${r.orbit.dP >= 0 ? '+' : ''}${sig(r.orbit.dP, 3)} s`);
     row('B-düzleminde kayma |ΔB|', `${kmText(dB)} = ${sig(dB / R_E, 3)} R⊕`, 'hl');

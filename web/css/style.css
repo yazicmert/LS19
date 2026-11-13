@@ -716,6 +716,7 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
 .labempty p { margin: 0 0 4px; }
 
 .mseg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 6px 0; }
+.mseg > .mcard:last-child:nth-child(odd) { grid-column: 1 / -1; }          /* tek sayıda seçenek: sonuncusu tam genişlik */
 .mcard { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; background: var(--surface-1); border: 1px solid var(--line-2); cursor: pointer; transition: border-color .15s var(--ease), background-color .15s var(--ease); }
 .mcard.on { border-color: var(--accent); background: rgba(59, 130, 246, .14); }
 .mcard input { margin: 2px 0 0; accent-color: var(--accent); flex: none; }

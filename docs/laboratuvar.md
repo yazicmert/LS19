@@ -113,6 +113,11 @@ Her adım katlanabilir bir kutudur: tamamlanınca tek satırlık **özete** iner
 
 Çarpma sekmesindeki sanal çarpıcılar (Sentry) için "Laboratuvarda dene" düğmesi senaryoyu **Çarpacak olsaydı** olarak önceden seçer. Kuvvet modeli: Güneş, gezegenler, Ay, Plüton (DE440s), Güneş 1PN, yakın geçişte Dünya J2 ve JPL çözümünün kütleçekimsel olmayan parametreleri (Yarkovsky A2; hedef kartında gösterilir, katalog öğeleriyle çalışan hedeflerde yoktur). `test_deflect.js`: Apophis 2029 JPL CAD ile 1 km, 2051 %0,1 ve 5 dk içinde.
 
+### Çekim traktörü ve parçalanma sınırı
+
+- **Çekim traktörü** (üçüncü yöntem; Lu ve Love 2005): araç asteroidin yanında durur ve onu kütle çekimiyle çeker. Kuvvet serbest bir sayı değildir: F = G·M·m/d², d = k·R (araç kütlesi m, uzaklık yarıçapın k katı, en az 1,2). Asteroide verdiği ivme G·m/d² **asteroidin kütlesinden bağımsızdır**; bu yüzden belirsizlik kutusunda yalnız çap (uzaklık) belirsizliği vardır. Tümleme sürekli itki koluyla aynıdır (`deflectwork.js`); "ne kadar gerekir?" cümlesi gereken araç kütlesini verir: m = F_gereken·d²/(G·M). Örnek: 20 t, Apophis'in merkezinden 340 m → F ≈ 0,46 N.
+- **Parçalanma** (kinetik çarpma): çarpmanın özgül enerjisi Q = ½·m·U²/M, felaket boyutunda parçalanma eşiği Q*_D ile karşılaştırılır (Benz ve Asphaug 1999, bazalt, 5 km/s: Q*_D = 9,0×10⁷·(R/1 cm)^−0,36 + 0,5·ρ·(R/1 cm)^1,36 erg/g). Q ≥ %10·Q*_D "Parçalanma riski" (moloz yığınlarında eşik birkaç kat düşük olabilir, Jutzi vd. 2010), Q ≥ Q*_D "Asteroit parçalanır: saptırma modeli geçersiz". DART: Q = 2,5 J/kg, Q*_D ≈ 384 J/kg (%0,7). Ayrıntı tablosunda Q / Q*_D satırı vardır.
+
 ### Önleme görevi: çarpıcı hangi roketle, ne zaman?
 
 Kinetik çarpıcının kütlesi, çarpma hızı ve yönü serbest sayılar değildir: Dünya'dan asteroide giden yörüngeden gelirler. İtki adımındaki **Önleme görevi** bölümü bunu hesaplar (`intercept.js`, `lambert.js`; worker'da `porkchop` komutu):
