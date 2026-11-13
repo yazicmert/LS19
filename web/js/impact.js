@@ -75,17 +75,26 @@ export function setSolarTable(j) {
   const [y, m] = j.ilkAy.split('-').map(Number), mid = (k) => Date.UTC(y, m - 1 + k, 15, 12);
   // Ap: gözlenen aylar; sonrası (tahmin) son 12 gözlenen ayın ortalaması
   const ap = Array.isArray(j.ap) ? j.ap.filter((x) => x != null && x >= 0) : [], apTail = ap.length ? ap.slice(-12).reduce((s, x) => s + x, 0) / Math.min(12, ap.length) : AP;
-  SOLAR = { mid, n: j.f.length, f: j.f, ap: Array.isArray(j.ap) ? j.ap : [], apTail, t0: mid(0), t1: mid(j.f.length - 1), sonGozlem: j.sonGozlem || null, guncelleme: j.guncelleme || null };
+  // günlük (son ~3 yıl, gözlenen): 81 günlük ortalama F10.7 ve günlük Ap; bu aralıkta aylık değerlerin yerine geçer
+  const g = j.gunluk && Array.isArray(j.gunluk.f81) && /^\d{4}-\d{2}-\d{2}$/.test(j.gunluk.ilkGun || '') ? j.gunluk : null;
+  const d0 = g ? Date.parse(g.ilkGun + 'T00:00:00Z') : 0;
+  SOLAR = { mid, n: j.f.length, f: j.f, ap: Array.isArray(j.ap) ? j.ap : [], apTail, t0: mid(0), t1: mid(j.f.length - 1), sonGozlem: j.sonGozlem || null, guncelleme: j.guncelleme || null,
+    day: g ? { d0, d1: d0 + g.f81.length * 864e5, f81: g.f81, ap: g.ap } : null };
   return true;
 }
 export const solarTableInfo = () => (SOLAR ? { from: SOLAR.t0, to: SOLAR.t1, sonGozlem: SOLAR.sonGozlem, guncelleme: SOLAR.guncelleme } : null);
 // aylık ortalama Ap (gözlenen; tablo dışında ya da tahmin aylarında son 12 ayın ortalaması, tablo yoksa 15)
+const dayIdx = (ms) => (SOLAR && SOLAR.day && ms >= SOLAR.day.d0 && ms < SOLAR.day.d1 ? Math.floor((ms - SOLAR.day.d0) / 864e5) : -1);
+// gözlenen günlük veri aralığında mı (tümleyici orada adımı 1 güne sınırlar)
+export const inDailyRange = (ms) => dayIdx(ms) >= 0;
 export function solarAp(ms) {
+  const di = dayIdx(ms); if (di >= 0 && SOLAR.day.ap[di] != null) return SOLAR.day.ap[di];
   if (!SOLAR || ms < SOLAR.t0 || ms > SOLAR.t1) return SOLAR ? SOLAR.apTail : AP;
   const d = new Date(ms), [y, m] = new Date(SOLAR.t0).toISOString().slice(0, 7).split('-').map(Number), k = (d.getUTCFullYear() - y) * 12 + d.getUTCMonth() - (m - 1), v = SOLAR.ap[k];
   return v != null && v >= 0 ? v : SOLAR.apTail;
 }
 export function solarF107(ms) {
+  const di = dayIdx(ms); if (di >= 0 && SOLAR.day.f81[di] > 30) return SOLAR.day.f81[di];
   if (!SOLAR || ms < SOLAR.t0 || ms > SOLAR.t1) return solarCycleF107(ms);
   const [y, m] = new Date(SOLAR.t0).toISOString().slice(0, 7).split('-').map(Number), d = new Date(ms);
   let k = (d.getUTCFullYear() - y) * 12 + d.getUTCMonth() - (m - 1); if (ms < SOLAR.mid(k)) k--;
@@ -269,7 +278,7 @@ export function assessSat(o, nowMs = Date.now(), withCurve = true, hist = null, 
   while (hp + off > reK && t < maxS && steps < 60000) {
     const col = colAt(epochMs + t * 1000, solar), [dadt, dedt] = kr0 > 0 && hp < 1500 ? derivs(a, e, kr0, lnr0, col, off) : [0, 0], drp = dadt * (1 - e) - a * dedt;
     // adım: perije ölçek yüksekliğinin %3'ünden, a da (apoje − perije)/2 + H'nin %2'sinden çok değişmesin (eksantrik yörüngede perije neredeyse sabitken apoje hızla düşer)
-    const H = scaleAt(col, hp + off), dt = Math.min(maxDt, Math.max(30, Math.min(0.03 * H / Math.max(-drp, 1e-18), 0.02 * (a * e + H) / Math.max(-dadt, 1e-18))));
+    const H = scaleAt(col, hp + off), dt = Math.min(solar && inDailyRange(epochMs + t * 1000) ? DAY : maxDt, Math.max(30, Math.min(0.03 * H / Math.max(-drp, 1e-18), 0.02 * (a * e + H) / Math.max(-dadt, 1e-18))));
     // durum (a, perije) olarak ilerletilir: (a, e) ile ilerletmek perijeye adım başına −Δa·Δe ikinci derece hatası ekler; GTO'da bu, gerçek perije
     // alçalmasından (Δa'nın ~2·10⁻⁴'ü) kat kat büyüktür ve ömrü ~3× kısaltıyordu
     a += dadt * dt; hp = Math.min(hp + drp * dt, a - RE); e = Math.max(0, 1 - (hp + RE) / a);

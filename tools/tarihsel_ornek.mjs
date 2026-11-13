@@ -72,10 +72,18 @@ function parse(txt, deep = false) {
   }
   return out.sort((a, b) => a.t - b.t);
 }
+// İki bağımsız kaynağın tutarlılığı: GCAT'e göre yeniden girmiş bir cismin arşivinde yeniden giriş tarihinden 10 günden fazla sonra (uydurulmamış) TLE varsa,
+// ya tarih ya da TLE'nin cisme atanması (çapraz etiketleme) hatalıdır; bu cisimler gerçek kayıt sayılmaz ve örnekten çıkarılır.
+function lastEpoch(txt) { let last = -Infinity; const L = txt.split(/\r?\n/);
+  for (let i = 0; i + 1 < L.length; i++) { if (L[i][0] !== '1' || L[i + 1][0] !== '2' || L[i].length < 32) continue; const l3 = L[i + 2] && L[i + 2][0] === '3' ? L[i + 2] : ''; if (/est|guess/i.test(l3)) continue;
+    const yy = +L[i].slice(18, 20), t = Date.UTC(yy < 57 ? 2000 + yy : 1900 + yy, 0, 1) + (+L[i].slice(20, 32) - 1) * DAY; if (Number.isFinite(t) && t > last) last = t; }
+  return last; }
+const tutarsiz = { hist: 0, heo: 0, km: 0 }, consistent = (txt, tD, k) => { if (tD && lastEpoch(txt) > tD + 10 * DAY) { tutarsiz[k]++; return false; } return true; };
 const r6 = (x, n = 6) => +x.toPrecision(n), rows = []; let nObj = 0;
 for (const p of picks) {
   const f = file(p.id); if (!fs.existsSync(f) || !fs.statSync(f).size) continue;
-  const R = parse(fs.readFileSync(f, 'utf8')); if (R.length < 3) continue; let used = false;
+  const txt = fs.readFileSync(f, 'utf8'); if (!consistent(txt, p.tD, 'hist')) continue;
+  const R = parse(txt); if (R.length < 3) continue; let used = false;
   for (const ly of [0.08, 0.25, 0.5, 1, 2, 4, 8]) {
     const want = p.tD - ly * YR * DAY; let best = null;
     for (const r of R) { const lead = (p.tD - r.t) / DAY / YR; if (lead > 0.02 && Math.abs(lead - ly) < ly * 0.2 && (!best || Math.abs(r.t - want) < Math.abs(best.t - want))) best = r; }
@@ -86,7 +94,7 @@ for (const p of picks) {
   if (used) nObj++;
 }
 fs.writeFileSync(OUT, JSON.stringify({ meta: { kaynak: 'GCAT (J. McDowell, planet4589.org/space/gcat, CC-BY) yeniden giriş tarihleri; TLE: J. McDowell tarihsel TLE arşivi (planet4589.org/space/ele.html)',
-  secim: '1965–2016 yeniden girişler, ömür ≥ 1,5 yıl, perije 150–900 km, apoje ≤ 3000 km, on yıl başına en çok 160 cisim (tohum 19); hedef süreler 0,08–8 yıl (±%20)', cisim: nObj, satir: rows.length }, satirlar: rows }));
+  secim: '1965–2016 yeniden girişler, ömür ≥ 1,5 yıl, perije 150–900 km, apoje ≤ 3000 km, on yıl başına en çok 160 cisim (tohum 19); hedef süreler 0,08–8 yıl (±%20); GCAT tarihinden 10 günden sonra TLE\'si olan (tutarsız) cisimler çıkarıldı', tutarsiz: tutarsiz.hist, cisim: nObj, satir: rows.length }, satirlar: rows }));
 console.log(`yazıldı: ${OUT} · ${nObj} cisim, ${rows.length} satır, ${(fs.statSync(OUT).size / 1024).toFixed(0)} kB`);
 
 // ---- GTO/HEO
@@ -94,7 +102,8 @@ if (OUT_HEO) {
   const rows = []; let nH = 0;
   for (const p of heo) {
     const f = file(p.id); if (!fs.existsSync(f) || !fs.statSync(f).size) continue;
-    const R = parse(fs.readFileSync(f, 'utf8'), true); if (R.length < 3) continue; let used = false;
+    const txt = fs.readFileSync(f, 'utf8'); if (!consistent(txt, p.tD, 'heo')) continue;
+    const R = parse(txt, true); if (R.length < 3) continue; let used = false;
     for (const ly of [0.08, 0.25, 0.5, 1, 2, 4, 8]) {
       const want = p.tD - ly * YR * DAY; let best = null;
       for (const r of R) { const lead = (p.tD - r.t) / DAY / YR; if (lead > 0.02 && Math.abs(lead - ly) < ly * 0.2 && (!best || Math.abs(r.t - want) < Math.abs(best.t - want))) best = r; }
@@ -104,7 +113,7 @@ if (OUT_HEO) {
     }
     if (used) nH++;
   }
-  fs.writeFileSync(OUT_HEO, JSON.stringify({ meta: { kaynak: 'GCAT (J. McDowell, CC-BY) yeniden giriş tarihleri; TLE: J. McDowell tarihsel TLE arşivi', secim: 'yeniden girmiş roket gövdesi ve yükler, apoje ≥ 15.000 km, perije < 1.500 km, 1975–2016; hedef süreler 0,08–8 yıl (±%20)', cisim: nH, satir: rows.length }, satirlar: rows }));
+  fs.writeFileSync(OUT_HEO, JSON.stringify({ meta: { kaynak: 'GCAT (J. McDowell, CC-BY) yeniden giriş tarihleri; TLE: J. McDowell tarihsel TLE arşivi', secim: 'yeniden girmiş roket gövdesi ve yükler, apoje ≥ 15.000 km, perije < 1.500 km, 1975–2016; hedef süreler 0,08–8 yıl (±%20); tutarsız (GCAT tarihinden sonra TLE\'si olan) cisimler çıkarıldı', tutarsiz: tutarsiz.heo, cisim: nH, satir: rows.length }, satirlar: rows }));
   console.log(`yazıldı: ${OUT_HEO} · ${nH} cisim, ${rows.length} satır, ${(fs.statSync(OUT_HEO).size / 1024).toFixed(0)} kB`);
 }
 
@@ -113,12 +122,13 @@ if (OUT_KM) {
   const CENS = gcatUpd ? gcatUpd.t : Date.now(), rows = []; let nK = 0;
   for (const p of kmPick) {
     const f = file(p.id); if (!fs.existsSync(f) || !fs.statSync(f).size) continue;
-    const R = parse(fs.readFileSync(f, 'utf8')).filter((r) => { const a = Math.cbrt(MU / (r.n * 2 * Math.PI / 86400) ** 2), hp = a * (1 - r.e) - RE;
+    const txt = fs.readFileSync(f, 'utf8'); if (!consistent(txt, p.tD, 'km')) continue;
+    const R = parse(txt).filter((r) => { const a = Math.cbrt(MU / (r.n * 2 * Math.PI / 86400) ** 2), hp = a * (1 - r.e) - RE;
       return r.t >= Date.UTC(1965, 0) && r.t <= Date.UTC(2015, 11, 31) && hp >= 150 && hp <= 900 && a * (1 + r.e) - RE <= 3000 && (!p.tD || r.t < p.tD - DAY); });
     if (!R.length) continue; nK++;
     for (let k = 0; k < 2; k++) { const r = R[Math.floor(rndK() * R.length)];
       rows.push({ id: p.id, tur: p.type, epoch: new Date(r.t).toISOString().slice(0, 19), n: r.n, e: r.e, bstar: r.b, ndot: r.nd, i: r.i, olay: !!p.tD, gun: r6(((p.tD || CENS) - r.t) / DAY) }); }
   }
-  fs.writeFileSync(OUT_KM, JSON.stringify({ meta: { kaynak: 'GCAT (J. McDowell, CC-BY); TLE: J. McDowell tarihsel TLE arşivi', secim: 'pasif LEO (R/D/C), fırlatma 1965–2010, sonuçtan bağımsız; cisim başına 2 rastgele çağ (1965–2015); olay=false: sansürlü (GCAT güncellemesinde yörüngede)', sansurTarihi: new Date(CENS).toISOString().slice(0, 10), cisim: nK, satir: rows.length }, satirlar: rows }));
+  fs.writeFileSync(OUT_KM, JSON.stringify({ meta: { kaynak: 'GCAT (J. McDowell, CC-BY); TLE: J. McDowell tarihsel TLE arşivi', secim: 'pasif LEO (R/D/C), fırlatma 1965–2010, sonuçtan bağımsız; cisim başına 2 rastgele çağ (1965–2015); olay=false: sansürlü (GCAT güncellemesinde yörüngede); tutarsız (GCAT tarihinden sonra TLE\'si olan) cisimler çıkarıldı', tutarsiz: tutarsiz.km, sansurTarihi: new Date(CENS).toISOString().slice(0, 10), cisim: nK, satir: rows.length }, satirlar: rows }));
   console.log(`yazıldı: ${OUT_KM} · ${nK} cisim, ${rows.length} satır (sansürlü ${rows.filter((r) => !r.olay).length}), ${(fs.statSync(OUT_KM).size / 1024).toFixed(0)} kB`);
 }
