@@ -4,6 +4,7 @@ import { makeLive, etOf } from './live.js';
 import { EphStore } from './ephstore.js';
 import { initConic } from './conic.js';
 import { flyDispersed } from './nominalrun.js';
+import { ephSpanDays } from './moonsite.js';
 
 const get = (f) => fetch(new URL('../data/' + f, import.meta.url)).then((r) => { if (!r.ok) throw new Error(f + ' yüklenemedi'); return r; });
 let env = null;
@@ -13,7 +14,7 @@ onmessage = async (e) => {
   try {
     if (!env || env.tStart !== tStart) {
       const [eph, eo] = await Promise.all([EphStore.open(new URL('../data/eph/v1/', import.meta.url).href), get('earth_orient.json').then((r) => r.json())]);
-      await eph.ensure(etOf(tStart) - 86400, etOf(tStart) + 120 * 86400);
+      await eph.ensure(etOf(tStart) - 86400, etOf(tStart) + ephSpanDays(design) * 86400);
       env = { tStart, eph, eo };
     }
     if (landings.some((l) => l !== 'zem')) { try { await initConic(); } catch (err) { /* konik çözücü yoksa ZEM'e düşer (flyDispersed) */ } }

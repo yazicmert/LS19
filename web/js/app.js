@@ -23,7 +23,7 @@ import { LINK_KEYS } from './labtext.js';
 import { AyUI } from './ayui.js';
 import { AyMC } from './aymc.js';
 import { AyAbort } from './ayabort.js';
-import { setViewSite } from './moonsite.js';
+import { setViewSite, ephSpanDays } from './moonsite.js';
 import { DeflectUI } from './deflectui.js';
 import { Updater } from './updater.js';
 import { Tracker } from './tracker.js';
@@ -284,7 +284,7 @@ function cachedDesign(ms, cfg) {
   return null;
 }
 // görev için gereken çekirdek aralığı (ET): canlı efemeris başlangıcı (tStart) ve Efemeris sekmesinin görev boyunca karşılaştırması (en uzun profil < 60 gün)
-const missionEtWindow = (tStart) => [etOf(tStart) - 86400, etOf(tStart) + 120 * 86400];
+const missionEtWindow = (tStart, x = null) => [etOf(tStart) - 86400, etOf(tStart) + ephSpanDays(x) * 86400];      // x: yapılandırma/tasarım (moonsite.js)
 // UTC ms -> motor zamanı (TDB s); worker'daki ile aynı
 function tOfUtcMs(ms) { const jdU = ms / 86400000 + 2440587.5; return (jdU + EO.ttMinusUtc(jdU + 69 / 86400) / 86400 - E.jdTdb(0)) * 86400; }
 // tarih seç -> görev o tarih için tasarlanır (ana iş parçacığında, adım adım: bazı tarayıcılarda worker'lar
@@ -304,7 +304,7 @@ async function startDesign(dateStr) {
   $('#loadMsg').textContent = 'Görev tasarlanıyor: ' + dateStr;
   ayRefresh();
   const cfg = ui.getConfig(), pre = cachedDesign(ms, cfg);
-  try { await S.K.eph.ensure(...missionEtWindow(pre ? pre.tStart : tOfUtcMs(ms) - 86400)); }           // o yılın JPL kayıtları (önbellekteyse hemen)
+  try { await S.K.eph.ensure(...missionEtWindow(pre ? pre.tStart : tOfUtcMs(ms) - 86400, cfg)); }           // o yılın JPL kayıtları (önbellekteyse hemen)
   catch (err) { if (id === designSeq) designFailed(String(err.message || err)); return; }
   if (id !== designSeq) return;
   let msg;
@@ -320,7 +320,7 @@ async function startDesign(dateStr) {
         if (id !== designSeq) return;
         $('#loadMsg').textContent = m; if (f != null) $('#loadBar').style.width = (100 * f).toFixed(0) + '%';
         ui.designLog(m);
-      }, () => id !== designSeq, cfg);
+      }, () => id !== designSeq, cfg, { retry: true });            // Tasarla: yakınsamayan pencereden sonraki aydınlanma penceresi denenebilir (Apollo 11 dışında)
       if (!design || id !== designSeq) return;
       designCache.set(cacheKey(ms, cfg), { tStart, design, nominal: null });
       msg = { startMs: ms, tStart, design, nominal: null };

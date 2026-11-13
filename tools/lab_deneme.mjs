@@ -267,6 +267,13 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
     await page.selectOption('#cfgMoonSite', 'A11'); await page.click('#btnDesign'); await page.waitForTimeout(500); await ready();
     const okA11 = await page.waitForFunction(() => window.LS19.world.moonSite.id === 'A11' && window.LS19.world.terrainReady && !window.LS19.ui.design.MOONSITE, null, { timeout: 280000 }).then(() => true, () => false);
     check('Apollo 11\'e dönünce delik, yama ve tasarım yeniden Huzur Denizi\'nde (varsayılan tasarıma alan yazılmaz)', okA11);
+    // yakınsamayan pencere: APOLLO11 profili × Apollo 16, 13 Ekim 2026 → Tasarla sonraki aydınlanma penceresini dener (Aralık 2026)
+    await page.selectOption('#cfgProfile', 'APOLLO11'); await page.selectOption('#cfgMoonSite', 'A16'); await page.fill('#dateInput', '2026-10-13'); await page.click('#btnDesign');
+    const okA16 = await page.waitForFunction(() => window.LS19.ui.design && window.LS19.ui.design.MOONSITE === 'A16' && window.LS19.world.moonSite.id === 'A16', null, { timeout: 280000 }).then(() => true, () => false);
+    const a16 = await page.evaluate(() => ({ sum: document.querySelector('#aySum-gorev').textContent, log: [...document.querySelectorAll('#designLog li')].map((l) => l.textContent).join(' | '), launch: window.LS19.ui.design.LAUNCH.t_launch }));
+    check('Apollo 16 (APOLLO11 profili, 13 Ekim 2026): Tasarla yakınsamayan pencereden sonrakini dener, günlükte yazılır, Görev özeti gerçek fırlatma tarihini (Aralık) gösterir', okA16 && /sonraki pencere deneniyor/.test(a16.log) && /Ara 2026/.test(a16.sum), a16.sum);
+    await page.selectOption('#cfgMoonSite', 'A11'); await page.selectOption('#cfgProfile', 'APOLLO'); await page.click('#btnDesign');
+    await page.waitForFunction(() => window.LS19.ui.design && !window.LS19.ui.design.MOONSITE && window.LS19.world.moonSite.id === 'A11', null, { timeout: 280000 });
     await page.selectOption('#cfgProfile', 'L2');
     const blk = await page.evaluate(() => ({ a12: document.querySelector('#cfgMoonSite option[value=A12]').disabled, a17: document.querySelector('#cfgMoonSite option[value=A17]').disabled, a15: document.querySelector('#cfgMoonSite option[value=A15]').disabled }));
     await page.selectOption('#cfgProfile', 'APOLLO');

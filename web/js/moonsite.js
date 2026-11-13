@@ -33,6 +33,10 @@ export function siteBlocked(cfg) {
   return b ? `${LUNAR_SITES[id].name}: L2 halo profiliyle tasarım Ekim–Aralık 2026'da ardışık üç pencerede yakınsamadı; başka bir profil ya da iniş yeri seçin` : '';
 }
 
+// görevin efemeris penceresi (gün, başlangıçtan): Apollo 11 dışındaki yerlerde tasarım iki sonraki aydınlanma penceresini deneyebilir (design.js, en çok
+// +59 gün) ve halo görevleri ~1 ay sürer: 200 gün. Varsayılan yerde 120 gün (eskisi gibi). x: tasarım (MOONSITE) ya da yapılandırma (moonSite)
+export const ephSpanDays = (x) => (x && ((x.MOONSITE && x.MOONSITE !== DEFAULT_SITE) || (x.moonSite && validSite(x.moonSite) !== DEFAULT_SITE)) ? 200 : 120);
+
 const cache = new Map();
 // id ya da tasarım ({ MOONSITE }) → { id, name, lat, lon (rad), latDeg, lonDeg, r (km), src (yarıçap kaynağı), dem (arazi dosyası), me (birim, Ay'a bağlı), icrf(t) (km, Ay merkezli ICRF) }
 export function siteOf(x) {

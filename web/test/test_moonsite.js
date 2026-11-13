@@ -11,7 +11,7 @@ import { makeLive } from '../js/live.js';
 import { designMission, findLandingWindow, normalizeConfig, DEFAULT_CONFIG, PROFILES } from '../js/design.js';
 import { Mission, twoStageDesign, siteIcrf, siteMe, R_SITE } from '../js/mission.js';
 import { initConic } from '../js/conic.js';
-import { siteOf, LUNAR_SITES, DEFAULT_SITE, validSite, siteBlocked } from '../js/moonsite.js';
+import { siteOf, LUNAR_SITES, DEFAULT_SITE, validSite, siteBlocked, ephSpanDays } from '../js/moonsite.js';
 
 const TOL_SITE_M = 50, MIN_FROM_A11_KM = 100;
 let ok = true;
@@ -89,7 +89,11 @@ for (const id of Object.keys(LUNAR_SITES)) {
 {
   const t0 = performance.now(), logs = [];
   makeLive(SPK, PCK, eo, tStart);
-  const D = JSON.parse(JSON.stringify(designMission(tOf(startMs), (m) => logs.push(m), { ...PROFILES.APOLLO11.cfg, moonSite: 'A16' })));
+  let noRetry = '';
+  try { designMission(tOf(startMs), () => {}, { ...PROFILES.APOLLO11.cfg, moonSite: 'A16' }); } catch (e) { noRetry = e.message; }
+  check(/yakınsamadı/.test(noRetry), 'yeniden deneme istenmezse (taramalar, profil karşılaştırması) yakınsamayan pencere hata olarak kalır: "bu tarih" başka aya kaymaz');
+  makeLive(SPK, PCK, eo, tStart);
+  const D = JSON.parse(JSON.stringify(designMission(tOf(startMs), (m) => logs.push(m), { ...PROFILES.APOLLO11.cfg, moonSite: 'A16' }, { retry: true })));
   const later = D.LAUNCH.t_launch - tOf(startMs);
   console.log(`  APOLLO11 × A16: fırlatma ${E.utcString(D.LAUNCH.t_launch).slice(0, 16)} (${(later / 86400).toFixed(1)} gün sonra; ${((performance.now() - t0) / 1000).toFixed(1)} s)`);
   check(D.MOONSITE === 'A16' && later > 25 * 86400 && logs.some((m) => /sonraki pencere deneniyor/.test(m)), 'yakınsamayan pencerede sonraki aydınlanma penceresi denenir ve günlüğe yazılır; tasarım iniş yerini taşır');
@@ -101,7 +105,11 @@ for (const id of Object.keys(LUNAR_SITES)) {
   check(/L2 halo profiliyle tasarım/.test(err) && siteBlocked(normalizeConfig({ ...PROFILES.L2.cfg, moonSite: 'A17' })) && !siteBlocked(normalizeConfig({ ...PROFILES.L2.cfg, moonSite: 'A15' })) && !siteBlocked(normalizeConfig({ ...PROFILES.NRHO.cfg, moonSite: 'A12' })),
     'L2 halo × Apollo 12/17 (üç ardışık pencerede yakınsamadı) açıkça reddedilir; öteki kombinasyonlar açık');
   let def = ''; try { designMission(tOf(startMs), () => {}, { ...PROFILES.APOLLO.cfg }); } catch (e) { def = e.message; }
-  check(def === '' && /retry = cfg\.moonSite && cfg\.moonSite !== DEFAULT_SITE \? 2 : 0/.test(fs.readFileSync(new URL('../js/design.js', import.meta.url), 'utf8')), 'varsayılan yerde yeniden deneme yok (hazır tasarımlar bit düzeyinde aynı)');
+  const src = (f) => fs.readFileSync(new URL('../js/' + f, import.meta.url), 'utf8');
+  check(def === '' && /retry = opts\.retry && cfg\.moonSite && cfg\.moonSite !== DEFAULT_SITE \? 2 : 0/.test(src('design.js')), 'yeniden deneme yalnız istenince ve yalnız Apollo 11 dışında (hazır tasarımlar bit düzeyinde aynı)');
+  check(/cfg, \{ retry: true \}\)/.test(src('app.js')) && !/retry/.test(src('windowscan.js')) && !/retry/.test(src('profilecompare.js')), 'yeniden denemeyi yalnız Tasarla açar; pencere/gün taramaları ve profil karşılaştırması açmaz');
+  check(ephSpanDays({ moonSite: 'A16' }) === 200 && ephSpanDays({ MOONSITE: 'A16' }) === 200 && ephSpanDays({}) === 120 && ephSpanDays(null) === 120 && D.LAUNCH.t_launch + 40 * 86400 < tStart + 200 * 86400,
+    'efemeris penceresi: Apollo 11 dışında 200 gün (iki yeniden deneme + görev sığar), varsayılanda 120 gün (eskisi gibi)');
 }
 
 console.log(ok ? 'TAMAM' : 'HATA'); process.exit(ok ? 0 : 1);

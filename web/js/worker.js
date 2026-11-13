@@ -2,7 +2,7 @@
 import * as E from './engine.js';
 import * as EO from './earth.js';
 import { Mission, STAGES, LANDING_MODES } from './mission.js';
-import { validSite, DEFAULT_SITE } from './moonsite.js';
+import { validSite, DEFAULT_SITE, ephSpanDays } from './moonsite.js';
 import { initConic, conicReady } from './conic.js';
 import { makeLive, etOf } from './live.js';
 import { EphStore } from './ephstore.js';
@@ -31,12 +31,12 @@ async function setupDate(d) {
   // hazır tasarım (Apollo 11 iniş yeri) yalnız varsayılan Ay iniş yerinde kullanılır: başka yer seçiliyse tasarım baştan yapılır
   const def = !d.design && K.def && Math.abs(K.def.startMs - startMs) < 1000 && !(d.cfg && validSite(d.cfg.moonSite) !== DEFAULT_SITE) ? K.def : null;
   T_START = d.design ? d.tStart : def ? def.tStart : tOfUtcMs(startMs) - 86400;   // efemeris başlangıcı: seçilen günden 1 gün önce
-  await K.eph.ensure(etOf(T_START) - 86400, etOf(T_START) + 120 * 86400);       // efemeris başlangıcı + görev süresi (ana iş parçacığıyla aynı pencere)
+  await K.eph.ensure(etOf(T_START) - 86400, etOf(T_START) + ephSpanDays(d.design || d.cfg) * 86400);       // efemeris başlangıcı + görev süresi (ana iş parçacığıyla aynı pencere)
   makeLive(K.spk, K.pck, K.eo, T_START);
   let nominal = null;
   if (d.design) { DESIGN = d.design; nominal = d.nominal || null; }
   else if (def) { DESIGN = def.design; nominal = def.nominal || null; }
-  else DESIGN = designMission(tOfUtcMs(startMs), (msg, frac) => postMessage({ type: 'designProgress', msg, frac }), d.cfg);
+  else DESIGN = designMission(tOfUtcMs(startMs), (msg, frac) => postMessage({ type: 'designProgress', msg, frac }), d.cfg, { retry: true });
   E.setMoonZone(DESIGN.profile === 'HALO' ? 1.25 * DESIGN.HALO.stats.raKm : E.SOI_M);
   newMission(); paused = true;
   postMessage({ type: 'ready', t0: M.P.s.t, plan: M.plan, stages: DESIGN.STAGES || STAGES, design: DESIGN, tStart: T_START, startMs, nominal, landing: landingMode, optimalOk: conicReady(), optimalErr: conicErr });

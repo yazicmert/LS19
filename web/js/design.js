@@ -474,20 +474,22 @@ function sizeTli(K, dvTli, incT = 28.5) {
 // tFrom: en erken fırlatma (motor zamanı); progress(msg, frac); cfg: görev yapılandırması
 // Üreteç: her ilerleme adımında durur (yield). designMission eşzamanlı koşar (Node testleri, worker),
 // designMissionAsync adımlar arasında tarayıcıya nefes aldırır (ana iş parçacığında çizim/ilerleme çubuğu donmaz).
-export function designMission(tFrom, progress = () => {}, cfg = DEFAULT_CONFIG) {
-  const g = designSteps(tFrom, progress, cfg);
+// opts.retry: Apollo 11 dışındaki yerde yakınsamayan aydınlanma penceresinden sonra en çok iki sonraki pencere denensin mi (yalnız Tasarla: app.js;
+// pencere/gün taramaları ve profil karşılaştırması "bu tarih" içindir, açmaz)
+export function designMission(tFrom, progress = () => {}, cfg = DEFAULT_CONFIG, opts = {}) {
+  const g = designSteps(tFrom, progress, cfg, opts);
   for (;;) { const r = g.next(); if (r.done) return r.value; }
 }
 const macrotask = () => new Promise((res) => { const ch = new MessageChannel(); ch.port1.onmessage = () => res(); ch.port2.postMessage(0); });
-export async function designMissionAsync(tFrom, progress = () => {}, cancelled = () => false, cfg = DEFAULT_CONFIG) {
-  const g = designSteps(tFrom, progress, cfg);
+export async function designMissionAsync(tFrom, progress = () => {}, cancelled = () => false, cfg = DEFAULT_CONFIG, opts = {}) {
+  const g = designSteps(tFrom, progress, cfg, opts);
   for (;;) {
     const r = g.next(); if (r.done) return r.value;
     await macrotask();
     if (cancelled()) return null;
   }
 }
-function* designSteps(tFrom, progress, cfg0) {
+function* designSteps(tFrom, progress, cfg0, opts = {}) {
   const cfg = normalizeConfig(cfg0);
   const log = (m, f) => progress(m, f);
   log('Yapılandırma: ' + configLabel(cfg), 0.01);
@@ -496,7 +498,7 @@ function* designSteps(tFrom, progress, cfg0) {
   if (blocked) throw new Error(blocked);
   // Apollo 11 dışındaki iniş yerlerinde bir aydınlanma penceresi yakınsamazsa sonraki pencere (≈ 1 kameri ay sonra) denenir, en çok iki kez:
   // "Tasarla" o tarihten sonraki ilk UYGUN pencereyi kurar. Her deneme tasarım bağlamını (K) baştan kurar. Varsayılan yerde davranış değişmez.
-  const retry = cfg.moonSite && cfg.moonSite !== DEFAULT_SITE ? 2 : 0;
+  const retry = opts.retry && cfg.moonSite && cfg.moonSite !== DEFAULT_SITE ? 2 : 0;
   let D = null, K = null, tF = tFrom;
   for (let k = 0; ; k++) {
     try { ({ D, K } = yield* designAttempt(cfg, tF, log)); break; }
