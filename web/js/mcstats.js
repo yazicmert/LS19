@@ -37,3 +37,18 @@ export function mcText(s, o = {}) {
   if (o.tliSigma != null) rows.push(['Hata modeli', [`TLI kesme 1σ ${fmt(o.tliSigma, 1)} m/s`, o.nav ? 'seyrüsefer hatası (IMU, radar, TRN)' : 'seyrüsefer kusursuz', ...(o.faultLabel ? [o.faultLabel] : [])]]);
   return { kind, title, rows };
 }
+
+// güdüm karşılaştırması (eşleştirilmiş: aynı tohumlar her güdümle). runs: { landing, seed, … }. ref: farkların göreli olduğu güdüm.
+// Dönüş: { rows: [{ landing, s (summarize) }], paired: { [landing]: { n, dProp, dMiss, dVh } } } — d* = landing − ref, aynı tohum çiftleri üzerinden [5, 50, 95] yüzdelik
+export function compareGuidance(runs, order = ['opt', 'free', 'zem'], ref = 'zem') {
+  const by = {}; for (const r of runs) (by[r.landing] ||= []).push(r);
+  const rows = order.filter((l) => by[l]).map((l) => ({ landing: l, s: summarize(by[l]) }));
+  const refBy = new Map((by[ref] || []).map((r) => [r.seed, r])), paired = {};
+  for (const l of order) {
+    if (l === ref || !by[l]) continue;
+    const pr = by[l].map((r) => [r, refBy.get(r.seed)]).filter(([, q]) => q);
+    const d = (k) => { const xs = pr.map(([a, b]) => a[k] - b[k]).filter(Number.isFinite); return xs.length ? [quantile(xs, 0.05), quantile(xs, 0.5), quantile(xs, 0.95)] : null; };
+    paired[l] = { n: pr.length, dProp: d('prop'), dMiss: d('miss'), dVh: d('vh') };
+  }
+  return { rows, paired, ref };
+}

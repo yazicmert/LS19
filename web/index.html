@@ -584,12 +584,16 @@
           <label>Seyrüsefer<span><select id="mcNav"><option value="on" selected>Gerçekçi</option><option value="off">Kusursuz</option></select></span></label>
         </div>
         <div class="frow"><label for="mcFault">Arıza</label><select id="mcFault"><option value="none">Yok</option><option value="trn">Arazi göreli seyrüsefer yok (Apollo gibi)</option><option value="alt">Altimetre 3 km altında susar</option><option value="vel">Hız ölçer 2 km altında susar</option></select></div>
-        <div class="daterow"><button id="mcRun" class="primary sm" type="button">Dağılım denemesini başlat</button><button id="mcStop" class="sm" type="button" hidden>Durdur</button><span id="mcMsg" class="note" role="status" aria-live="polite"></span></div>
+        <div class="daterow"><button id="mcRun" class="primary sm" type="button">Dağılım denemesini başlat</button><button id="mcCmp" class="sm" type="button" title="Aynı tohumlar (aynı hatalar) üç iniş güdümüyle uçurulur: farklar şanstan değil güdümden gelir">Üç güdümü karşılaştır</button><button id="mcStop" class="sm" type="button" hidden>Durdur</button><span id="mcMsg" class="note" role="status" aria-live="polite"></span></div>
         <div id="mcOut" hidden>
           <div id="mcVerdict" class="unc info"><div id="mcVT" class="ut"></div></div>
           <canvas id="mcScatter" class="chart" role="img" aria-label="Monte Carlo: iniş noktaları ve temas hızları"></canvas>
           <p class="note">Yeşil başarılı, kırmızı başarısız iniş. Sağda kesikli çizgi iniş takımının güvenli temas sınırı (dikey 3,05 m/s, yatay 1,22 m/s'de dikey 2,13 m/s).</p>
           <table id="mcTbl" class="tbl"><tbody></tbody></table>
+          <div id="mcCmpOut" hidden>
+            <div class="tblwrap"><table id="mcCmpTbl" class="tbl"><thead><tr><th>Güdüm</th><th class="num">Başarı</th><th class="num">Kalan yakıt</th><th class="num">ZEM/ZEV'e göre (aynı tohum)</th><th class="num">Iska</th><th class="num">Yatay hız</th></tr></thead><tbody></tbody></table></div>
+            <p class="note">Her satır aynı tohumlarla (aynı TLI kesme hatası, aynı seyrüsefer hataları) uçuruldu; "ZEM/ZEV'e göre" sütunu aynı tohum çiftlerindeki yakıt farkının medyanı ve %90 aralığıdır. Değerler medyan; başarı %95 güven aralığıyla.</p>
+          </div>
           <p id="mcFails" class="note"></p>
         </div>
         <details id="mcHist" class="adv" hidden><summary>Dağılım denemelerim</summary>

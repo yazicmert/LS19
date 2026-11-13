@@ -282,8 +282,15 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await page.click('#mcRun');
   const mcDone = await page.waitForFunction(() => /^3 uçuş/.test(document.querySelector('#mcMsg').textContent), null, { timeout: 280000 }).then(() => true, () => false);
   const mc = await page.evaluate(() => ({ t: document.querySelector('#mcVT').textContent, rows: document.querySelectorAll('#mcTbl tr').length, hist: document.querySelectorAll('#mcHistTbl tbody tr').length,
-    cv: (() => { const c = document.querySelector('#mcScatter'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; })(), seeds: window.LS19.aymc.runs.map((r) => r.seed).sort().join() }));
+    cv: (() => { const c = document.querySelector('#mcScatter'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; })(), seeds: window.LS19.aymc.runs.map((r) => r.seed).sort().join(), stages: window.LS19.aymc.opts.stages, vehicle: window.LS19.aymc.opts.vehicle, prop: window.LS19.aymc.runs.map((r) => r.prop) }));
   check('Monte Carlo: 3 uçuş tamamlanır (tohum 1–3), başarı oranı, özet tablo, iniş/temas grafiği ve geçmiş satırı', mcDone && /^\d\/3 iniş başarılı/.test(mc.t) && mc.rows >= 6 && mc.cv > 300 && mc.hist === 1 && mc.seeds === '1,2,3', JSON.stringify(mc));
+  check('Monte Carlo seçili aracı uçurur: iki kademe → tasarımda 3 kademe, kalan yakıt Node ölçümüne yakın (~300 kg)', mc.vehicle === 'two' && mc.stages === 3 && mc.prop.every((x) => x > 250 && x < 350), JSON.stringify({ stages: mc.stages, prop: mc.prop }));
+  await page.click('#mcCmp');
+  const cmpDone = await page.waitForFunction(() => /^9 uçuş/.test(document.querySelector('#mcMsg').textContent), null, { timeout: 280000 }).then(() => true, () => false);
+  const cmp = await page.evaluate(() => ({ rows: [...document.querySelectorAll('#mcCmpTbl tbody tr')].map((r) => r.textContent), vis: !document.querySelector('#mcCmpOut').hidden && document.querySelector('#mcTbl').hidden,
+    pairs: window.LS19.aymc.runs.reduce((m, r) => { m[r.landing] = (m[r.landing] || []).concat(r.seed).sort(); return m; }, {}) }));
+  check('güdüm karşılaştırması: aynı 3 tohum üç güdümle (9 uçuş), tablo 3 satır, ZEM/ZEV\'e göre eşleştirilmiş yakıt farkı', cmpDone && cmp.vis && cmp.rows.length === 3 && /karşılaştırma tabanı/.test(cmp.rows[2]) && /kg \(%90 aralığı/.test(cmp.rows[1])
+    && ['opt', 'free', 'zem'].every((l) => (cmp.pairs[l] || []).join() === '1,2,3'), cmp.rows.join(' | '));
   check('konsol hatası yok (Ay görevi adımları)', errors.length === 0, errors.slice(0, 3).join(' | '));
   await ctx.close();
 }

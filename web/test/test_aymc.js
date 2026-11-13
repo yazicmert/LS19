@@ -8,7 +8,7 @@ import { makeLive } from '../js/live.js';
 import { twoStageDesign } from '../js/mission.js';
 import { initConic } from '../js/conic.js';
 import { flyDispersed, NAV_FAULTS } from '../js/nominalrun.js';
-import { quantile, wilson, summarize, mcText } from '../js/mcstats.js';
+import { quantile, wilson, summarize, mcText, compareGuidance } from '../js/mcstats.js';
 
 let ok = true;
 const check = (c, m) => { console.log((c ? '  ✓ ' : '  ✗ ') + m); ok = ok && !!c; };
@@ -30,6 +30,15 @@ check(quantile([3, 1, 2], 0.5) === 2 && quantile([0, 10], 0.25) === 2.5 && quant
   check(good.kind === 'good' && /^50\/50/.test(good.title), '50/50 başarı: yeşil (güven aralığının alt sınırı ≥ %90)');
 }
 
+// güdüm karşılaştırması (eşleştirilmiş)
+{
+  const mk = (landing, seed, prop, ok = true) => ({ landing, seed, ok, grade: ok ? 'ok' : 'fail', prop, miss: 1, vh: 0.1, vz: -1.4, mcc: 1, dvTotal: 5000, why: [] });
+  const runs = [mk('zem', 1, 300), mk('zem', 2, 290), mk('zem', 3, 310), mk('free', 1, 335), mk('free', 2, 322), mk('free', 3, 350, false), mk('opt', 1, 301), mk('opt', 2, 291)];
+  const c = compareGuidance(runs);
+  check(c.rows.map((r) => r.landing).join() === 'opt,free,zem' && c.rows[1].s.ok === 2 && c.paired.free.n === 3 && c.paired.free.dProp[1] === 35 && c.paired.opt.n === 2 && c.paired.opt.dProp[1] === 1 && !c.paired.zem,
+    'karşılaştırma: güdüm sırası, başarı, aynı tohum çiftleri üzerinden yakıt farkı (serbest − ZEM medyanı +35 kg)');
+}
+
 // ---------------------------------------------------------------- 2) dağılımlı koşu
 {
   const ab = (f) => { const b = rd(f); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); };
@@ -39,7 +48,7 @@ check(quantile([3, 1, 2], 0.5) === 2 && quantile([0, 10], 0.25) === 2.5 && quant
   const fly = (seed, o = {}) => { makeLive(SPK, PCK, eo, defs.tStart); return flyDispersed(design, 'opt', { seed, tliSigma: 1, nav: true, ...o }); };
   const t0 = performance.now(), a = fly(1), b = fly(2), a2 = fly(1);
   console.log(`  3 uçuş ${((performance.now() - t0) / 1000).toFixed(1)} s · tohum 1: MCC ${a.mcc.toFixed(2)} m/s, yakıt ${a.prop.toFixed(1)} kg, ıska ${a.miss.toFixed(1)} m · tohum 2: MCC ${b.mcc.toFixed(2)} m/s`);
-  check(JSON.stringify(a) === JSON.stringify(a2), 'aynı tohum → bit düzeyinde aynı uçuş (yeniden üretilebilir)');
+  check(JSON.stringify(a) === JSON.stringify(a2) && a.landing === 'opt', 'aynı tohum → bit düzeyinde aynı uçuş (yeniden üretilebilir); koşu güdümünü kaydeder');
   check(a.mcc !== b.mcc && a.tli !== b.tli, 'farklı tohum → farklı TLI kesme hatası ve rota düzeltmesi');
   check(a.ok && b.ok && a.landed && a.miss < 50 && a.vz < 0 && a.vz > -3.05 && a.prop > 200 && a.prop < 400 && a.dvTotal > 4000, 'nominal hata modeliyle iniş başarılı, iniş yerine yakın, yakıt makul');
   const z = fly(1, { tliSigma: 0, nav: false });

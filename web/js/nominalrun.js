@@ -36,7 +36,7 @@ export function flyDispersed(design, landing = 'zem', { seed = 1, tliSigma = 1, 
   for (;;) { const r = M.gen.next(); if (r.done) break; }
   const R = M.result || {}, dv = dvFromEvents(M.events);
   const mcc = ['MCC-1', 'MCC-2', 'MCC-3', 'MCC-4'].reduce((s, k) => s + (dv[k] || 0), 0);
-  return { seed, ok: !!R.ok, reentry: !!R.reentry, landed: !!R.t, grade: R.grade || (R.reentry ? 'reentry' : 'none'),
+  return { seed, landing: conicReady() ? landing : 'zem', ok: !!R.ok, reentry: !!R.reentry, landed: !!R.t, grade: R.grade || (R.reentry ? 'reentry' : 'none'),
     miss: R.posErr_m ? Math.hypot(R.posErr_m[0], R.posErr_m[1]) : null, pos: R.posErr_m || null, vz: R.v_mps ? R.v_mps[2] : null, vh: R.v_mps ? Math.hypot(R.v_mps[0], R.v_mps[1]) : null,
     prop: R.prop ?? null, mcc, tli: dv.TLI || null, dvTotal: Object.entries(dv).filter(([k, v]) => v != null && k !== 'LLOI').reduce((s, [, v]) => s + v, 0), why: R.why || [] };
 }

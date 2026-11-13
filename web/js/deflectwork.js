@@ -161,7 +161,7 @@ globalThis.onmessage = async (ev) => {
       }
       // sonraki geçişler: itki bu geçişi kurtarıp yıllar sonraki bir çarpmaya yol açabilir (anahtar deliği). Nominal ve saptırılmış yörünge geçişten sonra tümlenir.
       let later = null;
-      if (p.afterYears !== 0 && ca.y) {
+      if (!p.hypo && p.afterYears !== 0 && ca.y) {                         // çarpacak olsaydı senaryosunda anlamsız (nominal varsayımsal)
         const etEnd = Math.min(D.ET_MAX, ca.et + (p.afterYears || 50) * D.YEAR);
         if (etEnd > ca.et + 60 * D.DAY) {
           post({ type: 'progress', id, msg: 'Sonraki geçişler (anahtar delikleri)…', f: 0.7 });
