@@ -306,9 +306,122 @@ Edilgen cisimlerin B*'ından yapılan "yoğunluk" ölçümü bu dönemde yanılt
 
 *Uygulamadaki karşılığı.* Geçmiş a(t) eğimi olan serbest bozunan uydularda sürüklenme genliği aylar boyu ortalanır (`calibHist`); başlangıç ayının sapması büyük ölçüde silinir. Yalnız B*'a dayanan tahminler bu ±%30'luk aylık belirsizliği taşır; olası aralık (§4.2f) bunu kapsar, çünkü rastgele başlangıç aylarından kurulmuştur.
 
-*İleriki adım* (yapılmadı): yoğunluk sapmasının o anki değeri, edilgen cisimlerin gözlenen bozunmasından haftalık kestirilip başlangıç bağlamasından çıkarılabilir. Bu, operasyonel HASDM'in (Storz vd. 2005) yaptığı dinamik kalibrasyonun basit bir biçimidir. Sapmanın kalıcılık süresi önce tarihsel veriden ölçülmelidir.
+*İleriki adım* (§4.2h'de sınandı: sapmanın kalıcı kısmı MSIS'in mevsim değişimiydi; anlık düzeltme haftalık veriyle yararsız): yoğunluk sapmasının o anki değeri, edilgen cisimlerin gözlenen bozunmasından haftalık kestirilip başlangıç bağlamasından çıkarılabilir. Bu, operasyonel HASDM'in (Storz vd. 2005) yaptığı dinamik kalibrasyonun basit bir biçimidir. Sapmanın kalıcılık süresi önce tarihsel veriden ölçülmelidir.
 
 **3. Veri tutarlılığı.** GTO/HEO son 2 aydaki aykırı değerlerin bir bölümü "gerçek" tarihin hatası çıktı: GCAT'teki yeniden giriş tarihinden yıllar sonra da arşivde TLE'si olan cisimler (çapraz etiketleme ya da tarih hatası). İki bağımsız kaynağın tutarlılığı artık denetleniyor: yeniden giriş tarihinden 10 günden sonra TLE'si olan cisimler örneklerden çıkarılıyor. Çıkarılanlar LEO tarihsel örnekte 13, GTO/HEO'da 28 ve sansürlü örnekte 19. GTO/HEO son 2 ayda 2 kat içinde kalma %74'ten %78'e çıktı. Sansürlü örnekteki Kaplan–Meier kapsaması her dilimde %62–71.
+
+### 4.2h Açık kalan dört konu: yoğunluk sapması, GTO/HEO'nun son ayları, sürüklenme verisi olmayan kayıtlar, ufuk
+
+§4.2g sonunda dört konu kalmıştı. Her biri bağımsız veriyle sınandı; değişiklik yalnız sınama verisinde ölçülebilir iyileşme verdiyse alındı. Sınama verileri: McDowell tarihsel TLE arşivi + GCAT (1965–2016; `reentry_hist`, `reentry_km`, `reentry_heo`) ve CelesTrak anlık görüntüleri (Tem 2025 – Kas 2026, 139 görüntü, ~3 günde bir). Bir cismin verisi hem kestirimde hem sınamada kullanılmadı.
+
+**1. Yoğunluk sapması (HASDM benzeri düzeltme)**
+
+*Yöntem.* Sapma, gözlenen bozunmanın MSIS'e oranıdır. Hesap şöyle yapıldı:
+- 290 edilgen LEO cisminin (`reentry_km` cisimleri; `reentry_hist` cisimleri hariç) aylık pencerelerinde a(t)'nin Theil–Sen eğimi alındı.
+- Bu eğim, MSIS'ten aynı yörünge için hesaplanan da/dt'ye (K = 1) bölündü.
+- Cismin kendi medyanı çıkarıldı (bu, K'yı yok eder); aylık medyan alındı.
+- Seri 1970–2013 arasında 416 ay kapsıyor.
+- Gürültü, cisimlerin iki yarısı arasındaki ilintiyle ayrıldı (Spearman–Brown); bu yöntem Emmert (2009, *JGR* 114, A06315) ile aynı ilkeye dayanır.
+
+*Bulgu: sapmanın kalıcı kısmı mevsimseldi.* Mevcut tablo dört mevsim tarihinin ortalamasıydı ve termosferin yarı yıllık değişimini siliyordu:
+
+| | Std (gürültüsüz) | Özilinti: 1 / 3 / 6 / 12 ay | Takvim ayı medyanı (Nis / Tem / Eki / Oca) |
+|---|---|---|---|
+| Mevsimsiz tablo | 0,255 | 0,42 / −0,36 / 0,17 / 0,48 | +0,20 / −0,30 / +0,20 / −0,12 |
+| MSIS 2.1'in kendi mevsim değişimiyle | 0,178 | 0,21 / −0,05 / −0,02 / 0,01 | hepsi \|·\| ≤ 0,06 |
+
+MSIS 2.1, 400 km'de ve F10.7 = 140'ta aynı biçimi kendisi veriyor: Nisan +0,19, Temmuz −0,29, Ekim +0,14 (ln ρ, yıllık ortalamaya göre). Bu, yarı yıllık termosfer değişimidir (Paetzold & Zschörner 1961; JB2008'de ayrı bir terim, Bowman vd. 2008). 2025–26 verisinde de aynı sonuç çıktı. 1.461 cismin aylık oranı mevsimsiz 0,69–1,45 arasında dalgalanıyordu, mevsimle 0,78–1,19. Ağustos 2025'teki 0,69 "sapma" büyük ölçüde Temmuz çukuruydu (§4.2g).
+
+*Alınan: `msis_mevsim.js`.* MSIS 2.1'den ln ρ(yılın günü) − ln ρ(dört tarih ortalaması) hesaplandı:
+- Aynı küresel ortalama, Ap = 15; Ap'ye bağlılığı ≤ 0,03.
+- Izgara: 8 F10.7 düzeyi × 24 yarım ay × 60–1.000 km (20 km).
+- Üretici: `tools/msis_tablo.py --mevsim`. Uydurulmuş katsayı yok; modelin silinmiş parçası geri kondu.
+- Tablo, tarihle birlikte doğrudan pymsis'ten en çok %2,4 farklı (mevsimsiz tabloda %36).
+
+Sonuçlar (medyan |ln(tahmin/gerçek)|):
+
+| Sınama | Önce | Sonra |
+|---|---|---|
+| Tarihsel 1965–2016, gözlenen F10.7 (3.108) | 0,217 | 0,202 (0,15–1,5 yıl: 0,240 → 0,213; 2× %89 → %91) |
+| Tarihsel, Güneş tahmin vekiliyle (gerçek kullanım koşulu) | 0,279 | 0,250 (her dilimde daha iyi: 0,176/0,285/0,300/0,425 → 0,173/0,247/0,267/0,411) |
+| 2025–26 yeniden girişler, gözlenen uzay havası | 0,183 | 0,168 (~330 gün kala medyan 1,21 → 0,85) |
+| 2025–26 bir yıllık düşüş, gözlenen uzay havası | medyan 0,80 | 1,20 (\|ln\| 0,22 → 0,18) |
+| 2025–26, 7 başlangıç ayı, ilk genlik gözlenen eğimden (B* gürültüsü yok) | ort. \|ln medyan\| 0,236 | 0,157 |
+| Kaplan–Meier kapsaması (dilimler) | %69/62/66/70/70 | %69/66/72/71/72 |
+
+Bir sınama kötüleşti: Temmuz 2025 tahminiyle (dondurulmuş tablo) 2025–26. Sayılar:
+- Tüm yeniden girişler: 0,150 → 0,208.
+- ~330 gün kala: medyan 0,98 → 0,73.
+- Bir yıllık düşüş: 1,16 → 1,70.
+
+Nedeni şu: o günkü CelesTrak tahmini Ağu 2025 – 2026 aktivitesini ~%15 yüksek öngördü. Bu hata eskiden Temmuz çukurunda bağlanan küçük genlikle birbirini götürüyordu. Gözlenen uzay havasıyla aynı örnekler iyileşiyor; 50 yıllık tahmin vekili sınaması da her dilimde iyileşiyor. Bu yüzden değişiklik alındı. Testler iki koşulu ayrı sınıyor; gözlenen uzay havası 12 Kasım 2026'da `fixtures/f107_2026-11-12.json` olarak donduruldu.
+
+*Reddedilen: o anki sapmanın kestirilip çıkarılması (DCA; Storz vd. 2005, Tobiska vd. 2021).* Her tarihsel tahmin çağı için sapma lnA₀, test dışı 274 cismin çağdan önceki penceredeki eğiminden kestirildi. Tahmin şöyle düzeltildi: kr(t) = kr₀·exp(lnA₀(e^(−t/τ) − 1)). τ erken yarıda (1990 öncesi) seçildi, geç yarıda sınandı.
+
+| Sapma kestirimi | Düzeltmesiz → düzeltmeli |
+|---|---|
+| 28 günlük pencere | 0,197 → 0,204 (kötü) |
+| 14 gün | 0,193 → 0,185 |
+| 7 gün, B* ile eşzamanlı | 0,189 → 0,163 (geç yarı 0,197 → 0,160, τ = 40 g) |
+| 7 gün, 3 gün eski | 0,190 → 0,187 |
+| 7 gün, 7 gün eski | 0,194 → 0,225 (kötü) |
+| 7 gün, 14 gün eski | 0,192 → 0,226 (kötü) |
+| Eşzamanlı, edilgen cisimlerin B*'ından | 0,191 → 0,197 (kötü) |
+
+Sonuç: düzeltmenin yararlandığı sapma birkaç günde kayboluyor. Yalnız B*'ın uydurulduğu günlerle aynı günlerden kestirilirse işe yarıyor. Haftalık veri akışında (`gecmis.yml`, 7 günde bir görüntü) sapma 0–7+ gün eski olur ve tahmini kötüleştirir. Bu yüzden alınmadı. Operasyonel HASDM'in saatlik/günlük güncellemesi bu yüzden gereklidir. Mevsim düzeltmesinden sonra aylık sapmanın 2 ay ve ötesinde kalıcılığı yok (özilinti ≈ 0); olası aralık (§4.2f) rastgele başlangıç aylarından kurulduğu için bu ±%18'i zaten kapsıyor.
+
+**2. GTO/HEO son 2 ay (önce: 2 kat içinde %78)**
+
+114 tahmin (hepsi ~30 gün kala) tek tek incelendi. Üç neden ayrıldı:
+
+- *B* ≤ 0 kayıtlar (15).* Model bunlarda yalnız Ay–Güneş çekimini tümlüyordu (2 kat içinde %60, medyan 1,94). Madde 3'teki roket gövdesi öncül B*'ıyla:
+  - son 2 ay: %60 → %87;
+  - 2 ay – 0,7 yıl (51): %75 → %78;
+  - 0,7 yıl üstü (306): %87 → %91.
+  Alındı. Sonuç: son 2 ayda 2 kat içinde **%78 → %82** (|ln| 0,323 → 0,296); 2 ay – 0,7 yılda %84 → %85; 0,7 yıl üstünde %89 → %90.
+- *Son haftalarda B*'ın gecikmesi.* Örnek 15808 (Molniya): 27 gün kala B* 1,4·10⁻⁴, ama apoje günde ~600 km düşüyor. B* gerçek bozunmanın birkaç katı küçük. Önceki TLE'lerin a(t) eğimi denendi (20 günlük pencere, B* ile geometrik ortalama). |ln| 0,296 → 0,252 oldu, ama 2 kat içinde kalma değişmedi (%82 → %81). Ayrıca uygulamanın haftalık geçmiş özeti derin uzay cisimlerini içermiyor ve 7 günde bir örnekleniyor. Alınmadı.
+  Bu sınama bir kusur buldu ve kusur düzeltildi: eğim dilim ortasındaki yörüngeye bağlanırken a·e sabit tutuluyordu. Bu, çok eksantrik yörüngede perijeyi Δa kadar yükseltiyordu ve ömür ~0 çıkıyordu. Artık e > 0,1'de perije korunuyor; test: 160 × 9.000 km'de kalan ömür 116 ↔ 110 gün.
+- *Veri çelişkisi (1).* 39121'in son TLE'si GCAT tarihinden 2 gün önce 289 × 33.961 km. O hâlden 2 günde inemez; tarih ya da etiket hatalı.
+
+Kısa periyotlu J2 terimlerinin perije yüksekliğine katkısı J2·R²/p ≈ 3 km'dir. Bu, gözlenen B* hatalarının (3–10 kat) yanında küçüktür. Ay–Güneş evresinin etkisi bu örnekte ayrıca çözülemedi: başarısız tahminlerin ω'sı tipik GTO değerleriydi (186–297°).
+
+**3. Sürüklenme verisi olmayan kayıtlar (B* ≤ 0, ṅ ≤ 0)**
+
+B* ∝ C_D·A/m cismin kendi özelliğidir. Bu yüzden sınıfının tipik B*'ı ile kaba bir tahmin verilir. Öncül şöyle kuruldu:
+- *Kaynak:* `reentry_hist` + `reentry_km` cisimlerinin çift NORAD numaralılarının B* > 0 TLE'leri (perije 150–900 km, cisim başına en çok 5).
+- *Sınıflar (GCAT türü), %16 / %50 / %84:*
+  - roket gövdesi 4,2·10⁻⁵ / 4,8·10⁻⁴ / 1,0·10⁻³ (n = 460);
+  - enkaz 2,6·10⁻⁴ / 1,16·10⁻³ / 5,5·10⁻³ (n = 3.866);
+  - yük 8,4·10⁻⁵ / 3,1·10⁻⁴ / 1,5·10⁻³ (n = 87; az).
+- *Sınama:* tek numaralı cisimlerin 312 B* ≤ 0 kaydı; 243'ü yeniden girdi, gerisi sansürlü (`fixtures/reentry_nodrag.json`).
+- *Sonuç:*
+  - medyan tahmin/gerçek 0,95; 2 kat içinde %52; Kaplan–Meier F(0,5) = 0,20, F(2) = 0,65;
+  - %84–%16 B*'tan kurulan ömür aralığının kapsaması %66–68 (hedef %68). Aralık bu yüzden BAND'le çarpılmadan B* dağılımından kurulur.
+  - Tüm sınıflar tek havuzda kapsamayı değiştirmedi (%69).
+
+Uygulamada sınıf adından ya da OBJECT_TYPE'tan bulunur (R/B, DEB). Bu kayıtlar önce hiç tahmin almıyordu. Şimdi "sürüklenme verisi yok (B* ≤ 0): sınıfının tipik B*'ı ile kaba tahmin" notuyla, güven "düşük" ve olası aralıkla gösterilir. GTO/HEO'da da aynı öncül kullanılır (madde 2).
+
+**4. 60 yıl ufku**
+
+Kaplan–Meier sansürlü örnekte (`reentry_km`) 60 yıldan uzun tahmin edilen 305 kayıt var; medyan tahmin 108 yıl. Bunların izleme süresi en çok 50 yıl, yeniden giren 16. Sonuçlar:
+- Gözlenebilen en büyük gerçek/tahmin oranı 0,72; F(0,49) = 0,08. %16 dilimine bile ulaşılamıyor, yani tahminin ne alt ne üst %68 sınırı belirlenebiliyor.
+- 25–60 yıl diliminde alt sınır belirlenebiliyor (F(0,49) = 0,16), üst sınır belirlenemiyor (gözlenebilen en çok F 0,22).
+
+Bu ölçekte hata kaynaklarının çoğu modelde değil:
+- *Gelecek Güneş çevrimleri:* 60 yıl beş-altı çevrimdir; genlikleri önceden bilinemez.
+- *Termosferin uzun dönem soğuması:* Emmert (2015, *JGR Space Physics* 120) 1967–2005 yörünge sürüklenmesinden 400 km'de on yılda yaklaşık −%2 buldu (Güneş en azında daha büyük). MSIS bu eğilimi içermez; bu, yarım yüzyılda ömrü sistematik uzatan bir etkendir.
+- *A/m değişimi:* tutum ve parçalanma.
+
+*Karar.* 60 yılı (derin uzayda 25 yılı; §4.2f) aşan tahminde tarih verilmez:
+- Durum `long`, `beyond`; ekranda "> 60 yıl (tarih sınanamaz; en erken olası ~YYYY)".
+- En erken olası tarih, tahminin 0,49'udur: sınamada bu cisimlerin ~%92'si bundan sonra yeniden girdi.
+- Liste görünümleri bu cisimleri yeniden girecekler arasında saymaz. Model 300 yıla kadar yine tümlenir; alt sınır bunun için gerekir.
+
+**Kalanlar.**
+- Sapmanın gün ölçeğindeki kısmı yalnız günlük veri akışıyla kullanılabilir.
+- GTO/HEO son haftalarında B* gecikmesi: derin uzay cisimleri için geçmiş özeti ve günlük örnekleme gerekir.
+- Yük sınıfı öncülü küçük bir örnekten (87 TLE) çıktı.
+- Temmuz 2025 Güneş tahmininin hatası, 2025–26 tahmin koşulu sınamalarında açıkta.
 
 ### 4.3 Sınırlar
 
