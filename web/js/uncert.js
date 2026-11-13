@@ -1,9 +1,10 @@
 // Saptırma deneyinin belirsizlik hesabı (saf; DOM yok, Node'da sınanır: test/test_uncert.js).
 //   1) Hız değişiminin belirsizliği: asteroidin kütlesi (çap, yoğunluk ya da ölçülmüş GM) ve kinetik çarpmada momentum artış çarpanı β log-normal kabul edilir.
 //      Kayma vektörü Δv ile doğrusal olduğundan örnek başına ölçeklenir: s = k·s₀, k = Δv/Δv₀.
-//   2) Yörünge belirsizliği: JPL SBDB kovaryansı (kuyrukluyıldız öğeleri e, q, tp, Ω, ω, i) Kartezyen duruma (sayısal Jacobian), oradan durum geçiş
-//      matrisi Φ ve B-düzlemi türevleri J ile yakın geçişe taşınır: Σ_B = (J Φ Jx) C (J Φ Jx)ᵀ (2×2, km²). Kütleçekimsel olmayan parametrelerin (A1, A2)
-//      sütunları atılır (koşullu değil, marjinal blok: Apophis'te A2'nin 2029'a katkısı küçüktür).
+//   2) Yörünge belirsizliği: JPL SBDB kovaryansı (kuyrukluyıldız öğeleri e, q, tp, Ω, ω, i ve kestirilmişse A1, A2) Kartezyen duruma (sayısal Jacobian),
+//      oradan durum geçiş matrisi Φ ve B-düzlemi türevleri J ile yakın geçişe taşınır: Σ_B = G C Gᵀ (2×2, km²). A1/A2 kestirilmişse ATILAMAZ: öğelerle güçlü
+//      ilişkilidirler; Apophis çözüm 220'de yalnız öğelerle (6×6) 2029 mesafe belirsizliği 17,3 km çıkar (16 kat fazla), A1/A2 sütunlarıyla (8×8) 1,093 km —
+//      JPL CAD'in 3σ aralığından 1,093 km (test/test_uncert.js). Bu yüzden A1/A2'nin duyarlılığı (nongravSens) da taşınır.
 //   3) Monte Carlo (tohumlu, yeniden üretilebilir): B-düzlemindeki geçiş noktası = nominal + yörünge hatası + k·kayma; |B| < bE ise çarpma.
 import { AU, DAY } from './deflect.js';
 
@@ -52,15 +53,17 @@ export const dvSigma = (method, sM, sBeta = BETA_SIG, sD = sM / 3) => (method ==
 // Biçim: orbit.covariance = { epoch, labels: ['e','q','tp','node','peri','i', ('A1','A2'…)], data: tam ya da alt üçgen matris, elements: [{ name, value }] }.
 const ALIAS = { node: 'om', peri: 'w', om: 'om', w: 'w', e: 'e', q: 'q', tp: 'tp', i: 'i' };
 const ORDER = ['e', 'q', 'tp', 'om', 'w', 'i'];
-export function covFromSbdb(orbit) {
+// o.full: true → { epoch, el, C (8×8: e, q, tp, om, w, i ve varsa A1, A2), labels } (kütleçekimsel olmayan parametreler dahil tam kovaryans)
+export function covFromSbdb(orbit, o = {}) {
   const cv = orbit && orbit.covariance; if (!cv || !Array.isArray(cv.labels) || !Array.isArray(cv.data)) return null;
   const lab = cv.labels.map((l) => ALIAS[l] || l), n = lab.length, M = [];
   for (let r = 0; r < n; r++) { M.push([]); for (let c = 0; c < n; c++) M[r].push(NaN); }
   cv.data.forEach((row, r) => { if (Array.isArray(row)) row.forEach((x, c) => { M[r][c] = +x; if (row.length <= r + 1) M[c][r] = +x; }); });       // alt üçgen de olabilir
   const idx = ORDER.map((k) => lab.indexOf(k)); if (idx.some((k) => k < 0)) return null;
-  const C = ORDER.map((_, a) => ORDER.map((__, b) => M[idx[a]][idx[b]]));
+  const NG = ['A1', 'A2', 'A3'].filter((k) => lab.includes(k)), order = o.full ? [...ORDER, ...NG] : ORDER, ix = order.map((k) => lab.indexOf(k));
+  const C = order.map((_, a) => order.map((__, b) => M[ix[a]][ix[b]]));
   if (C.some((row) => row.some((x) => !Number.isFinite(x)))) return null;
-  for (let a = 0; a < 6; a++) for (let b = 0; b < a; b++) { const s = 0.5 * (C[a][b] + C[b][a]); C[a][b] = C[b][a] = s; }
+  for (let a = 0; a < C.length; a++) for (let b = 0; b < a; b++) { const s = 0.5 * (C[a][b] + C[b][a]); C[a][b] = C[b][a] = s; }
   if (C.some((row, a) => !(row[a] >= 0))) return null;
   const epoch = +(cv.epoch ?? orbit.cov_epoch);
   const el = {};
@@ -72,7 +75,7 @@ export function covFromSbdb(orbit) {
     Object.assign(el, { e: o.e, q: o.q ?? o.a * (1 - o.e), tp: o.tp, om: o.om, w: o.w, i: o.i });
   }
   if (!(Number.isFinite(epoch) && ORDER.every((k) => Number.isFinite(el[k])) && el.e < 1)) return null;
-  return { epoch, el, C };
+  return { epoch, el, C, labels: order };
 }
 // kuyrukluyıldız öğeleri → deflect.js keplerHelio biçimi (a AB, ortalama anomali derece, devir JD)
 export function cometaryToKepler(el, epochJd) {
@@ -92,6 +95,24 @@ const mul = (A, B) => A.map((row) => B[0].map((_, j) => row.reduce((s, a, k) => 
 const tr = (A) => A[0].map((_, j) => A.map((row) => row[j]));
 // Σ_B = G C Gᵀ, G = J (2×6) · Φ (6×6) · Jx (6×6)
 export function bplaneCov(J, Phi, Jx, C) { const G = mul(mul(J, Phi), Jx); return mul(mul(G, C), tr(G)); }
+// kütleçekimsel olmayan parametrelerle: G₈ = [J·Φ·Jx | J·∂y/∂A1 | J·∂y/∂A2], Σ_B = G₈ C₈ G₈ᵀ. dA: yakın geçiş anındaki durumun her parametreye
+// duyarlılığı (6-vektör; sayısal, kovaryans devrinden tümlenerek), C8: covFromSbdb(..., { full: true }).C
+export function bplaneCov8(J, Phi, Jx, dA, C8) {
+  const G6 = mul(mul(J, Phi), Jx), G = G6.map((row, r) => [...row, ...dA.map((d) => J[r].reduce((s, jk, k) => s + jk * d[k], 0))]);
+  return mul(mul(G, C8), tr(G));
+}
+// yakın geçiş anındaki durumun kütleçekimsel olmayan parametrelere duyarlılığı (merkezî fark, ±1σ): eng (DeflectEngine), kovaryans devrindeki durum
+// (etC, yC) → et; labels/C: covFromSbdb(..., { full: true }). Dönüş: her A parametresi için 6-vektör (km ya da km/s başına birim parametre)
+export function nongravSens(eng, etC, yC, et, labels, C) {
+  const ng = eng.ng, out = [];
+  for (let k = 6; k < labels.length; k++) {
+    const name = labels[k], s0 = Math.sqrt(C[k][k]);
+    if (!ng || !(s0 > 0)) { out.push([0, 0, 0, 0, 0, 0]); continue; }
+    const f = (sg) => { eng.ng = { ...ng, [name]: (ng[name] || 0) + sg * s0 }; try { return eng.integrate(etC, yC, et).y; } finally { eng.ng = ng; } };
+    const p = f(1), m = f(-1); out.push([0, 1, 2, 3, 4, 5].map((i) => (p[i] - m[i]) / (2 * s0)));
+  }
+  return out;
+}
 // 2×2 kovaryansın elipsi: yarı eksenler (1σ) ve ξ ekseninden açı
 export function ellipse(S) {
   const a = S[0][0], b = S[0][1], d = S[1][1], m = 0.5 * (a + d), q = Math.sqrt(Math.max(0, 0.25 * (a - d) ** 2 + b * b));

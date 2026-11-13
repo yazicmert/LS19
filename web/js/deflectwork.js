@@ -2,7 +2,7 @@
 //   target  : asteroidin öğeleri -> başlangıç durumu, yakın geçiş taraması (Dünya'ya < 0,05 AB)
 //   deflect : seçilen yakın geçiş için itki senaryosu -> doğrusal (STM) + doğrusal olmayan sonuç, önceden uyarı süresi eğrisi, 3B yollar
 import * as D from './deflect.js';
-import { cometaryToKepler, stateJacobian, bplaneCov } from './uncert.js';
+import { cometaryToKepler, stateJacobian, bplaneCov, bplaneCov8, nongravSens } from './uncert.js';
 import { porkchop } from './intercept.js';
 import { encounter } from './keyhole.js';
 import { c3Capacity } from './rockets.js';
@@ -191,7 +191,10 @@ globalThis.onmessage = async (ev) => {
         const [r0, v0] = helio(cv.el), [ps, vs] = eng.sun(etC), yC = [r0[0] + ps[0], r0[1] + ps[1], r0[2] + ps[2], v0[0] + vs[0], v0[1] + vs[1], v0[2] + vs[2]];
         const PhiC = eng.stm(etC, yC, ca.et, [], { stopped })[0].Phi;
         if (stopped()) return;
-        const S2 = bplaneCov(J, PhiC, stateJacobian(cv.el, helio), cv.C);
+        // A1/A2 kestirilmişse onların duyarlılığı da taşınır (atılırsa Apophis'te belirsizlik 16 kat abartılır; uncert.js)
+        const full = cv.labels && cv.labels.length > 6 && eng.ng;
+        const S2 = full ? bplaneCov8(J, PhiC, stateJacobian(cv.el, helio), nongravSens(eng, etC, yC, ca.et, cv.labels, cv.C), cv.C)
+          : bplaneCov(J, PhiC, stateJacobian(cv.el, helio), cv.C.length > 6 ? cv.C.slice(0, 6).map((r) => r.slice(0, 6)) : cv.C);
         if (S2.every((row) => row.every(Number.isFinite)) && S2[0][0] >= 0 && S2[1][1] >= 0) SB = S2;
       }
       post({ type: 'deflect', id, r: {

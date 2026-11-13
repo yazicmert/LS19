@@ -85,4 +85,39 @@ const dAng = Math.abs(((E.ang - EN.ang) * 180 / Math.PI + 270) % 180 - 90);
 check(Math.abs(EN.s1 / E.s1 - 1) < 0.15 && dAng < 5 && Math.hypot(mx, mz) < 0.3 * E.s1, 'doğrusal taşıma (J·Φ·Jx) örneklenmiş yörüngelerin tam tümlemesiyle uyumlu (büyük eksen %15, açı 5° içinde)');
 check(E.s1 > 0.1 && E.s1 < 1000, 'Apophis 2029 B-düzlemi belirsizliği km düzeyinde: ' + E.s1.toFixed(2) + ' km');
 
+// ---------------------------------------------------------------- 5. GERÇEK JPL kovaryansı (çözüm 220, cov=mat yanıtı: fixtures/sbdb_99942_cov.json)
+// Ölçütler koşturmadan önce sabitlendi: birim denetimi < 200 km; 2029 mesafe belirsizliği (A1, A2 dahil 8×8) JPL CAD 3σ aralığından türetilen
+// 1σ = (dist_max − dist_min)/6 değerinin %25 içinde. 6×6 (yalnız öğeler) ile oranı rapor edilir (ölçüm: 6×6 16 kat fazla → A1/A2 taşınır).
+const TOL_UNITS_KM = 200, TOL_SIGMA = 0.25;
+{
+  const jc = JSON.parse(fs.readFileSync(new URL('./fixtures/sbdb_99942_cov.json', import.meta.url))), cv = U.covFromSbdb(jc.orbit), C8 = U.covFromSbdb(jc.orbit, { full: true });
+  check(cv && cv.epoch === 2459215.5 && Math.abs(cv.el.tp - 2459101.039422462638) < 1e-9 && Math.abs(cv.el.om - 204.0389272089208) < 1e-12, 'gerçek yanıt: kovaryans devri 2021-01-01, öğeler covariance.elements\'tan (node → om, peri → w)');
+  check(C8 && C8.C.length === 8 && C8.labels.join() === 'e,q,tp,om,w,i,A1,A2' && Math.abs(Math.sqrt(C8.C[7][7]) - 1.859e-16) < 1e-19, 'tam 8×8 (A1, A2 dahil) okunur');
+  const ng = D.ngFromSbdb(jc.orbit.model_pars); eng.ng = ng;
+  // birim denetimi: 2021 kovaryans öğeleri → 2026 yörünge devri; yörünge çözümünün kendi öğeleriyle Kartezyen konum karşılaştırması
+  const etC = D.etFromJd(cv.epoch), helio = (e) => D.keplerHelio(U.cometaryToKepler(e, cv.epoch), etC);
+  const ssbAt = (et, rv) => { const [ps, vs] = eng.sun(et); return [rv[0][0] + ps[0], rv[0][1] + ps[1], rv[0][2] + ps[2], rv[1][0] + vs[0], rv[1][1] + vs[1], rv[1][2] + vs[2]]; };
+  const yC = ssbAt(etC, helio(cv.el)), etO = D.etFromJd(+jc.orbit.epoch), oel = {}; for (const x of jc.orbit.elements) oel[x.name] = +x.value;
+  const yO = ssbAt(etO, D.keplerHelio({ a: oel.a, e: oel.e, i: oel.i, om: oel.om, w: oel.w, ma: oel.ma, epoch: +jc.orbit.epoch }, etO)), yP = eng.integrate(etC, yC, etO).y;
+  const dpos = Math.hypot(yP[0] - yO[0], yP[1] - yO[1], yP[2] - yO[2]);
+  console.log(`  birim denetimi: 2021 → 2026 taşıma ile 2026 çözümü arasındaki konum farkı ${dpos.toFixed(1)} km`);
+  check(dpos < TOL_UNITS_KM, `kovaryans öğeleri ve birimleri doğru (fark < ${TOL_UNITS_KM} km; derece/radyan ya da tp hatası 10⁴–10⁶ km olurdu)`);
+  // 2029 yakın geçişi: Φ(CA, 2021) ve A1/A2 duyarlılıkları (merkezî fark, ±1σ)
+  const ca = eng.scan(etC, yC, D.etFromJd(2462300), { maxDist: 0.01 * D.AU }).list.find((c) => Math.abs(D.jdFromEt(c.et) - 2462240.4) < 1);
+  const { b0, J } = eng.bplanePartials(ca), Phi = eng.stm(etC, yC, ca.et)[0].Phi, Jx = U.stateJacobian(cv.el, helio);
+  const dA = U.nongravSens(eng, etC, yC, ca.et, C8.labels, C8.C);                 // worker'ın kullandığı işlev
+  const S6 = U.bplaneCov(J, Phi, Jx, cv.C), S8 = U.bplaneCov8(J, Phi, Jx, dA, C8.C);
+  // B-düzlemi → en yakın geçiş mesafesi: σ_rp = (drp/db)·√(ûᵀ Σ_B û), û = B/|B|, drp/db = x/√(1+x²), x = b·v∞²/μ
+  const u = [b0.xi / b0.b, b0.zeta / b0.b], x = b0.b * b0.vinf ** 2 / 398600.435507, slope = x / Math.sqrt(1 + x * x);
+  const sig = (S) => slope * Math.sqrt(u[0] * (S[0][0] * u[0] + S[0][1] * u[1]) + u[1] * (S[1][0] * u[0] + S[1][1] * u[1]));
+  const cad = JSON.parse(fs.readFileSync(new URL('./fixtures/sbdb_99942.json', import.meta.url))).ca_data.find((c) => c.cd.startsWith('2029-Apr-13'));
+  const jpl = (+cad.dist_max - +cad.dist_min) * D.AU / 6, s6 = sig(S6), s8 = sig(S8);
+  console.log(`  2029 mesafe belirsizliği (1σ): JPL ${jpl.toFixed(3)} km · motor 8×8 ${s8.toFixed(3)} km · 6×6 ${s6.toFixed(3)} km (oran 6×6/8×8 ${(s6 / s8).toFixed(3)}; drp/db ${slope.toFixed(3)})`);
+  console.log(`  B-düzlemi elipsi 8×8: ${U.ellipse(S8).s1.toFixed(2)} × ${U.ellipse(S8).s2.toFixed(3)} km`);
+  check(Math.abs(s8 / jpl - 1) < TOL_SIGMA, `2029 yakın geçiş mesafesinin belirsizliği JPL CAD ile %${TOL_SIGMA * 100} içinde (A1, A2 dahil)`);
+  // bulgu: A1 öğelerle güçlü ilişkili; yalnız öğelerle (6×6) taşımak belirsizliği ~16 kat abartır. Worker bu yüzden 8×8 kullanır (deflectwork.js).
+  check(s6 / s8 > 5, `A1/A2 atılırsa belirsizlik ${(s6 / s8).toFixed(1)} kat abartılır: worker tam (8×8) kovaryansı kullanmalı`);
+  check(/bplaneCov8\(J, PhiC/.test(fs.readFileSync(new URL('../js/deflectwork.js', import.meta.url), 'utf8')) && /full: !!ng/.test(fs.readFileSync(new URL('../js/deflectui.js', import.meta.url), 'utf8')), 'worker A1/A2 duyarlılığını taşır, arayüz tam kovaryansı ister');
+}
+
 console.log(ok ? 'TAMAM' : 'HATA'); process.exit(ok ? 0 : 1);

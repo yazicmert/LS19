@@ -134,7 +134,7 @@ export class DeflectUI {
       if (Number.isFinite(e.a) && Number.isFinite(e.ma)) {
         el = { a: e.a, e: e.e, i: e.i, om: e.om, w: e.w, ma: e.ma, epoch: +det.orbit.epoch }; src = `JPL çözümü ${det.orbit.orbit_id || ''} (tam duyarlık)`;
         ng = ngFromSbdb(det.orbit.model_pars);                            // aynı çözümün kütleçekimsel olmayan parametreleri (öğelerle birlikte kestirilmiştir)
-        cov = covFromSbdb(det.orbit);                                     // yörünge kovaryansı (cov=mat; yoksa null: yalnız itkinin belirsizliği)
+        cov = covFromSbdb(det.orbit, { full: !!ng });                   // yörünge kovaryansı (cov=mat; A1/A2 dahil); yoksa null: yalnız itkinin belirsizliği
       }
     }
     const msrc = { GM: d.GM || 0, GMsig: d.GMsig || 0, D: d.D, Dsig: d.Dsig || 0, Dmeasured: !!d.Dmeas, alb: d.alb, albSig: d.albSig || 0, rhoMeasured: !!d.rhoMeas };

@@ -23,7 +23,11 @@ const upstream = async (url) => {
   if (u.includes('sbdb_query') && u.includes('sb-group=neo')) body = file('sb_neo.json');
   else if (u.includes('sbdb_query')) body = file('sb_mb.json');
   else if (u.includes('sentry.api')) body = file('sentry.json');
-  else if (u.includes('sbdb.api')) body = file('sbdb_99942.json');
+  else if (u.includes('sbdb.api')) {                                           // cov=mat istenirse kovaryans bloğu gerçek JPL yanıtından (çözüm 220) eklenir
+    const j = JSON.parse(file('sbdb_99942.json'));
+    if (u.includes('cov=mat')) j.orbit.covariance = JSON.parse(file('sbdb_99942_cov.json')).orbit.covariance;
+    body = JSON.stringify(j);
+  }
   else return new Response('yok', { status: 404 });
   return new Response(body, { status: 200 });
 };
@@ -115,8 +119,8 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
     cv: (() => { const c = document.querySelector('#dfBplane'), g = c.getContext('2d'), d = g.getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; })() }));
   check('Sonuç (4. adım açık): karar kartı, "ne kadar gerekir" cümlesi ve B-düzlemi grafiği çizildi', v1.step === 4 && v1.t.length > 3 && /kg/.test(v1.need) && v1.cv > 500, `${v1.t} — ${v1.d.slice(0, 110)}`);
   check('gerçek yörünge senaryosunda yargı "ıskalamaya devam eder" (kinetik, 2 yıl önce)', v1.cls.includes('info') || v1.cls.includes('good'), v1.cls);
-  const un1 = await page.evaluate(() => ({ h: document.querySelector('#dfUnc').hidden, t: document.querySelector('#dfUT').textContent, d: document.querySelector('#dfUD').textContent }));
-  check('belirsizlik kutusu: gerçek yörüngede itkisiz → itkili çarpma olasılığı ve kayma aralığı (kovaryanssız yanıtta bunu söyler)', !un1.h && /Çarpma olasılığı: itkisiz %0 → itkili %0/.test(un1.t) && /kovaryansı yok/.test(un1.d) && /%90 olasılıkla/.test(un1.d), `${un1.t} — ${un1.d.slice(0, 120)}`);
+  const un1 = await page.evaluate(() => ({ h: document.querySelector('#dfUnc').hidden, t: document.querySelector('#dfUT').textContent, d: document.querySelector('#dfUD').textContent, sb: !!window.LS19.deflect.result.SB, card: /Yörünge kovaryansı: JPL/.test(document.querySelector('#dfTarget').textContent) }));
+  check('belirsizlik kutusu: gerçek yörüngede itkisiz → itkili çarpma olasılığı, JPL kovaryansıyla geçiş noktası belirsizliği (~1 km, A1/A2 dahil) ve kayma aralığı', !un1.h && /Çarpma olasılığı: itkisiz %0 → itkili %0/.test(un1.t) && /yörünge belirsizliği \(1σ\) ≈ [\d,]+ km \(JPL kovaryansı\)/.test(un1.d) && +(un1.d.match(/≈ ([\d,]+) km/) || [0, '99'])[1].replace(',', '.') < 3 && /%90 olasılıkla/.test(un1.d) && un1.sb && un1.card, `${un1.t} — ${un1.d.slice(0, 120)}`);
   const lt1 = await page.evaluate(() => ({ vis: !document.querySelector('#dfLaterBox').hidden, rows: [...document.querySelectorAll('#dfLater tbody tr')].map((r) => r.textContent), enc: !!window.LS19.deflect.result.enc }));
   check('sonraki yakın geçişler: nominal ve saptırılmış yörünge 2029 sonrası tümlenir (2051 geçişi listede); rezonans geometrisi var', lt1.vis && lt1.enc && lt1.rows.some((t) => /2051/.test(t)), lt1.rows.slice(0, 3).join(' | '));
   const u1 = await page.evaluate(() => Object.fromEntries(new URLSearchParams(location.search)));
