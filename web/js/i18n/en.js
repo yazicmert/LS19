@@ -1060,6 +1060,8 @@ const dict = {
   "Dönüş için en az {0} m/s": "At least {0} m/s to return",
   "Eve dönülebilir: {0} m/s gerekli, {1} m/s var": "Can get home: {0} m/s needed, {1} m/s available",
   "Kalan Δv yetmez: {0} m/s gerekli, {1} m/s var": "Not enough Δv left: {0} m/s needed, {1} m/s available",
+  "Kapsam": "Scope",
+  "Halo/NRHO: yalnız tek yakışlık doğrudan dönüş arandı; iki yakışlı, Ay yakın geçişli (Artemis) yol daha ucuz olabilir": "Halo/NRHO: only a single-burn direct return was searched; a two-burn path with a lunar flyby (Artemis) may be cheaper",
   "Yarkovsky A2 = {0} AB/gün²": "Yarkovsky A2 = {0} au/d²",
   "kütleçekimsel olmayan ivme (JPL)": "non-gravitational acceleration (JPL)",
   "Isıl ışımanın (Yarkovsky etkisi) yörünge boyunca küçük ama sürekli itkisi: JPL bunu gözlemlerden kestirir. Yüzyıllık taşımalarda yakın geçişi binlerce km kaydırabilir; motor bunu hesaba katar.": "The small but steady push of thermal re-emission (the Yarkovsky effect) along the orbit, estimated by JPL from observations. Over century-long propagations it can shift a close approach by thousands of km; the engine includes it.",

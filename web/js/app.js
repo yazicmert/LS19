@@ -70,7 +70,7 @@ const ui = new UI(world, send);
 // Laboratuvar › Ay görevi: dört adımın özetleri ve sonuç kartı (ayui.js). Yalnız durumu okur; "Baştan uçur" görev çubuğundaki Baştan başlat ile aynı komuttur
 const ayui = new AyUI({ ui, restart: () => send({ cmd: 'restart' }) });
 // Laboratuvar › Ay görevi › Uçuş: görev iptali okuması (ayrı iş parçacığı; canlı uçuşa dokunmaz)
-const ayabort = new AyAbort({ get: () => (S.latest && S.DESIGN && !S.designing ? { tStart: lastTStart, state: S.latest, stages: S.DESIGN.STAGES || MISSION_STAGES, utc: (t) => E.utcString(t).slice(0, 16) + ' UTC' } : null) });
+const ayabort = new AyAbort({ get: () => (S.latest && S.DESIGN && !S.designing ? { tStart: lastTStart, state: S.latest, stages: S.DESIGN.STAGES || MISSION_STAGES, halo: S.DESIGN.profile === 'HALO', utc: (t) => E.utcString(t).slice(0, 16) + ' UTC' } : null) });
 // Laboratuvar › Ay görevi › Sonuç: dağılım denemesi (Monte Carlo; ayrı iş parçacıkları, canlı uçuşa dokunmaz)
 const aymc = new AyMC({ get: () => (S.DESIGN && !S.designing ? { tStart: lastTStart, design: S.DESIGN, landing: optimalOk ? landingMode : 'zem', optimalOk, vehicle: vehicleMode,
   profileName: (PROFILES[ui.profileKeyOf(S.DESIGN.cfg || ui.getConfig())] || {}).name } : null) });

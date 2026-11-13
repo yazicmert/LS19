@@ -47,5 +47,7 @@ for (const k of ['SEP-EOM', 'MCC-2']) {
   check(good.kind === 'good' && /35 m\/s gerekli/.test(good.title) && good.rows.length === 3 && /\+10 dk/.test(good.rows[1][1]), 'yeter: en küçük (en iyi an) Δv ile karşılaştırılır');
   check(bad.kind === 'bad' && /yetmez/.test(bad.title) && /tek yakışla dönüş yok/.test(bad.rows[0][1]), 'yetmez; şimdi olanaksızsa söylenir');
   check(free.kind === 'good' && /Serbest dönüş/.test(free.title), 'serbest dönüş: yakış gerekmez');
+  const halo = abortSummary({ ...base, now: { ok: true, dvMag: 945, tEntry: 8e5, tBurn: 0 }, win: null, dvLeft: 2000, halo: true });
+  check(halo.rows.some(([k, v]) => k === 'Kapsam' && /tek yakışlık/.test(v)), 'halo/NRHO: okumanın kapsamı (yalnız tek yakış) açıkça yazılır');
 }
 console.log(ok ? 'TAMAM' : 'HATA'); process.exit(ok ? 0 : 1);

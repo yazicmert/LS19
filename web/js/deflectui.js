@@ -362,6 +362,9 @@ export class DeflectUI {
   syncMethod() {
     const m = this.method(), k = m === 'kinetic';
     $('#dfKin').hidden = !k; $('#dfThr').hidden = m !== 'thrust'; $('#dfGt').hidden = m !== 'tractor'; $('#dfIc').hidden = !k;
+    // önleme yönü (çarpma hızının yönü) yalnız kinetik çarpmada anlamlı: başka yöntemde seçenek kapanır, seçiliyse yörünge boyuna döner
+    const vo = $('#dfDir').querySelector('option[value=vec]'); vo.disabled = !k || !this.icDir;
+    if (!k && $('#dfDir').value === 'vec') $('#dfDir').value = 'along';
     document.querySelectorAll('input[name=dfMethod]').forEach((r) => r.closest('.mcard').classList.toggle('on', r.checked));
   }
   syncScenario() { document.querySelectorAll('input[name=dfScn]').forEach((r) => r.closest('.mcard').classList.toggle('on', r.checked)); }

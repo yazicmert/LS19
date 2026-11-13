@@ -104,7 +104,12 @@ export function verdict(result, { dvUsed = null, dvNominal = null, profileName =
 // ---------------------------------------------------------------- görev iptali (abort.js sonucu → düz dil)
 // now: şimdi yakılırsa, win: en iyi an (sonraki yörünge periyodu ya da 6 saat), dvLeft: aracın kalan Δv'si (m/s), t: şimdi, utc(t) → metin
 // Dönüş: { kind, title, rows: [[etiket, değer]…] }
-export function abortSummary({ now, win, dvLeft, t, utc }) {
+export function abortSummary({ now, win, dvLeft, t, utc, halo = false }) {
+  const r = abortSummaryCore({ now, win, dvLeft, t, utc });
+  if (halo) r.rows.push(['Kapsam', 'Halo/NRHO: yalnız tek yakışlık doğrudan dönüş arandı; iki yakışlı, Ay yakın geçişli (Artemis) yol daha ucuz olabilir']);
+  return r;
+}
+function abortSummaryCore({ now, win, dvLeft, t, utc }) {
   const days = (a, b) => `${fmt((b - a) / 86400, 1)} gün`, rows = [];
   const line = (x) => `${fmt(x.dvMag, 0)} m/s → Dünya'ya giriş ${utc(x.tEntry)} (yakıştan ${days(x.tBurn, x.tEntry)} sonra)`;
   if (now && now.ok && now.free) return { kind: 'good', title: 'Serbest dönüş: yakış gerekmez', rows: [['Şimdiki yörünge', `Kendiliğinden Dünya'ya döner: boşluk perijesi ${fmt(now.hp, 0)} km, giriş ${utc(now.tEntry)}`]] };

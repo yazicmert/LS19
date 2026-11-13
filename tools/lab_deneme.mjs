@@ -161,13 +161,15 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
 
   // ---- çekim traktörü: kuvvet fizikten, sonuç tablosunda; kinetik değilken parçalanma kutusu yok
   await page.click('#dfAgain'); await page.check('input[name=dfMethod][value=tractor]');
+  await page.click('#dfLeads .chip:has-text("2 yıl önce")');                 // önleme çözümü itki gününü çarpma gününe çekmişti; traktör 2 yıl önce başlar, 365 gün sürer
   const gtF = await txt(page, '#dfGtF');
-  check('çekim traktörü seçilince kuvvet G·M·m/d² ile gösterilir, kinetik alanları ve önleme bölümü gizlenir', /F = G·M·m\/d² ≈ [\d,]+ N/.test(gtF) && !(await vis(page, '#dfKin')) && !(await vis(page, '#dfIc')) && (await vis(page, '#dfGt')), gtF);
+  check('çekim traktörü seçilince kuvvet G·M·m/d² ile gösterilir, kinetik alanları ve önleme bölümü gizlenir; önleme yönü yörünge boyuna döner', /F = G·M·m\/d² ≈ [\d,]+ N/.test(gtF) && !(await vis(page, '#dfKin')) && !(await vis(page, '#dfIc')) && (await vis(page, '#dfGt'))
+    && await page.evaluate(() => document.querySelector('#dfDir').value === 'along' && document.querySelector('#dfDir option[value=vec]').disabled), gtF);
   await page.click('#dfRun');
   await page.waitForFunction(() => !document.querySelector('#dfResult').hidden && document.querySelector('#dfStale').hidden && /yontem=cek/.test(location.search), null, { timeout: 280000 });
   const gt = await page.evaluate(() => ({ row: [...document.querySelectorAll('#dfOut tr')].map((r) => r.textContent).find((t) => /Çekim traktörü/.test(t)) || '', need: document.querySelector('#dfNeed').textContent, dis: document.querySelector('#dfDisrupt').hidden, u: document.querySelector('#dfUD').textContent }));
   check('çekim traktörü sonucu: tablo satırı, "ne kadar gerekir" araç kütlesiyle, belirsizlik yalnız çaptan, parçalanma kutusu yok', /20\.000 kg · 2,0 yarıçap/.test(gt.row) && /yarıçap uzaklıkta/.test(gt.need) && gt.dis && /kütlesinden bağımsızdır/.test(gt.u), `${gt.row} — ${gt.need.slice(0, 90)}`);
-  await page.check('input[name=dfMethod][value=kinetic]'); await page.click('#dfRun');
+  await page.click('#dfAgain'); await page.check('input[name=dfMethod][value=kinetic]'); await page.click('#dfRun');
   await page.waitForFunction(() => !document.querySelector('#dfResult').hidden && document.querySelector('#dfStale').hidden && /yontem=kin/.test(location.search), null, { timeout: 280000 });
 
   // ---- 3B

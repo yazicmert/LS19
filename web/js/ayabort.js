@@ -6,7 +6,7 @@ import { abortSummary } from './aytext.js';
 import { stageDvs } from './telemetry.js';
 
 export class AyAbort {
-  // get(): { tStart, state: { t, r, v, m, prop, k }, stages, utc(t) } ya da null
+  // get(): { tStart, state: { t, r, v, m, prop, k }, stages, utc(t), halo } ya da null
   constructor({ get }) {
     this.get = get; this.w = null; this.id = 0;
     $('#abRun').addEventListener('click', () => this.run());
@@ -17,7 +17,7 @@ export class AyAbort {
     const id = ++this.id, s = g.state, w = (this.w = new Worker(new URL('./abortwork.js', import.meta.url), workerOpts()));
     // aracın kalan Δv'si: etkin ve sonraki kademeler (roket denklemi, telemetry.js); TLI kademesi atıldıysa yalnız uzay aracı
     const dvs = g.stages ? stageDvs(g.stages, s.k, s.m, s.prop) : null, dvLeft = dvs ? dvs.reduce((a, x) => a + (x ? x.dv : 0), 0) : NaN;
-    this.ctx = { t: s.t, dvLeft, utc: g.utc };
+    this.ctx = { t: s.t, dvLeft, utc: g.utc, halo: !!g.halo };
     $('#abRun').disabled = true; $('#abMsg').textContent = 'Hesaplanıyor…'; $('#abOut').hidden = true;
     w.onmessage = (e) => {
       const d = e.data; if (d.id !== this.id) return;

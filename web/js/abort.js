@@ -5,6 +5,8 @@
 //   1) Başlangıç: birkaç aday yönde (Ay'a ve Dünya'ya göre ileri/geri) büyüklük taraması, g hedefin altına inen en küçük büyüklük (ikiye bölme).
 //   2) En küçük normlu çözüm: g(Δv) = hedef kısıtı altında |Δv| en küçük; doğrusallaştırılmış kısıtla yinelenir: Δv ← Jᵀ·(hedef − g + J·Δv)/(J·Jᵀ).
 // Saf hesap (DOM yok); çağıran canlı efemerisi kurar (makeLive). abortwork.js iş parçacığında koşar; Node'da sınanır (test/test_abort.js).
+// Kapsam: tek itkisel yakış ve en çok 10 günlük doğrudan dönüş. Alçak Ay yörüngesi (LLO) ve çeviri yolculuğu için sınandı. Halo/NRHO'da en ucuz yol
+// iki yakışlı (ayrılış + Ay yakın geçişinde güçlendirilmiş geçiş, Artemis) olabilir: bu arama onu kapsamaz; okuma yalnız tek yakışlık dönüşü verir.
 import * as E from './engine.js';
 import { add, sub, scale, dot, norm, unit } from './vec3.js';
 
@@ -87,7 +89,9 @@ export function solveReturn(t, r, v, { hp = ABORT.HP, tMax = ABORT.TMAX, dvMax =
 // Ay yörüngesinde (LLO) dönüş yakışı yörüngenin belli bir noktasında yapılmalıdır (Apollo TEI); şimdi yakmak çoğu zaman olanaksızdır.
 export function solveReturnWindow(t, r, v, { span = null, n = 16, onProgress = null, ...o } = {}) {
   const rs = sub(r, E.moonPos(t)), vs = sub(v, E.moonVel(t)), rsn = norm(rs), en = 0.5 * dot(vs, vs) - E.MU_M / rsn;
-  const per = rsn < E.SOI_M && en < 0 ? 2 * Math.PI * Math.sqrt((-E.MU_M / (2 * en)) ** 3 / E.MU_M) : 6 * 3600;   // Ay'a bağlıysa bir yörünge periyodu, değilse 6 saat
+  // Ay'a bağlıysa (Ay'a göre özgül enerji < 0; NRHO'nun apolünü etki küresinin dışında kalabilir, bu yüzden uzaklık sınırı 1,5 × etki küresi)
+  // bir oskülatör yörünge periyodu (en çok 8 gün), değilse 6 saat
+  const bound = en < 0 && rsn < 1.5 * E.SOI_M, per = bound ? Math.min(8 * 86400, 2 * Math.PI * Math.sqrt((-E.MU_M / (2 * en)) ** 3 / E.MU_M)) : 6 * 3600;
   const T = span || per, P = new E.Propagator(new E.State(t, r, v, 'N'), E.dummyVehicle(), 60, 1.0, { nbody: true });
   const pts = [];
   for (let k = 0; k < n; k++) {
