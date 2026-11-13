@@ -58,6 +58,7 @@ engineFor(view, exp, cur)   // 'sky' → 'sky'; Laboratuvar'da deneyin motoru; a
 | `js/ayui.js` | Ay görevi deneyinin dört adımı: adım özetleri, tamam/yeni işaretleri, sonuç kartı, adımlar arası düğmeler. Yalnız durumu okur; worker'a komut göndermez |
 | `js/aymc.js` / `js/mcstats.js` / `js/mcwork.js` | Ay görevi dağılım denemesi: arayüz, saf özetler, iş parçacığı (`nominalrun.js` › `flyDispersed`) |
 | `js/ayabort.js` / `js/abort.js` / `js/abortwork.js` | Görev iptali: Dünya'ya dönüş için en küçük Δv (tam kuvvet modeli), en iyi yakış anı |
+| `js/moonsite.js` | Ay iniş yerleri: koordinat, yerel yarıçap, arazi kaynağı; `siteOf`, görüntülenen yer (`VIEW`) |
 | `js/aytext.js` | Saf yardımcılar (DOM yok): adım özetleri, sonuç yargısı (temasın başarısı `mission.js` › `touchdown()` kararıdır, burada yeniden hesaplanmaz) |
 | `js/deflectui.js` | Saptırma deneyi: 4 adım, grafikler, 3B yollar (hesap `deflectwork.js`'te, değişmedi) |
 | `js/labtext.js` | Saf yardımcılar (DOM yok): düz dille biçim, itki zamanı seçenekleri, sonuç yargısı, adım özetleri, bağlantı ve geçmiş, belirsizlik metni |
@@ -81,6 +82,15 @@ Saptırma deneyiyle aynı dil: numaralı adımlar, her adımın tek satırlık �
 - Sonuç kartındaki Δv toplamları Δv tablosuyla aynı tanımdır (yalnız nominali ve gerçekleşeni bilinen manevralar).
 - Güvenli temas sınırları (dikey < 3 m/s, yatay < 1,22 m/s: Apollo LM iniş takımı tasarım sınırları 10 ft/s ve 4 ft/s) `mission.js`'tedir; `test_ayexp.js` metindeki sayıların oradakilerle aynı kaldığını denetler.
 - Eski sekme kimlikleri korunur: `?tab=gorev` 1. adımı, `?tab=kontrol|grafik|yorunge|efemeris` Uçuş adımını o aletle, `?tab=dv` Sonuç adımını açar.
+
+### İniş yeri seçimi
+
+Görev adımındaki **İniş yeri**: Apollo 11 (Huzur Denizi), 12 (Fırtınalar Okyanusu), 14 (Fra Mauro), 15 (Hadley–Apennine), 16 (Descartes), 17 (Taurus–Littrow). Değiştirince Tasarla görevi o yere yeniden kurar: aydınlanma penceresi, LLO düzlemi (yerin enleminden küçük eğim olamaz), DOI/PDI, iniş güdümünün hedefi, temas.
+
+- **Koordinatlar:** Wikipedia görev sayfalarının "Lunar lander › Landing site" satırı (LRO ölçümleri); Apollo 11'in koddaki değeri aynı kaynakla uyumlu.
+- **Yerel yarıçap ve arazi:** Apollo 11 ölçülmüş 1735,47 km ve LOLA 16 ppd yaması (`data/site_dem.json`). Öteki yerlerde Ay küresinin çizildiği küresel LOLA dokusundan (`textures/moon_height.png`, 8 ppd) iniş noktasındaki yükseklik ve 0,125° adımlı arazi yaması (`data/site_dems.json`, `tools/ay_yerleri.py`; yalnız gerekince indirilir). Eşleme Apollo 11'in ölçülmüş yamasıyla doğrulanır (korelasyon 0,9986, ortalama fark 0,2 m, iniş noktasında 88 m): öteki yerlerin yarıçap hata payı ≈ ±0,1 km. Böylece fizik yüzeyi çizilen Ay'la tutarlıdır (ortalama yarıçap kullanılsaydı araç yayla yerlerinde km'lerce arazinin içine ya da üstüne inerdi).
+- **Mimari:** yer tasarım nesnesinde (`MOONSITE`, yalnız varsayılan değilse; hazır tasarımlar ve önbellek anahtarları değişmez). Her `Mission` örneği yerini tasarımdan alır (`moonsite.js` › `siteOf`): görev worker'ı, nominal koşu ve Monte Carlo aynı yere iner. Ana iş parçacığı tek tutucudan (`VIEW`) okur; `app.js` görev hazır olunca günceller; sahne küredeki deliği, arazi yamasını ve işaretçiyi birlikte taşır, eski arazi yüklemelerini sıra numarasıyla atar. Kutup bölgeleri desteklenmez (|enlem| ≤ 30°).
+- **Doğrulama** (`test/test_moonsite.js`): varsayılan yer bugünkü sabitlerle bit düzeyinde aynı (`test_nominalby` değişmedi); altı yerin hepsinde aydınlanma penceresi bulunur; Apollo 15 (26,1° K) tasarlanır, LLO'nun Ay ekvatoruna eğimi 27,2°, nominal uçuş seçilen yere 0,0 m, dağılımlı uçuş (TLI hatası + seyrüsefer) 0,3 m, Apollo 11 yerine 952 km; hiçbir modül yeri `mission.js`'in Apollo 11 sabitlerinden almaz.
 
 ### Görev iptali: Dünya'ya dönüş (Apollo 13 sorusu)
 
@@ -191,6 +201,7 @@ Ana sayfa ya da saptırma açılınca panel kendiliğinden açılır (deney ana 
 - `node test/test_intercept.js` — önleme görevi: DART çarpma hızı (Lambert ↔ ölçüm), C3 kapasitesi, Apophis örgüsünün en iyi hücresi ↔ tam tümleme.
 - `node test/test_abort.js` — görev iptali: çeviri yolculuğu ve LLO'dan dönüş Δv'si, yamalı konik sınırları, 40 km perije bağımsız süzülmeyle.
 - `node test/test_keyhole.js` — rezonans çemberleri: Valsecchi ↔ tam tümleme, 7:6 rezonanslı dönüş; sonraki geçiş yargısı.
+- `node test/test_moonsite.js` — iniş yeri: varsayılan bit düzeyinde aynı, aydınlanma pencereleri, Apollo 15'e nominal ve dağılımlı iniş, yarıçapların veri dosyasına kilidi, modül sözleşmesi.
 - `node test/test_aymc.js` — Ay görevi dağılım denemesi: yüzdelik, Wilson aralığı, özet; aynı tohum aynı uçuş, farklı tohum farklı TLI hatası, hatasız koşu = nominal; arayüz sözleşmesi.
 - `node tools/lab_deneme.mjs` — başsız Chromium'da tam akış: iki dallı gezinme, deney → motor geçişleri (ana sayfa motoru değiştirmez; Ay görevi görev motorunu, saptırma gökyüzü motorunu açar), Ay görevinin dört adımı (Devam düğmeleri, panelden güdüm seçimi menüyle eşlenir, Uçuş aletleri, K, inişe atlayıp sonuç kartı, Baştan uçur, `?tab=dv`), Esc/M/K kısayolları, Betulia boş durumu, Apophis 2029 (4 yakın geçiş, ilki 13 Nisan 2029, 38.013 km), itki, "çarpacak olsaydı", 3B yollar, çapraz bağlantılar, eski/yeni adres parametreleri (`?mode=mission`, `?tab=kontrol`), telefon (390×844; varsayılan açılışta panel kapalı). `api/*` istekleri gerçek bulut işlevleriyle `web/test/fixtures` yanıtlarından karşılanır: internet gerekmez.
 
