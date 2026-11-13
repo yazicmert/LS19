@@ -93,7 +93,9 @@ export class DeflectUI {
     $('#dfScanStatus').textContent = 'Hedef bilgileri alınıyor…';
     const t = this.getT(), today = etToISO(t + (E.jdTdb(0) - 2451545) * 86400, false);
     if (!$('#dfStart').value) $('#dfStart').value = today;
-    const det = await A.fetchDetail(i); if (my !== this.pickSeq) return;
+    const des = A.C.des[i], det = await A.fetchDetail(i); if (my !== this.pickSeq) return;
+    i = A.index.get(des) ?? -1; if (i < 0) { $('#dfScanStatus').textContent = 'Hedef katalogda yok'; return; }        // beklerken katalog yeniden kurulmuş olabilir (dizinler kayar)
+    this.target.i = i;
     const d = A.details(i, t);
     let el = A.elementsOf(i), src = 'katalog öğeleri (12 hane)';
     if (det && det.orbit && det.orbit.elements) {

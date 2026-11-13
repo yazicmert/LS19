@@ -131,8 +131,9 @@ export class AsteroidLayer {
     // DAMIT (ışık eğrisi tersine çevirme, CC BY 4.0): ~4400 asteroit için şekil + dönme ekseni; parçalar gzip'li, seçilince indirilir
     this.damit = null; this.damitShards = new Map();
     fetch('models/ast/damit/damit.json').then((r) => (r.ok ? r.json() : null)).then((j) => { this.damit = j; }).catch(() => {});
-    // eski dönemli NEO'lar: N-cisim ile güncel döneme taşınmış öğeler ve Dünya'ya çarpmış cisimler (tools/neo_epok.mjs, haftalık)
-    this.epokP = fetch('data/neo_epok.json').then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    // eski dönemli NEO'lar: N-cisim ile güncel döneme taşınmış öğeler ve Dünya'ya çarpmış cisimler (tools/neo_epok.mjs, haftalık).
+    // Yalnız NEO kümesi yüklenirken istenir ve beklenmez: katman önce JPL öğeleriyle görünür, dosya gelince yeniden kurulur.
+    this.epokP = null; this.epok = null;
     this.onChange = null;
   }
   changed() { if (this.onChange) this.onChange(); }
@@ -145,7 +146,8 @@ export class AsteroidLayer {
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.cols) throw new Error(d.hata || ('HTTP ' + r.status));
       this.sets[set] = d; this.src[set] = { kaynak: d.kaynak || 'JPL SBDB', t: d.t };
-      this.epok = await this.epokP;
+      if (set === 'neo' && !this.epokP) this.epokP = fetch('data/neo_epok.json').then((x) => (x.ok ? x.json() : null)).catch(() => null)
+        .then((j) => { if (j && j.o) { this.epok = j; if (this.C) this.combine(); } });
       this.combine();
     } catch (err) {
       this.info = { status: 'Asteroit verisi alınamadı: ' + err.message }; this.changed();
@@ -166,8 +168,10 @@ export class AsteroidLayer {
     const C = {}; for (const k of keys) C[k] = [];
     for (const s of order) { const c = this.sets[s].cols; for (const k of keys) C[k].push(...(c[k] || new Array(c.a.length).fill(null))); }
     applyEpok(C, this.epok, keys);
-    this.C = C; this.n = C.a.length; this.sel = -1; this.etProp = null;
+    const selDes = this.C && this.sel >= 0 ? this.C.des[this.sel] : null;                // yeniden kurulumda seçim korunur (dizinler değişebilir)
+    this.C = C; this.n = C.a.length; this.sel = -1; this.etProp = null; this.selOrbit = null;
     this.index = new Map(); for (let i = 0; i < this.n; i++) this.index.set(C.des[i], i);
+    if (selDes != null && this.index.has(selDes)) this.sel = this.index.get(selDes);
     this.geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3 * this.n), 3));
     this.geo.setAttribute('vel', new THREE.BufferAttribute(new Float32Array(3 * this.n), 3));
     this.geo.setAttribute('grp', new THREE.BufferAttribute(new Float32Array(this.n), 1));

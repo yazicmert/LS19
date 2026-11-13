@@ -1,4 +1,3 @@
-# Etkinleştirmek için bu dosyayı .github/workflows/celestrak-data.yml konumuna taşıyın.
 # CelesTrak verisinin 2 saatlik kopyası -> "data" dalı (geçmişsiz, her seferinde üzerine yazılır).
 # Neden: CelesTrak, Vercel gibi bulut sağlayıcıların IP'lerini engelleyebiliyor ve Supplemental GP'de CORS yok.
 # Site önce CelesTrak'ı dener; olmazsa bu kopyayı kullanır. CelesTrak kuralına uyulur: her dosya en sık 2 saatte bir.

@@ -219,7 +219,10 @@ document.querySelectorAll('[data-workspace]').forEach((b) => b.addEventListener(
 function loadMoonSats(t) {
   if (!S.sats) return;
   if (moonRange && t > moonRange[0] + 3600 && t < moonRange[1] - 3600) return;
-  moonRange = [t - 86400, t + 6 * 86400]; S.sats.loadMoon(moonRange[0], moonRange[1]);
+  // aralık UTC gün başına yuvarlanır: aynı gün açılan her sayfa aynı Horizons sorgusunu sorar, bulut vekilinin CDN önbelleği paylaşılır
+  // (dakika duyarlı aralıkta her ziyaretçi 6 ayrı Horizons isteği tetikliyordu)
+  const day0 = t - ((E.utcMsFromT(t) / 1000) % 86400 + 86400) % 86400;
+  moonRange = [day0 - 86400, day0 + 7 * 86400]; S.sats.loadMoon(moonRange[0], moonRange[1]);
 }
 // gözlemci kamerası: küresel Dünya yüzeyinde (çizimle uyumlu), yerel doğu/başucu yönleri
 function obsPose(t) {
