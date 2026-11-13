@@ -148,7 +148,7 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   const ic = await page.evaluate(() => ({ best: !!window.LS19.deflect.pc.best, rows: document.querySelectorAll('#dfIcBest tr').length, msg: document.querySelector('#dfIcMsg').textContent,
     cv: (() => { const c = document.querySelector('#dfPork'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; })() }));
   check('önleme görevi: Falcon Heavy ile fırlatma penceresi (Lambert örgüsü) çizilir, en iyi çözüm 7 satırla özetlenir', icOk && ic.best && ic.rows === 7 && ic.cv > 2000 && /yörünge denendi/.test(ic.msg), JSON.stringify(ic));
-  await shot(page, '8b-onleme');
+  await shot(page, '8b-onleme'); await page.locator('#dfIcOut').screenshot({ path: path.join(outDir, '8c-firlatma-penceresi.png'), timeout: 200000 });
   await page.click('#dfIcUse');
   const used = await page.evaluate(() => ({ dir: document.querySelector('#dfDir').value, m: +document.querySelector('#dfMass').value, kin: document.querySelector('input[name=dfMethod][value=kinetic]').checked, b: window.LS19.deflect.pc.best }));
   check('"Bu çözümü kullan": yöntem kinetik, kütle roketin kapasitesi, yön önleme yörüngesinden', used.dir === 'vec' && used.kin && used.m === Math.floor(used.b.m) && used.m > 100, JSON.stringify({ dir: used.dir, m: used.m }));

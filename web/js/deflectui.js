@@ -314,7 +314,7 @@ export class DeflectUI {
     this.pc = r; const b = r.best;
     $('#dfIcOut').hidden = false;
     if (!b) { $('#dfIcMsg').textContent = 'Bu roketle bu geçişten önce ulaşılabilen bir önleme yörüngesi bulunamadı.'; $('#dfIcBest').replaceChildren(); $('#dfIcUse').disabled = true; this.drawPork(); return; }
-    $('#dfIcMsg').textContent = `${fmt(r.nL * r.nT, 0)} yörünge denendi.`; $('#dfIcUse').disabled = false;
+    $('#dfIcMsg').textContent = `${fmt(r.nL * r.nT, 0)} yörünge denendi. En büyük kayma ${kmText(b.shift)}: yakalama yarıçapının %${fmt(100 * b.shift / r.bE, b.shift < 0.1 * r.bE ? 1 : 0)}.`; $('#dfIcUse').disabled = false;
     const tb = mk('table', 'tbl');
     for (const [k, v] of interceptRows(b, r.bE, rocketOf($('#dfRocket').value).name)) { const tr = mk('tr'); tr.append(mk('td', null, k), mk('td', 'num', v)); tb.appendChild(tr); }
     $('#dfIcBest').replaceChildren(tb);
@@ -323,22 +323,26 @@ export class DeflectUI {
   drawPork() {
     const r = this.pc; if (!r) return;
     const P0 = this.prep($('#dfPork')); if (!P0) return;
-    const { g, w, h } = P0, L = 46, R = 6, T = 18, B = 24, cw = (w - L - R) / r.nL, ch = (h - T - B) / r.nT, DAY = 86400;
-    g.fillStyle = '#9aa3b2'; g.fillText('uçuş süresi (gün) ↑ · fırlatma günü →', 6, 12);
-    const col = (q) => {                                                       // kayma / bE (log): koyu mavi → turuncu → sarı-beyaz (≥ 1)
-      const t = Math.max(0, Math.min(1, (Math.log10(q) + 3) / 3));
-      if (q >= 1) return '#fff3b0';
-      const a = [30, 50, 90], c = [255, 138, 61]; return `rgb(${a.map((x, i) => Math.round(x + (c[i] - x) * t)).join(',')})`;
+    const { g, w, h } = P0, L = 40, R = 6, T = 24, B = 22, cw = (w - L - R) / r.nL, ch = (h - T - B) / r.nT, DAY = 86400;
+    g.fillStyle = '#0d1118'; g.fillRect(L, T, w - L - R, h - T - B);
+    // renk: kayma, örgünün kendi aralığında (en büyüğün 1/1000'i → en büyük) logaritmik; koyu mor → turuncu → sarı. Yakalama yarıçapını aşan hücreler (kurtarır) beyaz çerçeveli
+    let mx = 0; for (const v of r.shift) if (v > mx) mx = v;
+    const lo = Math.log10(mx / 1000), stops = [[0, [60, 40, 110]], [0.55, [230, 90, 60]], [1, [255, 236, 150]]];
+    const col = (v) => {
+      const t = Math.max(0, Math.min(1, (Math.log10(v) - lo) / 3)); let k = 0; while (k < stops.length - 2 && t > stops[k + 1][0]) k++;
+      const [t0, c0] = stops[k], [t1, c1] = stops[k + 1], f = (t - t0) / (t1 - t0); return `rgb(${c0.map((x, i) => Math.round(x + (c1[i] - x) * f)).join(',')})`;
     };
     for (let i = 0; i < r.nL; i++) for (let j = 0; j < r.nT; j++) {
       const v = r.shift[i * r.nT + j]; if (!Number.isFinite(v)) continue;
-      g.fillStyle = col(v / r.bE); g.fillRect(L + i * cw, h - B - (j + 1) * ch, Math.ceil(cw), Math.ceil(ch));
+      const x = L + i * cw, y = h - B - (j + 1) * ch;
+      g.fillStyle = col(v); g.fillRect(x, y, Math.ceil(cw), Math.ceil(ch));
+      if (v >= r.bE) { g.strokeStyle = '#ffffff'; g.strokeRect(x + 0.5, y + 0.5, Math.max(1, cw - 1), Math.max(1, ch - 1)); }
     }
     g.strokeStyle = '#3a4150'; g.strokeRect(L, T, w - L - R, h - T - B);
-    g.fillStyle = '#9aa3b2';
+    g.fillStyle = '#9aa3b2'; g.fillText('uçuş süresi (gün) ↑ · fırlatma günü →', 6, 12);
     for (let j = 0; j < r.nT; j += Math.max(1, Math.round(r.nT / 5))) g.fillText(fmt((r.j0 + j) * r.h / DAY, 0), 4, h - B - j * ch - 2);
-    for (let i = 0; i < r.nL; i += Math.max(1, Math.round(r.nL / 4))) g.fillText(etToISO(r.L0 + i * r.h, false).slice(0, 7), L + i * cw, h - 8);
-    if (r.best) { const b = r.best; g.strokeStyle = '#ffffff'; g.lineWidth = 2; g.beginPath(); g.arc(L + (b.i + 0.5) * cw, h - B - (b.j + 0.5) * ch, 6, 0, 7); g.stroke(); g.lineWidth = 1; }
+    for (let i = 0; i < r.nL; i += Math.max(1, Math.round(r.nL / 4))) g.fillText(etToISO(r.L0 + i * r.h, false).slice(0, 7), Math.min(L + i * cw, w - 48), h - 7);
+    if (r.best) { const b = r.best; g.strokeStyle = '#5ee7ff'; g.lineWidth = 2; g.beginPath(); g.arc(L + (b.i + 0.5) * cw, h - B - (b.j + 0.5) * ch, 6, 0, 7); g.stroke(); g.lineWidth = 1; }
   }
   useIntercept() {
     const b = this.pc && this.pc.best; if (!b) return;
