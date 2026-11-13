@@ -48,6 +48,9 @@ makeLive(SPK, PCK, eo, tStart);
   check(mis.length === 0, 'Mission içindeki tüm kullanım this.site üzerinden' + (mis.length ? ': ' + mis[0].trim().slice(0, 80) : ''));
   check(/world\.setMoonSite\(setViewSite\(d\.design\)\)/.test(rd('app.js')) && /validSite\(d\.cfg\.moonSite\) !== DEFAULT_SITE/.test(rd('worker.js')) && /seq !== this\.terrainSeq/.test(rd('scene.js')) && /siteDir\.value\.set/.test(rd('scene.js')),
     'app.js görüntülenen yeri ve araziyi görev hazır olunca günceller; worker hazır tasarımı yalnız Apollo 11\'de kullanır; sahne eski arazi yüklemesini atar, deliği taşır');
+  // tasarım başlatan her yol seçili iniş yerini taşır: ana tasarım ve pencere taramaları ui.getConfig() ile, profil karşılaştırması açıkça
+  check(/moonSite: this\.ui\.getConfig\(\)\.moonSite/.test(rd('profilecompare.js')) && (rd('windowscan.js').match(/designMissionAsync\(/g) || []).length === 2 && (rd('windowscan.js').match(/this\.ui\.getConfig\(\)/g) || []).length >= 2 && /moonSite: \$\('#cfgMoonSite'\)\.value/.test(rd('ui.js')),
+    'profil karşılaştırması, pencere taramaları ve ana tasarım seçili Ay iniş yerini kullanır');
 }
 // 2) aydınlanma penceresi her yerde
 for (const id of Object.keys(LUNAR_SITES)) {

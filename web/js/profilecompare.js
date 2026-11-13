@@ -7,7 +7,7 @@ export class ProfileCompare {
   // deps: { ui, cachedDesign(ms, cfg), designCache (Map), cacheKey(ms, cfg), tOfUtcMs }; başlangıç günü ve tasarım durumu ortak durumdan (appstate.js)
   constructor(deps) { Object.assign(this, deps); this.comparing = false; this.cancelled = false; }
   cancel() { this.cancelled = true; }
-  cfg(key) { return { ...PROFILES[key].cfg, rocket: this.ui.rocket }; }          // profil + seçili roket
+  cfg(key) { return { ...PROFILES[key].cfg, rocket: this.ui.rocket, moonSite: this.ui.getConfig().moonSite }; }          // profil + seçili roket + seçili Ay iniş yeri
   rows() {
     return Object.entries(PROFILES).map(([key, p]) => { const c = this.cachedDesign(S.START_MS, this.cfg(key)); return { key, name: p.name, D: c ? c.design : null }; });
   }
