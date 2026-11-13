@@ -178,8 +178,13 @@ ok(sentryRows(new Map([['X', { ip: 1e-5, ps: -4, ts: null, range: '2150-2190' }]
 { const Y = 365.25 * 864e5, tMin = Date.UTC(2019, 11, 15), tMax = tMin + 4.85 * Y;
   ok(solarTableInfo() === null && Math.abs(solarCycleF107(tMin) - 70) < 1e-9 && Math.abs(solarCycleF107(tMax) - 185) < 1e-9 && Math.abs(solarCycleF107(tMax + 11 * Y) - 185) < 1e-6 && Math.abs(solarCycleF107(tMin - 22 * Y) - 70) < 1e-6 && solarF107(NOW) === solarCycleF107(NOW),
     `ortalama F10.7 çevrimi (tablo yokken): en az 70, en çok 185, 11 yılda yinelenir; Eki 2026: ${solarF107(NOW).toFixed(0)}`);
-  // aylık tablo (web/data/f107.json): gözlenen + CelesTrak tahmini; ay ortaları arasında doğrusal, dışında ortalama çevrim
-  const fs = await import('node:fs'), TAB = JSON.parse(fs.readFileSync(new URL('../data/f107.json', import.meta.url), 'utf8'));
+  // Sınamalar F10.7 tablosunun 20 Temmuz 2025'te dondurulmuş kopyasını kullanır (fixtures/f107_2025-07-20.json): 2025–26 örnekleri o günkü tahminle adil
+  // sınanır ve haftalık güncellenen canlı tablo (web/data/f107.json) sonuçları değiştirmez. Canlı tablo yalnız yapısal olarak denetlenir.
+  // aylık tablo: gözlenen + CelesTrak tahmini; ay ortaları arasında doğrusal, dışında ortalama çevrim
+  const fs = await import('node:fs'), fs0 = fs, TAB = JSON.parse(fs.readFileSync(new URL('./fixtures/f107_2025-07-20.json', import.meta.url), 'utf8'));
+  { const L = JSON.parse(fs0.readFileSync(new URL('../data/f107.json', import.meta.url), 'utf8')), [ly, lm] = L.ilkAy.split('-').map(Number), end = Date.UTC(ly, lm - 1 + L.f.length, 1);
+    ok(L.ilkAy === '1957-10' && L.f.length > 900 && L.f.every((x) => x > 30 && x < 500) && L.gozlenenAy > 800 && Array.isArray(L.ap) && L.ap.length === L.gozlenenAy && end > Date.now() + 10 * 365.25 * 864e5 && /CelesTrak/.test(L.kaynak),
+      `canlı F10.7 tablosu (${L.guncelleme || '?'}; son gözlem ${L.sonGozlem}): ${L.f.length} ay, ${L.gozlenenAy} ay gözlem, bugünden ≥ 10 yıl ileriyi kapsar`); }
   ok(setSolarTable({ ilkAy: '2020-01', f: [100, 130, 160] }) && Math.abs(solarF107(Date.UTC(2020, 1, 15, 12)) - 130) < 1e-9 && Math.abs(solarF107(Date.UTC(2020, 0, 30, 12)) - 115) < 0.6 && solarF107(Date.UTC(2021, 0, 1)) === solarCycleF107(Date.UTC(2021, 0, 1)) && !setSolarTable({ f: 'x' }) && solarTableInfo() === null,
     'tablo: ay ortasında tam değer, aralarda doğrusal, dışında ortalama çevrim; bozuk tablo reddedilir');
   setSolarTable(TAB); const atM = (y, m) => solarF107(Date.UTC(y, m - 1, 15, 12)), info = solarTableInfo();
@@ -241,7 +246,7 @@ function cart(hp, ha, inc, raan, argp, t0, days, flags) {
   const st = (R) => { const a = R.map((x) => x.ratio); return { n: a.length, med: qt(a, 0.5), lo: qt(a, 0.16), hi: qt(a, 0.84), in2: a.filter((x) => x > 0.5 && x < 2).length / a.length, mad: qt(a.map((x) => Math.abs(Math.log(x))), 0.5) }; };
   const txt = (s) => `n=${s.n}, medyan ${s.med.toFixed(2)}, %68: ${s.lo.toFixed(2)}–${s.hi.toFixed(2)}, 2× içinde %${(100 * s.in2).toFixed(0)}`;
   // Güneş aktivitesi: uygulamadaki aylık tablo; gözlemi örnek penceresinin başında (20 Tem 2025) bitiyor, sonrası o günkü CelesTrak tahmini: adil geriye dönük sınama
-  const TAB = JSON.parse(fs.readFileSync(new URL('../data/f107.json', import.meta.url), 'utf8')); setSolarTable(TAB);
+  const TAB = JSON.parse(fs.readFileSync(new URL('./fixtures/f107_2025-07-20.json', import.meta.url), 'utf8')); setSolarTable(TAB);
   const R = run(undefined), all = st(R), near = st(R.filter((x) => x.lead < 70)), mid = st(R.filter((x) => x.lead >= 70 && x.lead < 220)), far = st(R.filter((x) => x.lead >= 220));
   ok(F.satirlar.length > 450 && F.meta.cisim > 200 && /GCAT/.test(F.meta.gercek) && all.n >= F.satirlar.length - 5, `gerçek yeniden giriş örneği: ${F.meta.cisim} cisim, ${F.satirlar.length} tahmin girdisi`);
   ok(all.med > 0.88 && all.med < 1.12 && all.in2 > 0.93, `gerçek ↔ model (tümü): ${txt(all)}`);
@@ -269,7 +274,7 @@ function cart(hp, ha, inc, raan, argp, t0, days, flags) {
 // ================================================================ tarihsel yeniden girişler (çok yıllık tahminler)
 // 1965–2016 arasında yeniden girmiş ~760 cisim (GCAT tarihleri, J. McDowell tarihsel TLE arşivi; tools/tarihsel_ornek.mjs). Güneş aktivitesi bu dönem için
 // gözlenmiştir, yani bu sınama fiziği (yoğunluk, B*/ṅ, aktivite duyarlılığı) sınar, Güneş tahmininin hatasını değil; ortalama çevrim, tahminsiz durumu temsil eder.
-{ const fs = await import('node:fs'), H = JSON.parse(fs.readFileSync(new URL('./fixtures/reentry_hist.json', import.meta.url), 'utf8')), TAB = JSON.parse(fs.readFileSync(new URL('../data/f107.json', import.meta.url), 'utf8'));
+{ const fs = await import('node:fs'), H = JSON.parse(fs.readFileSync(new URL('./fixtures/reentry_hist.json', import.meta.url), 'utf8')), TAB = JSON.parse(fs.readFileSync(new URL('./fixtures/f107_2025-07-20.json', import.meta.url), 'utf8'));
   const qt = (a, p) => { const x = [...a].sort((u, v) => u - v); return x[Math.min(x.length - 1, Math.floor(p * x.length))]; };
   const run = (opt) => H.satirlar.map((r) => { const x = assessSat({ EPOCH: r.epoch, MEAN_MOTION: r.n, ECCENTRICITY: r.e, BSTAR: r.bstar, MEAN_MOTION_DOT: r.ndot }, Date.parse(r.epoch + 'Z'), false, null, opt); return { q: x.lifeDays / r.kalanGun, y: r.kalanGun / 365.25, c: x.conf }; });
   setSolarTable(TAB); const T = run(); setSolarTable(null); const C = run(), S = run({ solar: false });
@@ -287,7 +292,7 @@ function cart(hp, ha, inc, raan, argp, t0, days, flags) {
 }
 // ================================================================ GTO/HEO gerçek yeniden girişler (Ay–Güneş çekimi)
 // 1975–2016 arasında yeniden girmiş 464 roket gövdesi ve yük (apoje ≥ 15.000 km; GCAT tarihleri, McDowell arşivi; tools/tarihsel_ornek.mjs --heo)
-{ const fs = await import('node:fs'), H = JSON.parse(fs.readFileSync(new URL('./fixtures/reentry_heo.json', import.meta.url), 'utf8')), TAB = JSON.parse(fs.readFileSync(new URL('../data/f107.json', import.meta.url), 'utf8'));
+{ const fs = await import('node:fs'), H = JSON.parse(fs.readFileSync(new URL('./fixtures/reentry_heo.json', import.meta.url), 'utf8')), TAB = JSON.parse(fs.readFileSync(new URL('./fixtures/f107_2025-07-20.json', import.meta.url), 'utf8'));
   const qt = (a, p) => { const x = [...a].sort((u, v) => u - v); return x[Math.min(x.length - 1, Math.floor(p * x.length))]; };
   const o = (r) => ({ EPOCH: r.epoch, MEAN_MOTION: r.n, ECCENTRICITY: r.e, BSTAR: r.bstar, MEAN_MOTION_DOT: r.ndot, INCLINATION: r.i, RA_OF_ASC_NODE: r.raan, ARG_OF_PERICENTER: r.argp });
   setSolarTable(TAB);
@@ -305,7 +310,7 @@ function cart(hp, ha, inc, raan, argp, t0, days, flags) {
   setSolarTable(null);
 }
 // ================================================================ olası aralık (%68): biçim ve LEO kapsaması
-{ const fs = await import('node:fs'), TAB = JSON.parse(fs.readFileSync(new URL('../data/f107.json', import.meta.url), 'utf8'));
+{ const fs = await import('node:fs'), TAB = JSON.parse(fs.readFileSync(new URL('./fixtures/f107_2025-07-20.json', import.meta.url), 'utf8'));
   const H = JSON.parse(fs.readFileSync(new URL('./fixtures/reentry_hist.json', import.meta.url), 'utf8')).satirlar, F = JSON.parse(fs.readFileSync(new URL('./fixtures/reentry_real.json', import.meta.url), 'utf8')).satirlar;
   const r1 = lifeRange(100), r2 = lifeRange(3000, true), r3 = lifeRange(12000), r4 = lifeRange(30000), r5 = lifeRange(12000, true);
   ok(r1.lo < 100 && r1.hi > 100 && r2.lo >= 0.9 * 3000 && r3.hi == null && r3.lo < 12000 && r4 === null && r5 === null && lifeRange(Infinity) === null && lifeRange(0) === null,
@@ -316,14 +321,15 @@ function cart(hp, ha, inc, raan, argp, t0, days, flags) {
   const o = (r) => ({ EPOCH: r.epoch, MEAN_MOTION: r.n, ECCENTRICITY: r.e, BSTAR: r.bstar, MEAN_MOTION_DOT: r.ndot });
   const cover = (rows, hist) => { const c = rows.map((r) => { const t = Date.parse(r.epoch + 'Z'), x = assessSat(o(r), t, false, hist && r.gecmis ? calibHist(histRow(r.gecmis, t)) : null); if (!x.range) return null; const real = t + r.kalanGun * 864e5; return real >= x.range.loMs && real <= x.range.hiMs; }).filter((v) => v != null); return c.filter(Boolean).length / c.length; };
   const cH = cover(H); setSolarTable(TAB); const cHt = cover(H), cF = cover(F, true); setSolarTable(null);
-  ok(cH > 0.62 && cH < 0.76 && cHt > 0.62 && cF > 0.68, `LEO olası aralık kapsaması: 1965–2016 Güneş bilinmezken %${(100 * cH).toFixed(0)}, gözlenen F10.7 ile %${(100 * cHt).toFixed(0)}; 2025–26 (tahminle) %${(100 * cF).toFixed(0)}`);
+  // yalnız yeniden girmiş cisimlerde uzun kuyruk kesik olduğundan kapsama yapısal olarak %68'in üstündedir; kalibrasyonu aşağıdaki sansürlü Kaplan–Meier sınaması ölçer
+  ok(cH > 0.62 && cH < 0.9 && cHt > 0.62 && cF > 0.68, `LEO olası aralık kapsaması: 1965–2016 Güneş bilinmezken %${(100 * cH).toFixed(0)}, gözlenen F10.7 ile %${(100 * cHt).toFixed(0)}; 2025–26 (tahminle) %${(100 * cF).toFixed(0)}`);
   ok(/olası aralık 20\d\d–20\d\d/.test(fmtReentry(assessSat(rec(420, 420, 2e-4), now, false), now)), `metin: ${fmtReentry(assessSat(rec(420, 420, 2e-4), now, false), now)}`);
 }
 // ================================================================ olası aralığın sansürlü örnekte sınanması (Kaplan–Meier)
 // Bağımsız örnek (fixtures/reentry_km.json; tools/tarihsel_ornek.mjs --sansur, aralığı türetenden farklı tohum): sonuçtan bağımsız seçilmiş TLE çağları; hâlâ yörüngede
 // olanlar sağdan sansürlü. Tahmin vekili: çağa kadar gözlenen F10.7/Ap, sonrası son bilinen çevrim minimumuna (SILSO) göre evrelenmiş ortalama çevrim.
 // Her dilimde aralığın kapsama olasılığı Kaplan–Meier dağılımından: F(üst) − F(alt) (Kaplan & Meier 1958).
-{ const fs = await import('node:fs'), K = JSON.parse(fs.readFileSync(new URL('./fixtures/reentry_km.json', import.meta.url), 'utf8')), TAB = JSON.parse(fs.readFileSync(new URL('../data/f107.json', import.meta.url), 'utf8'));
+{ const fs = await import('node:fs'), K = JSON.parse(fs.readFileSync(new URL('./fixtures/reentry_km.json', import.meta.url), 'utf8')), TAB = JSON.parse(fs.readFileSync(new URL('./fixtures/f107_2025-07-20.json', import.meta.url), 'utf8'));
   const MINIMA = [Date.UTC(1964, 9, 15), Date.UTC(1976, 2, 15), Date.UTC(1986, 8, 15), Date.UTC(1996, 4, 15), Date.UTC(2008, 11, 15), Date.UTC(2019, 11, 15)], Y = 365.25 * 864e5, [y0, m0] = TAB.ilkAy.split('-').map(Number);
   const clim = (ms, tmin) => { const x = (((ms - tmin) / Y) % 11 + 11) % 11, sh = x < 4.85 ? 0.5 * (1 - Math.cos(Math.PI * x / 4.85)) : 0.5 * (1 + Math.cos(Math.PI * (x - 4.85) / 6.15)); return 70 + 115 * sh; };
   const fcast = (ep) => { const tmin = MINIMA.filter((t) => t <= ep).pop(), f = [], ap = []; for (let k = 0; k < TAB.f.length; k++) { const ms = Date.UTC(y0, m0 - 1 + k, 15, 12); if (ms <= ep && k < TAB.gozlenenAy) { f.push(TAB.f[k]); ap.push(TAB.ap[k]); } else f.push(clim(ms, tmin)); } return { ilkAy: TAB.ilkAy, f, ap }; };
