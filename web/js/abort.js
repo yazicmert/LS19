@@ -9,6 +9,12 @@
 // iki yakışlı (ayrılış + Ay yakın geçişinde güçlendirilmiş geçiş, Artemis) olabilir: bu arama onu kapsamaz; okuma yalnız tek yakışlık dönüşü verir.
 import * as E from './engine.js';
 import { add, sub, scale, dot, norm, unit } from './vec3.js';
+import { stageDvs } from './telemetry.js';
+
+// aracın kalan Δv'si (m/s): etkin ve sonraki kademeler, roket denklemi (telemetry.js › stageDvs km/s verir)
+export function dvLeftMps(stages, k, m, prop) {
+  const dvs = stageDvs(stages, k, m, prop); return 1000 * dvs.reduce((a, x) => a + (x ? x.dv : 0), 0);
+}
 
 export const ABORT = { HP: 40, ENTRY_H: 120, TMAX: 10 * 86400, DVMAX: 3.5, H: 1800 };
 

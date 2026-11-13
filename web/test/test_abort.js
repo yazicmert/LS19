@@ -8,7 +8,7 @@ import * as EO from '../js/earth.js';
 import * as E from '../js/engine.js';
 import { makeLive } from '../js/live.js';
 import { Mission, twoStageDesign } from '../js/mission.js';
-import { solveReturn, solveReturnWindow, returnPerigee } from '../js/abort.js';
+import { solveReturn, solveReturnWindow, returnPerigee, dvLeftMps } from '../js/abort.js';
 import { abortSummary } from '../js/aytext.js';
 
 let ok = true;
@@ -37,6 +37,12 @@ for (const k of ['SEP-EOM', 'MCC-2']) {
   check(w.ok && w.period > 100 * 60 && w.period < 130 * 60 && w.tBurn >= s.t && w.tBurn <= s.t + w.period, 'LLO: bir yörünge periyodu (~2 saat) içinde yakış anı bulunur');
   check(w.dvMag > (vesc - vc) * 1000 && w.dvMag < 1000.6, `LLO: Δv kaçış alt sınırının (${((vesc - vc) * 1000).toFixed(0)} m/s) üstünde, Apollo 11 TEI'sinin (1.000,6 m/s) altında`);
   check(Math.abs(hp(chk) - 40) < 1, 'LLO dönüşü 40 km boşluk perijesini tutturur (bağımsız süzülme)');
+}
+// kalan Δv birimi (m/s): park yörüngesinde TLI + Ay yörünge + iniş kademeleri, roket denklemiyle
+{
+  const d = twoStageDesign(defs.profiles.APOLLO.design), st = d.STAGES, m = st.reduce((a, x) => a + x.dry + x.prop, 0), v = dvLeftMps(st, 0, m, st[0].prop);
+  const ref = st.reduce((a, x, j) => { let pl = 0; for (let i = j + 1; i < st.length; i++) pl += st[i].dry + st[i].prop; const m0 = x.dry + x.prop + pl; return a + x.isp * 9.80665 * Math.log(m0 / (m0 - x.prop)); }, 0);
+  check(Math.abs(v - ref) < 1e-6 && v > 5000 && v < 9000, `kalan Δv m/s cinsinden (${v.toFixed(0)} m/s = Σ Isp·g0·ln(m0/m1))`);
 }
 // 3) metin
 {

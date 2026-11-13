@@ -264,7 +264,7 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await page.click('#abRun');
   const abDone = await page.waitForFunction(() => !document.querySelector('#abOut').hidden || /Hata/.test(document.querySelector('#abMsg').textContent), null, { timeout: 280000 }).then(() => true, () => false);
   const abt = await page.evaluate(() => ({ t: document.querySelector('#abVT').textContent, rows: [...document.querySelectorAll('#abTbl tr')].map((r) => r.textContent), msg: document.querySelector('#abMsg').textContent }));
-  check('görev iptali: ayrı iş parçacığında dönüş Δv\'si, şimdi / en iyi an satırları ve kalan Δv ile karşılaştırma', abDone && /Eve dönülebilir|yetmez|Serbest dönüş/.test(abt.t) && abt.rows.some((r) => /Aracın kalan Δv/.test(r)), `${abt.t} — ${abt.rows.slice(0, 2).join(' | ')} — ${abt.msg}`);
+  check('görev iptali: ayrı iş parçacığında dönüş Δv\'si, şimdi / en iyi an satırları ve kalan Δv (m/s, > 1.000) ile karşılaştırma', abDone && /Eve dönülebilir|yetmez|Serbest dönüş/.test(abt.t) && abt.rows.some((r) => /Aracın kalan Δv/.test(r) && +r.replace(/\D+/g, '') > 1000), `${abt.t} — ${abt.rows.slice(0, 2).join(' | ')} — ${abt.msg}`);
   await page.click('#tab-ucus [data-tab=kontrol]');
   check('Uçuş aletleri: Kontrol sekmesi açılır, adım 3 etkin kalır, kare başına güncellenen sekme "kontrol"', (await stepOn()) === 'ucus' && (await vis(page, '#tab-kontrol')) && await page.evaluate(() => window.LS19.ui.tab === 'kontrol'));
   await page.click('#lab-ay > .tabs [data-tab=gorev]'); await page.keyboard.press('k');
