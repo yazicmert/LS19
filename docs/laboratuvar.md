@@ -57,6 +57,7 @@ engineFor(view, exp, cur)   // 'sky' → 'sky'; Laboratuvar'da deneyin motoru; a
 | `js/ui.js` | Ay görevi sayfaları (yapılandırma, çizelge, Kontrol, Grafik, Yörünge, Efemeris, Δv), HUD, iç içe sekmeler; fizik worker'ıyla konuşma değişmedi |
 | `js/ayui.js` | Ay görevi deneyinin dört adımı: adım özetleri, tamam/yeni işaretleri, sonuç kartı, adımlar arası düğmeler. Yalnız durumu okur; worker'a komut göndermez |
 | `js/aymc.js` / `js/mcstats.js` / `js/mcwork.js` | Ay görevi dağılım denemesi: arayüz, saf özetler, iş parçacığı (`nominalrun.js` › `flyDispersed`) |
+| `js/ayabort.js` / `js/abort.js` / `js/abortwork.js` | Görev iptali: Dünya'ya dönüş için en küçük Δv (tam kuvvet modeli), en iyi yakış anı |
 | `js/aytext.js` | Saf yardımcılar (DOM yok): adım özetleri, sonuç yargısı (temasın başarısı `mission.js` › `touchdown()` kararıdır, burada yeniden hesaplanmaz) |
 | `js/deflectui.js` | Saptırma deneyi: 4 adım, grafikler, 3B yollar (hesap `deflectwork.js`'te, değişmedi) |
 | `js/labtext.js` | Saf yardımcılar (DOM yok): düz dille biçim, itki zamanı seçenekleri, sonuç yargısı, adım özetleri, bağlantı ve geçmiş, belirsizlik metni |
@@ -80,6 +81,16 @@ Saptırma deneyiyle aynı dil: numaralı adımlar, her adımın tek satırlık �
 - Sonuç kartındaki Δv toplamları Δv tablosuyla aynı tanımdır (yalnız nominali ve gerçekleşeni bilinen manevralar).
 - Güvenli temas sınırları (dikey < 3 m/s, yatay < 1,22 m/s: Apollo LM iniş takımı tasarım sınırları 10 ft/s ve 4 ft/s) `mission.js`'tedir; `test_ayexp.js` metindeki sayıların oradakilerle aynı kaldığını denetler.
 - Eski sekme kimlikleri korunur: `?tab=gorev` 1. adımı, `?tab=kontrol|grafik|yorunge|efemeris` Uçuş adımını o aletle, `?tab=dv` Sonuç adımını açar.
+
+### Görev iptali: Dünya'ya dönüş (Apollo 13 sorusu)
+
+Uçuş › Çizelge'deki **Dönüş Δv'sini hesapla**, aracın o anki durumunun kopyasıyla ayrı bir iş parçacığında (`abortwork.js` → `abort.js`) şu soruyu yanıtlar: şu an bir arıza olsa eve dönmek için en az ne kadar Δv gerekir?
+
+- **Model:** tam kuvvet modeli (engine.js Propagator, N-cisim: Dünya + J2, Ay çekim alanı, Güneş). Ay yakınında Dünya merkezli iki cisimli Lambert yanlış sonuç verirdi; bunun yerine `design.js` › `shootImpulse`'daki gibi tam modelde hedefleme yapılır. **Hedef:** Ay'ın etki küresi dışında Dünya'ya dönüşte 40 km boşluk perijesi (Apollo giriş koridoru); atmosfer modellenmez, giriş arayüzü (120 km) anı kaydedilir.
+- **Yöntem:** aday yönlerde (Ay'a ve Dünya'ya göre ileri/geri) büyüklük taraması (Ay'a bağlıysa kaçış eşiğinden başlar), ikiye bölme, sonra kısıt altında en küçük normlu Δv'ye yineleme (sayısal Jacobian). Ay'a bağlı kalan denemeler tümlenmeden elenir. **En iyi an:** bir yörünge periyodu (Ay'a bağlıysa; değilse 6 saat) boyunca 16 yakış anı, en iyisinin çevresi inceltilir.
+- **Sonuç:** "Şimdi yakılırsa" ve "En iyi an" Δv'si, Dünya'ya giriş zamanı; aracın kalan Δv'si (roket denklemi, `telemetry.js` › `stageDvs`) ile karşılaştırılır: *Eve dönülebilir* / *Kalan Δv yetmez* / *Serbest dönüş*.
+- **Doğrulama** (`test/test_abort.js`, Apollo profili): TLI'dan sonra 40,6 m/s, MCC-2'de 65,2 m/s; 110 km LLO'da şimdi olanaksız, en iyi an +39 dk'da **802 m/s** (4,9 günlük dönüş): kaçış alt sınırı 675 m/s ile Apollo 11 TEI'si 1.000,6 m/s (daha hızlı ~60 saatlik dönüş) arasında. Her çözümün 40 km perijesi bağımsız süzülmeyle denetlenir.
+- **Sınırlar:** tek itkisel yakış (sonlu yakış kaybı yok), giriş koridorunun yalnız perije koşulu, iniş sırasında (motorlu iniş) iptal değil, yörüngeden dönüş.
 
 ### Dağılım denemesi (Monte Carlo)
 
@@ -175,6 +186,8 @@ Ana sayfa ya da saptırma açılınca panel kendiliğinden açılır (deney ana 
 - `node test/test_lab.js` — saf yardımcılar (itki zamanı seçenekleri, sonuç yargısı her senaryo için, metinler) ve arayüz sözleşmesi (JS'nin başvurduğu her kimlik index.html'de var, iki alan, deney kaydı ↔ ağaç ↔ sayfa uyumu, `data-for` kuralları, görünüm → motor eşlemesi, eski/yeni adresler, simgeler, erişilebilirlik öznitelikleri).
 - `node test/test_uncert.js` — saptırma belirsizliği: tohumlu dağılım, kütle/β modeli, Monte Carlo olasılıkları, kovaryans ayrıştırma, doğrusal kovaryans taşıması ↔ 150 örneklenmiş yörüngenin tam tümlemesi (Apophis 2029).
 - `node test/test_intercept.js` — önleme görevi: DART çarpma hızı (Lambert ↔ ölçüm), C3 kapasitesi, Apophis örgüsünün en iyi hücresi ↔ tam tümleme.
+- `node test/test_abort.js` — görev iptali: çeviri yolculuğu ve LLO'dan dönüş Δv'si, yamalı konik sınırları, 40 km perije bağımsız süzülmeyle.
+- `node test/test_keyhole.js` — rezonans çemberleri: Valsecchi ↔ tam tümleme, 7:6 rezonanslı dönüş; sonraki geçiş yargısı.
 - `node test/test_aymc.js` — Ay görevi dağılım denemesi: yüzdelik, Wilson aralığı, özet; aynı tohum aynı uçuş, farklı tohum farklı TLI hatası, hatasız koşu = nominal; arayüz sözleşmesi.
 - `node tools/lab_deneme.mjs` — başsız Chromium'da tam akış: iki dallı gezinme, deney → motor geçişleri (ana sayfa motoru değiştirmez; Ay görevi görev motorunu, saptırma gökyüzü motorunu açar), Ay görevinin dört adımı (Devam düğmeleri, panelden güdüm seçimi menüyle eşlenir, Uçuş aletleri, K, inişe atlayıp sonuç kartı, Baştan uçur, `?tab=dv`), Esc/M/K kısayolları, Betulia boş durumu, Apophis 2029 (4 yakın geçiş, ilki 13 Nisan 2029, 38.013 km), itki, "çarpacak olsaydı", 3B yollar, çapraz bağlantılar, eski/yeni adres parametreleri (`?mode=mission`, `?tab=kontrol`), telefon (390×844; varsayılan açılışta panel kapalı). `api/*` istekleri gerçek bulut işlevleriyle `web/test/fixtures` yanıtlarından karşılanır: internet gerekmez.
 

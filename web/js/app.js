@@ -14,7 +14,7 @@ import { ProfileCompare } from './profilecompare.js';
 import { attachCanvasInput } from './canvasinput.js';
 import { AscentPlayer } from './ascentplay.js';
 import { inclRange, minIncl, LEGACY_SITE } from './pads.js';
-import { twoStageDesign } from './mission.js';
+import { twoStageDesign, STAGES as MISSION_STAGES } from './mission.js';
 import { SatLayer } from './satlayer.js';
 import { AsteroidLayer } from './asteroids.js';
 import { AstUI } from './astui.js';
@@ -22,6 +22,7 @@ import { LabUI, EXPERIMENTS, LAB_HOME, engineFor, resolveView } from './labui.js
 import { LINK_KEYS } from './labtext.js';
 import { AyUI } from './ayui.js';
 import { AyMC } from './aymc.js';
+import { AyAbort } from './ayabort.js';
 import { DeflectUI } from './deflectui.js';
 import { Updater } from './updater.js';
 import { Tracker } from './tracker.js';
@@ -68,6 +69,8 @@ const send = (m) => worker.postMessage(m);
 const ui = new UI(world, send);
 // Laboratuvar › Ay görevi: dört adımın özetleri ve sonuç kartı (ayui.js). Yalnız durumu okur; "Baştan uçur" görev çubuğundaki Baştan başlat ile aynı komuttur
 const ayui = new AyUI({ ui, restart: () => send({ cmd: 'restart' }) });
+// Laboratuvar › Ay görevi › Uçuş: görev iptali okuması (ayrı iş parçacığı; canlı uçuşa dokunmaz)
+const ayabort = new AyAbort({ get: () => (S.latest && S.DESIGN && !S.designing ? { tStart: lastTStart, state: S.latest, stages: S.DESIGN.STAGES || MISSION_STAGES, utc: (t) => E.utcString(t).slice(0, 16) + ' UTC' } : null) });
 // Laboratuvar › Ay görevi › Sonuç: dağılım denemesi (Monte Carlo; ayrı iş parçacıkları, canlı uçuşa dokunmaz)
 const aymc = new AyMC({ get: () => (S.DESIGN && !S.designing ? { tStart: lastTStart, design: S.DESIGN, landing: optimalOk ? landingMode : 'zem', optimalOk, vehicle: vehicleMode,
   profileName: (PROFILES[ui.profileKeyOf(S.DESIGN.cfg || ui.getConfig())] || {}).name } : null) });
@@ -647,7 +650,7 @@ function applyUrlParams() {
 }
 $('#btnPanel').onclick = () => $('#labPanel').classList.toggle('open');
 $('#btnSkyPanel').onclick = () => (S.VIEW === 'lab' ? $('#labPanel') : $('#skyPanel')).classList.toggle('open');
-window.LS19 = { world, ui, send, ascent, setCam, setPlay, cinema, focusOn, setWorkspace, setSkyCam, clock, followSat, lookAtSat, labui, openLab, aymc, get mode() { return S.MODE; }, get view() { return S.VIEW; }, get skyT() { return skyT; }, get deflect() { return deflect; },
+window.LS19 = { world, ui, send, ascent, setCam, setPlay, cinema, focusOn, setWorkspace, setSkyCam, clock, followSat, lookAtSat, labui, openLab, aymc, ayabort, get mode() { return S.MODE; }, get view() { return S.VIEW; }, get skyT() { return skyT; }, get deflect() { return deflect; },
   get sats() { return S.sats; }, get asts() { return S.asts; }, get astui() { return S.astui; }, get updater() { return updater; }, get tracker() { return S.tracker; }, get skyui() { return S.skyui; }, get launches() { return S.launches; } };
 window.ROCSIM = window.LS19;
 

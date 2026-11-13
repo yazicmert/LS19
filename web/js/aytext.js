@@ -100,3 +100,20 @@ export function verdict(result, { dvUsed = null, dvNominal = null, profileName =
   return { kind: 'bad', title: 'Sert temas', rows,
     detail: `Temas hızı güvenli sınırı aştı (dikey < ${fmt(SAFE_VZ, 1)}, yatay < ${fmt(SAFE_VH, 2)} m/s). ${result.manual ? 'Elle inişte son yüz metrede itkiyi artırıp dikey hızı düşürün ya da otopilotla deneyin.' : 'Bozulma eklendiyse ya da yakıt yetmediyse görevi baştan uçurun ya da başka bir güdüm deneyin.'}` };
 }
+
+// ---------------------------------------------------------------- görev iptali (abort.js sonucu → düz dil)
+// now: şimdi yakılırsa, win: en iyi an (sonraki yörünge periyodu ya da 6 saat), dvLeft: aracın kalan Δv'si (m/s), t: şimdi, utc(t) → metin
+// Dönüş: { kind, title, rows: [[etiket, değer]…] }
+export function abortSummary({ now, win, dvLeft, t, utc }) {
+  const days = (a, b) => `${fmt((b - a) / 86400, 1)} gün`, rows = [];
+  const line = (x) => `${fmt(x.dvMag, 0)} m/s → Dünya'ya giriş ${utc(x.tEntry)} (yakıştan ${days(x.tBurn, x.tEntry)} sonra)`;
+  if (now && now.ok && now.free) return { kind: 'good', title: 'Serbest dönüş: yakış gerekmez', rows: [['Şimdiki yörünge', `Kendiliğinden Dünya'ya döner: boşluk perijesi ${fmt(now.hp, 0)} km, giriş ${utc(now.tEntry)}`]] };
+  rows.push(['Şimdi yakılırsa', now && now.ok ? line(now) : 'Bu anda tek yakışla dönüş yok (yörüngenin uygun noktası beklenmeli)']);
+  if (win && win.ok) rows.push([`En iyi an (sonraki ${fmt(win.period / 60, 0)} dk içinde)`, `+${fmt((win.tBurn - t) / 60, 0)} dk: ${line(win)}`]);
+  const need = [now, win].filter((x) => x && x.ok).reduce((m, x) => Math.min(m, x.dvMag), Infinity);
+  if (Number.isFinite(dvLeft)) rows.push(['Aracın kalan Δv\'si', `${fmt(dvLeft, 0)} m/s`]);
+  if (!Number.isFinite(need)) return { kind: 'bad', title: 'Dönüş yolu bulunamadı', rows };
+  if (!Number.isFinite(dvLeft)) return { kind: 'info', title: `Dönüş için en az ${fmt(need, 0)} m/s`, rows };
+  return need <= dvLeft ? { kind: 'good', title: `Eve dönülebilir: ${fmt(need, 0)} m/s gerekli, ${fmt(dvLeft, 0)} m/s var`, rows }
+    : { kind: 'bad', title: `Kalan Δv yetmez: ${fmt(need, 0)} m/s gerekli, ${fmt(dvLeft, 0)} m/s var`, rows };
+}
