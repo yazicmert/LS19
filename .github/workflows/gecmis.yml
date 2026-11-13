@@ -1,5 +1,5 @@
 # Haftalık: halka açık CelesTrak geçmişinden uydu yörünge özetini (web/data/gecmis.json) ve CelesTrak uzay havası dosyasından aylık F10.7 tablosunu
-# (web/data/f107.json; yeniden giriş tahmininde Güneş aktivitesi) yeniler ve değiştiyse main'e işler.
+# (web/data/f107.json; yeniden giriş tahmininde Güneş aktivitesi) ve eski dönemli NEO öğelerini (web/data/neo_epok.json) yeniler ve değiştiyse main'e işler.
 # Space-Track kullanılmaz. Elle de çalıştırılabilir (Actions > "Geçmiş yörünge verisini yenile" > Run workflow).
 name: Geçmiş yörünge verisini yenile
 
@@ -36,14 +36,17 @@ jobs:
           else
             echo "::warning::SW-All.txt alınamadı (önceki tablo korunuyor)"
           fi
+      # JPL SBDB: eski dönemli NEO öğelerini N-cisim tümlemesiyle bugüne taşı, Dünya'ya çarpmış cisimleri bul (~3 dk). Alınamazsa önceki dosya korunur.
+      - name: Eski dönemli NEO yörüngelerini taşı (web/data/neo_epok.json)
+        run: node tools/neo_epok.mjs --cikti web/data/neo_epok.json || echo "::warning::neo_epok üretilemedi (önceki dosya korunuyor)"
       - name: Modelleri sına
-        run: node web/test/test_impact.js
+        run: node web/test/test_impact.js && node web/test/test_neoepok.js
       - name: Değiştiyse işle ve gönder
         id: commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add web/data/gecmis.json web/data/f107.json
+          git add web/data/gecmis.json web/data/f107.json web/data/neo_epok.json
           if git diff --cached --quiet; then echo "değişiklik yok"; echo "pushed=false" >> "$GITHUB_OUTPUT"; exit 0; fi
           git commit -m "Geçmiş yörünge verisi yenilendi ($(date -u +%F))"
           git pull --rebase origin "${GITHUB_REF_NAME}"
