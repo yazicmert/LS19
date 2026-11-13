@@ -307,6 +307,9 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   const vr = await page.evaluate(() => ({ cls: document.querySelector('#ayVerdict').className, t: document.querySelector('#ayVT').textContent, d: document.querySelector('#ayVD').textContent, rows: [...document.querySelectorAll('#ayVTbl tr')].map((r) => r.textContent), isNew: document.querySelector('#lab-ay > .tabs .tab[data-tab="dv"]').classList.contains('new') }));
   check('4. adım (Sonuç): iniş başarılı kartı, temas ölçüleri; işaret kalkar', /good/.test(vr.cls) && vr.t === 'İniş başarılı' && vr.rows.length >= 5 && vr.rows.some((r) => /Kalan yakıt/.test(r)) && !vr.isNew, vr.rows.join(' · '));
   await shot(page, 'a4-sonuc');
+  const lk = await page.evaluate(() => ({ q: Object.fromEntries(new URLSearchParams(location.search)), hist: [...document.querySelectorAll('#ayHistTbl tbody tr')].map((r) => r.textContent), open: !document.querySelector('#ayHist').hidden }));
+  check('Ay görevi bağlantısı adreste (tarih, profil, araç, güdüm; varsayılan yer/roket yazılmaz) ve biten uçuş "Denemelerim"de', lk.q.exp === 'ay' && lk.q.date === '2026-10-13' && lk.q.profile === 'APOLLO' && lk.q.arac === 'two' && lk.q.gudum === 'opt' && !lk.q.yer && !lk.q.roket
+    && lk.open && lk.hist.length === 1 && /İniş başarılı/.test(lk.hist[0]), JSON.stringify(lk));
   await page.click('#ayRestart');
   check('"Baştan uçur" görevi yeniden başlatır, Uçuş › Çizelge açılır, sonuç sıfırlanır', await page.waitForFunction(() => document.querySelector('#aySum-dv').textContent === 'İnişte belli olur' && !document.querySelector('#tab-plan').hidden && /info/.test(document.querySelector('#ayVerdict').className), null, { timeout: 60000 }).then(() => true, () => false));
   await page.goto(base + 'index.html?sats=0&ast=0&tab=dv', { waitUntil: 'domcontentloaded' });
@@ -330,6 +333,22 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await ctx.close();
 }
 
+// ================================================================= Ay görevi bağlantısı: başka bir tarayıcıda açılınca aynı görev (iniş yeri, roket, araç, güdüm)
+{
+  const { ctx, page, errors } = await open({ viewport: { width: 1280, height: 800 } }, '?sats=0&ast=0&mode=lab&exp=ay&date=2026-10-13&profile=APOLLO&yer=A15&roket=SATURN_V&arac=one&gudum=zem');
+  const okL = await page.waitForFunction(() => window.LS19.ui.design && window.LS19.ui.design.MOONSITE === 'A15' && window.LS19.world.moonSite.id === 'A15' && document.querySelector('#loading').style.display === 'none', null, { timeout: 400000 }).then(() => true, () => false);
+  const st = await page.evaluate(() => ({ site: window.LS19.ui.design.MOONSITE, rocket: window.LS19.ui.design.STAGES[0].rocket, nSt: window.LS19.ui.design.STAGES.length, sel: document.querySelector('#cfgMoonSite').value,
+    veh: document.querySelector('#tab-arac [data-vehicle="one"]').classList.contains('on'), land: document.querySelector('#tab-arac [data-landing="zem"]').classList.contains('on'), q: Object.fromEntries(new URLSearchParams(location.search)) }));
+  check('bağlantı açılışta uygulanır: Apollo 15, Saturn V, tek kademe, ZEM/ZEV; adres aynı anahtarları geri yazar', okL && st.site === 'A15' && st.rocket === 'SATURN_V' && st.sel === 'A15' && st.veh && st.land
+    && st.q.yer === 'A15' && st.q.roket === 'SATURN_V' && st.q.arac === 'one' && st.q.gudum === 'zem' && st.q.profile === 'APOLLO' && st.q.date === '2026-10-13', JSON.stringify(st));
+  await page.click('#labBack'); await page.click('#lab-home [data-exp=saptirma]');
+  const q2 = await page.evaluate(() => Object.fromEntries(new URLSearchParams(location.search)));
+  await page.click('#labBack'); await page.click('#lab-home [data-exp=ay]');
+  const q3 = await page.evaluate(() => Object.fromEntries(new URLSearchParams(location.search)));
+  check('saptırmaya geçince Ay görevi anahtarları adresten silinir, Ay görevine dönünce geri yazılır', q2.exp === 'saptirma' && !q2.arac && !q2.yer && !q2.date && q3.exp === 'ay' && q3.yer === 'A15' && q3.arac === 'one', JSON.stringify({ q2, q3 }));
+  check('konsol hatası yok (Ay görevi bağlantısı)', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await ctx.close();
+}
 // ================================================================= telefon
 {
   const { ctx, page, errors } = await open({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, '?sats=0&mode=lab');

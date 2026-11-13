@@ -588,6 +588,12 @@
           <table id="ayVTbl" class="tbl ayres"><tbody></tbody></table>
         </div>
         <div class="stepnav"><button class="sm" type="button" data-goto="gorev">Başka profille dene</button><button class="sm" type="button" data-goto="arac">Güdümü değiştir</button><button id="ayRestart" class="sm" type="button">Baştan uçur</button></div>
+        <div class="stepnav"><button id="ayLink" class="sm" type="button" title="Bu görevin tarihini, profilini, iniş yerini, roketini, rampasını, aracını ve güdümünü taşıyan bağlantı: açan kişi aynı görevi tasarlar">Bağlantıyı kopyala</button><span id="ayLinkMsg" class="k small" role="status" aria-live="polite"></span></div>
+        <details id="ayHist" class="adv dfhist" hidden><summary>Denemelerim <span id="ayHistN" class="k"></span></summary>
+          <p class="note">Bu tarayıcıda biten son uçuşlar. Satıra dokununca görev aynı ayarlarla yeniden tasarlanır; elle yapılan yakışlar ve bozulmalar bağlantıya girmez.</p>
+          <div class="tblwrap"><table id="ayHistTbl" class="tbl hist"><thead><tr><th>Görev</th><th>Düzen</th><th class="num">Yakıt</th><th class="num">Uzaklık</th><th>Sonuç</th></tr></thead><tbody></tbody></table></div>
+          <div class="stepnav"><button id="ayHistCsv" class="sm" type="button">CSV indir</button><button id="ayHistClear" class="sm" type="button">Temizle</button></div>
+        </details>
         <h3>Dağılım denemesi (Monte Carlo)</h3>
         <p class="note">Tek uçuş şansa bağlı olabilir. Burada aynı görev tohumlu hatalarla defalarca uçurulur: TLI kesme hatası rota düzeltmelerini, seyrüsefer hataları (IMU, iniş radarı, arazi göreli seyrüsefer) inişi değiştirir. Sonuç, seçili güdüm ve aracın ne kadar güvenilir olduğunu gösterir. Canlı uçuş etkilenmez.</p>
         <div class="frow3">

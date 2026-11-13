@@ -182,8 +182,9 @@ Her hesap, deneyin tüm ayarlarını adres çubuğuna yazar; **Bağlantıyı kop
 | `hedef` | SBDB tanımı (`99942`, `2024 YR4`) |
 | `bas`, `yil` | tarama başlangıcı (YYYY-AA-GG) ve süresi (1–120 yıl) |
 | `gecis` | yakın geçişin günü (UTC) |
-| `yontem` | `kin` (kinetik: `m`, `U`, `beta`) ya da `sur` (sürekli: `F`, `gun`) |
-| `itki`, `yon`, `senaryo` | itki günü, yön (`along`, `anti`, `best`, `radial`, `normal`), `gercek` ya da `varsayim` (çarpacak olsaydı) |
+| `yontem` | `kin` (kinetik: `m`, `U`, `beta`), `sur` (sürekli: `F`, `gun`) ya da `cek` (çekim traktörü: araç kütlesi `m`, uzaklık/yarıçap `k`, süre `gun`) |
+| `itki`, `yon`, `senaryo` | itki günü, yön (`along`, `anti`, `best`, `radial`, `normal`, ya da önleme yörüngesinden `vec`), `gercek` ya da `varsayim` (çarpacak olsaydı) |
+| `yv` | yalnız `yon=vec`: önleme görevinin çarpma yönü (ICRF birim vektör, `x,y,z`) |
 | `D`, `rho` | yalnız kullanıcı çapı/yoğunluğu değiştirdiyse |
 
 Örnek: `?mode=lab&exp=saptirma&hedef=99942&gecis=2029-04-13&yontem=kin&m=5000&U=6.1&beta=3.6&itki=2027-04-13&yon=along&senaryo=varsayim`. Başka bir deneye geçilince bu parametreler adresten silinir (`app.js` › `syncWorkspace`).
@@ -216,4 +217,4 @@ Ana sayfa ya da saptırma açılınca panel kendiliğinden açılır (deney ana 
 4. Yalnız bu deneyde görünmesi gereken bir çubuk ya da gösterge varsa `data-for="lab@<motor>"` verin.
 5. Karar/biçim mantığını `labtext.js`'e (Node'da sınanır), arayüzü ayrı bir modüle koyun; `node test/test_preload.js --print` ile `modulepreload` listesini yenileyin; `test_lab.js` kayıt/ağaç/sayfa tutarlılığını kendiliğinden denetler.
 
-Mevcut kodla eklenmeye aday deneyler: **Lagrange noktaları ve halo yörüngeler** (`cr3bp.js`, `halo.js`; görev motoru), **İniş güdümü karşılaştırması** (`pdg.js`: aynı başlangıçtan Optimal ve ZEM/ZEV).
+Mevcut kodla eklenmeye aday deney: **Lagrange noktaları ve halo yörüngeler** (`cr3bp.js`, `halo.js`; görev motoru). İniş güdümü karşılaştırması artık Ay görevinin Sonuç adımındadır (Dağılım denemesi › Üç güdümü karşılaştır).

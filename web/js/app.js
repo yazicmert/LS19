@@ -13,7 +13,7 @@ import { WindowScanner } from './windowscan.js';
 import { ProfileCompare } from './profilecompare.js';
 import { attachCanvasInput } from './canvasinput.js';
 import { AscentPlayer } from './ascentplay.js';
-import { inclRange, minIncl, LEGACY_SITE } from './pads.js';
+import { inclRange, minIncl, LEGACY_SITE, padAllowed, siteOf as padSite } from './pads.js';
 import { twoStageDesign, STAGES as MISSION_STAGES } from './mission.js';
 import { SatLayer } from './satlayer.js';
 import { AsteroidLayer } from './asteroids.js';
@@ -23,7 +23,8 @@ import { LINK_KEYS } from './labtext.js';
 import { AyUI } from './ayui.js';
 import { AyMC } from './aymc.js';
 import { AyAbort } from './ayabort.js';
-import { setViewSite, ephSpanDays } from './moonsite.js';
+import { setViewSite, ephSpanDays, validSite, DEFAULT_SITE, siteOf } from './moonsite.js';
+import { AY_LINK_KEYS, ayLinkFromState, ayStateFromLink } from './aytext.js';
 import { DeflectUI } from './deflectui.js';
 import { Updater } from './updater.js';
 import { Tracker } from './tracker.js';
@@ -69,7 +70,9 @@ const worker = new Worker(new URL('./worker.js', import.meta.url), workerOpts())
 const send = (m) => worker.postMessage(m);
 const ui = new UI(world, send);
 // Laboratuvar › Ay görevi: dört adımın özetleri ve sonuç kartı (ayui.js). Yalnız durumu okur; "Baştan uçur" görev çubuğundaki Baştan başlat ile aynı komuttur
-const ayui = new AyUI({ ui, restart: () => send({ cmd: 'restart' }) });
+const ayui = new AyUI({ ui, restart: () => send({ cmd: 'restart' }),
+  link: () => { const o = ayLinkNow(); return o ? { qs: String(new URLSearchParams(o)), url: ayLinkUrl(o) } : null; },
+  open: (qs) => openAyLink(qs), site: () => (S.DESIGN ? siteOf(S.DESIGN).name : ''), urlOf: (qs) => ayLinkUrl(Object.fromEntries(new URLSearchParams(qs))) });
 // Laboratuvar › Ay görevi › Uçuş: görev iptali okuması (ayrı iş parçacığı; canlı uçuşa dokunmaz)
 const ayabort = new AyAbort({ get: () => (S.latest && S.DESIGN && !S.designing ? { tStart: lastTStart, state: S.latest, stages: S.DESIGN.STAGES || MISSION_STAGES, halo: S.DESIGN.profile === 'HALO', utc: (t) => E.utcString(t).slice(0, 16) + ' UTC' } : null) });
 // Laboratuvar › Ay görevi › Sonuç: dağılım denemesi (Monte Carlo; ayrı iş parçacıkları, canlı uçuşa dokunmaz)
@@ -105,10 +108,54 @@ async function boot() {
   await world.load('./', (f, name) => { $('#loadBar').style.width = (100 * f).toFixed(0) + '%'; $('#loadMsg').textContent = 'Yükleniyor: ' + name; });
   $('#loadMsg').textContent = 'JPL efemeris çekirdekleri yükleniyor…';
   await kp;
-  const q = new URLSearchParams(location.search);
-  const pk = (q.get('profile') || '').toUpperCase(); if (PROFILES[pk]) ui.setConfig(PROFILES[pk].cfg);
-  startDesign(q.get('date') || DEFAULT_DATE);
+  const q = new URLSearchParams(location.search), L = ayStateFromLink(q, { profiles: PROFILES, validSite });
+  await applyAyLink(L);
+  startDesign((L && L.date) || DEFAULT_DATE);
 }
+// Ay görevi bağlantısı (aytext.js › ayStateFromLink) → yapılandırma, roket, rampa, araç ve güdüm (tasarlamaz: çağıran startDesign'ı çağırır).
+// Yeni biçimde (L.full) yazılmayan iniş yeri, roket ve rampa varsayılandır; eski ?profile= bağlantısı yalnız profili uygular (eskisi gibi).
+async function applyAyLink(L) {
+  if (!L) return;
+  const base = L.profile ? PROFILES[L.profile].cfg : L.custom ? normalizeConfig(L.custom) : ui.getConfig();
+  if (!L.full) { if (L.profile || L.custom) ui.setConfig(base); return; }
+  const rocket = L.rocket || 'GENEL';
+  let site = null;
+  if (L.pad) {
+    try { await launch.ready; } catch (e) { /* rampa listesi yok: varsayılan */ }
+    const p = launch.pads.get(L.pad);
+    if (p && padAllowed(rocket, L.pad)) site = padSite(p);
+  }
+  ui.setConfig({ ...base, rocket, site, moonSite: L.moonSite || DEFAULT_SITE });                     // engelli yer × profil: ui.syncSiteBlock Apollo 11'e döner ve nedeni yazar
+  launch.syncRocket();
+  if (L.vehicle) vehicleMode = L.vehicle;
+  if (L.landing) landingMode = L.landing;
+}
+// "Denemelerim" satırı: bağlantıdaki görevi kurup tasarlar (Görev adımı açılır)
+async function openAyLink(qs) {
+  if (S.designing) return;
+  const L = ayStateFromLink(new URLSearchParams(qs), { profiles: PROFILES, validSite }); if (!L) return;
+  compare.cancel(); scanner.cancel();
+  await applyAyLink(L); syncLanding();
+  if (L.date) $('#dateInput').value = L.date;
+  ui.setTab('gorev');
+  startDesign(L.date || $('#dateInput').value || DEFAULT_DATE);
+}
+// şu anki görevin bağlantı anahtarları (görev hazır değilse null): tarih istenen tarihtir; yapılandırma tasarımın kendisinden
+function ayLinkNow() {
+  if (!S.DESIGN || S.designing || !goodDate) return null;
+  const cfg = S.DESIGN.cfg || ui.getConfig();
+  return ayLinkFromState({ date: goodDate, cfg, profileKey: ui.profileKeyOf(cfg), vehicle: vehicleMode, landing: landingMode });
+}
+const ayLinkUrl = (o) => { const u = new URL(location.pathname, location.origin); u.searchParams.set('mode', 'lab'); u.searchParams.set('exp', 'ay'); for (const [k, v] of Object.entries(o)) u.searchParams.set(k, v); return u.href; };
+// Ay görevinin anahtarları yalnız o deneyde adreste durur; görev hazır değilken (açılış) gelen bağlantı olduğu gibi kalır
+function writeAyUrl(u = new URL(location.href)) {
+  const ay = document.body.dataset.exp === 'ay' && S.VIEW === 'lab', o = ay ? ayLinkNow() : null;
+  if (ay && !o) return u;
+  for (const k of AY_LINK_KEYS) u.searchParams.delete(k);
+  if (o) for (const [k, v] of Object.entries(o)) u.searchParams.set(k, v);
+  return u;
+}
+function syncAyUrl() { if (!window.history || !history.replaceState) return; const u = writeAyUrl(); if (u.href !== location.href) history.replaceState(history.state, '', u); }
 // Canlı Gökyüzü katmanları: uydular (SGP4 worker + 3B modeller), asteroitler (katalog, DAMIT, worker), takip/asteroit/çarpma arayüzleri ve veri güncelleyici (canlı veri
 // indirmeleri). Açılışı geciktirmesin diye açılışta kurulmaz: görev hazır olup arayüz boşa çıkınca (ya da gökyüzü çalışma alanı daha önce açılırsa o an) tek seferlik kurulur.
 let skyInit = false;
@@ -195,6 +242,7 @@ function syncWorkspace(push = true) {
   if (push) {
     const u = new URL(location.href); u.searchParams.set('mode', S.VIEW); if (exp && exp !== LAB_HOME) u.searchParams.set('exp', exp); else u.searchParams.delete('exp');
     if (exp !== 'saptirma') for (const k of LINK_KEYS) u.searchParams.delete(k);                 // saptırma denemesinin parametreleri yalnız o deneyde adreste kalır
+    writeAyUrl(u);                                                                                 // Ay görevininkiler de
     history.replaceState(null, '', u);
   }
   resize();
@@ -378,7 +426,7 @@ function refreshNominal(preNominal, ce) {
 function setLanding(mode) {
   if (mode === landingMode) return; landingMode = mode;
   try { localStorage.setItem('ls19.landing', mode); } catch (e) { /* özel pencere */ }
-  send({ cmd: 'landing', mode }); syncLanding();
+  send({ cmd: 'landing', mode }); syncLanding(); syncAyUrl();
   if (S.DESIGN && lastTStart != null) refreshNominal(null, designCache.get(cacheKey(S.START_MS, S.DESIGN.cfg || ui.getConfig())));
 }
 function setVehicle(mode) {
@@ -480,6 +528,7 @@ worker.onmessage = (e) => {
     if (d.seek) { if (!S.running) setPlay(true); }
     else { S.running = false; setBtn($('#btnPlay'), 'play', 'Başlat'); }
     if (d.type === 'ready' && !urlApplied) { urlApplied = true; applyUrlParams(); idleInitSky(); }
+    if (d.type === 'ready') syncAyUrl();
     ayRefresh();
   } else if (d.type === 'state') {
     S.latest = d;
