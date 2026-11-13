@@ -225,6 +225,65 @@ Bu, olası aralığın (±%30–50) yanında küçüktür. Gelecekteki fırtına
 - 12 yıldan uzun tahminlerin aralığı sınanmadı.
 - 2016 sonrası tarihsel TLE arşivi seyrek.
 
+### 4.2f Kalan sınırların yayımlanmış modellere dayandırılması
+
+§4.2d'deki 1,4 ayar katsayısı ve §4.2e'deki üç sınır, her biri yayımlanmış bir modele dayanan değişikliklerle yeniden ele alındı. Ayarlanmış katsayı kalmadı.
+
+**1. Atmosfer: NRL MSIS 2.1.** Vallado'nun tek ortalama tablosu ve yaklaşık Güneş bağıntısı yerine NRL MSIS 2.1 kullanılıyor (Emmert vd. 2021, *Earth and Space Science* 8, e2020EA001321; NRLMSISE-00'ın halefi). Tablo `pymsis` ile üretildi (`tools/msis_tablo.py`). Ln ρ(h; F10.7, Ap), 60–1.000 km, 8 F10.7 × 5 Ap düzeyi için; enlem (alan ağırlıklı), yerel saat ve dört mevsim üzerinden küresel ortalama alındı, çünkü yörünge ortalamalı bozunma bunların hepsini süpürür. Tablo aradeğerlemesi doğrudan MSIS'ten en çok %4,4 farklı (test).
+
+MSIS, veriyle bulunan duyarlılık sorununu bağımsız olarak doğruluyor: 400 km'de Güneş en az–en çok (F10.7 80 → 250) yoğunluk oranı 12 kat. Eski bağıntı 4,8 kat veriyordu, 1,4 katsayısıyla 8,6 kat. Katsayı kaldırıldı ve doğruluk korundu (tarihsel 1,5–3 / 3–12 yıl, medyan |ln hata| 0,248 / 0,255; ayarlı modelde 0,234 / 0,270).
+
+**2. B* → bozunma hızı: SGP4 C₁.** MSIS'le de kalan ~%10 "fazla uzun" eğilim dış merkezlikle büyüyordu (e < 0,003: 1,06; 0,02–0,3: 1,21). Nedeni şu: B*, SGP4'ün kendi yoğunluk yasasıyla uydurulmuş bir değer (ρ ∝ ((q₀−s)/(r−s))⁴). Bu yasanın ölçek yüksekliği 400 km'de ~80 km, MSIS'te 55–70 km. Eksantrik yörüngede ortalama sürüklenme ∝ ρₚ√(H/ae) olduğundan, B*'ı perijedeki yoğunluğa çevirmek bozunmayı küçük gösteriyordu.
+
+Artık SGP4'ün B*'tan öngördüğü bozunma hızı korunuyor: a(t) = a₀(1 − C₁t − …)², yani çağda da/dt = −2a₀C₁ (Hoots & Roehrich 1980; Vallado vd. 2006, AIAA 2006-6753). Uygulama `satellite.js`'in `cc1` değeriyle 5·10⁻⁸ içinde aynı. Sonuç:
+
+| Tarihsel (gözlenen F10.7) | Önce (ayarlı) | Şimdi |
+|---|---|---|
+| 0,15–1,5 yıl, 2 kat içinde | %86 | %89 |
+| 1,5–3 yıl, medyan / 2 kat içinde | 1,07 / %84 | 1,05 / %87 |
+| 3–12 yıl, medyan / 2 kat içinde | 1,00 / %72 | 1,05 / %75 |
+| Dış merkezlik dilimleri (medyan) | 1,06 / 1,14 / 1,21 | 1,02 / 1,03 / 1,11 |
+
+Güncel 2025–26 örneği değişmedi (%68: 0,81–1,33). 2025–26 bir yıllık düşüş sınaması 1,16'da kaldı. Bu sınama Temmuz 2025 tahminini kullanıyor; o tahmin Ağu–Ara 2025 aktivitesini ~160 sfu öngörmüştü, gerçek ~140'tı, ve MSIS'te 500 km'de bu fark yoğunluğu ~1,5 kat değiştirir.
+
+**3. GTO/HEO orta vade: Dünya basıklığı.**
+- *Teşhis:* 2 ay – 0,7 yıl kala tahminler ~%20 kısa kalıyordu. SGP4 C₁ eşlemesinden sonra apoje düşüşü gözlemle uyuştu (model/gözlem 1,72 → 1,05), ama kısa tahminlerin çoğu yüksek eğimli (Molniya türü) cisimlerdi: 60–120° eğimde medyan 0,77, düşük eğimde 0,93. 12 saatlik rezonans neden değildi; rezonans dışı yüksek eğimliler de 0,75.
+- *Neden:* Bu yörüngelerde perije yüksek enlemde (ω ≈ 270° iken ~63° güney), ve basık Dünya'da yüzey orada ekvatordan R_e·f·sin²φ ≈ 17 km daha yakın. Model irtifayı r − R_e ile ölçtüğünden perijeyi alçak sayıyordu.
+- *Düzeltme:* Ay–Güneş modelinde zaten izlenen perije birim vektörünün z bileşeni sin φ'dir; irtifaya R_e·f·sin²φ eklendi (f = 1/298,257). Eşik ayarı yapılmadı; iki yarıda en iyisi yine 60–70 km.
+- *Sonuç:* 2 ay – 0,7 yıl kala medyan 0,82 → 0,90 (yüksek eğimde 0,77 → 0,88), medyan |ln hata| 0,228 / 0,337 → 0,171 / 0,232; 0,7 yıldan uzun kala 2 kat içinde %88.
+
+Reddedilen iki hipotez de kayıtlı:
+- *Gözlenen a(t) eğiminden ya da Gondelach vd. (2017) yöntemiyle uydurulmuş balistik katsayı:* düzeltmedi. Sorun genlikte değildi.
+- *J3:* J3'ün dış merkezlik terimi (1 − 5/4 sin²i) cos ω çarpanı taşır. Molniya'da (i ≈ 63,4°, ω ≈ 270°) iki çarpan da ~0'dır.
+
+**4. Olası aralık: sağdan sansürlü Kaplan–Meier.** Önceki aralık yalnız yeniden girmiş cisimlerden kuruluyordu. Bu seçim gerçek süreyi ≤ 9,6 yılla sınırladığı için uzun kuyruğu kesiyordu. Doğru yöntem şöyle uygulandı:
+
+- *Örnek:* Pasif LEO cisimleri (roket gövdesi, enkaz, parça) sonuca bakmadan seçildi; cisim başına rastgele iki TLE çağı (1965–2015) alındı. GCAT'e göre hâlâ yörüngede olanlar sağdan sansürlü gözlemdir. Ön süzgeç (bugünkü perije ≤ 900 km, apoje ≤ 3.000 km), pasif cisimde ikisi de yalnız azaldığından çağdaki koşulu yanlılıksız kapsar.
+- *Tahmin vekili:* Çağa kadar gözlenen F10.7/Ap, sonrası son bilinen çevrim minimumuna (SILSO 13 aylık düzleştirilmiş minimumları: 1964, 1976, 1986, 1996, 2008, 2019) göre evrelenmiş ortalama genlikli çevrim. Gelecek çevrimin belirsizliği aralığın içindedir. Sabit 2019 evresiyle geriye uzatılan ortalama çevrim adil değildi: çevrim süreleri 9–14 yıl arasında değiştiği için evre kayıyor ve çok yıllık tahmini ~1,3 kat uzatıyordu.
+- *Kestirim:* Gerçek / tahmin oranının dağılımı, tahmin edilen ömür dilimlerinde Kaplan–Meier çarpım-limit kestiricisiyle (Kaplan & Meier 1958, *JASA* 53:457) bulundu.
+
+Tahmin vekiliyle medyan 60 yıla kadar 0,85–1,06: model uzun vadede de yansız. %68 aralığı (1.551 cisim, 3.102 tahmin; iki yarıda kararlı):
+
+| Tahmin edilen ömür | Aralık (gerçek / tahmin) |
+|---|---|
+| < 30 gün | 0,73–1,36 |
+| 30–120 gün | 0,39–1,31 |
+| 120 gün – 1 yıl | 0,58–1,84 |
+| 1–5 yıl | 0,57–3,63 |
+| 5–25 yıl | 0,52–1,82 |
+| 25–60 yıl | ≥ 0,49 (üst sınır belirlenemez) |
+| > 60 yıl | sınanamaz |
+
+- *Bağımsız sınama:* Farklı tohumla seçilmiş ikinci örnekte (1.550 cisim, 744 sansürlü; `fixtures/reentry_km.json`) Kaplan–Meier kapsaması her dilimde %65–72; 25–60 yılda alt sınırın F değeri 0,14 (hedef 0,16).
+- *Log-normal AFT olmaz:* Sansürlü en çok olabilirlikle denendi. KM'nin tam belirlendiği dilimlerde bile uyuşmadı (ör. < 30 gün kala %16 dilimi 0,51'e karşı 0,73), bu yüzden üst sınırı dışdeğerlemek için kullanılmadı.
+- *GTO/HEO:* Bu yörüngelerde perije Ay–Güneş etkisiyle iki yönde değiştiğinden monoton bir ön süzgeç, dolayısıyla sonuçtan bağımsız sansürlü örnek kurulamıyor. Aralık yeniden girmiş 464 cisimden gerçek süreye göre kuruldu (çapraz kapsama %64–69); 25 yılı aşan tahminler sınanamaz.
+
+**Kalanlar.**
+- GTO/HEO son 2 ay: 2 kat içinde %74.
+- Molniya'da orta vade: 0,88.
+- 60 yılı aşan LEO tahminleri sınanamaz; 1965'ten bu yana geçen süre bunu sınırlıyor.
+- Sürüklenme verisi olmayan kayıtlar (B* ≤ 0 ve ṅ ≤ 0) için tahmin verilmiyor; tarihsel örnekte bunların 53'ü sonradan yeniden girdi.
+
 ### 4.3 Sınırlar
 
 - Uydu gölgesi silindirik kabul edilir (yarı gölge yok); geçişlerin doğuş/batışı geometrik ufka göredir (kırılma yok: ufukta ≈ 0,57°, birkaç saniye).

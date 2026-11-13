@@ -1,5 +1,5 @@
 // Çarpma / yeniden giriş modeli: büyüklük sıraları, tutarlılık, eksantrik yörünge, biçimlendirme, Sentry ayrıştırma
-import { assessSat, atmosphereDensity, fmtReentry, fmtSpan, sentryRows, fmtOdds, launchYear, ageYears, controlNote, analyzeHistory, expectedDecayKmDay, controlFromHistory, confidence, parseEpoch, histRow, calibHist, selectSats, CONF_TR, KLASS_TR, solarF107, solarCycleF107, solarDensityFactor, setSolarTable, solarTableInfo, lifeRange, fmtRange } from '../js/impact.js';
+import { assessSat, atmosphereDensity, fmtReentry, fmtSpan, sentryRows, fmtOdds, launchYear, ageYears, controlNote, analyzeHistory, expectedDecayKmDay, controlFromHistory, confidence, parseEpoch, histRow, calibHist, selectSats, CONF_TR, KLASS_TR, solarF107, solarCycleF107, solarDensityFactor, setSolarTable, solarTableInfo, lifeRange, fmtRange, sgp4C1, BAND } from '../js/impact.js';
 let fail = 0;
 // model içi tutarlılık ve referans karşılaştırmaları sabit (ortalama aktivite) atmosferle yapılır; Güneş çevrimi ayrıca sınanır
 const assessStatic = (o, t, c, h = null) => assessSat(o, t, c, h, { solar: false });
@@ -10,8 +10,11 @@ const rec = (hp, ha, bstar, extra = {}) => { const a = (hp + ha) / 2 + RE, e = (
   return { OBJECT_NAME: 'TEST', EPOCH: '2026-10-01T00:00:00', MEAN_MOTION: n, ECCENTRICITY: e, BSTAR: bstar, MEAN_MOTION_DOT: 0, ...extra }; };
 const years = (hp, ha, b) => assessStatic(rec(hp, ha, b), Date.parse('2026-10-01T00:00:00Z'), false).lifeDays / 365.25;
 
-// atmosfer: yükseklikle monoton azalır, bilinen değerlere yakın (Vallado)
-ok(Math.abs(atmosphereDensity(400) / 3.725e-12 - 1) < 0.01 && atmosphereDensity(200) > atmosphereDensity(300) && atmosphereDensity(300) > atmosphereDensity(500), 'atmosfer yoğunluğu: 400 km = 3,7e-12, monoton');
+// atmosfer: NRL MSIS 2.1 tablosu (msis_data.js). Tablo dışı noktalarda doğrudan pymsis ile aynı yöntemle (küresel, yerel saat ve mevsim ortalaması) hesaplanmış
+// değerlere karşı aradeğerleme hatası; ayrıca monotonluk ve Güneş aktivitesiyle artış
+{ const REF = [[405, 150, 10, 3.4259e-12], [255, 95, 7, 3.6194e-11], [720, 210, 30, 1.4318e-13], [165, 120, 15, 8.0491e-10], [530, 140, 15, 4.2896e-13]];
+  const err = REF.map(([h, f, a, r]) => Math.abs(atmosphereDensity(h, f, a) / r - 1)), mono = [150, 250, 350, 500, 700, 900].every((h, i, A) => !i || atmosphereDensity(A[i - 1]) > atmosphereDensity(h));
+  ok(Math.max(...err) < 0.06 && mono && atmosphereDensity(400, 200, 15) > 3 * atmosphereDensity(400, 80, 15), `MSIS 2.1 tablosu ↔ doğrudan pymsis (5 nokta): en büyük fark %${(100 * Math.max(...err)).toFixed(1)}; monoton; 400 km'de F10.7 80→200: ${(atmosphereDensity(400, 200, 15) / atmosphereDensity(400, 80, 15)).toFixed(1)}×`); }
 // ISS benzeri: 420 km dairesel, B* 2e-4 -> yılda ~15–45 km alçalma (gerçek ISS ~ ayda 1–2 km)
 { const r = assessStatic(rec(420, 420, 2e-4), Date.parse('2026-10-01T00:00:00Z'), true), c = r.curve.find((p) => p[0] >= 330);
   ok(c && 420 - c[1] > 10 && 420 - c[1] < 60, `420 km, B*=2e-4: ilk yılda ${c ? (420 - c[1]).toFixed(0) : '?'} km alçalma (10–60 km beklenir)`); }
@@ -91,7 +94,9 @@ ok(launchYear({ OBJECT_ID: '1990-037B' }) === 1990 && launchYear({ OBJECT_ID: ''
 // Modelin fiziği (B* genliği, Vallado profili) burada ayrıca yazılır; yörünge ortalaması yerine ya hareket denklemleri doğrudan tümlenir ya da
 // ortalama çok ince (4000 nokta) alınır. Böylece toplama, de/dt türetmesi ve adım denetimi modelin kendisinden bağımsız sınanır.
 const NOW = Date.parse('2026-10-01T00:00:00Z');
-const kr0B = (bstar, hp) => { const sAlt = hp >= 156 ? 78 : hp >= 98 ? hp - 78 : 20, q0 = 1 + 120 / RE, s = 1 + sAlt / RE, r = (RE + hp) / RE; return 2 * bstar * ((q0 - s) / (r - s)) ** 4 / RE; };
+// sürüklenme genliği (perijedeki K·ρ, 1/km): modelin B*'tan çıkardığı değer (SGP4 C₁ ile; ayrıca aşağıda satellite.js'e karşı sınanır). Referanslar bunu alıp
+// dinamiği (yörünge ortalaması, de/dt, adım) bağımsız olarak hesaplar
+const kr0B = (bstar, hp, ha = hp) => assessStatic(rec(hp, ha, bstar), NOW, false).kr0;
 const elems = (hp, ha) => { const a = (hp + ha) / 2 + RE; return [a, (ha - hp) / (2 * a)]; };
 // yörünge ortalamalı türevler, N noktalı (referans: N büyük)
 function avgDer(a, e, kr0, rho0, N) {
@@ -100,7 +105,7 @@ function avgDer(a, e, kr0, rho0, N) {
   const dadt = -(a * a / MU) * sV3; return [dadt, e < 1e-6 ? 0 : ((1 - e * e) / e) * (0.5 * sV + 0.5 * dadt / a)];
 }
 { // 1) Kartezyen tümleme (iki cisim + sürüklenme ivmesi −½Kρ|v|v, RK4 10 s): 300 × 2000 km, 3 günde a ve e değişimi ↔ modelin eğrisi
-  const hp = 300, ha = 2000, B = 0.05, [a0, e0] = elems(hp, ha), kr0 = kr0B(B, hp), rho0 = atmosphereDensity(hp);
+  const hp = 300, ha = 2000, B = 0.05, [a0, e0] = elems(hp, ha), kr0 = kr0B(B, hp, ha), rho0 = atmosphereDensity(hp);
   const acc = (s) => { const r = Math.hypot(s[0], s[1]), v = Math.hypot(s[2], s[3]), k = 0.5 * kr0 * atmosphereDensity(r - RE) / rho0 * v, g = -MU / r ** 3; return [s[2], s[3], g * s[0] - k * s[2], g * s[1] - k * s[3]]; };
   const add = (s, d, h) => s.map((x, i) => x + d[i] * h);
   let s = [a0 * (1 - e0), 0, 0, Math.sqrt(MU * (1 + e0) / (a0 * (1 - e0)))], t = 0; const T = 3 * 86400, h = 10;
@@ -111,16 +116,17 @@ function avgDer(a, e, kr0, rho0, N) {
   const da = a0 - a1, daM = a0 - aM, de = e0 - e1, deM = e0 - eM;
   ok(da > 20 && Math.abs(daM / da - 1) < 0.03 && Math.abs(deM / de - 1) < 0.03, `Kartezyen tümleme ↔ model (300×2000 km, 3 gün): Δa ${da.toFixed(2)} ↔ ${daM.toFixed(2)} km, Δe ${de.toExponential(3)} ↔ ${deM.toExponential(3)}`);
 }
-{ // 2) toplama yakınsaması: modelin da/dt'si (expectedDecayKmDay) ↔ 20.000 noktalı ortalama; GTO ve Molniya dahil (eski sabit 24 nokta GTO'da 0,20 veriyordu)
+{ // 2) toplama yakınsaması: model genliği, kendi toplamasıyla SGP4'ün da/dt'sini (expectedDecayKmDay, C₁) verecek biçimde kurulur; 20.000 noktalı ortalama aynı
+  //    genlikle aynı da/dt'yi vermeli (GTO ve Molniya dahil; eski sabit 24 nokta GTO'da 0,20 veriyordu)
   let worst = 0; const rows = [];
   for (const [hp, ha] of [[400, 420], [300, 2000], [250, 6000], [250, 20000], [250, 35786], [200, 35786], [500, 39800], [130, 35786]]) {
-    const [a, e] = elems(hp, ha), ref = -avgDer(a, e, kr0B(1e-4, hp), atmosphereDensity(hp), 20000)[0] * 86400, got = expectedDecayKmDay(a, e, 1e-4);
+    const [a, e] = elems(hp, ha), ref = -avgDer(a, e, kr0B(1e-4, hp, ha), atmosphereDensity(hp), 20000)[0] * 86400, got = expectedDecayKmDay(a, e, 1e-4);
     worst = Math.max(worst, Math.abs(got / ref - 1)); rows.push(`${hp}×${ha}: ${(got / ref).toFixed(4)}`);
   }
   ok(worst < 0.01, `eksantrik toplama yakınsak (model / 20.000 noktalı referans): ${rows.join(', ')}`);
 }
 { // 3) ömür: ince adımlı (orta nokta; adım başına perije ≤ 0,15 km, a ≤ (ae + 50 km)'nin %0,2'si) ve 4000 noktalı referans tümleme ↔ model
-  const refLife = (hp, ha, b) => { let [a, e] = elems(hp, ha), t = 0; const kr0 = kr0B(b, hp), rho0 = atmosphereDensity(hp);
+  const refLife = (hp, ha, b) => { let [a, e] = elems(hp, ha), t = 0; const kr0 = kr0B(b, hp, ha), rho0 = atmosphereDensity(hp);
     while (a * (1 - e) - RE > 120) { const [d1, g1] = avgDer(a, e, kr0, rho0, 4000), dt = Math.min(0.15 / Math.max(-(d1 * (1 - e) - a * g1), 1e-18), 0.002 * (a * e + 50) / -d1), [d2, g2] = avgDer(a + d1 * dt / 2, Math.max(0, e + g1 * dt / 2), kr0, rho0, 4000); a += d2 * dt; e = Math.max(0, e + g2 * dt); t += dt; }
     return t / 86400; };
   for (const [hp, ha, b] of [[400, 400, 1e-4], [250, 1500, 1e-4], [300, 2000, 1e-3], [200, 35786, 1e-3]]) {
@@ -128,13 +134,21 @@ function avgDer(a, e, kr0, rho0, N) {
     ok(Math.abs(M / L - 1) < 0.04, `ömür ↔ ince referans (${hp}×${ha} km, B*=${b}): ${M.toFixed(1)} ↔ ${L.toFixed(1)} gün`);
   }
 }
-{ // 4) MEAN_MOTION_DOT eksantrik yörüngede: B*'ın verdiği bozunmadan üretilen ṅ aynı genliği geri vermeli (eski dairesel formül 8–11× şaşıyordu)
+{ // 4) MEAN_MOTION_DOT eksantrik yörüngede: SGP4'te a = a₀(1 − C₁t)² ⇒ n = n₀(1 − C₁t)⁻³ ⇒ dṅ = 3n₀C₁; bu ṅ aynı genliği geri vermeli (eski dairesel formül 8–11× şaşıyordu)
   for (const [hp, ha] of [[400, 400], [300, 2000], [250, 6000]]) {
-    const [a, e] = elems(hp, ha), dadt = avgDer(a, e, kr0B(1e-4, hp), atmosphereDensity(hp), 20000)[0], n = Math.sqrt(MU / a ** 3), ndot = (-(3 * n / (2 * a)) * dadt) * 86400 ** 2 / (2 * Math.PI) / 2;
+    const [a, e] = elems(hp, ha), nRev = Math.sqrt(MU / a ** 3) * 86400 / (2 * Math.PI), { cc1 } = sgp4C1(nRev, e, 50, 1e-4), ndot = 3 * (nRev * 2 * Math.PI / 1440) * cc1 * 1440 ** 2 / (2 * Math.PI) / 2;
     const both = assessStatic(rec(hp, ha, 1e-4, { MEAN_MOTION_DOT: ndot }), NOW, false), only = assessStatic(rec(hp, ha, 0, { MEAN_MOTION_DOT: ndot }), NOW, false);
     ok(Math.abs(both.ratio - 1) < 0.01 && only.method === 'ndot' && Math.abs(only.lifeDays / both.lifeDays - 1) < 0.01, `ṅ ↔ B* (${hp}×${ha} km): oran ${both.ratio.toFixed(3)}, yalnız ṅ ömrü ${only.lifeDays.toFixed(0)} ↔ ${both.lifeDays.toFixed(0)} gün`);
   }
 }
+// ================================================================ SGP4 C₁ (B* -> bozunma hızı) ↔ satellite.js (Vallado vd. 2006 uygulaması)
+{ const S = await import('../lib/satellite.esm.js');
+  const L = [['1 25544U 98067A   26315.50000000  .00012345  00000+0  21000-3 0  9990', '2 25544  51.6400 120.0000 0004000  90.0000 270.0000 15.50000000 10000'],
+    ['1 11111U 80001A   26315.50000000  .00000100  00000+0  50000-4 0  9990', '2 11111  98.0000  10.0000 0150000  45.0000 315.0000 14.20000000 10000'],
+    ['1 22222U 90001A   26315.50000000  .00010000  00000+0  12000-2 0  9990', '2 22222  28.5000  10.0000 1200000 180.0000   0.0000 12.50000000 10000'],
+    ['1 33333U 00001A   26315.50000000  .00010000  00000+0  30000-3 0  9990', '2 33333  65.0000  10.0000 0010000 180.0000   0.0000 16.10000000 10000']];
+  const d = L.map(([l1, l2]) => { const sr = S.twoline2satrec(l1, l2), m = sgp4C1(+l2.slice(52, 63), +('0.' + l2.slice(26, 33)), +l2.slice(8, 16), sr.bstar); return Math.abs(m.cc1 / sr.cc1 - 1); });
+  ok(Math.max(...d) < 1e-6, `SGP4 C₁ ↔ satellite.js cc1 (4 TLE, perije 150–900 km, e 0–0,12): en büyük bağıl fark ${Math.max(...d).toExponential(1)}`); }
 // ================================================================ güven, derin uzay, çağ
 ok(confidence({ ratio: 1, lifeDays: 30 }) === 'high' && confidence({ ratio: 1, lifeDays: 400 }) === 'mid' && confidence({ ratio: 1, lifeDays: 30 * 365.25 }) === 'low', 'güven: iki kaynak uyumlu -> < 60 gün yüksek, < 25 yıl orta, sonrası düşük');
 ok(confidence({ ratio: 5, lifeDays: 10 }) === 'low' && confidence({ ratio: null, lifeDays: 10 }) === 'mid' && confidence({ ratio: null, lifeDays: 100 }) === 'low', 'güven: uyumsuz / tek kaynak -> düşük');
@@ -157,7 +171,7 @@ ok(sentryRows(new Map([['X', { ip: 1e-5, ps: -4, ts: null, range: '2150-2190' }]
   ok(all.stale === 1 && all.nHigh === 1 && all.alive.length === 5 && all.sel.every((x, k, A) => !k || A[k - 1].r.reentryMs <= x.r.reentryMs), `süzgeç (tümü): ${all.alive.length} bozunan, ${all.stale} süresi dolmuş, ${all.nHigh} çok yüksek; yeniden giriş sırasına dizili`);
   const d10 = selectSats(res, { now, groupOf, ctl: 10 });
   ok(ids({ ctl: 10 }) === '1,6' && d10.nKept === 1, 'süzgeç (≥ 10 yıl): genç uydu, istasyon ve yörüngesini koruyan elenir (elenen korunan sayılır)');
-  ok(ids({ ctl: 'hist' }) === '1' && ids({ ctl: 0, q: 'genc' }) === '2' && ids({ ctl: 0, q: '6' }) === '6' && ids({ ctl: 0, group: 0 }) === '4' && ids({ ctl: 0, horizonDays: 365.25 }) === '2' && ids({ ctl: 0, horizonDays: 2 * 365.25 }) === '2,3,1', 'süzgeç: geçmişe göre serbest, ad / NORAD araması, grup, ufuk');
+  ok(ids({ ctl: 'hist' }) === '1' && ids({ ctl: 0, q: 'genc' }) === '2' && ids({ ctl: 0, q: '6' }) === '6' && ids({ ctl: 0, group: 0 }) === '4' && ids({ ctl: 0, horizonDays: 365.25 }) === '2' && ids({ ctl: 0, horizonDays: 2.2 * 365.25 }) === '2,3,1', 'süzgeç: geçmişe göre serbest, ad / NORAD araması, grup, ufuk');
   ok(all.n1 === 1 && all.n5 === 4 && selectSats([], {}).sel.length === 0, 'süzgeç: 1 ve 5 yıl sayıları; boş katalog');
 }
 // ================================================================ Güneş çevrimi
@@ -173,7 +187,7 @@ ok(sentryRows(new Map([['X', { ip: 1e-5, ps: -4, ts: null, range: '2150-2190' }]
     `F10.7 tablosu ${TAB.ilkAy} → ${new Date(info.to).toISOString().slice(0, 7)} (son gözlem ${TAB.sonGozlem}): Ağu 2024 ${atM(2024, 8).toFixed(0)}, Ara 2008 ${atM(2008, 12).toFixed(0)}, Haz 2034 (tahmin) ${atM(2034, 6).toFixed(0)} sfu`);
   setSolarTable(null);
   const f = solarDensityFactor;
-  ok(f(400, 140) === 1 && f(170, 70) === 1 && f(400, 70) > 0.25 && f(400, 70) < 0.5 && f(400, 200) > 1.5 && f(400, 200) < 2.5 && f(600, 70) < f(400, 70) && f(600, 200) > f(400, 200) && f(1500, 70) === f(1000, 70),
+  ok(Math.abs(f(400, 140) - 1) < 1e-12 && f(400, 70) > 0.15 && f(400, 70) < 0.4 && f(400, 200) > 1.6 && f(400, 200) < 2.6 && f(600, 70) < f(400, 70) && f(600, 200) > f(400, 200) && f(150, 70) > 0.6,
     `aktivite çarpanı (ortalamaya göre): 400 km'de ${f(400, 70).toFixed(2)}–${f(400, 200).toFixed(2)}, 600 km'de ${f(600, 70).toFixed(2)}–${f(600, 200).toFixed(2)}`);
   // aynı yörünge ve B*: en çok aktivitede başlayan tahmin (yoğunluk düşecek) sabit atmosferden uzun, en azda başlayan (yoğunluk artacak) kısa
   const at = (t, opt) => assessSat({ ...rec(450, 450, 1.5e-4), EPOCH: new Date(t).toISOString().slice(0, 19) }, t, false, null, opt).lifeDays;
@@ -211,7 +225,7 @@ function cart(hp, ha, inc, raan, argp, t0, days, flags) {
     ok(m.lunisolar && worst < 10 && swing > 40, `Ay–Güneş + J2 ↔ Kartezyen tümleme (${hp}×${ha} km, i=${inc}°): ${pts.map((p) => `${p[0]}g ${p[1].toFixed(0)}↔${p[2].toFixed(0)}`).join(', ')} km (en büyük fark ${worst.toFixed(1)} km, perije oynaması ${swing.toFixed(0)} km)`);
   }
   // 2) açılar yoksa ya da kapalıysa yalnız sürüklenme; güven her durumda düşük; metin hangisinin kullanıldığını söyler
-  const withA = assessSat(gp(250, 35786, 27, 300, 30, 1e-3), T0, false), noA = assessSat(rec(250, 35786, 1e-3), T0, false), off = assessSat(gp(250, 35786, 27, 300, 30, 1e-3), T0, false, null, { lunisolar: false });
+  const withA = assessSat(gp(250, 35786, 27, 300, 30, 1e-3), T0, false), noA = assessSat({ ...rec(250, 35786, 1e-3), INCLINATION: 27 }, T0, false), off = assessSat(gp(250, 35786, 27, 300, 30, 1e-3), T0, false, null, { lunisolar: false });
   ok(withA.deep && withA.lunisolar && !noA.lunisolar && !off.lunisolar && withA.conf === 'low' && noA.conf === 'low' && Math.abs(noA.lifeDays / off.lifeDays - 1) < 1e-9 && withA.lifeDays !== off.lifeDays,
     `GTO 250×35.786 km: Ay–Güneş dahil ${Number.isFinite(withA.lifeDays) ? (withA.lifeDays / 365.25).toFixed(1) + ' yıl' : '> 100 yıl'}, yalnız sürüklenme ${(off.lifeDays / 365.25).toFixed(1)} yıl`);
   ok(/Ay–Güneş çekimi dahil/.test(fmtReentry(withA, T0)) && /modelde yok/.test(fmtReentry(noA, T0)) && !assessSat(gp(400, 420, 51, 10, 20, 1e-4), T0, false).lunisolar, 'metin: açılar varsa "dahil", yoksa "modelde yok"; alçak yörüngede Ay–Güneş hesabı yapılmaz');
@@ -293,8 +307,9 @@ function cart(hp, ha, inc, raan, argp, t0, days, flags) {
 // ================================================================ olası aralık (%68): biçim ve LEO kapsaması
 { const fs = await import('node:fs'), TAB = JSON.parse(fs.readFileSync(new URL('../data/f107.json', import.meta.url), 'utf8'));
   const H = JSON.parse(fs.readFileSync(new URL('./fixtures/reentry_hist.json', import.meta.url), 'utf8')).satirlar, F = JSON.parse(fs.readFileSync(new URL('./fixtures/reentry_real.json', import.meta.url), 'utf8')).satirlar;
-  const r1 = lifeRange(100), r2 = lifeRange(3000, true), r3 = lifeRange(6000);
-  ok(r1.lo < 100 && r1.hi > 100 && r2.lo >= 0.9 * 3000 && !r1.extrap && r3.extrap && lifeRange(Infinity) === null && lifeRange(0) === null, 'lifeRange: tahmini kapsar, derin uzayda HEO bandı, 12 yıldan uzunda "sınanmamış"');
+  const r1 = lifeRange(100), r2 = lifeRange(3000, true), r3 = lifeRange(12000), r4 = lifeRange(30000), r5 = lifeRange(12000, true);
+  ok(r1.lo < 100 && r1.hi > 100 && r2.lo >= 0.9 * 3000 && r3.hi == null && r3.lo < 12000 && r4 === null && r5 === null && lifeRange(Infinity) === null && lifeRange(0) === null,
+    'lifeRange: tahmini kapsar; derin uzayda HEO aralığı; 25–60 yılda üst sınır belirlenemez; 60 yıldan (derin uzayda 25 yıldan) uzun tahminde aralık yok');
   const now = Date.UTC(2026, 10, 12), Y = 365.25 * 864e5;
   ok(fmtRange({ loMs: now + 3 * 864e5, hiMs: now + 20 * 864e5 }, now).split(' – ').length === 2 && /^\d{4}–\d{4}$/.test(fmtRange({ loMs: now + 3 * Y, hiMs: now + 9 * Y }, now)) && /^şimdi – /.test(fmtRange({ loMs: now - 864e5, hiMs: now + 30 * 864e5 }, now)),
     `aralık metni: kısa süre gün, uzun süre yıl (${fmtRange({ loMs: now + 3 * Y, hiMs: now + 9 * Y }, now)}), geçmişte kalan alt sınır "şimdi"`);
@@ -303,6 +318,24 @@ function cart(hp, ha, inc, raan, argp, t0, days, flags) {
   const cH = cover(H); setSolarTable(TAB); const cHt = cover(H), cF = cover(F, true); setSolarTable(null);
   ok(cH > 0.62 && cH < 0.76 && cHt > 0.62 && cF > 0.68, `LEO olası aralık kapsaması: 1965–2016 Güneş bilinmezken %${(100 * cH).toFixed(0)}, gözlenen F10.7 ile %${(100 * cHt).toFixed(0)}; 2025–26 (tahminle) %${(100 * cF).toFixed(0)}`);
   ok(/olası aralık 20\d\d–20\d\d/.test(fmtReentry(assessSat(rec(420, 420, 2e-4), now, false), now)), `metin: ${fmtReentry(assessSat(rec(420, 420, 2e-4), now, false), now)}`);
+}
+// ================================================================ olası aralığın sansürlü örnekte sınanması (Kaplan–Meier)
+// Bağımsız örnek (fixtures/reentry_km.json; tools/tarihsel_ornek.mjs --sansur, aralığı türetenden farklı tohum): sonuçtan bağımsız seçilmiş TLE çağları; hâlâ yörüngede
+// olanlar sağdan sansürlü. Tahmin vekili: çağa kadar gözlenen F10.7/Ap, sonrası son bilinen çevrim minimumuna (SILSO) göre evrelenmiş ortalama çevrim.
+// Her dilimde aralığın kapsama olasılığı Kaplan–Meier dağılımından: F(üst) − F(alt) (Kaplan & Meier 1958).
+{ const fs = await import('node:fs'), K = JSON.parse(fs.readFileSync(new URL('./fixtures/reentry_km.json', import.meta.url), 'utf8')), TAB = JSON.parse(fs.readFileSync(new URL('../data/f107.json', import.meta.url), 'utf8'));
+  const MINIMA = [Date.UTC(1964, 9, 15), Date.UTC(1976, 2, 15), Date.UTC(1986, 8, 15), Date.UTC(1996, 4, 15), Date.UTC(2008, 11, 15), Date.UTC(2019, 11, 15)], Y = 365.25 * 864e5, [y0, m0] = TAB.ilkAy.split('-').map(Number);
+  const clim = (ms, tmin) => { const x = (((ms - tmin) / Y) % 11 + 11) % 11, sh = x < 4.85 ? 0.5 * (1 - Math.cos(Math.PI * x / 4.85)) : 0.5 * (1 + Math.cos(Math.PI * (x - 4.85) / 6.15)); return 70 + 115 * sh; };
+  const fcast = (ep) => { const tmin = MINIMA.filter((t) => t <= ep).pop(), f = [], ap = []; for (let k = 0; k < TAB.f.length; k++) { const ms = Date.UTC(y0, m0 - 1 + k, 15, 12); if (ms <= ep && k < TAB.gozlenenAy) { f.push(TAB.f[k]); ap.push(TAB.ap[k]); } else f.push(clim(ms, tmin)); } return { ilkAy: TAB.ilkAy, f, ap }; };
+  const P = K.satirlar.map((r) => { const t = Date.parse(r.epoch + 'Z'); setSolarTable(fcast(t)); return { p: assessSat({ EPOCH: r.epoch, MEAN_MOTION: r.n, ECCENTRICITY: r.e, BSTAR: r.bstar, MEAN_MOTION_DOT: r.ndot, INCLINATION: r.i }, t, false).lifeDays, gun: r.gun, ev: r.olay }; }).filter((x) => x.p > 0 && Number.isFinite(x.p));
+  setSolarTable(null);
+  const kmF = (obs) => { const s = [...obs].sort((x, y) => x.r - y.r || (y.ev - x.ev)); let atRisk = s.length, S = 1; const pts = []; for (let i = 0; i < s.length;) { const r = s[i].r; let d = 0, c = 0; while (i < s.length && s[i].r === r) { if (s[i].ev) d++; else c++; i++; } if (d) { S *= 1 - d / atRisk; pts.push([r, 1 - S]); } atRisk -= d + c; } return (x) => { let F = 0; for (const [r, f] of pts) { if (r <= x) F = f; else break; } return F; }; };
+  const D = BAND.days, msg = [], cov = [];
+  for (let k = 0; k < D.length - 1; k++) { const S = P.filter((x) => x.p >= D[k] && x.p < D[k + 1]); if (S.length < 40) continue; const F = kmF(S.map((x) => ({ r: x.gun / x.p, ev: x.ev }))), q = BAND.leo[k];
+    if (q[1] == null) { const Fmax = F(1e9); msg.push(`${Math.round(D[k] / 365.25)}–${Math.round(D[k + 1] / 365.25)} y: F(alt) ${F(q[0]).toFixed(2)}, gözlenebilen en çok F ${Fmax.toFixed(2)} (üst sınır belirlenemez)`); cov.push({ ok: Math.abs(F(q[0]) - 0.16) < 0.1 && Fmax < 0.84 }); continue; }
+    const c = F(q[1]) - F(q[0]); cov.push({ ok: c > 0.55 && c < 0.8 }); msg.push(`${D[k] < 365 ? D[k] + 'g' : (D[k] / 365.25).toFixed(0) + 'y'}+: %${(100 * c).toFixed(0)} (n=${S.length})`); }
+  ok(P.length > 2500 && K.satirlar.filter((r) => !r.olay).length > 500, `sansürlü örnek: ${K.meta.cisim} cisim, ${K.satirlar.length} tahmin, ${K.satirlar.filter((r) => !r.olay).length} sansürlü (yörüngede, ${K.meta.sansurTarihi})`);
+  ok(cov.length >= 6 && cov.every((x) => x.ok), `LEO olası aralığın Kaplan–Meier kapsaması (hedef %68), bağımsız örnek: ${msg.join(' · ')}`);
 }
 // ================================================================ derin uzay gerçek yeniden girişler (Cluster II, ESA)
 // Çok eksantrik yörüngeli (a ≈ 72.000 km, e ≈ 0,85) Cluster uyduları; perijeyi Ay–Güneş çekimi bir yılda ~4.600 km'den indirdi. TLE: CelesTrak geçmişi;
