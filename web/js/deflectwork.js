@@ -4,6 +4,7 @@
 import * as D from './deflect.js';
 import { cometaryToKepler, stateJacobian, bplaneCov } from './uncert.js';
 import { porkchop } from './intercept.js';
+import { encounter } from './keyhole.js';
 import { c3Capacity } from './rockets.js';
 import { EphStore } from './ephstore.js';
 
@@ -15,6 +16,7 @@ const ready = EphStore.open(new URL('../data/eph/v1/', import.meta.url).href).th
 const need = (a, b) => store.ensure(a - 2 * D.DAY, b + 60 * D.DAY);
 const post = (m) => postMessage(m);
 
+const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 function addV(y, dv) { const z = Float64Array.from(y); z[3] += dv[0]; z[4] += dv[1]; z[5] += dv[2]; return z; }
 function stateAt(et) {                              // T.y0 (T.et0) -> et
   if (Math.abs(et - T.et0) < 1e-6) return Float64Array.from(T.y0);
@@ -157,6 +159,24 @@ globalThis.onmessage = async (ev) => {
         const g = apply(Sk, dk);
         sweep.push({ lead: (ca.et - rc.et) / D.DAY, shift: Math.hypot(...g) * dvKms, dvReq: b0.bE / Math.hypot(...g) * 1000 });
       }
+      // sonraki geçişler: itki bu geçişi kurtarıp yıllar sonraki bir çarpmaya yol açabilir (anahtar deliği). Nominal ve saptırılmış yörünge geçişten sonra tümlenir.
+      let later = null;
+      if (p.afterYears !== 0 && ca.y) {
+        const etEnd = Math.min(D.ET_MAX, ca.et + (p.afterYears || 50) * D.YEAR);
+        if (etEnd > ca.et + 60 * D.DAY) {
+          post({ type: 'progress', id, msg: 'Sonraki geçişler (anahtar delikleri)…', f: 0.7 });
+          await need(ca.et, etEnd);
+          if (stopped()) return;
+          const passes = (c0) => {
+            if (!c0 || !c0.y) return null;
+            const t1 = c0.et + 20 * D.DAY, y1 = eng.integrate(c0.et, c0.y, t1).y;
+            return eng.scan(t1, y1, etEnd, { maxDist: 0.05 * D.AU, stopped }).list.map((c) => { const b = eng.bplaneAt(c); return { et: c.et, dist: c.dist, b: b && b.b, bE: b && b.bE, rp: b && b.rp, impact: !!(b && b.impact) }; });
+          };
+          later = { N: passes(ca), D: passes(ca2), etEnd };
+          if (stopped()) return;
+        }
+      }
+      const [, vEc] = eng.earth(ca.et), [, vSc] = eng.sun(ca.et), enc = encounter(b0.S, b0.vinf, sub3(vEc, vSc));
       // 3B: yakın geçiş çevresinde Dünya merkezli yollar (±4 gün)
       post({ type: 'progress', id, msg: 'Yollar çiziliyor…', f: 0.85 });
       const W = 4 * D.DAY, n = 241, caD = ca2 || ca;
@@ -181,7 +201,7 @@ globalThis.onmessage = async (ev) => {
         sensKmPerMps: sens / 1000, dvReqMps: b0.bE / sens * 1000, dvReqHypoMps: b0.bE / sens * 1000,
         FreqN: p.method !== 'kinetic' ? M * (b0.bE / sens * 1000) / (p.days * D.DAY) : null,
         orbit: { da: oc.da, dP: oc.dP, de: oc.de, di: oc.di, a0: oc.before.a, P0: oc.before.P },
-        sweep, pathN, pathD, leadDays: (ca.et - etA) / D.DAY, SB } });
+        sweep, pathN, pathD, leadDays: (ca.et - etA) / D.DAY, SB, later, enc } });
       return;
     }
   } catch (err) {

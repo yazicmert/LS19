@@ -57,6 +57,12 @@ export function verdictOf(r, p) {
   }
   const rp0 = r.b0.rp, imp0 = !!r.b0.impact, rp1 = r.after ? r.after.rp : null, imp1 = !!(r.after && r.after.impact);
   const move = rp1 == null ? '' : `En yakın geçiş ${distText(rp0)} → ${distText(rp1)}.`;
+  // sonraki geçişler (deflectwork 'later'): itki bu geçişi kurtarıp asteroidi yıllar sonraki bir çarpmaya götürebilir (anahtar deliği)
+  const lt = r.later, fD = lt && lt.D ? lt.D.find((x) => x.impact) : null, fN = lt && lt.N ? lt.N.find((x) => x.impact) : null;
+  if (!imp1 && fD && !(fN && Math.abs(fN.et - fD.et) < 0.5 * 365.25 * 86400)) {
+    return { ...base, kind: 'bad', title: 'Saptırma ileride çarpmaya yol açar', laterImpact: fD, detail: `${move} Ama ${dateLong(fD.et)} geçişinde Dünya'ya çarpar: itki asteroidi bir anahtar deliğine soktu. İtkinin büyüklüğünü, yönünü ya da zamanını biraz değiştirin.` };
+  }
+  if (!imp1 && fN && !fD) return { ...base, kind: 'good', title: imp0 ? 'Çarpma önlendi' : 'İleriki çarpma önlendi', detail: `${move} Nominal yörüngedeki ${dateLong(fN.et)} çarpması da ortadan kalkar.` };
   if (imp0 && !imp1) return { ...base, kind: 'good', title: 'Çarpma önlendi', detail: move };
   if (!imp0 && imp1) return { ...base, kind: 'bad', title: 'Saptırma çarpmaya yol açtı', detail: move };
   if (imp0 && imp1) return { ...base, kind: 'bad', title: 'Yine çarpar', detail: `${move} İtkiyi büyütün ya da daha erken uygulayın.` };
@@ -190,3 +196,16 @@ export function disruptionOf(m, U, M, D, rho) {
   if (ratio >= 0.1) return { Q, Qs, ratio, kind: 'warn', text: `${base}. Eşiğe oranı %${fmt(100 * ratio, 0)}: moloz yığını bir asteroit dağılabilir.` };
   return { Q, Qs, ratio, kind: 'ok', text: `${base}: eşiğin çok altında, asteroit bütün kalır.` };
 }
+
+// sonraki geçişler tablosu: nominal ve saptırılmış geçişler zamana göre eşlenir (±120 gün); { et, n, d } (n/d: { dist, impact } ya da null)
+export function laterRows(lt, max = 12) {
+  if (!lt) return [];
+  const W = 120 * 86400, N = lt.N || [], Dd = (lt.D || []).map((x) => ({ ...x, used: false })), rows = [];
+  for (const n of N) {
+    const d = Dd.filter((x) => !x.used && Math.abs(x.et - n.et) < W).sort((a, b) => Math.abs(a.et - n.et) - Math.abs(b.et - n.et))[0];
+    if (d) d.used = true; rows.push({ et: n.et, n, d: d || null });
+  }
+  for (const d of Dd) if (!d.used) rows.push({ et: d.et, n: null, d });
+  return rows.sort((a, b) => a.et - b.et).slice(0, max);
+}
+export const passText = (x) => (!x ? '—' : x.impact ? 'ÇARPMA' : distText(x.dist));

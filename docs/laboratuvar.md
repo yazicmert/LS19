@@ -61,6 +61,7 @@ engineFor(view, exp, cur)   // 'sky' → 'sky'; Laboratuvar'da deneyin motoru; a
 | `js/deflectui.js` | Saptırma deneyi: 4 adım, grafikler, 3B yollar (hesap `deflectwork.js`'te, değişmedi) |
 | `js/labtext.js` | Saf yardımcılar (DOM yok): düz dille biçim, itki zamanı seçenekleri, sonuç yargısı, adım özetleri, bağlantı ve geçmiş, belirsizlik metni |
 | `js/intercept.js` / `js/lambert.js` | Önleme görevi: Lambert fırlatma penceresi (porkchop), C3 → çarpıcı kütlesi, B-düzlemi kayması |
+| `js/keyhole.js` | Rezonans çemberleri (Valsecchi): karşılaşma geometrisi, geçiş sonrası a', çemberler |
 | `js/uncert.js` | Saf belirsizlik hesabı: kütle/β modeli, JPL kovaryansı → B-düzlemi, tohumlu Monte Carlo |
 | `js/astui.js` | Yalnız asteroit kataloğu ve bilgi kartı; saptırmaya geçişi `openLab` ile yapar |
 
@@ -112,6 +113,12 @@ Her adım katlanabilir bir kutudur: tamamlanınca tek satırlık **özete** iner
 | Gerçek yörünge | ikisi de ıskalıyor | **Dünya'yı ıskalamaya devam eder** (mesafe önce → sonra) |
 
 Çarpma sekmesindeki sanal çarpıcılar (Sentry) için "Laboratuvarda dene" düğmesi senaryoyu **Çarpacak olsaydı** olarak önceden seçer. Kuvvet modeli: Güneş, gezegenler, Ay, Plüton (DE440s), Güneş 1PN, yakın geçişte Dünya J2 ve JPL çözümünün kütleçekimsel olmayan parametreleri (Yarkovsky A2; hedef kartında gösterilir, katalog öğeleriyle çalışan hedeflerde yoktur). `test_deflect.js`: Apophis 2029 JPL CAD ile 1 km, 2051 %0,1 ve 5 dk içinde.
+
+### Sonraki geçişler ve anahtar delikleri
+
+Büyük bir yakın geçiş (Apophis 2029: 38.000 km) asteroidin yörüngesini değiştirir; itki o geçişi kurtarıp asteroidi yıllar sonraki bir çarpmaya götürebilir. Gerçek yörünge senaryosunda worker, yakın geçişten sonra nominal ve saptırılmış yörüngeyi 50 yıl (en çok 2149) tümler ve 0,05 AB'den yakın geçişleri listeler (**Sonraki yakın geçişler** tablosu). Yargı buna göre genişler: saptırılmış yörünge ileride çarpıyor, nominal çarpmıyorsa **"Saptırma ileride çarpmaya yol açar"** (kırmızı); nominaldeki ileriki bir çarpma kalkıyorsa **"İleriki çarpma önlendi"**.
+
+B-düzlemi grafiğindeki mor çemberler **rezonans çemberleridir** (`keyhole.js`, Valsecchi vd. 2003): geçiş noktası geçiş sonrası yarı büyük ekseni belirler; a'^(3/2) = k/h olan noktalar ζ ekseni üzerinde merkezli bir çemberdir ve oradan geçen asteroit k yıl sonra Dünya'ya yeniden yaklaşır. Anahtar delikleri bu çemberlerin üzerindeki dar bölgelerdir; karar çemberlerden değil tam tümlemeden çıkar. Doğrulama (`test/test_keyhole.js`): Apophis'in 2029 sonrası a'sı Valsecchi ile 1,1034, tam tümlemeyle 1,1031 AB; 7:6 çemberine konan bir yörüngede a' 1,1079 AB (rezonans 1,1082) ve 7 yıl sonra Dünya'ya 3,7 milyon km'ye yaklaşır.
 
 ### Çekim traktörü ve parçalanma sınırı
 

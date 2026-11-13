@@ -117,6 +117,8 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   check('gerçek yörünge senaryosunda yargı "ıskalamaya devam eder" (kinetik, 2 yıl önce)', v1.cls.includes('info') || v1.cls.includes('good'), v1.cls);
   const un1 = await page.evaluate(() => ({ h: document.querySelector('#dfUnc').hidden, t: document.querySelector('#dfUT').textContent, d: document.querySelector('#dfUD').textContent }));
   check('belirsizlik kutusu: gerçek yörüngede itkisiz → itkili çarpma olasılığı ve kayma aralığı (kovaryanssız yanıtta bunu söyler)', !un1.h && /Çarpma olasılığı: itkisiz %0 → itkili %0/.test(un1.t) && /kovaryansı yok/.test(un1.d) && /%90 olasılıkla/.test(un1.d), `${un1.t} — ${un1.d.slice(0, 120)}`);
+  const lt1 = await page.evaluate(() => ({ vis: !document.querySelector('#dfLaterBox').hidden, rows: [...document.querySelectorAll('#dfLater tbody tr')].map((r) => r.textContent), enc: !!window.LS19.deflect.result.enc }));
+  check('sonraki yakın geçişler: nominal ve saptırılmış yörünge 2029 sonrası tümlenir (2051 geçişi listede); rezonans geometrisi var', lt1.vis && lt1.enc && lt1.rows.some((t) => /2051/.test(t)), lt1.rows.slice(0, 3).join(' | '));
   const u1 = await page.evaluate(() => Object.fromEntries(new URLSearchParams(location.search)));
   check('sonuç adrese yazılır (hedef, geçiş günü, itki günü, yöntem) ve "Denemelerim" tablosuna eklenir', u1.hedef === '99942' && u1.gecis === '2029-04-13' && /^2027-04-1[2-4]$/.test(u1.itki) && u1.yontem === 'kin' && u1.exp === 'saptirma'
     && (await vis(page, '#dfHist')) && (await page.evaluate(() => document.querySelectorAll('#dfHistTbl tbody tr').length)) === 1, JSON.stringify(u1));

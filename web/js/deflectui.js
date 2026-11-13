@@ -7,7 +7,8 @@ import { CLASS_TR } from './asteroids.js';
 import { fmt } from './format.js';
 import { $, mk } from './uiutil.js';
 import { sig, kmText, distText, caDist, sizeText, dateLong, etToISO, etFromISO, RHO, QUICK_TARGETS, leadChoices, defaultLead, leadText, verdictOf, needText,
-  targetSummary, caSummary, pushSummary, DIRS, dartNote, ngText, LINK_KEYS, linkFromState, stateFromLink, historyRow, historyCsv, uncertText, interceptRows, disruptionOf } from './labtext.js';
+  targetSummary, caSummary, pushSummary, DIRS, dartNote, ngText, LINK_KEYS, linkFromState, stateFromLink, historyRow, historyCsv, uncertText, interceptRows, disruptionOf, laterRows, passText } from './labtext.js';
+import { circlesInView } from './keyhole.js';
 import { workerOpts } from './i18n.js';
 import { covFromSbdb, massSigma, diamSigma, dvSigma, monteCarlo, ellipse, BETA_SIG } from './uncert.js';
 import { ROCKET_IDS, rocketOf, tliCapacity } from './rockets.js';
@@ -458,6 +459,7 @@ export class DeflectUI {
     const dq = p.method === 'kinetic' ? disruptionOf(p.m, p.U, r.M, parseFloat($('#dfD').value), parseFloat($('#dfRho').value)) : null, dbx = $('#dfDisrupt');
     dbx.hidden = !dq || dq.kind === 'ok'; if (dq) { dbx.className = 'unc ' + (dq.kind === 'bad' ? 'bad' : 'warn'); $('#dfDT').textContent = dq.kind === 'bad' ? 'Asteroit parçalanır' : 'Parçalanma riski'; $('#dfDD').textContent = dq.text; }
     this.renderUnc();
+    this.renderLater();
     this.renderTable();
     this.drawCharts();
   }
@@ -471,6 +473,20 @@ export class DeflectUI {
     const u = uncertText(mc, { hypo: p.hypo, sM, sBeta, sDv, method: p.method, SB, dvReqMps: r.dvReqMps, M: r.M, p });
     const box = $('#dfUnc'); box.hidden = false; box.className = 'unc ' + u.kind;
     $('#dfUT').textContent = u.title; $('#dfUD').replaceChildren(...u.detail.flatMap((t, k) => (k ? [' ', mk('span', null, t)] : [mk('span', null, t)])));
+  }
+  // sonraki geçişler (gerçek yörünge senaryosu): nominal ve saptırılmış yörünge geçişten sonra tümlenir
+  renderLater() {
+    const r = this.result, p = this.lastP, box = $('#dfLaterBox'), lt = r.later;
+    box.hidden = !!p.hypo || !lt; if (box.hidden) return;
+    const tb = $('#dfLater tbody'); tb.replaceChildren();
+    const rows = laterRows(lt);
+    for (const x of rows) {
+      const tr = mk('tr'), cn = mk('td', 'num', passText(x.n)), cd = mk('td', 'num', passText(x.d));
+      if (x.n && x.n.impact) cn.classList.add('bad'); if (x.d && x.d.impact) cd.classList.add('bad');
+      tr.append(mk('td', null, dateLong(x.et)), cn, cd); tb.appendChild(tr);
+    }
+    if (!rows.length) { const tr = mk('tr'); tr.append(mk('td', 'dim', 'Bu aralıkta 0,05 AB\'den yakın başka geçiş yok'), mk('td'), mk('td')); tb.appendChild(tr); }
+    $('#dfLaterNote').textContent = `Yakın geçişten ${dateLong(lt.etEnd)} tarihine dek (0,05 AB'den yakın geçişler). Büyük bir yakın geçiş yörüngeyi değiştirir: küçük bir kayma bile sonraki geçişleri binlerce km oynatabilir. Daha uzak geçişler kaotik bölgededir; belirsizlikle birlikte okunmalıdır.`;
   }
   renderTable() {
     const r = this.result, p = this.lastP, out = $('#dfOut'); out.replaceChildren();
@@ -516,6 +532,17 @@ export class DeflectUI {
     g.setLineDash([4, 4]); g.strokeStyle = '#e66767'; g.beginPath(); g.arc(cx, cy, bE * s, 0, 7); g.stroke(); g.setLineDash([]);
     g.fillStyle = '#2f6fbf'; g.beginPath(); g.arc(cx, cy, Math.max(2, R_E * s), 0, 7); g.fill();
     const a = P(n0), b = P(n1), mc = this.mc;
+    if (r.enc && !p.hypo) {                                                   // rezonans çemberleri (keyhole.js; Valsecchi vd. 2003)
+      g.save(); g.beginPath(); g.rect(0, 16, w, h - 16); g.clip();
+      g.setLineDash([3, 4]); g.strokeStyle = 'rgba(180, 140, 255, .55)'; g.fillStyle = 'rgba(200, 170, 255, .9)';
+      for (const C of circlesInView(r.enc, 0, 0, ext / AU, 30, 8)) {
+        const cy2 = cy - C.D * AU * s, rr = C.R * AU * s; if (rr > 50 * w) continue;
+        g.beginPath(); g.arc(cx, cy2, rr, 0, 2 * Math.PI); g.stroke();
+        const ang = Math.atan2(-(a[1] - cy2), a[0] - cx), lx = cx + rr * Math.cos(-ang), ly = cy2 + rr * Math.sin(-ang);       // etiket: nominal noktaya en yakın yerde
+        if (lx > 4 && lx < w - 30 && ly > 20 && ly < h - 4) g.fillText(`${C.k}:${C.h}`, lx + 3, ly - 3);
+      }
+      g.setLineDash([]); g.restore();
+    }
     if (mc && mc.SB && !p.hypo) {                                           // yörünge belirsizliği: 1σ ve 3σ elipsleri, nominal ve saptırılmış noktada
       const e = ellipse(mc.SB);
       for (const [c, q] of [[a, '#d8dde6'], [b, '#ff8a3d']]) for (const k of [1, 3]) {

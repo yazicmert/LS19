@@ -177,6 +177,7 @@
 <link rel="modulepreload" href="js/touchdown.js">
 <link rel="modulepreload" href="js/landnav.js">
 <link rel="modulepreload" href="js/deflectui.js">
+<link rel="modulepreload" href="js/keyhole.js">
 <link rel="modulepreload" href="js/uncert.js">
 <link rel="modulepreload" href="js/updater.js">
 <link rel="modulepreload" href="js/tracker.js">
@@ -719,7 +720,12 @@
               <div id="dfUnc" class="unc info" role="status" aria-live="polite" hidden><div id="dfUT" class="ut"></div><div id="dfUD" class="ud"></div></div>
               <p id="dfNeed" class="need"></p>
               <canvas id="dfBplane" class="chart sq" role="img" aria-label="Dünya'ya göre geçiş noktası: nominal ve saptırılmış"></canvas>
-              <p class="note">Mavi daire Dünya; kesikli çember, çarpma bölgesinin sınırı (yakalama yarıçapı). Beyaz nokta nominal, turuncu nokta saptırılmış geçiş noktası; turuncu kalın çizgi itkinin belirsizliğiyle %90 aralığı, elipsler yörünge belirsizliği (1σ ve 3σ, JPL kovaryansı varsa).</p>
+              <p class="note">Mavi daire Dünya; kesikli çember, çarpma bölgesinin sınırı (yakalama yarıçapı). Beyaz nokta nominal, turuncu nokta saptırılmış geçiş noktası; turuncu kalın çizgi itkinin belirsizliğiyle %90 aralığı, elipsler yörünge belirsizliği (1σ ve 3σ, JPL kovaryansı varsa). Mor kesikli çemberler rezonans çemberleri: oradan geçen asteroit "k:h" ile yazılan k yıl sonra Dünya'ya yeniden yaklaşır; anahtar delikleri bu çemberlerin üzerindedir.</p>
+              <div id="dfLaterBox" hidden>
+                <div class="fttl">Sonraki yakın geçişler</div>
+                <div class="tblwrap"><table id="dfLater" class="tbl"><thead><tr><th>Tarih</th><th class="num">Nominal</th><th class="num">Saptırılmış</th></tr></thead><tbody></tbody></table></div>
+                <p id="dfLaterNote" class="note"></p>
+              </div>
               <div class="stepnav"><button id="df3d" class="sm" type="button" disabled>3B'de göster</button><button id="dfAgain" class="sm" type="button">İtkiyi değiştir</button></div>
               <div class="stepnav"><button id="dfLink" class="sm" type="button" title="Bu deneyin tüm ayarlarını taşıyan bağlantı: açan kişi aynı hedefi, geçişi ve itkiyi görür">Bağlantıyı kopyala</button><span id="dfLinkMsg" class="k small" role="status" aria-live="polite"></span></div>
               <details class="adv"><summary>Tüm ayrıntılar</summary>

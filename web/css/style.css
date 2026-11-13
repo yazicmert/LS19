@@ -689,6 +689,7 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
 @keyframes stepIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 .stepsub { margin: 2px 0 6px; font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); }
 .dfhist { margin-top: 12px; }
+.tbl td.bad { color: var(--bad); font-weight: 650; }
 .unc { margin-top: 8px; padding: 8px 12px; border-radius: 10px; border: 1px dashed var(--line-2); }
 .unc .ut { font-weight: 650; } .unc .ud { margin-top: 3px; font-size: 12px; line-height: 1.45; color: var(--text-secondary); }
 .unc.good .ut { color: var(--good); } .unc.bad .ut { color: var(--bad); } .unc.warn .ut { color: var(--warn, #f5b041); } .unc.info .ut { color: var(--accent-2); }
