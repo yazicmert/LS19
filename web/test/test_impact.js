@@ -1,5 +1,5 @@
 // Çarpma / yeniden giriş modeli: büyüklük sıraları, tutarlılık, eksantrik yörünge, biçimlendirme, Sentry ayrıştırma
-import { assessSat, atmosphereDensity, fmtReentry, fmtSpan, sentryRows, fmtOdds, launchYear, ageYears, controlNote, analyzeHistory, expectedDecayKmDay, controlFromHistory, confidence, parseEpoch, histRow, calibHist, selectSats, CONF_TR, KLASS_TR, solarF107, solarCycleF107, solarDensityFactor, setSolarTable, solarTableInfo, lifeRange, fmtRange, sgp4C1, BAND } from '../js/impact.js';
+import { assessSat, atmosphereDensity, fmtReentry, fmtSpan, sentryRows, fmtOdds, launchYear, ageYears, controlNote, analyzeHistory, expectedDecayKmDay, controlFromHistory, confidence, parseEpoch, histRow, calibHist, selectSats, CONF_TR, KLASS_TR, solarF107, solarCycleF107, solarDensityFactor, setSolarTable, solarTableInfo, lifeRange, fmtRange, sgp4C1, BAND, objClass, HORIZON_YEARS } from '../js/impact.js';
 let fail = 0;
 // model içi tutarlılık ve referans karşılaştırmaları sabit (ortalama aktivite) atmosferle yapılır; Güneş çevrimi ayrıca sınanır
 const assessStatic = (o, t, c, h = null) => assessSat(o, t, c, h, { solar: false });
@@ -8,6 +8,7 @@ const MU = 398600.4418, RE = 6378.135;
 // verilen perije/apoje yüksekliğinden (km) GP kaydı üret
 const rec = (hp, ha, bstar, extra = {}) => { const a = (hp + ha) / 2 + RE, e = ((ha + RE) - (hp + RE)) / (2 * a), n = Math.sqrt(MU / a ** 3) * 86400 / (2 * Math.PI);
   return { OBJECT_NAME: 'TEST', EPOCH: '2026-10-01T00:00:00', MEAN_MOTION: n, ECCENTRICITY: e, BSTAR: bstar, MEAN_MOTION_DOT: 0, ...extra }; };
+const NOW0 = Date.parse('2026-10-01T00:00:00Z');
 const years = (hp, ha, b) => assessStatic(rec(hp, ha, b), Date.parse('2026-10-01T00:00:00Z'), false).lifeDays / 365.25;
 
 // atmosfer: NRL MSIS 2.1 tablosu (msis_data.js). Tablo dışı noktalarda doğrudan pymsis ile aynı yöntemle (küresel, yerel saat ve mevsim ortalaması) hesaplanmış
@@ -15,6 +16,10 @@ const years = (hp, ha, b) => assessStatic(rec(hp, ha, b), Date.parse('2026-10-01
 { const REF = [[405, 150, 10, 3.4259e-12], [255, 95, 7, 3.6194e-11], [720, 210, 30, 1.4318e-13], [165, 120, 15, 8.0491e-10], [530, 140, 15, 4.2896e-13]];
   const err = REF.map(([h, f, a, r]) => Math.abs(atmosphereDensity(h, f, a) / r - 1)), mono = [150, 250, 350, 500, 700, 900].every((h, i, A) => !i || atmosphereDensity(A[i - 1]) > atmosphereDensity(h));
   ok(Math.max(...err) < 0.06 && mono && atmosphereDensity(400, 200, 15) > 3 * atmosphereDensity(400, 80, 15), `MSIS 2.1 tablosu ↔ doğrudan pymsis (5 nokta): en büyük fark %${(100 * Math.max(...err)).toFixed(1)}; monoton; 400 km'de F10.7 80→200: ${(atmosphereDensity(400, 200, 15) / atmosphereDensity(400, 80, 15)).toFixed(1)}×`); }
+// mevsim (yarı yıllık) değişimi: msis_mevsim.js ile tablo ↔ doğrudan pymsis (o günün tarihiyle, aynı küresel ortalama); mevsimsiz tablo aynı noktalarda %35'e kadar şaşar
+{ const REF = [['2025-07-25', 405, 150, 15, 2.6205e-12], ['2026-04-10', 505, 110, 15, 3.9056e-13], ['2024-10-20', 610, 200, 15, 4.7529e-13], ['2023-01-05', 300, 95, 7, 1.1508e-11]];
+  const e1 = REF.map(([d, h, f, a, r]) => Math.abs(atmosphereDensity(h, f, a, Date.parse(d + 'T00:00:00Z')) / r - 1)), e0 = REF.map(([, h, f, a, r]) => Math.abs(atmosphereDensity(h, f, a) / r - 1));
+  ok(Math.max(...e1) < 0.04 && Math.max(...e0) > 0.25, `MSIS 2.1 yılın günü: tablo + mevsim ↔ doğrudan pymsis en büyük fark %${(100 * Math.max(...e1)).toFixed(1)} (mevsimsiz %${(100 * Math.max(...e0)).toFixed(0)})`); }
 // ISS benzeri: 420 km dairesel, B* 2e-4 -> yılda ~15–45 km alçalma (gerçek ISS ~ ayda 1–2 km)
 { const r = assessStatic(rec(420, 420, 2e-4), Date.parse('2026-10-01T00:00:00Z'), true), c = r.curve.find((p) => p[0] >= 330);
   ok(c && 420 - c[1] > 10 && 420 - c[1] < 60, `420 km, B*=2e-4: ilk yılda ${c ? (420 - c[1]).toFixed(0) : '?'} km alçalma (10–60 km beklenir)`); }
@@ -31,7 +36,11 @@ ok(years(250, 1500, 1e-4) > 0 && Number.isFinite(years(250, 1500, 1e-4)), `eksan
 // uç durumlar
 ok(assessStatic(rec(100, 100, 1e-4)).durum === 'reentry', 'perije < 120 km: yeniden giriş aşamasında');
 ok(assessStatic(rec(1600, 1600, 1e-4)).durum === 'high', 'perije > 1400 km: bozunma ihmal edilebilir');
-ok(assessStatic(rec(500, 500, -1e-4)).durum === 'nodrag', 'B* ≤ 0 ve ndot yok: belirsiz');
+{ // B* ≤ 0 ve ṅ yok: sınıfının tipik B*'ı ile kaba tahmin (BSTAR_PRIOR); öncül kapalıysa belirsiz
+  const p = assessStatic(rec(500, 500, -1e-4), NOW0, false), d = assessStatic({ ...rec(500, 500, -1e-4), OBJECT_NAME: 'COSMOS 1408 DEB' }, NOW0, false), nb = assessSat(rec(500, 500, -1e-4), NOW0, false, null, { solar: false, prior: false });
+  ok(p.method === 'prior' && p.klass === 'P' && p.conf === 'low' && p.durum === 'decaying' && p.range && p.range.loMs < p.reentryMs && (p.range.hiMs == null || p.range.hiMs > p.reentryMs) && d.klass === 'D' && d.lifeDays < p.lifeDays && nb.durum === 'nodrag' && /sınıfının tipik B\*/.test(fmtReentry(p, NOW0)),
+    `B* ≤ 0 ve ṅ yok: sınıf öncülüyle kaba tahmin (yük ${(p.lifeDays / 365.25).toFixed(1)} yıl, enkaz ${(d.lifeDays / 365.25).toFixed(1)} yıl), güven düşük; öncül kapalıysa belirsiz`);
+  ok(objClass({ OBJECT_NAME: 'SL-16 R/B' }) === 'R' && objClass({ OBJECT_NAME: 'FENGYUN 1C DEB' }) === 'D' && objClass({ OBJECT_NAME: 'NOAA 15' }) === 'P' && objClass({ OBJECT_TYPE: 'ROCKET BODY', OBJECT_NAME: 'X' }) === 'R', 'cisim sınıfı: ad ya da OBJECT_TYPE'); }
 { // B* yok, yalnız ndot: yine sonlu tahmin
   const r = assessStatic(rec(400, 400, 0, { MEAN_MOTION_DOT: 1e-4 }), Date.parse('2026-10-01T00:00:00Z'), false); ok(r.method === 'ndot' && Number.isFinite(r.lifeDays) && r.lifeDays > 0, `yalnız ndot ile tahmin: ${(r.lifeDays / 365.25).toFixed(1)} yıl`); }
 ok(assessStatic({ MEAN_MOTION: 0 }).durum === 'nodata', 'geçersiz kayıt: veri yok');
@@ -252,23 +261,30 @@ function cart(hp, ha, inc, raan, argp, t0, days, flags) {
   ok(all.med > 0.88 && all.med < 1.12 && all.in2 > 0.93, `gerçek ↔ model (tümü): ${txt(all)}`);
   ok(near.med > 0.9 && near.med < 1.15 && near.lo > 0.75 && near.hi < 1.5, `gerçek ↔ model (~45 gün kala): ${txt(near)}`);
   ok(mid.med > 0.8 && mid.med < 1.15 && mid.lo > 0.62 && mid.hi < 1.6, `gerçek ↔ model (~150 gün kala): ${txt(mid)}`);
-  ok(far.med > 0.85 && far.med < 1.2 && far.lo > 0.65 && far.hi < 1.45, `gerçek ↔ model (~330 gün kala): ${txt(far)}`);
+  // ~330 gün kala tahminlerin yarısı Temmuz 2025'te; o günkü CelesTrak tahmini Ağu 2025 – 2026 aktivitesini yüksek öngördü (~160'a karşı ~140 sfu): mevsim
+  // düzeltmesinden önce bu hata Temmuz'daki mevsimsel yoğunluk çukurunda bağlanan genlikle birbirini götürüyordu (0,98); şimdi tahmin hatası açıkta (§4.2h)
+  ok(far.med > 0.65 && far.med < 1.2 && far.lo > 0.6 && far.hi < 1.45, `gerçek ↔ model (~330 gün kala, Temmuz 2025 tahminiyle): ${txt(far)}`);
   const hi = R.filter((x) => x.conf === 'high'), sHi = st(hi);
   ok(hi.length > 50 && sHi.in2 > 0.95 && sHi.lo > 0.75 && sHi.hi < 1.45, `"yüksek" güven verilen tahminler gerçekte de isabetli: ${txt(sHi)}`);
   // F10.7 tablosu + geçmiş kalibrasyonu, sabit atmosfer + yalnız B*'tan belirgin iyi olmalı
   const old = st(run({ solar: false }, false)); setSolarTable(null); const cyc = st(run(undefined)); setSolarTable(TAB);
-  ok(all.mad < old.mad * 0.85 && all.mad < cyc.mad * 0.85, `F10.7 tablosu ↔ ortalama çevrim ↔ sabit atmosfer (yalnız B*): medyan |ln hata| ${all.mad.toFixed(3)} ↔ ${cyc.mad.toFixed(3)} ↔ ${old.mad.toFixed(3)}`);
+  // gözlenen uzay havasıyla (fixtures/f107_2026-11-12.json: 12 Kas 2026'ya kadar gözlenen aylık ve günlük F10.7/Ap) fizik sınaması: mevsimli MSIS, mevsimsizden iyi
+  const OBS = JSON.parse(fs.readFileSync(new URL('./fixtures/f107_2026-11-12.json', import.meta.url), 'utf8')); setSolarTable(OBS);
+  const ob = st(run(undefined)), obN = st(run({ season: false })); setSolarTable(TAB);
+  ok(ob.mad < obN.mad && ob.mad < old.mad * 0.85 && all.mad < old.mad * 1.05, `2025–26 medyan |ln hata|: gözlenen uzay havasıyla ${ob.mad.toFixed(3)} (mevsimsiz ${obN.mad.toFixed(3)}); Temmuz 2025 tahminiyle ${all.mad.toFixed(3)}, ortalama çevrimle ${cyc.mad.toFixed(3)}, sabit atmosfer (yalnız B*) ${old.mad.toFixed(3)}`);
   // 1 yıllık bozunma hızı: uzun ömürlü edilgen cisimler (fixtures/decay_1yil.json), ilk TLE'den tahmin edilen yarı büyük eksen düşüşü / gözlenen
   const L = JSON.parse(fs.readFileSync(new URL('./fixtures/decay_1yil.json', import.meta.url), 'utf8'));
   const drop = (opt) => L.satirlar.map((r) => { const t = Date.parse(r.epoch + 'Z'), o = { EPOCH: r.epoch, MEAN_MOTION: r.n, ECCENTRICITY: r.e, BSTAR: r.bstar, MEAN_MOTION_DOT: r.ndot }, p = assessSat(o, t, true, null, { ...opt, curveStepDays: 5 }), C = p.curve;
     const k = C ? C.findIndex((c) => c[0] >= r.gun) : -1; if (k < 1) return NaN; const f = (r.gun - C[k - 1][0]) / (C[k][0] - C[k - 1][0]), a0 = Math.cbrt(MU / (r.n * 2 * Math.PI / 86400) ** 2);
     return (a0 - ((C[k - 1][1] + (C[k][1] - C[k - 1][1]) * f + C[k - 1][2] + (C[k][2] - C[k - 1][2]) * f) / 2 + RE)) / r.dususKm; }).filter(Number.isFinite);
-  const dT = drop({}), dS = drop({ solar: false }); setSolarTable(null); const dC = drop({}); setSolarTable(TAB);
+  const dT = drop({}), dS = drop({ solar: false }); setSolarTable(null); const dC = drop({}); setSolarTable(OBS); const dO = drop({}), dON = drop({ season: false }); setSolarTable(TAB);
   const s3 = (a) => `medyan ${qt(a, 0.5).toFixed(2)}, %68: ${qt(a, 0.16).toFixed(2)}–${qt(a, 0.84).toFixed(2)}`;
   // Not: bu yıl için tablonun Temmuz 2025 sonrası tahmindir ve CelesTrak Eki–Kas 2025 aktivitesini gerçekten yüksek öngörmüştü (~162'ye karşı ~140 sfu): model bu
   // yüzden düşüşü biraz fazla tahmin eder; bu yılda sabit atmosfer biraz daha isabetlidir (gerçek tahmin koşulu, docs/fizik_denetimi.md §4.2d)
-  ok(dT.length > 300 && qt(dT, 0.5) > 0.95 && qt(dT, 0.5) < 1.3 && qt(dT, 0.16) > 0.85 && qt(dT, 0.84) < 1.5, `1 yıllık irtifa düşüşü (${dT.length} uzun ömürlü cisim), tahmin / gözlenen: ${s3(dT)}`);
-  ok(Math.abs(Math.log(qt(dT, 0.5))) < Math.abs(Math.log(qt(dC, 0.5))), `1 yıllık düşüş: tablo ${qt(dT, 0.5).toFixed(2)}, ortalama çevrim ${qt(dC, 0.5).toFixed(2)}, sabit ${qt(dS, 0.5).toFixed(2)}`);
+  // gözlenen uzay havasıyla: çağlar 29–30 Temmuz 2025 (mevsimsel yoğunluk çukuru); mevsimsiz model bu çukuru bir yıl taşıyıp düşüşü eksik tahmin ediyordu (0,80)
+  ok(dO.length > 300 && qt(dO, 0.5) > 0.9 && qt(dO, 0.5) < 1.3 && Math.abs(Math.log(qt(dO, 0.5))) < Math.abs(Math.log(qt(dON, 0.5))), `1 yıllık irtifa düşüşü (${dO.length} uzun ömürlü cisim), gözlenen uzay havasıyla tahmin / gözlenen: ${s3(dO)} (mevsimsiz ${qt(dON, 0.5).toFixed(2)})`);
+  // Temmuz 2025 tahminiyle (gerçek kullanım koşulu): tahmin Ağu 2025 – 2026 aktivitesini ~%15 yüksek öngördüğünden düşüş fazla tahmin edilir (MSIS'te 500 km'de ~1,5 kat)
+  ok(dT.length > 300 && qt(dT, 0.5) > 1.3 && qt(dT, 0.5) < 2.0, `1 yıllık düşüş, Temmuz 2025 tahminiyle: ${s3(dT)}; ortalama çevrim ${qt(dC, 0.5).toFixed(2)}, sabit ${qt(dS, 0.5).toFixed(2)} (bilinen sınır: Güneş tahmini)`);
   setSolarTable(null);
 }
 // ================================================================ tarihsel yeniden girişler (çok yıllık tahminler)
@@ -287,6 +303,14 @@ function cart(hp, ha, inc, raan, argp, t0, days, flags) {
   }
   const t3 = sel(T, 1.5, 12), c3 = sel(C, 1.5, 12), s3 = sel(S, 1.5, 12);
   ok(mad(t3) < mad(c3) * 0.75 && mad(c3) < mad(s3) * 0.6, `1,5–12 yıl kala medyan |ln hata|: gözlenen F10.7 ${mad(t3).toFixed(3)}, ortalama çevrim ${mad(c3).toFixed(3)}, sabit atmosfer ${mad(s3).toFixed(3)}`);
+  // gerçek kullanım koşulu (Güneş bilinmez: çağa kadar gözlenen, sonrası son çevrim minimumuna göre evrelenmiş ortalama çevrim; KM sınamasıyla aynı vekil):
+  // MSIS'in mevsim değişimi her dilimde hatayı azaltır (tüm örnek 0,279 → 0,250)
+  { const MINIMA = [Date.UTC(1964, 9, 15), Date.UTC(1976, 2, 15), Date.UTC(1986, 8, 15), Date.UTC(1996, 4, 15), Date.UTC(2008, 11, 15), Date.UTC(2019, 11, 15)], Y = 365.25 * 864e5, [y0, m0] = TAB.ilkAy.split('-').map(Number);
+    const clim = (ms, tmin) => { const x = (((ms - tmin) / Y) % 11 + 11) % 11, sh = x < 4.85 ? 0.5 * (1 - Math.cos(Math.PI * x / 4.85)) : 0.5 * (1 + Math.cos(Math.PI * (x - 4.85) / 6.15)); return 70 + 115 * sh; };
+    const fcast = (ep) => { const tmin = MINIMA.filter((t) => t <= ep).pop(), f = [], ap = []; for (let k = 0; k < TAB.f.length; k++) { const ms = Date.UTC(y0, m0 - 1 + k, 15, 12); if (ms <= ep && k < TAB.gozlenenAy) { f.push(TAB.f[k]); ap.push(TAB.ap[k]); } else f.push(clim(ms, tmin)); } return { ilkAy: TAB.ilkAy, f, ap }; };
+    const pr = (opt) => H.satirlar.filter((_, k) => k % 3 === 0).map((r) => { const t = Date.parse(r.epoch + 'Z'); setSolarTable(fcast(t)); return assessSat({ EPOCH: r.epoch, MEAN_MOTION: r.n, ECCENTRICITY: r.e, BSTAR: r.bstar, MEAN_MOTION_DOT: r.ndot }, t, false, null, opt).lifeDays / r.kalanGun; });
+    const mS = mad(pr({})), mN = mad(pr({ season: false })); setSolarTable(null);
+    ok(mS < mN * 0.95, `tarihsel, Güneş tahmin vekiliyle medyan |ln hata|: mevsimli MSIS ${mS.toFixed(3)}, mevsimsiz ${mN.toFixed(3)}`); }
   const hi = T.filter((x) => x.c === 'high').map((x) => x.q);
   ok(hi.length > 150 && in2(hi) > 0.95, `tarihsel "yüksek" güven: n=${hi.length}, 2× içinde %${(100 * in2(hi)).toFixed(0)}`);
 }
@@ -303,7 +327,7 @@ function cart(hp, ha, inc, raan, argp, t0, days, flags) {
   ok(H.meta.cisim > 400 && R.filter((x) => x.r.deep && x.r.lunisolar).length > 0.97 * R.length, `GTO/HEO örneği: ${H.meta.cisim} cisim, ${H.satirlar.length} tahmin; %${(100 * R.filter((x) => x.r.deep && x.r.lunisolar).length / R.length).toFixed(1)}'i Ay–Güneş hesaplı (gerisi yeniden giriş aşamasında ya da e ≤ 0,1)`);
   ok(med(far) > 0.85 && med(far) < 1.1 && in2(far) > 0.8, `GTO/HEO 0,7–10 yıl kala (n=${far.length}): medyan ${med(far).toFixed(2)}, %68 ${qt(far, 0.16).toFixed(2)}–${qt(far, 0.84).toFixed(2)}, 2× içinde %${(100 * in2(far)).toFixed(0)}`);
   ok(med(mid) > 0.65 && med(mid) < 1.1 && in2(mid) > 0.72, `GTO/HEO 2 ay – 0,7 yıl kala (n=${mid.length}): medyan ${med(mid).toFixed(2)}, 2× içinde %${(100 * in2(mid)).toFixed(0)} (bilinen sınır: kısa)`);
-  ok(med(near) > 0.8 && med(near) < 1.3 && in2(near) > 0.65, `GTO/HEO < 2 ay kala (n=${near.length}): medyan ${med(near).toFixed(2)}, 2× içinde %${(100 * in2(near)).toFixed(0)} (60 km eşiği; 80 km'de %53)`);
+  ok(med(near) > 0.8 && med(near) < 1.3 && in2(near) > 0.8, `GTO/HEO < 2 ay kala (n=${near.length}): medyan ${med(near).toFixed(2)}, 2× içinde %${(100 * in2(near)).toFixed(0)} (60 km eşiği; B* ≤ 0 kayıtlarda roket gövdesi öncül B*'ı)`);
   ok(in2(N.filter((_, i) => R[i].y >= 0.7)) < 0.15, `Ay–Güneş çekimi olmadan 0,7+ yıl kala yalnız %${(100 * in2(N.filter((_, i) => R[i].y >= 0.7))).toFixed(0)} 2× içinde`);
   const cov = R.filter((x) => x.r.range).map((x) => { const t0 = x.r.epochMs, real = t0 + x.real * 864e5; return real >= x.r.range.loMs && real <= x.r.range.hiMs; });
   ok(cov.length > 1500 && cov.filter(Boolean).length / cov.length > 0.6 && cov.filter(Boolean).length / cov.length < 0.78, `GTO/HEO olası aralık (%68) kapsaması: %${(100 * cov.filter(Boolean).length / cov.length).toFixed(0)}`);
@@ -315,6 +339,10 @@ function cart(hp, ha, inc, raan, argp, t0, days, flags) {
   const r1 = lifeRange(100), r2 = lifeRange(3000, true), r3 = lifeRange(12000), r4 = lifeRange(30000), r5 = lifeRange(12000, true);
   ok(r1.lo < 100 && r1.hi > 100 && r2.lo >= 0.9 * 3000 && r3.hi == null && r3.lo < 12000 && r4 === null && r5 === null && lifeRange(Infinity) === null && lifeRange(0) === null,
     'lifeRange: tahmini kapsar; derin uzayda HEO aralığı; 25–60 yılda üst sınır belirlenemez; 60 yıldan (derin uzayda 25 yıldan) uzun tahminde aralık yok');
+  { // sınanabilir ufkun ötesi: 60 yılı aşan LEO tahmininde tarih verilmez, durum 'long', alt sınır tahminin 0,49'u
+    const L = assessSat(rec(600, 600, 3e-5), NOW0, false), t = fmtReentry(L, NOW0);
+    ok(L.lifeDays > HORIZON_YEARS.leo * 365.25 && L.durum === 'long' && L.beyond && L.range && L.range.hiMs == null && Math.abs((L.range.loMs - NOW0) / 864e5 / L.lifeDays - 0.49) < 1e-6 && /^> 60 yıl \(tarih sınanamaz; en erken olası ~\d{4}\)/.test(t) && selectSats([{ o: rec(600, 600, 3e-5), id: 1, h: null, r: L }], { now: NOW0 }).alive.length === 0,
+      `60 yılı aşan tahmin: "${t}" (model ${(L.lifeDays / 365.25).toFixed(0)} yıl)`); }
   const now = Date.UTC(2026, 10, 12), Y = 365.25 * 864e5;
   ok(fmtRange({ loMs: now + 3 * 864e5, hiMs: now + 20 * 864e5 }, now).split(' – ').length === 2 && /^\d{4}–\d{4}$/.test(fmtRange({ loMs: now + 3 * Y, hiMs: now + 9 * Y }, now)) && /^şimdi – /.test(fmtRange({ loMs: now - 864e5, hiMs: now + 30 * 864e5 }, now)),
     `aralık metni: kısa süre gün, uzun süre yıl (${fmtRange({ loMs: now + 3 * Y, hiMs: now + 9 * Y }, now)}), geçmişte kalan alt sınır "şimdi"`);
@@ -356,4 +384,27 @@ function cart(hp, ha, inc, raan, argp, t0, days, flags) {
   ok(run({ lunisolar: false }).every((x) => !Number.isFinite(x.q) || x.lead < 60), 'Ay–Güneş çekimi olmadan bu cisimlerin hiçbiri (60+ gün kala) yeniden girmez görünür');
   ok(ru.length >= 3 && ru.every((x) => x > 0.25 && x < 1.1), `Cluster Rumba (25–88 gün kala; bilinen sınır: tahmin kısa): ${ru.map((x) => x.toFixed(2)).join(', ')}`);
 }
+// ================================================================ sürüklenme verisi olmayan kayıtların sınaması (sınıf öncül B*'ı)
+// fixtures/reentry_nodrag.json: tarihsel örnek cisimlerinin (tek NORAD numaralı; öncül çift numaralılardan) B* ≤ 0 ve ṅ ≤ 0 TLE'leri; yeniden girmiş ya da sansürlü.
+// Kaplan–Meier ile: B* dağılımının %84–%16'sından kurulan aralığın kapsaması ve medyan oran (Kaplan & Meier 1958)
+{ const fs = await import('node:fs'), K = JSON.parse(fs.readFileSync(new URL('./fixtures/reentry_nodrag.json', import.meta.url), 'utf8')), TAB = JSON.parse(fs.readFileSync(new URL('./fixtures/f107_2025-07-20.json', import.meta.url), 'utf8'));
+  setSolarTable(TAB);
+  const P = K.satirlar.map((r) => { const t = Date.parse(r.epoch + 'Z'), x = assessSat({ EPOCH: r.epoch, MEAN_MOTION: r.n, ECCENTRICITY: r.e, BSTAR: 0, MEAN_MOTION_DOT: 0, INCLINATION: r.i, OBJECT_TYPE: { R: 'ROCKET BODY', D: 'DEBRIS', P: 'PAYLOAD' }[r.c] }, t, false);
+    return { x, ev: r.olay, gun: r.gun, t }; }).filter((p) => p.x.method === 'prior' && Number.isFinite(p.x.lifeDays));
+  setSolarTable(null);
+  const kmF = (obs) => { const s = [...obs].sort((x, y) => x.r - y.r || (y.ev - x.ev)); let atRisk = s.length, S = 1; const pts = []; for (let i = 0; i < s.length;) { const r = s[i].r; let d = 0, c = 0; while (i < s.length && s[i].r === r) { if (s[i].ev) d++; else c++; i++; } if (d) { S *= 1 - d / atRisk; pts.push([r, 1 - S]); } atRisk -= d + c; } return (x) => { let F = 0; for (const [r, f] of pts) { if (r <= x) F = f; else break; } return F; }; };
+  const F = kmF(P.map((p) => ({ r: p.gun / p.x.lifeDays, ev: p.ev }))), R = P.filter((p) => p.x.range);
+  // aralık kapsaması: yeniden girmişte gerçek an aralıkta mı; sansürlüde aralığın üstü sansür anından önceyse kapsanmadı, değilse bilinmez (dışarıda)
+  const cv = R.map((p) => { const real = p.t + p.gun * 864e5, lo = p.x.range.loMs, hi = p.x.range.hiMs; return p.ev ? real >= lo && (hi == null || real <= hi) : hi != null && real > hi ? false : null; }).filter((v) => v != null);
+  const ev = P.filter((p) => p.ev).map((p) => p.x.lifeDays / p.gun), qs = (a, q) => [...a].sort((u, v) => u - v)[Math.floor(q * a.length)];
+  ok(P.length > 250 && F(0.5) < 0.3 && F(2) > 0.5 && cv.length > 150 && cv.filter(Boolean).length / cv.length > 0.55 && cv.filter(Boolean).length / cv.length < 0.85,
+    `B* ≤ 0, ṅ ≤ 0 kayıtları (${P.length}; ${ev.length} yeniden girmiş): öncül B*'la tahmin / gerçek medyan ${qs(ev, 0.5).toFixed(2)}; KM F(0,5) ${F(0.5).toFixed(2)}, F(1) ${F(1).toFixed(2)}, F(2) ${F(2).toFixed(2)}; B* aralığının kapsaması %${(100 * cv.filter(Boolean).length / cv.length).toFixed(0)}`); }
+// ================================================================ eksantrik yörüngede geçmiş eğimi: genlik dilim ortasındaki yörüngeye perije korunarak bağlanır
+// (çok eksantrikte sürüklenme perijeyi neredeyse sabit tutup a'yı indirir; eski bağlama e'yi a·e sabit tutarak perijeyi Δa kadar yükseltiyordu ve ömür ~0 çıkıyordu)
+{ const g = { ...rec(160, 9000, 3e-3), INCLINATION: 28, RA_OF_ASC_NODE: 10, ARG_OF_PERICENTER: 180 }, t0 = NOW0;
+  const tr = assessSat(g, t0, true, null, { solar: false, curveStepDays: 1, lunisolar: false }), C = tr.curve, aAt = (d) => { const k = C.findIndex((p) => p[0] >= d); const f = (d - C[k - 1][0]) / (C[k][0] - C[k - 1][0]); return [(C[k - 1][1] + (C[k][1] - C[k - 1][1]) * f), (C[k - 1][2] + (C[k][2] - C[k - 1][2]) * f)]; };
+  const T1 = 50, S = Array.from({ length: 11 }, (_, k) => { const [hp, ha] = aAt(Math.max(0.5, k * 5)); return { t: t0 + k * 5 * 864e5, a: (hp + ha) / 2 + RE }; }), [hp1, ha1] = aAt(T1), a1 = (hp1 + ha1) / 2 + RE, e1 = (ha1 - hp1) / (2 * a1);
+  const h = analyzeHistory(S), gp = { ...g, EPOCH: new Date(t0 + T1 * 864e5).toISOString().slice(0, 19), MEAN_MOTION: Math.sqrt(MU / a1 ** 3) * 86400 / (2 * Math.PI), ECCENTRICITY: e1, BSTAR: 0 };
+  const m = assessSat(gp, t0 + T1 * 864e5, false, { ...h, segDays: 50, aLast: a1, epochDay: (t0 + T1 * 864e5) / 864e5 }, { solar: false, lunisolar: false }), left = tr.lifeDays - T1;
+  ok(tr.lifeDays > 80 && m.method === 'hist' && Math.abs(m.lifeDays / left - 1) < 0.25, `eksantrik (160×9.000 km) geçmiş eğiminden kalan ömür ${m.lifeDays.toFixed(0)} ↔ ${left.toFixed(0)} gün`); }
 if (fail) process.exit(1);
