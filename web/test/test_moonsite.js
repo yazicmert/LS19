@@ -8,10 +8,10 @@ import fs from 'fs';
 import * as E from '../js/engine.js';
 import * as EO from '../js/earth.js';
 import { makeLive } from '../js/live.js';
-import { designMission, findLandingWindow, normalizeConfig, DEFAULT_CONFIG } from '../js/design.js';
+import { designMission, findLandingWindow, normalizeConfig, DEFAULT_CONFIG, PROFILES } from '../js/design.js';
 import { Mission, twoStageDesign, siteIcrf, siteMe, R_SITE } from '../js/mission.js';
 import { initConic } from '../js/conic.js';
-import { siteOf, LUNAR_SITES, DEFAULT_SITE, validSite } from '../js/moonsite.js';
+import { siteOf, LUNAR_SITES, DEFAULT_SITE, validSite, siteBlocked } from '../js/moonsite.js';
 
 const TOL_SITE_M = 50, MIN_FROM_A11_KM = 100;
 let ok = true;
@@ -85,4 +85,23 @@ for (const id of Object.keys(LUNAR_SITES)) {
   console.log(`  dağılımlı (tohum 1): iniş ${dsp.ok ? 'başarılı' : 'BAŞARISIZ'}, seçilen yere ${dsp.h15.toFixed(1)} m, Apollo 11 yerine ${dsp.d11.toFixed(0)} km`);
   check(dsp.ok && dsp.h15 < TOL_SITE_M && dsp.d11 > MIN_FROM_A11_KM, 'dağılımlı uçuş (TLI hatası + seyrüsefer) da seçilen yere iner');
 }
+// 4) bir aydınlanma penceresi yakınsamazsa sonraki pencere (yalnız Apollo 11 dışında): APOLLO11 profili × Apollo 16, 13 Ekim 2026'da yakınsamaz, bir ay sonra yakınsar
+{
+  const t0 = performance.now(), logs = [];
+  makeLive(SPK, PCK, eo, tStart);
+  const D = JSON.parse(JSON.stringify(designMission(tOf(startMs), (m) => logs.push(m), { ...PROFILES.APOLLO11.cfg, moonSite: 'A16' })));
+  const later = D.LAUNCH.t_launch - tOf(startMs);
+  console.log(`  APOLLO11 × A16: fırlatma ${E.utcString(D.LAUNCH.t_launch).slice(0, 16)} (${(later / 86400).toFixed(1)} gün sonra; ${((performance.now() - t0) / 1000).toFixed(1)} s)`);
+  check(D.MOONSITE === 'A16' && later > 25 * 86400 && logs.some((m) => /sonraki pencere deneniyor/.test(m)), 'yakınsamayan pencerede sonraki aydınlanma penceresi denenir ve günlüğe yazılır; tasarım iniş yerini taşır');
+  const n = (() => { makeLive(SPK, PCK, eo, tStart); E.setMoonZone(E.SOI_M); const M = new Mission({ design: twoStageDesign(D), landing: 'opt' }); M.P.tLimit = Infinity; for (;;) { if (M.gen.next().done) break; }
+    const S = siteOf('A16'), [rs] = M.P.s.seleno(); return { ok: !!(M.result && M.result.ok), m: Math.acos(Math.min(1, E.dot(E.unit(S.icrf(M.P.s.t)), E.unit(rs)))) * S.r * 1000 }; })();
+  check(n.ok && n.m < TOL_SITE_M, `bir ay sonraki tasarım da seçilen yere iner (${n.m.toFixed(1)} m)`);
+  let err = '';
+  try { designMission(tOf(startMs), () => {}, { ...PROFILES.L2.cfg, moonSite: 'A12' }); } catch (e) { err = e.message; }
+  check(/L2 halo profiliyle tasarım/.test(err) && siteBlocked(normalizeConfig({ ...PROFILES.L2.cfg, moonSite: 'A17' })) && !siteBlocked(normalizeConfig({ ...PROFILES.L2.cfg, moonSite: 'A15' })) && !siteBlocked(normalizeConfig({ ...PROFILES.NRHO.cfg, moonSite: 'A12' })),
+    'L2 halo × Apollo 12/17 (üç ardışık pencerede yakınsamadı) açıkça reddedilir; öteki kombinasyonlar açık');
+  let def = ''; try { designMission(tOf(startMs), () => {}, { ...PROFILES.APOLLO.cfg }); } catch (e) { def = e.message; }
+  check(def === '' && /retry = cfg\.moonSite && cfg\.moonSite !== DEFAULT_SITE \? 2 : 0/.test(fs.readFileSync(new URL('../js/design.js', import.meta.url), 'utf8')), 'varsayılan yerde yeniden deneme yok (hazır tasarımlar bit düzeyinde aynı)');
+}
+
 console.log(ok ? 'TAMAM' : 'HATA'); process.exit(ok ? 0 : 1);

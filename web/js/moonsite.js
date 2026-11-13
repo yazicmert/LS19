@@ -23,6 +23,16 @@ export const LUNAR_SITES = {
 export const MAX_SITE_LAT = 30;
 export const validSite = (id) => (Object.hasOwn(LUNAR_SITES, id) && Math.abs(LUNAR_SITES[id].lat) <= MAX_SITE_LAT ? id : DEFAULT_SITE);
 
+// Ekim–Aralık 2026'da ardışık üç aydınlanma penceresinde tasarımı yakınsamayan yapılandırmalar (tüm profil × yer taraması, docs/laboratuvar.md):
+// L2 güney halo (L2S13) + Apollo 12 / Apollo 17. Öteki başarısızlıklar tarih geometrisiydi; tasarım sonraki pencereyi dener (design.js).
+export const BLOCKED = [{ halo: 'L2S13', sites: ['A12', 'A17'] }];
+// yapılandırma → engel açıklaması ya da '' (normalizeConfig çıktısı)
+export function siteBlocked(cfg) {
+  const id = cfg && cfg.moonSite ? validSite(cfg.moonSite) : DEFAULT_SITE;
+  const b = cfg && cfg.moon && cfg.moon.type === 'HALO' && BLOCKED.find((x) => x.halo === cfg.moon.halo.preset && x.sites.includes(id));
+  return b ? `${LUNAR_SITES[id].name}: L2 halo profiliyle tasarım Ekim–Aralık 2026'da ardışık üç pencerede yakınsamadı; başka bir profil ya da iniş yeri seçin` : '';
+}
+
 const cache = new Map();
 // id ya da tasarım ({ MOONSITE }) → { id, name, lat, lon (rad), latDeg, lonDeg, r (km), src (yarıçap kaynağı), dem (arazi dosyası), me (birim, Ay'a bağlı), icrf(t) (km, Ay merkezli ICRF) }
 export function siteOf(x) {

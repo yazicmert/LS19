@@ -1,7 +1,7 @@
 // LS19 arayüzü: HUD, görev paneli (olaylar, Δv bütçesi, grafikler, yörünge elemanları)
 import * as E from './engine.js';
 import { STAGES } from './mission.js';
-import { VIEW, LUNAR_SITES, DEFAULT_SITE, siteOf } from './moonsite.js';
+import { VIEW, LUNAR_SITES, DEFAULT_SITE, siteOf, siteBlocked } from './moonsite.js';
 import { ControlPanel } from './controlpanel.js';
 import { sunElevationAtSite, PROFILES, normalizeConfig } from './design.js';
 import { ROCKETS, ROCKET_IDS, DEFAULT_ROCKET, rocketOf, tliCapacity, parkPropellant } from './rockets.js';
@@ -127,10 +127,11 @@ export class UI {
   // profil eşleşmesi roketten bağımsız; rampa profilin eğimini kendi sınırına çekiyorsa (ör. Baykonur ≥ 46°) yine aynı profil sayılır
   profileKeyOf(cfg) { const c = { ...cfg, rocket: undefined }; return Object.keys(PROFILES).find((k) => sameCfg({ ...PROFILES[k].cfg, site: cfg.site, moonSite: cfg.moonSite }, c)) || 'CUSTOM'; }
   // seçili iniş yerinin koordinatı ve yerel yarıçapının kaynağı (Apollo 11: ölçülmüş LOLA yaması; öteki yerler: küresel LOLA dokusundan, ≈ ±0,1 km)
-  moonSiteInfo() {
+  moonSiteInfo(note = '') {
     const S = siteOf($('#cfgMoonSite').value), el = $('#moonSiteInfo'); if (!el) return;
     const ll = `${fmt(Math.abs(S.latDeg), 4)}° ${ns(S.latDeg)} ${fmt(Math.abs(S.lonDeg), 4)}° ${ew(S.lonDeg)}`;
-    el.textContent = `${ll} · yerel yarıçap ${fmt(S.r, 2)} km (${S.src}). Değiştirince Tasarla'ya basın.`;
+    el.textContent = (note ? note + '. ' : '') + `${ll} · yerel yarıçap ${fmt(S.r, 2)} km (${S.src}). Değiştirince Tasarla'ya basın.`;
+    el.classList.toggle('warn', !!note);
   }
   // roket seçimi (yalnız arayüz durumu; görevi app.js yeniden tasarlar). pay: iniş aracı kütlesi (kg; tasarım varsa ondan)
   setRocket(id, msg = '') {
@@ -153,7 +154,16 @@ export class UI {
     el.classList.toggle('warn', !!msg);
   }
   syncProfileSel() { $('#cfgProfile').value = this.profileKeyOf(this.getConfig()); }
-  syncCfgVis() { $('#rowHalo').style.display = $('#cfgMt').value === 'HALO' ? '' : 'none'; $('#cfgRa').disabled = !(parseFloat($('#cfgRn').value) > 0); }
+  syncCfgVis() { $('#rowHalo').style.display = $('#cfgMt').value === 'HALO' ? '' : 'none'; $('#cfgRa').disabled = !(parseFloat($('#cfgRn').value) > 0); this.syncSiteBlock(); }
+  // bu Ay bekleme yörüngesiyle tasarlanamayan iniş yerleri (moonsite.js BLOCKED) seçilemez; seçiliyse Apollo 11'e dönülür ve nedeni yazılır
+  syncSiteBlock() {
+    const sel = $('#cfgMoonSite'); if (!sel || !sel.options.length) return;
+    const moon = { type: $('#cfgMt').value, halo: { preset: $('#cfgHp').value } };
+    let note = '';
+    for (const o of sel.options) o.disabled = !!siteBlocked({ moon, moonSite: o.value });
+    if (sel.selectedOptions[0] && sel.selectedOptions[0].disabled) { note = siteBlocked({ moon, moonSite: sel.value }); sel.value = DEFAULT_SITE; }
+    this.moonSiteInfo(note);
+  }
   // profil karşılaştırma tablosu: rows = [{key, name, D (tasarım) | null, err, busy}]
   setCompare(rows, status = '') {
     const tb = $('#cmptable tbody'); tb.replaceChildren();

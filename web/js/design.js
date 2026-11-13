@@ -15,7 +15,8 @@
 //  Araç boyutlandırma: Δv bütçesinden iniş aracı ve TLI kademesi yakıtı (varsayılandan küçük olmaz).
 import * as E from './engine.js';
 import { STAGES as BASE_STAGES } from './mission.js';
-import { siteOf, validSite, DEFAULT_SITE } from './moonsite.js';
+import { siteOf, validSite, DEFAULT_SITE, siteBlocked } from './moonsite.js';
+const LUNATION_RETRY = 29.6 * 86400;                 // s: sonraki aydınlanma penceresi (kameri ay 29,53 gün; arama başlangıcı önceki pencereyi kesin geçsin)
 import { ROCKETS, DEFAULT_ROCKET, stageRecord, parkPropellant, rocketOf } from './rockets.js';
 import { LEGACY_SITE, minIncl, incPenalty, padAllowed, homeSite, inclRange, azInRange } from './pads.js';
 import { HALO_PRESETS, haloMember, ephemerisHalo } from './halo.js';
@@ -487,24 +488,22 @@ export async function designMissionAsync(tFrom, progress = () => {}, cancelled =
   }
 }
 function* designSteps(tFrom, progress, cfg0) {
-  const cfg = normalizeConfig(cfg0), K = ctx(cfg);
+  const cfg = normalizeConfig(cfg0);
   const log = (m, f) => progress(m, f);
   log('Yapılandırma: ' + configLabel(cfg), 0.01);
   if (cfg.rocket && cfg.site && !padAllowed(cfg.rocket, cfg.site.id)) throw new Error(`${rocketOf(cfg.rocket).name} ${cfg.site.name} rampasından fırlatılmıyor (gerçek rampaları dışında seçilemez; her rampa için genel TLI kademesini seçin)`);
-  // rampa verilmemişse gerçek roket kendi rampasından (pads.js homeSite: Vulcan → SLC-41, Falcon 9 → SLC-40, Falcon Heavy → LC-39A; SLS/Saturn V LC-39B'de kalır).
-  // Yapılandırmaya yazılmaz (cfg aynı kalır: önbellek anahtarı değişmez); fırlatma kaydı (LAUNCH.site, siteId, lat, lon) bu rampadandır
-  const home = cfg.rocket && !cfg.site ? homeSite(cfg.rocket) : null;
-  if (home) { K.site = home; K.SITE = home; log(`Rampa: ${home.name} (roketin kendi rampası)`, 0.015); }
-  if (cfg.rocket) { const r = rocketOf(cfg.rocket), st = r.stage; log(`Fırlatma aracı: ${r.name} (${r.pad}); TLI kademesi ${st.name}: ${st.engine}, ${st.T} kN, Isp ${st.isp} s, kuru ${st.dry} kg`, 0.02); }
-  let D = null;
-  for (;;) {
-    try { D = cfg.moon.type === 'HALO' ? yield* designHalo(K, tFrom, log) : yield* designApollo(K, tFrom, log); break; }
+  const blocked = siteBlocked(cfg);
+  if (blocked) throw new Error(blocked);
+  // Apollo 11 dışındaki iniş yerlerinde bir aydınlanma penceresi yakınsamazsa sonraki pencere (≈ 1 kameri ay sonra) denenir, en çok iki kez:
+  // "Tasarla" o tarihten sonraki ilk UYGUN pencereyi kurar. Her deneme tasarım bağlamını (K) baştan kurar. Varsayılan yerde davranış değişmez.
+  const retry = cfg.moonSite && cfg.moonSite !== DEFAULT_SITE ? 2 : 0;
+  let D = null, K = null, tF = tFrom;
+  for (let k = 0; ; k++) {
+    try { ({ D, K } = yield* designAttempt(cfg, tF, log)); break; }
     catch (e) {
-      // uzun TLI yakışında (ör. ICPS ~13 dk) çözülen park düzlemi biraz döner; eğim KSC enleminin (28,57°) altına inerse rampa düzlemden geçmez.
-      // Gerçek roket seçiliyse sıradaki park eğimiyle yeniden denenir (varsayılan araçta davranış değişmez)
-      if (!((K.ROCKET || K.SITE) && /fırlatma fırsatı/.test(e.message) && K.incList.length > 1)) throw e;
-      K.incList = K.incList.slice(1);
-      log(`  ${e.message}: park eğimi ${K.incList[0]}° ile yeniden deneniyor`, 0.3);
+      if (!(k < retry && /yakınsamadı/.test(e.message))) throw k ? new Error(`${e.message}: ${siteOf(cfg.moonSite).name} için ${k + 1} aydınlanma penceresi denendi`) : e;
+      tF += LUNATION_RETRY;
+      log(`Bu aydınlanma penceresinde ${e.message.toLowerCase()}; sonraki pencere deneniyor (${E.utcString(tF).slice(0, 10)} sonrası)`, 0.05);
     }
   }
   D.cfg = cfg; D.STAGES = K.STAGES.map((s) => ({ ...s }));
@@ -519,6 +518,26 @@ function* designSteps(tFrom, progress, cfg0) {
   log(`Araç: toplam ${m0.toFixed(0)} kg (TLI kademesi yakıtı ${D.STAGES[0].prop} kg, iniş aracı yakıtı ${D.STAGES[1].prop} kg)`, 0.99);
   log(`Tasarım tamam: fırlatma ${E.utcString(D.LAUNCH.t_launch)}, iniş ~${E.utcString(D.t_L - 1620)}, Güneş ${D.sunElAtLanding.toFixed(1)}°`, 1);
   return D;
+}
+
+// tek tasarım denemesi (bağlam K baştan kurulur): rampa ve park eğimi yeniden denemeleri burada
+function* designAttempt(cfg, tFrom, log) {
+  const K = ctx(cfg);
+  // rampa verilmemişse gerçek roket kendi rampasından (pads.js homeSite: Vulcan → SLC-41, Falcon 9 → SLC-40, Falcon Heavy → LC-39A; SLS/Saturn V LC-39B'de kalır).
+  // Yapılandırmaya yazılmaz (cfg aynı kalır: önbellek anahtarı değişmez); fırlatma kaydı (LAUNCH.site, siteId, lat, lon) bu rampadandır
+  const home = cfg.rocket && !cfg.site ? homeSite(cfg.rocket) : null;
+  if (home) { K.site = home; K.SITE = home; log(`Rampa: ${home.name} (roketin kendi rampası)`, 0.015); }
+  if (cfg.rocket) { const r = rocketOf(cfg.rocket), st = r.stage; log(`Fırlatma aracı: ${r.name} (${r.pad}); TLI kademesi ${st.name}: ${st.engine}, ${st.T} kN, Isp ${st.isp} s, kuru ${st.dry} kg`, 0.02); }
+  for (;;) {
+    try { return { D: cfg.moon.type === 'HALO' ? yield* designHalo(K, tFrom, log) : yield* designApollo(K, tFrom, log), K }; }
+    catch (e) {
+      // uzun TLI yakışında (ör. ICPS ~13 dk) çözülen park düzlemi biraz döner; eğim KSC enleminin (28,57°) altına inerse rampa düzlemden geçmez.
+      // Gerçek roket seçiliyse sıradaki park eğimiyle yeniden denenir (varsayılan araçta davranış değişmez)
+      if (!((K.ROCKET || K.SITE) && /fırlatma fırsatı/.test(e.message) && K.incList.length > 1)) throw e;
+      K.incList = K.incList.slice(1);
+      log(`  ${e.message}: park eğimi ${K.incList[0]}° ile yeniden deneniyor`, 0.3);
+    }
+  }
 }
 
 // ---------------------------------------------------------------- Apollo profili (LLO)
