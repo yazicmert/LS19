@@ -139,6 +139,7 @@
 <link rel="modulepreload" href="js/uiutil.js">
 <link rel="modulepreload" href="js/design.js">
 <link rel="modulepreload" href="js/pads.js">
+<link rel="modulepreload" href="js/lambert.js">
 <link rel="modulepreload" href="js/rocketinfo.js">
 <link rel="modulepreload" href="js/pickcard.js">
 <link rel="modulepreload" href="js/satlayer.js">
@@ -654,6 +655,17 @@
               <label>Araç kütlesi<span><input id="dfMass" type="number" value="580" min="1" step="10"> kg</span></label>
               <label>Çarpma hızı<span><input id="dfU" type="number" value="6.1" min="0.1" step="0.1"> km/s</span></label>
             </div>
+            <details id="dfIc" class="adv ic"><summary>Önleme görevi: bu çarpıcıyı hangi roketle, ne zaman fırlatırsınız?</summary>
+              <p class="note">Araç kütlesi, çarpma hızı ve yönü serbest sayılar değildir: Dünya'dan asteroide giden yörüngeden gelirler. Her fırlatma günü ve uçuş süresi için Güneş merkezli Lambert yörüngesi kurulur; kalkış enerjisi (C3) roketin taşıyabileceği kütleyi, varıştaki göreli hız çarpma hızını ve yönünü verir.</p>
+              <div class="frow"><label for="dfRocket">Roket</label><select id="dfRocket"></select></div>
+              <div class="daterow"><button id="dfIcRun" class="sm" type="button">Fırlatma penceresini hesapla</button><span id="dfIcMsg" class="k small" role="status" aria-live="polite"></span></div>
+              <div id="dfIcOut" hidden>
+                <canvas id="dfPork" class="chart" role="img" aria-label="Fırlatma penceresi: fırlatma günü ve uçuş süresine göre B-düzleminde kayma"></canvas>
+                <p class="note">Renk, o fırlatma günü (yatay) ve uçuş süresiyle (dikey) ulaşılan kaymanın yakalama yarıçapına oranıdır: sarı-beyaz ≥ 1 (çarpacak olsaydı kurtarır). Boş bölgeler: çözüm yok ya da roket o enerjiye ulaşamaz. Çember en iyi çözüm.</p>
+                <div id="dfIcBest" class="dfout"></div>
+                <div class="stepnav"><button id="dfIcUse" class="primary sm" type="button">Bu çözümü kullan</button></div>
+              </div>
+            </details>
             <div class="frow3 two" id="dfThr" hidden>
               <label>Kuvvet<span><input id="dfF" type="number" value="1" min="0.001" step="any"> N</span></label>
               <label>Süre<span><input id="dfDays" type="number" value="365" min="1" step="1"> gün</span></label>
@@ -677,7 +689,7 @@
                 <label>β (itki artışı)<span><input id="dfBeta" type="number" value="3.6" min="1" max="10" step="0.1"></span></label>
               </div>
               <div class="frow"><label for="dfDir">Yön</label>
-                <select id="dfDir"><option value="along">Yörünge boyunca (ileri)</option><option value="anti">Yörünge boyunca (geri)</option><option value="best">En etkili yön (STM ile)</option><option value="radial">Radyal (Güneş'ten dışa)</option><option value="normal">Yörünge normali</option></select></div>
+                <select id="dfDir"><option value="along">Yörünge boyunca (ileri)</option><option value="anti">Yörünge boyunca (geri)</option><option value="best">En etkili yön (STM ile)</option><option value="radial">Radyal (Güneş'ten dışa)</option><option value="normal">Yörünge normali</option><option value="vec" disabled>Önleme yörüngesinden (çarpma hızı yönü)</option></select></div>
             </details>
             <div class="stepnav"><button id="dfRun" class="primary" type="button">Hesapla</button><span id="dfStatus" class="k small" role="status" aria-live="polite"></span></div>
           </div>

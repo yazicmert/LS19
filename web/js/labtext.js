@@ -79,7 +79,7 @@ export function pushSummary(p, leadLabel) {
   const how = p.method === 'kinetic' ? `Kinetik · ${fmt(p.m, 0)} kg × ${fmt(p.U, 1)} km/s` : `Sürekli · ${sig(p.F, 2)} N × ${fmt(p.days, 0)} gün`;
   return `${how} · ${leadLabel}`;
 }
-export const DIRS = { along: 'yörünge boyunca (ileri)', anti: 'yörünge boyunca (geri)', best: 'en etkili yön (STM)', radial: 'radyal (Güneş\'ten dışa)', normal: 'yörünge normali' };
+export const DIRS = { along: 'yörünge boyunca (ileri)', anti: 'yörünge boyunca (geri)', best: 'en etkili yön (STM)', radial: 'radyal (Güneş\'ten dışa)', normal: 'yörünge normali', vec: 'önleme yörüngesinden (çarpma hızı yönü)' };
 
 // doğrulama notu (DART/Dimorphos ölçümü ile motorun uyumu)
 export function dartNote() {
@@ -92,8 +92,8 @@ export function dartNote() {
 // ---------------------------------------------------------------- paylaşılabilir bağlantı ve deneme geçmişi
 // Saptırma deneyinin tüm ayarları adres parametrelerine yazılır: bağlantıyı açan aynı hedefi tarar, aynı geçişi seçer ve aynı itkiyi hesaplar.
 //   hedef (SBDB tanımı), bas (tarama başlangıcı), yil (tarama süresi), gecis (yakın geçiş günü), yontem (kin | sur), m, U, beta | F, gun,
-//   itki (itki günü), yon, senaryo (gercek | varsayim), D, rho (yalnız kullanıcı değiştirdiyse)
-export const LINK_KEYS = ['hedef', 'bas', 'yil', 'gecis', 'yontem', 'm', 'U', 'beta', 'F', 'gun', 'itki', 'yon', 'senaryo', 'D', 'rho'];
+//   itki (itki günü), yon, yv (yon = vec: çarpma yönü "x,y,z"), senaryo (gercek | varsayim), D, rho (yalnız kullanıcı değiştirdiyse)
+export const LINK_KEYS = ['hedef', 'bas', 'yil', 'gecis', 'yontem', 'm', 'U', 'beta', 'F', 'gun', 'itki', 'yon', 'yv', 'senaryo', 'D', 'rho'];
 const ISO_DAY = /^\d{4}-\d\d-\d\d$/;
 const num = (s) => (s != null && s !== '' && Number.isFinite(+s) ? +s : null);
 // s: { des, start, years, caDay, method, m, U, beta, F, days, applyDay, dir, hypo, D?, rho? } → { anahtar: metin }
@@ -101,6 +101,7 @@ export function linkFromState(s) {
   const o = { hedef: s.des, bas: s.start, yil: String(s.years), gecis: s.caDay, yontem: s.method === 'thrust' ? 'sur' : 'kin' };
   if (s.method === 'thrust') Object.assign(o, { F: String(s.F), gun: String(s.days) }); else Object.assign(o, { m: String(s.m), U: String(s.U), beta: String(s.beta) });
   Object.assign(o, { itki: s.applyDay, yon: s.dir, senaryo: s.hypo ? 'varsayim' : 'gercek' });
+  if (s.dir === 'vec' && Array.isArray(s.dirVec)) o.yv = s.dirVec.map((x) => x.toFixed(6)).join(',');       // önleme görevinin çarpma yönü (ICRF birim vektör)
   if (s.D > 0 && s.rho > 0) Object.assign(o, { D: String(s.D), rho: String(s.rho) });
   return o;
 }
@@ -114,6 +115,9 @@ export function stateFromLink(q) {
     dir: Object.hasOwn(DIRS, yon || '') ? yon : null, hypo: sc === 'varsayim' ? true : sc === 'gercek' ? false : null };
   for (const k of ['m', 'U', 'beta', 'F', 'D', 'rho']) { const v = num(get(k)); s[k] = v != null && v > 0 ? v : null; }
   const g = num(get('gun')); s.days = g != null && g > 0 ? g : null;
+  const yv = (get('yv') || '').split(',').map(Number), yn = Math.hypot(...yv);
+  s.dirVec = yv.length === 3 && yv.every(Number.isFinite) && yn > 0.5 ? yv.map((x) => x / yn) : null;
+  if (s.dir === 'vec' && !s.dirVec) s.dir = null;
   if (s.years != null) s.years = Math.max(1, Math.min(120, Math.round(s.years)));
   return s;
 }
@@ -151,4 +155,18 @@ export function uncertText(mc, o) {
   const orbit = o.SB ? `Geçiş noktasının yörünge belirsizliği (1σ) ≈ ${kmText(Math.sqrt(Math.max(o.SB[0][0], o.SB[1][1], 0)))} (JPL kovaryansı).` : 'Yörünge kovaryansı yok: yalnız itkinin belirsizliği hesaba katıldı.';
   const kind = mc.pImpact < mc.pImpact0 ? 'good' : mc.pImpact > mc.pImpact0 ? 'bad' : 'info';
   return { kind, title: `Çarpma olasılığı: itkisiz %${pct(mc.pImpact0)} → itkili %${pct(mc.pImpact)}`, detail: [orbit, src, range] };
+}
+
+// ---------------------------------------------------------------- önleme görevi (intercept.js en iyi çözüm → düz dil)
+// b: porkchop en iyi hücresi, bE: yakalama yarıçapı (km), rocket: roket adı
+export function interceptRows(b, bE, rocket) {
+  return [
+    ['Fırlatma', `${dateLong(b.etL)} · ${rocket}`],
+    ['Uçuş süresi', `${fmt(b.tofDays, 0)} gün → çarpma ${dateLong(b.etA)}`],
+    ['Kalkış enerjisi C3', `${fmt(b.C3, 1)} km²/s² (v∞ ${fmt(b.vinf, 2)} km/s)`],
+    ['Çarpıcı kütlesi', `${fmt(b.m, 0)} kg (roketin bu C3'te taşıyabildiği)`],
+    ['Çarpma hızı', `${fmt(b.U, 2)} km/s`],
+    ['Δv', `${sig(b.dvMps * 1000, 3)} mm/s`],
+    ['Kayma / yakalama yarıçapı', `${kmText(b.shift)} / ${kmText(bE)} (%${fmt(100 * b.shift / bE, 0)})`],
+  ];
 }

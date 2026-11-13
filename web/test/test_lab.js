@@ -93,6 +93,15 @@ check(/LINK_KEYS/.test(app) && /exp !== 'saptirma'/.test(app), 'app.js: saptırm
   check(uR.kind === 'good' && uR.title === 'Çarpma olasılığı: itkisiz %0,05 → itkili %0' && /yörünge belirsizliği \(1σ\) ≈ 20,0 km/.test(uR.detail[0]) && !/β/.test(uR.detail[1]), 'gerçek yörünge: itkisiz → itkili çarpma olasılığı, yörünge elipsi; sürekli itkide β yok');
   check(/kovaryansı yok/.test(L.uncertText({ pImpact0: 0, pImpact: 0, shiftQ: [1, 2, 3] }, { hypo: false, sM: 0.3, sBeta: 0.25, sDv: 0.3, method: 'kinetic', SB: null, p: {} }).detail[0]), 'kovaryans yoksa bunu söyler');
 }
+// önleme görevi: bağlantıda çarpma yönü ve özet satırları
+{
+  const st = { des: '99942', start: '2026-11-13', years: 50, caDay: '2029-04-13', method: 'kinetic', m: 3600, U: 12.6, beta: 3.6, applyDay: '2028-09-15', dir: 'vec', dirVec: [0.6, -0.8, 0], hypo: false };
+  const o = L.linkFromState(st), back = L.stateFromLink(new URLSearchParams(new URLSearchParams(o).toString()));
+  check(o.yv === '0.600000,-0.800000,0.000000' && back.dir === 'vec' && back.dirVec.every((x, k) => Math.abs(x - st.dirVec[k]) < 1e-9), 'bağlantı: önleme yönü (yv) gidiş-dönüş');
+  check(L.stateFromLink({ hedef: '1', yon: 'vec' }).dir === null && L.stateFromLink({ hedef: '1', yon: 'vec', yv: '0,0,0' }).dir === null && L.stateFromLink({ hedef: '1', yon: 'vec', yv: '2,0,0' }).dirVec[0] === 1, 'yönsüz ya da sıfır vektörlü "vec" bağlantısı reddedilir; vektör birimlenir');
+  const rows = L.interceptRows({ etL: L.etFromISO('2028-06-27'), etA: L.etFromISO('2028-09-15'), tofDays: 80, C3: 17.7, vinf: 4.21, m: 3629, U: 12.64, dvMps: 0.004129, shift: 149.5 }, 13773, 'Falcon Heavy');
+  check(rows.length === 7 && rows[0][1] === '27 Haziran 2028 · Falcon Heavy' && /80 gün → çarpma 15 Eylül 2028/.test(rows[1][1]) && /\(%1\)$/.test(rows[6][1]) && /4,13 mm\/s/.test(rows[5][1]), 'önleme görevi özeti: tarih, roket, C3, kütle, hız, Δv, kayma oranı');
+}
 const own = (t) => (['gorev', 'kontrol', 'dv', 'grafik', 'yorunge', 'efemeris'].includes(t) ? 'mission' : ['takip', 'uydular', 'asteroit', 'carpma'].includes(t) ? 'sky' : null);
 const rv = (o) => JSON.stringify(resolveView({ tabOwner: own, ...o }));
 check(rv({ mode: 'mission' }) === '{"view":"lab","exp":"ay"}' && rv({ mode: 'sky' }) === '{"view":"sky","exp":null}' && rv({ mode: 'lab' }) === '{"view":"lab","exp":"home"}' && rv({ mode: 'lab', exp: 'saptirma' }) === '{"view":"lab","exp":"saptirma"}' && rv({ mode: 'lab', exp: 'xyz' }) === '{"view":"lab","exp":"home"}', 'adresler: ?mode=mission (eski) → Ay görevi; ?mode=lab[&exp=…]; bilinmeyen deney → ana sayfa');

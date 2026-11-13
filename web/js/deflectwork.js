@@ -3,6 +3,8 @@
 //   deflect : seçilen yakın geçiş için itki senaryosu -> doğrusal (STM) + doğrusal olmayan sonuç, önceden uyarı süresi eğrisi, 3B yollar
 import * as D from './deflect.js';
 import { cometaryToKepler, stateJacobian, bplaneCov } from './uncert.js';
+import { porkchop } from './intercept.js';
+import { c3Capacity } from './rockets.js';
 import { EphStore } from './ephstore.js';
 
 // JPL çekirdeği parçalı depodan (ephstore.js): yalnız tarama aralığının yılları iner (60 yıllık tarama ≈ 7 MB; eskiden her zaman 32,7 MB'lık dosyanın tamamı).
@@ -74,6 +76,29 @@ globalThis.onmessage = async (ev) => {
       post({ type: 'target', id, cas, et0: d.etStart, et1, ms: performance.now() - T0, steps: sc.steps });
       return;
     }
+    if (d.cmd === 'porkchop') {
+      // önleme görevinin fırlatma penceresi (intercept.js): kalkış × uçuş süresi örgüsü, ortak adımlı (varış = kalkış + süre aynı örgüde)
+      if (!T) throw new Error('önce hedef seçin');
+      const p = d.p, ca = T.cas[p.ca]; if (!ca) throw new Error('yakın geçiş yok');
+      const etEnd = ca.et - D.DAY, span = etEnd - T.et0;
+      if (!(span > 40 * D.DAY)) throw new Error('yakın geçişe fırlatma için çok az zaman var');
+      const h = Math.max(2, Math.ceil(span / D.DAY / 220)) * D.DAY, nK = Math.floor(span / h) + 1, K = Array.from({ length: nK }, (_, k) => T.et0 + k * h);
+      const j0 = Math.ceil(30 * D.DAY / h), tofMax = Math.min(p.tofMaxDays || 900, span / D.DAY) * D.DAY, nT = Math.max(1, Math.floor(tofMax / h) - j0 + 1), nL = Math.max(1, nK - j0);
+      post({ type: 'progress', id, msg: 'Asteroidin yolu ve duyarlılığı (durum geçiş matrisi)…', f: 0.1 });
+      const etS = K[0] - 1, recs = eng.stm(etS, stateAt(etS), ca.et, K.slice(), { stopped });
+      if (stopped()) return;
+      const PhiCa = recs[recs.length - 1].Phi, { b0, J } = eng.bplanePartials(ca);
+      const Ssens = new Array(nK), AST = new Array(nK);
+      for (let k = 0; k < nK; k++) {
+        const rc = recs[k]; Ssens[k] = S23(J, D.matMul6(PhiCa, D.matInv6(rc.Phi))); AST[k] = helioRV(rc.et, rc.y);
+      }
+      post({ type: 'progress', id, msg: 'Fırlatma penceresi taranıyor (Lambert)…', f: 0.6 });
+      const L = K.slice(0, nL), EARTH = L.map((et) => { const [pE, vE] = eng.earth(et), [ps, vs] = eng.sun(et); return [[pE[0] - ps[0], pE[1] - ps[1], pE[2] - ps[2]], [vE[0] - vs[0], vE[1] - vs[1], vE[2] - vs[2]]]; });
+      const pc = porkchop({ L, K, nT, kOf: (i, j) => i + j0 + j, earth: (i) => EARTH[i], ast: (k) => AST[k], S: (k) => Ssens[k],
+        cap: (c3) => c3Capacity(p.rocket, c3), beta: p.beta, M: p.M, c3Max: p.c3Max || 100 });
+      post({ type: 'porkchop', id, r: { L0: K[0], h, nL, nT, j0, shift: Float32Array.from(pc.shift), C3: Float32Array.from(pc.C3), best: pc.best, bE: b0.bE, caEt: ca.et } });
+      return;
+    }
     if (d.cmd === 'deflect') {
       if (!T) throw new Error('önce hedef seçin');
       const p = d.p, ca = T.cas[p.ca]; if (!ca) throw new Error('yakın geçiş yok');
@@ -90,7 +115,8 @@ globalThis.onmessage = async (ev) => {
         dir = bestDir(S);
         const g = apply(S, dir), Bn = [b0.xi, b0.zeta];
         if (!p.hypo ? g[0] * Bn[0] + g[1] * Bn[1] < 0 : dir[0] * vh[0] + dir[1] * vh[1] + dir[2] * vh[2] < 0) dir = dir.map((x) => -x);
-      } else dir = D.dirVector(p.dir, rh, vh);
+      } else if (p.dir === 'vec' && Array.isArray(p.dirVec) && p.dirVec.every(Number.isFinite)) dir = D.dirVector('custom', rh, vh, p.dirVec);   // önleme görevi: çarpma hızının yönü
+      else dir = D.dirVector(p.dir, rh, vh);
       // büyüklük
       let dvKms, thrust = null, cuts = [], tEnd = etA, Fn = 0;
       if (p.method === 'kinetic') dvKms = D.kineticDv(p.m, p.U, p.beta, M) / 1000;
@@ -98,7 +124,7 @@ globalThis.onmessage = async (ev) => {
         const aKms = p.F / M / 1000, dur = p.days * D.DAY; tEnd = etA + dur; Fn = p.F;
         if (tEnd >= ca.et - 3600) throw new Error('itki süresi yakın geçişe kadar bitmeli');
         dvKms = aKms * dur; cuts = [etA, tEnd];
-        const follow = p.dir !== 'best';
+        const follow = p.dir !== 'best' && p.dir !== 'vec';
         thrust = (et, y) => {
           if (et < etA || et > tEnd) return null;
           if (!follow) return [dir[0] * aKms, dir[1] * aKms, dir[2] * aKms];

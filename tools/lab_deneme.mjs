@@ -52,7 +52,7 @@ async function open(ctxOpt, query) {
   const ctx = await browser.newContext(ctxOpt), page = await ctx.newPage(), errors = [];
   page.setDefaultNavigationTimeout(240000); page.setDefaultTimeout(240000);
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
-  page.on('console', (m) => { const t = m.text(); if (m.type() === 'error' && !/ERR_CERT|ERR_TUNNEL|Failed to load resource|net::ERR/.test(t)) errors.push('console: ' + t.slice(0, 200)); });
+  page.on('console', (m) => { const t = m.text(); if (m.type() === 'error' && !/ERR_CERT|ERR_TUNNEL|Failed to load resource|net::ERR|blocked by CORS policy/.test(t)) errors.push('console: ' + t.slice(0, 200)); });
   await page.route('**/api/**', api);
   await page.addInitScript(() => { try { localStorage.clear(); localStorage.setItem('ls19.lang', 'tr'); localStorage.setItem('ls19.vehicle', 'two'); localStorage.setItem('ls19.landing', 'opt'); } catch (e) { /* */ } });
   await page.goto(base + 'index.html' + query, { waitUntil: 'domcontentloaded' });
@@ -141,6 +141,21 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   const link2 = await page.evaluate(() => location.search), hist2 = await page.evaluate(() => [...document.querySelectorAll('#dfHistTbl tbody tr')].map((r) => r.textContent));
   check('ikinci deneme geçmişin başında; adres yeni ayarları taşır (m=5000, senaryo=varsayim)', hist2.length === 2 && /çarpacak olsaydı/.test(hist2[0]) && /m=5000/.test(link2) && /senaryo=varsayim/.test(link2), hist2[0]);
   await shot(page, '8-carpacak-olsaydi');
+
+  // ---- önleme görevi: fırlatma penceresi (Lambert) → çözümü uygula → hesapla
+  await page.click('#dfAgain'); await page.click('#dfIc > summary'); await page.click('#dfIcRun');
+  const icOk = await page.waitForFunction(() => !document.querySelector('#dfIcOut').hidden && window.LS19.deflect.pc, null, { timeout: 280000 }).then(() => true, () => false);
+  const ic = await page.evaluate(() => ({ best: !!window.LS19.deflect.pc.best, rows: document.querySelectorAll('#dfIcBest tr').length, msg: document.querySelector('#dfIcMsg').textContent,
+    cv: (() => { const c = document.querySelector('#dfPork'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; })() }));
+  check('önleme görevi: Falcon Heavy ile fırlatma penceresi (Lambert örgüsü) çizilir, en iyi çözüm 7 satırla özetlenir', icOk && ic.best && ic.rows === 7 && ic.cv > 2000 && /yörünge denendi/.test(ic.msg), JSON.stringify(ic));
+  await shot(page, '8b-onleme');
+  await page.click('#dfIcUse');
+  const used = await page.evaluate(() => ({ dir: document.querySelector('#dfDir').value, m: +document.querySelector('#dfMass').value, kin: document.querySelector('input[name=dfMethod][value=kinetic]').checked, b: window.LS19.deflect.pc.best }));
+  check('"Bu çözümü kullan": yöntem kinetik, kütle roketin kapasitesi, yön önleme yörüngesinden', used.dir === 'vec' && used.kin && used.m === Math.floor(used.b.m) && used.m > 100, JSON.stringify({ dir: used.dir, m: used.m }));
+  await page.click('#dfRun');
+  await page.waitForFunction(() => !document.querySelector('#dfResult').hidden && document.querySelector('#dfStale').hidden && /yv=/.test(location.search), null, { timeout: 280000 });
+  const vi = await page.evaluate(() => ({ t: document.querySelector('#dfVT').textContent, dir: [...document.querySelectorAll('#dfOut td')].map((x) => x.textContent).join(' | '), sh: window.LS19.deflect.result && Math.hypot(window.LS19.deflect.result.dXi, window.LS19.deflect.result.dZeta), pred: window.LS19.deflect.pc.best.shift }));
+  check('önleme çözümüyle hesap: kayma pencere öngörüsüyle %5 içinde, yön tabloda, bağlantıda yv', /önleme yörüngesinden/.test(vi.dir) && Math.abs(vi.sh - vi.pred) < 0.05 * vi.pred, `${vi.t} — kayma ${vi.sh && vi.sh.toFixed(1)} km, öngörü ${vi.pred.toFixed(1)} km`);
 
   // ---- 3B
   await page.click('#df3d');

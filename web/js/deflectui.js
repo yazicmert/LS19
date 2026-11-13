@@ -7,9 +7,10 @@ import { CLASS_TR } from './asteroids.js';
 import { fmt } from './format.js';
 import { $, mk } from './uiutil.js';
 import { sig, kmText, distText, caDist, sizeText, dateLong, etToISO, etFromISO, RHO, QUICK_TARGETS, leadChoices, defaultLead, leadText, verdictOf, needText,
-  targetSummary, caSummary, pushSummary, DIRS, dartNote, ngText, LINK_KEYS, linkFromState, stateFromLink, historyRow, historyCsv, uncertText } from './labtext.js';
+  targetSummary, caSummary, pushSummary, DIRS, dartNote, ngText, LINK_KEYS, linkFromState, stateFromLink, historyRow, historyCsv, uncertText, interceptRows } from './labtext.js';
 import { workerOpts } from './i18n.js';
 import { covFromSbdb, massSigma, dvSigma, monteCarlo, ellipse, BETA_SIG } from './uncert.js';
+import { ROCKET_IDS, rocketOf, tliCapacity } from './rockets.js';
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const reduceMotion = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -62,10 +63,16 @@ export class DeflectUI {
     $('#dfAgain').addEventListener('click', () => this.setStep(3));
     $('#df3d').addEventListener('click', () => this.show3d());
     $('#dfLink').addEventListener('click', () => this.copyLink());
+    // önleme görevi: roketler (başarımı yayımlanmış olanlar), fırlatma penceresi, en iyi çözümü uygula
+    const rs = $('#dfRocket'); for (const id of ROCKET_IDS) if (tliCapacity(id) > 0) { const o = document.createElement('option'); o.value = id; o.textContent = rocketOf(id).name; rs.appendChild(o); }
+    rs.value = 'FH';
+    $('#dfIcRun').addEventListener('click', () => this.porkchop());
+    $('#dfIcUse').addEventListener('click', () => this.useIntercept());
+    rs.addEventListener('change', () => this.resetIc());
     $('#dfHistCsv').addEventListener('click', () => this.downloadCsv());
     $('#dfHistClear').addEventListener('click', () => { this.hist = []; saveHist(this.hist); this.renderHist(); });
     // grafikler görünür olunca (adım açılınca, "ayrıntılar" açılınca, panel yeniden boyutlanınca) çizilir
-    if (window.ResizeObserver) { const ro = new ResizeObserver(() => { if (this.result) this.drawCharts(); }); ro.observe($('#dfBplane')); ro.observe($('#dfSweep')); }
+    if (window.ResizeObserver) { const ro = new ResizeObserver(() => { if (this.result) this.drawCharts(); if (this.pc) this.drawPork(); }); ro.observe($('#dfBplane')); ro.observe($('#dfSweep')); ro.observe($('#dfPork')); }
     this.syncMethod(); this.syncScenario();
   }
   buildQuick() {
@@ -107,7 +114,7 @@ export class DeflectUI {
     const A = this.asts, my = ++this.pickSeq;
     this.kill(); A.select(i);
     this.target = { i, name: A.label(i), des: A.C.des[i], Dkm: A.diam(i) };
-    this.cas = []; this.caSel = -1; this.result = null; this.lastP = null; this.scanned = false; this.stale = false; this.leadsFor = ''; this.hide3d(); this.clearResult();
+    this.cas = []; this.caSel = -1; this.result = null; this.lastP = null; this.scanned = false; this.stale = false; this.leadsFor = ''; this.hide3d(); this.clearResult(); this.resetIc();
     if (opts.hypo != null) this.setScenario(!!opts.hypo);
     const L = opts.link || null; this.linkRun = L;
     if (L) { if (L.start) $('#dfStart').value = L.start; if (L.years) $('#dfYears').value = L.years; }
@@ -174,7 +181,13 @@ export class DeflectUI {
   }
   onMsg(d) {
     if (d.id !== this.seq) return;
-    if (d.type === 'progress') { if (this.mode === 'scan') $('#dfScanStatus').textContent = d.msg; else $('#dfRunning').textContent = d.msg; return; }
+    if (d.type === 'progress') { if (this.mode === 'scan') $('#dfScanStatus').textContent = d.msg; else if (this.mode === 'porkchop') $('#dfIcMsg').textContent = d.msg; else $('#dfRunning').textContent = d.msg; return; }
+    if (this.mode === 'porkchop') {
+      this.pcBusy = false; $('#dfIcRun').disabled = false;
+      if (d.type === 'error') { $('#dfIcMsg').textContent = 'Hata: ' + d.msg; return; }
+      if (d.type === 'porkchop') this.renderPork(d.r);
+      return;
+    }
     this.busy = false;
     if (d.type === 'error') {
       if (this.mode === 'scan') $('#dfScanStatus').textContent = 'Hata: ' + d.msg;
@@ -198,7 +211,7 @@ export class DeflectUI {
       const sub = [cd.sub, c.bp ? `v∞ ${fmt(c.bp.vinf, 1)} km/s` : '', j ? `JPL ile uyumlu (${kmText(+j.dist * AU)})` : ''].filter(Boolean).join(' · ');
       const head = mk('span', 'cd', dateLong(c.et)); if (k === closest && this.cas.length > 1) head.appendChild(mk('span', 'badge', 'en yakın'));
       b.append(head, mk('span', 'cm', cd.main), mk('span', 'cs', sub));
-      b.addEventListener('click', () => { if (this.caSel === k) return; this.caSel = k; this.result = null; this.leadsFor = ''; this.clearResult(); this.hide3d(); this.renderCas(); this.refresh(); });
+      b.addEventListener('click', () => { if (this.caSel === k) return; this.caSel = k; this.result = null; this.leadsFor = ''; this.clearResult(); this.hide3d(); this.resetIc(); this.renderCas(); this.refresh(); });
       li.appendChild(b); ul.appendChild(li);
     });
     if (this.scanned) {
@@ -225,7 +238,8 @@ export class DeflectUI {
     this.prepareStep3();
     const r = document.querySelector(`input[name=dfMethod][value=${L.method === 'thrust' ? 'thrust' : 'kinetic'}]`); if (r) { r.checked = true; this.syncMethod(); }
     for (const [k, id] of [['m', '#dfMass'], ['U', '#dfU'], ['beta', '#dfBeta'], ['F', '#dfF'], ['days', '#dfDays']]) if (L[k] != null) $(id).value = L[k];
-    if (L.dir) $('#dfDir').value = L.dir;
+    if (L.dir === 'vec' && L.dirVec) this.setIcDir(L.dirVec);
+    else if (L.dir) $('#dfDir').value = L.dir;
     if (L.hypo != null) this.setScenario(L.hypo);
     if (L.applyDay) { $('#dfApply').value = L.applyDay; this.leadId = (this.leads.find((c) => c.ok && etToISO(c.et, false) === L.applyDay) || {}).id || null; this.renderLeads(); }
     this.inputsChanged(); this.setStep(3);
@@ -236,7 +250,7 @@ export class DeflectUI {
     const T = this.target, ca = this.cas[this.caSel]; if (!T || !ca) return null;
     const q = this.readParams();
     return { des: T.des, start: $('#dfStart').value, years: Math.max(1, Math.min(120, +$('#dfYears').value || 50)), caDay: etToISO(ca.et, false), method: q.method,
-      m: q.m, U: q.U, beta: q.beta, F: q.F, days: q.days, applyDay: $('#dfApply').value, dir: q.dir, hypo: q.hypo,
+      m: q.m, U: q.U, beta: q.beta, F: q.F, days: q.days, applyDay: $('#dfApply').value, dir: q.dir, dirVec: q.dirVec, hypo: q.hypo,
       ...(this.massEdited ? { D: +$('#dfD').value, rho: +$('#dfRho').value } : {}) };
   }
   // adres çubuğu: saptırma açıkken son hesaplanan denemenin parametreleri (yeni hedef seçilince silinir)
@@ -257,7 +271,7 @@ export class DeflectUI {
   // ---------------------------------------------------------------- deneme geçmişi
   remember() {
     const st = this.runLink; this.runLink = null; if (!st || !this.result) return;
-    const o = linkFromState(st), qs = new URLSearchParams(o).toString();
+    const o = linkFromState(st), qs = String(new URLSearchParams(o));
     const row = historyRow(this.result, this.lastP, this.target, qs);
     this.hist = [row, ...this.hist.filter((h) => h.link !== qs)].slice(0, HIST_MAX); saveHist(this.hist);
     this.writeUrl(o); this.renderHist();
@@ -279,6 +293,60 @@ export class DeflectUI {
     const rows = this.hist.map((h) => ({ ...h, link: this.linkUrl(h.link) }));
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([historyCsv(rows)], { type: 'text/csv;charset=utf-8' }));
     a.download = 'ls19_saptirma_denemeleri.csv'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  // ---------------------------------------------------------------- önleme görevi (fırlatma penceresi)
+  resetIc() {
+    this.pc = null; this.pcBusy = false; $('#dfIcRun').disabled = false; $('#dfIcOut').hidden = true; $('#dfIcMsg').textContent = '';
+    if ($('#dfDir').value === 'vec') $('#dfDir').value = 'along';
+    this.icDir = null; $('#dfDir').querySelector('option[value=vec]').disabled = true;
+  }
+  setIcDir(u) { this.icDir = u; const o = $('#dfDir').querySelector('option[value=vec]'); o.disabled = false; $('#dfDir').value = 'vec'; }
+  porkchop() {
+    const ca = this.cas[this.caSel]; if (!this.target || !ca || this.busy) return;
+    const M = this.mass(), beta = +$('#dfBeta').value;
+    if (!(M > 0 && beta >= 1)) { $('#dfIcMsg').textContent = 'Gelişmiş bölümünde kütle ve β geçerli olmalı.'; return; }
+    this.mode = 'porkchop'; this.pcBusy = true; $('#dfIcRun').disabled = true; $('#dfIcMsg').textContent = 'Hesaplanıyor…';
+    const id = ++this.seq;
+    this.worker().postMessage({ cmd: 'porkchop', id, p: { ca: this.caSel, rocket: $('#dfRocket').value, beta, M } });
+  }
+  renderPork(r) {
+    this.pc = r; const b = r.best;
+    $('#dfIcOut').hidden = false;
+    if (!b) { $('#dfIcMsg').textContent = 'Bu roketle bu geçişten önce ulaşılabilen bir önleme yörüngesi bulunamadı.'; $('#dfIcBest').replaceChildren(); $('#dfIcUse').disabled = true; this.drawPork(); return; }
+    $('#dfIcMsg').textContent = `${fmt(r.nL * r.nT, 0)} yörünge denendi.`; $('#dfIcUse').disabled = false;
+    const tb = mk('table', 'tbl');
+    for (const [k, v] of interceptRows(b, r.bE, rocketOf($('#dfRocket').value).name)) { const tr = mk('tr'); tr.append(mk('td', null, k), mk('td', 'num', v)); tb.appendChild(tr); }
+    $('#dfIcBest').replaceChildren(tb);
+    this.drawPork();
+  }
+  drawPork() {
+    const r = this.pc; if (!r) return;
+    const P0 = this.prep($('#dfPork')); if (!P0) return;
+    const { g, w, h } = P0, L = 46, R = 6, T = 18, B = 24, cw = (w - L - R) / r.nL, ch = (h - T - B) / r.nT, DAY = 86400;
+    g.fillStyle = '#9aa3b2'; g.fillText('uçuş süresi (gün) ↑ · fırlatma günü →', 6, 12);
+    const col = (q) => {                                                       // kayma / bE (log): koyu mavi → turuncu → sarı-beyaz (≥ 1)
+      const t = Math.max(0, Math.min(1, (Math.log10(q) + 3) / 3));
+      if (q >= 1) return '#fff3b0';
+      const a = [30, 50, 90], c = [255, 138, 61]; return `rgb(${a.map((x, i) => Math.round(x + (c[i] - x) * t)).join(',')})`;
+    };
+    for (let i = 0; i < r.nL; i++) for (let j = 0; j < r.nT; j++) {
+      const v = r.shift[i * r.nT + j]; if (!Number.isFinite(v)) continue;
+      g.fillStyle = col(v / r.bE); g.fillRect(L + i * cw, h - B - (j + 1) * ch, Math.ceil(cw), Math.ceil(ch));
+    }
+    g.strokeStyle = '#3a4150'; g.strokeRect(L, T, w - L - R, h - T - B);
+    g.fillStyle = '#9aa3b2';
+    for (let j = 0; j < r.nT; j += Math.max(1, Math.round(r.nT / 5))) g.fillText(fmt((r.j0 + j) * r.h / DAY, 0), 4, h - B - j * ch - 2);
+    for (let i = 0; i < r.nL; i += Math.max(1, Math.round(r.nL / 4))) g.fillText(etToISO(r.L0 + i * r.h, false).slice(0, 7), L + i * cw, h - 8);
+    if (r.best) { const b = r.best; g.strokeStyle = '#ffffff'; g.lineWidth = 2; g.beginPath(); g.arc(L + (b.i + 0.5) * cw, h - B - (b.j + 0.5) * ch, 6, 0, 7); g.stroke(); g.lineWidth = 1; }
+  }
+  useIntercept() {
+    const b = this.pc && this.pc.best; if (!b) return;
+    const r = document.querySelector('input[name=dfMethod][value=kinetic]'); if (r) { r.checked = true; this.syncMethod(); }
+    $('#dfMass').value = Math.floor(b.m); $('#dfU').value = +b.U.toFixed(2);
+    $('#dfApply').value = etToISO(b.etA, false); this.leadId = null; this.renderLeads();
+    this.setIcDir(b.uDir); this.inputsChanged();
+    $('#dfIcMsg').textContent = 'Çözüm uygulandı: kütle, çarpma hızı, çarpma günü ve yönü önleme yörüngesinden. Şimdi Hesapla.';
   }
 
   // ---------------------------------------------------------------- 3 · itki
@@ -322,7 +390,8 @@ export class DeflectUI {
   }
   readParams() {
     const v = $('#dfApply').value, method = this.method();
-    return { method, M: this.mass(), etApply: /^\d{4}-\d\d-\d\d$/.test(v) ? etFromISO(v) : NaN, dir: $('#dfDir').value, hypo: this.hypo(),
+    const dir = $('#dfDir').value;
+    return { method, M: this.mass(), etApply: /^\d{4}-\d\d-\d\d$/.test(v) ? etFromISO(v) : NaN, dir, ...(dir === 'vec' && this.icDir ? { dirVec: this.icDir } : {}), hypo: this.hypo(),
       m: +$('#dfMass').value, U: +$('#dfU').value, beta: +$('#dfBeta').value, F: +$('#dfF').value, days: +$('#dfDays').value };
   }
   // alanlar değişince: özetleri yenile, hesaplanmış sonuç varsa "eski" işaretle
@@ -339,6 +408,7 @@ export class DeflectUI {
     if (!(p.etApply < ca.et - 3600)) return 'İtki, yakın geçişten önce olmalı.';
     if (p.method === 'kinetic' && !(p.m > 0 && p.U > 0 && p.beta >= 1)) return 'Araç kütlesi ve çarpma hızı pozitif, β ≥ 1 olmalı.';
     if (p.method === 'thrust' && !(p.F > 0 && p.days > 0)) return 'Kuvvet ve süre pozitif olmalı.';
+    if (p.dir === 'vec' && !p.dirVec) return 'Önleme yönü yok: önce fırlatma penceresini hesaplayın ya da başka bir yön seçin.';
     if (p.method === 'thrust' && p.etApply + p.days * 86400 >= ca.et - 3600) return 'İtki süresi yakın geçişe kadar bitmeli: süreyi kısaltın ya da daha erken başlatın.';
     return '';
   }
@@ -349,6 +419,7 @@ export class DeflectUI {
     const p = { ca: this.caSel, ...q };
     this.runLink = this.linkState();                                        // geçmişe ve adrese, hesaplanan ayarlar yazılır (beklerken değişenler değil)
     this.kill(); this.busy = true; this.mode = 'deflect'; this.lastP = p; this.stale = false; this.setMsg('');
+    if (this.pcBusy) { this.pcBusy = false; $('#dfIcRun').disabled = false; $('#dfIcMsg').textContent = ''; }    // süren pencere hesabı bu istekle iptal olur
     $('#dfStale').hidden = true; $('#dfResult').hidden = true; $('#dfRunning').hidden = false; $('#dfRunning').textContent = 'Hesaplanıyor…'; $('#df3d').disabled = true;
     this.hide3d(); this.setStep(4); this.refresh();
     const id = ++this.seq;

@@ -60,6 +60,7 @@ engineFor(view, exp, cur)   // 'sky' → 'sky'; Laboratuvar'da deneyin motoru; a
 | `js/aytext.js` | Saf yardımcılar (DOM yok): adım özetleri, sonuç yargısı (temasın başarısı `mission.js` › `touchdown()` kararıdır, burada yeniden hesaplanmaz) |
 | `js/deflectui.js` | Saptırma deneyi: 4 adım, grafikler, 3B yollar (hesap `deflectwork.js`'te, değişmedi) |
 | `js/labtext.js` | Saf yardımcılar (DOM yok): düz dille biçim, itki zamanı seçenekleri, sonuç yargısı, adım özetleri, bağlantı ve geçmiş, belirsizlik metni |
+| `js/intercept.js` / `js/lambert.js` | Önleme görevi: Lambert fırlatma penceresi (porkchop), C3 → çarpıcı kütlesi, B-düzlemi kayması |
 | `js/uncert.js` | Saf belirsizlik hesabı: kütle/β modeli, JPL kovaryansı → B-düzlemi, tohumlu Monte Carlo |
 | `js/astui.js` | Yalnız asteroit kataloğu ve bilgi kartı; saptırmaya geçişi `openLab` ile yapar |
 
@@ -112,6 +113,17 @@ Her adım katlanabilir bir kutudur: tamamlanınca tek satırlık **özete** iner
 
 Çarpma sekmesindeki sanal çarpıcılar (Sentry) için "Laboratuvarda dene" düğmesi senaryoyu **Çarpacak olsaydı** olarak önceden seçer. Kuvvet modeli: Güneş, gezegenler, Ay, Plüton (DE440s), Güneş 1PN, yakın geçişte Dünya J2 ve JPL çözümünün kütleçekimsel olmayan parametreleri (Yarkovsky A2; hedef kartında gösterilir, katalog öğeleriyle çalışan hedeflerde yoktur). `test_deflect.js`: Apophis 2029 JPL CAD ile 1 km, 2051 %0,1 ve 5 dk içinde.
 
+### Önleme görevi: çarpıcı hangi roketle, ne zaman?
+
+Kinetik çarpıcının kütlesi, çarpma hızı ve yönü serbest sayılar değildir: Dünya'dan asteroide giden yörüngeden gelirler. İtki adımındaki **Önleme görevi** bölümü bunu hesaplar (`intercept.js`, `lambert.js`; worker'da `porkchop` komutu):
+
+- **Örgü:** fırlatma günü × uçuş süresi (30–900 gün), ortak adımla (tarama aralığına göre 2+ gün; varış = fırlatma + süre aynı örgüde). Her hücrede Güneş merkezli iki cisimli **Lambert** yörüngesi: Dünya'nın fırlatma günündeki konumundan asteroidin (N-cisim, Yarkovsky dahil) varış günündeki konumuna.
+- **Kalkış:** v∞ = v₁ − v⊕, C3 = |v∞|². Roketin o C3'te taşıyabileceği kütle `rockets.js` › `c3Capacity`: park yörüngesindeki toplam kütleden (yayımlanmış TLI/GTO başarımı) üst kademenin roket denklemiyle, tank sınırıyla. Kaba kestirimdir; yayımlanmış gezegenlerarası başarım eğrisi değildir.
+- **Varış:** çarpıcının asteroide göre hızı U = v₂ − v_ast. Momentum aktarımı başa baş çarpma kabulüyle Δv = β·m·U/(M + m), **yönü U'nun yönü** (yön seçiminde "Önleme yörüngesinden").
+- **Etki:** yakın geçişte B-düzlemi kayması |S(t)·Δv|, S = J·Φ(CA, t) (durum geçiş matrisi; aynı önceden uyarı eğrisindeki gibi). Grafikte renk kayma/yakalama yarıçapı oranıdır; en iyi hücre çemberle işaretlenir. **Bu çözümü kullan** kütleyi, çarpma hızını, çarpma gününü ve yönü itki alanlarına yazar; **Hesapla** tam tümlemeyle sonucu verir.
+- **Doğrulama** (`test/test_intercept.js`): DART (fırlatma 24 Kasım 2021, Didymos çarpması 26 Eylül 2022): Lambert çarpma hızı **6,167 km/s**, ölçülen 6,145 km/s (DART ara manevralar yaptı); C3 6,2 km²/s². Apophis 2029 örgüsünün en iyi hücresinde öngörülen kayma, Δv o anda uygulanıp yakın geçişe tam tümlenince aynı (149,5 / 149,5 km). C3 = −2'de kapasite TLI kapasitesine eşittir.
+- **Sınırlar:** Dünya'nın çekim kuyusundan çıkış, fırlatma yerinin enlemine göre kalkış asimptotu sapması (DLA), çoklu tur, ara manevralar ve terminal güdüm modellenmez; β çarpma noktasının yüzey normalinin U boyunca olduğu kabulüyle uygulanır.
+
 ### Belirsizlik: olasılıklı sonuç
 
 Karar kartı nominal çözümü söyler; altındaki **belirsizlik kutusu** aynı denemenin olasılığını verir (`uncert.js`, saf; `test/test_uncert.js`):
@@ -149,6 +161,7 @@ Ana sayfa ya da saptırma açılınca panel kendiliğinden açılır (deney ana 
 - `node test/test_ayexp.js` — Ay görevi deneyi: adım özetleri, sonuç yargısı (başarılı, sert temas, atmosfere giriş), güvenli temas sınırlarının `mission.js` ile aynılığı, arayüz sözleşmesi (dört adım ve aletler, eski sekme kimlikleri, panel ↔ menü araç/güdüm düğmeleri, `ayui.js` worker'a komut göndermez).
 - `node test/test_lab.js` — saf yardımcılar (itki zamanı seçenekleri, sonuç yargısı her senaryo için, metinler) ve arayüz sözleşmesi (JS'nin başvurduğu her kimlik index.html'de var, iki alan, deney kaydı ↔ ağaç ↔ sayfa uyumu, `data-for` kuralları, görünüm → motor eşlemesi, eski/yeni adresler, simgeler, erişilebilirlik öznitelikleri).
 - `node test/test_uncert.js` — saptırma belirsizliği: tohumlu dağılım, kütle/β modeli, Monte Carlo olasılıkları, kovaryans ayrıştırma, doğrusal kovaryans taşıması ↔ 150 örneklenmiş yörüngenin tam tümlemesi (Apophis 2029).
+- `node test/test_intercept.js` — önleme görevi: DART çarpma hızı (Lambert ↔ ölçüm), C3 kapasitesi, Apophis örgüsünün en iyi hücresi ↔ tam tümleme.
 - `node test/test_aymc.js` — Ay görevi dağılım denemesi: yüzdelik, Wilson aralığı, özet; aynı tohum aynı uçuş, farklı tohum farklı TLI hatası, hatasız koşu = nominal; arayüz sözleşmesi.
 - `node tools/lab_deneme.mjs` — başsız Chromium'da tam akış: iki dallı gezinme, deney → motor geçişleri (ana sayfa motoru değiştirmez; Ay görevi görev motorunu, saptırma gökyüzü motorunu açar), Ay görevinin dört adımı (Devam düğmeleri, panelden güdüm seçimi menüyle eşlenir, Uçuş aletleri, K, inişe atlayıp sonuç kartı, Baştan uçur, `?tab=dv`), Esc/M/K kısayolları, Betulia boş durumu, Apophis 2029 (4 yakın geçiş, ilki 13 Nisan 2029, 38.013 km), itki, "çarpacak olsaydı", 3B yollar, çapraz bağlantılar, eski/yeni adres parametreleri (`?mode=mission`, `?tab=kontrol`), telefon (390×844; varsayılan açılışta panel kapalı). `api/*` istekleri gerçek bulut işlevleriyle `web/test/fixtures` yanıtlarından karşılanır: internet gerekmez.
 
