@@ -1,7 +1,7 @@
 // LS19 arayüzü: HUD, görev paneli (olaylar, Δv bütçesi, grafikler, yörünge elemanları)
 import * as E from './engine.js';
 import { STAGES } from './mission.js';
-import { VIEW, LUNAR_SITES, DEFAULT_SITE, siteOf, siteBlocked } from './moonsite.js';
+import { VIEW, LUNAR_SITES, DEFAULT_SITE, siteOf } from './moonsite.js';
 import { ControlPanel } from './controlpanel.js';
 import { sunElevationAtSite, PROFILES, normalizeConfig } from './design.js';
 import { ROCKETS, ROCKET_IDS, DEFAULT_ROCKET, rocketOf, tliCapacity, parkPropellant } from './rockets.js';
@@ -154,16 +154,7 @@ export class UI {
     el.classList.toggle('warn', !!msg);
   }
   syncProfileSel() { $('#cfgProfile').value = this.profileKeyOf(this.getConfig()); }
-  syncCfgVis() { $('#rowHalo').style.display = $('#cfgMt').value === 'HALO' ? '' : 'none'; $('#cfgRa').disabled = !(parseFloat($('#cfgRn').value) > 0); this.syncSiteBlock(); }
-  // bu Ay bekleme yörüngesiyle tasarlanamayan iniş yerleri (moonsite.js BLOCKED) seçilemez; seçiliyse Apollo 11'e dönülür ve nedeni yazılır
-  syncSiteBlock() {
-    const sel = $('#cfgMoonSite'); if (!sel || !sel.options.length) return;
-    const moon = { type: $('#cfgMt').value, halo: { preset: $('#cfgHp').value } };
-    let note = '';
-    for (const o of sel.options) o.disabled = !!siteBlocked({ moon, moonSite: o.value });
-    if (sel.selectedOptions[0] && sel.selectedOptions[0].disabled) { note = siteBlocked({ moon, moonSite: sel.value }); sel.value = DEFAULT_SITE; }
-    this.moonSiteInfo(note);
-  }
+  syncCfgVis() { $('#rowHalo').style.display = $('#cfgMt').value === 'HALO' ? '' : 'none'; $('#cfgRa').disabled = !(parseFloat($('#cfgRn').value) > 0); this.moonSiteInfo(); }
   // profil karşılaştırma tablosu: rows = [{key, name, D (tasarım) | null, err, busy}]
   setCompare(rows, status = '') {
     const tb = $('#cmptable tbody'); tb.replaceChildren();

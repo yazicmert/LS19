@@ -275,10 +275,9 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
     await page.selectOption('#cfgMoonSite', 'A11'); await page.selectOption('#cfgProfile', 'APOLLO'); await page.click('#btnDesign');
     await page.waitForFunction(() => window.LS19.ui.design && !window.LS19.ui.design.MOONSITE && window.LS19.world.moonSite.id === 'A11', null, { timeout: 280000 });
     await page.selectOption('#cfgProfile', 'L2');
-    const blk = await page.evaluate(() => ({ a12: document.querySelector('#cfgMoonSite option[value=A12]').disabled, a17: document.querySelector('#cfgMoonSite option[value=A17]').disabled, a15: document.querySelector('#cfgMoonSite option[value=A15]').disabled }));
-    await page.selectOption('#cfgProfile', 'APOLLO');
     const free = await page.evaluate(() => [...document.querySelectorAll('#cfgMoonSite option')].every((o) => !o.disabled));
-    check('L2 halo profilinde Apollo 12 ve 17 seçilemez (üç ardışık pencerede yakınsamadı); Apollo profiline dönünce hepsi açık', blk.a12 && blk.a17 && !blk.a15 && free, JSON.stringify(blk));
+    await page.selectOption('#cfgProfile', 'APOLLO');
+    check('L2 halo profilinde de altı iniş yeri seçilebilir (kapalı kombinasyon yok)', free);
   }
   await page.click('#tab-gorev [data-goto=arac]');
   check('"Devam" 2. adımı açar: araç ve güdüm kartları, seçili olanlar işaretli', (await stepOn()) === 'arac' && await page.evaluate(() => document.querySelector('#tab-arac [data-vehicle="two"]').classList.contains('on') && document.querySelector('#tab-arac [data-landing="opt"]').classList.contains('on')));

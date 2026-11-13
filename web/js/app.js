@@ -125,7 +125,7 @@ async function applyAyLink(L) {
     const p = launch.pads.get(L.pad);
     if (p && padAllowed(rocket, L.pad)) site = padSite(p);
   }
-  ui.setConfig({ ...base, rocket, site, moonSite: L.moonSite || DEFAULT_SITE });                     // engelli yer × profil: ui.syncSiteBlock Apollo 11'e döner ve nedeni yazar
+  ui.setConfig({ ...base, rocket, site, moonSite: L.moonSite || DEFAULT_SITE });
   launch.syncRocket();
   if (L.vehicle) vehicleMode = L.vehicle;
   if (L.landing) landingMode = L.landing;

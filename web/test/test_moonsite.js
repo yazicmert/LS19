@@ -11,7 +11,8 @@ import { makeLive } from '../js/live.js';
 import { designMission, findLandingWindow, normalizeConfig, DEFAULT_CONFIG, PROFILES } from '../js/design.js';
 import { Mission, twoStageDesign, siteIcrf, siteMe, R_SITE } from '../js/mission.js';
 import { initConic } from '../js/conic.js';
-import { siteOf, LUNAR_SITES, DEFAULT_SITE, validSite, siteBlocked, ephSpanDays } from '../js/moonsite.js';
+import * as MS from '../js/moonsite.js';
+const { siteOf, LUNAR_SITES, DEFAULT_SITE, validSite, ephSpanDays } = MS;
 
 const TOL_SITE_M = 50, MIN_FROM_A11_KM = 100;
 let ok = true;
@@ -100,10 +101,8 @@ for (const id of Object.keys(LUNAR_SITES)) {
   const n = (() => { makeLive(SPK, PCK, eo, tStart); E.setMoonZone(E.SOI_M); const M = new Mission({ design: twoStageDesign(D), landing: 'opt' }); M.P.tLimit = Infinity; for (;;) { if (M.gen.next().done) break; }
     const S = siteOf('A16'), [rs] = M.P.s.seleno(); return { ok: !!(M.result && M.result.ok), m: Math.acos(Math.min(1, E.dot(E.unit(S.icrf(M.P.s.t)), E.unit(rs)))) * S.r * 1000 }; })();
   check(n.ok && n.m < TOL_SITE_M, `bir ay sonraki tasarım da seçilen yere iner (${n.m.toFixed(1)} m)`);
-  let err = '';
-  try { designMission(tOf(startMs), () => {}, { ...PROFILES.L2.cfg, moonSite: 'A12' }); } catch (e) { err = e.message; }
-  check(/L2 halo profiliyle tasarım/.test(err) && siteBlocked(normalizeConfig({ ...PROFILES.L2.cfg, moonSite: 'A17' })) && !siteBlocked(normalizeConfig({ ...PROFILES.L2.cfg, moonSite: 'A15' })) && !siteBlocked(normalizeConfig({ ...PROFILES.NRHO.cfg, moonSite: 'A12' })),
-    'L2 halo × Apollo 12/17 (üç ardışık pencerede yakınsamadı) açıkça reddedilir; öteki kombinasyonlar açık');
+  check(!('BLOCKED' in MS) && !('siteBlocked' in MS) && !/siteBlocked|syncSiteBlock/.test(fs.readFileSync(new URL('../js/design.js', import.meta.url), 'utf8') + fs.readFileSync(new URL('../js/ui.js', import.meta.url), 'utf8')),
+    'kapalı profil × yer kombinasyonu yok (L2 halo × Apollo 12/17 de sonraki pencerede yakınsar: docs/laboratuvar.md)');
   let def = ''; try { designMission(tOf(startMs), () => {}, { ...PROFILES.APOLLO.cfg }); } catch (e) { def = e.message; }
   const src = (f) => fs.readFileSync(new URL('../js/' + f, import.meta.url), 'utf8');
   check(def === '' && /retry = opts\.retry && cfg\.moonSite && cfg\.moonSite !== DEFAULT_SITE \? 2 : 0/.test(src('design.js')), 'yeniden deneme yalnız istenince ve yalnız Apollo 11 dışında (hazır tasarımlar bit düzeyinde aynı)');

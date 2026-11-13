@@ -1078,7 +1078,6 @@ const dict = {
   "{0} · yerel yarıçap {1} km ({2}). Değiştirince Tasarla'ya basın.": "{0} · local radius {1} km ({2}). Press Design after changing it.",
   "{0}: {1} için {2} aydınlanma penceresi denendi": "{0}: {2} lighting windows tried for {1}",
   "Bu aydınlanma penceresinde {0}; sonraki pencere deneniyor ({1} sonrası)": "In this lighting window: {0}; trying the next window (after {1})",
-  "{0}: L2 halo profiliyle tasarım Ekim–Aralık 2026'da ardışık üç pencerede yakınsamadı; başka bir profil ya da iniş yeri seçin": "{0}: with the L2 halo profile the design did not converge in three consecutive windows in October–December 2026; choose another profile or landing site",
   "Yarkovsky A2 = {0} AB/gün²": "Yarkovsky A2 = {0} au/d²",
   "kütleçekimsel olmayan ivme (JPL)": "non-gravitational acceleration (JPL)",
   "Isıl ışımanın (Yarkovsky etkisi) yörünge boyunca küçük ama sürekli itkisi: JPL bunu gözlemlerden kestirir. Yüzyıllık taşımalarda yakın geçişi binlerce km kaydırabilir; motor bunu hesaba katar.": "The small but steady push of thermal re-emission (the Yarkovsky effect) along the orbit, estimated by JPL from observations. Over century-long propagations it can shift a close approach by thousands of km; the engine includes it.",

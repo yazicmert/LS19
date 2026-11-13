@@ -15,7 +15,7 @@
 //  Araç boyutlandırma: Δv bütçesinden iniş aracı ve TLI kademesi yakıtı (varsayılandan küçük olmaz).
 import * as E from './engine.js';
 import { STAGES as BASE_STAGES } from './mission.js';
-import { siteOf, validSite, DEFAULT_SITE, siteBlocked } from './moonsite.js';
+import { siteOf, validSite, DEFAULT_SITE } from './moonsite.js';
 const LUNATION_RETRY = 29.6 * 86400;                 // s: sonraki aydınlanma penceresi (kameri ay 29,53 gün; arama başlangıcı önceki pencereyi kesin geçsin)
 import { ROCKETS, DEFAULT_ROCKET, stageRecord, parkPropellant, rocketOf } from './rockets.js';
 import { LEGACY_SITE, minIncl, incPenalty, padAllowed, homeSite, inclRange, azInRange } from './pads.js';
@@ -494,8 +494,6 @@ function* designSteps(tFrom, progress, cfg0, opts = {}) {
   const log = (m, f) => progress(m, f);
   log('Yapılandırma: ' + configLabel(cfg), 0.01);
   if (cfg.rocket && cfg.site && !padAllowed(cfg.rocket, cfg.site.id)) throw new Error(`${rocketOf(cfg.rocket).name} ${cfg.site.name} rampasından fırlatılmıyor (gerçek rampaları dışında seçilemez; her rampa için genel TLI kademesini seçin)`);
-  const blocked = siteBlocked(cfg);
-  if (blocked) throw new Error(blocked);
   // Apollo 11 dışındaki iniş yerlerinde bir aydınlanma penceresi yakınsamazsa sonraki pencere (≈ 1 kameri ay sonra) denenir, en çok iki kez:
   // "Tasarla" o tarihten sonraki ilk UYGUN pencereyi kurar. Her deneme tasarım bağlamını (K) baştan kurar. Varsayılan yerde davranış değişmez.
   const retry = opts.retry && cfg.moonSite && cfg.moonSite !== DEFAULT_SITE ? 2 : 0;
