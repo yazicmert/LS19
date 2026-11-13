@@ -284,6 +284,32 @@ Tahmin vekiliyle medyan 60 yıla kadar 0,85–1,06: model uzun vadede de yansız
 - 60 yılı aşan LEO tahminleri sınanamaz; 1965'ten bu yana geçen süre bunu sınırlıyor.
 - Sürüklenme verisi olmayan kayıtlar (B* ≤ 0 ve ṅ ≤ 0) için tahmin verilmiyor; tarihsel örnekte bunların 53'ü sonradan yeniden girdi.
 
+### 4.2g Birleştirme sonrası denetim: gözlenen 2025–26 uzay havası
+
+#37 birleştirildikten sonra haftalık iş akışı (`gecmis.yml`) CelesTrak'tan 12 Kasım 2026'ya kadar gözlenmiş F10.7 ve Ap'yi aldı. İki sonuç çıktı.
+
+**1. Testlerin canlı tabloya bağlı olması bir kusurdu.** 2025–26 sınamaları canlı `f107.json`'u okuyordu; tablo güncellenince "o günkü tahminle adil sınama" anlamını yitiriyordu. İş akışının test adımı başarısız oldu ve veri güncellemesi durdu; güvenlik önlemi doğru çalıştı, `main`'e bir şey yazılmadı. Sınamalar artık tablonun 20 Temmuz 2025'te dondurulmuş kopyasını kullanıyor (`fixtures/f107_2025-07-20.json`); canlı tablo yalnız yapısal olarak denetleniyor. İş akışı dalda yeniden çalıştırıldı ve geçti.
+
+**2. Gözlenen uzay havasıyla 2025–26:**
+
+| | Temmuz 2025 tahmini | Gözlenen, aylık | Gözlenen, günlük F81 + Ap |
+|---|---|---|---|
+| Tüm yeniden girişler, medyan \|ln hata\| | 0,150 | 0,206 | 0,173 |
+| ~330 gün kala, medyan | 0,95 | 1,27 | 1,18 |
+| 1 yıllık düşüş, tahmin/gözlenen | 1,16 | 0,75 | 0,80 |
+
+*Günlük çözünürlük.* `uzay_havasi.mjs` artık son ~3 yılın günlük 81 günlük ortalama F10.7'sini ve günlük Ap'sini yazıyor; MSIS'in iki girdisi ayrı ayrı (taban sıcaklık ve fırtına ısınması). Model bu gözlenen aralıkta günlük değeri kullanıyor; açığın ~%20'sini kapatıyor.
+
+*Kalanın nedeni.* B*'tan bağımsız bir ölçütle bulundu: 1.303 serbest bozunan edilgen cismin (400–650 km) 4 haftalık pencerelerde gözlenen da/dt'sinin, gözlenen uzay havasıyla MSIS'ten hesaplanan yoğunluğa oranı (cismin kendi ortancasına göre). Oran aydan aya 0,69–1,31 arasında dalgalanıyor; sistematik bir eğilim yok. Bu, MSIS'in yayımlanmış aylık doğruluğuyla tutarlıdır (yaklaşık ±%15–30). Ağustos 2025 bu dalgalanmanın dibinde (0,62–0,71): gerçek yoğunluk MSIS'in ~%35 altındaydı. 1 yıllık sınamanın cisimleri tam bu ayda B* ile bağlandığı için model bu geçici sapmayı bir yıl taşıyor ve bozunmayı eksik tahmin ediyor. 1965–2016 sınamalarında başlangıç ayları rastgele dağıldığından bu etki ortalamada siliniyor ve model yansız çıkıyor (§4.2f).
+
+Edilgen cisimlerin B*'ından yapılan "yoğunluk" ölçümü bu dönemde yanıltıcıydı (haftalık serisi iki anlık görüntü grubu arasında 0,86–2,65 salınıyor); a(t)'ye dayalı ölçüt esas alındı.
+
+*Uygulamadaki karşılığı.* Geçmiş a(t) eğimi olan serbest bozunan uydularda sürüklenme genliği aylar boyu ortalanır (`calibHist`); başlangıç ayının sapması büyük ölçüde silinir. Yalnız B*'a dayanan tahminler bu ±%30'luk aylık belirsizliği taşır; olası aralık (§4.2f) bunu kapsar, çünkü rastgele başlangıç aylarından kurulmuştur.
+
+*İleriki adım* (yapılmadı): yoğunluk sapmasının o anki değeri, edilgen cisimlerin gözlenen bozunmasından haftalık kestirilip başlangıç bağlamasından çıkarılabilir. Bu, operasyonel HASDM'in (Storz vd. 2005) yaptığı dinamik kalibrasyonun basit bir biçimidir. Sapmanın kalıcılık süresi önce tarihsel veriden ölçülmelidir.
+
+**3. Veri tutarlılığı.** GTO/HEO son 2 aydaki aykırı değerlerin bir bölümü "gerçek" tarihin hatası çıktı: GCAT'teki yeniden giriş tarihinden yıllar sonra da arşivde TLE'si olan cisimler (çapraz etiketleme ya da tarih hatası). İki bağımsız kaynağın tutarlılığı artık denetleniyor: yeniden giriş tarihinden 10 günden sonra TLE'si olan cisimler örneklerden çıkarılıyor. Çıkarılanlar LEO tarihsel örnekte 13, GTO/HEO'da 28 ve sansürlü örnekte 19. GTO/HEO son 2 ayda 2 kat içinde kalma %74'ten %78'e çıktı. Sansürlü örnekteki Kaplan–Meier kapsaması her dilimde %62–71.
+
 ### 4.3 Sınırlar
 
 - Uydu gölgesi silindirik kabul edilir (yarı gölge yok); geçişlerin doğuş/batışı geometrik ufka göredir (kırılma yok: ufukta ≈ 0,57°, birkaç saniye).
