@@ -56,6 +56,7 @@ engineFor(view, exp, cur)   // 'sky' → 'sky'; Laboratuvar'da deneyin motoru; a
 | `js/app.js` | `setWorkspace(view, push, exp)` / `syncWorkspace()`: motor seçimi, `body` öznitelikleri, adres ve `localStorage` |
 | `js/ui.js` | Ay görevi sayfaları (yapılandırma, çizelge, Kontrol, Grafik, Yörünge, Efemeris, Δv), HUD, iç içe sekmeler; fizik worker'ıyla konuşma değişmedi |
 | `js/ayui.js` | Ay görevi deneyinin dört adımı: adım özetleri, tamam/yeni işaretleri, sonuç kartı, adımlar arası düğmeler. Yalnız durumu okur; worker'a komut göndermez |
+| `js/aymc.js` / `js/mcstats.js` / `js/mcwork.js` | Ay görevi dağılım denemesi: arayüz, saf özetler, iş parçacığı (`nominalrun.js` › `flyDispersed`) |
 | `js/aytext.js` | Saf yardımcılar (DOM yok): adım özetleri, sonuç yargısı (temasın başarısı `mission.js` › `touchdown()` kararıdır, burada yeniden hesaplanmaz) |
 | `js/deflectui.js` | Saptırma deneyi: 4 adım, grafikler, 3B yollar (hesap `deflectwork.js`'te, değişmedi) |
 | `js/labtext.js` | Saf yardımcılar (DOM yok): düz dille biçim, itki zamanı seçenekleri, sonuç yargısı, adım özetleri, bağlantı ve geçmiş, belirsizlik metni |
@@ -77,6 +78,15 @@ Saptırma deneyiyle aynı dil: numaralı adımlar, her adımın tek satırlık �
 - Sonuç kartındaki Δv toplamları Δv tablosuyla aynı tanımdır (yalnız nominali ve gerçekleşeni bilinen manevralar).
 - Güvenli temas sınırları (dikey < 3 m/s, yatay < 1,22 m/s: Apollo LM iniş takımı tasarım sınırları 10 ft/s ve 4 ft/s) `mission.js`'tedir; `test_ayexp.js` metindeki sayıların oradakilerle aynı kaldığını denetler.
 - Eski sekme kimlikleri korunur: `?tab=gorev` 1. adımı, `?tab=kontrol|grafik|yorunge|efemeris` Uçuş adımını o aletle, `?tab=dv` Sonuç adımını açar.
+
+### Dağılım denemesi (Monte Carlo)
+
+Sonuç adımındaki **Dağılım denemesi**, aynı görevi (tarih, tasarım, araç, iniş güdümü) tohumlu hatalarla 20/50/100 kez uçurur. Tek bir uçuşun başarısı şans olabilir; bu deneme güdümün ve aracın ne kadar güvenilir olduğunu ölçer.
+
+- **Hata modeli** (`nominalrun.js` › `flyDispersed`): TLI kesme hatası (1σ, m/s; `mission.js` › `tliDisp`, varsayılan 1 m/s) rota düzeltmelerini (MCC) değiştirir; **seyrüsefer** "Gerçekçi" ise iniş güdümü gerçek durumu değil kendi kestirimini kullanır (`landnav.js`: PDI'da yer izleme hatası, IMU sapması ve gürültüsü, iniş radarı, arazi göreli seyrüsefer TRN, makullük sınaması). **Arıza** seçenekleri landnav.js'in arıza modelidir: TRN yok (Apollo gibi), altimetre 3 km altında susar, hız ölçer 2 km altında susar.
+- **Koşu:** `mcwork.js` iş parçacıkları (en çok 4) tohumları paylaşır; her koşu ayrı mesajla döner, sonuç uçuş uçuş güncellenir. Görev worker'ına dokunulmaz: canlı uçuş etkilenmez. Aynı tohum bit düzeyinde aynı uçuştur (`test/test_aymc.js`).
+- **Sonuç** (`mcstats.js`, saf): başarı oranı ve **Wilson %95 güven aralığı** (20/20 başarı "%100" değil, "≥ %84" demektir; yeşil: alt sınır ≥ %90), kalan yakıt (medyan, %90 aralığı, en az), MCC toplamı, iniş yerine uzaklık, temas hızları, toplam Δv, başarısızlık nedenleri; iniş noktaları ve 10-7-4 güvenli temas zarfıyla temas hızları grafiği. **Dağılım denemelerim** güdüm/araç/hata modeli birleşimlerini yan yana karşılaştırır (`localStorage` › `ls19.mcHist`).
+- Ölçü (Node, Apollo profili, optimal güdüm, iki kademe): bir uçuş ~3,5 s. Gerçekçi seyrüseferle iniş yerine uzaklık ~1 m; **TRN kapalıyken ~450–530 m** ve yatay hız zarfı aşılabilir (Apollo inişlerinin yüzlerce metrelik ıskalarıyla aynı büyüklük).
 
 ## 4. Saptırma deneyi: dört adım
 
@@ -138,6 +148,8 @@ Ana sayfa ya da saptırma açılınca panel kendiliğinden açılır (deney ana 
 
 - `node test/test_ayexp.js` — Ay görevi deneyi: adım özetleri, sonuç yargısı (başarılı, sert temas, atmosfere giriş), güvenli temas sınırlarının `mission.js` ile aynılığı, arayüz sözleşmesi (dört adım ve aletler, eski sekme kimlikleri, panel ↔ menü araç/güdüm düğmeleri, `ayui.js` worker'a komut göndermez).
 - `node test/test_lab.js` — saf yardımcılar (itki zamanı seçenekleri, sonuç yargısı her senaryo için, metinler) ve arayüz sözleşmesi (JS'nin başvurduğu her kimlik index.html'de var, iki alan, deney kaydı ↔ ağaç ↔ sayfa uyumu, `data-for` kuralları, görünüm → motor eşlemesi, eski/yeni adresler, simgeler, erişilebilirlik öznitelikleri).
+- `node test/test_uncert.js` — saptırma belirsizliği: tohumlu dağılım, kütle/β modeli, Monte Carlo olasılıkları, kovaryans ayrıştırma, doğrusal kovaryans taşıması ↔ 150 örneklenmiş yörüngenin tam tümlemesi (Apophis 2029).
+- `node test/test_aymc.js` — Ay görevi dağılım denemesi: yüzdelik, Wilson aralığı, özet; aynı tohum aynı uçuş, farklı tohum farklı TLI hatası, hatasız koşu = nominal; arayüz sözleşmesi.
 - `node tools/lab_deneme.mjs` — başsız Chromium'da tam akış: iki dallı gezinme, deney → motor geçişleri (ana sayfa motoru değiştirmez; Ay görevi görev motorunu, saptırma gökyüzü motorunu açar), Ay görevinin dört adımı (Devam düğmeleri, panelden güdüm seçimi menüyle eşlenir, Uçuş aletleri, K, inişe atlayıp sonuç kartı, Baştan uçur, `?tab=dv`), Esc/M/K kısayolları, Betulia boş durumu, Apophis 2029 (4 yakın geçiş, ilki 13 Nisan 2029, 38.013 km), itki, "çarpacak olsaydı", 3B yollar, çapraz bağlantılar, eski/yeni adres parametreleri (`?mode=mission`, `?tab=kontrol`), telefon (390×844; varsayılan açılışta panel kapalı). `api/*` istekleri gerçek bulut işlevleriyle `web/test/fixtures` yanıtlarından karşılanır: internet gerekmez.
 
 **Sınırlar:** tarayıcı denemesi yazılım çizimiyle (SwiftShader) ve sahte kaynak verisiyle yapıldı; ayrıntı (tam duyarlıklı JPL çözümü) yalnız Apophis için var, öteki hedefler katalog öğeleriyle çalışır. Gerçek JPL sunucusuyla, gerçek GPU'yla ve gerçek bir telefonda denenmedi.

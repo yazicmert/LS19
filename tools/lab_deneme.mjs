@@ -249,6 +249,13 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await page.goto(base + 'index.html?sats=0&ast=0&tab=dv', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => { const l = document.querySelector('#loading'); return l && getComputedStyle(l).display === 'none'; }, null, { timeout: 280000 });
   check('eski ?tab=dv Sonuç adımını açar (Δv bütçesi ve karşılaştırma orada)', (await stepOn()) === 'dv' && (await vis(page, '#dvtable')) && (await vis(page, '#cmptable')));
+  // dağılım denemesi (Monte Carlo): denemede 3 uçuş (seçenek listesine eklenir), ayrı iş parçacıkları
+  await page.evaluate(() => { const sel = document.querySelector('#mcN'); sel.add(new Option('3', '3')); sel.value = '3'; });
+  await page.click('#mcRun');
+  const mcDone = await page.waitForFunction(() => /^3 uçuş/.test(document.querySelector('#mcMsg').textContent), null, { timeout: 280000 }).then(() => true, () => false);
+  const mc = await page.evaluate(() => ({ t: document.querySelector('#mcVT').textContent, rows: document.querySelectorAll('#mcTbl tr').length, hist: document.querySelectorAll('#mcHistTbl tbody tr').length,
+    cv: (() => { const c = document.querySelector('#mcScatter'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; })(), seeds: window.LS19.aymc.runs.map((r) => r.seed).sort().join() }));
+  check('Monte Carlo: 3 uçuş tamamlanır (tohum 1–3), başarı oranı, özet tablo, iniş/temas grafiği ve geçmiş satırı', mcDone && /^\d\/3 iniş başarılı/.test(mc.t) && mc.rows >= 6 && mc.cv > 300 && mc.hist === 1 && mc.seeds === '1,2,3', JSON.stringify(mc));
   check('konsol hatası yok (Ay görevi adımları)', errors.length === 0, errors.slice(0, 3).join(' | '));
   await ctx.close();
 }

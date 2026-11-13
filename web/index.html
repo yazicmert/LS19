@@ -171,6 +171,8 @@
 <link rel="modulepreload" href="js/labui.js">
 <link rel="modulepreload" href="js/ayui.js">
 <link rel="modulepreload" href="js/aytext.js">
+<link rel="modulepreload" href="js/aymc.js">
+<link rel="modulepreload" href="js/mcstats.js">
 <link rel="modulepreload" href="js/touchdown.js">
 <link rel="modulepreload" href="js/landnav.js">
 <link rel="modulepreload" href="js/deflectui.js">
@@ -572,6 +574,26 @@
           <table id="ayVTbl" class="tbl ayres"><tbody></tbody></table>
         </div>
         <div class="stepnav"><button class="sm" type="button" data-goto="gorev">Başka profille dene</button><button class="sm" type="button" data-goto="arac">Güdümü değiştir</button><button id="ayRestart" class="sm" type="button">Baştan uçur</button></div>
+        <h3>Dağılım denemesi (Monte Carlo)</h3>
+        <p class="note">Tek uçuş şansa bağlı olabilir. Burada aynı görev tohumlu hatalarla defalarca uçurulur: TLI kesme hatası rota düzeltmelerini, seyrüsefer hataları (IMU, iniş radarı, arazi göreli seyrüsefer) inişi değiştirir. Sonuç, seçili güdüm ve aracın ne kadar güvenilir olduğunu gösterir. Canlı uçuş etkilenmez.</p>
+        <div class="frow3">
+          <label>Uçuş sayısı<span><select id="mcN"><option value="20">20</option><option value="50" selected>50</option><option value="100">100</option></select></span></label>
+          <label>TLI kesme 1σ<span><input id="mcTli" type="number" min="0" max="10" step="0.5" value="1"> m/s</span></label>
+          <label>Seyrüsefer<span><select id="mcNav"><option value="on" selected>Gerçekçi</option><option value="off">Kusursuz</option></select></span></label>
+        </div>
+        <div class="frow"><label for="mcFault">Arıza</label><select id="mcFault"><option value="none">Yok</option><option value="trn">Arazi göreli seyrüsefer yok (Apollo gibi)</option><option value="alt">Altimetre 3 km altında susar</option><option value="vel">Hız ölçer 2 km altında susar</option></select></div>
+        <div class="daterow"><button id="mcRun" class="primary sm" type="button">Dağılım denemesini başlat</button><button id="mcStop" class="sm" type="button" hidden>Durdur</button><span id="mcMsg" class="note" role="status" aria-live="polite"></span></div>
+        <div id="mcOut" hidden>
+          <div id="mcVerdict" class="unc info"><div id="mcVT" class="ut"></div></div>
+          <canvas id="mcScatter" class="chart" role="img" aria-label="Monte Carlo: iniş noktaları ve temas hızları"></canvas>
+          <p class="note">Yeşil başarılı, kırmızı başarısız iniş. Sağda kesikli çizgi iniş takımının güvenli temas sınırı (dikey 3,05 m/s, yatay 1,22 m/s'de dikey 2,13 m/s).</p>
+          <table id="mcTbl" class="tbl"><tbody></tbody></table>
+          <p id="mcFails" class="note"></p>
+        </div>
+        <details id="mcHist" class="adv" hidden><summary>Dağılım denemelerim</summary>
+          <div class="tblwrap"><table id="mcHistTbl" class="tbl"><thead><tr><th>Güdüm · araç</th><th>Hata modeli</th><th class="num">Başarı</th><th class="num">Yakıt (medyan)</th><th class="num">Iska (medyan)</th></tr></thead><tbody></tbody></table></div>
+          <div class="stepnav"><button id="mcClear" class="sm" type="button">Temizle</button></div>
+        </details>
         <h3>Δv bütçesi (m/s)</h3>
         <table id="dvtable" class="tbl">
           <thead><tr><th>Manevra</th><th class="num">Nominal</th><th class="num">Gerçekleşen</th><th class="num">Fark</th></tr></thead>
