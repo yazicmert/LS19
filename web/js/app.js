@@ -115,7 +115,7 @@ function initSky() {
   S.skyui = new SkyUI({ clock, tracker: S.tracker, sats: S.sats, asts: S.asts, setSkyCam, lookAt: lookAtSat, follow: followSat });
   impactui = new ImpactUI({ sats: S.sats, asts: S.asts, astui: S.astui, follow: followSat }); ui.onCarpma = () => impactui.open();
   S.sats.models.onLoad = (e, st) => { if (st === 'start') S.skyui.toast(`${e.name}: gerçek 3B model yükleniyor (${srcOf(MODELS[e.key])})…`); else if (st === 'error') S.skyui.toast(`${e.name}: 3B model yüklenemedi, temsili model gösteriliyor.`); };
-  S.sats.onData = () => { if (S.tracker) S.tracker.computePasses(true); };
+  S.sats.onData = () => { if (S.tracker) S.tracker.computePasses(true); if (ui.skyTab === 'carpma') impactui.refresh(); };            // Çarpma sekmesi açıkken katalog yenilenirse liste yeni veriyle yeniden hesaplanır
   // fırlatma takvimi (saatin altında) ve Fırlatmalar sekmesi: LL2 (yedek RocketLaunch.Live), son fırlatmalar uydu kataloğuna COSPAR ile bağlanır
   S.launches = new Launches();
   S.launchcal = new LaunchCal({ launches: S.launches, sats: S.sats, follow: followSat,

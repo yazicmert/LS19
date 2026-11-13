@@ -84,12 +84,12 @@ for (const [id, S] of series) {
   const last = S[S.length - 1];
   if (last.a - RE > 1500) continue;                                                       // çok yüksek yörünge: bozunma ihmal edilebilir
   const r = analyzeHistory(S);
-  if (r.durum === 'yetersiz') continue;
+  if (r.durum === 'short') continue;
   const exp = expectedDecayKmDay(last.a, last.e, last.bstar);
   const row = { n: r.n, spanDays: r.spanDays, boostCount: r.boostCount, lastBoostMs: r.lastBoostMs, slopeKmDay: r.slopeKmDay, expKmDay: exp, rms: r.slopeRms };
   sats[id] = [r.n, +r.spanDays.toFixed(1), r.boostCount, r.lastBoostMs ? Math.round(r.lastBoostMs / 864e5) : 0, +r.slopeKmDay.toFixed(5), +r.slopeRms.toFixed(3), +last.a.toFixed(3), Math.round(last.t / 864e5), +exp.toFixed(5), +r.segDays.toFixed(1)];
   // serbest bozunanlar için a(t) (grafik): ortak zaman ekseni, eksik örnekler null
-  if (controlFromHistory(row).klass === 'serbest' && r.slopeKmDay < -0.002) {
+  if (controlFromHistory(row).klass === 'free' && r.slopeKmDay < -0.002) {
     const arr = new Array(picks.length).fill(null); let k = 0;
     for (const s of S) { while (k < picks.length - 1 && Math.abs(picks[k + 1].t - s.t) < Math.abs(picks[k].t - s.t)) k++; arr[k] = +s.a.toFixed(2); }
     seri[id] = arr; nSeri++;

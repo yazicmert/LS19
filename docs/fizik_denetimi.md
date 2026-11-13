@@ -76,6 +76,214 @@ Canlı Gökyüzü'nün fiziği (Dünya yönelimi, canlı N-cisim efemerisi ve Ay
 | Gezegen kutupları ve dönme fazları (W₀, Ẇ), yarıçaplar | IAU WGCCRE | Aynı |
 | Yeniden giriş tahmini (B*, Vallado yoğunluğu) | Bkz. §1 #2 | Düzeltildi |
 
+### 4.2a Yeniden giriş tahmini (`impact.js`): ikinci denetim
+
+Çarpma sekmesinin yörünge bozunması modeli bağımsız referanslarla sınandı (aynı fizik ayrıca yazılıp hareket denklemleri doğrudan ya da 4.000–20.000 noktalı ortalamayla tümlendi). Dört kusur bulundu ve düzeltildi:
+
+| Sorun | Kanıt | Düzeltme |
+|---|---|---|
+| **`MEAN_MOTION_DOT`'tan sürüklenme genliği dairesel formülle bulunup perije değeri sayılıyordu** | Modelin kendi bozunmasından üretilen ṅ geri verildiğinde B*/ṅ oranı 300 × 2000 km'de 7,95, 250 × 6000 km'de 11,3 (1 olmalı); B* yokken ömür sonsuz çıkıyordu | Genlik, geçmiş eğimiyle aynı yoldan (modelin yörünge ortalamalı da/dt'siyle ölçekleme) bulunur; oran 1,000 / 1,000 / 0,998 |
+| **Eksantrik yörüngede sabit 24 noktalı toplama perijedeki sürüklenme tepesini kaçırıyordu** | da/dt yakınsak değerin 250 × 20.000 km'de 0,52'si, GTO'da 0,20'si, 200 × 35.786 km'de 0,14'ü | Nokta sayısı tepenin genişliğine (√(H/ae)) göre seçilir; 400 × 420 km'den 130 × 35.786 km'ye sekiz yörüngede referansla fark ≤ %0,25 |
+| **Tümleme (a, e) ile ilerliyordu**: perijeye adım başına −Δa·Δe ikinci derece hatası ekleniyor, adım yalnız perije hızına göre seçiliyordu | 200 × 35.786 km, B* = 10⁻³: model 1.662 gün, ince adımlı referans 6.208 gün (perije 60 km fazla alçalıyordu; gerçek alçalma Δa'nın ~2·10⁻⁴'ü) | Durum (a, perije) olarak ilerletilir; adım a'nın değişimini de sınırlar. Aynı durumda 6.217 gün (%0,14); dört yörüngede fark ≤ %1,2 |
+| **15 yıla kadar tahmin "yüksek" güven alabiliyordu** | Geçmiş eğimi zaten yalnız B*'la uyuşan cisimlerde kullanıldığından uyum bağımsız doğrulama değildir; gerçek kayıtta da geçmiş kalibrasyonlu tahminler ötekilerden daha isabetli çıkmadı (§4.2b) | Yüksek: iki kaynak uyumlu ve < 60 gün; orta: uyumlu ve < 25 yıl; gerisi düşük |
+
+Kartezyen denetim (`test/test_impact.js`): iki cisim + sürüklenme ivmesi −½Kρ|v|v, RK4 10 s, 300 × 2000 km, 3 gün: Δa 36,55 km ↔ model 36,12 km, Δe 4,195·10⁻³ ↔ 4,147·10⁻³.
+
+### 4.2b Gerçek yeniden girişler, Güneş çevrimi, Ay–Güneş çekimi
+
+> Bu bölümdeki Güneş çevrimi ve derin uzay sonuçları §4.2c'de gerçek F10.7 verisi ve gerçek derin uzay yeniden girişleriyle yenilendi; aşağıdaki sayılar o düzeltmelerden öncedir.
+
+**Gerçek kayıtla karşılaştırma.** Halka açık CelesTrak etkin kataloğunun git geçmişinden (github.com/jtmiclat/celestrak-historical; Tem 2025 – Kas 2026, ~4,5 günde bir, 96 anlık görüntü) etkin listeden çıkmış, son TLE perijesi 120–260 km olan 322 cisim seçildi (Starlink/OneWeb/Kuiper ve istasyon araçları hariç; Jilin, ICEYE, Astrocast, Lemur, NuSat ve küp uydular). "Gerçek" yeniden giriş anı = son TLE çağı + modelin o TLE'den kalan süresi (medyan 2,2 gün, %90'ı < 4,2 gün). Her cismin önceki TLE'lerinden tahmin / gerçek kalan süre oranı:
+
+| Yeniden girişe kalan | n | Medyan | %68 aralığı | 2 kat içinde |
+|---|---|---|---|---|
+| ~45 gün | 315 | 1,05 | 0,84–1,37 | %96 |
+| ~150 gün | 237 | 0,95 | 0,75–1,38 | %97 |
+| ~330 gün | 130 | 1,30 | 0,77–1,48 | %95 |
+| "yüksek" güven verilenler | 255 | 0,99 | 0,82–1,17 | %99 |
+
+Cisim başına birer girdili bu örnek `web/test/fixtures/reentry_real.json`'dadır (`tools/yeniden_giris_ornegi.mjs` üretir) ve `test_impact.js` her koşuda sınar. Tüm TLE'lerle (12.650 tahmin) medyan 0,89–1,05, %96–97'si 2 kat içinde. 330 gün kala medyan 1,30'dur: tahminlerin yapıldığı Ağu–Ara 2025'ten sonra yoğunluk beklenmedik biçimde arttı (aşağıda), cisimler tahminden erken indi.
+
+**Güneş çevrimi.** Sabit atmosfer yerine F10.7'nin 11 yıllık ortalama biçimi (en az 70, en çok 160 sfu; 25. çevrim en az Aralık 2019) yoğunluğu ölçekler: ln ρ(h, F) = ln ρ_Vallado(h) − (1/T(F) − 1/T(140))·(h − 175)·m(h), T = 900 + 2,5(F − 70) + 1,5·Ap, m = 27 − 0,012(h − 200). Çarpan 400 km'de 0,38–1,83, 600 km'de 0,20–2,81. Denetim: edilgen 509 cismin (480–560 km) B*'ı SGP4'ün atmosferi sabit olduğundan gerçek yoğunluğu izler; Ağu 2025 → Kas 2026 gözlenen yoğunluk oranı 0,88, modelinki 0,74 (580–680 km: 0,76 ↔ 0,69). Arada Eki 2025 – Şub 2026'da yoğunluk 1,3–1,7 katına çıktı; çevrim modeli böyle aylık dalgalanmaları öngöremez. 16 aylık gerçek veride çevrim modeli sabit atmosferden daha iyi çıkmadı (medyan |ln hata| 0,216 ↔ 0,208); etkisi yıllar ölçeğindedir (450 km, B* = 1,5·10⁻⁴: en çok aktivitede başlayan tahmin 7,7 yıl, sabit 4,5, en azda başlayan 2,8) ve o ölçek gerçek kayıtla sınanamadı.
+
+**Geçmiş eğimi.** Theil–Sen eğimi dilimin ortasındaki bozunma hızıdır; bugünkü yörüngenin hızı sayılınca genlik küçük çıkıyor, gerçek veride 60–120 gün kala ömür %40 uzun tahmin ediliyordu. Eğim artık dilim ortasındaki yörüngeye ve o günün aktivitesine bağlanır (modelin kendi ürettiği 301 günlük seriden kalan ömür 677 ↔ 662 gün) ve B* ile geometrik ortalaması kullanılır: gerçek veride yalnız eğim 60–120 / 120–240 / 240–480 gün kala medyan |ln hata| 0,16 / 0,31 / 0,36, yalnız B* 0,19 / 0,20 / 0,26, ikisi birlikte 0,12 / 0,21 / 0,27.
+
+**Ay–Güneş çekimi.** Periyodu ≥ 225 dk olan alçak perijeli yörüngelerde (GTO, Molniya) dış merkezlik ve açısal momentum vektörleri için dörtkutup yaklaşımında yörünge ortalamalı denklemler (Tremaine, Touma & Namouni 2009; Güneş tek, Ay çift ortalama) ve J2'nin düğüm/perije dönmesi sürüklenmeyle birlikte tümlenir (4 günlük adım, 100 yıl ufuk). Doğrudan Kartezyen tümlemeyle (Dünya nokta kütle + J2, Güneş, eğik dairesel yörüngede dolanan Ay; RK4) karşılaştırma: 600 × 35.786 km, i = 28,5°, 1 yıl: perije 58 km oynarken en büyük fark 2,6 km; 900 × 39.400 km, i = 63,4°, 545 gün: perije 900 → 448 km, fark 1,2 km. Örnek: GTO 250 × 35.786 km, B* = 10⁻³: yalnız sürüklenme 70,6 yıl, Ay–Güneş dahil 32,5 yıl.
+
+**Sınırlar.** Birkaç yıldan uzun tahminler gerçek kayıtla sınanamadı (veri 16 ay). Derin uzay yörüngeleri için gerçek yeniden giriş kaydı yok (etkin katalogda bu türden inen cisim bulunmadı); Ay–Güneş modeli ortalamadır (rezonanslar, kısa periyotlu terimler yok) ve bu yörüngeler başlangıç koşullarına çok duyarlıdır: güvenleri hep düşüktür. "Gerçek" yeniden giriş anı son TLE'den modelle tamamlandığı için birkaç günlük bir belirsizlik taşır.
+
+### 4.2c Açık kalan sınırlar için kaynaklar ve sonuçları
+
+> Gerçek yeniden giriş anları ve çok yıllık sınama §4.2d'de GCAT ile yenilendi; buradaki LEO sayıları (321 cisim, modelle tamamlanan anlar) o düzeltmeden öncedir.
+
+§4.2b'de üç sınır kalmıştı: birkaç yıldan uzun tahminler sınanamıyordu, derin uzay yörüngelerinde gerçek yeniden giriş kaydı yoktu ve "gerçek" yeniden giriş anı son TLE'den modelle tamamlanıyordu. Bunlar için kaynak arandı; bulunan ve kullanılabilen kaynaklarla aşağıdakiler yapıldı.
+
+**Gerçek Güneş aktivitesi (F10.7).** Modeldeki ortalama çevrimin genliği yanlıştı: 25. çevrimin düzleştirilmiş F10.7 tepesi Eylül 2024'te 203,6 sfu ([STCE](https://www.stce.be/content/sc25-tracking)); modelde 160 yazıyordu. Gözlenen değerler için kaynak CelesTrak'ın uzay havası dosyası `SW-All.txt` (1957'den bugüne günlük F10.7 ve Ap, ayrıca ~16 yıllık aylık tahmin; lisans yok, yalnız kaynak belirtilsin, en sık 3 saatte bir indirilsin). Bu oturumdan celestrak.org'a erişilemediği için, dosyanın 20 Temmuz 2025'e kadar gözlem içeren bir kopyası PyPI'daki `spaceweather` 0.4.2 paketinden alındı. Kesim tarihi tam olarak sınama penceresinin başı olduğundan sınama adildir: model o gün elde olacak gözlem + tahminle çalışır. `tools/uzay_havasi.mjs` dosyadan aylık tablo (`web/data/f107.json`, 5,6 kB) üretir; uygulama tabloyu `gecmis.json` ile birlikte yükler; yoksa ortalama çevrime (en çok 185 sfu: son dört çevrimin en yüksek yıllık ortalamalarının ortalaması) düşer. Haftalık iş akışı (`gecmis.yml`) tabloyu CelesTrak'tan yeniler.
+
+| | 1 yıllık irtifa düşüşü, tahmin / gözlenen (366 uzun ömürlü cisim) | Gerçek yeniden girişler (681 tahmin), medyan \|ln hata\| | 330 gün kala medyan |
+|---|---|---|---|
+| F10.7 tablosu | 1,04 (%68: 0,86–1,22) | 0,143 | 1,02 |
+| Ortalama çevrim | 0,75 (0,64–0,88) | 0,200 | 1,38 |
+| Sabit atmosfer | 0,88 (0,74–1,03) | 0,208 | 1,19 |
+
+Uzun ömürlü cisim örneği (`fixtures/decay_1yil.json`): 350–700 km, dairesel, manevrasız edilgen cisimlerin ilk TLE'si ve ~1 yıl sonra gözlenen yarı büyük eksen düşüşü. Bu, birkaç yıllık tahminin dayandığı bozunma hızını bir yıllık ölçekte sınar (ömür medyanı ~9 yıl). Gerçek yeniden girişlerle tablo modeli: 45 / 150 / 330 gün kala %68 aralığı 0,85–1,35 / 0,78–1,21 / 0,80–1,24, %97'si 2 kat içinde.
+
+**Derin uzay gerçek yeniden girişleri.** CelesTrak geçmişinde ESA'nın Cluster II uyduları bulundu (a ≈ 72.000 km, e ≈ 0,85; ESA'nın "hedefli doğal bozunma" ile indirdiği uydular; son evrede itki yok, perijeyi Ay–Güneş çekimi bir yılda ~4.600 km'den indirdi). Yeniden giriş anları ESA'dan: Rumba 22 Eki 2025 ([ESA](https://blogs.esa.int/rocketscience/2025/10/10/rumba-expected-to-reenter-on-22-october)), Samba 31 Ağu 2026 21:39:38 UTC ([ESA](https://www.esa.int/articles/samba-s-fiery-farewell-recorded)), Tango 1 Eyl 2026 21:30:31 UTC ([ESA](https://www.esa.int/articles/observing-samba-and-tango-s-reentries)). Bu sınama üç hata buldu:
+
+| Sorun | Kanıt | Düzeltme |
+|---|---|---|
+| Perijesi 1400 km'nin üstündeki derin uzay cisimleri hesaplanmadan "yüksek yörünge" sayılıyordu | Samba 200 gün kala (perije 2.065 km): "> 100 yıl" | Ay–Güneş yörüngelerinde (periyot ≥ 225 dk, e > 0,1) erken çıkış yok; sürüklenme verisi yoksa da tümlenir |
+| Derin uzay TLE'sindeki `MEAN_MOTION_DOT` sürüklenme sayılıyordu | SDP4'te ṅ Ay–Güneş etkisini taşır; perije 1.500 km'ye inince saçma büyük sürüklenme apojeyi bir günde çökertti (tahmin 224 gün, gerçek 397) | Derin uzayda ṅ sürüklenme kaynağı değil |
+| Yeniden giriş 120 km ortalama perijede sayılıyordu | Çok eksantrik yörüngede tek geçiş cismi yakalamaz; TLE'nin ortalama perijesi −36 km gösterirken Samba 16 gün daha uçtu | Bu yörüngelerde eşik 80 km (40–120 km denendi; daha alçak eşikler biraz daha iyi ama yalnız 3 cisme uydurmamak için 80) |
+
+Düzeltmelerden sonra Samba ve Tango için 60–397 gün kala 30 tahminin medyanı gerçeğin 1,04 katı (0,59–1,24); Ay–Güneş çekimi olmadan bunların hiçbiri yeniden girmez görünür. Ortalama model, aynı başlangıçtan doğrudan Kartezyen tümlemeyle (Güneş, Montenbruck & Gill düşük duyarlıklı Ay, J2) her başlangıçta %8 içinde aynı sonucu verir; yani kalan fark ortalamadan değil fizikten ve TLE ortalama elemanlarından gelir. Rumba (25–88 gün kala) tahminleri kısa kalır (0,41–0,77): son haftalarda ortalama elemanlar fiziksel perijeyi göstermez. Örnek: `fixtures/reentry_deep.json`.
+
+**Kalan sınırlar ve onları çözebilecek kaynaklar** (bu oturumdan erişilemeyenler; ağ izni ya da hesap gerekir):
+
+| Sınır | Kaynak | Durum |
+|---|---|---|
+| ~~Birkaç yıldan uzun tahminler gerçek kayıtla sınanamadı~~ (§4.2d: McDowell arşivi + GCAT ile sınandı) | Space-Track `gp_history` (1957'den bugüne tüm TLE'ler; ücretsiz hesap; yeniden dağıtım kısıtlı, yalnız türetilmiş sonuç depolanabilir); toplu indirme aracı [tl3](https://pypi.org/project/tl3) (~28 GB). CelesTrak'ın [geçmiş GP arşivi](https://celestrak.org/NORAD/archives/request.php) (istekle). J. McDowell'in [tarihsel TLE arşivi](https://planet4589.org/space/ele.html) (cisim başına dosya) | Hesap / ağ izni gerekir |
+| ~~"Gerçek" yeniden giriş anı son TLE'den tamamlanıyor~~ (§4.2d: GCAT DDate) | [GCAT](https://planet4589.org/space/gcat/) `satcat.tsv` yeniden giriş tarihleri (CC-BY); Space-Track `decay` / TIP; Aerospace [CORDS](https://aerospace.org/reentries) (2000 sonrası, 2 yıldan eskiler CSV) | GCAT en uygun (CC-BY); planet4589.org ağ izni gerekir |
+| Jeomanyetik fırtınalar (Ap) yok; aylık F10.7 kısa dalgalanmaları düzler | Aynı `SW-All.txt` günlük Ap ve günlük F10.7 içerir | §4.2d: aylık Ap eklendi; günlük çözünürlük yok |
+| GTO roket gövdeleri gibi B*'ı güvenilmez çok eksantrik cisimler | Gondelach, Armellin & Lidtke 2017 ([doi:10.1155/2017/7309637](https://doi.org/10.1155/2017/7309637)): 101 GTO roket gövdesiyle TLE'den balistik katsayı kestirimi ve yeniden giriş tahmini sınaması | Yöntem kaynağı; veri Space-Track'ten |
+| Güneş çevriminin gelecek genliği | NOAA SWPC [tahmini](https://www.swpc.noaa.gov/products/solar-cycle-progression) (`predicted-solar-cycle.json`, aralıklı); CelesTrak aylık tahmini zaten tabloda | Tablo kullanılıyor; NOAA aralıkları belirsizlik bandı için kullanılabilir |
+
+### 4.2d GCAT ve tarihsel TLE arşiviyle çok yıllık sınama
+
+planet4589.org'a erişim açılınca iki kaynak kullanıldı (ikisi de J. McDowell): [GCAT](https://planet4589.org/space/gcat/) nesne kataloğu (`satcat.tsv`, CC-BY; 69.436 kayıt, her yeniden girişin tarihi) ve [tarihsel TLE arşivi](https://planet4589.org/space/ele.html) (nesne başına dosya; site, ABD hükümeti kaynaklı TLE'lerin yeniden dağıtımı kısıtlamayan kaynaklardan alındığını belirtir).
+
+**Güncel örneğin gerçek anları.** 2025–26 LEO örneğinde "gerçek" an artık GCAT'teki DDate. Modelle tamamlanan anlar GCAT'le medyan 0,01 gün, %90'ı ±1,1 gün içinde uyuşuyordu; ama 6 satırın cismi aslında yeniden girmemişti (GCAT'e göre 3'ü yörüngede, 3'ü istasyona kenetli) ve 71 cismin GCAT tarihi yoktu. Örnek yalnız GCAT'in yeniden girdi dediği 249 cisimle (533 tahmin) yeniden üretildi (`tools/yeniden_giris_ornegi.mjs --gcat`).
+
+**Tarihsel örnek.** `tools/tarihsel_ornek.mjs`: GCAT'ten 1965–2016 arasında yeniden girmiş, ömrü ≥ 1,5 yıl, perije 150–900 km cisimler (9.090 aday), on yıl başına tohumlu rastgele en çok 160; arşivden yeniden girişten ~1 ay ile ~8 yıl önceki TLE'ler ("est/guess" etiketli uydurulmuş elemanlar atılır). Sonuç: 758 cisim, 3.169 tahmin (`fixtures/reentry_hist.json`). Bu dönem için F10.7 ve Ap gözlenmiş olduğundan bu sınama fiziği sınar; ortalama çevrimli koşu, Güneş tahmininin olmadığı durumu temsil eder.
+
+**Bulunan iki kusur ve düzeltmeleri:**
+
+| Sorun | Kanıt | Düzeltme |
+|---|---|---|
+| Yoğunluğun Güneş aktivitesine duyarlılığı zayıftı | Gözlenen F10.7 ile bile düzgün +%15–20 "fazla uzun" eğilim; aktivite artarken 1,32, azalırken 1,07; 400 km'de en az–en çok yoğunluk oranı modelde ~4,8 (ölçülmüş modellerde ~10) | Aktivite terimine 1,4 katsayısı (on yılların iki yarısında ayrı ayrı en iyi 1,4–1,5; fiziksel olarak 400 km'de ~8,6 kat) |
+| B* ile ṅ 3 kattan çok uyuşmadığında yalnız B* kullanılıyordu | 44 tahminde medyan 130 kat fazla uzun: eski TLE'lerde B* çoğu kez anlamsız küçük | Uyuşmazlıkta gözlenen bozunma (ṅ); geçmiş eğimi varsa o öncelikli |
+
+Ayrıca F10.7 tablosuna aylık ortalama Ap eklendi (gözlenen aylar; tahmin aylarında son 12 ayın ortalaması). Etkisi küçük ama tutarlı (1,5–10 yıl kala medyan |ln hata| 0,339 → 0,328).
+
+**Sonuç** (gözlenen F10.7 + Ap; tahmin / gerçek kalan süre):
+
+| Yeniden girişe kalan | n | Medyan | %68 aralığı | 2 kat içinde | Ortalama çevrimle 2× içinde | Sabit atmosferle 2× içinde |
+|---|---|---|---|---|---|---|
+| < 2 ay | 532 | 1,05 | 0,83–1,40 | %94 | %95 | %95 |
+| 2 ay – 1,5 yıl | 1.644 | 1,10 | 0,78–1,71 | %86 | %83 | %75 |
+| 1,5–3 yıl | 489 | 1,07 | 0,74–1,75 | %84 | %80 | %45 |
+| 3–12 yıl | 504 | 1,00 | 0,70–2,41 | %72 | %62 | %34 |
+| "yüksek" güven verilenler | 318 | — | — | %98 | — | — |
+
+1,5–12 yıl kala medyan |ln hata|: gözlenen F10.7 ile 0,250, ortalama çevrimle 0,416, sabit atmosferle 0,938. Yani çok yıllık tahminin hatasının büyük kısmı Güneş aktivitesinin bilinmemesinden gelir; aktivite biliniyorsa model 3–12 yıl kala da yansız (medyan 1,00).
+
+**Güncel veride etkisi** (Temmuz 2025'te bilinen tahminle, adil): 249 cismin 533 tahmini medyan 0,99 (%68: 0,82–1,33), %95'i 2 kat içinde; medyan |ln hata| 0,150 (ortalama çevrimle 0,216, sabit atmosferle 0,218). İstisna: 366 uzun ömürlü cismin 2025–26 bir yıllık düşüşü 1,16 kat fazla tahmin ediliyor (önce 1,04); sabit atmosfer burada 0,88 ile biraz daha iyi. Nedeni Temmuz 2025 CelesTrak tahmininin Ekim–Kasım 2025 aktivitesini yüksek öngörmesi (~162'ye karşı gözlenen ~140 sfu; [Lumara](https://lumara-space.app/solar-cycle-25.html)): daha duyarlı model, tahmin hatasını da büyütür. Bu, gerçek kullanımdaki koşuldur ve testte açıkça sınanır.
+
+**Kalan sınırlar.** Gelecek Güneş çevrimlerinin genliği (kaynak: NOAA SWPC aralıklı çevrim tahmini; bir belirsizlik bandı olarak eklenebilir). Aylık Ap kısa fırtınaları düzler (günlük Ap aynı dosyada). Tarihsel TLE'lerin kalitesi dönemden döneme değişir; 2016 sonrası arşivde seyrek. GTO roket gövdeleri ve çok eksantrik yörüngelerin son haftaları (§4.2c).
+
+### 4.2e Kalan sınırların kapatılması
+
+§4.2d sonunda dört sınır kalmıştı. Hepsi gerçek kayıtla incelendi.
+
+**1. GTO/HEO roket gövdeleri.** Space-Track gerekmeden, GCAT ve McDowell arşivinden 1975–2016 arasında yeniden girmiş 464 roket gövdesi ve yük (apoje ≥ 15.000 km; 1.678 tahmin; `fixtures/reentry_heo.json`, `tools/tarihsel_ornek.mjs --heo`). Sonuç (tahmin / gerçek):
+
+| Kalan süre | n | Medyan | %68 | 2 kat içinde | Yalnız sürüklenmeyle 2 kat içinde |
+|---|---|---|---|---|---|
+| 0,7–10 yıl | 1.096 | 0,95 | 0,72–1,03 | %86 | %8 |
+| 2 ay – 0,7 yıl | 453 | 0,79 | — | %81 | %5 |
+| < 2 ay | 129 | 1,03 | — | %74 | %5 |
+
+Ay–Güneş modeli bu cisimlerde çok yıllık ölçekte yansız. 2 ay – 0,7 yıl kala tahminler ~%20 kısa kalıyor (bilinen sınır).
+
+**2. Çok eksantrik yörüngelerin son haftaları.** Yeniden giriş eşiği (ortalama perije), Cluster'ın 3 cismine göre seçilmiş 80 km yerine 464 cismin iki yarısında ayrı ayrı sınandı. İki yarıda da en iyisi 50–60 km çıktı, 60 seçildi. Son 2 ay kala 2 kat içinde kalma %53'ten %74'e çıktı; medyan 0,94'ten 1,03'e. Uzun vadeli sonuçlar değişmedi; Cluster Samba/Tango medyan 1,04 (0,63–1,24).
+
+SDP4 ile her perije geçişini izleyip ilk alçak geçişte yeniden giriş saymak da denendi. Ortalama modelden belirgin kötü çıktı (2 ay kala 2 kat içinde %42–47, ortalama modelle %74) ve kullanılmadı.
+
+**3. Gelecek Güneş çevrimi.** Bu belirsizlik giderilemez, ama artık sayısal olarak gösteriliyor. Her tahmine gerçek kayıtla ayarlanmış %68 olası aralık eşlik eder (`lifeRange`, `fmtRange`; ör. "~2031 (4,9 yıl sonra; olası aralık 2029–2034)"). Aralık, gerçek / tahmin oranının %16 ve %84 dilimleridir: LEO için 758 tarihsel cismin tahminleri Güneş aktivitesi bilinmiyormuş gibi (ortalama çevrimle) hesaplanarak, GTO/HEO için 464 cisimden. Dilimler gerçek kalan süreye göre kurulur. Tahmin edilen süreye göre kurulsaydı seçim yanlılığı olurdu: örnek gerçek süreye göre seçildiğinden "uzun tahmin edilip gerçekleşmiş" cisimler zorunlu olarak erken inenlerdir. Uygulamada dilim tahmin edilen süreye göre aranır.
+
+Kapsama:
+- LEO çapraz (cisimlerin iki yarısı): %69 / %69.
+- Gerçek süre dilimlerinde %67–79.
+- 2025–26 gerçek yeniden girişlerinde, uygulamanın tahmin koşulunda: %86 (aralık temkinli).
+- GTO/HEO: %67 (son ay diliminde %44).
+
+12 yıldan uzun sürelerde aralık sınanmamıştır ve metinde böyle yazar.
+
+**4. Aylık Ap.** Günlük F10.7 ve Ap ile aylık ortalamalar karşılaştırıldı (1957–2025, `SW-All.txt`). Yoğunluğun Ap ve F10.7'ye bağlılığı doğrusal olmadığından aylık ortalama, ortalama yoğunluğu biraz düşük verir:
+
+| İrtifa | Medyan sapma | Ayların %95'inde en çok | En kötü ay |
+|---|---|---|---|
+| 300 km | %0,5 | %2 | — |
+| 400 km | %2 | %11 | %59 (büyük fırtına ayı) |
+| 600 km | %7 | %45 | — |
+
+Bu, olası aralığın (±%30–50) yanında küçüktür. Gelecekteki fırtınalar zaten öngörülemez; etkileri gerçek kayıttan türetilen aralığın içindedir. Günlük çözünürlük eklenmedi.
+
+**Hâlâ kalanlar.**
+- GTO/HEO'da 2 ay – 0,7 yıl kala ~%20 kısa tahmin.
+- Çok eksantrik yörüngelerde son ay; aralık kapsaması %44.
+- 12 yıldan uzun tahminlerin aralığı sınanmadı.
+- 2016 sonrası tarihsel TLE arşivi seyrek.
+
+### 4.2f Kalan sınırların yayımlanmış modellere dayandırılması
+
+§4.2d'deki 1,4 ayar katsayısı ve §4.2e'deki üç sınır, her biri yayımlanmış bir modele dayanan değişikliklerle yeniden ele alındı. Ayarlanmış katsayı kalmadı.
+
+**1. Atmosfer: NRL MSIS 2.1.** Vallado'nun tek ortalama tablosu ve yaklaşık Güneş bağıntısı yerine NRL MSIS 2.1 kullanılıyor (Emmert vd. 2021, *Earth and Space Science* 8, e2020EA001321; NRLMSISE-00'ın halefi). Tablo `pymsis` ile üretildi (`tools/msis_tablo.py`). Ln ρ(h; F10.7, Ap), 60–1.000 km, 8 F10.7 × 5 Ap düzeyi için; enlem (alan ağırlıklı), yerel saat ve dört mevsim üzerinden küresel ortalama alındı, çünkü yörünge ortalamalı bozunma bunların hepsini süpürür. Tablo aradeğerlemesi doğrudan MSIS'ten en çok %4,4 farklı (test).
+
+MSIS, veriyle bulunan duyarlılık sorununu bağımsız olarak doğruluyor: 400 km'de Güneş en az–en çok (F10.7 80 → 250) yoğunluk oranı 12 kat. Eski bağıntı 4,8 kat veriyordu, 1,4 katsayısıyla 8,6 kat. Katsayı kaldırıldı ve doğruluk korundu (tarihsel 1,5–3 / 3–12 yıl, medyan |ln hata| 0,248 / 0,255; ayarlı modelde 0,234 / 0,270).
+
+**2. B* → bozunma hızı: SGP4 C₁.** MSIS'le de kalan ~%10 "fazla uzun" eğilim dış merkezlikle büyüyordu (e < 0,003: 1,06; 0,02–0,3: 1,21). Nedeni şu: B*, SGP4'ün kendi yoğunluk yasasıyla uydurulmuş bir değer (ρ ∝ ((q₀−s)/(r−s))⁴). Bu yasanın ölçek yüksekliği 400 km'de ~80 km, MSIS'te 55–70 km. Eksantrik yörüngede ortalama sürüklenme ∝ ρₚ√(H/ae) olduğundan, B*'ı perijedeki yoğunluğa çevirmek bozunmayı küçük gösteriyordu.
+
+Artık SGP4'ün B*'tan öngördüğü bozunma hızı korunuyor: a(t) = a₀(1 − C₁t − …)², yani çağda da/dt = −2a₀C₁ (Hoots & Roehrich 1980; Vallado vd. 2006, AIAA 2006-6753). Uygulama `satellite.js`'in `cc1` değeriyle 5·10⁻⁸ içinde aynı. Sonuç:
+
+| Tarihsel (gözlenen F10.7) | Önce (ayarlı) | Şimdi |
+|---|---|---|
+| 0,15–1,5 yıl, 2 kat içinde | %86 | %89 |
+| 1,5–3 yıl, medyan / 2 kat içinde | 1,07 / %84 | 1,05 / %87 |
+| 3–12 yıl, medyan / 2 kat içinde | 1,00 / %72 | 1,05 / %75 |
+| Dış merkezlik dilimleri (medyan) | 1,06 / 1,14 / 1,21 | 1,02 / 1,03 / 1,11 |
+
+Güncel 2025–26 örneği değişmedi (%68: 0,81–1,33). 2025–26 bir yıllık düşüş sınaması 1,16'da kaldı. Bu sınama Temmuz 2025 tahminini kullanıyor; o tahmin Ağu–Ara 2025 aktivitesini ~160 sfu öngörmüştü, gerçek ~140'tı, ve MSIS'te 500 km'de bu fark yoğunluğu ~1,5 kat değiştirir.
+
+**3. GTO/HEO orta vade: Dünya basıklığı.**
+- *Teşhis:* 2 ay – 0,7 yıl kala tahminler ~%20 kısa kalıyordu. SGP4 C₁ eşlemesinden sonra apoje düşüşü gözlemle uyuştu (model/gözlem 1,72 → 1,05), ama kısa tahminlerin çoğu yüksek eğimli (Molniya türü) cisimlerdi: 60–120° eğimde medyan 0,77, düşük eğimde 0,93. 12 saatlik rezonans neden değildi; rezonans dışı yüksek eğimliler de 0,75.
+- *Neden:* Bu yörüngelerde perije yüksek enlemde (ω ≈ 270° iken ~63° güney), ve basık Dünya'da yüzey orada ekvatordan R_e·f·sin²φ ≈ 17 km daha yakın. Model irtifayı r − R_e ile ölçtüğünden perijeyi alçak sayıyordu.
+- *Düzeltme:* Ay–Güneş modelinde zaten izlenen perije birim vektörünün z bileşeni sin φ'dir; irtifaya R_e·f·sin²φ eklendi (f = 1/298,257). Eşik ayarı yapılmadı; iki yarıda en iyisi yine 60–70 km.
+- *Sonuç:* 2 ay – 0,7 yıl kala medyan 0,82 → 0,90 (yüksek eğimde 0,77 → 0,88), medyan |ln hata| 0,228 / 0,337 → 0,171 / 0,232; 0,7 yıldan uzun kala 2 kat içinde %88.
+
+Reddedilen iki hipotez de kayıtlı:
+- *Gözlenen a(t) eğiminden ya da Gondelach vd. (2017) yöntemiyle uydurulmuş balistik katsayı:* düzeltmedi. Sorun genlikte değildi.
+- *J3:* J3'ün dış merkezlik terimi (1 − 5/4 sin²i) cos ω çarpanı taşır. Molniya'da (i ≈ 63,4°, ω ≈ 270°) iki çarpan da ~0'dır.
+
+**4. Olası aralık: sağdan sansürlü Kaplan–Meier.** Önceki aralık yalnız yeniden girmiş cisimlerden kuruluyordu. Bu seçim gerçek süreyi ≤ 9,6 yılla sınırladığı için uzun kuyruğu kesiyordu. Doğru yöntem şöyle uygulandı:
+
+- *Örnek:* Pasif LEO cisimleri (roket gövdesi, enkaz, parça) sonuca bakmadan seçildi; cisim başına rastgele iki TLE çağı (1965–2015) alındı. GCAT'e göre hâlâ yörüngede olanlar sağdan sansürlü gözlemdir. Ön süzgeç (bugünkü perije ≤ 900 km, apoje ≤ 3.000 km), pasif cisimde ikisi de yalnız azaldığından çağdaki koşulu yanlılıksız kapsar.
+- *Tahmin vekili:* Çağa kadar gözlenen F10.7/Ap, sonrası son bilinen çevrim minimumuna (SILSO 13 aylık düzleştirilmiş minimumları: 1964, 1976, 1986, 1996, 2008, 2019) göre evrelenmiş ortalama genlikli çevrim. Gelecek çevrimin belirsizliği aralığın içindedir. Sabit 2019 evresiyle geriye uzatılan ortalama çevrim adil değildi: çevrim süreleri 9–14 yıl arasında değiştiği için evre kayıyor ve çok yıllık tahmini ~1,3 kat uzatıyordu.
+- *Kestirim:* Gerçek / tahmin oranının dağılımı, tahmin edilen ömür dilimlerinde Kaplan–Meier çarpım-limit kestiricisiyle (Kaplan & Meier 1958, *JASA* 53:457) bulundu.
+
+Tahmin vekiliyle medyan 60 yıla kadar 0,85–1,06: model uzun vadede de yansız. %68 aralığı (1.551 cisim, 3.102 tahmin; iki yarıda kararlı):
+
+| Tahmin edilen ömür | Aralık (gerçek / tahmin) |
+|---|---|
+| < 30 gün | 0,73–1,36 |
+| 30–120 gün | 0,39–1,31 |
+| 120 gün – 1 yıl | 0,58–1,84 |
+| 1–5 yıl | 0,57–3,63 |
+| 5–25 yıl | 0,52–1,82 |
+| 25–60 yıl | ≥ 0,49 (üst sınır belirlenemez) |
+| > 60 yıl | sınanamaz |
+
+- *Bağımsız sınama:* Farklı tohumla seçilmiş ikinci örnekte (1.550 cisim, 744 sansürlü; `fixtures/reentry_km.json`) Kaplan–Meier kapsaması her dilimde %65–72; 25–60 yılda alt sınırın F değeri 0,14 (hedef 0,16).
+- *Log-normal AFT olmaz:* Sansürlü en çok olabilirlikle denendi. KM'nin tam belirlendiği dilimlerde bile uyuşmadı (ör. < 30 gün kala %16 dilimi 0,51'e karşı 0,73), bu yüzden üst sınırı dışdeğerlemek için kullanılmadı.
+- *GTO/HEO:* Bu yörüngelerde perije Ay–Güneş etkisiyle iki yönde değiştiğinden monoton bir ön süzgeç, dolayısıyla sonuçtan bağımsız sansürlü örnek kurulamıyor. Aralık yeniden girmiş 464 cisimden gerçek süreye göre kuruldu (çapraz kapsama %64–69); 25 yılı aşan tahminler sınanamaz.
+
+**Kalanlar.**
+- GTO/HEO son 2 ay: 2 kat içinde %74.
+- Molniya'da orta vade: 0,88.
+- 60 yılı aşan LEO tahminleri sınanamaz; 1965'ten bu yana geçen süre bunu sınırlıyor.
+- Sürüklenme verisi olmayan kayıtlar (B* ≤ 0 ve ṅ ≤ 0) için tahmin verilmiyor; tarihsel örnekte bunların 53'ü sonradan yeniden girdi.
+
 ### 4.3 Sınırlar
 
 - Uydu gölgesi silindirik kabul edilir (yarı gölge yok); geçişlerin doğuş/batışı geometrik ufka göredir (kırılma yok: ufukta ≈ 0,57°, birkaç saniye).
