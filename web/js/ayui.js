@@ -81,7 +81,7 @@ export class AyUI {
   remember(st, v, dvUsed) {
     const L = this.link(); if (!L) return;
     const r = st.result, setup = [sumArac(st), r.manual ? t('elle iniş') : ''].filter(Boolean).join(' · ');
-    const row = ayHistoryRow(r, v, { date: st.dateISO, launchISO: st.dateISO, setup: `${sumGorev({ ...st, designing: false }).split(' · ')[0]} · ${setup}`, site: this.site(), dvUsed, link: L.qs });
+    const row = ayHistoryRow(r, v, { date: new URLSearchParams(L.qs).get('date') || st.dateISO, launchISO: st.dateISO, setup: `${sumGorev({ ...st, designing: false }).split(' · ')[0]} · ${setup}`, site: this.site(), dvUsed, link: L.qs });
     const same = (h) => h.link === row.link && h.title === row.title && h.prop === row.prop && h.miss === row.miss;
     this.hist = [row, ...this.hist.filter((h) => !same(h))].slice(0, HIST_MAX); saveHist(this.hist); this.renderHist();
   }

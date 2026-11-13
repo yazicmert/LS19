@@ -93,6 +93,23 @@ Görev adımındaki **İniş yeri**: Apollo 11 (Huzur Denizi), 12 (Fırtınalar 
 - **Tüm profil × yer taraması** (13 Ekim 2026, 6 profil × 5 yer = 30): **24'ü doğrudan** tasarlanıp seçilen yere iner (0,0–0,1 m). 6'sında o aydınlanma penceresinde TLI tasarımı yakınsamadı; bir ve iki kameri ay sonraki pencerelerde yeniden denenince APOLLO11×A16, YUKSELTME×A15, NRHO×A14 ve L2×A15 yakınsadı (tarih geometrisi). Bu yüzden Apollo 11 dışındaki yerlerde **Tasarla** yakınsamayan pencereden sonra **en çok iki sonraki aydınlanma penceresini** dener (her denemede bağlam baştan kurulur, günlüğe yazılır; Görev adımı gerçek fırlatma tarihini gösterir). Gün/pencere taramaları ve profil karşılaştırması "bu tarih" içindir: yeniden denemez (`designMission(..., { retry })`). Apollo 11 dışında efemeris penceresi 200 gündür (`ephSpanDays`; varsayılan 120). **L2 halo × Apollo 12 ve × Apollo 17** Ekim–Aralık 2026'da üç ardışık pencerede yakınsamadı: arayüzde seçilemez, tasarım açıklamayla reddeder (`moonsite.js` › `BLOCKED`). Sonuç: 30'un 28'i çalışır. Profil karşılaştırması, pencere taramaları ve ana tasarım seçili yeri kullanır.
 - **Doğrulama** (`test/test_moonsite.js`): varsayılan yer bugünkü sabitlerle bit düzeyinde aynı (`test_nominalby` değişmedi); altı yerin hepsinde aydınlanma penceresi bulunur; Apollo 15 (26,1° K) tasarlanır, LLO'nun Ay ekvatoruna eğimi 27,2°, nominal uçuş seçilen yere 0,0 m, dağılımlı uçuş (TLI hatası + seyrüsefer) 0,3 m, Apollo 11 yerine 952 km; hiçbir modül yeri `mission.js`'in Apollo 11 sabitlerinden almaz.
 
+### Paylaşılabilir bağlantı ve "Denemelerim" (Ay görevi)
+
+Görev her kurulduğunda ayarları adres çubuğuna yazılır; Sonuç adımındaki **Bağlantıyı kopyala** bu adresi verir. Bağlantıyı açan kişide görev, tasarımdan önce aynı ayarlarla kurulur (`aytext.js` › `ayLinkFromState` / `ayStateFromLink`; `app.js` › `applyAyLink`). Bozuk ya da tanınmayan değerler atılır; anahtarlar saptırmanınkilerle çakışmaz (`test_ayexp.js` denetler) ve başka bir deneye geçilince adresten silinir.
+
+| Parametre | Anlamı |
+|---|---|
+| `date` | **istenen** görev tarihi (YYYY-AA-GG). Tasarım sonraki aydınlanma penceresine kaydıysa açan tarafta da aynı kayma olur |
+| `profile` | hazır profil (`APOLLO`, `APOLLO11`, `YUKSELTME`, `NRHO`, `L2`, `L1`) |
+| `park`, `egim`, `ptur`, `ykn`, `yap`, `bekle`, `llo`, `lltur`, `halo`, `htur` | yalnız özel yörüngede (profil yoksa): park yüksekliği, eğimi, tur; yükseltme sayısı ve apojesi; Ay bekleme türü (`LLO`/`HALO`), LLO yüksekliği ve turu, halo türü ve turu |
+| `yer` | iniş yeri (`A12`, `A14`, `A15`, `A16`, `A17`; yazılmazsa Apollo 11) |
+| `roket`, `rampa` | fırlatma aracı (yazılmazsa genel kademe) ve rampa (LL2 kimliği; roket o rampadan fırlayamıyorsa atılır) |
+| `arac`, `gudum` | `two`/`one` ve `opt`/`free`/`zem`; her zaman yazılır (açan kişinin kayıtlı tercihi farklı olabilir) |
+
+Eski `?date=` ve `?profile=` bağlantıları eskisi gibi çalışır (yalnız profil uygulanır). Elle yapılan yakışlar, bozulmalar ve uçuşta atlanılan an bağlantıya girmez: bağlantı görevi kurar, uçuşu değil.
+
+**Denemelerim**, bu tarayıcıda biten son 30 uçuşu (`localStorage` › `ls19.ayHist`) fırlatma tarihi, iniş yeri, düzen (profil, roket, araç, güdüm; elle inişse belirtilir), kalan yakıt, iniş yerine uzaklık ve sonuçla listeler; satıra dokununca görev o bağlantıyla yeniden tasarlanır. **CSV indir** temas hızlarını ve kullanılan Δv'yi de verir.
+
 ### Görev iptali: Dünya'ya dönüş (Apollo 13 sorusu)
 
 Uçuş › Çizelge'deki **Dönüş Δv'sini hesapla**, aracın o anki durumunun kopyasıyla ayrı bir iş parçacığında (`abortwork.js` → `abort.js`) şu soruyu yanıtlar: şu an bir arıza olsa eve dönmek için en az ne kadar Δv gerekir?
