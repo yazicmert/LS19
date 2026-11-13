@@ -24,6 +24,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
       - name: Geçmiş özetini üret (son ~14 ay, 7 günde bir örnek)
         run: node tools/gecmis_derle.mjs --adim-gun 7 --pencere-gun 425 --onbellek "$RUNNER_TEMP/gecmis"
         env:
@@ -39,8 +40,11 @@ jobs:
       # JPL SBDB: eski dönemli NEO öğelerini N-cisim tümlemesiyle bugüne taşı, Dünya'ya çarpmış cisimleri bul (~3 dk). Alınamazsa önceki dosya korunur.
       - name: Eski dönemli NEO yörüngelerini taşı (web/data/neo_epok.json)
         run: node tools/neo_epok.mjs --cikti web/data/neo_epok.json || echo "::warning::neo_epok üretilemedi (önceki dosya korunuyor)"
-      - name: Modelleri sına
-        run: node web/test/test_impact.js && node web/test/test_neoepok.js
+      # Bot işlemesi (GITHUB_TOKEN) "denetim" iş akışını tetiklemez: yeni veri main'e girmeden önce tüm testler burada koşar
+      - name: Bağımlılıklar (test araçları)
+        run: npm ci
+      - name: Tüm testler
+        run: npm test
       - name: Değiştiyse işle ve gönder
         id: commit
         run: |

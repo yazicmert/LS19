@@ -62,8 +62,19 @@ globalThis.fetch = async (url) => { const u = String(url); if (u.includes('celes
 const gm = await call('gp', '?group=active&v=x'); check(gm.status === 200 && Array.isArray(gm.j) && /GitHub/.test(decodeURIComponent(gm.hk || '')), 'CelesTrak 403 → GitHub kopyası');
 const gmc = await call('gp', '?group=active&fmt=col&v=x'); check(gmc.status === 200 && gmc.j.n === gm.j.length && /GitHub/.test(decodeURIComponent(gmc.hk || '')), 'CelesTrak 403 → GitHub kopyası, sütunlu da');
 globalThis.fetch = realFetch;
-const sv = await call('surum'); check(sv.j.mod === 'bulut' && sv.j.kaynaklar.gp.surum === Math.floor(Date.now() / 7.2e6), 'surum kovaları');
-check(sv.j.kaynaklar.launch && sv.j.kaynaklar.launch.aralik_s === 1800 && sv.j.kaynaklar.launch.surum === Math.floor(Date.now() / 1.8e6), 'surum: fırlatma kataloğu 30 dk kovası');
+// kova çağrıdan önce ve sonra hesaplanır: çağrı bir kova sınırına denk gelirse ikisinden biri doğrudur (yoksa test o anda yanlışlıkla düşerdi)
+const kova = (p) => { const b0 = Math.floor(Date.now() / p); return (v) => v === b0 || v === Math.floor(Date.now() / p); };
+const kGp = kova(7.2e6), kLa = kova(1.8e6), sv = await call('surum');
+check(sv.j.mod === 'bulut' && kGp(sv.j.kaynaklar.gp.surum), 'surum kovaları');
+check(sv.j.kaynaklar.launch && sv.j.kaynaklar.launch.aralik_s === 1800 && kLa(sv.j.kaynaklar.launch.surum), 'surum: fırlatma kataloğu 30 dk kovası');
+// Horizons vekili yalnız Ay uyduları katmanının araçlarını sorar (satlayer.js MOON_SATS = api HZ_TARGETS = sunucu.py HZ_TARGETS)
+{ const { HZ_TARGETS } = await import('../../api/horizons.js');
+  const src = fs.readFileSync(new URL('../js/satlayer.js', import.meta.url), 'utf8'), ms = src.slice(src.indexOf('const MOON_SATS'), src.indexOf('];', src.indexOf('const MOON_SATS')));
+  const cmds = [...ms.matchAll(/cmd: '([^']+)'/g)].map((m) => m[1]).sort(), py = fs.readFileSync(new URL('../sunucu.py', import.meta.url), 'utf8').match(/HZ_TARGETS = \{([^}]*)\}/)[1];
+  const pyc = [...py.matchAll(/'([^']+)'/g)].map((m) => m[1]).sort();
+  check(cmds.length === 6 && cmds.join() === [...HZ_TARGETS].sort().join() && cmds.join() === pyc.join(), `Horizons hedef listesi üç yerde aynı (${cmds.join(', ')})`);
+  const hz = await call('horizons', '?cmd=499&start=2026-01-01&stop=2026-01-02&step=1h');
+  check(hz.status === 400, 'Horizons vekili listede olmayan hedefi reddeder (400)'); }
 // fırlatma kataloğu: LL2 (yaklaşan + geçmiş), LL2 alınamazsa RocketLaunch.Live, ikisi de yoksa 503
 const la = await call('launches');
 check(la.status === 200 && la.j.kod === 'll2' && la.j.yaklasan.length === 5 && la.j.gecmis.length === 3, `launches: LL2, ${la.j.yaklasan.length} yaklaşan (NET'siz kayıt atlandı), ${la.j.gecmis.length} geçmiş`);
@@ -105,6 +116,17 @@ for (const [kod, a, b] of [['ll2', 'll2_upcoming.json', 'll2_previous.json'], ['
   check(JSON.stringify(JSON.parse(pyCat)) === JSON.stringify(buildCatalog(kod, up, prev, 1)), `fırlatma kataloğu (${kod}): sunucu.py ile aynı`);
 }
 // sunucu.py sütunlu uydu listesi = api/_lib.js ommColumns (aynı alan sırası ve değerler)
+// sunucu.py: tam eşleşme (sondaki satır sonu reddedilir), anahtar başına kilit, istek başına önbellek dosyalarının budanması
+{ const r = execFileSync('python3', ['-c', `import json,sys,os,time,tempfile; sys.path.insert(0,'.'); import sunucu as S
+d = tempfile.mkdtemp(); S.CACHE = d; old = time.time() - S.CACHE_KEEP_S - 60
+for f, t in [('sbdb_a.json', old), ('hz_b.json', old), ('sbdb_c.json', None), ('gp_active.json', old)]:
+    open(os.path.join(d, f), 'w').write('{}')
+    if t: os.utime(os.path.join(d, f), (t, t))
+n = S.prune_cache()
+print(json.dumps({'n': n, 'kalan': sorted(os.listdir(d)), 'nl': S.DES_OK.fullmatch('99942\\n') is None, 'ok': S.DES_OK.fullmatch('2024 XA1') is not None,
+  'kilit': S.key_lock('x') is S.key_lock('x') and S.key_lock('x') is not S.key_lock('y'), 'hz': sorted(S.HZ_TARGETS)}))`], { cwd: new URL('..', import.meta.url).pathname }).toString();
+  const o = JSON.parse(r);
+  check(o.n === 2 && o.kalan.join() === 'gp_active.json,sbdb_c.json' && o.nl && o.ok && o.kilit, `sunucu.py: eski tek cisim/Horizons önbelleği budanır (${o.n} dosya), kaynak önbelleği kalır; tam eşleşme; anahtar başına kilit`); }
 const pyCol = execFileSync('python3', ['-c', `import json,sys; sys.path.insert(0,'.'); import sunucu as S; print(json.dumps(S.omm_columns(json.load(open('${dir}gp_active.json'))), separators=(',',':'), ensure_ascii=False))`],
   { cwd: new URL('..', import.meta.url).pathname, maxBuffer: 1e9 }).toString();
 const { ommColumns } = await import('../../api/_lib.js');

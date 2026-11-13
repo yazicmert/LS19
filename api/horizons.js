@@ -1,11 +1,13 @@
 // /api/horizons?cmd=-85&start=2026-10-10&stop=2026-10-20&step=10m — JPL Horizons, Ay merkezli ICRF durum vektörleri
 import { send, fail, getJson } from './_lib.js';
-const HZ_OK = /^(-?\d{1,7}|THEMIS-[BC]|[A-Za-z0-9 \-]{1,24})$/, D_OK = /^\d{4}-\d\d-\d\d( \d\d:\d\d)?$/, S_OK = /^\d{1,3}[mhd]$/;
+// Ay uyduları katmanının istediği araçlar (web/js/satlayer.js MOON_SATS; sunucu.py HZ_TARGETS ile aynı): vekil keyfî Horizons sorgusu taşımaz
+export const HZ_TARGETS = new Set(['-85', '-155', '-152', 'THEMIS-B', 'THEMIS-C', '-1176']);
+const D_OK = /^\d{4}-\d\d-\d\d( \d\d:\d\d)?$/, S_OK = /^\d{1,3}[mhd]$/;
 const MON = { JAN: '01', FEB: '02', MAR: '03', APR: '04', MAY: '05', JUN: '06', JUL: '07', AUG: '08', SEP: '09', OCT: '10', NOV: '11', DEC: '12' };
 export async function GET(req) {
   const p = new URL(req.url).searchParams, cmd = p.get('cmd') || '', step = p.get('step') || '10m';
   let start = p.get('start') || '', stop = p.get('stop') || '';
-  if (!HZ_OK.test(cmd)) return fail('geçersiz hedef', 400);
+  if (!HZ_TARGETS.has(cmd)) return fail('geçersiz hedef', 400);
   if (!D_OK.test(start) || !D_OK.test(stop) || !S_OK.test(step)) return fail('geçersiz tarih/adım', 400);
   try {
     let out = null, err = null;

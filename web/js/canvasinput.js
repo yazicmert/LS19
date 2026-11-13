@@ -59,10 +59,12 @@ export function attachCanvasInput(canvas, ctx) {
         { label: '3B modeli yakından gör', fn: () => ctx.followSat(id, (mdl ? mdl.size : S.sats.familySizeM(id) || 10) * 2.4 / 1000) },
         { label: 'Gökte izle', fn: () => ctx.lookAtSat(id) }] }, mx, my, t);
     } else if (c.kind === 'ast') {
-      const i = c.i; S.asts.fetchDetail(i);
-      ctx.ui.showPick({ kind: 'ast', refresh: (tt) => S.asts.details(i, tt), card: (d) => S.astui.card(d),
-        actions: [{ label: 'Yörüngesini göster', fn: () => S.asts.select(i) }, { label: 'Kamerayla izle', fn: () => S.astui.follow(i) },
-          { label: 'Laboratuvarda dene', fn: () => { ctx.ui.hidePick(); S.astui.openLab(i); } }] }, mx, my, t);
+      // kart dizine değil tanımlayıcıya bağlanır: katalog yeniden kurulunca (güncel öğeler, çarpmış cisimlerin çıkarılması) dizinler kayabilir
+      const des = S.asts.C.des[c.i], at = () => S.asts.index.get(des) ?? -1, run = (f) => { const i = at(); if (i >= 0) f(i); };
+      S.asts.fetchDetail(c.i);
+      ctx.ui.showPick({ kind: 'ast', refresh: (tt) => { const i = at(); return i >= 0 ? S.asts.details(i, tt) : null; }, card: (d) => S.astui.card(d),
+        actions: [{ label: 'Yörüngesini göster', fn: () => run((i) => S.asts.select(i)) }, { label: 'Kamerayla izle', fn: () => run((i) => S.astui.follow(i)) },
+          { label: 'Laboratuvarda dene', fn: () => run((i) => { ctx.ui.hidePick(); S.astui.openLab(i); }) }] }, mx, my, t);
     } else if (c.kind === 'msat') {
       const m = c.m;
       ctx.ui.showPick({ kind: 'msat', refresh: (tt) => S.sats.moonSatDetails(m, tt),

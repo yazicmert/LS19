@@ -27,11 +27,35 @@ HOST = os.environ.get('LS19_HOST', '127.0.0.1')
 # CelesTrak toplu grupları (ör. active) tanıtıcı ve iletişim adresli bir User-Agent ister; adres olmadan 403 verebiliyor
 UA = {'User-Agent': 'LS19/1.1 (Look Star 19 egitim simulasyonu; +https://github.com/yazicmert/LS19)'}
 GROUPS = {'active', 'stations', 'starlink', 'gps-ops', 'glo-ops', 'galileo', 'beidou', 'geo', 'weather', 'science', 'oneweb', 'last-30-days'}
-HZ_ALLOWED = re.compile(r"^(-?\d{1,7}|THEMIS-[BC]|[A-Za-z0-9 \-]{1,24})$")
+# Ay uyduları katmanının istediği araçlar (web/js/satlayer.js MOON_SATS; api/horizons.js ile aynı): vekil yalnız bunları sorar
+HZ_TARGETS = {'-85', '-155', '-152', 'THEMIS-B', 'THEMIS-C', '-1176'}
 DES_OK = re.compile(r"^[A-Za-z0-9 ()/'\-]{1,40}$")
 LOCK = threading.Lock()
 HZ_LOCK = threading.Lock()                          # Horizons'a aynı anda tek istek (hız sınırı)
 SB_LOCK = threading.Lock()
+KEY_LOCKS, KEY_GUARD = {}, threading.Lock()         # tek cisim istekleri: anahtar başına kilit (yavaş bir istek ötekileri bekletmesin)
+CACHE_KEEP_S = 30 * 86400                           # tek cisim / Horizons önbellek dosyaları bu süre dokunulmazsa silinir
+
+
+def key_lock(key):
+    with KEY_GUARD:
+        return KEY_LOCKS.setdefault(key, threading.Lock())
+
+
+def prune_cache(now=None):
+    """istek başına yazılan önbellek dosyalarını (sbdb_*, hz_*) CACHE_KEEP_S'den eskiyse sil; silinen sayısı"""
+    now = now or time.time()
+    n = 0
+    for f in os.listdir(CACHE):
+        if f.startswith(('sbdb_', 'hz_')) and f.endswith('.json'):
+            p = os.path.join(CACHE, f)
+            try:
+                if now - os.path.getmtime(p) > CACHE_KEEP_S:
+                    os.remove(p)
+                    n += 1
+            except OSError:
+                pass
+    return n
 CHECK_S = 600                                       # güncelleme denetimi: 10 dakika
 # kaynak -> (önbellek dosyası, en kısa yenileme aralığı s)
 SOURCES = {'gp': ('gp_active.json', 2 * 3600), 'neo': ('ast_neo.json', 24 * 3600), 'mb': ('ast_mb.json', 24 * 3600), 'sentry': ('sentry.json', 24 * 3600),
@@ -234,7 +258,7 @@ def sentry(force=False):
 def sbdb_one(des):
     key = 'sbdb_' + hashlib.sha1(des.encode()).hexdigest()[:16] + '.json'
     q = {'sstr': des, 'phys-par': '1', 'ca-data': '1', 'ca-body': 'Earth', 'discovery': '1', 'vi-data': '1', 'full-prec': '1'}
-    return cached(key, 24 * 3600, lambda: get_retry('https://ssd-api.jpl.nasa.gov/sbdb.api?' + urllib.parse.urlencode(q), 60), SB_LOCK)[0]
+    return cached(key, 24 * 3600, lambda: get_retry('https://ssd-api.jpl.nasa.gov/sbdb.api?' + urllib.parse.urlencode(q), 60), key_lock(key))[0]
 
 
 # ---------------------------------------------------------------- fırlatma kataloğu (web/js/launchdata.js ile aynı biçim)
@@ -559,6 +583,10 @@ def refresher():
                 STATUS['hatalar'].pop(k, None)
             except Exception as e:
                 STATUS['hatalar'][k] = str(e)[:160]
+        try:
+            prune_cache()
+        except OSError:
+            pass
         STATUS['son_denetim'] = int(time.time() * 1000)
         STATUS['sonraki'] = STATUS['son_denetim'] + CHECK_S * 1000
         time.sleep(CHECK_S)
@@ -598,7 +626,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         try:
             if u.path == '/api/gp' and 'catnr' in q:
                 n = q['catnr']
-                if not re.match(r'^\d{1,6}$', n) or int(n) < 1:
+                if not re.fullmatch(r'\d{1,6}', n) or int(n) < 1:
                     return self.send_json(400, {'hata': 'geçersiz NORAD numarası'})
                 try:
                     data, info = celestrak_one(int(n))
@@ -630,15 +658,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return self.send_json(200, sentry()[0])
             if u.path == '/api/sbdb':
                 des = q.get('des', '').strip()
-                if not DES_OK.match(des):
+                if not DES_OK.fullmatch(des):
                     return self.send_json(400, {'hata': 'geçersiz tanım'})
                 return self.send_json(200, sbdb_one(des))
             if u.path == '/api/horizons':
                 cmd = q.get('cmd', '')
-                if not HZ_ALLOWED.match(cmd):
+                if cmd not in HZ_TARGETS:
                     return self.send_json(400, {'hata': 'geçersiz hedef'})
                 start, stop, step = q.get('start', ''), q.get('stop', ''), q.get('step', '10m')
-                if not re.match(r'^\d{4}-\d\d-\d\d( \d\d:\d\d)?$', start) or not re.match(r'^\d{4}-\d\d-\d\d( \d\d:\d\d)?$', stop) or not re.match(r'^\d{1,3}[mhd]$', step):
+                if not re.fullmatch(r'\d{4}-\d\d-\d\d( \d\d:\d\d)?', start) or not re.fullmatch(r'\d{4}-\d\d-\d\d( \d\d:\d\d)?', stop) or not re.fullmatch(r'\d{1,3}[mhd]', step):
                     return self.send_json(400, {'hata': 'geçersiz tarih/adım'})
                 return self.send_json(200, horizons(cmd, start, stop, step))
             if u.path == '/api/surum':

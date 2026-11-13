@@ -461,6 +461,7 @@ const dict = {
   "{0} (0 en iyi, 9 en kötü)": "{0} (0 best, 9 worst)",
   "Gözlem yayı": "Observation arc",
   "Öğelerin yaşı": "Age of elements",
+  "Hedef katalogda yok": "Target not in the catalogue",
   "{0} (0 en iyi, 9 en kötü) · ortalama anomali belirsizliği {1} / 10 yıl": "{0} (0 best, 9 worst) · mean anomaly uncertainty {1} / 10 years",
   "{0} gün (JPL dönemi {1} gün önce; N-cisim tümlemesiyle taşındı)": "{0} days (JPL epoch {1} days ago; propagated by N-body integration)",
   "Konum uyarısı": "Position warning",
