@@ -318,9 +318,11 @@ export class AsteroidLayer {
       const disc = det.discovery; if (disc) out.discovery = (disc.date ? disc.date + ' · ' : '') + (disc.location || disc.site || '') + (disc.who ? ' · ' + disc.who : '');
       out.kind = det.object.kind; out.fullname = det.object.fullname;
       const pp = det.phys_par || []; const pv = (n) => { const x = pp.find((q) => q.name === n); return x ? x.value : null; };
-      if (pv('diameter')) { out.D = +pv('diameter'); out.Dmeas = true; }
-      if (pv('density')) out.rho = +pv('density') * 1000;
-      if (pv('GM')) out.GM = +pv('GM');
+      const ps = (n) => { const x = pp.find((q) => q.name === n); return x && +x.sigma > 0 ? +x.sigma : null; };          // 1σ (saptırma belirsizliği: uncert.js)
+      if (pv('diameter')) { out.D = +pv('diameter'); out.Dmeas = true; out.Dsig = ps('diameter'); }
+      if (pv('albedo')) { out.alb = +pv('albedo'); out.albSig = ps('albedo'); }
+      if (pv('density')) { out.rho = +pv('density') * 1000; out.rhoMeas = true; }
+      if (pv('GM')) { out.GM = +pv('GM'); out.GMsig = ps('GM'); }
       if (pv('extent')) out.extent = pv('extent');
       if (det.vi_data && det.vi_data.length) out.vi = det.vi_data.length;
       out.detailOk = true;

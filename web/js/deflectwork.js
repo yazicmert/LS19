@@ -2,6 +2,7 @@
 //   target  : asteroidin öğeleri -> başlangıç durumu, yakın geçiş taraması (Dünya'ya < 0,05 AB)
 //   deflect : seçilen yakın geçiş için itki senaryosu -> doğrusal (STM) + doğrusal olmayan sonuç, önceden uyarı süresi eğrisi, 3B yollar
 import * as D from './deflect.js';
+import { cometaryToKepler, stateJacobian, bplaneCov } from './uncert.js';
 import { EphStore } from './ephstore.js';
 
 // JPL çekirdeği parçalı depodan (ephstore.js): yalnız tarama aralığının yılları iner (60 yıllık tarama ≈ 7 MB; eskiden her zaman 32,7 MB'lık dosyanın tamamı).
@@ -57,7 +58,8 @@ globalThis.onmessage = async (ev) => {
       const et1 = Math.min(D.ET_MAX, d.etStart + d.years * D.YEAR);
       eng.ng = d.ng || null;                                             // Yarkovsky (JPL model_pars); katalog öğelerinde yok
       post({ type: 'progress', id, msg: 'Efemeris yükleniyor…', f: 0.01 });
-      await need(Math.min(etEp, d.etStart), Math.max(etEp, et1));
+      const etCov = d.cov ? D.etFromJd(d.cov.epoch) : etEp;
+      await need(Math.min(etEp, etCov, d.etStart), Math.max(etEp, et1));
       if (stopped()) return;
       const [r, v] = D.keplerHelio(el, etEp), [ps, vs] = eng.sun(etEp);
       const yEp = [r[0] + ps[0], r[1] + ps[1], r[2] + ps[2], v[0] + vs[0], v[1] + vs[1], v[2] + vs[2]];
@@ -67,7 +69,7 @@ globalThis.onmessage = async (ev) => {
       const sc = eng.scan(d.etStart, y0, et1, { maxDist: 0.05 * D.AU, stopped,
         onProgress: (f) => post({ type: 'progress', id, msg: `Yakın geçişler taranıyor… %${Math.round(100 * f)}`, f }) });
       if (stopped()) return;
-      T = { el, et0: d.etStart, y0, name: d.name, cas: sc.list };
+      T = { el, et0: d.etStart, y0, name: d.name, cas: sc.list, cov: d.cov || null };
       const cas = sc.list.map((c) => { const b = eng.bplaneAt(c); return { et: c.et, dist: c.dist, vrel: c.vrel, bp: b && { xi: b.xi, zeta: b.zeta, b: b.b, bE: b.bE, rp: b.rp, vinf: b.vinf, impact: b.impact } }; });
       post({ type: 'target', id, cas, et0: d.etStart, et1, ms: performance.now() - T0, steps: sc.steps });
       return;
@@ -135,6 +137,17 @@ globalThis.onmessage = async (ev) => {
       const pathN = geoPath(etA, yA, ca.et - W, ca.et + W, n, null, []);
       const pathD = geoPath(etA, yD, caD.et - W, caD.et + W, n, thrust, cuts);
       const oc = D.orbitChange(rh, vh, dv);
+      // yörünge belirsizliği: JPL kovaryansı (kovaryans devrinde) → Kartezyen → Φ(CA, devir) → B-düzlemi (uncert.js)
+      let SB = null;
+      if (T.cov) {
+        post({ type: 'progress', id, msg: 'Yörünge belirsizliği taşınıyor…', f: 0.92 });
+        const cv = T.cov, etC = D.etFromJd(cv.epoch), helio = (e) => D.keplerHelio(cometaryToKepler(e, cv.epoch), etC);
+        const [r0, v0] = helio(cv.el), [ps, vs] = eng.sun(etC), yC = [r0[0] + ps[0], r0[1] + ps[1], r0[2] + ps[2], v0[0] + vs[0], v0[1] + vs[1], v0[2] + vs[2]];
+        const PhiC = eng.stm(etC, yC, ca.et, [], { stopped })[0].Phi;
+        if (stopped()) return;
+        const S2 = bplaneCov(J, PhiC, stateJacobian(cv.el, helio), cv.C);
+        if (S2.every((row) => row.every(Number.isFinite)) && S2[0][0] >= 0 && S2[1][1] >= 0) SB = S2;
+      }
       post({ type: 'deflect', id, r: {
         ca: { et: ca.et, dist: ca.dist, vrel: ca.vrel }, b0: { xi: b0.xi, zeta: b0.zeta, b: b0.b, bE: b0.bE, rp: b0.rp, vinf: b0.vinf, impact: b0.impact },
         after: b2 ? { et: ca2.et, dist: ca2.dist, xi: b2.xi, zeta: b2.zeta, b: b2.b, rp: b2.rp, impact: b2.impact } : null,
@@ -142,7 +155,7 @@ globalThis.onmessage = async (ev) => {
         sensKmPerMps: sens / 1000, dvReqMps: b0.bE / sens * 1000, dvReqHypoMps: b0.bE / sens * 1000,
         FreqN: p.method === 'thrust' ? M * (b0.bE / sens * 1000) / (p.days * D.DAY) : null,
         orbit: { da: oc.da, dP: oc.dP, de: oc.de, di: oc.di, a0: oc.before.a, P0: oc.before.P },
-        sweep, pathN, pathD, leadDays: (ca.et - etA) / D.DAY } });
+        sweep, pathN, pathD, leadDays: (ca.et - etA) / D.DAY, SB } });
       return;
     }
   } catch (err) {

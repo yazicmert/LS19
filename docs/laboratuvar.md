@@ -58,7 +58,8 @@ engineFor(view, exp, cur)   // 'sky' → 'sky'; Laboratuvar'da deneyin motoru; a
 | `js/ayui.js` | Ay görevi deneyinin dört adımı: adım özetleri, tamam/yeni işaretleri, sonuç kartı, adımlar arası düğmeler. Yalnız durumu okur; worker'a komut göndermez |
 | `js/aytext.js` | Saf yardımcılar (DOM yok): adım özetleri, sonuç yargısı (temasın başarısı `mission.js` › `touchdown()` kararıdır, burada yeniden hesaplanmaz) |
 | `js/deflectui.js` | Saptırma deneyi: 4 adım, grafikler, 3B yollar (hesap `deflectwork.js`'te, değişmedi) |
-| `js/labtext.js` | Saf yardımcılar (DOM yok): düz dille biçim, itki zamanı seçenekleri, sonuç yargısı, adım özetleri |
+| `js/labtext.js` | Saf yardımcılar (DOM yok): düz dille biçim, itki zamanı seçenekleri, sonuç yargısı, adım özetleri, bağlantı ve geçmiş, belirsizlik metni |
+| `js/uncert.js` | Saf belirsizlik hesabı: kütle/β modeli, JPL kovaryansı → B-düzlemi, tohumlu Monte Carlo |
 | `js/astui.js` | Yalnız asteroit kataloğu ve bilgi kartı; saptırmaya geçişi `openLab` ile yapar |
 
 ## 3. Ay görevi deneyi: dört adım
@@ -100,6 +101,34 @@ Her adım katlanabilir bir kutudur: tamamlanınca tek satırlık **özete** iner
 | Gerçek yörünge | ikisi de ıskalıyor | **Dünya'yı ıskalamaya devam eder** (mesafe önce → sonra) |
 
 Çarpma sekmesindeki sanal çarpıcılar (Sentry) için "Laboratuvarda dene" düğmesi senaryoyu **Çarpacak olsaydı** olarak önceden seçer. Kuvvet modeli: Güneş, gezegenler, Ay, Plüton (DE440s), Güneş 1PN, yakın geçişte Dünya J2 ve JPL çözümünün kütleçekimsel olmayan parametreleri (Yarkovsky A2; hedef kartında gösterilir, katalog öğeleriyle çalışan hedeflerde yoktur). `test_deflect.js`: Apophis 2029 JPL CAD ile 1 km, 2051 %0,1 ve 5 dk içinde.
+
+### Belirsizlik: olasılıklı sonuç
+
+Karar kartı nominal çözümü söyler; altındaki **belirsizlik kutusu** aynı denemenin olasılığını verir (`uncert.js`, saf; `test/test_uncert.js`):
+
+- **İtkinin belirsizliği:** hız değişimi Δv log-normal kabul edilir. Kinetik çarpmada Δv = β·m·U/(M+m) olduğundan iki kaynak vardır: momentum artış çarpanı β (1σ %28; DART'ta β 2,2–4,9, Dimorphos'un bilinmeyen yoğunluğuna göre: Cheng vd. 2023) ve asteroidin kütlesi. Kütlenin belirsizliği verinin türüne göre seçilir: ölçülmüş GM (SBDB σ'sı), ölçülmüş çap (SBDB σ'sı, yoksa %10) ile tahmini yoğunluk (1σ %35; ölçülmüşse %16), yalnız mutlak parlaklık (albedo bilinmiyor: çapta 1σ %42, kütlede ~×2,9). Sürekli itkide yalnız kütle.
+- **Yörünge belirsizliği:** JPL SBDB kovaryansı (`cov=mat`, kuyrukluyıldız öğeleri e, q, tp, Ω, ω, i) Kartezyen duruma (sayısal Jacobian), kovaryans devrinden yakın geçişe durum geçiş matrisiyle, oradan B-düzlemine taşınır: Σ_B = (J·Φ·Jx)·C·(J·Φ·Jx)ᵀ. Kütleçekimsel olmayan parametrelerin sütunları atılır. Doğrusal taşıma 150 örneklenmiş yörüngenin tam tümlemesiyle sınandı (Apophis 2029, büyük eksen %5, açı 0,1° içinde).
+- **Monte Carlo:** 4.000 tohumlu örnek; geçiş noktası = nominal + yörünge hatası + k·kayma (k = Δv/Δv₀). *Gerçek yörünge*: itkisiz ve itkili çarpma olasılığı; *çarpacak olsaydı*: ıskalama olasılığı ve **%95 güvenle** kurtarmak için gereken Δv ile çarpıcı kütlesi (Δv_req·e^{1,645σ}). Yeşil ≥ %95, sarı %50–95, kırmızı < %50.
+- B-düzlemi grafiğinde turuncu kalın çizgi kaymanın %5–95 aralığı, elipsler yörünge belirsizliği (1σ ve 3σ).
+
+Sınır: depodaki deneme yanıtı (`test/fixtures/sbdb_99942.json`) kovaryans içermez; kovaryans biçimi JPL SBDB API belgesine göre okunur (`covFromSbdb`: `labels`, tam ya da alt üçgen `data`, `epoch`, `elements`) ve bozuksa yalnız itkinin belirsizliği hesaplanır. Gerçek JPL yanıtıyla bu oturumda denenemedi (ağ izni).
+
+### Paylaşılabilir bağlantı ve "Denemelerim"
+
+Her hesap, deneyin tüm ayarlarını adres çubuğuna yazar; **Bağlantıyı kopyala** bu adresi verir. Bağlantıyı açan kişide hedef kendiliğinden seçilir, aynı aralık taranır, aynı günün yakın geçişi ve aynı itki kurulur ve sonuç hesaplanır (katalog yüklenince). Parametreler (`labtext.js` › `linkFromState` / `stateFromLink`; bozuk ya da tanınmayan değerler atılır):
+
+| Parametre | Anlamı |
+|---|---|
+| `hedef` | SBDB tanımı (`99942`, `2024 YR4`) |
+| `bas`, `yil` | tarama başlangıcı (YYYY-AA-GG) ve süresi (1–120 yıl) |
+| `gecis` | yakın geçişin günü (UTC) |
+| `yontem` | `kin` (kinetik: `m`, `U`, `beta`) ya da `sur` (sürekli: `F`, `gun`) |
+| `itki`, `yon`, `senaryo` | itki günü, yön (`along`, `anti`, `best`, `radial`, `normal`), `gercek` ya da `varsayim` (çarpacak olsaydı) |
+| `D`, `rho` | yalnız kullanıcı çapı/yoğunluğu değiştirdiyse |
+
+Örnek: `?mode=lab&exp=saptirma&hedef=99942&gecis=2029-04-13&yontem=kin&m=5000&U=6.1&beta=3.6&itki=2027-04-13&yon=along&senaryo=varsayim`. Başka bir deneye geçilince bu parametreler adresten silinir (`app.js` › `syncWorkspace`).
+
+**Denemelerim**, bu tarayıcıda hesaplanan son 30 denemeyi (`localStorage` › `ls19.dfHist`) hedef, geçiş, itki, önceden uyarı süresi, kayma / gereken kayma ve kararla listeler; satıra dokununca deneme yeniden kurulup hesaplanır. **CSV indir** tabloyu (bağlantılarıyla) tablolama programlarına verir.
 
 ## 5. Telefon düzeni
 

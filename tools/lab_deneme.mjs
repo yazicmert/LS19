@@ -115,6 +115,11 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
     cv: (() => { const c = document.querySelector('#dfBplane'), g = c.getContext('2d'), d = g.getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; })() }));
   check('Sonuç (4. adım açık): karar kartı, "ne kadar gerekir" cümlesi ve B-düzlemi grafiği çizildi', v1.step === 4 && v1.t.length > 3 && /kg/.test(v1.need) && v1.cv > 500, `${v1.t} — ${v1.d.slice(0, 110)}`);
   check('gerçek yörünge senaryosunda yargı "ıskalamaya devam eder" (kinetik, 2 yıl önce)', v1.cls.includes('info') || v1.cls.includes('good'), v1.cls);
+  const un1 = await page.evaluate(() => ({ h: document.querySelector('#dfUnc').hidden, t: document.querySelector('#dfUT').textContent, d: document.querySelector('#dfUD').textContent }));
+  check('belirsizlik kutusu: gerçek yörüngede itkisiz → itkili çarpma olasılığı ve kayma aralığı (kovaryanssız yanıtta bunu söyler)', !un1.h && /Çarpma olasılığı: itkisiz %0 → itkili %0/.test(un1.t) && /kovaryansı yok/.test(un1.d) && /%90 olasılıkla/.test(un1.d), `${un1.t} — ${un1.d.slice(0, 120)}`);
+  const u1 = await page.evaluate(() => Object.fromEntries(new URLSearchParams(location.search)));
+  check('sonuç adrese yazılır (hedef, geçiş günü, itki günü, yöntem) ve "Denemelerim" tablosuna eklenir', u1.hedef === '99942' && u1.gecis === '2029-04-13' && /^2027-04-1[2-4]$/.test(u1.itki) && u1.yontem === 'kin' && u1.exp === 'saptirma'
+    && (await vis(page, '#dfHist')) && (await page.evaluate(() => document.querySelectorAll('#dfHistTbl tbody tr').length)) === 1, JSON.stringify(u1));
   await shot(page, '6-sonuc');
   // ayrıntılar katlanır ve açılınca grafik çizilir
   await page.click('#dfResult .adv > summary'); await page.waitForTimeout(600);
@@ -131,6 +136,10 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await page.waitForFunction(() => !document.querySelector('#dfResult').hidden && document.querySelector('#dfStale').hidden && /çarpma noktası|Dünya|yetmez/i.test(document.querySelector('#dfVD').textContent), null, { timeout: 280000 });
   const v2 = await page.evaluate(() => ({ cls: document.querySelector('#dfVerdict').className, t: document.querySelector('#dfVT').textContent, g: !document.querySelector('#dfGauge').hidden, gt: document.querySelector('#dfGaugeTxt').textContent }));
   check('"Çarpacak olsaydı": karar kurtarır/yetmez ve ölçek çubuğu görünür', /good|bad/.test(v2.cls) && v2.g && /gereken/.test(v2.gt), `${v2.t} — ${v2.gt}`);
+  const un2 = await page.evaluate(() => ({ t: document.querySelector('#dfUT').textContent, d: document.querySelector('#dfUD').textContent, c: document.querySelector('#dfUnc').className }));
+  check('belirsizlik kutusu: çarpacak olsaydı → ıskalama olasılığı ve %95 güven için gereken çarpıcı', /Belirsizlikle: %[\d,]+ olasılıkla ıskalar/.test(un2.t) && /%95 güvenle/.test(un2.d) && /good|bad|warn/.test(un2.c), `${un2.t} — ${un2.d.slice(0, 140)}`);
+  const link2 = await page.evaluate(() => location.search), hist2 = await page.evaluate(() => [...document.querySelectorAll('#dfHistTbl tbody tr')].map((r) => r.textContent));
+  check('ikinci deneme geçmişin başında; adres yeni ayarları taşır (m=5000, senaryo=varsayim)', hist2.length === 2 && /çarpacak olsaydı/.test(hist2[0]) && /m=5000/.test(link2) && /senaryo=varsayim/.test(link2), hist2[0]);
   await shot(page, '8-carpacak-olsaydi');
 
   // ---- 3B
@@ -158,6 +167,21 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await page.click('#astSel button:has-text("Laboratuvarda dene")');
   check('Asteroitler sekmesindeki "Laboratuvarda dene" Laboratuvar alanında saptırma deneyini bu hedefle açar', await page.evaluate(() => window.LS19.view === 'lab' && window.LS19.labui.page === 'saptirma' && /Apophis/.test(document.querySelector('#dfSteps .ss').textContent)));
   check('konsol hatası yok (masaüstü)', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await ctx.close();
+}
+
+// ================================================================= paylaşılan bağlantı: aynı deneme kendiliğinden kurulur ve hesaplanır
+{
+  const q = '?sats=0&mode=lab&exp=saptirma&hedef=99942&yil=50&gecis=2029-04-13&yontem=kin&m=5000&U=6.1&beta=3.6&itki=2027-04-13&yon=along&senaryo=varsayim';
+  const { ctx, page, errors } = await open({ viewport: { width: 1280, height: 800 } }, q);
+  const done = await page.waitForFunction(() => window.LS19.deflect && window.LS19.deflect.result && !document.querySelector('#dfResult').hidden, null, { timeout: 280000 }).then(() => true, () => false);
+  const st = await page.evaluate(() => ({ step: [...document.querySelectorAll('#dfSteps .step')].findIndex((li) => li.classList.contains('open')) + 1, t: document.querySelector('#dfVT').textContent, m: document.querySelector('#dfMass').value,
+    hypo: document.querySelector('input[name=dfScn][value=hypo]').checked, ap: document.querySelector('#dfApply').value, g: !document.querySelector('#dfGauge').hidden, s1: document.querySelector('#dfSteps .ss').textContent }));
+  check('bağlantı: Apophis seçilir, 13 Nisan 2029 geçişi taranır, itki ayarları kurulur ve sonuç kendiliğinden hesaplanır', done && st.step === 4 && /Apophis/.test(st.s1) && st.m === '5000' && st.hypo && st.ap === '2027-04-13' && st.g, JSON.stringify(st));
+  await page.click('#dfLink').catch(() => {});
+  check('"Bağlantıyı kopyala" adresi panoya ya da kopyalama kutusuna verir (hata yok)', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await page.click('#labBack'); await page.click('#lab-home [data-exp=ay]');
+  check('başka deneye geçince saptırma parametreleri adresten silinir', await page.evaluate(() => /exp=ay/.test(location.search) && !/hedef=|gecis=/.test(location.search)));
   await ctx.close();
 }
 

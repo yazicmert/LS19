@@ -88,3 +88,67 @@ export function dartNote() {
     + `Ölçülen yörünge boyu bileşen 2,70 mm/s, ikili yörünge periyodunda ${fmt(3 * P * 2.7e-3 / v / 60, 1)} dk kısalma verir (gözlenen 33,0 ± 1,0 dk). `
     + 'Apophis 2029 yakın geçişi bu motorla JPL CAD değerinden ~2 km farkla bulunur.';
 }
+
+// ---------------------------------------------------------------- paylaşılabilir bağlantı ve deneme geçmişi
+// Saptırma deneyinin tüm ayarları adres parametrelerine yazılır: bağlantıyı açan aynı hedefi tarar, aynı geçişi seçer ve aynı itkiyi hesaplar.
+//   hedef (SBDB tanımı), bas (tarama başlangıcı), yil (tarama süresi), gecis (yakın geçiş günü), yontem (kin | sur), m, U, beta | F, gun,
+//   itki (itki günü), yon, senaryo (gercek | varsayim), D, rho (yalnız kullanıcı değiştirdiyse)
+export const LINK_KEYS = ['hedef', 'bas', 'yil', 'gecis', 'yontem', 'm', 'U', 'beta', 'F', 'gun', 'itki', 'yon', 'senaryo', 'D', 'rho'];
+const ISO_DAY = /^\d{4}-\d\d-\d\d$/;
+const num = (s) => (s != null && s !== '' && Number.isFinite(+s) ? +s : null);
+// s: { des, start, years, caDay, method, m, U, beta, F, days, applyDay, dir, hypo, D?, rho? } → { anahtar: metin }
+export function linkFromState(s) {
+  const o = { hedef: s.des, bas: s.start, yil: String(s.years), gecis: s.caDay, yontem: s.method === 'thrust' ? 'sur' : 'kin' };
+  if (s.method === 'thrust') Object.assign(o, { F: String(s.F), gun: String(s.days) }); else Object.assign(o, { m: String(s.m), U: String(s.U), beta: String(s.beta) });
+  Object.assign(o, { itki: s.applyDay, yon: s.dir, senaryo: s.hypo ? 'varsayim' : 'gercek' });
+  if (s.D > 0 && s.rho > 0) Object.assign(o, { D: String(s.D), rho: String(s.rho) });
+  return o;
+}
+// adres parametreleri (URLSearchParams ya da düz nesne) → durum ya da null (hedef yoksa). Geçersiz alanlar atılır, eksikler varsayılana kalır.
+export function stateFromLink(q) {
+  const get = (k) => (typeof q.get === 'function' ? q.get(k) : q[k]);
+  const des = (get('hedef') || '').trim().slice(0, 40); if (!des) return null;
+  const day = (k) => { const v = get(k); return v && ISO_DAY.test(v) ? v : null; };
+  const yontem = get('yontem'), yon = get('yon'), sc = get('senaryo');
+  const s = { des, start: day('bas'), years: num(get('yil')), caDay: day('gecis'), method: yontem === 'sur' ? 'thrust' : 'kinetic', applyDay: day('itki'),
+    dir: Object.hasOwn(DIRS, yon || '') ? yon : null, hypo: sc === 'varsayim' ? true : sc === 'gercek' ? false : null };
+  for (const k of ['m', 'U', 'beta', 'F', 'D', 'rho']) { const v = num(get(k)); s[k] = v != null && v > 0 ? v : null; }
+  const g = num(get('gun')); s.days = g != null && g > 0 ? g : null;
+  if (s.years != null) s.years = Math.max(1, Math.min(120, Math.round(s.years)));
+  return s;
+}
+// bir hesabın geçmiş satırı (deflectwork sonucu r, gönderilen parametreler p, hedef t, bağlantı link)
+export function historyRow(r, p, t, link) {
+  const v = verdictOf(r, p), dB = Math.hypot(r.dXi, r.dZeta);
+  return { at: Date.now(), name: t.name, des: t.des, caEt: r.ca.et, caDist: r.ca.dist, method: p.method, how: p.method === 'kinetic' ? `${fmt(p.m, 0)} kg × ${fmt(p.U, 1)} km/s` : `${sig(p.F, 2)} N × ${fmt(p.days, 0)} gün`,
+    leadDays: r.leadDays, dvMps: r.dvMps, shiftKm: dB, bEKm: r.b0.bE, hypo: !!p.hypo, kind: v.kind, title: v.title, link };
+}
+// geçmiş → CSV (virgülle ayrılmış, RFC 4180 tırnaklama; sayılar nokta ondalıklı ki tablolama programları okusun)
+export function historyCsv(rows) {
+  const q = (x) => { const s = String(x ?? ''); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const head = ['tarih', 'hedef', 'tanim', 'yakin_gecis_utc', 'gecis_km', 'yontem', 'itki', 'once_gun', 'dv_mm_s', 'kayma_km', 'yakalama_yaricapi_km', 'senaryo', 'sonuc', 'baglanti'];
+  const lines = rows.map((h) => [new Date(h.at).toISOString(), h.name, h.des, etToISO(h.caEt), h.caDist.toFixed(1), h.method, h.how, h.leadDays.toFixed(1), (h.dvMps * 1000).toPrecision(4),
+    h.shiftKm.toFixed(1), h.bEKm.toFixed(1), h.hypo ? 'carpacak_olsaydi' : 'gercek', h.title, h.link].map(q).join(','));
+  return [head.join(','), ...lines].join('\n') + '\n';
+}
+
+// ---------------------------------------------------------------- belirsizlik (uncert.js Monte Carlo sonucu → düz dil)
+// olasılık → yüzde sayısı ("%" şablondadır: çeviride "{0}%" olur); 4.000 örnekte en küçük adım %0,025
+const pct = (p) => (p <= 0 ? '0' : p >= 1 ? '100' : fmt(100 * p, p < 0.01 || p > 0.99 ? 2 : p < 0.1 || p > 0.9 ? 1 : 0));
+export const sigPct = (s) => fmt(100 * (Math.exp(s) - 1), 0);                         // ln-σ → yüzde (çarpımsal 1σ)
+// mc: monteCarlo sonucu; o: { hypo, sM, sBeta, sDv, method, SB (2×2 ya da null), dvReqMps, M, p (parametreler) }
+// Dönüş: { kind, title, detail: [cümle…] } (cümleler arayüzde ayrı metin düğümleri: çeviri her cümleyi ayrı eşler)
+export function uncertText(mc, o) {
+  const src = o.method === 'kinetic' ? `Hız değişiminde kütle (1σ %${sigPct(o.sM)}) ve β (1σ %${sigPct(o.sBeta)}) belirsiz.` : `Hız değişiminde kütle (1σ %${sigPct(o.sM)}) belirsiz.`;
+  const range = `Kayma %90 olasılıkla ${kmText(mc.shiftQ[0])} – ${kmText(mc.shiftQ[2])}.`;
+  if (o.hypo) {
+    const pm = 1 - mc.pImpact, kind = pm >= 0.95 ? 'good' : pm < 0.5 ? 'bad' : 'warn';
+    const dv95 = o.dvReqMps * Math.exp(1.6449 * o.sDv);
+    const need = o.method === 'kinetic' ? `%95 güvenle kurtarmak için Δv ≈ ${sig(dv95 * 1000, 3)} mm/s: ≈ ${sig(dv95 * o.M / (o.p.beta * o.p.U * 1000), 3)} kg'lık çarpıcı.`
+      : `%95 güvenle kurtarmak için Δv ≈ ${sig(dv95 * 1000, 3)} mm/s.`;
+    return { kind, title: `Belirsizlikle: %${pct(pm)} olasılıkla ıskalar`, detail: [src, range, need] };
+  }
+  const orbit = o.SB ? `Geçiş noktasının yörünge belirsizliği (1σ) ≈ ${kmText(Math.sqrt(Math.max(o.SB[0][0], o.SB[1][1], 0)))} (JPL kovaryansı).` : 'Yörünge kovaryansı yok: yalnız itkinin belirsizliği hesaba katıldı.';
+  const kind = mc.pImpact < mc.pImpact0 ? 'good' : mc.pImpact > mc.pImpact0 ? 'bad' : 'info';
+  return { kind, title: `Çarpma olasılığı: itkisiz %${pct(mc.pImpact0)} → itkili %${pct(mc.pImpact)}`, detail: [orbit, src, range] };
+}

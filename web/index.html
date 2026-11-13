@@ -174,6 +174,7 @@
 <link rel="modulepreload" href="js/touchdown.js">
 <link rel="modulepreload" href="js/landnav.js">
 <link rel="modulepreload" href="js/deflectui.js">
+<link rel="modulepreload" href="js/uncert.js">
 <link rel="modulepreload" href="js/updater.js">
 <link rel="modulepreload" href="js/tracker.js">
 <link rel="modulepreload" href="js/passes.js">
@@ -671,20 +672,27 @@
                 <div id="dfGauge" class="gauge" hidden><span class="gf"></span><span class="gm"></span></div>
                 <div id="dfGaugeTxt" class="k small"></div>
               </div>
+              <div id="dfUnc" class="unc info" role="status" aria-live="polite" hidden><div id="dfUT" class="ut"></div><div id="dfUD" class="ud"></div></div>
               <p id="dfNeed" class="need"></p>
               <canvas id="dfBplane" class="chart sq" role="img" aria-label="Dünya'ya göre geçiş noktası: nominal ve saptırılmış"></canvas>
-              <p class="note">Mavi daire Dünya; kesikli çember, çarpma bölgesinin sınırı (yakalama yarıçapı). Beyaz nokta nominal, turuncu nokta saptırılmış geçiş noktası.</p>
+              <p class="note">Mavi daire Dünya; kesikli çember, çarpma bölgesinin sınırı (yakalama yarıçapı). Beyaz nokta nominal, turuncu nokta saptırılmış geçiş noktası; turuncu kalın çizgi itkinin belirsizliğiyle %90 aralığı, elipsler yörünge belirsizliği (1σ ve 3σ, JPL kovaryansı varsa).</p>
               <div class="stepnav"><button id="df3d" class="sm" type="button" disabled>3B'de göster</button><button id="dfAgain" class="sm" type="button">İtkiyi değiştir</button></div>
+              <div class="stepnav"><button id="dfLink" class="sm" type="button" title="Bu deneyin tüm ayarlarını taşıyan bağlantı: açan kişi aynı hedefi, geçişi ve itkiyi görür">Bağlantıyı kopyala</button><span id="dfLinkMsg" class="k small" role="status" aria-live="polite"></span></div>
               <details class="adv"><summary>Tüm ayrıntılar</summary>
                 <div id="dfOut" class="dfout"></div>
                 <canvas id="dfSweep" class="chart" role="img" aria-label="Aynı hız değişimi için kayma, itki anına göre"></canvas>
                 <p id="dfDart" class="note"></p>
-                <p class="note">Fizik motoru: asteroit, Güneş + 8 gezegen + Ay + Plüton çekimi (konumlar JPL DE440'tan) ve Güneş'in genel görelilik düzeltmesiyle DOPRI5 ile tümlenir. Yakın geçiş, Dünya'ya uzaklığın yerel en küçüğü olarak ikiye bölmeyle bulunur. Kaçırma, B-düzleminde (Öpik–Valsecchi ξ, ζ) ölçülür: Dünya'yı ıskalamak için kayma, çekim odaklamasıyla büyüyen yakalama yarıçapını (bE) aşmalıdır. İtkinin etkisi hem durum geçiş matrisiyle (doğrusal) hem tam tümlemeyle hesaplanır. Kinetik çarpıcı: Δv = β·m·U / (M + m). Yarkovsky etkisi ve öteki asteroitlerin çekimi modelde yok.</p>
+                <p class="note">Fizik motoru: asteroit, Güneş + 8 gezegen + Ay + Plüton çekimi (konumlar JPL DE440'tan) ve Güneş'in genel görelilik düzeltmesiyle DOPRI5 ile tümlenir. Yakın geçiş, Dünya'ya uzaklığın yerel en küçüğü olarak ikiye bölmeyle bulunur. Kaçırma, B-düzleminde (Öpik–Valsecchi ξ, ζ) ölçülür: Dünya'yı ıskalamak için kayma, çekim odaklamasıyla büyüyen yakalama yarıçapını (bE) aşmalıdır. İtkinin etkisi hem durum geçiş matrisiyle (doğrusal) hem tam tümlemeyle hesaplanır. Kinetik çarpıcı: Δv = β·m·U / (M + m). JPL çözümü varsa Yarkovsky etkisi (kütleçekimsel olmayan A1/A2/A3 ivmesi) ve yakın geçişte Dünya'nın basıklığı (J2) da hesaba katılır; öteki asteroitlerin çekimi modelde yok.</p>
               </details>
             </div>
           </div>
         </li>
       </ol>
+      <details id="dfHist" class="adv dfhist" hidden><summary>Denemelerim <span id="dfHistN" class="k"></span></summary>
+        <p class="note">Bu tarayıcıda hesapladığınız son denemeler. Satıra dokununca deneme aynı ayarlarla yeniden kurulur ve hesaplanır.</p>
+        <div class="tblwrap"><table id="dfHistTbl" class="tbl hist"><thead><tr><th>Hedef · geçiş</th><th>İtki</th><th class="num">Önce</th><th class="num">Kayma / gereken</th><th>Sonuç</th></tr></thead><tbody></tbody></table></div>
+        <div class="stepnav"><button id="dfHistCsv" class="sm" type="button">CSV indir</button><button id="dfHistClear" class="sm" type="button">Temizle</button></div>
+      </details>
     </div>
   </aside>
 

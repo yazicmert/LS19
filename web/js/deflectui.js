@@ -7,13 +7,18 @@ import { CLASS_TR } from './asteroids.js';
 import { fmt } from './format.js';
 import { $, mk } from './uiutil.js';
 import { sig, kmText, distText, caDist, sizeText, dateLong, etToISO, etFromISO, RHO, QUICK_TARGETS, leadChoices, defaultLead, leadText, verdictOf, needText,
-  targetSummary, caSummary, pushSummary, DIRS, dartNote, ngText } from './labtext.js';
+  targetSummary, caSummary, pushSummary, DIRS, dartNote, ngText, LINK_KEYS, linkFromState, stateFromLink, historyRow, historyCsv, uncertText } from './labtext.js';
 import { workerOpts } from './i18n.js';
+import { covFromSbdb, massSigma, dvSigma, monteCarlo, ellipse, BETA_SIG } from './uncert.js';
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const reduceMotion = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const narrow = () => window.matchMedia && matchMedia('(max-width: 760px)').matches;
 const STEP_LOCK = ['Önce bir hedef seçin', 'Önce bir yakın geçiş seçin', 'Önce itkiyi hesaplayın'];
+const HIST_KEY = 'ls19.dfHist', HIST_MAX = 30;
+const howCell = (h) => { const td = mk('td', null, h.how); if (h.hypo) td.append(' · ', mk('span', 'k', 'çarpacak olsaydı')); return td; };
+const loadHist = () => { try { const a = JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); return Array.isArray(a) ? a.filter((h) => h && h.link && Number.isFinite(h.caEt)) : []; } catch (e) { return []; } };
+const saveHist = (a) => { try { localStorage.setItem(HIST_KEY, JSON.stringify(a)); } catch (e) { /* özel pencere ya da kota: geçmiş yalnız bu oturumda kalır */ } };
 
 export class DeflectUI {
   constructor({ world, asts, getT, setCam, ui }) {
@@ -21,7 +26,12 @@ export class DeflectUI {
     this.target = null; this.cas = []; this.caSel = -1; this.result = null; this.lastP = null; this.seq = 0; this.pickSeq = 0; this.w = null; this.busy = false; this.mode = '';
     this.scanned = false; this.scanId = 0; this.scanEt0 = 0; this.leads = []; this.leadId = null; this.leadsFor = ''; this.massEdited = false; this.stale = false; this.paths = null;
     this.steps = [...document.querySelectorAll('#dfSteps .step')];
+    // paylaşılan bağlantı (?mode=lab&exp=saptirma&hedef=…): katalog hazır olunca hedef seçilir, tarama bitince geçiş ve itki kurulup hesaplanır
+    const q = new URLSearchParams(location.search);
+    this.link = q.get('exp') === 'saptirma' || q.get('tab') === 'saptirma' ? stateFromLink(q) : null; this.linkRun = null;
+    this.hist = loadHist();
     this.bind();
+    this.renderHist();
     $('#dfDart').textContent = dartNote();
     this.buildQuick(); this.renderLeads(); this.refresh(); this.setStep(1);
     // 3B yollar (Dünya merkezli)
@@ -51,6 +61,9 @@ export class DeflectUI {
     $('#dfRerun').addEventListener('click', () => this.compute());
     $('#dfAgain').addEventListener('click', () => this.setStep(3));
     $('#df3d').addEventListener('click', () => this.show3d());
+    $('#dfLink').addEventListener('click', () => this.copyLink());
+    $('#dfHistCsv').addEventListener('click', () => this.downloadCsv());
+    $('#dfHistClear').addEventListener('click', () => { this.hist = []; saveHist(this.hist); this.renderHist(); });
     // grafikler görünür olunca (adım açılınca, "ayrıntılar" açılınca, panel yeniden boyutlanınca) çizilir
     if (window.ResizeObserver) { const ro = new ResizeObserver(() => { if (this.result) this.drawCharts(); }); ro.observe($('#dfBplane')); ro.observe($('#dfSweep')); }
     this.syncMethod(); this.syncScenario();
@@ -69,6 +82,13 @@ export class DeflectUI {
     const A = this.asts, idx = A.index;
     document.querySelectorAll('#dfQuick .chip').forEach((b) => { const ok = !!(idx && idx.has(b.dataset.des)); b.disabled = !ok; });
     const st = $('#dfCatalog'); st.textContent = A.n > 0 ? '' : (A.info && A.info.status) || 'Katalog yükleniyor…';
+    if (this.link && idx && A.n > 0) { const L = this.link; this.link = null; this.applyLink(L); }
+  }
+  // bağlantıdaki ya da geçmişteki bir denemeyi kur: hedefi seç, aynı aralığı tara, aynı geçişi ve itkiyi seçip hesapla
+  applyLink(L) {
+    const i = this.asts.index && this.asts.index.get(L.des);
+    if (i == null) { this.setStep(1); $('#dfCatalog').textContent = `Bağlantıdaki hedef (${L.des}) katalogda bulunamadı.`; return; }
+    this.setTarget(i, { link: L });
   }
 
   // ---------------------------------------------------------------- 1 · hedef
@@ -89,6 +109,9 @@ export class DeflectUI {
     this.target = { i, name: A.label(i), des: A.C.des[i], Dkm: A.diam(i) };
     this.cas = []; this.caSel = -1; this.result = null; this.lastP = null; this.scanned = false; this.stale = false; this.leadsFor = ''; this.hide3d(); this.clearResult();
     if (opts.hypo != null) this.setScenario(!!opts.hypo);
+    const L = opts.link || null; this.linkRun = L;
+    if (L) { if (L.start) $('#dfStart').value = L.start; if (L.years) $('#dfYears').value = L.years; }
+    else this.writeUrl(null);
     this.renderTarget(null); this.renderCas(); this.setStep(2); this.refresh();
     $('#dfScanStatus').textContent = 'Hedef bilgileri alınıyor…';
     const t = this.getT(), today = etToISO(t + (E.jdTdb(0) - 2451545) * 86400, false);
@@ -97,16 +120,19 @@ export class DeflectUI {
     i = A.index.get(des) ?? -1; if (i < 0) { $('#dfScanStatus').textContent = 'Hedef katalogda yok'; return; }        // beklerken katalog yeniden kurulmuş olabilir (dizinler kayar)
     this.target.i = i;
     const d = A.details(i, t);
-    let el = A.elementsOf(i), src = 'katalog öğeleri (12 hane)', ng = null;
+    let el = A.elementsOf(i), src = 'katalog öğeleri (12 hane)', ng = null, cov = null;
     if (det && det.orbit && det.orbit.elements) {
       const e = {}; for (const x of det.orbit.elements) e[x.name] = +x.value;
       if (Number.isFinite(e.a) && Number.isFinite(e.ma)) {
         el = { a: e.a, e: e.e, i: e.i, om: e.om, w: e.w, ma: e.ma, epoch: +det.orbit.epoch }; src = `JPL çözümü ${det.orbit.orbit_id || ''} (tam duyarlık)`;
         ng = ngFromSbdb(det.orbit.model_pars);                            // aynı çözümün kütleçekimsel olmayan parametreleri (öğelerle birlikte kestirilmiştir)
+        cov = covFromSbdb(det.orbit);                                     // yörünge kovaryansı (cov=mat; yoksa null: yalnız itkinin belirsizliği)
       }
     }
-    Object.assign(this.target, { el, src, ng, ca: (det && det.ca_data) || [], Dkm: d.D, GM: d.GM || (A.C.gm[i] > 0 ? A.C.gm[i] : 0) });
+    const msrc = { GM: d.GM || 0, GMsig: d.GMsig || 0, D: d.D, Dsig: d.Dsig || 0, Dmeasured: !!d.Dmeas, alb: d.alb, albSig: d.albSig || 0, rhoMeasured: !!d.rhoMeas };
+    Object.assign(this.target, { el, src, ng, cov, msrc, ca: (det && det.ca_data) || [], Dkm: d.D, GM: d.GM || (A.C.gm[i] > 0 ? A.C.gm[i] : 0) });
     $('#dfD').value = +d.D.toPrecision(4); this.massEdited = false; $('#dfRho').value = d.rho || RHO(d.spec);
+    if (L && L.D && L.rho) { $('#dfD').value = L.D; $('#dfRho').value = L.rho; this.massEdited = true; }
     this.renderTarget(d); this.renderMass(); this.refresh();
     this.scan();
   }
@@ -118,6 +144,7 @@ export class DeflectUI {
     if (d.moid != null) tg.appendChild(mk('div', null, `Dünya yörüngesine en çok ${distText(d.moid * AU)} yaklaşır (MOID)${d.sentry ? ` · Sentry çarpma olasılığı ${sig(d.sentry.ip, 2)}` : ''}`));
     if (d.moid > 0.05) tg.appendChild(mk('div', 'hint', 'Yörüngesi Dünya\'ya 0,05 AB\'den fazla yaklaşmıyor: yakın geçiş bulunamayabilir. Apophis gibi daha yakın bir hedef de deneyebilirsiniz.'));
     tg.appendChild(mk('div', 'k', 'Başlangıç durumu: ' + T.src));
+    if (T.cov) { const n = mk('div', 'k', 'Yörünge kovaryansı: JPL'); n.title = 'Yörüngenin gözlemlerden gelen belirsizliği: sonuçta çarpma olasılığı ve geçiş noktasının belirsizlik elipsi buna dayanır.'; tg.appendChild(n); }
     if (T.ng) { const n = mk('div', 'k', ngText(T.ng)); n.title = 'Isıl ışımanın (Yarkovsky etkisi) yörünge boyunca küçük ama sürekli itkisi: JPL bunu gözlemlerden kestirir. Yüzyıllık taşımalarda yakın geçişi binlerce km kaydırabilir; motor bunu hesaba katar.'; tg.appendChild(n); }
   }
   mass() {
@@ -143,7 +170,7 @@ export class DeflectUI {
     this.renderCas(); this.refresh();
     const id = ++this.seq;
     $('#dfScanStatus').textContent = 'Yakın geçişler taranıyor…';
-    this.worker().postMessage({ cmd: 'target', id, el: T.el, ng: T.ng || null, etStart: etFromISO(start), years, name: T.name });
+    this.worker().postMessage({ cmd: 'target', id, el: T.el, ng: T.ng || null, cov: T.cov || null, etStart: etFromISO(start), years, name: T.name });
   }
   onMsg(d) {
     if (d.id !== this.seq) return;
@@ -158,7 +185,8 @@ export class DeflectUI {
       this.cas = d.cas; this.lastP = null; this.scanned = true; this.scanEt0 = d.et0; this.scanEt1 = d.et1; this.scanMs = d.ms;
       if (d.cas.length) this.caSel = d.cas.reduce((b, c, k) => (c.dist < d.cas[b].dist ? k : b), 0);
       this.renderCas(); this.refresh();
-    } else if (d.type === 'deflect') { this.result = d.r; this.renderResult(); this.refresh(); }
+      if (this.linkRun) this.continueLink();
+    } else if (d.type === 'deflect') { this.result = d.r; this.renderResult(); this.refresh(); this.remember(); }
   }
   renderCas() {
     const ul = $('#dfCas'), st = $('#dfScanStatus'), empty = $('#dfCasEmpty'); ul.replaceChildren();
@@ -183,6 +211,74 @@ export class DeflectUI {
       $('#dfLonger').hidden = yrs >= 120;
     }
     $('#dfNext2').disabled = this.caSel < 0;
+  }
+
+  // bağlantı: tarama bitti → aynı günün geçişi, itki ayarları, hesap
+  continueLink() {
+    const L = this.linkRun; this.linkRun = null;
+    if (L.caDay) {
+      const k = this.cas.findIndex((c) => etToISO(c.et, false) === L.caDay);
+      if (k < 0) { $('#dfScanStatus').textContent = `Bağlantıdaki yakın geçiş (${L.caDay}) bu taramada yok: bir geçiş seçin.`; return; }
+      this.caSel = k; this.renderCas();
+    }
+    if (this.caSel < 0) return;
+    this.prepareStep3();
+    const r = document.querySelector(`input[name=dfMethod][value=${L.method === 'thrust' ? 'thrust' : 'kinetic'}]`); if (r) { r.checked = true; this.syncMethod(); }
+    for (const [k, id] of [['m', '#dfMass'], ['U', '#dfU'], ['beta', '#dfBeta'], ['F', '#dfF'], ['days', '#dfDays']]) if (L[k] != null) $(id).value = L[k];
+    if (L.dir) $('#dfDir').value = L.dir;
+    if (L.hypo != null) this.setScenario(L.hypo);
+    if (L.applyDay) { $('#dfApply').value = L.applyDay; this.leadId = (this.leads.find((c) => c.ok && etToISO(c.et, false) === L.applyDay) || {}).id || null; this.renderLeads(); }
+    this.inputsChanged(); this.setStep(3);
+    if (L.applyDay) this.compute();
+  }
+  // şu anki ayarların bağlantı durumu (hesaplanmış bir geçiş ve hedef varsa)
+  linkState() {
+    const T = this.target, ca = this.cas[this.caSel]; if (!T || !ca) return null;
+    const q = this.readParams();
+    return { des: T.des, start: $('#dfStart').value, years: Math.max(1, Math.min(120, +$('#dfYears').value || 50)), caDay: etToISO(ca.et, false), method: q.method,
+      m: q.m, U: q.U, beta: q.beta, F: q.F, days: q.days, applyDay: $('#dfApply').value, dir: q.dir, hypo: q.hypo,
+      ...(this.massEdited ? { D: +$('#dfD').value, rho: +$('#dfRho').value } : {}) };
+  }
+  // adres çubuğu: saptırma açıkken son hesaplanan denemenin parametreleri (yeni hedef seçilince silinir)
+  writeUrl(o) {
+    if (!window.history || !history.replaceState) return;
+    const u = new URL(location.href); for (const k of LINK_KEYS) u.searchParams.delete(k);
+    if (o && document.body.dataset.exp === 'saptirma') for (const [k, v] of Object.entries(o)) u.searchParams.set(k, v);
+    if (u.href !== location.href) history.replaceState(history.state, '', u);
+  }
+  linkUrl(qs) { const u = new URL(location.pathname, location.origin); u.searchParams.set('mode', 'lab'); u.searchParams.set('exp', 'saptirma'); for (const [k, v] of new URLSearchParams(qs)) u.searchParams.set(k, v); return u.href; }
+  async copyLink() {
+    const h = this.hist[0], msg = $('#dfLinkMsg'); if (!this.result || !h) return;
+    const url = this.linkUrl(h.link);
+    try { await navigator.clipboard.writeText(url); msg.textContent = 'Bağlantı kopyalandı.'; }
+    catch (e) { msg.textContent = ''; window.prompt('Bağlantıyı kopyalayın:', url); }
+    setTimeout(() => { if (msg.textContent === 'Bağlantı kopyalandı.') msg.textContent = ''; }, 4000);
+  }
+  // ---------------------------------------------------------------- deneme geçmişi
+  remember() {
+    const st = this.runLink; this.runLink = null; if (!st || !this.result) return;
+    const o = linkFromState(st), qs = new URLSearchParams(o).toString();
+    const row = historyRow(this.result, this.lastP, this.target, qs);
+    this.hist = [row, ...this.hist.filter((h) => h.link !== qs)].slice(0, HIST_MAX); saveHist(this.hist);
+    this.writeUrl(o); this.renderHist();
+  }
+  renderHist() {
+    const box = $('#dfHist'), tb = $('#dfHistTbl tbody'); tb.replaceChildren();
+    box.hidden = !this.hist.length; $('#dfHistN').textContent = this.hist.length ? `(${this.hist.length})` : '';
+    this.hist.forEach((h, k) => {
+      const tr = mk('tr', 'hrow ' + h.kind); tr.tabIndex = 0; tr.title = 'Bu denemeyi yeniden kur';
+      tr.append(mk('td', null, `${h.name} · ${dateLong(h.caEt)}`), howCell(h), mk('td', 'num', leadText(h.leadDays)),
+        mk('td', 'num', `${kmText(h.shiftKm)} / ${kmText(h.bEKm)}`), mk('td', 'res', h.title));
+      const go = () => { const L = stateFromLink(new URLSearchParams(this.hist[k].link)); if (L) this.applyLink(L); };
+      tr.addEventListener('click', go); tr.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); go(); } });
+      tb.appendChild(tr);
+    });
+  }
+  downloadCsv() {
+    if (!this.hist.length) return;
+    const rows = this.hist.map((h) => ({ ...h, link: this.linkUrl(h.link) }));
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([historyCsv(rows)], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'ls19_saptirma_denemeleri.csv'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
   // ---------------------------------------------------------------- 3 · itki
@@ -251,6 +347,7 @@ export class DeflectUI {
     const q = this.readParams(), bad = this.validate(q, ca);
     if (bad) { this.setMsg(bad, true); this.setStep(3); return; }
     const p = { ca: this.caSel, ...q };
+    this.runLink = this.linkState();                                        // geçmişe ve adrese, hesaplanan ayarlar yazılır (beklerken değişenler değil)
     this.kill(); this.busy = true; this.mode = 'deflect'; this.lastP = p; this.stale = false; this.setMsg('');
     $('#dfStale').hidden = true; $('#dfResult').hidden = true; $('#dfRunning').hidden = false; $('#dfRunning').textContent = 'Hesaplanıyor…'; $('#df3d').disabled = true;
     this.hide3d(); this.setStep(4); this.refresh();
@@ -260,6 +357,7 @@ export class DeflectUI {
 
   // ---------------------------------------------------------------- 4 · sonuç
   clearResult() {
+    this.mc = null;
     $('#dfResult').hidden = true; $('#dfRunning').hidden = true; $('#dfStale').hidden = true; $('#dfOut').replaceChildren(); this.clearCharts();
   }
   renderResult() {
@@ -274,8 +372,20 @@ export class DeflectUI {
       $('#dfGaugeTxt').textContent = `Kayma ${kmText(v.dB)} · gereken (yakalama yarıçapı) ${kmText(v.bE)}`;
     }
     $('#dfNeed').textContent = needText(r, p);
+    this.renderUnc();
     this.renderTable();
     this.drawCharts();
+  }
+  // belirsizlik: kütle ve β (log-normal) + yörünge kovaryansı (B-düzlemi) → tohumlu Monte Carlo (uncert.js)
+  renderUnc() {
+    const r = this.result, p = this.lastP, T = this.target;
+    const msrc = this.massEdited ? { D: +$('#dfD').value, Dmeasured: true } : (T.msrc || {});
+    const sM = massSigma(msrc), sBeta = BETA_SIG, sDv = dvSigma(p.method, sM, sBeta), SB = p.hypo ? null : r.SB || null;
+    const mc = monteCarlo({ n0: p.hypo ? [0, 0] : [r.b0.xi, r.b0.zeta], shift: [r.dXi, r.dZeta], bE: r.b0.bE, sDv, SB, N: 4000, seed: 19 });
+    this.mc = { ...mc, sDv, SB };
+    const u = uncertText(mc, { hypo: p.hypo, sM, sBeta, sDv, method: p.method, SB, dvReqMps: r.dvReqMps, M: r.M, p });
+    const box = $('#dfUnc'); box.hidden = false; box.className = 'unc ' + u.kind;
+    $('#dfUT').textContent = u.title; $('#dfUD').replaceChildren(...u.detail.flatMap((t, k) => (k ? [' ', mk('span', null, t)] : [mk('span', null, t)])));
   }
   renderTable() {
     const r = this.result, p = this.lastP, out = $('#dfOut'); out.replaceChildren();
@@ -309,7 +419,8 @@ export class DeflectUI {
     const P0 = this.prep($('#dfBplane')); if (!P0) return;
     const { g, w, h } = P0;
     const n0 = p.hypo ? [0, 0] : [r.b0.xi, r.b0.zeta], n1 = [n0[0] + r.dXi, n0[1] + r.dZeta], bE = r.b0.bE;
-    const ext = Math.max(bE * 1.4, Math.abs(n0[0]), Math.abs(n0[1]), Math.abs(n1[0]), Math.abs(n1[1])) * 1.15;
+    const kh = this.mc ? this.mc.kQ[2] : 1, n2 = [n0[0] + kh * r.dXi, n0[1] + kh * r.dZeta];
+    const ext = Math.max(bE * 1.4, Math.abs(n0[0]), Math.abs(n0[1]), Math.abs(n1[0]), Math.abs(n1[1]), Math.abs(n2[0]), Math.abs(n2[1])) * 1.15;
     const cx = w / 2, cy = h / 2 + 6, s = Math.min(w, h - 24) / 2 / ext;
     const P = (q) => [cx + q[0] * s, cy - q[1] * s];
     g.strokeStyle = '#2b313c'; g.beginPath(); g.moveTo(0, cy); g.lineTo(w, cy); g.moveTo(cx, 16); g.lineTo(cx, h); g.stroke();
@@ -317,7 +428,18 @@ export class DeflectUI {
     g.fillText(`Dünya'ya göre geçiş noktası (ölçek ±${kmText(ext)})`, 6, 12);
     g.setLineDash([4, 4]); g.strokeStyle = '#e66767'; g.beginPath(); g.arc(cx, cy, bE * s, 0, 7); g.stroke(); g.setLineDash([]);
     g.fillStyle = '#2f6fbf'; g.beginPath(); g.arc(cx, cy, Math.max(2, R_E * s), 0, 7); g.fill();
-    const a = P(n0), b = P(n1);
+    const a = P(n0), b = P(n1), mc = this.mc;
+    if (mc && mc.SB && !p.hypo) {                                           // yörünge belirsizliği: 1σ ve 3σ elipsleri, nominal ve saptırılmış noktada
+      const e = ellipse(mc.SB);
+      for (const [c, q] of [[a, '#d8dde6'], [b, '#ff8a3d']]) for (const k of [1, 3]) {
+        g.strokeStyle = q; g.globalAlpha = k === 1 ? 0.7 : 0.35; g.beginPath(); g.ellipse(c[0], c[1], Math.max(1, k * e.s1 * s), Math.max(1, k * e.s2 * s), -e.ang, 0, 2 * Math.PI); g.stroke();
+      }
+      g.globalAlpha = 1;
+    }
+    if (mc) {                                                                // itkinin belirsizliği: %5–95 kayma aralığı
+      const lo = P([n0[0] + mc.kQ[0] * r.dXi, n0[1] + mc.kQ[0] * r.dZeta]), hi = P([n0[0] + mc.kQ[2] * r.dXi, n0[1] + mc.kQ[2] * r.dZeta]);
+      g.strokeStyle = 'rgba(255, 138, 61, .45)'; g.lineWidth = 6; g.lineCap = 'round'; g.beginPath(); g.moveTo(lo[0], lo[1]); g.lineTo(hi[0], hi[1]); g.stroke(); g.lineCap = 'butt';
+    }
     g.strokeStyle = '#ff8a3d'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); g.lineWidth = 1;
     g.fillStyle = '#d8dde6'; g.beginPath(); g.arc(a[0], a[1], 4, 0, 7); g.fill();
     g.fillStyle = '#ff8a3d'; g.beginPath(); g.arc(b[0], b[1], 4, 0, 7); g.fill();

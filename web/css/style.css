@@ -688,6 +688,13 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
 .step.open .sb { display: block; animation: stepIn .18s var(--ease) both; }
 @keyframes stepIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 .stepsub { margin: 2px 0 6px; font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); }
+.dfhist { margin-top: 12px; }
+.unc { margin-top: 8px; padding: 8px 12px; border-radius: 10px; border: 1px dashed var(--line-2); }
+.unc .ut { font-weight: 650; } .unc .ud { margin-top: 3px; font-size: 12px; line-height: 1.45; color: var(--text-secondary); }
+.unc.good .ut { color: var(--good); } .unc.bad .ut { color: var(--bad); } .unc.warn .ut { color: var(--warn, #f5b041); } .unc.info .ut { color: var(--accent-2); }
+.tbl.hist .hrow { cursor: pointer; }
+.tbl.hist .hrow:hover, .tbl.hist .hrow:focus-visible { background: var(--surface-1); outline: none; }
+.tbl.hist .hrow.good .res { color: var(--good); } .tbl.hist .hrow.bad .res { color: var(--bad); } .tbl.hist .hrow.info .res { color: var(--accent-2); }
 .stepnav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .stepnav .primary { flex: 1 1 auto; }
 .hint { margin-top: 4px; padding: 6px 8px; border-radius: 8px; background: rgba(245, 185, 58, .08); border: 1px solid rgba(245, 185, 58, .35); color: var(--warn); font-size: 12px; line-height: 1.45; }
