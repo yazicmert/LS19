@@ -2,12 +2,12 @@
 // Hesap deflectwork.js iş parçacığında (DeflectEngine); bu dosya yalnız arayüz, grafikler ve 3B yollar. Metin/karar mantığı: labtext.js (Node'da sınanır).
 import * as THREE from 'three';
 import * as E from './engine.js';
-import { AU, R_E, massOf } from './deflect.js';
+import { AU, R_E, massOf, ngFromSbdb } from './deflect.js';
 import { CLASS_TR } from './asteroids.js';
 import { fmt } from './format.js';
 import { $, mk } from './uiutil.js';
 import { sig, kmText, distText, caDist, sizeText, dateLong, etToISO, etFromISO, RHO, QUICK_TARGETS, leadChoices, defaultLead, leadText, verdictOf, needText,
-  targetSummary, caSummary, pushSummary, DIRS, dartNote } from './labtext.js';
+  targetSummary, caSummary, pushSummary, DIRS, dartNote, ngText } from './labtext.js';
 import { workerOpts } from './i18n.js';
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -97,12 +97,15 @@ export class DeflectUI {
     i = A.index.get(des) ?? -1; if (i < 0) { $('#dfScanStatus').textContent = 'Hedef katalogda yok'; return; }        // beklerken katalog yeniden kurulmuş olabilir (dizinler kayar)
     this.target.i = i;
     const d = A.details(i, t);
-    let el = A.elementsOf(i), src = 'katalog öğeleri (12 hane)';
+    let el = A.elementsOf(i), src = 'katalog öğeleri (12 hane)', ng = null;
     if (det && det.orbit && det.orbit.elements) {
       const e = {}; for (const x of det.orbit.elements) e[x.name] = +x.value;
-      if (Number.isFinite(e.a) && Number.isFinite(e.ma)) { el = { a: e.a, e: e.e, i: e.i, om: e.om, w: e.w, ma: e.ma, epoch: +det.orbit.epoch }; src = `JPL çözümü ${det.orbit.orbit_id || ''} (tam duyarlık)`; }
+      if (Number.isFinite(e.a) && Number.isFinite(e.ma)) {
+        el = { a: e.a, e: e.e, i: e.i, om: e.om, w: e.w, ma: e.ma, epoch: +det.orbit.epoch }; src = `JPL çözümü ${det.orbit.orbit_id || ''} (tam duyarlık)`;
+        ng = ngFromSbdb(det.orbit.model_pars);                            // aynı çözümün kütleçekimsel olmayan parametreleri (öğelerle birlikte kestirilmiştir)
+      }
     }
-    Object.assign(this.target, { el, src, ca: (det && det.ca_data) || [], Dkm: d.D, GM: d.GM || (A.C.gm[i] > 0 ? A.C.gm[i] : 0) });
+    Object.assign(this.target, { el, src, ng, ca: (det && det.ca_data) || [], Dkm: d.D, GM: d.GM || (A.C.gm[i] > 0 ? A.C.gm[i] : 0) });
     $('#dfD').value = +d.D.toPrecision(4); this.massEdited = false; $('#dfRho').value = d.rho || RHO(d.spec);
     this.renderTarget(d); this.renderMass(); this.refresh();
     this.scan();
@@ -115,6 +118,7 @@ export class DeflectUI {
     if (d.moid != null) tg.appendChild(mk('div', null, `Dünya yörüngesine en çok ${distText(d.moid * AU)} yaklaşır (MOID)${d.sentry ? ` · Sentry çarpma olasılığı ${sig(d.sentry.ip, 2)}` : ''}`));
     if (d.moid > 0.05) tg.appendChild(mk('div', 'hint', 'Yörüngesi Dünya\'ya 0,05 AB\'den fazla yaklaşmıyor: yakın geçiş bulunamayabilir. Apophis gibi daha yakın bir hedef de deneyebilirsiniz.'));
     tg.appendChild(mk('div', 'k', 'Başlangıç durumu: ' + T.src));
+    if (T.ng) { const n = mk('div', 'k', ngText(T.ng)); n.title = 'Isıl ışımanın (Yarkovsky etkisi) yörünge boyunca küçük ama sürekli itkisi: JPL bunu gözlemlerden kestirir. Yüzyıllık taşımalarda yakın geçişi binlerce km kaydırabilir; motor bunu hesaba katar.'; tg.appendChild(n); }
   }
   mass() {
     const D = parseFloat($('#dfD').value), rho = parseFloat($('#dfRho').value);
@@ -139,7 +143,7 @@ export class DeflectUI {
     this.renderCas(); this.refresh();
     const id = ++this.seq;
     $('#dfScanStatus').textContent = 'Yakın geçişler taranıyor…';
-    this.worker().postMessage({ cmd: 'target', id, el: T.el, etStart: etFromISO(start), years, name: T.name });
+    this.worker().postMessage({ cmd: 'target', id, el: T.el, ng: T.ng || null, etStart: etFromISO(start), years, name: T.name });
   }
   onMsg(d) {
     if (d.id !== this.seq) return;

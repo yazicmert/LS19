@@ -99,7 +99,7 @@ Her adım katlanabilir bir kutudur: tamamlanınca tek satırlık **özete** iner
 | Gerçek yörünge | ikisi de çarpıyor | **Yine çarpar** |
 | Gerçek yörünge | ikisi de ıskalıyor | **Dünya'yı ıskalamaya devam eder** (mesafe önce → sonra) |
 
-Çarpma sekmesindeki sanal çarpıcılar (Sentry) için "Laboratuvarda dene" düğmesi senaryoyu **Çarpacak olsaydı** olarak önceden seçer. Fizik değişmedi: hesap, motor ve sayılar eski Saptırma sekmesiyle aynıdır (`test_deflect.js`: Apophis 2029, JPL CAD ile ~2 km).
+Çarpma sekmesindeki sanal çarpıcılar (Sentry) için "Laboratuvarda dene" düğmesi senaryoyu **Çarpacak olsaydı** olarak önceden seçer. Kuvvet modeli: Güneş, gezegenler, Ay, Plüton (DE440s), Güneş 1PN, yakın geçişte Dünya J2 ve JPL çözümünün kütleçekimsel olmayan parametreleri (Yarkovsky A2; hedef kartında gösterilir, katalog öğeleriyle çalışan hedeflerde yoktur). `test_deflect.js`: Apophis 2029 JPL CAD ile 1 km, 2051 %0,1 ve 5 dk içinde.
 
 ## 5. Telefon düzeni
 

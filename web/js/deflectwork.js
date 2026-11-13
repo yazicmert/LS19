@@ -55,6 +55,7 @@ globalThis.onmessage = async (ev) => {
       const el = d.el, etEp = D.etFromJd(el.epoch);
       if (!(d.etStart > D.ET_MIN && d.etStart < D.ET_MAX)) throw new Error('başlangıç tarihi 1850–2149 dışında');
       const et1 = Math.min(D.ET_MAX, d.etStart + d.years * D.YEAR);
+      eng.ng = d.ng || null;                                             // Yarkovsky (JPL model_pars); katalog öğelerinde yok
       post({ type: 'progress', id, msg: 'Efemeris yükleniyor…', f: 0.01 });
       await need(Math.min(etEp, d.etStart), Math.max(etEp, et1));
       if (stopped()) return;

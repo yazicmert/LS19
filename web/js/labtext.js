@@ -19,6 +19,11 @@ export const etFromISO = (s) => etFromJd(Date.parse(s + 'T00:00:00Z') / 86400000
 export const etToISO = (et, withTime = true) => { const ms = (jdFromEt(et) - 2440587.5) * 86400000 - 69184; const s = new Date(ms).toISOString(); return withTime ? s.slice(0, 16).replace('T', ' ') : s.slice(0, 10); };
 export const dateLong = (et) => { const [y, m, d] = etToISO(et, false).split('-'); return `${+d} ${AYLAR[+m - 1]} ${y}`; };
 
+// kütleçekimsel olmayan model (deflect.js ngFromSbdb) → kısa açıklama: "Yarkovsky A2 = −2,90×10⁻¹⁴ AB/gün²"
+const SUP = { '-': '⁻', 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+export const sci = (x, n = 3) => { if (!(x !== 0 && Number.isFinite(x))) return fmt(x || 0, 0); const e = Math.floor(Math.log10(Math.abs(x))), m = x / 10 ** e; return `${fmt(m, n - 1)}×10${String(e).replace(/./g, (c) => SUP[c] || c)}`; };
+export const ngText = (ng) => (ng && ng.A2 ? `Yarkovsky A2 = ${sci(ng.A2)} AB/gün²` : ng ? 'kütleçekimsel olmayan ivme (JPL)' : '');
+
 // tayf türüne göre yoğunluk tahmini (kg/m³)
 export const RHO = (spec) => (/^[CBFGD]/.test(spec || '') ? 1400 : /^[SQVAKLR]/.test(spec || '') ? 2600 : /^[MXE]/.test(spec || '') ? 3500 : 2000);
 
