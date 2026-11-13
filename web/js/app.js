@@ -23,6 +23,7 @@ import { LINK_KEYS } from './labtext.js';
 import { AyUI } from './ayui.js';
 import { AyMC } from './aymc.js';
 import { AyAbort } from './ayabort.js';
+import { setViewSite } from './moonsite.js';
 import { DeflectUI } from './deflectui.js';
 import { Updater } from './updater.js';
 import { Tracker } from './tracker.js';
@@ -462,7 +463,7 @@ worker.onmessage = (e) => {
     // ana iş parçacığı da aynı başlangıçtan aynı canlı efemerisi kurar (deterministik: worker ile birebir)
     const lv = makeLive(S.K.spk, S.K.pck, S.K.eo, d.tStart);
     missionSrc = lv; ui.live = lv;
-    if (S.MODE === 'sky' && skySrc) { E.setProvider(skySrc.prov); world.live = skySrc; } else world.live = lv; S.DESIGN = d.design; ui.setDesign(d.design, d.startMs); goodDate = pendingDate; rocketOk = ui.rocket; launch.syncRocket(); launch.showDesign(S.DESIGN);
+    if (S.MODE === 'sky' && skySrc) { E.setProvider(skySrc.prov); world.live = skySrc; } else world.live = lv; S.DESIGN = d.design; world.setMoonSite(setViewSite(d.design)); ui.setDesign(d.design, d.startMs); goodDate = pendingDate; rocketOk = ui.rocket; launch.syncRocket(); launch.showDesign(S.DESIGN);
     E.setMoonZone(S.DESIGN.profile === 'HALO' ? 1.25 * S.DESIGN.HALO.stats.raKm : E.SOI_M);
     world.resetDynamic && world.resetDynamic(); world.setDesign(S.DESIGN);
     const ce = designCache.get(cacheKey(d.startMs, S.DESIGN.cfg || ui.getConfig()));

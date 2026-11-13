@@ -12,6 +12,7 @@ import { TOUCH, POST_LANDING, velEnvelope, tipOver, surfaceNormal, tiltDeg, dust
 import { LandNav, NAV } from './landnav.js';
 import { SEP, SpentStage, springSplit, tipOff, ccamDir, sepAxis, timeline } from './separation.js';
 import { solvePDG, replanPDG, controlAt, controlAtSmooth } from './pdg.js';
+import { siteOf } from './moonsite.js';
 const { add, sub, scale, dot, cross, norm, unit, mv, mtv } = E;
 
 export const SITE_LAT = 0.67409 * Math.PI / 180, SITE_LON = 23.47298 * Math.PI / 180;
@@ -167,6 +168,7 @@ export class Mission {
   // zamanlama hatası seçeneği (kesmedeki ivmeyle Δv'ye çevrilir; varsayılan 0). Python uyumunda (compat) TLI eskisi gibi süreli (TLI_DUR_ERROR fazla yakışla).
   constructor({ tliError = 0, tliCutErr = 0, tliDisp = null, verbose = false, compat = false, design = DEFAULT_DESIGN, nbody = true, landing = 'zem', attitude = 'dyn6', nav = false } = {}) {
     this.D = design; const { TLI, ARRIVAL, LAUNCH } = design;
+    this.site = siteOf(design);              // Ay iniş yeri (moonsite.js): tasarımın MOONSITE alanı, yoksa Apollo 11 (bugünkü sabitlerle bit düzeyinde aynı)
     this.nbody = nbody; this.landing = landing; this.descentInfo = null;
     this.navOpt = compat || nav === false ? null : nav; this.nav = null;
     this.compat = compat;          // true: Python sürümüyle birebir (MCC-3 yok, LOI 20 s kuantalı)
@@ -550,7 +552,7 @@ export class Mission {
     if (k === 0) {
       this.log(`${st.name} ayrıldı`, 'SEP', { dvL: dvL * 1000, dvS: dvS * 1000 });
       this.log(`Kelepçe bandı açıldı: yaylar ${SEP.dvRel.toFixed(1)} m/s bağıl hız verdi (iniş aracı +${(dvL * 1e6).toFixed(0)} mm/s, kademe −${(dvS * 1e6).toFixed(0)} mm/s, momentum korunur); kademede ${st.prop.toFixed(0)} kg yakıt`, 'SEP-SPRING');
-    } else this.log(`${st.name} ayrıldı (irtifa ${(norm(P.s.seleno()[0]) - R_SITE).toFixed(1)} km, ${st.prop.toFixed(0)} kg yakıt atıldı); iniş kademesi ${this.veh.mass().toFixed(0)} kg`, 'SEP2', { dvL: dvL * 1000, dvS: dvS * 1000 });
+    } else this.log(`${st.name} ayrıldı (irtifa ${(norm(P.s.seleno()[0]) - this.site.r).toFixed(1)} km, ${st.prop.toFixed(0)} kg yakıt atıldı); iniş kademesi ${this.veh.mass().toFixed(0)} kg`, 'SEP2', { dvL: dvL * 1000, dvS: dvS * 1000 });
     return true;
   }
   // ayrılan TLI kademesinin işleri: kademe kendi yayınımıyla uçar; görev her işin anında kademeyi oraya dek ilerletir ve kaydeder
@@ -592,7 +594,7 @@ export class Mission {
   referenceTrajectory() {
     const { ARRIVAL } = this.D;
     if (ARRIVAL.vP) return new E.State(ARRIVAL.t_P, ARRIVAL.rP, ARRIVAL.vP, 'M');
-    const tL = this.D.t_L, s = scale(siteIcrf(tL), 1 / R_SITE);
+    const tL = this.D.t_L, s = scale(this.site.icrf(tL), 1 / this.site.r);
     const zp = mtv(E.moonIcrfToMe(tL), [0, 0, 1]);
     const n0 = unit(sub(zp, scale(s, dot(zp, s)))), b = ARRIVAL.beta * Math.PI / 180;
     const n = add(scale(n0, Math.cos(b)), scale(cross(s, n0), Math.sin(b))), h = scale(n, -1);
@@ -855,7 +857,7 @@ export class Mission {
   periAlt() { const [rs, vs] = this.P.s.seleno(); return E.elements(rs, vs, E.MU_M).rp - E.R_M; }
 
   angleToSite(tLand = null) {
-    const [rs, vs] = this.P.s.seleno(), h = unit(cross(rs, vs)), s = siteIcrf(tLand ?? this.P.s.t);
+    const [rs, vs] = this.P.s.seleno(), h = unit(cross(rs, vs)), s = this.site.icrf(tLand ?? this.P.s.t);
     const sp = unit(sub(s, scale(h, dot(s, h)))), rh = unit(rs);
     return mod2pi(Math.atan2(dot(cross(rh, sp), h), dot(rh, sp)));
   }
@@ -879,17 +881,17 @@ export class Mission {
     P.phase = 'DOI'; P.hMaxBurn = 0.05;
     this.log('DOI ateşleme', 'DOI');
     const doiCtrl = (Pp) => { const [rs, vs] = Pp.s.seleno(), el = E.elements(rs, vs, E.MU_M);
-      return [Math.min(1.0, Math.max(stg.thr_min, (el.rp - (R_SITE + H_PDI)) / 20.0)), scale(unit(vs), -1)]; };
-    const doiStop = (Pp) => { const [rs, vs] = Pp.s.seleno(); return E.elements(rs, vs, E.MU_M).rp <= R_SITE + H_PDI; };
+      return [Math.min(1.0, Math.max(stg.thr_min, (el.rp - (this.site.r + H_PDI)) / 20.0)), scale(unit(vs), -1)]; };
+    const doiStop = (Pp) => { const [rs, vs] = Pp.s.seleno(); return E.elements(rs, vs, E.MU_M).rp <= this.site.r + H_PDI; };
     yield* this.until(P.s.t + 300, doiCtrl, doiStop);
     { const [rs, vs] = P.s.seleno(), el = E.elements(rs, vs, E.MU_M);
-      this.log(`DOI tamam: periselen ${(el.rp - R_SITE).toFixed(2)} km (iniş yerine göre)`, 'DOI_END'); }
+      this.log(`DOI tamam: periselen ${(el.rp - this.site.r).toFixed(2)} km (iniş yerine göre)`, 'DOI_END'); }
     P.phase = 'INIS_SUZULME';
     const sep2 = this.D.SEP2 && this.veh.k === 1 && this.veh.stages.length > 2;
     for (;;) {
       const rem = mod2pi(this.angleToSite(P.s.t + 650.0) - PDI_ANGLE);
       if (rem < 2e-5 || rem > TWO_PI - 0.02) break;
-      if (sep2 && this.veh.k === 1 && norm(P.s.seleno()[0]) - R_SITE <= this.D.SEP2.hSep) this.separateStage();       // iniş kademesinin son H_SEP km'si
+      if (sep2 && this.veh.k === 1 && norm(P.s.seleno()[0]) - this.site.r <= this.D.SEP2.hSep) this.separateStage();       // iniş kademesinin son H_SEP km'si
       this.tNext = P.s.t + rem / n;
       P.hMaxCoast = Math.max(0.1, Math.min(60.0, (rem / n) * 0.5));
       yield* this.stepOnce();
@@ -901,11 +903,11 @@ export class Mission {
   // site'a bağlı yerel çerçeve: x menzil (yaklaşma yönü), y sol, z yukarı
   localState(t = this.P.s.t, rs = null, vs = null) {
     if (!rs) [rs, vs] = this.P.s.seleno();
-    const s = siteIcrf(t), up = unit(s), ax = this.drAxis || unit(sub(vs, scale(up, dot(vs, up))));
+    const s = this.site.icrf(t), up = unit(s), ax = this.drAxis || unit(sub(vs, scale(up, dot(vs, up))));
     const x = unit(sub(ax, scale(up, dot(ax, up)))), y = cross(up, x), Rf = [x, y, up];
     const w = E.omegaMoon(t), rel = sub(rs, s), vrel = sub(vs, cross(w, rs));
     const p = mv(Rf, rel), v = mv(Rf, vrel);
-    p[2] = norm(rs) - R_SITE;
+    p[2] = norm(rs) - this.site.r;
     const g = mv(Rf, scale(rs, -E.MU_M / norm(rs) ** 3));
     return { p, v, g, Rf };
   }
@@ -939,7 +941,7 @@ export class Mission {
     const st = this.veh.active, [rs] = P.s.seleno(), g = (E.MU_M / norm(rs) ** 2) * 1000, mdotH = (this.veh.mass() * g) / (st.isp * E.G0 * 1000), tHov = st.prop / mdotH;
     if (!c.low && st.prop <= CALL_LOW * (st.prop0 || st.prop)) { c.low = true; this.log(`Düşük yakıt: %${(CALL_LOW * 100).toFixed(0)} kaldı (${st.prop.toFixed(0)} kg, askıda ~${tHov.toFixed(0)} s)`, 'LOW_FUEL'); }
     while (c.hov.length && tHov <= c.hov[0]) { const H = c.hov.shift(); this.log(`Yakıt: askıda kalmaya ${H} s`, 'FUEL'); }
-    const Tn = P.lastThr * st.T * 1000, he = (norm(rs) - R_SITE) * 1000 + TOUCH.EXIT;
+    const Tn = P.lastThr * st.T * 1000, he = (norm(rs) - this.site.r) * 1000 + TOUCH.EXIT;
     if (!c.dust && Tn > 0 && he < dustOnset(Tn)) { c.dust = true; this.log(`Toz kalkıyor: motor çıkışı yüzeyden ${he.toFixed(0)} m yukarıda (itki ${(Tn / 1000).toFixed(1)} kN)`, 'DUST'); }
   }
   navSel() { const [rs, vs] = this.P.s.seleno(); return this.nav ? this.nav.estimate(rs, vs) : [rs, vs]; }            // güdümün bildiği Ay merkezli durum
@@ -947,12 +949,12 @@ export class Mission {
 
   *descent() {
     const P = this.P, stg = this.veh.active;
-    const [, vs0] = P.s.seleno(), s0 = siteIcrf(P.s.t), up0 = unit(s0);
+    const [, vs0] = P.s.seleno(), s0 = this.site.icrf(P.s.t), up0 = unit(s0);
     this.drAxis = unit(sub(vs0, scale(up0, dot(vs0, up0))));
     const st = { phase: 'BRAKE', tph: P.s.t }, jn = new Join();
     if (!this.nav) this.navStart();
     P.phase = 'PDI'; P.hMaxBurn = 0.2;
-    this.log(`PDI ateşleme (irtifa ${(norm(P.s.seleno()[0]) - R_SITE).toFixed(2)} km)`, 'PDI');
+    this.log(`PDI ateşleme (irtifa ${(norm(P.s.seleno()[0]) - this.site.r).toFixed(2)} km)`, 'PDI');
     const gHi = [GATE_HI.x, 0, GATE_HI.z], vHi = [GATE_HI.vx, 0, GATE_HI.vz], gLo = [GATE_LO.x, 0, GATE_LO.z], vLo = [GATE_LO.vx, 0, GATE_LO.vz];
     const zem = (p, v, g, pf, vf, tgo) => [0, 1, 2].map((k) =>
       (6 * (pf[k] - (p[k] + v[k] * tgo + 0.5 * g[k] * tgo * tgo))) / (tgo * tgo) - (2 * (vf[k] - (v[k] + g[k] * tgo))) / tgo);
@@ -992,14 +994,14 @@ export class Mission {
     const mk = (t0) => {
       const [rs, vs] = this.navSel(), m = this.veh.mass();
       return { r0: scale(rs, 1000), v0: scale(vs, 1000), m0: m, mDry: m - stg.prop + O.RESERVE, rho1: stg.thr_min * stg.T * 1000, rho2: O.THR_MARGIN * stg.T * 1000, alpha: 1 / (stg.isp * G0m),
-        gfun, surfaceR: R_SITE * 1000, floorMargin: 0, soft: O.SOFT,
+        gfun, surfaceR: this.site.r * 1000, floorMargin: 0, soft: O.SOFT,
         point: O.CONE ? { sched: O.CONE.map(([tgo, deg]) => [tgo, Math.cos(deg * Math.PI / 180)]) } : O.POINT_DEG ? { cosTheta: Math.cos(O.POINT_DEG * Math.PI / 180), tail: O.POINT_TAIL } : undefined,
         point2: !O.CONE && O.END_DEG ? { cosTheta: Math.cos(O.END_DEG * Math.PI / 180), tail: O.END_TAIL } : undefined,
         funnel: { vd0: O.VD_GATE, kd: O.KD, vh0: O.VH0, kh: O.KH, tail: O.FUNNEL_TAIL },
-        target: (tf) => { const tl = t0 + tf, sU = siteIcrf(tl), up = unit(sU), rf = add(scale(sU, 1000), scale(up, O.GATE_H)), vsite = cross(E.omegaMoon(tl), rf);
+        target: (tf) => { const tl = t0 + tf, sU = this.site.icrf(tl), up = unit(sU), rf = add(scale(sU, 1000), scale(up, O.GATE_H)), vsite = cross(E.omegaMoon(tl), rf);
           return { rf, vf: sub(vsite, scale(up, O.VD_GATE)), up, vsite }; } };
     };
-    const [, vs0] = P.s.seleno(), s0 = siteIcrf(P.s.t), up0 = unit(s0);
+    const [, vs0] = P.s.seleno(), s0 = this.site.icrf(P.s.t), up0 = unit(s0);
     this.navStart();
     this.status = 'İniş yörüngesi hesaplanıyor…'; yield 'COMPUTE';
     const t0 = P.s.t, R = solvePDG(mk(t0), { Nfinal: O.N });
@@ -1009,9 +1011,9 @@ export class Mission {
     let plan = { t0, sol: R.sol };
     const info = this.descentInfo = { tf: R.tf, fuel: R.fuel, calls: R.calls, planMs: R.ms, replans: 0, fails: 0, replanMs: 0, violMax: R.sol.violMax ?? 0, gateT: null, plan };
     P.phase = 'PDI'; P.hMaxBurn = 0.2;
-    this.log(`PDI ateşleme (irtifa ${(norm(P.s.seleno()[0]) - R_SITE).toFixed(2)} km)`, 'PDI');
+    this.log(`PDI ateşleme (irtifa ${(norm(P.s.seleno()[0]) - this.site.r).toFixed(2)} km)`, 'PDI');
     this.log(`Optimal iniş planı (SOCP): ${R.tf.toFixed(0)} s, ~${R.fuel.toFixed(0)} kg yakıt (Δv ${(stg.isp * G0m * Math.log(this.veh.mass() / R.sol.m[R.sol.N])).toFixed(0)} m/s), ${R.calls} çözüm / ${R.ms} ms`, 'PLAN', { fuel: R.fuel, tf: R.tf });
-    const alt = () => norm(this.navSel()[0]) - R_SITE, altTrue = () => norm(P.s.seleno()[0]) - R_SITE;          // km: güdümün bildiği / gerçek irtifa
+    const alt = () => norm(this.navSel()[0]) - this.site.r, altTrue = () => norm(P.s.seleno()[0]) - this.site.r;          // km: güdümün bildiği / gerçek irtifa
     const st = { mode: 'PDG', fails: 0 };
     const clampThr = (T) => Math.min(1.0, Math.max(stg.thr_min, T / stg.T));
     let lastU = null;                                                         // en son uygulanan itki ivmesi vektörü (m/s²): yeni plana kesintisiz geçiş için
@@ -1086,7 +1088,7 @@ export class Mission {
   // en alçaktaki ayağın yüzeyden yüksekliği (m): fiziksel nokta ayak düzleminin merkezidir (sahne: model ayak tabanı); gövde θ yatıksa bir ayak R_PAD·sinθ daha alçaktadır
   padAlt() {
     const [rs] = this.P.s.seleno(), up = unit(rs), ax = this.P.att ? this.P.att.axis() : up;
-    return (norm(rs) - R_SITE) * 1000 - TOUCH.R_PAD * Math.sqrt(Math.max(0, 1 - dot(ax, up) ** 2));
+    return (norm(rs) - this.site.r) * 1000 - TOUCH.R_PAD * Math.sqrt(Math.max(0, 1 - dot(ax, up) ** 2));
   }
   // temas ışığı: ayakların altından sarkan 1,70 m'lik sondalardan biri yüzeye değdi
   contactLight() {
@@ -1106,7 +1108,7 @@ export class Mission {
     const h0 = [P.hMaxBurn, P.hMaxCoast]; P.hMaxBurn = Math.min(P.hMaxBurn, 0.02); P.hMaxCoast = Math.min(P.hMaxCoast, 0.02);          // temas anı ~2 cm içinde
     if (!pads()) yield* this.until(this.contact.t + TOUCH.REACT, ctrl, pads);
     if (!pads()) {
-      const tc = P.s.t, thr0 = P.lastThr, hold = P.att ? P.att.axis() : unit(siteIcrf(tc));
+      const tc = P.s.t, thr0 = P.lastThr, hold = P.att ? P.att.axis() : unit(this.site.icrf(tc));
       this.contact.tStop = tc;
       this.log(`Motor durduruldu: temas ışığından ${(tc - this.contact.t).toFixed(1)} s sonra (itki ${TOUCH.DECAY.toFixed(1)} s'de söner), araç ${this.padAlt().toFixed(2)} m'den ayaklarına düşüyor`, 'ENGINE_STOP');
       const decay = (Pp) => { const f = (Pp.s.t - tc) / TOUCH.DECAY; return [f < 1 ? thr0 * (1 - f) : 0, hold]; };
@@ -1141,8 +1143,8 @@ export class Mission {
       env: { vel: env.ok, vzMax: env.vzMax, att: attOk, rate: rateOk, slope: slopeOk }, tip: { margin: tip.margin, dirDeg: tip.dirDeg, stable: tip.stable, phiDeg: tip.phiDeg },
       tContact: this.contact ? this.contact.t : null, tStop: this.contact ? this.contact.tStop : null, why };
     P.lastThr = 0;
-    // yüzey evresi: ayak düzlemi yüzeye (R_SITE) oturur, Ay'a bağlı konum; yönelim TOUCH.SETTLE s'de zemin normaline oturur (sapma korunur)
-    const M0 = E.moonIcrfToMe(t), up = unit(rs), rPin = scale(up, R_SITE), nI = mtv(Rf, surfaceNormal(slope));
+    // yüzey evresi: ayak düzlemi yüzeye (this.site.r) oturur, Ay'a bağlı konum; yönelim TOUCH.SETTLE s'de zemin normaline oturur (sapma korunur)
+    const M0 = E.moonIcrfToMe(t), up = unit(rs), rPin = scale(up, this.site.r), nI = mtv(Rf, surfaceNormal(slope));
     let qSet = q;
     if (q) { const a = qRot(q, Z_AXIS), th = vAngle(a, nI); qSet = th > 1e-12 ? qNormalize(qMul(qSwing(a, nI, q, th), q)) : q; }
     const t0 = this.contact ? this.contact.t : t;

@@ -1,7 +1,8 @@
 // LS19 fizik iş parçacığı (Web Worker): görev + motor burada koşar, ana iş parçacığı yalnız çizer.
 import * as E from './engine.js';
 import * as EO from './earth.js';
-import { Mission, R_SITE, STAGES, LANDING_MODES } from './mission.js';
+import { Mission, STAGES, LANDING_MODES } from './mission.js';
+import { validSite, DEFAULT_SITE } from './moonsite.js';
 import { initConic, conicReady } from './conic.js';
 import { makeLive, etOf } from './live.js';
 import { EphStore } from './ephstore.js';
@@ -27,7 +28,8 @@ async function setupDate(d) {
   await loadKernels();
   if (d.landing && LANDING_MODES[d.landing]) landingMode = d.landing;
   const startMs = d.startMs;
-  const def = !d.design && K.def && Math.abs(K.def.startMs - startMs) < 1000 ? K.def : null;
+  // hazır tasarım (Apollo 11 iniş yeri) yalnız varsayılan Ay iniş yerinde kullanılır: başka yer seçiliyse tasarım baştan yapılır
+  const def = !d.design && K.def && Math.abs(K.def.startMs - startMs) < 1000 && !(d.cfg && validSite(d.cfg.moonSite) !== DEFAULT_SITE) ? K.def : null;
   T_START = d.design ? d.tStart : def ? def.tStart : tOfUtcMs(startMs) - 86400;   // efemeris başlangıcı: seçilen günden 1 gün önce
   await K.eph.ensure(etOf(T_START) - 86400, etOf(T_START) + 120 * 86400);       // efemeris başlangıcı + görev süresi (ana iş parçacığıyla aynı pencere)
   makeLive(K.spk, K.pck, K.eo, T_START);
@@ -190,7 +192,7 @@ function tick() {
   let local = null;
   const rm = E.moonPos(x.t), vm = E.moonVel(x.t);
   const rs = E.sub(x.r, rm), vs = E.sub(x.v, vm);
-  if (E.norm(rs) - R_SITE < 300) {
+  if (E.norm(rs) - M.site.r < 300) {
     const L = M.localState(x.t, rs, vs);
     local = { p: L.p, v: L.v };
   }

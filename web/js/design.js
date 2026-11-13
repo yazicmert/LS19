@@ -14,7 +14,8 @@
 //   5) TLI ve fazlama (varış noktası halo boyunca kayar; halo ve iniş zamanlaması sabit kalır)
 //  Araç boyutlandırma: Δv bütçesinden iniş aracı ve TLI kademesi yakıtı (varsayılandan küçük olmaz).
 import * as E from './engine.js';
-import { STAGES as BASE_STAGES, siteIcrf, R_SITE } from './mission.js';
+import { STAGES as BASE_STAGES } from './mission.js';
+import { siteOf, validSite, DEFAULT_SITE } from './moonsite.js';
 import { ROCKETS, DEFAULT_ROCKET, stageRecord, parkPropellant, rocketOf } from './rockets.js';
 import { LEGACY_SITE, minIncl, incPenalty, padAllowed, homeSite, inclRange, azInRange } from './pads.js';
 import { HALO_PRESETS, haloMember, ephemerisHalo } from './halo.js';
@@ -71,6 +72,8 @@ export function normalizeConfig(c) {
   out.moon.llo.revs = Math.min(40, Math.max(1, Math.round(+out.moon.llo.revs)));
   // fırlatma aracı (rockets.js); varsayılan yazılmaz: hazır tasarımların önbellek anahtarı değişmesin
   if (cfg.rocket && cfg.rocket !== DEFAULT_ROCKET && ROCKETS[cfg.rocket]) out.rocket = cfg.rocket;
+  // Ay iniş yeri (moonsite.js); varsayılan (Apollo 11) yazılmaz: hazır tasarımların ve önbelleğin anahtarı değişmesin. Kutup bölgeleri desteklenmez (validSite)
+  if (cfg.moonSite && validSite(cfg.moonSite) !== DEFAULT_SITE) out.moonSite = validSite(cfg.moonSite);
   out.moon.halo.revs = Math.min(6, Math.max(1, Math.round(+out.moon.halo.revs)));
   if (!HALO_PRESETS[out.moon.halo.preset]) out.moon.halo.preset = 'NRHO92';
   if (out.moon.type !== 'HALO') out.moon.type = 'LLO';
@@ -81,7 +84,7 @@ function configLabel(cfg) {
   const park = `Dünya park ${e.h} km, i ${e.inc}°, ${e.revs} tur` + (e.raise && e.raise.n ? ` + ${e.raise.n} yükseltme yakışı (apoje ${e.raise.ha} km)` : '');
   const moon = m.type === 'HALO' ? `${HALO_PRESETS[m.halo.preset].name}, ${m.halo.revs} tur + LLO ${m.llo.h} km, ${m.llo.revs} tur`
                                   : `LLO ${m.llo.h} km, ${m.llo.revs} tur`;
-  return (cfg.rocket ? rocketOf(cfg.rocket).name + ' · ' : '') + (cfg.site ? cfg.site.name + ' · ' : '') + `${park} · ${moon}`;
+  return (cfg.rocket ? rocketOf(cfg.rocket).name + ' · ' : '') + (cfg.site ? cfg.site.name + ' · ' : '') + `${park} · ${moon}` + (cfg.moonSite ? ' · ' + siteOf(cfg.moonSite).name : '');
 }
 
 // tasarım bağlamı: yapılandırmadan türetilen sabitler
@@ -96,7 +99,7 @@ function ctx(cfg, stages) {
   return { cfg, H_PARK, R_PARK, PARK_REVS: cfg.earth.revs, incList, H_LLO, R_LLO, N_LLOm, P_LLO, N_REV, VINF: 0.85, RAISE, RA, V_PRE,
     STAGES: stages || BASE_STAGES.map((s, i) => (i === 0 && cfg.rocket ? stageRecord(cfg.rocket) : { ...s })),
     ROCKET: cfg.rocket || null, SITE: cfg.site || null,
-    site: cfg.site || LEGACY_SITE,
+    site: cfg.site || LEGACY_SITE, moonSite: siteOf(cfg.moonSite || DEFAULT_SITE),          // site: fırlatma rampası (Dünya); moonSite: Ay iniş yeri
     tLof: (tP) => tP + 700.0 + (N_REV + 0.5) * P_LLO, arrState: null };
 }
 
@@ -111,17 +114,18 @@ function lstsq(J, F) {                           // en küçük kareler; eksik b
 }
 
 // ---------------------------------------------------------------- Ay tarafı
-export function sunElevationAtSite(t) {
-  const s = siteIcrf(t), up = unit(s), sun = sub(E.sunPos(t), add(E.moonPos(t), s));
+// site: moonsite.js siteOf(...) sonucu (varsayılan Apollo 11)
+export function sunElevationAtSite(t, site = siteOf(DEFAULT_SITE)) {
+  const s = site.icrf(t), up = unit(s), sun = sub(E.sunPos(t), add(E.moonPos(t), s));
   return Math.asin(dot(up, unit(sun))) * 180 / Math.PI;
 }
-function findLandingWindow(tFrom) {       // Güneş SUN_EL_TARGET'ı yükselerek geçtiği ilk an
-  let t = tFrom, prev = sunElevationAtSite(t);
+export function findLandingWindow(tFrom, site = siteOf(DEFAULT_SITE)) {       // Güneş SUN_EL_TARGET'ı yükselerek geçtiği ilk an
+  let t = tFrom, prev = sunElevationAtSite(t, site);
   for (let i = 0; i < 24 * 40; i++) {
-    const t2 = t + 3600, e2 = sunElevationAtSite(t2);
+    const t2 = t + 3600, e2 = sunElevationAtSite(t2, site);
     if (prev < SUN_EL_TARGET && e2 >= SUN_EL_TARGET) {
       let a = t, b = t2;
-      for (let k = 0; k < 40; k++) { const m = 0.5 * (a + b); if (sunElevationAtSite(m) < SUN_EL_TARGET) a = m; else b = m; }
+      for (let k = 0; k < 40; k++) { const m = 0.5 * (a + b); if (sunElevationAtSite(m, site) < SUN_EL_TARGET) a = m; else b = m; }
       return 0.5 * (a + b);
     }
     t = t2; prev = e2;
@@ -132,7 +136,7 @@ function findLandingWindow(tFrom) {       // Güneş SUN_EL_TARGET'ı yükselere
 function rotAbout(v, k, a) { const c = Math.cos(a), s = Math.sin(a); return add(add(scale(v, c), scale(cross(k, v), s)), scale(k, dot(k, v) * (1 - c))); }
 // t_L'de iniş yerini içeren LLO düzlemi; tP'deki düzlem J2 düğüm kaymasıyla geriye alınır (uzun LLO kalışında iniş yeri düzlemde kalsın)
 function planeBasis(K, tL, beta, tP = tL) {
-  const s = unit(siteIcrf(tL)), zp = mtv(E.moonIcrfToMe(tL), [0, 0, 1]);
+  const s = unit(K.moonSite.icrf(tL)), zp = mtv(E.moonIcrfToMe(tL), [0, 0, 1]);
   const n0 = unit(sub(zp, scale(s, dot(zp, s))));
   const n = add(scale(n0, Math.cos(beta)), scale(cross(s, n0), Math.sin(beta)));
   let h = scale(n, -1), e1 = s;
@@ -431,7 +435,7 @@ function phasingShift(K, sol, ref = null) {
 // ---------------------------------------------------------------- araç boyutlandırma
 const PDI_DV = 1.915, MCC_RES = 0.020, MARGIN = 1.03;
 function doiDv(K) {                              // LLO -> 15 km perilünlü elips (Hohmann yarısı)
-  const r1 = K.R_LLO, r2 = R_SITE + 15, a = (r1 + r2) / 2;
+  const r1 = K.R_LLO, r2 = K.moonSite.r + 15, a = (r1 + r2) / 2;
   return Math.sqrt(E.MU_M / r1) - Math.sqrt(E.MU_M * (2 / r1 - 1 / a));
 }
 function sizeLander(K, lunarDv) {
@@ -509,7 +513,8 @@ function* designSteps(tFrom, progress, cfg0) {
   if (K.TLI_NEED != null) D.TLI_NEED = K.TLI_NEED;
   if (K.LANDER_NEED != null) D.LANDER_NEED = K.LANDER_NEED;
   D.EARTH = { h: K.H_PARK, revs: K.PARK_REVS }; D.LLO = { ...(D.LLO || {}), h: K.H_LLO, revs: K.N_REV, P: K.P_LLO };
-  D.sunElAtLanding = sunElevationAtSite(D.t_L - 1620);
+  if (K.moonSite.id !== DEFAULT_SITE) D.MOONSITE = K.moonSite.id;           // yalnız varsayılan değilse: Mission ve görüntü yeri buradan alır (moonsite.js siteOf)
+  D.sunElAtLanding = sunElevationAtSite(D.t_L - 1620, K.moonSite);
   const m0 = D.STAGES.reduce((s, q) => s + q.dry + q.prop, 0);
   log(`Araç: toplam ${m0.toFixed(0)} kg (TLI kademesi yakıtı ${D.STAGES[0].prop} kg, iniş aracı yakıtı ${D.STAGES[1].prop} kg)`, 0.99);
   log(`Tasarım tamam: fırlatma ${E.utcString(D.LAUNCH.t_launch)}, iniş ~${E.utcString(D.t_L - 1620)}, Güneş ${D.sunElAtLanding.toFixed(1)}°`, 1);
@@ -522,7 +527,7 @@ function* designApollo(K, tFrom, log) {
   const vp = Math.sqrt(K.VINF ** 2 + 2 * E.MU_M / K.R_LLO), loiDv = vp - Math.sqrt(E.MU_M / K.R_LLO);
   sizeLander(K, loiDv);
   const LAND_AFTER = 4.35 * 86400 + (K.N_REV - 2) * K.P_LLO;
-  const tL0 = findLandingWindow(tFrom + LAND_AFTER);
+  const tL0 = findLandingWindow(tFrom + LAND_AFTER, K.moonSite);
   log(`Aydınlanma penceresi: iniş ~${E.utcString(tL0)} (Güneş ${SUN_EL_TARGET}° yükseklikte)`, 0.05); yield;
   let tP = tL0 - 700 - (K.N_REV + 0.5) * K.P_LLO;
   let incT = K.incList[0], x0 = null;
@@ -588,11 +593,11 @@ function* designHaloInner(K, tFrom, log) {
   log(`  periyot ${st.periodDays.toFixed(2)} g, perilün ${st.rpKm.toFixed(0)} km, apolün ${st.raKm.toFixed(0)} km, kararlılık ν=${orb.stability.toFixed(2)}`, 0.05); yield;
   const hoh = (r) => Math.PI * Math.sqrt(((r + K.R_LLO) / 2) ** 3 / E.MU_M);        // halo noktasından LLO'ya Hohmann süresi
   const LAND_AFTER = 4.0 * 86400 + (hc.revs + 1.0) * Ts + hoh(st.raKm) + 700 + (K.N_REV + 0.5) * K.P_LLO;
-  const tL = findLandingWindow(tFrom + LAND_AFTER);
+  const tL = findLandingWindow(tFrom + LAND_AFTER, K.moonSite);
   const tP2 = tL - 700 - (K.N_REV + 0.5) * K.P_LLO;
   log(`Aydınlanma penceresi: iniş ~${E.utcString(tL)}; LLO girişi ~${E.utcString(tP2)}`, 0.07); yield;
   // iki ayrılış seçeneği: (a) perilün civarından kısa transfer, (b) apolünden (düzlem değişimi ucuz) uzun transfer
-  const s = unit(siteIcrf(tL)), zp = mtv(E.moonIcrfToMe(tL), [0, 0, 1]), n0 = unit(sub(zp, scale(s, dot(zp, s)))), m0 = cross(s, n0);
+  const s = unit(K.moonSite.icrf(tL)), zp = mtv(E.moonIcrfToMe(tL), [0, 0, 1]), n0 = unit(sub(zp, scale(s, dot(zp, s)))), m0 = cross(s, n0);
   const hOf = (b) => scale(add(scale(n0, Math.cos(b)), scale(m0, Math.sin(b))), -1);
   let dep = null, ref = null, nEval = 0;
   for (const opt of [{ key: 'peri', tof: hoh(st.rpKm), anchorOff: 0, name: 'perilünden' }, { key: 'apo', tof: hoh(st.raKm), anchorOff: 0.5 * Ts, name: 'apolünden' }]) {

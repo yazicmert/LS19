@@ -7,7 +7,7 @@ import { makeUpperStage } from './rocketmodels.js';
 import { rocketOf } from './rockets.js';
 import * as E from './engine.js';
 import { loadTerrain, terrainBasis, HOLE_R } from './terrain.js';
-import { R_SITE, SITE_LAT, SITE_LON, siteIcrf, siteMe } from './mission.js';
+import { VIEW, DEFAULT_SITE } from './moonsite.js';
 import { BODIES } from './ephem.js';
 import { HaloRef } from './halo.js';
 import { AscentView } from './ascentview.js';
@@ -158,7 +158,7 @@ export class World {
       uniforms: { sunDir: eu.sunDir, sunI: eu.sunI }, vertexShader: VS_ATM, fragmentShader: FS_ATM, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
     S.add(this.atm);
     // Ay (LOLA ile yer değiştirmiş)
-    const sd = siteMe();
+    const sd = VIEW.site.me;
     const mu = { colorMap: { value: A.mcol || flat([150, 150, 150, 255]) }, normalMap: { value: A.mnorm || flat([128, 128, 255, 255]) },
       heightMap: { value: A.mh || flat([0, 0, 0, 255]) }, hSize: { value: new THREE.Vector2(...(A.mh ? A.mh.userData.size : [1, 1])) },          // boyut: yükleyici saklar (bitmap GPU'ya yüklenince kapatılır)
       radius: { value: E.R_M }, useHeight: { value: A.mh ? 1 : 0 },
@@ -172,8 +172,9 @@ export class World {
     this.buildTiles(eu, mu);                                           // yüzey parçaları (surfaceview.js)
     // iniş arazisi: üretimi Web Worker'da (~0,9 sn, ana iş parçacığını tutmaz). Gelene dek aynı öznitelik/malzeme kümesiyle yer tutucu ağ durur:
     // gölgelendirici derlemesi (precompile) hazır olur, Ay küresinde delik açılmaz (holeCos 2.0); hazır olunca geometri ve ayrıntı dokusu yerine geçer
+    this.dem11 = A.dem; this.terrainSeq = 0; this.moonSite = VIEW.site;
     if (A.dem) {
-      const B = terrainBasis(SITE_LAT * 180 / Math.PI, SITE_LON * 180 / Math.PI, E.R_M, R_SITE - E.R_M);
+      const S0 = this.moonSite, B = terrainBasis(S0.latDeg, S0.lonDeg, E.R_M, S0.r - E.R_M);
       const ph = new THREE.DataTexture(new Uint8Array([128, 128, 255, 255]), 1, 1); ph.channel = 1; ph.needsUpdate = true;          // yer tutucu normal haritası (aynı uv kanalı: aynı program)
       const mat = new THREE.MeshStandardMaterial({ map: A.mcol, vertexColors: true, roughness: 1.0, metalness: 0.0, color: new THREE.Color(0.8, 0.8, 0.8),
         normalMap: ph, normalScale: new THREE.Vector2(0.9, 0.9) });
@@ -181,7 +182,9 @@ export class World {
       for (const [n, k] of [['position', 3], ['normal', 3], ['uv', 2], ['uv1', 2], ['color', 3]]) g0.setAttribute(n, new THREE.BufferAttribute(new Float32Array(3 * k), k));
       this.terrain = new THREE.Mesh(g0, mat); this.terrain.receiveShadow = true; this.terrain.visible = false; this.terrain.frustumCulled = false;
       this.terrainSite = B.sitePos; this.terrainReady = false; S.add(this.terrain);
-      loadTerrain(A.dem, SITE_LAT * 180 / Math.PI, SITE_LON * 180 / Math.PI, E.R_M, R_SITE - E.R_M).then(({ geometry, detail }) => {
+      const seq = this.terrainSeq;
+      loadTerrain(A.dem, S0.latDeg, S0.lonDeg, E.R_M, S0.r - E.R_M).then(({ geometry, detail }) => {
+        if (seq !== this.terrainSeq) { geometry.dispose(); detail.dispose(); return; }        // bu arada başka iniş yeri seçildi
         const t = this.terrain, old = t.geometry, oldMap = t.material.normalMap;
         t.geometry = geometry; t.material.normalMap = detail; t.frustumCulled = true; old.dispose(); oldMap.dispose();
         this.holeCos0 = Math.cos(HOLE_R / E.R_M); this.terrainReady = true;                // sonraki karede placeTerrain görünürlüğü ve deliği ayarlar
@@ -285,6 +288,27 @@ export class World {
   // Araç modeli hazırla: glTF Y-yukarı → gövde çerçevesi (z itki ekseni, motor çanı −z), birim metre (grup ölçeği 1e-3). Modeller NASA'nın resmî Apollo modellerinden üretilir (tools/apollo_modelleri.mjs):
   // iniş aracı ← LM, Ay yörünge kademesi ← hizmet modülü, TLI kademesi ← Saturn V S-IVB; yerleşim sayıları (çan çıkışı, iticiler halkası, kademe boyu) dosyanın extras'ında (userData) gelir.
   // Dosya yoksa basit yedek geometri çizilir.
+  // Ay iniş yeri değişince (app.js, görev hazır): küredeki delik yönü, arazi yaması ve işaretçi birlikte taşınır. Apollo 11: ölçülmüş LOLA 16 ppd yaması
+  // (site_dem.json); öteki yerler: küresel dokudan türetilmiş yama (site_dems.json, yalnız gerekince indirilir). Eski yükleme sıra numarasıyla atılır.
+  async setMoonSite(site) {
+    if (!this.terrain || (this.moonSite && this.moonSite.id === site.id)) return;
+    this.moonSite = site; const seq = ++this.terrainSeq;
+    if (this.labels.site) this.labels.site.textContent = `${site.name.split(' · ')[0]} iniş yeri`;
+    this.moonU.siteDir.value.set(site.me[0], site.me[1], site.me[2]);            // yüzey parçaları da aynı uniform nesnesini paylaşır
+    this.terrainReady = false; this.terrain.visible = false; this.holeCos0 = 2.0; this.moonU.holeCos.value = 2.0;
+    let dem = this.dem11;
+    if (site.id !== DEFAULT_SITE) {
+      this.demsP ||= fetch('data/site_dems.json').then((r) => { if (!r.ok) throw new Error('site_dems.json'); return r.json(); });
+      try { dem = (await this.demsP).sites[site.id]; } catch (e) { this.demsP = null; dem = null; }
+    }
+    if (seq !== this.terrainSeq || !dem) return;
+    const hS = site.r - E.R_M, B = terrainBasis(site.latDeg, site.lonDeg, E.R_M, hS);
+    const { geometry, detail } = await loadTerrain(dem, site.latDeg, site.lonDeg, E.R_M, hS);
+    if (seq !== this.terrainSeq) { geometry.dispose(); detail.dispose(); return; }
+    const t = this.terrain, old = t.geometry, oldMap = t.material.normalMap;
+    t.geometry = geometry; t.material.normalMap = detail; t.frustumCulled = true; old.dispose(); if (oldMap) oldMap.dispose();
+    this.terrainSite = B.sitePos; this.holeCos0 = Math.cos(HOLE_R / E.R_M); this.terrainReady = true;
+  }
   prepModel(scene3, kind) {
     const g = new THREE.Group();
     if (!scene3) {
@@ -543,7 +567,7 @@ export class World {
     const pxOf = (R, c) => { const d = norm(sub(c, eye)); return (R / d) * (this.canvas.clientHeight / 2) / Math.tan(this.camera.fov * Math.PI / 360); };
     this.beaconE.visible = this.cine.on && !!this.cine.beacon && pxOf(E.R_E, [0, 0, 0]) < 9; rel([0, 0, 0], this.beaconE.position);
     this.beaconM.visible = this.cine.on && !!this.cine.beacon && pxOf(E.R_M, rm) < 9; rel(rm, this.beaconM.position);
-    const siteG = add(rm, siteIcrf(t)); rel(siteG, this.siteMarker.position);
+    const siteG = add(rm, VIEW.site.icrf(t)); rel(siteG, this.siteMarker.position);
     this.siteMarker.visible = norm(sub(siteG, eye)) > 25 && norm(sub(rm, eye)) < 60000;
     // çizgiler
     this.updateLines(x, t, rm, central, eye, extra);
@@ -602,7 +626,7 @@ export class World {
     const lander = k === this.nStages - 1;
     const dg = this.dust;
     if (info.central === 'M') {
-      const up = unit(siteIcrf(t)), sitePt = add(rm, siteIcrf(t)), axA = info.drAxis || unit(cross([0, 0, 1], up)), xx = unit(sub(axA, scale(up, dot(axA, up)))), yy = cross(up, xx);
+      const up = unit(VIEW.site.icrf(t)), sitePt = add(rm, VIEW.site.icrf(t)), axA = info.drAxis || unit(cross([0, 0, 1], up)), xx = unit(sub(axA, scale(up, dot(axA, up)))), yy = cross(up, xx);
       this._m4 = this._m4 || new THREE.Matrix4(); this._m4.makeBasis(V3(xx), V3(yy), V3(up)); dg.group.quaternion.setFromRotationMatrix(this._m4); rel(sitePt, dg.group.position);
       if (lander && thr > 0.02) {
         const zA = [zNow.x, zNow.y, zNow.z], eng = add(info.vehPos, scale(zA, this.place.lander.exitZ * KM)), h = dot(sub(eng, sitePt), up) * 1000, cosT = dot(zA, up);

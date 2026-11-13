@@ -256,6 +256,18 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   check('1. ve 2. adım tamam işaretli (görev kurulu)', await page.evaluate(() => ['gorev', 'arac'].every((t) => document.querySelector(`#lab-ay > .tabs .tab[data-tab="${t}"]`).classList.contains('done'))));
   check('1. adım: profil ve tarih görünür, yörünge ayrıntıları katlı', (await vis(page, '#cfgProfile')) && (await vis(page, '#dateInput')) && !(await page.evaluate(() => document.querySelector('#cfgBox').open)));
   await shot(page, 'a1-gorev');
+  // Ay iniş yeri: Apollo 15 seçilip tasarlanınca küredeki delik, arazi yaması, işaretçi ve HUD yarıçapı o yere taşınır; Apollo 11'e dönülür
+  {
+    const ready = () => page.waitForFunction(() => window.LS19.ui.design && document.querySelector('#loading').style.display !== 'flex' && !/Tasarlanıyor/.test(document.querySelector('#aySum-gorev').textContent), null, { timeout: 280000 });
+    await page.selectOption('#cfgMoonSite', 'A15'); await page.click('#btnDesign'); await page.waitForTimeout(500); await ready();
+    const okA15 = await page.waitForFunction(() => window.LS19.world.moonSite && window.LS19.world.moonSite.id === 'A15' && window.LS19.world.terrainReady, null, { timeout: 280000 }).then(() => true, () => false);
+    const st = await page.evaluate(() => { const W = window.LS19.world, d = W.moonU.siteDir.value, m = W.moonSite, sp = W.terrainSite, c = m.me.map((x) => x * m.r);
+      return { id: m.id, design: window.LS19.ui.design.MOONSITE, dirErr: Math.hypot(d.x - m.me[0], d.y - m.me[1], d.z - m.me[2]), patchKm: Math.hypot(sp[0] - c[0], sp[1] - c[1], sp[2] - c[2]), info: document.querySelector('#moonSiteInfo').textContent, label: document.querySelector('.lbl-site').textContent }; });
+    check('iniş yeri Apollo 15: tasarım MOONSITE taşır, küredeki delik yönü ve arazi yaması o yerde (< 1 km), yarıçap kaynağı ve etiket gösterilir', okA15 && st.design === 'A15' && st.dirErr < 1e-9 && st.patchKm < 1 && /1735,36 km/.test(st.info) && /küresel doku/.test(st.info) && /Apollo 15/.test(st.label), JSON.stringify(st));
+    await page.selectOption('#cfgMoonSite', 'A11'); await page.click('#btnDesign'); await page.waitForTimeout(500); await ready();
+    const okA11 = await page.waitForFunction(() => window.LS19.world.moonSite.id === 'A11' && window.LS19.world.terrainReady && !window.LS19.ui.design.MOONSITE, null, { timeout: 280000 }).then(() => true, () => false);
+    check('Apollo 11\'e dönünce delik, yama ve tasarım yeniden Huzur Denizi\'nde (varsayılan tasarıma alan yazılmaz)', okA11);
+  }
   await page.click('#tab-gorev [data-goto=arac]');
   check('"Devam" 2. adımı açar: araç ve güdüm kartları, seçili olanlar işaretli', (await stepOn()) === 'arac' && await page.evaluate(() => document.querySelector('#tab-arac [data-vehicle="two"]').classList.contains('on') && document.querySelector('#tab-arac [data-landing="opt"]').classList.contains('on')));
   await page.click('#tab-arac [data-landing="zem"]');

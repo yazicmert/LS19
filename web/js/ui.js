@@ -1,12 +1,14 @@
 // LS19 arayüzü: HUD, görev paneli (olaylar, Δv bütçesi, grafikler, yörünge elemanları)
 import * as E from './engine.js';
-import { R_SITE, STAGES, siteIcrf } from './mission.js';
+import { STAGES } from './mission.js';
+import { VIEW, LUNAR_SITES, DEFAULT_SITE, siteOf } from './moonsite.js';
 import { ControlPanel } from './controlpanel.js';
 import { sunElevationAtSite, PROFILES, normalizeConfig } from './design.js';
 import { ROCKETS, ROCKET_IDS, DEFAULT_ROCKET, rocketOf, tliCapacity, parkPropellant } from './rockets.js';
 import { ROCKET_INFO } from './rocketinfo.js';
 import { dvKeys, DV_NAMES, dvFromEvents } from './dvbudget.js';
 import { fmt, fmtDur } from './format.js';
+import { ns, ew } from './i18n.js';
 
 import { ellipsoidAlt, OMEGA_E } from './geo.js';
 import { linkState, shadowAt, envAt, stationById, NET_NAME, HANDOVER_KM } from './groundnet.js';
@@ -88,6 +90,11 @@ export class UI {
       go(b.dataset.date === 'today' ? new Date().toISOString().slice(0, 10) : b.dataset.date)));
     // görev yapılandırması (modüler park yörüngeleri)
     $('#cfgProfile').addEventListener('change', (e) => { if (PROFILES[e.target.value]) this.setConfig(PROFILES[e.target.value].cfg); });
+    // Ay iniş yeri (moonsite.js): değişince Tasarla ile görev o yere yeniden tasarlanır
+    const ms = $('#cfgMoonSite');
+    for (const [id, S] of Object.entries(LUNAR_SITES)) { const o = document.createElement('option'); o.value = id; o.textContent = S.name; ms.appendChild(o); }
+    ms.value = DEFAULT_SITE; ms.addEventListener('change', () => { this.moonSiteInfo(); this.syncProfileSel(); });
+    this.moonSiteInfo();
     for (const id of ['cfgEh', 'cfgEi', 'cfgEr', 'cfgRn', 'cfgRa', 'cfgMt', 'cfgHp', 'cfgHr', 'cfgLh', 'cfgLr'])
       $('#' + id).addEventListener('change', () => { this.syncProfileSel(); this.syncCfgVis(); });
     document.querySelectorAll('.cfg input').forEach((el) => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') go($('#dateInput').value); }));
@@ -105,7 +112,7 @@ export class UI {
   // ------------------------------------------------------------------ görev yapılandırması
   getConfig() {
     const n = (id) => parseFloat($('#' + id).value);
-    return normalizeConfig({ rocket: this.rocket, site: this.site || undefined, earth: { h: n('cfgEh'), inc: n('cfgEi'), revs: n('cfgEr'), raise: { n: n('cfgRn') || 0, ha: n('cfgRa') } },
+    return normalizeConfig({ rocket: this.rocket, site: this.site || undefined, moonSite: $('#cfgMoonSite').value, earth: { h: n('cfgEh'), inc: n('cfgEi'), revs: n('cfgEr'), raise: { n: n('cfgRn') || 0, ha: n('cfgRa') } },
       moon: { type: $('#cfgMt').value, llo: { h: n('cfgLh'), revs: n('cfgLr') }, halo: { preset: $('#cfgHp').value, revs: n('cfgHr') } } });
   }
   setConfig(c) {
@@ -113,11 +120,18 @@ export class UI {
     set('cfgEh', cfg.earth.h); set('cfgEi', cfg.earth.inc); set('cfgEr', cfg.earth.revs); set('cfgRn', cfg.earth.raise.n); set('cfgRa', cfg.earth.raise.ha); set('cfgMt', cfg.moon.type);
     set('cfgHp', cfg.moon.halo.preset); set('cfgHr', cfg.moon.halo.revs); set('cfgLh', cfg.moon.llo.h); set('cfgLr', cfg.moon.llo.revs);
     if (c && 'rocket' in c) this.setRocket(c.rocket);                     // profiller roketi taşımaz: seçili roket kalır
+    if (c && 'moonSite' in c) { $('#cfgMoonSite').value = cfg.moonSite || DEFAULT_SITE; this.moonSiteInfo(); }     // profiller iniş yerini taşımaz: seçili yer kalır
     if (c && 'site' in c) { this.site = c.site || null; this.onSiteSync && this.onSiteSync(this.site); }   // rampa da (profiller taşımaz)
     this.syncProfileSel(); this.syncCfgVis();
   }
   // profil eşleşmesi roketten bağımsız; rampa profilin eğimini kendi sınırına çekiyorsa (ör. Baykonur ≥ 46°) yine aynı profil sayılır
-  profileKeyOf(cfg) { const c = { ...cfg, rocket: undefined }; return Object.keys(PROFILES).find((k) => sameCfg({ ...PROFILES[k].cfg, site: cfg.site }, c)) || 'CUSTOM'; }
+  profileKeyOf(cfg) { const c = { ...cfg, rocket: undefined }; return Object.keys(PROFILES).find((k) => sameCfg({ ...PROFILES[k].cfg, site: cfg.site, moonSite: cfg.moonSite }, c)) || 'CUSTOM'; }
+  // seçili iniş yerinin koordinatı ve yerel yarıçapının kaynağı (Apollo 11: ölçülmüş LOLA yaması; öteki yerler: küresel LOLA dokusundan, ≈ ±0,1 km)
+  moonSiteInfo() {
+    const S = siteOf($('#cfgMoonSite').value), el = $('#moonSiteInfo'); if (!el) return;
+    const ll = `${fmt(Math.abs(S.latDeg), 4)}° ${ns(S.latDeg)} ${fmt(Math.abs(S.lonDeg), 4)}° ${ew(S.lonDeg)}`;
+    el.textContent = `${ll} · yerel yarıçap ${fmt(S.r, 2)} km (${S.src}). Değiştirince Tasarla'ya basın.`;
+  }
   // roket seçimi (yalnız arayüz durumu; görevi app.js yeniden tasarlar). pay: iniş aracı kütlesi (kg; tasarım varsa ondan)
   setRocket(id, msg = '') {
     this.rocket = ROCKETS[id] ? id : DEFAULT_ROCKET;
@@ -347,7 +361,7 @@ export class UI {
       // Ay: ortalama yarıçapa göre (Ay yörüngesi panel ve günlükle aynı); motorlu inişte (q.ph: PDI → temas) iniş yeri yüzeyine göre ve yüzeye göre hız
       if (nearM) {
         const vs = E.sub(q.v, E.moonVel(q.t)), powered = LANDING_PHASES.has(q.ph);
-        alt = powered ? rs - R_SITE : rs - E.R_M;
+        alt = powered ? rs - VIEW.site.r : rs - E.R_M;
         vv = powered ? E.norm(E.sub(vs, E.cross(E.omegaMoon(q.t), rsv))) : E.norm(vs);
       } else { alt = ellipsoidAlt(q.r, E.earthIcrfToItrf(q.t)[2]); vv = E.norm(q.v); }
       this.series.t.push((q.t - this.tLaunch) / 3600); this.series.alt.push(Math.max(alt, 0.001)); this.series.spd.push(vv);
@@ -367,7 +381,7 @@ export class UI {
   // kontrol paneli bağlamı: araç kademeleri, tasarım, olaylar, nominal Δv, iniş yeri
   cpCtx(t) {
     const D = this.design;
-    return { stages: (D && D.STAGES) || STAGES, design: D, events: this.events, nominal: this.nominal, siteIcrf, rSite: R_SITE, tLaunch: this.tLaunch, phaseName: (p) => this.phaseLabel(p), next: this.nextEvent(t) };
+    return { stages: (D && D.STAGES) || STAGES, design: D, events: this.events, nominal: this.nominal, siteIcrf: VIEW.site.icrf, rSite: VIEW.site.r, tLaunch: this.tLaunch, phaseName: (p) => this.phaseLabel(p), next: this.nextEvent(t) };
   }
 
   // HUD bağlantı satırı (DSN Now gibi): etkin ağ ve istasyon, istasyondan yükseklik, gidiş-dönüş ışık süresi; LOS ve nedeni; gölge; öngörüdeki sıradaki LOS/AOS/gölge olayı
