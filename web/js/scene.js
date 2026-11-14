@@ -137,11 +137,14 @@ export class World {
   // Eşzamanlı hata denetimi paralel derlemeyi engeller: derleme sırasında kapatılır, sonra bağlama durumu toplu denetlenir.
   async precompile() {
     const r = this.renderer, gl = r.getContext(), was = r.debug.checkShaderErrors;
+    // bindirme parçalarının (WELD/HLS, Kaguya) saydam geçiş programları da: derleme boyunca sahnede görünmez boyutta bir mesh; malzeme atılmaz (program önbellekte kalır)
+    const warm = [this.earthWeld, this.earthHls, this.moonTiles2].filter((L) => L && L.overlay).map((L) => { const o = new THREE.Mesh(new THREE.PlaneGeometry(1e-6, 1e-6), L.warmMaterial()); o.frustumCulled = false; this.scene.add(o); return o; });
+    this.warmMats = warm.map((o) => o.material);
     try {
       r.debug.checkShaderErrors = false;
       if (r.extensions.has('KHR_parallel_shader_compile')) await Promise.race([r.compileAsync(this.scene, this.camera), new Promise((res) => setTimeout(res, 10000))]);          // takılırsa ilk çizimde derlenir
       else r.compile(this.scene, this.camera);                                                    // eklenti yok: eşzamanlı derle (yine de ilk çizim karesinden önce, yükleme ekranındayken); compileAsync uyarı basardı
-    } catch (e) { /* ilk çizimde derlenir */ } finally { r.debug.checkShaderErrors = was; }
+    } catch (e) { /* ilk çizimde derlenir */ } finally { r.debug.checkShaderErrors = was; for (const o of warm) { this.scene.remove(o); o.geometry.dispose(); } }
     for (const p of r.info.programs || []) if (p.program && !gl.getProgramParameter(p.program, gl.LINK_STATUS)) console.error('Gölgelendirici bağlanamadı:', gl.getProgramInfoLog(p.program));
   }
 

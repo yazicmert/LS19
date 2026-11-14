@@ -159,7 +159,8 @@ function writeAyUrl(u = new URL(location.href)) {
 }
 function syncAyUrl() { if (!window.history || !history.replaceState) return; const u = writeAyUrl(); if (u.href !== location.href) history.replaceState(history.state, '', u); }
 // Canlı Gökyüzü katmanları: uydular (SGP4 worker + 3B modeller), asteroitler (katalog, DAMIT, worker), takip/asteroit/çarpma arayüzleri ve veri güncelleyici (canlı veri
-// indirmeleri). Açılışı geciktirmesin diye açılışta kurulmaz: görev hazır olup arayüz boşa çıkınca (ya da gökyüzü çalışma alanı daha önce açılırsa o an) tek seferlik kurulur.
+// indirmeleri). Gökyüzü motoru ilk kez açılınca (Canlı Gökyüzü, Laboratuvar › Asteroit saptırma / Lagrange noktaları: switchEngine) tek seferlik kurulur; ?prefetch=1 ile görev
+// hazır olur olmaz. Ay görevinde hiç kurulmaz: orada uydu/asteroit çizilmez, kurulum ise telefonda saniyeler süren bir kare boşluğu ve gereksiz indirme demekti (docs/performans.md §15).
 let skyInit = false;
 function initSky() {
   if (skyInit || !S.K) return; skyInit = true;
@@ -185,12 +186,6 @@ function initSky() {
   if (q.get('ast') !== '0') Object.assign(jobs, { neo: (v) => S.asts.load('neo', v), mb: (v) => S.asts.load('mb', v), sentry: (v) => S.asts.loadSentry(v) });
   if (q.get('launch') !== '0') jobs.launch = (v) => S.launches.load(v);
   updater = new Updater(jobs); updater.onChange = () => S.astui.renderUpdater(updater); updater.start();
-}
-// arayüz boşa çıkınca kur (rIC yoksa kısa gecikmeyle); ?prefetch=1 ile görev hazır olur olmaz
-function idleInitSky() {
-  if (skyInit) return;
-  if (new URLSearchParams(location.search).get('prefetch') === '1') { initSky(); return; }
-  if (window.requestIdleCallback) requestIdleCallback(initSky, { timeout: 8000 }); else setTimeout(initSky, 3000);
 }
 // ------------------------------------------------------------------ çalışma alanları
 const curT = () => (S.MODE === 'sky' ? skyT : S.latest ? S.latest.t : 0);
@@ -543,7 +538,7 @@ worker.onmessage = (e) => {
     $('#loading').style.display = 'none';
     if (d.seek) { if (!S.running) setPlay(true); }
     else { S.running = false; setBtn($('#btnPlay'), 'play', 'Başlat'); }
-    if (d.type === 'ready' && !urlApplied) { urlApplied = true; applyUrlParams(); idleInitSky(); }
+    if (d.type === 'ready' && !urlApplied) { urlApplied = true; applyUrlParams(); if (new URLSearchParams(location.search).get('prefetch') === '1') initSky(); }
     if (d.type === 'ready') syncAyUrl();
     ayRefresh();
   } else if (d.type === 'state') {

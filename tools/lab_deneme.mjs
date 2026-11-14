@@ -72,7 +72,8 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
 // ================================================================= masaüstü
 {
   const { ctx, page, errors } = await open({ viewport: { width: 1280, height: 800 } }, '?sats=0&mode=lab');
-  await page.waitForFunction(() => window.LS19.asts && window.LS19.asts.n > 0, null, { timeout: 120000 });
+  await page.waitForTimeout(9000);                                                                    // eski boşta kurulumun (requestIdleCallback, en geç 8 sn) süresinden uzun
+  check('Laboratuvar merkezi / Ay görevi açıkken gökyüzü katmanları kurulmaz (gökyüzü motoru ilk açılınca kurulur)', await page.evaluate(() => !window.LS19.asts && !window.LS19.sats && !window.LS19.updater && !window.LS19.deflect));
   check('iki dallı üst çubuk: Canlı Gökyüzü · Laboratuvar (Laboratuvar etkin)', await page.evaluate(() => { const b = [...document.querySelectorAll('#modebar [data-workspace]')]; return b.map((x) => x.dataset.workspace).join() === 'sky,lab' && b[1].classList.contains('on') && document.body.dataset.mode === 'lab'; }));
   check('Laboratuvar paneli görünür; Canlı Gökyüzü paneli ve saati gizli', (await vis(page, '#labPanel')) && !(await vis(page, '#skyPanel')) && !(await vis(page, '#skyHud')));
   check('ana sayfa motoru değiştirmez: açılıştaki görev motoru sürer, görev çubuğu görünür, zaman/kamera çubuğu gizli', await page.evaluate(() => window.LS19.mode === 'mission' && document.body.dataset.engine === 'mission') && (await vis(page, '#controls')) && !(await vis(page, '#skyControls')));
@@ -81,6 +82,12 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await shot(page, '1-merkez');
 
   await page.click('#lab-home [data-exp=saptirma]');
+  {
+    const t0 = Date.now(), st = await page.evaluate(() => ({ n: window.LS19.asts ? window.LS19.asts.n : -1, msg: document.querySelector('#dfCatalog').textContent, dis: [...document.querySelectorAll('#dfQuick .chip')].every((b) => b.disabled) }));
+    check('saptırma ilk açılışta gökyüzü katmanlarını kurar; katalog gelene dek durum yazılır (güncelleyici: "bekleniyor" / "Katalog yükleniyor…") ve çipler kapalıdır', st.n > 0 || (st.n === 0 && st.msg.trim().length > 0 && st.dis), JSON.stringify(st));
+    await page.waitForFunction(() => window.LS19.asts && window.LS19.asts.n > 0, null, { timeout: 120000 });
+    console.log(`    (saptırma ilk açılış → katalog hazır: ${Date.now() - t0} ms)`);
+  }
   check('deneye girince geri düğmesi ve başlık: Laboratuvar › Asteroit saptırma', (await vis(page, '#labBack')) && (await txt(page, '#labTitle')) === 'Asteroit saptırma' && (await stepOpen(page)) === 1);
   check('saptırma gökyüzü motoruna geçirir: zaman/kamera çubuğu görünür; uçuş göstergesi ve görev çubuğu gizli; adres exp=saptirma', await page.evaluate(() => window.LS19.mode === 'sky' && document.body.dataset.engine === 'sky' && /exp=saptirma/.test(location.search)) && (await vis(page, '#skyControls')) && !(await vis(page, '#hud')) && !(await vis(page, '#controls')));
   check('2–4. adımlar kilitli (önce hedef seçilmeli)', await page.evaluate(() => [2, 3, 4].every((n) => document.querySelector(`#dfSteps .step[data-step="${n}"] .sh`).disabled)));
@@ -249,6 +256,8 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
 // ================================================================= Laboratuvar › Ay görevi: dört adım (Görev → Araç ve güdüm → Uçuş → Sonuç)
 {
   const { ctx, page, errors } = await open({ viewport: { width: 1280, height: 800 } }, '?sats=0&ast=0');
+  check('açılış derlemesi bindirme parçalarının (WELD/HLS, Kaguya) saydam geçiş programlarını da kapsar', await page.evaluate(() => { const w = window.LS19.world, r = w.renderer, gl = r.getContext(), M = w.warmMats || [];
+    return M.length === 3 && M.every((m) => m.transparent && r.properties.get(m).currentProgram && gl.getProgramParameter(r.properties.get(m).currentProgram.program, gl.LINK_STATUS)) && !w.scene.children.some((o) => M.includes(o.material)); }));
   const stepOn = () => page.evaluate(() => (document.querySelector('#lab-ay > .tabs .tab.on') || {}).dataset?.tab);
   check('Ay görevi dört adımla açılır: 1. adım (Görev) etkin, özetler dolu', (await stepOn()) === 'gorev' && await page.evaluate(() => ['gorev', 'arac', 'ucus', 'dv'].join() === [...document.querySelectorAll('#lab-ay > .tabs .tab')].map((b) => b.dataset.tab).join()
     && /Eki 2026/.test(document.querySelector('#aySum-gorev').textContent) && document.querySelector('#aySum-arac').textContent === 'İki kademe · Optimal' && /Hazır|T\+/.test(document.querySelector('#aySum-ucus').textContent) && document.querySelector('#aySum-dv').textContent === 'İnişte belli olur'),
@@ -406,8 +415,10 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   const { ctx, page, errors } = await open({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, '?sats=0&mode=lab');
   check('telefon: Laboratuvar paneli kendiliğinden açılır, üst çubuk 390 px\'e sığar (yatay taşma yok)', await page.evaluate(() => { const m = document.querySelector('#modebar').getBoundingClientRect(); return document.querySelector('#labPanel').classList.contains('open') && m.left >= 0 && m.right <= innerWidth + 0.5 && document.documentElement.scrollWidth <= innerWidth; }));
   await shot(page, 'm1-merkez');
+  check('telefon: merkezde gökyüzü katmanları kurulmamış', await page.evaluate(() => !window.LS19.asts && !window.LS19.sats));
+  await page.click('#lab-home [data-exp=saptirma]');
   await page.waitForFunction(() => window.LS19.asts && window.LS19.asts.n > 0, null, { timeout: 120000 });
-  await page.click('#lab-home [data-exp=saptirma]'); await page.click('#dfQuick [data-des="99942"]'); await waitCas(page);
+  await page.click('#dfQuick [data-des="99942"]'); await waitCas(page);
   await shot(page, 'm2-gecis');
   await page.click('#dfNext2'); await shot(page, 'm3-itki');
   await page.click('#dfRun'); await page.waitForFunction(() => !document.querySelector('#dfResult').hidden, null, { timeout: 280000 });

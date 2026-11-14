@@ -69,6 +69,12 @@ export class TileLayer {
     n.radKm = Math.max(Math.sin(Math.min(n.rad, 1.5)) * this.R, 1e-3); this.nodes.set(key, n); return n;
   }
   up(n) { return n.z > this.minZ ? this.node(n.z - 1, n.x >> 1, n.y >> 1) : null; }
+  // bindirme katmanının saydam geçiş malzemesi (update › fade: ata parçası yokken transparent = true): World.precompile açılışta derlesin diye.
+  // Saydamlık program anahtarını değiştirir (three: opaque); yoksa ilk parça solarken büyük gövde gölgelendiricisi çizim karesinde derlenirdi.
+  warmMaterial() {
+    const t = new THREE.DataTexture(new Uint8Array(4), 1, 1); t.needsUpdate = true;
+    const m = this.material(t, this.node(this.rootZ, 0, 0)); m.transparent = true; return m;
+  }
   // cam: kamera konumu (cisim sabit çerçevede, km) · fwd: bakış yönü (birim) · fov: dikey (rad) · aspect · viewH: piksel
   update(cam, fwd, fov, aspect, viewH) {
     this.frame++; this.allHidden = false; const now = performance.now();
