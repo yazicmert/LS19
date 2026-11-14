@@ -37,6 +37,7 @@ export class SurfaceView {
       material: (tex, n) => new THREE.ShaderMaterial({ uniforms: { ...mu, tileMap: { value: tex }, useTile: { value: 1 }, tileAlpha: { value: 1 }, tilePull: { value: 0.0735 }, latCut: { value: Math.sin(58 * Math.PI / 180) }, radius: { value: E.R_M + 0.009 }, lodDelta: { value: Math.min(7, Math.max(0, Math.log2(baseTexel(E.R_M) / n.texelKm))) } },
         vertexShader: VS_BODY, fragmentShader: FS_MOON }) });
     this.moonTiles2.group.renderOrder = 2;
+    for (const L of [this.earthTiles, this.earthWeld, this.earthHls, this.moonTiles, this.moonTiles2]) L.renderer = this.renderer;      // promote: bu karede çizilecek parçanın dokusu açılırken hemen yüklenir (tiles.js)
   }
   // iniş arazisi yaması: yalnız yakınken çizilir; uzakta (yama ~0,25°'nin altında) hem yama hem Ay küresindeki delik kapatılır (yarım milyon üçgen ve delik gölgelendirme işi kalmaz)
   // Ufuk ötesi: yama, kameradan bakışta Ay'ın ufkunun tamamen ötesindeyse görünemez (LLO'da yörüngenin çoğu): çizilmez. Görülebilen bir noktaya
