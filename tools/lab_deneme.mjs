@@ -357,8 +357,8 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await page.click('[data-lgstep="4"] > .sh');
   await page.waitForFunction(() => document.querySelectorAll('#lgHaloTbl tr').length >= 6, null, { timeout: 60000 });
   await page.click('[data-lgfam="nrho"]'); await page.waitForFunction(() => /NRHO/.test(document.querySelector('#lgSum4').textContent), null, { timeout: 60000 });
-  const h = await page.evaluate(() => ({ sum: document.querySelector('#lgSum4').textContent, fly: !document.querySelector('#lgFly').hidden, rows: [...document.querySelectorAll('#lgHaloTbl tr')].map((r) => r.textContent) }));
-  check('Halo: NRHO 9:2 periyodu 6,56 gün, Ay görevi profiline geçiş düğmesi', /6,56 gün/.test(h.sum) && h.fly && h.rows.some((x) => /Artemis profili/.test(x)), h.sum);
+  const h = await page.evaluate(() => ({ wk: !!window.LS19.lagrange.haloWk, sum: document.querySelector('#lgSum4').textContent, fly: !document.querySelector('#lgFly').hidden, rows: [...document.querySelectorAll('#lgHaloTbl tr')].map((r) => r.textContent) }));
+  check('Halo (ayrı iş parçacığında hesaplanır): NRHO 9:2 periyodu 6,56 gün, Ay görevi profiline geçiş düğmesi', h.wk && /6,56 gün/.test(h.sum) && h.fly && h.rows.some((x) => /Artemis profili/.test(x)), h.sum);
   const q = await page.evaluate(() => Object.fromEntries(new URLSearchParams(location.search)));
   check('adres deneyin anahtarlarını taşır (sistem, nokta, hata, süre, halo ailesi)', q.exp === 'lagrange' && q.sistem === 'em' && q.nokta === 'L4' && q.sapma === '500' && q.sure === '365' && q.aile === 'nrho', JSON.stringify(q));
   await page.click('#lgFly');

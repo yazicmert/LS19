@@ -3,7 +3,7 @@
 import * as G from './lagrange.js';
 import { fmt } from './format.js';
 import { $ } from './uiutil.js';
-import { t } from './i18n.js';
+import { t, workerOpts } from './i18n.js';
 
 const IDS = ['L1', 'L2', 'L3', 'L4', 'L5'];
 const COL = { grid: '#2b313c', text: '#9aa3b2', p1: '#f2c94c', p1e: '#2f6fbf', p2: '#c9ced6', bad: '#ff8a3d', good: '#34d399', path: '#60a5fa', halo: '#b48cff', forb: [148, 163, 184, 70] };
@@ -34,7 +34,7 @@ export class LagrangeUI {
     for (const li of root.querySelectorAll('[data-lgstep] > .sh')) li.addEventListener('click', () => this.open(+li.parentElement.dataset.lgstep));
     $('#lgMu').addEventListener('input', () => { this.st.mu = 10 ** +$('#lgMu').value; this.st.Cj = null; this.run = null; this.renderSys(); this.draw(); });
     $('#lgMu').addEventListener('change', () => this.link());
-    $('#lgC').addEventListener('input', () => { const [a, b] = this.cRange(); this.st.Cj = a + (b - a) * +$('#lgC').value / 1000; this.syncC(); this.draw(); });
+    $('#lgC').addEventListener('input', () => { const [a, b] = this.cRange(); this.st.Cj = a + (b - a) * +$('#lgC').value / 1000; this.syncC(); this.drawSoon(); });
     $('#lgC').addEventListener('change', () => this.link());
     $('#lgAz').addEventListener('input', () => { $('#lgAzVal').textContent = fmt(+$('#lgAz').value, 0) + ' km'; });
     $('#lgAz').addEventListener('change', () => { this.st.haloAz = +$('#lgAz').value; this.computeHalo(); });
@@ -50,7 +50,7 @@ export class LagrangeUI {
   show() {
     const first = !this.shown; this.shown = true;
     if (first) {
-      this.fill(); this.renderSys();
+      this.worker(); this.fill(); this.renderSys();
       if (this.fromLink && this.st.point) { this.doRun(true); }
       if (this.fromLink && this.st.haloL) this.computeHalo(true);
     }
@@ -147,13 +147,25 @@ export class LagrangeUI {
     $('#lgSum3').textContent = v.title;
   }
   // ---------------------------------------------------------------- halo
+  // hesap iş parçacığında (lagrangework.js); kaydırıcı yanıttan önce yeniden oynarsa eski yanıt sıra numarasıyla atılır. Worker yoksa (eski tarayıcı) burada.
   computeHalo(quiet = false) {
-    const fam = this.st.haloL || '2', spec = fam === 'nrho' ? { nrho: true } : { L: +fam, Az: this.st.haloAz };
+    const fam = this.st.haloL || '2', spec = fam === 'nrho' ? { nrho: true } : { L: +fam, Az: this.st.haloAz }, id = (this.haloSeq = (this.haloSeq || 0) + 1);
     this.haloBusy = true; $('#lgHaloMsg').textContent = t('Halo yörüngesi hesaplanıyor…');
-    setTimeout(() => {
-      try { this.halo = G.haloOf(spec); $('#lgHaloMsg').textContent = ''; } catch (e) { this.halo = null; $('#lgHaloMsg').textContent = t('Bu genlikte halo yörüngesi bulunamadı; başka bir genlik deneyin.'); }
+    const done = (h, err) => {
+      if (id !== this.haloSeq) return;
+      this.halo = err ? null : h; $('#lgHaloMsg').textContent = err ? t('Bu genlikte halo yörüngesi bulunamadı; başka bir genlik deneyin.') : '';
       this.haloBusy = false; this.renderHalo(); this.draw(); if (!quiet) this.link();
-    }, 20);
+    };
+    if (typeof Worker === 'undefined') { setTimeout(() => { try { done(G.haloOf(spec)); } catch (e) { done(null, e); } }, 20); return; }
+    this.worker(); this.haloCb.set(id, done); this.haloWk.postMessage({ id, spec });
+  }
+  // iş parçacığı deney ilk açılınca kurulur (modülleri halo adımına gelmeden yüklensin: boş sayfada ilk yanıt ~0,23 sn, sonrakiler 0,15–0,2 sn)
+  worker() {
+    if (this.haloWk || typeof Worker === 'undefined') return;
+    this.haloWk = new Worker(new URL('./lagrangework.js', import.meta.url), workerOpts());
+    this.haloWk.onmessage = (e) => { const r = e.data, cb = this.haloCb && this.haloCb.get(r.id); if (cb) { this.haloCb.delete(r.id); cb(r.h, r.err); } };
+    this.haloWk.onerror = () => { const cbs = this.haloCb; this.haloCb = new Map(); this.haloWk = null; for (const cb of cbs.values()) cb(null, 'worker'); };
+    this.haloCb = new Map();
   }
   renderHalo() {
     const h = this.halo, tb = $('#lgHaloTbl tbody'); tb.replaceChildren();
@@ -178,10 +190,12 @@ export class LagrangeUI {
     c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
     g.font = '11px system-ui, sans-serif'; return { g, w, h, dpr };
   }
+  // kaydırıcı sürüklenirken olaylar kareden sık gelebilir: kare başına en çok bir çizim
+  drawSoon() { if (this.rafDraw) return; this.rafDraw = requestAnimationFrame(() => { this.rafDraw = 0; this.draw(); }); }
   draw() {
     if (!this.shown || !this.P) return;
     const c = $('#lgMap'), P0 = this.prep(c); if (!P0) return;
-    const { g, w, h, dpr } = P0, S = this.sys, mu = S.mu, step = this.st.step, haloMode = step === 4 && this.halo;
+    const { g, w, h } = P0, S = this.sys, mu = S.mu, step = this.st.step, haloMode = step === 4 && this.halo;
     const proj = haloMode ? this.st.proj : 'xy', ax = { xy: [0, 1], xz: [0, 2], yz: [1, 2] }[proj];
     // pencere (boyutsuz): tüm sistem ya da küçük cismin yakını (L1–L2 aralığının 1,6 katı)
     const g1 = 1 - mu - this.P[0].x, g2 = this.P[1].x - (1 - mu);
@@ -196,13 +210,14 @@ export class LagrangeUI {
     const view = { x0: cx - (w / 2) / s, x1: cx + (w / 2) / s, y0: cy - (h / 2 - 6) / s, y1: cy + (h / 2 + 6) / s };
     // yasak bölge (Enerji adımı): 2Ω < C
     if (step === 2 && proj === 'xy') {
-      const n = Math.ceil(w / 3), m = Math.ceil(h / 3), grid = G.forbiddenGrid(this.st.Cj, mu, view, n, m);
-      const img = g.createImageData(Math.round(w * dpr), Math.round(h * dpr)), W = img.width, H = img.height, [r0, g0, b0, a0] = COL.forb;
-      for (let py = 0; py < H; py++) {
-        const j = Math.min(m - 1, Math.floor(py / H * m));
-        for (let px = 0; px < W; px++) { if (!grid[j * n + Math.min(n - 1, Math.floor(px / W * n))]) continue; const k = (py * W + px) * 4; img.data[k] = r0; img.data[k + 1] = g0; img.data[k + 2] = b0; img.data[k + 3] = a0; }
-      }
-      g.putImageData(img, 0, 0);
+      // yasak bölge maskesi ızgara çözünürlüğünde (3 CSS pikseli) küçük bir tuvale yazılır, drawImage ile büyütülür: her cihaz pikselini
+      // dolaşmak yüksek yoğunluklu ekranda (DPR 2,6) ~7 kat daha pahalıydı (telefon taklidinde ~30 ms/çizim)
+      const n = Math.ceil(w / 3), m = Math.ceil(h / 3), grid = G.forbiddenGrid(this.st.Cj, mu, view, n, m), [r0, g0, b0, a0] = COL.forb;
+      const mc = this.maskCv || (this.maskCv = document.createElement('canvas')); if (mc.width !== n || mc.height !== m) { mc.width = n; mc.height = m; }
+      const mg = mc.getContext('2d'), img = mg.createImageData(n, m);
+      for (let i = 0; i < n * m; i++) if (grid[i]) { const k = i * 4; img.data[k] = r0; img.data[k + 1] = g0; img.data[k + 2] = b0; img.data[k + 3] = a0; }
+      mg.putImageData(img, 0, 0);
+      g.save(); g.imageSmoothingEnabled = false; g.drawImage(mc, 0, 0, w, h); g.restore();
     }
     // eksenler
     g.strokeStyle = COL.grid; g.beginPath(); g.moveTo(0, Y([0, 0, 0])); g.lineTo(w, Y([0, 0, 0])); g.stroke();
