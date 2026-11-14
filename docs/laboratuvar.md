@@ -21,7 +21,8 @@ LS19
 
 - İki dal üst çubukta eşit düğmelerdir (klavye: **M** ikisi arasında geçer; Laboratuvar'a dönünce açık deney korunur). Telefonda yalnız etkin düğmenin yazısı görünür.
 - **Canlı Gökyüzü gözlem içindir** (gerçek veri, gerçek saat); **Laboratuvar deney içindir** (hedef seç, ayar değiştir, sonucu gör).
-- **Varsayılan açılış Laboratuvar › Ay görevi**: ilk izlenim (görev, iniş, sinematik gösterim) eskisiyle aynıdır. Son açılan alan ve deney `localStorage`'da hatırlanır (`ls19.mode`, `ls19.exp`).
+- **Varsayılan açılış Laboratuvar › Ay görevi**: ilk izlenim (görev, iniş, sinematik gösterim) eskisiyle aynıdır. Telefonda ilk açılışta deney paneli açık gelir (hangi deneyde olunduğu ve geri dönüş görünsün); panel düğmesiyle kapatılıp uçuş tam ekran izlenir.
+- **Laboratuvar'ın gökyüzü deneyleri** (saptırma, çarpma riski, Lagrange) gökyüzü motorunu kullanır ama Canlı Gökyüzü'nün takip ve gözlemci etiketlerini çizmez; uydu bulutu yalnız Çarpma riski'nde görünür (konusu uydular). "Canlı göster" ayarına dokunulmaz: Canlı Gökyüzü'ne dönünce her şey eski hâlindedir. Son açılan alan ve deney `localStorage`'da hatırlanır (`ls19.mode`, `ls19.exp`).
 - Deneyde başlığın solundaki **‹ Laboratuvar** düğmesi ya da **Esc** ana sayfaya döner (önce açık bilgi kartı ya da menü kapanır). **K** Ay görevinin Kontrol sekmesini açar.
 - Adresler: `?mode=lab` (ana sayfa), `?mode=lab&exp=ay`, `?mode=lab&exp=saptirma`, `?mode=lab&exp=lagrange`, `?mode=sky`. Eski bağlantılar çalışır: `?mode=mission` ve Ay görevi sekmeleri (`?tab=gorev|kontrol|dv|grafik|yorunge|efemeris`) Laboratuvar › Ay görevi'ni, `?tab=saptirma` Asteroit saptırma'yı, Canlı Gökyüzü sekmeleri (`?tab=takip|uydular|asteroit|carpma`) Canlı Gökyüzü'nü açar. Çözüm saf bir işlevdedir (`labui.js` › `resolveView`), Node'da sınanır.
 

@@ -540,7 +540,7 @@ worker.onmessage = (e) => {
     if (d.type === 'ready') revealAt = performance.now() + 1500; else $('#loading').style.display = 'none';      // yeni görev: örtü ilk gerçek kare bitince kalkar (frame › reveal)
     if (d.seek) { if (!S.running) setPlay(true); }
     else { S.running = false; setBtn($('#btnPlay'), 'play', 'Başlat'); }
-    if (d.type === 'ready' && !urlApplied) { urlApplied = true; applyUrlParams(); if (new URLSearchParams(location.search).get('prefetch') === '1') initSky(); }
+    if (d.type === 'ready' && !urlApplied) { urlApplied = true; applyUrlParams(); if (new URLSearchParams(location.search).get('prefetch') === '1') initSky(); if (narrowScreen() && S.VIEW === 'lab') $('#labPanel').classList.add('open'); }      // telefon: ilk açılışta deney paneli açık (hangi deney, geri dönüş görünsün)
     if (d.type === 'ready') syncAyUrl();
     ayRefresh();
   } else if (d.type === 'state') {
@@ -608,9 +608,12 @@ function skyFrame(ms, now, dt) {
     const t = skyT, full = !!world.full, eye = world.eye;
     if (eye) {
       S.sats.suppressLabel = (id) => S.tracker.has(id); S.sats.obsView = world.cam.mode === 'OBS';
-      S.sats.update(t, eye, world.camera, canvas, !full, !full);
+      // Laboratuvar'daki gökyüzü deneyleri Canlı Gökyüzü'nün takip ve gözlemci etiketlerini göstermez; uydu bulutu yalnız Çarpma riski'nde (konusu uydular).
+      // "Canlı göster" ayarına (sats.enabled) dokunulmaz: Canlı Gökyüzü'ne dönünce eski hâli gelir.
+      const labExp = S.VIEW === 'lab' ? labui.page : null, showSats = !labExp || labExp === 'carpma';
+      S.sats.update(t, eye, world.camera, canvas, showSats && !full, showSats && !full);
       S.asts.update(t, eye, world.camera, canvas, full); S.astui.update(eye);
-      S.tracker.update(t, eye, world.camera, canvas, true, full);
+      S.tracker.update(t, eye, world.camera, canvas, !labExp, full);
     }
     loadMoonSats(t);
     if (now - lastSkyHud > 200) { lastSkyHud = now; S.skyui.hud(t, ms); S.launchcal.tick(); ui.pickTick(t, now); S.tracker.computePasses(); }

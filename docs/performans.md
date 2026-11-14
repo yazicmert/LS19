@@ -371,7 +371,7 @@ Sağlam karşılaştırma önceki koddan A + B'ye olandır (5,16 → 1,97 sn; 1,
 §16'daki sondasız telefon taklidi, adres `?mode=sky` (kayıtlı seçimle açılış da aynı `applyUrlParams` yolundan geçer). İki senaryo:
 
 - **Veri kapalı:** `sats=0&ast=0`.
-- **Tam veri:** gerçek `api/*.js` işleyicileri yerel fikstürlerle beslenir ve satırlar çoğaltılır: 16.600 uydu; 38.000 NEO, 15.000 ana kuşak ve 2.000 Truva asteroiti; kimlikler benzersiz. Uydu kopyalarının adları değiştirildi: 3B modelli uydu sayısı özgün 400 kayıtlık fikstürle aynı (82). SupGP'nin GitHub kopyası kesildi, aksi hâlde dış isteğin yetişip yetişmemesine göre 286 ek uydu rastgele birleşiyordu.
+- **Tam veri:** gerçek `api/*.js` işleyicileri yerel fikstürlerle beslenir ve satırlar çoğaltılır: 16.600 uydu; 38.000 NEO, 15.000 ana kuşak ve 2.000 Truva asteroiti; kimlikler benzersiz. Uydu kopyalarının adları değiştirildi: 3B modelli uydu sayısı özgün 400 kayıtlık fikstürle aynı (82). Fikstür 2 saatten eski göründüğünden uygulama arka planda CelesTrak'ı doğrudan dener (`celestrakDirect` → `setGp`, profilde görüldü); dış isteğin yetiştiği koşularda gerçek katalog (16.886 uydu, 219 modelli) fikstürün yerini aldı. SupGP'nin GitHub kopyası da kesildi, ama asıl değişkenlik buydu.
 
 Pencere: veri tam yüklendikten 5 sn sonrasına dek. Karşılaştırmalar aynı ölçüm betiğiyle, eski sürümler ayrı kapılardan sunularak yapıldı; kol başına 5 koşu.
 
@@ -396,6 +396,6 @@ Sonuçta program sayısı hazırda 26, aile modelleri yüklenince 27 ve sonra sa
 | En uzun uzun görev | 1,32 sn | 0,88 sn |
 | Toplam uzun görev | 3,0 sn | 2,6 sn |
 
-Yeni kodun bir koşusunda SupGP yine birleşti (16.886 uydu); kesilmemiş başka bir yol var, o koşu aykırı (4,2 sn toplam).
+Yeni kodun bir koşusunda gerçek CelesTrak kataloğu fikstürün yerini aldı (16.886 uydu; doğrudan CelesTrak kesilmemişti); o koşu aykırı (4,2 sn toplam).
 
 **Kalan (taklide özgü).** Veri gelişindeki 0,85–1,25 sn'lik görevde derleme yok. Profile göre (iki koşu) zamanın ~%95'i ısıtılmış programın ilk kullanımında three'nin eşzamanlı durum sorgusunda: `getUniforms` → `getProgramInfoLog` + `getShaderInfoLog`. Önceki turlardaki gibi GPU sürecindeki birikimi bekleyen bir eşitleme. Gerçek cihazda program veri gelmeden saniyeler önce paralel derlenmiş olacağından bu sorgunun hemen dönmesi beklenir; cihazda `?olcum=1` ile doğrulanmalı. `checkShaderErrors` kapatılmadı: ilk kullanımda uniform listesi yine eşzamanlı sorgulanır, bekleme oraya kayar. Hazırdan ~1–1,5 sn sonraki 0,2–0,45 sn'lik iki görev ve +3 sn'deki 0,25–0,35 sn'lik görev atfedilmedi; ana iş parçacığı JS'idir ve telefonda sayılır (iş parçacıkları taklitte yavaşlatılmaz).

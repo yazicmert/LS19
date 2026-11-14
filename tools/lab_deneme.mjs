@@ -404,9 +404,14 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await page.click('#lab-home [data-exp=carpma]');
   check('Çarpma riski Laboratuvar\'da açılır, Canlı Gökyüzü\'ne atmaz: görünüm lab, motor gökyüzü, başlık, sayfa görünür, adres exp=carpma', await page.evaluate(() => window.LS19.view === 'lab' && window.LS19.mode === 'sky' && document.body.dataset.mode === 'lab'
     && document.body.dataset.exp === 'carpma' && /exp=carpma/.test(location.search) && !document.querySelector('#lab-carpma').hidden && document.querySelector('#labTitle').textContent === 'Çarpma riski' && !document.querySelector('#labBack').hidden));
+  await page.waitForTimeout(1500);
+  check('Laboratuvar\'da Canlı Gökyüzü\'nün gözlemci ve takip etiketleri çizilmez', await page.evaluate(() => window.LS19.tracker.obsLabel.style.display === 'none'));
   await page.click('#cpMode [data-m=ast]');
   const n = await page.waitForFunction(() => document.querySelectorAll('#cpAstList li').length || 0, null, { timeout: 120000 }).then((h) => h.jsonValue(), () => 0);
   check('Asteroitler: Sentry sanal çarpıcıları Laboratuvar sayfasında listelenir', n > 0, n + ' satır');
+  await page.evaluate(() => window.LS19.setWorkspace('sky')); await page.waitForTimeout(1500);
+  check('Canlı Gökyüzü\'ne dönünce gözlemci etiketi geri gelir', await page.evaluate(() => window.LS19.tracker.obsLabel.style.display !== 'none'));
+  await page.evaluate(() => window.LS19.setWorkspace('lab'));
   await page.click('#labBack');
   check('geri: Laboratuvar merkezi; Çarpma riski ağaçta deney olarak duruyor (kısayol yok)', await page.evaluate(() => !document.querySelector('#lab-home').hidden && !!document.querySelector('#lab-home [data-exp=carpma]') && !document.querySelector('[data-go]')));
   check('konsol hatası yok (Çarpma riski)', errors.length === 0, errors.slice(0, 3).join(' | '));
@@ -473,11 +478,13 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   check('konsol hatası yok (telefon)', errors.length === 0, errors.slice(0, 3).join(' | '));
   await ctx.close();
 }
-// ================================================================= telefon: varsayılan açılış (Ay görevi, panel kapalı)
+// ================================================================= telefon: varsayılan açılış (Ay görevi, ilk açılışta panel açık)
 {
   const { ctx, page, errors } = await open({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, '?sats=0&ast=0');
-  check('telefon: varsayılan açılışta panel kapalı (3B uçuş ana içerik), görev çubuğu ve üst çubuk sığar', await page.evaluate(() => { const m = document.querySelector('#modebar').getBoundingClientRect(); return !document.querySelector('#labPanel').classList.contains('open') && window.LS19.labui.page === 'ay' && m.right <= innerWidth + 0.5 && document.documentElement.scrollWidth <= innerWidth; }) && (await vis(page, '#controls')));
+  check('telefon: varsayılan açılışta Ay görevi paneli açık (deney adı ve geri düğmesi görünür), görev çubuğu ve üst çubuk sığar', await page.evaluate(() => { const m = document.querySelector('#modebar').getBoundingClientRect(); return document.querySelector('#labPanel').classList.contains('open') && !document.querySelector('#labBack').hidden && window.LS19.labui.page === 'ay' && m.right <= innerWidth + 0.5 && document.documentElement.scrollWidth <= innerWidth; }) && (await vis(page, '#controls')));
   await shot(page, 'm0-acilis');
+  await page.click('#btnPanel');
+  check('telefon: panel düğmesi açılış panelini kapatır (3B uçuş tam ekran)', await page.evaluate(() => !document.querySelector('#labPanel').classList.contains('open')));
   check('konsol hatası yok (telefon açılış)', errors.length === 0, errors.slice(0, 3).join(' | '));
   await ctx.close();
 }
