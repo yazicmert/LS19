@@ -126,7 +126,7 @@ export class SkyView {
           // ayrıntı düzeyi: küre ağının ekrandaki en kötü kiriş hatası (sagitta R(1 − cos(√2·π/N)), Dünya/Ay ile aynı ölçüt: lodErr) 0,2 pikselin altındaki
           // en kaba dilim sayısı; ince ağa 0,3 pikselde dönülür. Güneş sistemi görünümünde dokuz küre birkaç piksellikken 256×128 (toplam 524 bin üçgen) çiziliyordu.
           const cur = pl.seg || 256; let N = 256;
-          for (const n of [32, 64, 128]) if (this.lodErr(dCam - info.R, info.R * (1 - Math.cos(Math.SQRT2 * Math.PI / n))) <= (n < cur ? 0.2 : 0.3)) { N = n; break; }
+          if (!this.noPlanetLod) for (const n of [32, 64, 128]) if (this.lodErr(dCam - info.R, info.R * (1 - Math.cos(Math.SQRT2 * Math.PI / n))) <= (n < cur ? 0.2 : 0.3)) { N = n; break; }
           if (N !== cur) { pl.geos = pl.geos || { 256: pl.mesh.geometry }; pl.mesh.geometry = pl.geos[N] || (pl.geos[N] = sphereGeometry(info.R, N, N / 2)); pl.seg = N; }
           pl.mesh.position.copy(pl.m.position); pl.mesh.material.uniforms.sunDir.value.copy(unit3(sub(sS[0], p)));
           planetQuaternion(info, pl.vis, et, pl.mesh.quaternion);                    // IAU dönme fazı: dokudaki özellikler gerçek yerinde
