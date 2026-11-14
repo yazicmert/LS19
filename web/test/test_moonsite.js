@@ -50,7 +50,7 @@ makeLive(SPK, PCK, eo, tStart);
   check(/world\.setMoonSite\(setViewSite\(d\.design\)\)/.test(rd('app.js')) && /validSite\(d\.cfg\.moonSite\) !== DEFAULT_SITE/.test(rd('worker.js')) && /seq !== this\.terrainSeq/.test(rd('scene.js')) && /siteDir\.value\.set/.test(rd('scene.js')),
     'app.js görüntülenen yeri ve araziyi görev hazır olunca günceller; worker hazır tasarımı yalnız Apollo 11\'de kullanır; sahne eski arazi yüklemesini atar, deliği taşır');
   // tasarım başlatan her yol seçili iniş yerini taşır: ana tasarım ve pencere taramaları ui.getConfig() ile, profil karşılaştırması açıkça
-  check(/moonSite: this\.ui\.getConfig\(\)\.moonSite/.test(rd('profilecompare.js')) && (rd('windowscan.js').match(/designMissionAsync\(/g) || []).length === 2 && (rd('windowscan.js').match(/this\.ui\.getConfig\(\)/g) || []).length >= 2 && /moonSite: \$\('#cfgMoonSite'\)\.value/.test(rd('ui.js')),
+  check(/moonSite: this\.ui\.getConfig\(\)\.moonSite/.test(rd('profilecompare.js')) && (rd('windowscan.js').match(/this\.design\(/g) || []).length === 2 && (rd('windowscan.js').match(/designMissionAsync\(/g) || []).length === 1 && (rd('windowscan.js').match(/this\.ui\.getConfig\(\)/g) || []).length >= 2 && /moonSite: \$\('#cfgMoonSite'\)\.value/.test(rd('ui.js')),
     'profil karşılaştırması, pencere taramaları ve ana tasarım seçili Ay iniş yerini kullanır');
 }
 // 2) aydınlanma penceresi her yerde
@@ -106,7 +106,7 @@ for (const id of Object.keys(LUNAR_SITES)) {
   let def = ''; try { designMission(tOf(startMs), () => {}, { ...PROFILES.APOLLO.cfg }); } catch (e) { def = e.message; }
   const src = (f) => fs.readFileSync(new URL('../js/' + f, import.meta.url), 'utf8');
   check(def === '' && /retry = opts\.retry && cfg\.moonSite && cfg\.moonSite !== DEFAULT_SITE \? 2 : 0/.test(src('design.js')), 'yeniden deneme yalnız istenince ve yalnız Apollo 11 dışında (hazır tasarımlar bit düzeyinde aynı)');
-  check(/cfg, \{ retry: true \}\)/.test(src('app.js')) && !/retry/.test(src('windowscan.js')) && !/retry/.test(src('profilecompare.js')), 'yeniden denemeyi yalnız Tasarla açar; pencere/gün taramaları ve profil karşılaştırması açmaz');
+  check(/cfg, \{ retry: true \}\)/.test(src('app.js')) && !/retry/.test(src('windowscan.js')) && !/retry/.test(src('profilecompare.js')) && !/retry/.test(src('designwork.js').replace(/\/\/.*$/gm, '')), 'yeniden denemeyi yalnız Tasarla açar; pencere/gün taramaları ve profil karşılaştırması (iş parçacığı dahil) açmaz');
   check(ephSpanDays({ moonSite: 'A16' }) === 200 && ephSpanDays({ MOONSITE: 'A16' }) === 200 && ephSpanDays({}) === 120 && ephSpanDays(null) === 120 && D.LAUNCH.t_launch + 40 * 86400 < tStart + 200 * 86400,
     'efemeris penceresi: Apollo 11 dışında 200 gün (iki yeniden deneme + görev sığar), varsayılanda 120 gün (eskisi gibi)');
 }

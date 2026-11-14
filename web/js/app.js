@@ -350,12 +350,15 @@ const missionEtWindow = (tStart, x = null) => [etOf(tStart) - 86400, etOf(tStart
 function tOfUtcMs(ms) { const jdU = ms / 86400000 + 2440587.5; return (jdU + EO.ttMinusUtc(jdU + 69 / 86400) / 86400 - E.jdTdb(0)) * 86400; }
 // tarih seç -> görev o tarih için tasarlanır (ana iş parçacığında, adım adım: bazı tarayıcılarda worker'lar
 // düşük öncelikte koşup birkaç kat yavaşlıyor), sonra tasarım fizik worker'ına gönderilir.
+// Ölçüm (2026-11, telefon taklidi CPU ×4, Apollo 15): Apollo profili 13 sn (en uzun görev 5,3 sn), NRHO 132 sn (129 sn uzun görev). Bilerek burada
+// kalır: yükleme katmanı altında beklenir, etkileşim yoktur. Canlı sayfadaki tasarımlar (profil karşılaştırması) iş parçacığındadır (designwork.js).
 // Canlı efemeris seçilen günden 1 gün önce DE440 durumundan başlar.
 let designSeq = 0;
 async function startDesign(dateStr) {
   const ms = Date.parse(dateStr + 'T00:00:00Z');
   if (!Number.isFinite(ms)) return;
   const id = ++designSeq;
+  compare.cancel(); scanner.cancel();                               // yeni tasarım: süren profil karşılaştırması ve pencere taraması durur (iş parçacığı kapatılır; önbellekten anında biten tasarımı da kaçırmasın)
   S.START_MS = ms; pendingDate = dateStr; S.designing = true; S.latest = null;
   $('#dateInput').value = dateStr; ui.beginDesign(dateStr);
   if (nomWorker) { nomWorker.terminate(); nomWorker = null; }
@@ -691,7 +694,7 @@ window.addEventListener('keydown', (e) => {
 // olaya atla: görev baştan, hedef ana kadar hızlı (ekransız) koşulur — fizik deterministik
 ui.onSeek = (t) => send({ cmd: 'seek', t });
 // ------------------------------------------------------------------ profil karşılaştırması (yörünge optimizasyonu görünümü)
-const compare = new ProfileCompare({ ui, cachedDesign, designCache, cacheKey, tOfUtcMs });
+const compare = new ProfileCompare({ ui, cachedDesign, designCache, cacheKey, tOfUtcMs, missionEtWindow });
 const refreshCompare = (status) => compare.refresh(status);
 ui.onCompare = () => compare.run();
 ui.onProfile = (key) => {
@@ -717,7 +720,7 @@ function applyUrlParams() {
 }
 $('#btnPanel').onclick = () => $('#labPanel').classList.toggle('open');
 $('#btnSkyPanel').onclick = () => (S.VIEW === 'lab' ? $('#labPanel') : $('#skyPanel')).classList.toggle('open');
-window.LS19 = { world, ui, send, ascent, setCam, setPlay, cinema, focusOn, setWorkspace, setSkyCam, clock, followSat, lookAtSat, labui, openLab, aymc, ayabort, lagrange, get mode() { return S.MODE; }, get view() { return S.VIEW; }, get skyT() { return skyT; }, get deflect() { return deflect; },
+window.LS19 = { world, ui, send, ascent, setCam, setPlay, cinema, focusOn, setWorkspace, setSkyCam, clock, followSat, lookAtSat, labui, openLab, aymc, ayabort, lagrange, compare, get mode() { return S.MODE; }, get view() { return S.VIEW; }, get skyT() { return skyT; }, get deflect() { return deflect; },
   get sats() { return S.sats; }, get asts() { return S.asts; }, get astui() { return S.astui; }, get updater() { return updater; }, get tracker() { return S.tracker; }, get skyui() { return S.skyui; }, get launches() { return S.launches; } };
 window.ROCSIM = window.LS19;
 

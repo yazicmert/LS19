@@ -99,6 +99,7 @@ Arazi üretimi (263 bin köşe × 7 krater sınıfı, ~0,85 sn) saf sayısal kod
 | SOCP yeniden planlarını asenkron/ayrı iş parçacığına bölmek | Belirleyicilik: çözümün zamanlaması yola girer; ana iş parçacığını zaten etkilemiyor |
 | Dokuları sıkıştırılmış biçime (KTX2/Basis) çevirmek | GPU belleğini ¼–⅙ düşürür ama araç zinciri (kodlayıcı) ve lisans/yeniden üretim yükü ekler; R8 + düşük bellek katmanı bugünkü ihtiyacı karşılıyor |
 | Çekirdekleri worker'larla paylaşmak | §2: kazanç küçük, `SharedArrayBuffer` başlık ister |
+| "Tasarla"yı iş parçacığına taşımak | Telefon taklidinde (CPU ×4) Apollo × Apollo 15 13 sn (en uzun görev 5,3 sn), NRHO × Apollo 15 132 sn (129 sn uzun görev) ölçüldü; ama bekleme tam ekran yükleme katmanının altında (etkileşim yok, yalnız ilerleme çubuğu takılır) ve `app.js`'teki kayda göre bazı tarayıcılarda iş parçacıkları düşük öncelikle koşup birkaç kat yavaşlıyor (bu ortamda sınanamaz). Canlı sayfadaki tasarımlar (profil karşılaştırması) iş parçacığına taşındı: §13 |
 | Ay ve gezegen küreleri için LOD | Dünya küresi için yapıldı (§13); Ay kabartmalıdır (LOLA yer değiştirmesi köşe ister), gezegenler yalnız Güneş sistemi görünümünde: sonraki tur |
 | `SatInstancer` (14 bin uydu) kare başına döngüsü | Kod incelemesine göre tahminen ~1–2 ms ve yalnız Canlı Gökyüzü'nde (bu ortamda uydu verisi indirilemediği için ölçülemedi); seçim her karede yenilenmezse model "zıplar" |
 | `world.update` içindeki küçük nesne ayırmaları | Kare başına yığın artışı ölçümde ±10 KB (GC payı ~%1–4); okunabilirlik pahasına değmez |
