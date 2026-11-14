@@ -232,6 +232,8 @@ Her hesap, deneyin tüm ayarlarını adres çubuğuna yazar; **Bağlantıyı kop
 - e-katlanma: Dünya–Ay L1 1,48 gün, Güneş–Dünya L2 23,4 gün; tümlemede ölçülen büyüme doğrusal kuramla %3 içinde; L4'e 100 km hatayla bırakılan araç bir yıl < 5.000 km içinde salınır, μ = 0,05'te aynı deneyde ayrılır;
 - halo: genlik aralığının uçlarında (L1 2.000 ve 26.000 km, L2 2.000 ve 34.000 km) üyeler yakınsar ve bir periyot sonra < 1 cm kapanır; NRHO periyodu kameri ayın 2/9'u (6,562 gün), Ay'a ~3.300 km, ν ≈ 1,3.
 
+**Başarım:** halo üyesi ayrı iş parçacığında hesaplanır (`lagrangework.js`; eski yanıtlar sıra numarasıyla atılır, iş parçacığı deney açılınca kurulur). Bütün çizimler kare başında yapılır (rAF) ve yasak bölge `fillRect` dizileriyle çizilir: rAF dışındaki 2D tuval çizimi arkadaki WebGL sahnesinin GPU işini bekletiyordu (ayrıntı `docs/performans.md` §13).
+
 **Sınırlar:** dairesel kısıtlı model (Ay'ın yörünge dışmerkezliği, Güneş'in Dünya–Ay sistemindeki etkisi ve gezegenler yok: Ay görevi ise tam N-cisim modelinde uçar); halo genliği halo kodunun Richardson başlangıcıyla yakınsadığı aralıkla sınırlı (aile boyunca süreklilik yok); Güneş–Dünya ve varsayımsal sistemlerde halo hesaplanmaz; konum koruma yakışları ve bunların Δv'si modellenmez. Ay görevindeki gibi bir "Denemelerim" listesi ve 3B çizim yok.
 
 ## 6. Telefon düzeni
