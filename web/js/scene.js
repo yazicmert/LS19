@@ -144,7 +144,10 @@ export class World {
     this.sunLight.castShadow = true; this.sunLight.shadow.mapSize.set(2048, 2048); this.sunLight.shadow.bias = -0.00015; this.sunLight.shadow.normalBias = 0.00003;
     S.add(this.sunLight); S.add(this.sunLight.target);
     this.ambient = new THREE.AmbientLight(0x8899bb, 0.02); S.add(this.ambient);
-    this.cineFill = new THREE.DirectionalLight(0xaec3ff, 0); S.add(this.cineFill); S.add(this.cineFill.target);      // sinematik kipte soğuk dolgu ışığı (kameradan): gölgedeki gövde silüete dönmesin
+    this.cineFill = new THREE.DirectionalLight(0xaec3ff, 0); S.add(this.cineFill); S.add(this.cineFill.target);
+    // uydu modellerinin dolgu ışığı (satmodels.js kullanır): sahne kurulurken eklenir ki ışıklı malzemelerin programları ilk derlemede onu saysın.
+    // Gökyüzü katmanları sonradan eklediğinde ışık sayısı değişiyor ve iniş aracının 4 programı hazır olduktan sonra yeniden derleniyordu.
+    this.satFill = new THREE.DirectionalLight(0xbfd0ff, 0); this.satFill.name = 'satFill'; S.add(this.satFill); S.add(this.satFill.target);      // sinematik kipte soğuk dolgu ışığı (kameradan): gölgedeki gövde silüete dönmesin
     // Dünya
     const eu = { dayMap: { value: A.day || flat([40, 80, 160, 255]) }, nightMap: { value: A.night || flat([0, 0, 0, 255]) },
       cloudMap: { value: A.clouds || flat([0, 0, 0, 255]) }, specMap: { value: A.spec || flat([0, 0, 0, 255]) },
