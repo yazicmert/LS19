@@ -4,7 +4,7 @@
 Kaba ağın köşeleri ince ağınkilerin alt kümesidir (256 | 1024, 128 | 512, aynı uv ve aynı yer değiştirme), bu yüzden bir kaba üçgenle ince yüzey
 arasındaki fark ≤ kiriş sapması + hücre içindeki en büyük yükseklik farkı. Yükseklik gölgelendiricideki gibi örneklenir (bodyshaders.js › hAt:
 p = uv·boyut − 0,5, boylamda sarma, enlemde kenara kırpma, çift doğrusal; decH = (R·256 + G)/65535·21 − 10). Görüntünün 0. satırı kuzey,
-three.js flipY ile yükler: doku satırı y = görüntü satırı (H − 1 − y). Hem tam (moon_height.png) hem düşük bellek (moon_height_lo.webp) haritası.
+three.js flipY ile yükler: doku satırı y = görüntü satırı (H − 1 − y). Tam (moon_height.png ve masaüstünün yüklediği moon_height.webp) ve düşük bellek (moon_height_lo.webp) haritaları.
 Kullanım: python3 tools/ay_lod.py   (scene.js MOON_RELIEF_CELL bu değerden küçükse hata verir)
 """
 import os, re, sys
@@ -37,7 +37,7 @@ def vertex_heights(H):
 
 
 worst = 0.0
-for name in ('moon_height.png', 'moon_height_lo.webp'):
+for name in ('moon_height.png', 'moon_height.webp', 'moon_height_lo.webp'):
     V = vertex_heights(load(name))
     rng = np.zeros((NLAT // CH, NLON // CW))
     for j in range(NLAT // CH):

@@ -43,7 +43,7 @@ const EARTH_SAG_LO = E.R_E * (1 - Math.cos(Math.SQRT2 * Math.PI / EARTH_SEG[1][0
 // Ay küresi LOD'u: kaba ağın köşeleri ince ağınkilerin alt kümesi (aynı uv, aynı LOLA yer değiştirmesi), bu yüzden hata ≤ kaba kiriş sapması +
 // bir kaba hücre (4×4 ince hücre) içindeki en büyük yükseklik farkı. O fark tam ve düşük bellek yükseklik haritalarında en çok 8,93 km ölçüldü
 // (tools/ay_lod.py; sabit bunun altına düşerse araç hata verir). Kamera ile görünür yüzey arasındaki en kısa uzaklık ≥ d − (R_ay + 11,05 km).
-const MOON_RELIEF_CELL = 9.0;                                                                   // km
+const MOON_RELIEF_CELL = 9.5;                                                                   // km
 const MOON_ERR_LO = E.R_M * (1 - Math.cos(Math.SQRT2 * Math.PI / EARTH_SEG[1][0])) + MOON_RELIEF_CELL;
 const EARTH_LOD_IN = 0.2, EARTH_LOD_OUT = 0.3;                                                 // piksel (en kötü durum üst sınırı; kenar yumuşatmalı sınırda < 24/255 fark)
 // model malzemelerinin PBR değerleri [metalik, pürüzlülük] (kaynak: NASA modellerindeki Maya "blinn" malzemeleri, adlarıyla)
