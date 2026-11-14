@@ -256,13 +256,15 @@ export class SatLayer {
       this.satrecs = null; this.idIndex = null;
       // gerçek 3B modeli olan uydular (yakınlaşınca çizilir)
       this.modelEntries = [];
-      for (let i = 0; i < this.n; i++) { const m = modelFor(this.ids[i], this.names[i]); if (m) this.modelEntries.push({ uid: 'e' + this.ids[i], id: +this.ids[i], key: m.key, name: this.names[i] }); }
+      // aile ve model anahtarları iş parçacığından (sats.js); yoksa (eski iş parçacığı) burada
+      const mk = d.mkeys && d.mkeys.length === this.n ? d.mkeys : null, fk = d.fams && d.fams.length === this.n ? d.fams : null;
+      for (let i = 0; i < this.n; i++) { const key = mk ? mk[i] : (modelFor(this.ids[i], this.names[i]) || {}).key; if (key) this.modelEntries.push({ uid: 'e' + this.ids[i], id: +this.ids[i], key, name: this.names[i] }); }
       this.models.setEntries([...this.modelEntries, ...this.moonModelEntries]);
       // tüm uydular için model ailesi (gerçek modeli olanlar yakında SatModels'e bırakılır)
       this.famKeys = new Array(this.n); this.realIdx = new Map();
       const entryById = new Map(this.modelEntries.map((e) => [e.id, e]));
       for (let i = 0; i < this.n; i++) {
-        const o = this.recordOf(this.ids[i]); this.famKeys[i] = o ? familyOf(o) : 'bus';
+        if (fk) this.famKeys[i] = fk[i]; else { const o = this.recordOf(this.ids[i]); this.famKeys[i] = o ? familyOf(o) : 'bus'; }
         const e = entryById.get(+this.ids[i]); if (e) this.realIdx.set(i, { entry: e, show: showDist(e.key) });
       }
       this.inst.setFamilies(this.famKeys);
