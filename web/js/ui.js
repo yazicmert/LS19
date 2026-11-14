@@ -250,7 +250,6 @@ export class UI {
     if (this.onTab) this.onTab(t, tab);
     if (t === 'grafik') this.charts.forEach((c) => { c._sig = null; c.draw(); });
     if (t === 'kontrol' && this.lastS) this.cp.update(this.lastS, this.cpCtx(this.lastS.t));
-    if (t === 'carpma' && this.onCarpma) this.onCarpma();
   }
   pickTick(t, now) { if (this.pick && now - (this.lastPick || 0) > 500) { this.lastPick = now; this.renderPick(t); } }
   reset(plan, t0, tLaunch) {

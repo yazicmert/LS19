@@ -78,7 +78,7 @@ Canlı Gökyüzü'nün fiziği (Dünya yönelimi, canlı N-cisim efemerisi ve Ay
 
 ### 4.2a Yeniden giriş tahmini (`impact.js`): ikinci denetim
 
-Çarpma sekmesinin yörünge bozunması modeli bağımsız referanslarla sınandı (aynı fizik ayrıca yazılıp hareket denklemleri doğrudan ya da 4.000–20.000 noktalı ortalamayla tümlendi). Dört kusur bulundu ve düzeltildi:
+Çarpma riski deneyinin (eskiden Çarpma sekmesi) yörünge bozunması modeli bağımsız referanslarla sınandı (aynı fizik ayrıca yazılıp hareket denklemleri doğrudan ya da 4.000–20.000 noktalı ortalamayla tümlendi). Dört kusur bulundu ve düzeltildi:
 
 | Sorun | Kanıt | Düzeltme |
 |---|---|---|

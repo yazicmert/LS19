@@ -340,7 +340,6 @@
       <button class="tab on" role="tab" data-tab="takip" aria-selected="true">Takip</button>
       <button class="tab" role="tab" data-tab="uydular" aria-selected="false" tabindex="-1">Uydular</button>
       <button class="tab" role="tab" data-tab="asteroit" aria-selected="false" tabindex="-1">Asteroitler</button>
-      <button class="tab" role="tab" data-tab="carpma" aria-selected="false" tabindex="-1">Çarpma</button>
       <button class="tab" role="tab" data-tab="firlatma" aria-selected="false" tabindex="-1">Fırlatmalar</button>
     </nav>
     <div id="tab-takip" class="tabpage tk" role="tabpanel">
@@ -397,34 +396,6 @@
       <div id="updStatus" class="dinfo small"></div>
       <p class="note">Dünya'ya yakın tüm asteroitler (~42.500) ile büyük ana kuşak asteroitleri (H &lt; 13,5) ve Jüpiter Truvalıları. Konumlar JPL'in oskülatör öğelerinden Kepler çözümüyle hesaplanır. Güneş sistemi kamerasında hepsi, diğer kameralarda yalnız Dünya'nın 0,05 AB (≈19 Ay uzaklığı) yakınındakiler görünür. Bir asteroide tıkla: bilgi kartı; kartta yörünge, kamerayla izleme ve Laboratuvar'da saptırma denemesi.</p>
     </div>
-    <div id="tab-carpma" class="tabpage" role="tabpanel" hidden>
-      <h3>Dünya'ya çarpma ve yeniden giriş</h3>
-      <div id="cpMode" class="cpseg" role="tablist" aria-label="Cisim türü"><button data-m="sat" class="on" role="tab">Uydular</button><button data-m="ast" role="tab">Asteroitler</button></div>
-      <div id="cpSat">
-        <div id="cpSatSum" class="dinfo"></div>
-        <div class="cp-filters">
-          <label class="wide">Kontrol durumu (görev sonu + 5 yıl ≈ fırlatmadan itibaren)<select id="cpCtl"><option value="10" selected>Kontrolsüz olabilecekler (≥ 10 yıllık, son ~14 ayda yörünge koruması yok)</option><option value="5">≥ 5 yıllık</option><option value="15">≥ 15 yıllık</option><option value="20">≥ 20 yıllık</option><option value="hist">Geçmişe göre: ~14 ayda hiç yükseltilmeden serbest alçalanlar (yaştan bağımsız)</option><option value="0">Tümü (manevrasız senaryo)</option></select></label>
-          <label>Grup<select id="cpGroup"></select></label>
-          <label>Yeniden giriş<select id="cpHorizon"><option value="all">Hepsi</option><option value="d30">≤ 30 gün</option><option value="y1">≤ 1 yıl</option><option value="y5">≤ 5 yıl</option><option value="y25">≤ 25 yıl</option><option value="y100">≤ 100 yıl</option></select></label>
-        </div>
-        <div class="daterow"><input id="cpSatQ" type="search" placeholder="Uydu ara (ad ya da NORAD no)" aria-label="Uydu ara"></div>
-        <ul id="cpSatList" class="sresults cp-list"></ul>
-        <div id="cpSatDet" hidden></div>
-        <p class="note">Tahmin, CelesTrak GP kaydındaki sürüklenme terimi (B*) ve atmosfer modeline dayanan <b>kaba bir yörünge bozunması</b> hesabıdır; yeniden giriş 120 km perijede sayılır. Güneş aktivitesi gelecekte değişeceği için uzun süreli tahminlerde ±2–5× belirsizlik vardır. Yakıt bilinmediği için yeniden giriş yalnızca görev süreci bittikten sonra anlamlıdır: varsayılan süzgeç, fırlatmadan ≥ 10 yıl geçmiş (görev ömrü ≈ 5 + FCC 5 yıl kuralı) cisimleri gösterir; genç uydular (Starlink vb.) yörüngelerini korur ya da planlı olarak indirir, onların süresi yalnızca <i>manevra yapılmasa</i> senaryosudur. Süzgeç ayrıca halka açık CelesTrak <b>geçmiş yörünge verisinden</b> (son ~14 ay, 7 günde bir örnek) yörüngesini yükselten ya da sürekli itkiyle koruyan cisimleri eler; serbest alçalanlar için sürüklenme genliği yalnız B* yerine B* ile <b>gözlenen yarı büyük eksen (a) eğiminin</b> ortalamasından alınır. Geçmiş yalnız ~14 ayı kapsar: &ldquo;görev sonu + 5 yıl&rdquo; ölçütü yaşla yaklaştırılır, geçmiş ise bu aralıkta manevra yapılıp yapılmadığını gösterir. Nokta renkleri güveni belirtir (yeşil yüksek, sarı orta, gri düşük).</p>
-        <p class="note">Gerçek kayıtla karşılaştırma: 1965–2016 arasında yeniden girmiş 758 cisimde (GCAT tarihleri) 1,5–3 yıl önceki tahminlerin %87'si, 3–12 yıl öncekilerin %75'i gerçek sürenin 2 katı içinde kaldı (medyan 1,05); Temmuz 2025 – Kasım 2026 arasında yeniden girmiş 249 cisimde tahminlerin %68'i gerçeğin 0,81–1,33 katı, %95'i 2 kat içinde. Atmosfer yoğunluğu NRL MSIS 2.1 modelinden, Güneş aktivitesi CelesTrak'ın gözlenen ve tahmin edilen aylık F10.7 ve Ap değerlerinden alınır (haftalık yenilenir). GTO/Molniya türü yörüngelerde Ay–Güneş çekimi hesaba katılır: 1975–2016 arasında yeniden girmiş 464 GTO/HEO cisminde 0,7 yıldan uzun tahminlerin %88'i gerçeğin 2 katı içinde. Her tahminin yanındaki olası aralık (%68) gerçek kayıtlardan, henüz yörüngede olan cisimler de hesaba katılarak (Kaplan–Meier) ve gelecek Güneş çevrimi bilinmiyormuş gibi ayarlanmıştır; 60 yılı aşan tahminler sınanamaz.</p>
-      </div>
-      <div id="cpAst" hidden>
-        <div id="cpAstSum" class="dinfo"></div>
-        <div class="cp-filters">
-          <label>Sırala<select id="cpSort"><option value="year">En erken yıl</option><option value="ip">En yüksek olasılık</option><option value="ps">Palermo (yüksek)</option></select></label>
-          <label>Olası yıl<select id="cpYear"><option value="2050">≤ 2050</option><option value="2075">≤ 2075</option><option value="2100" selected>≤ 2100</option><option value="2200">≤ 2200</option><option value="9999">Hepsi</option></select></label>
-        </div>
-        <div class="daterow"><input id="cpAstQ" type="search" placeholder="Asteroit ara" aria-label="Asteroit ara"></div>
-        <ul id="cpAstList" class="sresults cp-list"></ul>
-        <div id="cpAstDet" hidden></div>
-        <p class="note">Kaynak: JPL Sentry (sanal çarpıcılar). Bir satırı seçince asteroit haritada işaretlenir; "Laboratuvarda dene" bu asteroidin nominal yörüngesini Güneş, gezegenler ve Ay çekimiyle yıllarca ileri tümleyip Dünya'ya yakın geçişlerini listeler.</p>
-      </div>
-    </div>
     <div id="tab-firlatma" class="tabpage tk" role="tabpanel" hidden>
       <div id="launchList" class="launchlist lp"></div>
     </div>
@@ -443,7 +414,7 @@
           <ul><li><button class="exp" type="button" data-exp="ay"><i data-icon="rocket" class="ei"></i><span><b>Ay görevi</b><small>Dünya park yörüngesinden Ay yüzeyine: profil, tarih, araç ve iniş güdümünü seç, görevi fizik motoruyla uçur, Δv bütçesini karşılaştır.</small></span><i data-icon="chev" class="go"></i></button></li></ul></li>
         <li><div class="grp">Gezegen savunması</div>
           <ul><li><button class="exp" type="button" data-exp="saptirma"><i data-icon="shield" class="ei"></i><span><b>Asteroit saptırma</b><small>Bir asteroidi itip Dünya'yı ıskalatmak için ne kadar itki gerekir? Hedefi seç, yakın geçişi seç, itkiyi dene.</small></span><i data-icon="chev" class="go"></i></button></li>
-            <li><button class="exp" type="button" data-go="impact"><i data-icon="target" class="ei"></i><span><b>Çarpma riski</b><small>Uyduların yeniden girişi ve Sentry sanal çarpıcıları. Canlı Gökyüzü'nde, Çarpma sekmesinde açılır.</small></span><i data-icon="chev" class="go"></i></button></li></ul></li>
+            <li><button class="exp" type="button" data-exp="carpma"><i data-icon="target" class="ei"></i><span><b>Çarpma riski</b><small>Uyduların yeniden girişi ve Sentry sanal çarpıcıları: hangi uydu ne zaman atmosfere girer, hangi asteroidin çarpma olasılığı var?</small></span><i data-icon="chev" class="go"></i></button></li></ul></li>
         <li><div class="grp">Yörünge mekaniği</div>
           <ul><li><button class="exp" type="button" data-exp="lagrange"><i data-icon="orbit" class="ei"></i><span><b>Lagrange noktaları</b><small>İki cismin çekiminin dengelendiği beş nokta: hangisinde durulur, hangisinden kayılır? Enerji kapılarını aç, araç bırak, halo yörüngelerini incele.</small></span><i data-icon="chev" class="go"></i></button></li></ul></li>
       </ul>
@@ -836,6 +807,34 @@
         <div class="tblwrap"><table id="dfHistTbl" class="tbl hist"><thead><tr><th>Hedef · geçiş</th><th>İtki</th><th class="num">Önce</th><th class="num">Kayma / gereken</th><th>Sonuç</th></tr></thead><tbody></tbody></table></div>
         <div class="stepnav"><button id="dfHistCsv" class="sm" type="button">CSV indir</button><button id="dfHistClear" class="sm" type="button">Temizle</button></div>
       </details>
+    </div>
+    <div id="lab-carpma" class="labpage" hidden>
+      <p class="labsub">Dünya'ya çarpma ve yeniden giriş: kontrolsüz uydular ne zaman atmosfere girer, hangi asteroitlerin (JPL Sentry) çok küçük de olsa çarpma olasılığı var?</p>
+      <div id="cpMode" class="cpseg" role="tablist" aria-label="Cisim türü"><button data-m="sat" class="on" role="tab">Uydular</button><button data-m="ast" role="tab">Asteroitler</button></div>
+      <div id="cpSat">
+        <div id="cpSatSum" class="dinfo"></div>
+        <div class="cp-filters">
+          <label class="wide">Kontrol durumu (görev sonu + 5 yıl ≈ fırlatmadan itibaren)<select id="cpCtl"><option value="10" selected>Kontrolsüz olabilecekler (≥ 10 yıllık, son ~14 ayda yörünge koruması yok)</option><option value="5">≥ 5 yıllık</option><option value="15">≥ 15 yıllık</option><option value="20">≥ 20 yıllık</option><option value="hist">Geçmişe göre: ~14 ayda hiç yükseltilmeden serbest alçalanlar (yaştan bağımsız)</option><option value="0">Tümü (manevrasız senaryo)</option></select></label>
+          <label>Grup<select id="cpGroup"></select></label>
+          <label>Yeniden giriş<select id="cpHorizon"><option value="all">Hepsi</option><option value="d30">≤ 30 gün</option><option value="y1">≤ 1 yıl</option><option value="y5">≤ 5 yıl</option><option value="y25">≤ 25 yıl</option><option value="y100">≤ 100 yıl</option></select></label>
+        </div>
+        <div class="daterow"><input id="cpSatQ" type="search" placeholder="Uydu ara (ad ya da NORAD no)" aria-label="Uydu ara"></div>
+        <ul id="cpSatList" class="sresults cp-list"></ul>
+        <div id="cpSatDet" hidden></div>
+        <p class="note">Tahmin, CelesTrak GP kaydındaki sürüklenme terimi (B*) ve atmosfer modeline dayanan <b>kaba bir yörünge bozunması</b> hesabıdır; yeniden giriş 120 km perijede sayılır. Güneş aktivitesi gelecekte değişeceği için uzun süreli tahminlerde ±2–5× belirsizlik vardır. Yakıt bilinmediği için yeniden giriş yalnızca görev süreci bittikten sonra anlamlıdır: varsayılan süzgeç, fırlatmadan ≥ 10 yıl geçmiş (görev ömrü ≈ 5 + FCC 5 yıl kuralı) cisimleri gösterir; genç uydular (Starlink vb.) yörüngelerini korur ya da planlı olarak indirir, onların süresi yalnızca <i>manevra yapılmasa</i> senaryosudur. Süzgeç ayrıca halka açık CelesTrak <b>geçmiş yörünge verisinden</b> (son ~14 ay, 7 günde bir örnek) yörüngesini yükselten ya da sürekli itkiyle koruyan cisimleri eler; serbest alçalanlar için sürüklenme genliği yalnız B* yerine B* ile <b>gözlenen yarı büyük eksen (a) eğiminin</b> ortalamasından alınır. Geçmiş yalnız ~14 ayı kapsar: &ldquo;görev sonu + 5 yıl&rdquo; ölçütü yaşla yaklaştırılır, geçmiş ise bu aralıkta manevra yapılıp yapılmadığını gösterir. Nokta renkleri güveni belirtir (yeşil yüksek, sarı orta, gri düşük).</p>
+        <p class="note">Gerçek kayıtla karşılaştırma: 1965–2016 arasında yeniden girmiş 758 cisimde (GCAT tarihleri) 1,5–3 yıl önceki tahminlerin %87'si, 3–12 yıl öncekilerin %75'i gerçek sürenin 2 katı içinde kaldı (medyan 1,05); Temmuz 2025 – Kasım 2026 arasında yeniden girmiş 249 cisimde tahminlerin %68'i gerçeğin 0,81–1,33 katı, %95'i 2 kat içinde. Atmosfer yoğunluğu NRL MSIS 2.1 modelinden, Güneş aktivitesi CelesTrak'ın gözlenen ve tahmin edilen aylık F10.7 ve Ap değerlerinden alınır (haftalık yenilenir). GTO/Molniya türü yörüngelerde Ay–Güneş çekimi hesaba katılır: 1975–2016 arasında yeniden girmiş 464 GTO/HEO cisminde 0,7 yıldan uzun tahminlerin %88'i gerçeğin 2 katı içinde. Her tahminin yanındaki olası aralık (%68) gerçek kayıtlardan, henüz yörüngede olan cisimler de hesaba katılarak (Kaplan–Meier) ve gelecek Güneş çevrimi bilinmiyormuş gibi ayarlanmıştır; 60 yılı aşan tahminler sınanamaz.</p>
+      </div>
+      <div id="cpAst" hidden>
+        <div id="cpAstSum" class="dinfo"></div>
+        <div class="cp-filters">
+          <label>Sırala<select id="cpSort"><option value="year">En erken yıl</option><option value="ip">En yüksek olasılık</option><option value="ps">Palermo (yüksek)</option></select></label>
+          <label>Olası yıl<select id="cpYear"><option value="2050">≤ 2050</option><option value="2075">≤ 2075</option><option value="2100" selected>≤ 2100</option><option value="2200">≤ 2200</option><option value="9999">Hepsi</option></select></label>
+        </div>
+        <div class="daterow"><input id="cpAstQ" type="search" placeholder="Asteroit ara" aria-label="Asteroit ara"></div>
+        <ul id="cpAstList" class="sresults cp-list"></ul>
+        <div id="cpAstDet" hidden></div>
+        <p class="note">Kaynak: JPL Sentry (sanal çarpıcılar). Bir satırı seçince asteroit haritada işaretlenir; "Laboratuvarda dene" bu asteroidin nominal yörüngesini Güneş, gezegenler ve Ay çekimiyle yıllarca ileri tümleyip Dünya'ya yakın geçişlerini listeler.</p>
+      </div>
     </div>
   </aside>
 

@@ -8,13 +8,13 @@ Eski saptırma sekmesinin sorunları (tek sayfada hedef, tarama, tablo, kütle, 
 
 ```
 LS19
-├─ Canlı Gökyüzü       gözlem: gerçek veri, gerçek saat (Takip · Uydular · Asteroitler · Çarpma)
+├─ Canlı Gökyüzü       gözlem: gerçek veri, gerçek saat (Takip · Uydular · Asteroitler · Fırlatmalar)
 └─ Laboratuvar         deney: "ya şöyle olsaydı?"
     ├─ Görev tasarımı
     │   └─ Ay görevi            görev motoru: Görev → Araç ve güdüm → Uçuş → Sonuç
     ├─ Gezegen savunması
     │   ├─ Asteroit saptırma    gökyüzü motoru: Hedef → Yakın geçiş → İtki → Sonuç
-    │   └─ Çarpma riski         Canlı Gökyüzü ▸ Çarpma sekmesine kısayol
+    │   └─ Çarpma riski         gökyüzü motoru (yalnız panel): uyduların yeniden girişi · Sentry sanal çarpıcıları
     └─ Yörünge mekaniği
         └─ Lagrange noktaları   gökyüzü motoru (yalnız panel): Sistem → Enerji → Deney → Halo yörüngeleri
 ```
@@ -155,7 +155,7 @@ Her adım katlanabilir bir kutudur: tamamlanınca tek satırlık **özete** iner
 | Gerçek yörünge | ikisi de çarpıyor | **Yine çarpar** |
 | Gerçek yörünge | ikisi de ıskalıyor | **Dünya'yı ıskalamaya devam eder** (mesafe önce → sonra) |
 
-Çarpma sekmesindeki sanal çarpıcılar (Sentry) için "Laboratuvarda dene" düğmesi senaryoyu **Çarpacak olsaydı** olarak önceden seçer. Kuvvet modeli: Güneş, gezegenler, Ay, Plüton (DE440s), Güneş 1PN, yakın geçişte Dünya J2 ve JPL çözümünün kütleçekimsel olmayan parametreleri (Yarkovsky A2; hedef kartında gösterilir, katalog öğeleriyle çalışan hedeflerde yoktur). `test_deflect.js`: Apophis 2029 JPL CAD ile 1 km, 2051 %0,1 ve 5 dk içinde.
+Çarpma riski deneyindeki sanal çarpıcılar (Sentry) için "Laboratuvarda dene" düğmesi senaryoyu **Çarpacak olsaydı** olarak önceden seçer. Kuvvet modeli: Güneş, gezegenler, Ay, Plüton (DE440s), Güneş 1PN, yakın geçişte Dünya J2 ve JPL çözümünün kütleçekimsel olmayan parametreleri (Yarkovsky A2; hedef kartında gösterilir, katalog öğeleriyle çalışan hedeflerde yoktur). `test_deflect.js`: Apophis 2029 JPL CAD ile 1 km, 2051 %0,1 ve 5 dk içinde.
 
 ### Sonraki geçişler ve anahtar delikleri
 
@@ -258,7 +258,7 @@ Ana sayfa, saptırma ya da Lagrange noktaları açılınca panel kendiliğinden 
 ## 8. Yeni deney eklemek
 
 1. `index.html`'de `#labPanel` içine `<div id="lab-<ad>" class="labpage" hidden>…</div>` ekleyin (sekmeli bir deneyse `class="labpage labtabs"`, içinde `nav.tabs` ve `.tabpage`'ler).
-2. Merkez ağacına (`#lab-home`) bir dal ekleyin: `<button class="exp" data-exp="<ad>">`. Başka bir alana kısayolsa `data-go="…"` ve `labui.js`'te karşılığı.
+2. Merkez ağacına (`#lab-home`) bir dal ekleyin: `<button class="exp" data-exp="<ad>">`. Kısayol dalı yok: her dal Laboratuvar'da açılan bir sayfadır (Çarpma riski de 2026 Kasım'da Canlı Gökyüzü sekmesinden buraya taşındı; eski `?tab=carpma` bağlantıları onu açar).
 3. `labui.js`'te `EXPERIMENTS`'e `<ad>: { title, engine: 'mission' | 'sky', phoneOpen }` ekleyin. Motor değişimi, adres (`?mode=lab&exp=<ad>`), görünürlük ve telefon davranışı buradan gelir; `app.js`'e dokunmak gerekmez.
 4. Yalnız bu deneyde görünmesi gereken bir çubuk ya da gösterge varsa `data-for="lab@<motor>"` verin.
 5. Karar/biçim mantığını `labtext.js`'e (Node'da sınanır), arayüzü ayrı bir modüle koyun; `node test/test_preload.js --print` ile `modulepreload` listesini yenileyin; `test_lab.js` kayıt/ağaç/sayfa tutarlılığını kendiliğinden denetler.

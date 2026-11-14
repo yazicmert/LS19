@@ -78,7 +78,7 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   check('Laboratuvar paneli görünür; Canlı Gökyüzü paneli ve saati gizli', (await vis(page, '#labPanel')) && !(await vis(page, '#skyPanel')) && !(await vis(page, '#skyHud')));
   check('ana sayfa motoru değiştirmez: açılıştaki görev motoru sürer, görev çubuğu görünür, zaman/kamera çubuğu gizli', await page.evaluate(() => window.LS19.mode === 'mission' && document.body.dataset.engine === 'mission') && (await vis(page, '#controls')) && !(await vis(page, '#skyControls')));
   check('deney merkezi ağacı: 4 dal (Ay görevi, Asteroit saptırma, Çarpma riski, Lagrange noktaları)', await page.evaluate(() => [...document.querySelectorAll('#lab-home .exp')].map((b) => b.querySelector('b').textContent).join('|') === 'Ay görevi|Asteroit saptırma|Çarpma riski|Lagrange noktaları'));
-  check('Saptırma artık Canlı Gökyüzü sekmelerinde değil (sekmeler: Takip, Uydular, Asteroitler, Çarpma, Fırlatmalar)', await page.evaluate(() => [...document.querySelectorAll('#skyPanel .tab')].map((b) => b.dataset.tab).join() === 'takip,uydular,asteroit,carpma,firlatma'));
+  check('Saptırma ve Çarpma artık Canlı Gökyüzü sekmelerinde değil (sekmeler: Takip, Uydular, Asteroitler, Fırlatmalar)', await page.evaluate(() => [...document.querySelectorAll('#skyPanel .tab')].map((b) => b.dataset.tab).join() === 'takip,uydular,asteroit,firlatma'));
   await shot(page, '1-merkez');
 
   await page.click('#lab-home [data-exp=saptirma]');
@@ -396,6 +396,26 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   const r = await page.evaluate(() => ({ t: document.querySelector('#lgVT').textContent, cls: document.querySelector('#lgVerdict').className, sum: document.querySelector('#lgSum1').textContent, l4: document.querySelectorAll('#lgPts tbody tr')[3].textContent }));
   check('bağlantıyla açılış: varsayımsal μ = 0,05 (Routh sınırının üstü) → L4 de kararsız, deney kendiliğinden koşar ve L4\'te kalmaz', /0,05/.test(r.sum) && /kararsız/.test(r.l4) && /bad/.test(r.cls) && !/çevresinde kalır/.test(r.t), JSON.stringify(r));
   check('konsol hatası yok (Lagrange bağlantısı)', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await ctx.close();
+}
+// ================================================================= Laboratuvar › Çarpma riski (eskiden Canlı Gökyüzü sekmesi + Laboratuvar kısayolu)
+{
+  const { ctx, page, errors } = await open({ viewport: { width: 1280, height: 800 } }, '?sats=0&mode=lab');
+  await page.click('#lab-home [data-exp=carpma]');
+  check('Çarpma riski Laboratuvar\'da açılır, Canlı Gökyüzü\'ne atmaz: görünüm lab, motor gökyüzü, başlık, sayfa görünür, adres exp=carpma', await page.evaluate(() => window.LS19.view === 'lab' && window.LS19.mode === 'sky' && document.body.dataset.mode === 'lab'
+    && document.body.dataset.exp === 'carpma' && /exp=carpma/.test(location.search) && !document.querySelector('#lab-carpma').hidden && document.querySelector('#labTitle').textContent === 'Çarpma riski' && !document.querySelector('#labBack').hidden));
+  await page.click('#cpMode [data-m=ast]');
+  const n = await page.waitForFunction(() => document.querySelectorAll('#cpAstList li').length || 0, null, { timeout: 120000 }).then((h) => h.jsonValue(), () => 0);
+  check('Asteroitler: Sentry sanal çarpıcıları Laboratuvar sayfasında listelenir', n > 0, n + ' satır');
+  await page.click('#labBack');
+  check('geri: Laboratuvar merkezi; Çarpma riski ağaçta deney olarak duruyor (kısayol yok)', await page.evaluate(() => !document.querySelector('#lab-home').hidden && !!document.querySelector('#lab-home [data-exp=carpma]') && !document.querySelector('[data-go]')));
+  check('konsol hatası yok (Çarpma riski)', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await ctx.close();
+}
+{
+  const { ctx, page, errors } = await open({ viewport: { width: 1280, height: 800 } }, '?sats=0&ast=0&tab=carpma');
+  check('eski ?tab=carpma bağlantısı Laboratuvar › Çarpma riski\'ni açar', await page.evaluate(() => window.LS19.view === 'lab' && document.body.dataset.exp === 'carpma' && !document.querySelector('#lab-carpma').hidden));
+  check('konsol hatası yok (eski Çarpma bağlantısı)', errors.length === 0, errors.slice(0, 3).join(' | '));
   await ctx.close();
 }
 // ================================================================= cihazda başarım okuması (?olcum=1)

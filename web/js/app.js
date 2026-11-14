@@ -172,9 +172,9 @@ function initSky() {
   deflect = new DeflectUI({ world, asts: S.asts, ui, getT: curT, setCam: setSkyCam }); S.astui.deflect = deflect; deflect.onCatalog();
   S.tracker = new Tracker(world.scene, $('#labels'), S.sats);
   S.skyui = new SkyUI({ clock, tracker: S.tracker, sats: S.sats, asts: S.asts, setSkyCam, lookAt: lookAtSat, follow: followSat });
-  impactui = new ImpactUI({ sats: S.sats, asts: S.asts, astui: S.astui, follow: followSat }); ui.onCarpma = () => impactui.open();
+  impactui = new ImpactUI({ sats: S.sats, asts: S.asts, astui: S.astui, follow: followSat });
   S.sats.models.onLoad = (e, st) => { if (st === 'start') S.skyui.toast(`${e.name}: gerçek 3B model yükleniyor (${srcOf(MODELS[e.key])})…`); else if (st === 'error') S.skyui.toast(`${e.name}: 3B model yüklenemedi, temsili model gösteriliyor.`); };
-  S.sats.onData = () => { if (S.tracker) S.tracker.computePasses(true); if (ui.skyTab === 'carpma') impactui.refresh(); };            // Çarpma sekmesi açıkken katalog yenilenirse liste yeni veriyle yeniden hesaplanır
+  S.sats.onData = () => { if (S.tracker) S.tracker.computePasses(true); if (S.VIEW === 'lab' && labui.page === 'carpma') impactui.refresh(); };            // Çarpma riski deneyi açıkken katalog yenilenirse liste yeni veriyle yeniden hesaplanır
   // fırlatma takvimi (saatin altında) ve Fırlatmalar sekmesi: LL2 (yedek RocketLaunch.Live), son fırlatmalar uydu kataloğuna COSPAR ile bağlanır
   S.launches = new Launches();
   S.launchcal = new LaunchCal({ launches: S.launches, sats: S.sats, follow: followSat,
@@ -248,6 +248,7 @@ function syncWorkspace(push = true) {
     history.replaceState(null, '', u);
   }
   if (exp === 'lagrange') lagrange.show();
+  if (exp === 'carpma' && impactui) impactui.open();                             // gökyüzü motoru (initSky) yukarıda kuruldu
   resize();
 }
 // view: 'sky' | 'lab' (eski 'mission' → Laboratuvar › Ay görevi); exp: Laboratuvar'da açılacak deney (verilmezse açık olan kalır)
@@ -259,7 +260,7 @@ function setWorkspace(view, push = true, exp = null) {
   else syncWorkspace(push);
 }
 const narrowScreen = () => window.matchMedia('(max-width: 760px)').matches;
-// Laboratuvar: deney merkezi. Deney değişince motor ve adres eşlenir; "Çarpma riski" Canlı Gökyüzü'ne kısayoldur. openLab: saptırma deneyini bir asteroitle açar (pick kartı, Asteroitler/Çarpma sekmeleri)
+// Laboratuvar: deney merkezi. Deney değişince motor ve adres eşlenir. openLab: saptırma deneyini bir asteroitle açar (seçim kartı, Asteroitler sekmesi, Çarpma riski deneyi)
 let quietShow = false;
 // Laboratuvar › Lagrange noktaları (yalnız panel: dönen çerçeve çizimi; motor gökyüzü, değişmez). Ay görevine halo profiliyle geçiş: onFly
 const lagrange = new LagrangeUI({
@@ -270,10 +271,7 @@ const lagrange = new LagrangeUI({
     if (u.href !== location.href) history.replaceState(history.state, '', u);
   },
 });
-const labui = new LabUI({
-  initial: 'ay',
-  openImpact: () => { setWorkspace('sky'); ui.setTab('carpma'); if (narrowScreen()) $('#skyPanel').classList.add('open'); },
-});
+const labui = new LabUI({ initial: 'ay' });
 labui.onShow = () => { if (S.VIEW === 'lab') syncWorkspace(!quietShow); };
 function openLab(i, opts) {
   setWorkspace('lab', true, 'saptirma');

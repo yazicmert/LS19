@@ -62,12 +62,12 @@ check(/\.labpage\.labtabs \{[^}]*overflow: hidden[^}]*flex-direction: column/.te
 const skyview = fs.readFileSync(new URL('../js/skyview.js', import.meta.url), 'utf8');
 check(/for \(const k of \[[^\]]*'stagetag'[^\]]*\]\) if \(this\.labels\[k\]\) this\.labels\[k\]\.style\.display = 'none'/.test(skyview), 'Canlı Gökyüzü\'ne geçince görev etiketleri gizlenir (Laboratuvar\'ın kademe etiketi dahil)');
 const skyTabs = [...html.slice(html.indexOf('id="skyPanel"'), html.indexOf('id="labPanel"')).matchAll(/data-tab="(\w+)"/g)].map((m) => m[1]);
-check(skyTabs.join() === 'takip,uydular,asteroit,carpma,firlatma' && !html.includes('id="tab-saptirma"'), 'Saptırma Canlı Gökyüzü\'nden çıktı; sekmeler (fırlatma takvimi dahil): ' + skyTabs.join(', '));
+check(skyTabs.join() === 'takip,uydular,asteroit,firlatma' && !html.includes('id="tab-saptirma"') && !html.includes('id="tab-carpma"'), 'Saptırma ve Çarpma Canlı Gökyüzü\'nden çıktı (Laboratuvar\'da); sekmeler (fırlatma takvimi dahil): ' + skyTabs.join(', '));
 const exps = [...html.matchAll(/class="exp"[^>]*data-exp="(\w+)"/g)].map((m) => m[1]), gos = [...html.matchAll(/data-go="(\w+)"/g)].map((m) => m[1]);
 check(exps.every((e) => LAB_PAGES[e] && idSet.has('lab-' + e)), 'ağaçtaki her deney için sayfa (#lab-…) ve başlık var: ' + exps.join());
-check(Object.keys(EXPERIMENTS).every((e) => exps.includes(e) && idSet.has('lab-' + e)) && exps.join() === 'ay,saptirma,lagrange', 'deney kaydındaki her deney ağaçta ve sayfası var (Ay görevi, Asteroit saptırma, Lagrange noktaları)');
-check(Object.values(EXPERIMENTS).every((x) => x.title && (x.engine === 'mission' || x.engine === 'sky') && typeof x.phoneOpen === 'boolean') && EXPERIMENTS.ay.engine === 'mission' && EXPERIMENTS.saptirma.engine === 'sky' && EXPERIMENTS.lagrange.engine === 'sky', 'deney kaydı: başlık, motor, telefon davranışı (Ay görevi → görev motoru, saptırma ve Lagrange → gökyüzü)');
-check(gos.join() === 'impact' && /openImpact/.test(lui) && !/openMission|data-go="mission"/.test(lui + html), 'tek kısayol dalı: Çarpma riski (Ay görevi artık kısayol değil, deney)');
+check(Object.keys(EXPERIMENTS).every((e) => exps.includes(e) && idSet.has('lab-' + e)) && exps.join() === 'ay,saptirma,carpma,lagrange', 'deney kaydındaki her deney ağaçta ve sayfası var (Ay görevi, Asteroit saptırma, Çarpma riski, Lagrange noktaları)');
+check(Object.values(EXPERIMENTS).every((x) => x.title && (x.engine === 'mission' || x.engine === 'sky') && typeof x.phoneOpen === 'boolean') && EXPERIMENTS.ay.engine === 'mission' && EXPERIMENTS.saptirma.engine === 'sky' && EXPERIMENTS.lagrange.engine === 'sky' && EXPERIMENTS.carpma.engine === 'sky' && EXPERIMENTS.carpma.phoneOpen, 'deney kaydı: başlık, motor, telefon davranışı (Ay görevi → görev motoru, saptırma, çarpma ve Lagrange → gökyüzü)');
+check(!gos.length && !/openImpact|openMission|data-go=/.test(lui + html + app), 'kısayol dalı kalmadı: Çarpma riski de Laboratuvar\'da açılan bir deney (Canlı Gökyüzü\'ne atmaz)');
 check(engineFor('sky', null, 'mission') === 'sky' && engineFor('lab', 'ay', 'sky') === 'mission' && engineFor('lab', 'saptirma', 'mission') === 'sky' && engineFor('lab', LAB_HOME, 'mission') === 'mission' && engineFor('lab', LAB_HOME, 'sky') === 'sky' && engineFor('lab', 'yok', 'sky') === 'sky', 'görünüm → motor: deney motoru seçer, ana sayfa motoru değiştirmez');
 // paylaşılabilir bağlantı ve deneme geçmişi
 {
@@ -116,10 +116,10 @@ check(/LINK_KEYS/.test(app) && /exp !== 'saptirma'/.test(app), 'app.js: saptırm
   check(dart.kind === 'ok' && dart.ratio < 0.01 && big.kind === 'warn' && huge.kind === 'bad' && /parçalanır/.test(huge.text), 'parçalanma: DART eşiğin %1\'inden az, 260 t uyarı, 2.000 t parçalanır');
   check(Math.abs(L.disruptionOf(1, 1, 1, 1, 2000).Q - 5e5) < 1e-6, 'Q = ½·m·U²/M');
 }
-const own = (t) => (['gorev', 'kontrol', 'dv', 'grafik', 'yorunge', 'efemeris'].includes(t) ? 'mission' : ['takip', 'uydular', 'asteroit', 'carpma'].includes(t) ? 'sky' : null);
+const own = (t) => (['gorev', 'kontrol', 'dv', 'grafik', 'yorunge', 'efemeris'].includes(t) ? 'mission' : ['takip', 'uydular', 'asteroit'].includes(t) ? 'sky' : null);
 const rv = (o) => JSON.stringify(resolveView({ tabOwner: own, ...o }));
 check(rv({ mode: 'mission' }) === '{"view":"lab","exp":"ay"}' && rv({ mode: 'sky' }) === '{"view":"sky","exp":null}' && rv({ mode: 'lab' }) === '{"view":"lab","exp":"home"}' && rv({ mode: 'lab', exp: 'saptirma' }) === '{"view":"lab","exp":"saptirma"}' && rv({ mode: 'lab', exp: 'xyz' }) === '{"view":"lab","exp":"home"}', 'adresler: ?mode=mission (eski) → Ay görevi; ?mode=lab[&exp=…]; bilinmeyen deney → ana sayfa');
-check(rv({ tab: 'kontrol' }) === '{"view":"lab","exp":"ay","tab":"kontrol"}' && rv({ tab: 'carpma', mode: 'lab' }) === '{"view":"sky","exp":null,"tab":"carpma"}' && rv({ tab: 'saptirma' }) === '{"view":"lab","exp":"saptirma"}' && rv({}) === 'null', 'eski ?tab= bağlantıları kendi alanını açar; değer yoksa varsayılan açılış');
+check(rv({ tab: 'kontrol' }) === '{"view":"lab","exp":"ay","tab":"kontrol"}' && rv({ tab: 'carpma', mode: 'sky' }) === '{"view":"lab","exp":"carpma"}' && rv({ tab: 'saptirma' }) === '{"view":"lab","exp":"saptirma"}' && rv({}) === 'null', 'eski ?tab= bağlantıları kendi alanını açar; değer yoksa varsayılan açılış');
 const steps = html.slice(html.indexOf('id="dfSteps"'), html.indexOf('</ol>', html.indexOf('id="dfSteps"')));
 check((steps.match(/class="step[ "]/g) || []).length === 4 && (steps.match(/class="sh"/g) || []).length === 4 && (steps.match(/class="sn"/g) || []).length === 4 && (steps.match(/class="ss"/g) || []).length === 4, 'Saptırma: 4 adım (başlık, numara, özet, gövde)');
 check(/data-step="1"[^>]*>\s*<button class="sh"[^>]*aria-expanded="true"/.test(steps) && (steps.match(/aria-expanded="false"[^>]*disabled/g) || []).length === 3, 'yalnız 1. adım açık, 2–4 başlangıçta kilitli ve erişilebilir (aria-expanded, disabled)');
