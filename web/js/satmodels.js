@@ -17,7 +17,9 @@ export class SatModels {
     this.loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
     // kamera yönünden yumuşak dolgu ışığı: Güneş'in görmediği yüzler (ve Dünya'nın gölgesindeki uydular) kapkara kalmasın.
     // Yalnız model çizilirken açık; gölgedeyken daha güçlü (kartta ve bildirimde "gölgede" yazar).
-    this.fill = new THREE.DirectionalLight(0xbfd0ff, 0); scene.add(this.fill); scene.add(this.fill.target);
+    // Işık sahne kurulurken eklenir (scene.js satFill): sonradan eklenirse ışıklı malzemeler yeniden derlenir. Yoksa (eski sahne) burada.
+    this.fill = scene.getObjectByName('satFill');
+    if (!this.fill) { this.fill = new THREE.DirectionalLight(0xbfd0ff, 0); scene.add(this.fill); scene.add(this.fill.target); }
   }
   setEntries(list) { this.entries = list; }
   isReady(uid) { const o = this.on.get(uid); return !!(o && o.obj); }

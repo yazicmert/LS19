@@ -100,8 +100,52 @@ const frame = () => new Promise((res) => { let d = false; const go = () => { if 
 let r8 = null;
 // idle: yüklemeyi tarayıcının boşta olduğu ana bırak (en çok 2 sn bekler): tam çözünürlüğe yükseltme kullanıcı gezinirken kare kaçırtmasın
 const idleFrame = () => new Promise((res) => (typeof requestIdleCallback === 'function' ? requestIdleCallback(() => res(), { timeout: 2000 }) : setTimeout(res, 50)));
+// ?bant=1 (deneme, varsayılan kapalı): tam çözünürlüğe yükseltmede (idle yolu) sıkıştırılmış dokunun 0. seviyesi tek çağrı yerine ~2 MB'lık
+// satır bantlarıyla karelere yayılır. Ölçüm (yazılım çizimi, SwiftShader): 8192×4096 BC7'nin 32 MB'lık 0. seviyesi tek çağrıda ana iş parçacığını
+// 1,3–3,6 sn kilitliyordu. Gerçek GPU'da bu sürenin ne olduğu bilinmiyor: bayrak açık/kapalı karşılaştırması için (?olcum=1 en uzun kare aralığını gösterir).
+// three r170'te copyTextureToTexture sıkıştırılmış biçimi renk uzayı olmadan çevirir (sRGB dokularda yanlış biçim → GL hatası): bu yüzden yer
+// three ile ayrılır (source.dataReady = false: texStorage2D, veri yok), bantlar doğrudan GL ile yazılır. Bir şey eksik ya da GL hatası olursa
+// dokunun tamamı three'nin olağan yoluyla yüklenir.
+const BANDED = typeof location !== 'undefined' && new URLSearchParams(location.search).get('bant') === '1';
+const BAND_BYTES = 2 * 1024 * 1024;
+// gerçek kare (rAF); sekme gizliyse rAF durur: o zaman kısa zamanlayıcı (çizilen kare yok, bekletmenin anlamı yok)
+const nextFrame = () => new Promise((res) => { if (typeof document !== 'undefined' && document.hidden) setTimeout(res, 16); else requestAnimationFrame(() => res()); });
+// dönüş: 'tamam' (bantlar yüklendi), 'yedek' (GL hatası: three ilk çizimde tek parça yükler, veri bırakılmamalı), false (bantlanamaz: olağan yol)
+async function uploadBanded(renderer, t) {
+  const m0 = t.mipmaps && t.mipmaps[0];
+  if (!m0 || !m0.data || m0.width % 4 || m0.height % 4) return false;
+  if (t.mipmaps.some((m) => m.height >= 4 && (m.width % 4 || m.height % 4 || m.data.byteLength % (m.height / 4)))) return false;   // 4×4 bloklu değil (ör. PVRTC)
+  const gl = renderer.getContext(), fmt = new THREE.WebGLUtils(gl, renderer.extensions).convert(t.format, t.colorSpace);
+  if (!fmt) return false;
+  t.source.dataReady = false;
+  try { renderer.initTexture(t); } catch (e) { t.source.dataReady = true; return false; }          // yer ayrılır (texStorage2D), veri yazılmaz
+  const tex = renderer.properties.get(t).__webglTexture;
+  if (!tex) { t.source.dataReady = true; t.needsUpdate = true; return false; }
+  const put = (level, y, w, h, data) => { renderer.state.bindTexture(gl.TEXTURE_2D, tex); gl.compressedTexSubImage2D(gl.TEXTURE_2D, level, 0, y, w, h, fmt, data); renderer.state.unbindTexture(); };
+  // BAND_BYTES'tan büyük her seviye bantlanır (8192'lik dokuda 0. seviye 32 MB, 1. seviye 8 MB); her banttan sonra gerçek bir kare beklenir
+  // (frame()'in 150 ms yedeği kullanılmaz: kare çizilmeden bant göndermek GPU kuyruğunu doldurup bir sonraki bantta bekletiyordu). Küçük seviyeler birlikte.
+  for (let l = 0; l < t.mipmaps.length; l++) {
+    const m = t.mipmaps[l], b = m.data.byteLength;
+    if (b <= BAND_BYTES || m.height < 8) { put(l, 0, m.width, m.height, m.data); continue; }
+    const rows = m.height / 4, rowB = b / rows, per = Math.max(1, Math.floor(BAND_BYTES / rowB)), E = m.data.BYTES_PER_ELEMENT;
+    for (let r = 0; r < rows; r += per) {
+      const n = Math.min(per, rows - r);
+      put(l, r * 4, m.width, n * 4, m.data.subarray(r * rowB / E, (r + n) * rowB / E));
+      await nextFrame();
+    }
+  }
+  const err = gl.getError();                                                   // tek eşzamanlı denetim, son banttan sonra (önceden kalmış bir hata da tek parça yüklemeye düşürür: güvenli yön)
+  t.source.dataReady = true;
+  if (err !== gl.NO_ERROR) { t.needsUpdate = true; console.warn('Bantlı doku yüklemesi başarısız (GL ' + err + '): doku tek parça yüklenecek'); return 'yedek'; }
+  return 'tamam';
+}
 async function upload(renderer, t, idle = false) {
   await (idle ? idleFrame() : frame());
+  if (idle && BANDED && t.isCompressedTexture) {
+    let st = false; try { st = await uploadBanded(renderer, t); } catch (e) { t.source.dataReady = true; t.needsUpdate = true; st = 'yedek'; }
+    if (st === 'tamam') { if (t.userData.release) t.userData.release(); return; }
+    if (st === 'yedek') return;                                                  // veri kalır: three ilk çizimde tamamını yükler
+  }
   const gl = renderer.getContext(), drain = () => { for (let i = 0; i < 8 && gl.getError() !== gl.NO_ERROR; i++); };       // önceki hatalar bu yüklemeye yazılmasın
   if (t.format === THREE.RedFormat && r8 === false) { t.format = THREE.RGBAFormat; t.needsUpdate = true; }          // R8 bu tarayıcıda çalışmıyor: baştan RGBA
   const probe = t.format === THREE.RedFormat && r8 === null;

@@ -1,7 +1,8 @@
 // LS19 saptırma fizik motoru: bir asteroidin yörüngesini Güneş sistemi modeli içinde tarihe taşır, Dünya yakın geçişlerini
 // bulur ve bir itkinin (kinetik çarpıcı ya da sürekli kuvvet) yakın geçişteki kaçırma mesafesini ne kadar değiştirdiğini hesaplar.
 //   Model: Güneş + 8 gezegen + Ay + Plüton noktasal kütleleri, konumlar doğrudan JPL DE440s çekirdeğinden;
-//          Güneş'in genel görelilik (1PN, Schwarzschild) düzeltmesi; isteğe bağlı sürekli itki ivmesi.
+//          Güneş'in genel görelilik (1PN, Schwarzschild) düzeltmesi; Dünya'ya 0,01 AB'den yakınken Dünya J2 (IAU 1976 presesyonlu kutup);
+//          JPL'in kütleçekimsel olmayan ivme modeli (Marsden: A1 radyal, A2 teğetsel = Yarkovsky, A3 normal; g(r) çarpanıyla); isteğe bağlı sürekli itki ivmesi.
 //   Tümleyici: DOPRI5 (uyarlamalı adım), yakın geçiş anı ikiye bölmeyle kesinleştirilir.
 //   Doğrusal duyarlılık: durum geçiş matrisi (STM, 6x6 varyasyon denklemleri) + B-düzlemi (Öpik/Valsecchi ξ–ζ) kısmi türevleri.
 // Birimler: km, s, TDB saniye (J2000'den), ICRF (SSB). Asteroidin kendi kütlesi yörüngesini etkilemez (test parçacığı).
@@ -17,11 +18,39 @@ const PERT = [[10, GM_SUN], [1, 22031.868551], [2, 324858.592], [399, 398600.435
 const NP = PERT.length, C2 = 299792.458 ** 2;
 const EPS = (84381.448 / 3600) * Math.PI / 180, CE = Math.cos(EPS), SE = Math.sin(EPS);   // J2000 ekliptik eğikliği (JPL)
 const D2R = Math.PI / 180;
+const J2_E = 1.0826267e-3, J2_ZONE = 0.01 * AU;                // Dünya J2 yalnız bu uzaklığın içinde (sınırda ivme ~5e-15 km/s²)
+const NG_SCALE = AU / (DAY * DAY);                              // AB/gün² → km/s²
 export const etFromJd = (jd) => (jd - 2451545.0) * DAY;
 export const jdFromEt = (et) => et / DAY + 2451545.0;
 export const ET_MIN = etFromJd(2396758.5 + 400), ET_MAX = etFromJd(2506331.5 - 400);    // DE440s kapsamı (1849–2150), kenar payıyla
 
 const scl = scale;
+
+// ---------------------------------------------------------------- kütleçekimsel olmayan ivme (Yarkovsky)
+// JPL SBDB orbit.model_pars → { A1, A2, A3 (AB/gün²), ALN, NM, NN, NK, R0 (AB) } ya da null (model yoksa).
+// g(r) = ALN (r/R0)^−NM (1 + (r/R0)^NN)^−NK; asteroitlerde JPL genellikle ALN = 1, R0 = 1, NM = 2, NK = 0 (Yarkovsky: 1/r²) kullanır.
+// Eksik sabitler JPL'in varsayılanlarıdır (Marsden vd. 1973 kuyrukluyıldız modeli).
+export function ngFromSbdb(pars) {
+  if (!Array.isArray(pars)) return null;
+  const v = {}; for (const x of pars) { const n = +x.value; if (x.name && Number.isFinite(n)) v[x.name] = n; }
+  const ng = { A1: v.A1 || 0, A2: v.A2 || 0, A3: v.A3 || 0, ALN: v.ALN ?? 0.1112620426, NM: v.NM ?? 2.15, NN: v.NN ?? 5.093, NK: v.NK ?? 4.6142, R0: v.R0 ?? 2.808 };
+  const sig = {}; for (const x of pars) if (/^A[123]$/.test(x.name) && +x.sigma > 0) sig[x.name] = +x.sigma;
+  ng.sigma = sig;
+  return ng.A1 || ng.A2 || ng.A3 ? ng : null;
+}
+export const ngG = (ng, rKm) => { const q = rKm / AU / ng.R0; return ng.ALN * Math.pow(q, -ng.NM) * (ng.NK ? Math.pow(1 + Math.pow(q, ng.NN), -ng.NK) : 1); };
+// Dünya'nın ortalama kutbu (ICRF birim vektör), IAU 1976 presesyonu (nütasyon ~9″ ihmal: J2 ivmesinde ~1e-4 bağıl)
+export function earthPole(et) {
+  const T = et / DAY / 36525, as = Math.PI / 180 / 3600;
+  const ze = (2306.2181 * T + 0.30188 * T * T + 0.017998 * T ** 3) * as, th = (2004.3109 * T - 0.42665 * T * T - 0.041833 * T ** 3) * as;
+  return [Math.sin(th) * Math.cos(ze), -Math.sin(th) * Math.sin(ze), Math.cos(th)];
+}
+// Dünya J2 ivmesi (r: Dünya merkezli ICRF km, p: kutup) → km/s²
+function j2Acc(r, p) {
+  const rn2 = r[0] * r[0] + r[1] * r[1] + r[2] * r[2], rn = Math.sqrt(rn2), z = r[0] * p[0] + r[1] * p[1] + r[2] * p[2];
+  const k = 1.5 * J2_E * MU_E * R_E * R_E / (rn2 * rn2 * rn), f = 5 * z * z / rn2 - 1;
+  return [k * (f * r[0] - 2 * z * p[0]), k * (f * r[1] - 2 * z * p[1]), k * (f * r[2] - 2 * z * p[2])];
+}
 
 // ---------------------------------------------------------------- yörünge öğeleri -> durum
 // el: { a (AU), e, i, om, w, ma (derece), epoch (JD TDB) } — JPL SBDB: Güneş merkezli, J2000 ekliptiği, oskülatör
@@ -103,7 +132,11 @@ export class DeflectEngine {
     this.spk = spk instanceof SPKKernel ? spk : new SPKKernel(spk);
     this.bp = new Float64Array(NP * 3); this.bEt = NaN; this.nfev = 0;
     this.rtol = 1e-11; this.atolR = 1e-3; this.atolV = 1e-9;
+    this.ng = null;                                                       // kütleçekimsel olmayan model (ngFromSbdb); null: yalnız kütleçekim
+    this.earthJ2 = true;                                                  // yakın geçişte Dünya J2
+    this.pEt = NaN; this.pole = null;
   }
+  poleAt(et) { if (!(Math.abs(et - this.pEt) <= 86400)) { this.pole = earthPole(et); this.pEt = et; } return this.pole; }
   bodies(et) {
     if (et === this.bEt) return this.bp;
     for (let j = 0; j < NP; j++) { const [p] = this.spk.ssb(PERT[j][0], et); this.bp[3 * j] = p[0]; this.bp[3 * j + 1] = p[1]; this.bp[3 * j + 2] = p[2]; }
@@ -130,6 +163,28 @@ export class DeflectEngine {
       const r = Math.hypot(rx, ry, rz), v2 = vx * vx + vy * vy + vz * vz, rv = rx * vx + ry * vy + rz * vz;
       const k = GM_SUN / (C2 * r * r * r), a = 4 * GM_SUN / r - v2;
       ax += k * (a * rx + 4 * rv * vx); ay += k * (a * ry + 4 * rv * vy); az += k * (a * rz + 4 * rv * vz);
+    }
+    // kütleçekimsel olmayan ivme (Güneş merkezli r, v): g(r)·(A1 r̂ + A2 t̂ + A3 n̂), t̂ = n̂ × r̂ (yörünge düzleminde, hareket yönünde)
+    if (this.ng) {
+      const ng = this.ng, rx = x - bp[0], ry = yy - bp[1], rz = z - bp[2], vx = y[3], vy = y[4], vz = y[5];
+      const r = Math.hypot(rx, ry, rz), hx = ry * vz - rz * vy, hy = rz * vx - rx * vz, hz = rx * vy - ry * vx, hn = Math.hypot(hx, hy, hz);
+      const g = ngG(ng, r) * NG_SCALE, ur = [rx / r, ry / r, rz / r], un = [hx / hn, hy / hn, hz / hn];
+      const ut = [un[1] * ur[2] - un[2] * ur[1], un[2] * ur[0] - un[0] * ur[2], un[0] * ur[1] - un[1] * ur[0]];
+      ax += g * (ng.A1 * ur[0] + ng.A2 * ut[0] + ng.A3 * un[0]); ay += g * (ng.A1 * ur[1] + ng.A2 * ut[1] + ng.A3 * un[1]); az += g * (ng.A1 * ur[2] + ng.A2 * ut[2] + ng.A3 * un[2]);
+    }
+    // Dünya J2 (yalnız yakın geçişte; Dünya noktasal kütlesi yukarıda). STM için gradyanı sayısal (merkezî fark) eklenir.
+    if (this.earthJ2) {
+      const ex = x - bp[9], ey = yy - bp[10], ez = z - bp[11];
+      if (ex * ex + ey * ey + ez * ez < J2_ZONE * J2_ZONE) {
+        const p = this.poleAt(et), re = [ex, ey, ez], a = j2Acc(re, p);
+        ax += a[0]; ay += a[1]; az += a[2];
+        if (G) {
+          const h = 1e-6 * Math.hypot(ex, ey, ez), col = [];
+          for (let c = 0; c < 3; c++) { const rp = re.slice(), rm = re.slice(); rp[c] += h; rm[c] -= h; const ap = j2Acc(rp, p), am = j2Acc(rm, p); col.push([(ap[0] - am[0]) / (2 * h), (ap[1] - am[1]) / (2 * h), (ap[2] - am[2]) / (2 * h)]); }
+          G[0] += col[0][0]; G[1] += 0.5 * (col[1][0] + col[0][1]); G[2] += 0.5 * (col[2][0] + col[0][2]);
+          G[3] += col[1][1]; G[4] += 0.5 * (col[2][1] + col[1][2]); G[5] += col[2][2];
+        }
+      }
     }
     if (thrust) { const a = thrust(et, y); if (a) { ax += a[0]; ay += a[1]; az += a[2]; } }
     f[0] = y[3]; f[1] = y[4]; f[2] = y[5]; f[3] = ax; f[4] = ay; f[5] = az;
@@ -269,6 +324,15 @@ export function massOf(p) {
 }
 // kinetik çarpıcı: Δv = β m U / (M + m)  (m/s); β: momentum artış çarpanı (DART: ≈3,6)
 export const kineticDv = (m, U_kms, beta, M) => beta * m * U_kms * 1000 / (M + m);
+// çekim traktörü: aracın asteroidi çektiği kuvvet (N) F = G·M·m/d² (Lu ve Love 2005, Nature 438). d: asteroidin merkezine uzaklık (m).
+// Asteroidin kazandığı ivme F/M = G·m/d²: asteroidin kütlesinden bağımsızdır (yalnız boyutu, araç ne kadar yakına inebileceğini belirler).
+export const G_SI = 6.6743e-11;
+export const tractorForce = (M, m, d) => G_SI * M * m / (d * d);
+// parçalanma: çarpmanın özgül enerjisi Q = ½·m·U²/M (J/kg) ve felaket boyutunda parçalanma eşiği Q*_D (Benz ve Asphaug 1999, Icarus 142; bazalt, 5 km/s):
+//   Q*_D = Q0·(R/1 cm)^a + B·ρ·(R/1 cm)^b, Q0 = 9,0×10⁷ erg/g, a = −0,36, B = 0,5 erg·cm³/g², b = 1,36 (ρ g/cm³; 1 erg/g = 10⁻⁴ J/kg).
+//   Moloz yığını asteroitlerde eşik birkaç kat düşük olabilir (Jutzi vd. 2010): sınır yaklaşık bir göstergedir.
+export const impactQ = (m, U_kms, M) => 0.5 * m * (U_kms * 1000) ** 2 / M;
+export function qStarD(Rm, rho) { const r = Rm * 100, g = rho / 1000; return 1e-4 * (9.0e7 * Math.pow(r, -0.36) + 0.5 * g * Math.pow(r, 1.36)); }
 // itki yönü (ICRF birim vektör) — y: güneş merkezli olmayan SSB durumu, sunY: Güneş durumu
 export function dirVector(kind, r, v, custom) {
   const rh = unit(r), vh = unit(v), nh = unit(cross(r, v)), th = cross(nh, rh);

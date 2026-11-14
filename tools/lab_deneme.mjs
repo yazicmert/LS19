@@ -23,7 +23,11 @@ const upstream = async (url) => {
   if (u.includes('sbdb_query') && u.includes('sb-group=neo')) body = file('sb_neo.json');
   else if (u.includes('sbdb_query')) body = file('sb_mb.json');
   else if (u.includes('sentry.api')) body = file('sentry.json');
-  else if (u.includes('sbdb.api')) body = file('sbdb_99942.json');
+  else if (u.includes('sbdb.api')) {                                           // cov=mat istenirse kovaryans bloğu gerçek JPL yanıtından (çözüm 220) eklenir
+    const j = JSON.parse(file('sbdb_99942.json'));
+    if (u.includes('cov=mat')) j.orbit.covariance = JSON.parse(file('sbdb_99942_cov.json')).orbit.covariance;
+    body = JSON.stringify(j);
+  }
   else return new Response('yok', { status: 404 });
   return new Response(body, { status: 200 });
 };
@@ -52,7 +56,7 @@ async function open(ctxOpt, query) {
   const ctx = await browser.newContext(ctxOpt), page = await ctx.newPage(), errors = [];
   page.setDefaultNavigationTimeout(240000); page.setDefaultTimeout(240000);
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
-  page.on('console', (m) => { const t = m.text(); if (m.type() === 'error' && !/ERR_CERT|ERR_TUNNEL|Failed to load resource|net::ERR/.test(t)) errors.push('console: ' + t.slice(0, 200)); });
+  page.on('console', (m) => { const t = m.text(); if (m.type() === 'error' && !/ERR_CERT|ERR_TUNNEL|Failed to load resource|net::ERR|blocked by CORS policy/.test(t)) errors.push('console: ' + t.slice(0, 200)); });
   await page.route('**/api/**', api);
   await page.addInitScript(() => { try { localStorage.clear(); localStorage.setItem('ls19.lang', 'tr'); localStorage.setItem('ls19.vehicle', 'two'); localStorage.setItem('ls19.landing', 'opt'); } catch (e) { /* */ } });
   await page.goto(base + 'index.html' + query, { waitUntil: 'domcontentloaded' });
@@ -72,7 +76,7 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   check('iki dallı üst çubuk: Canlı Gökyüzü · Laboratuvar (Laboratuvar etkin)', await page.evaluate(() => { const b = [...document.querySelectorAll('#modebar [data-workspace]')]; return b.map((x) => x.dataset.workspace).join() === 'sky,lab' && b[1].classList.contains('on') && document.body.dataset.mode === 'lab'; }));
   check('Laboratuvar paneli görünür; Canlı Gökyüzü paneli ve saati gizli', (await vis(page, '#labPanel')) && !(await vis(page, '#skyPanel')) && !(await vis(page, '#skyHud')));
   check('ana sayfa motoru değiştirmez: açılıştaki görev motoru sürer, görev çubuğu görünür, zaman/kamera çubuğu gizli', await page.evaluate(() => window.LS19.mode === 'mission' && document.body.dataset.engine === 'mission') && (await vis(page, '#controls')) && !(await vis(page, '#skyControls')));
-  check('deney merkezi ağacı: 3 dal (Ay görevi, Asteroit saptırma, Çarpma riski)', await page.evaluate(() => [...document.querySelectorAll('#lab-home .exp')].map((b) => b.querySelector('b').textContent).join('|') === 'Ay görevi|Asteroit saptırma|Çarpma riski'));
+  check('deney merkezi ağacı: 4 dal (Ay görevi, Asteroit saptırma, Çarpma riski, Lagrange noktaları)', await page.evaluate(() => [...document.querySelectorAll('#lab-home .exp')].map((b) => b.querySelector('b').textContent).join('|') === 'Ay görevi|Asteroit saptırma|Çarpma riski|Lagrange noktaları'));
   check('Saptırma artık Canlı Gökyüzü sekmelerinde değil (sekmeler: Takip, Uydular, Asteroitler, Çarpma, Fırlatmalar)', await page.evaluate(() => [...document.querySelectorAll('#skyPanel .tab')].map((b) => b.dataset.tab).join() === 'takip,uydular,asteroit,carpma,firlatma'));
   await shot(page, '1-merkez');
 
@@ -115,6 +119,13 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
     cv: (() => { const c = document.querySelector('#dfBplane'), g = c.getContext('2d'), d = g.getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; })() }));
   check('Sonuç (4. adım açık): karar kartı, "ne kadar gerekir" cümlesi ve B-düzlemi grafiği çizildi', v1.step === 4 && v1.t.length > 3 && /kg/.test(v1.need) && v1.cv > 500, `${v1.t} — ${v1.d.slice(0, 110)}`);
   check('gerçek yörünge senaryosunda yargı "ıskalamaya devam eder" (kinetik, 2 yıl önce)', v1.cls.includes('info') || v1.cls.includes('good'), v1.cls);
+  const un1 = await page.evaluate(() => ({ h: document.querySelector('#dfUnc').hidden, t: document.querySelector('#dfUT').textContent, d: document.querySelector('#dfUD').textContent, sb: !!window.LS19.deflect.result.SB, card: /Yörünge kovaryansı: JPL/.test(document.querySelector('#dfTarget').textContent) }));
+  check('belirsizlik kutusu: gerçek yörüngede itkisiz → itkili çarpma olasılığı, JPL kovaryansıyla geçiş noktası belirsizliği (~1 km, A1/A2 dahil) ve kayma aralığı', !un1.h && /Çarpma olasılığı: itkisiz %0 → itkili %0/.test(un1.t) && /yörünge belirsizliği \(1σ\) ≈ [\d,]+ km \(JPL kovaryansı\)/.test(un1.d) && +(un1.d.match(/≈ ([\d,]+) km/) || [0, '99'])[1].replace(',', '.') < 3 && /%90 olasılıkla/.test(un1.d) && un1.sb && un1.card, `${un1.t} — ${un1.d.slice(0, 120)}`);
+  const lt1 = await page.evaluate(() => ({ vis: !document.querySelector('#dfLaterBox').hidden, rows: [...document.querySelectorAll('#dfLater tbody tr')].map((r) => r.textContent), enc: !!window.LS19.deflect.result.enc }));
+  check('sonraki yakın geçişler: nominal ve saptırılmış yörünge 2029 sonrası tümlenir (2051 geçişi listede); rezonans geometrisi var', lt1.vis && lt1.enc && lt1.rows.some((t) => /2051/.test(t)), lt1.rows.slice(0, 3).join(' | '));
+  const u1 = await page.evaluate(() => Object.fromEntries(new URLSearchParams(location.search)));
+  check('sonuç adrese yazılır (hedef, geçiş günü, itki günü, yöntem) ve "Denemelerim" tablosuna eklenir', u1.hedef === '99942' && u1.gecis === '2029-04-13' && /^2027-04-1[2-4]$/.test(u1.itki) && u1.yontem === 'kin' && u1.exp === 'saptirma'
+    && (await vis(page, '#dfHist')) && (await page.evaluate(() => document.querySelectorAll('#dfHistTbl tbody tr').length)) === 1, JSON.stringify(u1));
   await shot(page, '6-sonuc');
   // ayrıntılar katlanır ve açılınca grafik çizilir
   await page.click('#dfResult .adv > summary'); await page.waitForTimeout(600);
@@ -131,7 +142,39 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await page.waitForFunction(() => !document.querySelector('#dfResult').hidden && document.querySelector('#dfStale').hidden && /çarpma noktası|Dünya|yetmez/i.test(document.querySelector('#dfVD').textContent), null, { timeout: 280000 });
   const v2 = await page.evaluate(() => ({ cls: document.querySelector('#dfVerdict').className, t: document.querySelector('#dfVT').textContent, g: !document.querySelector('#dfGauge').hidden, gt: document.querySelector('#dfGaugeTxt').textContent }));
   check('"Çarpacak olsaydı": karar kurtarır/yetmez ve ölçek çubuğu görünür', /good|bad/.test(v2.cls) && v2.g && /gereken/.test(v2.gt), `${v2.t} — ${v2.gt}`);
+  const un2 = await page.evaluate(() => ({ t: document.querySelector('#dfUT').textContent, d: document.querySelector('#dfUD').textContent, c: document.querySelector('#dfUnc').className }));
+  check('belirsizlik kutusu: çarpacak olsaydı → ıskalama olasılığı ve %95 güven için gereken çarpıcı', /Belirsizlikle: %[\d,]+ olasılıkla ıskalar/.test(un2.t) && /%95 güvenle/.test(un2.d) && /good|bad|warn/.test(un2.c), `${un2.t} — ${un2.d.slice(0, 140)}`);
+  const link2 = await page.evaluate(() => location.search), hist2 = await page.evaluate(() => [...document.querySelectorAll('#dfHistTbl tbody tr')].map((r) => r.textContent));
+  check('ikinci deneme geçmişin başında; adres yeni ayarları taşır (m=5000, senaryo=varsayim)', hist2.length === 2 && /çarpacak olsaydı/.test(hist2[0]) && /m=5000/.test(link2) && /senaryo=varsayim/.test(link2), hist2[0]);
   await shot(page, '8-carpacak-olsaydi');
+
+  // ---- önleme görevi: fırlatma penceresi (Lambert) → çözümü uygula → hesapla
+  await page.click('#dfAgain'); await page.click('#dfIc > summary'); await page.click('#dfIcRun');
+  const icOk = await page.waitForFunction(() => !document.querySelector('#dfIcOut').hidden && window.LS19.deflect.pc, null, { timeout: 280000 }).then(() => true, () => false);
+  const ic = await page.evaluate(() => ({ best: !!window.LS19.deflect.pc.best, rows: document.querySelectorAll('#dfIcBest tr').length, msg: document.querySelector('#dfIcMsg').textContent,
+    cv: (() => { const c = document.querySelector('#dfPork'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; })() }));
+  check('önleme görevi: Falcon Heavy ile fırlatma penceresi (Lambert örgüsü) çizilir, en iyi çözüm 7 satırla özetlenir', icOk && ic.best && ic.rows === 7 && ic.cv > 2000 && /yörünge denendi/.test(ic.msg), JSON.stringify(ic));
+  await shot(page, '8b-onleme'); await page.locator('#dfIcOut').screenshot({ path: path.join(outDir, '8c-firlatma-penceresi.png'), timeout: 200000 });
+  await page.click('#dfIcUse');
+  const used = await page.evaluate(() => ({ dir: document.querySelector('#dfDir').value, m: +document.querySelector('#dfMass').value, kin: document.querySelector('input[name=dfMethod][value=kinetic]').checked, b: window.LS19.deflect.pc.best }));
+  check('"Bu çözümü kullan": yöntem kinetik, kütle roketin kapasitesi, yön önleme yörüngesinden', used.dir === 'vec' && used.kin && used.m === Math.floor(used.b.m) && used.m > 100, JSON.stringify({ dir: used.dir, m: used.m }));
+  await page.click('#dfRun');
+  await page.waitForFunction(() => !document.querySelector('#dfResult').hidden && document.querySelector('#dfStale').hidden && /yv=/.test(location.search), null, { timeout: 280000 });
+  const vi = await page.evaluate(() => ({ t: document.querySelector('#dfVT').textContent, dir: [...document.querySelectorAll('#dfOut td')].map((x) => x.textContent).join(' | '), sh: window.LS19.deflect.result && Math.hypot(window.LS19.deflect.result.dXi, window.LS19.deflect.result.dZeta), pred: window.LS19.deflect.pc.best.shift }));
+  check('önleme çözümüyle hesap: kayma pencere öngörüsüyle %5 içinde, yön tabloda, bağlantıda yv', /önleme yörüngesinden/.test(vi.dir) && Math.abs(vi.sh - vi.pred) < 0.05 * vi.pred, `${vi.t} — kayma ${vi.sh && vi.sh.toFixed(1)} km, öngörü ${vi.pred.toFixed(1)} km`);
+
+  // ---- çekim traktörü: kuvvet fizikten, sonuç tablosunda; kinetik değilken parçalanma kutusu yok
+  await page.click('#dfAgain'); await page.check('input[name=dfMethod][value=tractor]');
+  await page.click('#dfLeads .chip:has-text("2 yıl önce")');                 // önleme çözümü itki gününü çarpma gününe çekmişti; traktör 2 yıl önce başlar, 365 gün sürer
+  const gtF = await txt(page, '#dfGtF');
+  check('çekim traktörü seçilince kuvvet G·M·m/d² ile gösterilir, kinetik alanları ve önleme bölümü gizlenir; önleme yönü yörünge boyuna döner', /F = G·M·m\/d² ≈ [\d,]+ N/.test(gtF) && !(await vis(page, '#dfKin')) && !(await vis(page, '#dfIc')) && (await vis(page, '#dfGt'))
+    && await page.evaluate(() => document.querySelector('#dfDir').value === 'along' && document.querySelector('#dfDir option[value=vec]').disabled), gtF);
+  await page.click('#dfRun');
+  await page.waitForFunction(() => !document.querySelector('#dfResult').hidden && document.querySelector('#dfStale').hidden && /yontem=cek/.test(location.search), null, { timeout: 280000 });
+  const gt = await page.evaluate(() => ({ row: [...document.querySelectorAll('#dfOut tr')].map((r) => r.textContent).find((t) => /Çekim traktörü/.test(t)) || '', need: document.querySelector('#dfNeed').textContent, dis: document.querySelector('#dfDisrupt').hidden, u: document.querySelector('#dfUD').textContent }));
+  check('çekim traktörü sonucu: tablo satırı, "ne kadar gerekir" araç kütlesiyle, belirsizlik yalnız çaptan, parçalanma kutusu yok', /20\.000 kg · 2,0 yarıçap/.test(gt.row) && /yarıçap uzaklıkta/.test(gt.need) && gt.dis && /kütlesinden bağımsızdır/.test(gt.u), `${gt.row} — ${gt.need.slice(0, 90)}`);
+  await page.click('#dfAgain'); await page.check('input[name=dfMethod][value=kinetic]'); await page.click('#dfRun');
+  await page.waitForFunction(() => !document.querySelector('#dfResult').hidden && document.querySelector('#dfStale').hidden && /yontem=kin/.test(location.search), null, { timeout: 280000 });
 
   // ---- 3B
   await page.click('#df3d');
@@ -158,6 +201,21 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await page.click('#astSel button:has-text("Laboratuvarda dene")');
   check('Asteroitler sekmesindeki "Laboratuvarda dene" Laboratuvar alanında saptırma deneyini bu hedefle açar', await page.evaluate(() => window.LS19.view === 'lab' && window.LS19.labui.page === 'saptirma' && /Apophis/.test(document.querySelector('#dfSteps .ss').textContent)));
   check('konsol hatası yok (masaüstü)', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await ctx.close();
+}
+
+// ================================================================= paylaşılan bağlantı: aynı deneme kendiliğinden kurulur ve hesaplanır
+{
+  const q = '?sats=0&mode=lab&exp=saptirma&hedef=99942&yil=50&gecis=2029-04-13&yontem=kin&m=5000&U=6.1&beta=3.6&itki=2027-04-13&yon=along&senaryo=varsayim';
+  const { ctx, page, errors } = await open({ viewport: { width: 1280, height: 800 } }, q);
+  const done = await page.waitForFunction(() => window.LS19.deflect && window.LS19.deflect.result && !document.querySelector('#dfResult').hidden, null, { timeout: 280000 }).then(() => true, () => false);
+  const st = await page.evaluate(() => ({ step: [...document.querySelectorAll('#dfSteps .step')].findIndex((li) => li.classList.contains('open')) + 1, t: document.querySelector('#dfVT').textContent, m: document.querySelector('#dfMass').value,
+    hypo: document.querySelector('input[name=dfScn][value=hypo]').checked, ap: document.querySelector('#dfApply').value, g: !document.querySelector('#dfGauge').hidden, s1: document.querySelector('#dfSteps .ss').textContent }));
+  check('bağlantı: Apophis seçilir, 13 Nisan 2029 geçişi taranır, itki ayarları kurulur ve sonuç kendiliğinden hesaplanır', done && st.step === 4 && /Apophis/.test(st.s1) && st.m === '5000' && st.hypo && st.ap === '2027-04-13' && st.g, JSON.stringify(st));
+  await page.click('#dfLink').catch(() => {});
+  check('"Bağlantıyı kopyala" adresi panoya ya da kopyalama kutusuna verir (hata yok)', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await page.click('#labBack'); await page.click('#lab-home [data-exp=ay]');
+  check('başka deneye geçince saptırma parametreleri adresten silinir', await page.evaluate(() => /exp=ay/.test(location.search) && !/hedef=|gecis=/.test(location.search)));
   await ctx.close();
 }
 
@@ -198,6 +256,29 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   check('1. ve 2. adım tamam işaretli (görev kurulu)', await page.evaluate(() => ['gorev', 'arac'].every((t) => document.querySelector(`#lab-ay > .tabs .tab[data-tab="${t}"]`).classList.contains('done'))));
   check('1. adım: profil ve tarih görünür, yörünge ayrıntıları katlı', (await vis(page, '#cfgProfile')) && (await vis(page, '#dateInput')) && !(await page.evaluate(() => document.querySelector('#cfgBox').open)));
   await shot(page, 'a1-gorev');
+  // Ay iniş yeri: Apollo 15 seçilip tasarlanınca küredeki delik, arazi yaması, işaretçi ve HUD yarıçapı o yere taşınır; Apollo 11'e dönülür
+  {
+    const ready = () => page.waitForFunction(() => window.LS19.ui.design && document.querySelector('#loading').style.display !== 'flex' && !/Tasarlanıyor/.test(document.querySelector('#aySum-gorev').textContent), null, { timeout: 280000 });
+    await page.selectOption('#cfgMoonSite', 'A15'); await page.click('#btnDesign'); await page.waitForTimeout(500); await ready();
+    const okA15 = await page.waitForFunction(() => window.LS19.world.moonSite && window.LS19.world.moonSite.id === 'A15' && window.LS19.world.terrainReady, null, { timeout: 280000 }).then(() => true, () => false);
+    const st = await page.evaluate(() => { const W = window.LS19.world, d = W.moonU.siteDir.value, m = W.moonSite, sp = W.terrainSite, c = m.me.map((x) => x * m.r);
+      return { id: m.id, design: window.LS19.ui.design.MOONSITE, dirErr: Math.hypot(d.x - m.me[0], d.y - m.me[1], d.z - m.me[2]), patchKm: Math.hypot(sp[0] - c[0], sp[1] - c[1], sp[2] - c[2]), info: document.querySelector('#moonSiteInfo').textContent, label: document.querySelector('.lbl-site').textContent }; });
+    check('iniş yeri Apollo 15: tasarım MOONSITE taşır, küredeki delik yönü ve arazi yaması o yerde (< 1 km), yarıçap kaynağı ve etiket gösterilir', okA15 && st.design === 'A15' && st.dirErr < 1e-9 && st.patchKm < 1 && /1\.?735,36 km/.test(st.info) && /küresel doku/.test(st.info) && /Apollo 15/.test(st.label), JSON.stringify(st));
+    await page.selectOption('#cfgMoonSite', 'A11'); await page.click('#btnDesign'); await page.waitForTimeout(500); await ready();
+    const okA11 = await page.waitForFunction(() => window.LS19.world.moonSite.id === 'A11' && window.LS19.world.terrainReady && !window.LS19.ui.design.MOONSITE, null, { timeout: 280000 }).then(() => true, () => false);
+    check('Apollo 11\'e dönünce delik, yama ve tasarım yeniden Huzur Denizi\'nde (varsayılan tasarıma alan yazılmaz)', okA11);
+    // yakınsamayan pencere: APOLLO11 profili × Apollo 16, 13 Ekim 2026 → Tasarla sonraki aydınlanma penceresini dener (Aralık 2026)
+    await page.selectOption('#cfgProfile', 'APOLLO11'); await page.selectOption('#cfgMoonSite', 'A16'); await page.fill('#dateInput', '2026-10-13'); await page.click('#btnDesign');
+    const okA16 = await page.waitForFunction(() => window.LS19.ui.design && window.LS19.ui.design.MOONSITE === 'A16' && window.LS19.world.moonSite.id === 'A16', null, { timeout: 280000 }).then(() => true, () => false);
+    const a16 = await page.evaluate(() => ({ sum: document.querySelector('#aySum-gorev').textContent, log: [...document.querySelectorAll('#designLog li')].map((l) => l.textContent).join(' | '), launch: window.LS19.ui.design.LAUNCH.t_launch }));
+    check('Apollo 16 (APOLLO11 profili, 13 Ekim 2026): Tasarla yakınsamayan pencereden sonrakini dener, günlükte yazılır, Görev özeti gerçek fırlatma tarihini (Aralık) gösterir', okA16 && /sonraki pencere deneniyor/.test(a16.log) && /Ara 2026/.test(a16.sum), a16.sum);
+    await page.selectOption('#cfgMoonSite', 'A11'); await page.selectOption('#cfgProfile', 'APOLLO'); await page.click('#btnDesign');
+    await page.waitForFunction(() => window.LS19.ui.design && !window.LS19.ui.design.MOONSITE && window.LS19.world.moonSite.id === 'A11', null, { timeout: 280000 });
+    await page.selectOption('#cfgProfile', 'L2');
+    const free = await page.evaluate(() => [...document.querySelectorAll('#cfgMoonSite option')].every((o) => !o.disabled));
+    await page.selectOption('#cfgProfile', 'APOLLO');
+    check('L2 halo profilinde de altı iniş yeri seçilebilir (kapalı kombinasyon yok)', free);
+  }
   await page.click('#tab-gorev [data-goto=arac]');
   check('"Devam" 2. adımı açar: araç ve güdüm kartları, seçili olanlar işaretli', (await stepOn()) === 'arac' && await page.evaluate(() => document.querySelector('#tab-arac [data-vehicle="two"]').classList.contains('on') && document.querySelector('#tab-arac [data-landing="opt"]').classList.contains('on')));
   await page.click('#tab-arac [data-landing="zem"]');
@@ -206,6 +287,11 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await shot(page, 'a2-arac');
   await page.click('#tab-arac [data-goto=ucus]');
   check('3. adım (Uçuş): Çizelge açık, görev çizelgesi dolu', (await stepOn()) === 'ucus' && (await vis(page, '#tab-plan')) && await page.evaluate(() => document.querySelectorAll('#plan li').length > 5 && window.LS19.ui.tab === 'plan'));
+  // görev iptali okuması (park yörüngesinde: Dünya'ya inmek için perijeyi 40 km'ye düşüren yakış)
+  await page.click('#abRun');
+  const abDone = await page.waitForFunction(() => !document.querySelector('#abOut').hidden || /Hata/.test(document.querySelector('#abMsg').textContent), null, { timeout: 280000 }).then(() => true, () => false);
+  const abt = await page.evaluate(() => ({ t: document.querySelector('#abVT').textContent, rows: [...document.querySelectorAll('#abTbl tr')].map((r) => r.textContent), msg: document.querySelector('#abMsg').textContent }));
+  check('görev iptali: ayrı iş parçacığında dönüş Δv\'si, şimdi / en iyi an satırları ve kalan Δv (m/s, > 1.000) ile karşılaştırma', abDone && /Eve dönülebilir|yetmez|Serbest dönüş/.test(abt.t) && abt.rows.some((r) => /Aracın kalan Δv/.test(r) && +r.replace(/\D+/g, '') > 1000), `${abt.t} — ${abt.rows.slice(0, 2).join(' | ')} — ${abt.msg}`);
   await page.click('#tab-ucus [data-tab=kontrol]');
   check('Uçuş aletleri: Kontrol sekmesi açılır, adım 3 etkin kalır, kare başına güncellenen sekme "kontrol"', (await stepOn()) === 'ucus' && (await vis(page, '#tab-kontrol')) && await page.evaluate(() => window.LS19.ui.tab === 'kontrol'));
   await page.click('#lab-ay > .tabs [data-tab=gorev]'); await page.keyboard.press('k');
@@ -220,15 +306,101 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   const vr = await page.evaluate(() => ({ cls: document.querySelector('#ayVerdict').className, t: document.querySelector('#ayVT').textContent, d: document.querySelector('#ayVD').textContent, rows: [...document.querySelectorAll('#ayVTbl tr')].map((r) => r.textContent), isNew: document.querySelector('#lab-ay > .tabs .tab[data-tab="dv"]').classList.contains('new') }));
   check('4. adım (Sonuç): iniş başarılı kartı, temas ölçüleri; işaret kalkar', /good/.test(vr.cls) && vr.t === 'İniş başarılı' && vr.rows.length >= 5 && vr.rows.some((r) => /Kalan yakıt/.test(r)) && !vr.isNew, vr.rows.join(' · '));
   await shot(page, 'a4-sonuc');
+  const lk = await page.evaluate(() => ({ q: Object.fromEntries(new URLSearchParams(location.search)), hist: [...document.querySelectorAll('#ayHistTbl tbody tr')].map((r) => r.textContent), open: !document.querySelector('#ayHist').hidden }));
+  check('Ay görevi bağlantısı adreste (tarih, profil, araç, güdüm; varsayılan yer/roket yazılmaz) ve biten uçuş "Denemelerim"de', lk.q.exp === 'ay' && lk.q.date === '2026-10-13' && lk.q.profile === 'APOLLO' && lk.q.arac === 'two' && lk.q.gudum === 'opt' && !lk.q.yer && !lk.q.roket
+    && lk.open && lk.hist.length === 1 && /İniş başarılı/.test(lk.hist[0]), JSON.stringify(lk));
   await page.click('#ayRestart');
   check('"Baştan uçur" görevi yeniden başlatır, Uçuş › Çizelge açılır, sonuç sıfırlanır', await page.waitForFunction(() => document.querySelector('#aySum-dv').textContent === 'İnişte belli olur' && !document.querySelector('#tab-plan').hidden && /info/.test(document.querySelector('#ayVerdict').className), null, { timeout: 60000 }).then(() => true, () => false));
   await page.goto(base + 'index.html?sats=0&ast=0&tab=dv', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => { const l = document.querySelector('#loading'); return l && getComputedStyle(l).display === 'none'; }, null, { timeout: 280000 });
   check('eski ?tab=dv Sonuç adımını açar (Δv bütçesi ve karşılaştırma orada)', (await stepOn()) === 'dv' && (await vis(page, '#dvtable')) && (await vis(page, '#cmptable')));
+  // dağılım denemesi (Monte Carlo): denemede 3 uçuş (seçenek listesine eklenir), ayrı iş parçacıkları
+  await page.evaluate(() => { const sel = document.querySelector('#mcN'); sel.add(new Option('3', '3')); sel.value = '3'; });
+  await page.click('#mcRun');
+  const mcDone = await page.waitForFunction(() => /^3 uçuş/.test(document.querySelector('#mcMsg').textContent), null, { timeout: 280000 }).then(() => true, () => false);
+  const mc = await page.evaluate(() => ({ t: document.querySelector('#mcVT').textContent, rows: document.querySelectorAll('#mcTbl tr').length, hist: document.querySelectorAll('#mcHistTbl tbody tr').length,
+    cv: (() => { const c = document.querySelector('#mcScatter'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; })(), seeds: window.LS19.aymc.runs.map((r) => r.seed).sort().join(), stages: window.LS19.aymc.opts.stages, vehicle: window.LS19.aymc.opts.vehicle, prop: window.LS19.aymc.runs.map((r) => r.prop) }));
+  check('Monte Carlo: 3 uçuş tamamlanır (tohum 1–3), başarı oranı, özet tablo, iniş/temas grafiği ve geçmiş satırı', mcDone && /^\d\/3 iniş başarılı/.test(mc.t) && mc.rows >= 6 && mc.cv > 300 && mc.hist === 1 && mc.seeds === '1,2,3', JSON.stringify(mc));
+  check('Monte Carlo seçili aracı uçurur: iki kademe → tasarımda 3 kademe, kalan yakıt Node ölçümüne yakın (~300 kg)', mc.vehicle === 'two' && mc.stages === 3 && mc.prop.every((x) => x > 250 && x < 350), JSON.stringify({ stages: mc.stages, prop: mc.prop }));
+  await page.click('#mcCmp');
+  const cmpDone = await page.waitForFunction(() => /^9 uçuş/.test(document.querySelector('#mcMsg').textContent), null, { timeout: 280000 }).then(() => true, () => false);
+  const cmp = await page.evaluate(() => ({ rows: [...document.querySelectorAll('#mcCmpTbl tbody tr')].map((r) => r.textContent), vis: !document.querySelector('#mcCmpOut').hidden && document.querySelector('#mcTbl').hidden,
+    pairs: window.LS19.aymc.runs.reduce((m, r) => { m[r.landing] = (m[r.landing] || []).concat(r.seed).sort(); return m; }, {}) }));
+  check('güdüm karşılaştırması: aynı 3 tohum üç güdümle (9 uçuş), tablo 3 satır, ZEM/ZEV\'e göre eşleştirilmiş yakıt farkı', cmpDone && cmp.vis && cmp.rows.length === 3 && /karşılaştırma tabanı/.test(cmp.rows[2]) && /kg \(%90 aralığı/.test(cmp.rows[1])
+    && ['opt', 'free', 'zem'].every((l) => (cmp.pairs[l] || []).join() === '1,2,3'), cmp.rows.join(' | '));
   check('konsol hatası yok (Ay görevi adımları)', errors.length === 0, errors.slice(0, 3).join(' | '));
   await ctx.close();
 }
 
+// ================================================================= Laboratuvar › Lagrange noktaları: dört adım, dönen çerçeve çizimi, bağlantı
+{
+  const { ctx, page, errors } = await open({ viewport: { width: 1280, height: 800 } }, '?sats=0&ast=0&mode=lab');
+  const ink = (sel) => page.evaluate((s) => new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(() => res())))).then(() => page.evaluate((s) => { const c = document.querySelector(s), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; }, sel));
+  await page.click('#lab-home [data-exp=lagrange]');
+  await page.waitForFunction(() => document.querySelectorAll('#lgPts tbody tr').length === 5, null, { timeout: 60000 });
+  const l1 = await page.evaluate(() => ({ exp: document.body.dataset.exp, engine: window.LS19.mode, title: document.querySelector('#labTitle').textContent, rows: [...document.querySelectorAll('#lgPts tbody tr')].map((r) => r.textContent), sum: document.querySelector('#lgSum1').textContent, sky: getComputedStyle(document.querySelector('#skyControls')).display !== 'none', dock: getComputedStyle(document.querySelector('#controls')).display === 'none' }));
+  check('Lagrange noktaları ağaçtan açılır: gökyüzü motoru, görev çubuğu gizli; beş nokta (L1/L2 kararsız, L4/L5 kararlı), Dünya–Ay μ özeti', l1.exp === 'lagrange' && l1.engine === 'sky' && l1.title === 'Lagrange noktaları' && l1.dock && l1.rows.length === 5
+    && /58\.07\d km/.test(l1.rows[0]) && /kararsız/.test(l1.rows[0]) && /kararlı: salınım/.test(l1.rows[3]) && /0,01215/.test(l1.sum), JSON.stringify(l1));
+  check('dönen çerçeve çizimi dolu (cisimler, beş nokta)', (await ink('#lgMap')) > 500);
+  await page.click('[data-lgstep="2"] > .sh'); await page.click('#lgCSnap .chip:nth-child(1)');
+  const g1 = await page.evaluate(() => document.querySelector('#lgSum2').textContent); const ink2 = await ink('#lgMap');
+  await page.click('#lgCSnap .chip:nth-child(4)'); const g4 = await page.evaluate(() => document.querySelector('#lgSum2').textContent);
+  check('Enerji: C(L1)\'de kapılar kapalı, C(L4)\'te L3 de açık; yasak bölge gölgelenir', /kapılar kapalı/.test(g1) && /L3 de açık|her yer açık/.test(g4) && ink2 > 20000, `${g1} | ${g4} | ${ink2}`);
+  await page.click('[data-lgstep="3"] > .sh'); await page.click('[data-lgpt="L1"]'); await page.fill('#lgDr', '10'); await page.fill('#lgDays', '30'); await page.click('#lgRun');
+  await page.waitForFunction(() => !document.querySelector('#lgVerdict').hidden, null, { timeout: 60000 });
+  const r1 = await page.evaluate(() => ({ cls: document.querySelector('#lgVerdict').className, t: document.querySelector('#lgVT').textContent, rows: [...document.querySelectorAll('#lgVTbl tr')].map((r) => r.textContent) }));
+  check('Deney L1 (10 km hata): "L1 noktasında kalmaz", ölçülen ve doğrusal e-katlanma süreleri yan yana', /bad/.test(r1.cls) && r1.t === 'L1 noktasında kalmaz' && r1.rows.some((x) => /doğrusal kuram\)1,5 gün/.test(x)) && r1.rows.some((x) => /tümlemeden ölçülen\)1,5 gün/.test(x)), r1.rows.join(' | '));
+  check('uzaklık–zaman grafiği çizilir', (await ink('#lgDist')) > 300);
+  await page.click('[data-lgpt="L4"]'); await page.fill('#lgDr', '500'); await page.fill('#lgDays', '365'); await page.click('#lgRun');
+  await page.waitForFunction(() => /L4/.test(document.querySelector('#lgVT').textContent), null, { timeout: 60000 });
+  check('Deney L4 (500 km, bir yıl): "L4 noktası çevresinde kalır"', await page.evaluate(() => /good/.test(document.querySelector('#lgVerdict').className) && document.querySelector('#lgVT').textContent === 'L4 noktası çevresinde kalır'));
+  await page.click('[data-lgstep="4"] > .sh');
+  await page.waitForFunction(() => document.querySelectorAll('#lgHaloTbl tr').length >= 6, null, { timeout: 60000 });
+  await page.click('[data-lgfam="nrho"]'); await page.waitForFunction(() => /NRHO/.test(document.querySelector('#lgSum4').textContent), null, { timeout: 60000 });
+  const h = await page.evaluate(() => ({ wk: !!window.LS19.lagrange.haloWk, sum: document.querySelector('#lgSum4').textContent, fly: !document.querySelector('#lgFly').hidden, rows: [...document.querySelectorAll('#lgHaloTbl tr')].map((r) => r.textContent) }));
+  check('Halo (ayrı iş parçacığında hesaplanır): NRHO 9:2 periyodu 6,56 gün, Ay görevi profiline geçiş düğmesi', h.wk && /6,56 gün/.test(h.sum) && h.fly && h.rows.some((x) => /Artemis profili/.test(x)), h.sum);
+  const q = await page.evaluate(() => Object.fromEntries(new URLSearchParams(location.search)));
+  check('adres deneyin anahtarlarını taşır (sistem, nokta, hata, süre, halo ailesi)', q.exp === 'lagrange' && q.sistem === 'em' && q.nokta === 'L4' && q.sapma === '500' && q.sure === '365' && q.aile === 'nrho', JSON.stringify(q));
+  await page.click('#lgFly');
+  const fly = await page.waitForFunction(() => window.LS19.labui.page === 'ay' && /Artemis/.test(document.querySelector('#aySum-gorev').textContent) && window.LS19.ui.design && window.LS19.ui.design.profile === 'HALO', null, { timeout: 400000 }).then(() => true, () => false);
+  const q2 = await page.evaluate(() => Object.fromEntries(new URLSearchParams(location.search)));
+  check('"Ay görevinde bu bekleme yörüngesiyle uç": Ay görevi Artemis (NRHO) profiliyle tasarlanır; Lagrange anahtarları adresten silinir', fly && !q2.sistem && !q2.aile && q2.exp === 'ay', JSON.stringify(q2));
+  check('konsol hatası yok (Lagrange)', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await ctx.close();
+}
+{
+  const { ctx, page, errors } = await open({ viewport: { width: 1280, height: 800 } }, '?sats=0&ast=0&mode=lab&exp=lagrange&sistem=ozel&kutle=0.05&nokta=L4&sapma=100&hata=0&yonu=x&sure=365');
+  await page.waitForFunction(() => !document.querySelector('#lgVerdict').hidden, null, { timeout: 60000 });
+  const r = await page.evaluate(() => ({ t: document.querySelector('#lgVT').textContent, cls: document.querySelector('#lgVerdict').className, sum: document.querySelector('#lgSum1').textContent, l4: document.querySelectorAll('#lgPts tbody tr')[3].textContent }));
+  check('bağlantıyla açılış: varsayımsal μ = 0,05 (Routh sınırının üstü) → L4 de kararsız, deney kendiliğinden koşar ve L4\'te kalmaz', /0,05/.test(r.sum) && /kararsız/.test(r.l4) && /bad/.test(r.cls) && !/çevresinde kalır/.test(r.t), JSON.stringify(r));
+  check('konsol hatası yok (Lagrange bağlantısı)', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await ctx.close();
+}
+// ================================================================= cihazda başarım okuması (?olcum=1)
+{
+  const { ctx, page, errors } = await open({ viewport: { width: 1280, height: 800 } }, '?sats=0&ast=0&olcum=1');
+  const ok = await page.waitForFunction(() => { const e = document.querySelector('#perfHud'); return e && /üçgen \d/.test(e.textContent) && /oran \d/.test(e.textContent); }, null, { timeout: 60000 }).then(() => true, () => false);
+  const t = await page.evaluate(() => (document.querySelector('#perfHud') || {}).textContent || '');
+  check('?olcum=1: başarım kutusu dolar (kare aralıkları, üçgen, oran, doku katmanı); parametresiz açılışta yüklenmez', ok && /kare \d/.test(t) && /doku (KTX2|WebP)/.test(t), t.replace(/\n/g, ' | ').slice(0, 200));
+  check('konsol hatası yok (başarım okuması)', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await ctx.close();
+}
+// ================================================================= Ay görevi bağlantısı: başka bir tarayıcıda açılınca aynı görev (iniş yeri, roket, araç, güdüm)
+{
+  const { ctx, page, errors } = await open({ viewport: { width: 1280, height: 800 } }, '?sats=0&ast=0&mode=lab&exp=ay&date=2026-10-13&profile=APOLLO&yer=A15&roket=SATURN_V&arac=one&gudum=zem');
+  const okL = await page.waitForFunction(() => window.LS19.ui.design && window.LS19.ui.design.MOONSITE === 'A15' && window.LS19.world.moonSite.id === 'A15' && document.querySelector('#loading').style.display === 'none', null, { timeout: 400000 }).then(() => true, () => false);
+  const st = await page.evaluate(() => ({ site: window.LS19.ui.design.MOONSITE, rocket: window.LS19.ui.design.STAGES[0].rocket, nSt: window.LS19.ui.design.STAGES.length, sel: document.querySelector('#cfgMoonSite').value,
+    veh: document.querySelector('#tab-arac [data-vehicle="one"]').classList.contains('on'), land: document.querySelector('#tab-arac [data-landing="zem"]').classList.contains('on'), q: Object.fromEntries(new URLSearchParams(location.search)) }));
+  check('bağlantı açılışta uygulanır: Apollo 15, Saturn V, tek kademe, ZEM/ZEV; adres aynı anahtarları geri yazar', okL && st.site === 'A15' && st.rocket === 'SATURN_V' && st.sel === 'A15' && st.veh && st.land
+    && st.q.yer === 'A15' && st.q.roket === 'SATURN_V' && st.q.arac === 'one' && st.q.gudum === 'zem' && st.q.profile === 'APOLLO' && st.q.date === '2026-10-13', JSON.stringify(st));
+  await page.click('#labBack'); await page.click('#lab-home [data-exp=saptirma]');
+  const q2 = await page.evaluate(() => Object.fromEntries(new URLSearchParams(location.search)));
+  await page.click('#labBack'); await page.click('#lab-home [data-exp=ay]');
+  const q3 = await page.evaluate(() => Object.fromEntries(new URLSearchParams(location.search)));
+  check('saptırmaya geçince Ay görevi anahtarları adresten silinir, Ay görevine dönünce geri yazılır', q2.exp === 'saptirma' && !q2.arac && !q2.yer && !q2.date && q3.exp === 'ay' && q3.yer === 'A15' && q3.arac === 'one', JSON.stringify({ q2, q3 }));
+  check('konsol hatası yok (Ay görevi bağlantısı)', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await ctx.close();
+}
 // ================================================================= telefon
 {
   const { ctx, page, errors } = await open({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, '?sats=0&mode=lab');
@@ -247,6 +419,10 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await page.click('#btnSkyPanel'); await page.click('#labBack'); await page.click('#lab-home [data-exp=ay]');
   check('telefon: Laboratuvar › Ay görevi görev motorunu açar, adım çubuğu panele sığar', await page.evaluate(() => window.LS19.mode === 'mission' && document.querySelector('#labPanel').classList.contains('open') && (() => { const t = document.querySelector('#lab-ay > .tabs'); return t.scrollWidth <= t.clientWidth + 1 && document.querySelector('#labPanel').scrollWidth <= document.querySelector('#labPanel').clientWidth + 1; })()));
   await page.click('#btnPanel');
+  await page.click('#btnPanel'); await page.click('#labBack'); await page.click('#lab-home [data-exp=lagrange]');
+  check('telefon: Lagrange noktaları paneli açık, çizim ve adımlar yatay taşmaz', await page.evaluate(() => { const p = document.querySelector('#labPanel .labpage:not([hidden])'); return p.id === 'lab-lagrange' && document.querySelector('#labPanel').classList.contains('open') && p.scrollWidth <= p.clientWidth + 1 && document.querySelector('#lgMap').clientWidth > 300; }));
+  await shot(page, 'm7-lagrange');
+  await page.click('#labBack'); await page.click('#lab-home [data-exp=ay]'); await page.click('#btnPanel');
   check('telefon: görev çubuğundaki panel düğmesi Laboratuvar panelini kapatır (3B uçuş görünür)', await page.evaluate(() => !document.querySelector('#labPanel').classList.contains('open')) && (await vis(page, '#controls')) && (await vis(page, '#hud')));
   await shot(page, 'm6-ay-gorevi');
   check('konsol hatası yok (telefon)', errors.length === 0, errors.slice(0, 3).join(' | '));

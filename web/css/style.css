@@ -688,6 +688,14 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
 .step.open .sb { display: block; animation: stepIn .18s var(--ease) both; }
 @keyframes stepIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 .stepsub { margin: 2px 0 6px; font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); }
+.dfhist { margin-top: 12px; }
+.tbl td.bad { color: var(--bad); font-weight: 650; }
+.unc { margin-top: 8px; padding: 8px 12px; border-radius: 10px; border: 1px dashed var(--line-2); }
+.unc .ut { font-weight: 650; } .unc .ud { margin-top: 3px; font-size: 12px; line-height: 1.45; color: var(--text-secondary); }
+.unc.good .ut { color: var(--good); } .unc.bad .ut { color: var(--bad); } .unc.warn .ut { color: var(--warn, #f5b041); } .unc.info .ut { color: var(--accent-2); }
+.tbl.hist .hrow { cursor: pointer; }
+.tbl.hist .hrow:hover, .tbl.hist .hrow:focus-visible { background: var(--surface-1); outline: none; }
+.tbl.hist .hrow.good .res { color: var(--good); } .tbl.hist .hrow.bad .res { color: var(--bad); } .tbl.hist .hrow.info .res { color: var(--accent-2); }
 .stepnav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .stepnav .primary { flex: 1 1 auto; }
 .hint { margin-top: 4px; padding: 6px 8px; border-radius: 8px; background: rgba(245, 185, 58, .08); border: 1px solid rgba(245, 185, 58, .35); color: var(--warn); font-size: 12px; line-height: 1.45; }
@@ -709,6 +717,7 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
 .labempty p { margin: 0 0 4px; }
 
 .mseg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 6px 0; }
+.mseg > .mcard:last-child:nth-child(odd) { grid-column: 1 / -1; }          /* tek sayıda seçenek: sonuncusu tam genişlik */
 .mcard { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; background: var(--surface-1); border: 1px solid var(--line-2); cursor: pointer; transition: border-color .15s var(--ease), background-color .15s var(--ease); }
 .mcard.on { border-color: var(--accent); background: rgba(59, 130, 246, .14); }
 .mcard input { margin: 2px 0 0; accent-color: var(--accent); flex: none; }
@@ -893,3 +902,10 @@ body.launch-cine .asccredit { position: fixed; left: 12px; bottom: 8px; max-widt
 body.launch-cine .asctele { background: linear-gradient(180deg, rgba(6, 8, 14, .58), rgba(6, 8, 14, .44)); }
 @media (max-width: 760px) { body.launch-cine .asccredit { left: 8px; right: 8px; max-width: none; text-align: center; } body.launch-cine .ascbar { top: 8px; } }
 @media (prefers-reduced-motion: reduce) { .asctele .at-flash, body.launch-cine .ascbtns { transition: none; } }
+
+/* Laboratuvar › Lagrange noktaları */
+.chart.lgmap { height: 260px; position: sticky; top: 0; z-index: 2; margin-top: 6px; box-shadow: 0 6px 12px -6px rgba(0, 0, 0, .6); }
+@media (max-width: 760px) { .chart.lgmap { height: 210px; } }
+#lab-lagrange .frow3 input { width: 100%; min-width: 0; }
+#lgMu, #lgC, #lgAz { flex: 1; min-width: 0; }
+#lgView { margin-top: 6px; }

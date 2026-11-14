@@ -2,18 +2,25 @@
 // Hesap deflectwork.js iş parçacığında (DeflectEngine); bu dosya yalnız arayüz, grafikler ve 3B yollar. Metin/karar mantığı: labtext.js (Node'da sınanır).
 import * as THREE from 'three';
 import * as E from './engine.js';
-import { AU, R_E, massOf } from './deflect.js';
+import { AU, R_E, massOf, ngFromSbdb, tractorForce } from './deflect.js';
 import { CLASS_TR } from './asteroids.js';
 import { fmt } from './format.js';
 import { $, mk } from './uiutil.js';
 import { sig, kmText, distText, caDist, sizeText, dateLong, etToISO, etFromISO, RHO, QUICK_TARGETS, leadChoices, defaultLead, leadText, verdictOf, needText,
-  targetSummary, caSummary, pushSummary, DIRS, dartNote } from './labtext.js';
+  targetSummary, caSummary, pushSummary, DIRS, dartNote, ngText, LINK_KEYS, linkFromState, stateFromLink, historyRow, historyCsv, uncertText, interceptRows, disruptionOf, laterRows, passText } from './labtext.js';
+import { circlesInView } from './keyhole.js';
 import { workerOpts } from './i18n.js';
+import { covFromSbdb, massSigma, diamSigma, dvSigma, monteCarlo, ellipse, BETA_SIG } from './uncert.js';
+import { ROCKET_IDS, rocketOf, tliCapacity } from './rockets.js';
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const reduceMotion = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const narrow = () => window.matchMedia && matchMedia('(max-width: 760px)').matches;
 const STEP_LOCK = ['Önce bir hedef seçin', 'Önce bir yakın geçiş seçin', 'Önce itkiyi hesaplayın'];
+const HIST_KEY = 'ls19.dfHist', HIST_MAX = 30;
+const howCell = (h) => { const td = mk('td', null, h.how); if (h.hypo) td.append(' · ', mk('span', 'k', 'çarpacak olsaydı')); return td; };
+const loadHist = () => { try { const a = JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); return Array.isArray(a) ? a.filter((h) => h && h.link && Number.isFinite(h.caEt)) : []; } catch (e) { return []; } };
+const saveHist = (a) => { try { localStorage.setItem(HIST_KEY, JSON.stringify(a)); } catch (e) { /* özel pencere ya da kota: geçmiş yalnız bu oturumda kalır */ } };
 
 export class DeflectUI {
   constructor({ world, asts, getT, setCam, ui }) {
@@ -21,7 +28,12 @@ export class DeflectUI {
     this.target = null; this.cas = []; this.caSel = -1; this.result = null; this.lastP = null; this.seq = 0; this.pickSeq = 0; this.w = null; this.busy = false; this.mode = '';
     this.scanned = false; this.scanId = 0; this.scanEt0 = 0; this.leads = []; this.leadId = null; this.leadsFor = ''; this.massEdited = false; this.stale = false; this.paths = null;
     this.steps = [...document.querySelectorAll('#dfSteps .step')];
+    // paylaşılan bağlantı (?mode=lab&exp=saptirma&hedef=…): katalog hazır olunca hedef seçilir, tarama bitince geçiş ve itki kurulup hesaplanır
+    const q = new URLSearchParams(location.search);
+    this.link = q.get('exp') === 'saptirma' || q.get('tab') === 'saptirma' ? stateFromLink(q) : null; this.linkRun = null;
+    this.hist = loadHist();
     this.bind();
+    this.renderHist();
     $('#dfDart').textContent = dartNote();
     this.buildQuick(); this.renderLeads(); this.refresh(); this.setStep(1);
     // 3B yollar (Dünya merkezli)
@@ -43,7 +55,7 @@ export class DeflectUI {
     $('#dfNext2').addEventListener('click', () => { if (this.caSel < 0) return; this.prepareStep3(); this.setStep(3); });
     document.querySelectorAll('input[name=dfMethod]').forEach((r) => r.addEventListener('change', () => { this.syncMethod(); this.inputsChanged(); }));
     document.querySelectorAll('input[name=dfScn]').forEach((r) => r.addEventListener('change', () => { this.syncScenario(); this.inputsChanged(); }));
-    for (const id of ['#dfMass', '#dfU', '#dfBeta', '#dfF', '#dfDays']) $(id).addEventListener('input', () => this.inputsChanged());
+    for (const id of ['#dfMass', '#dfU', '#dfBeta', '#dfF', '#dfDays', '#dfGtM', '#dfGtK', '#dfGtDays']) $(id).addEventListener('input', () => this.inputsChanged());
     $('#dfDir').addEventListener('change', () => this.inputsChanged());
     $('#dfApply').addEventListener('input', () => { this.leadId = null; this.renderLeads(); this.inputsChanged(); });
     for (const id of ['#dfD', '#dfRho']) $(id).addEventListener('input', () => { this.massEdited = true; this.renderMass(); this.inputsChanged(); });
@@ -51,8 +63,17 @@ export class DeflectUI {
     $('#dfRerun').addEventListener('click', () => this.compute());
     $('#dfAgain').addEventListener('click', () => this.setStep(3));
     $('#df3d').addEventListener('click', () => this.show3d());
+    $('#dfLink').addEventListener('click', () => this.copyLink());
+    // önleme görevi: roketler (başarımı yayımlanmış olanlar), fırlatma penceresi, en iyi çözümü uygula
+    const rs = $('#dfRocket'); for (const id of ROCKET_IDS) if (tliCapacity(id) > 0) { const o = document.createElement('option'); o.value = id; o.textContent = rocketOf(id).name; rs.appendChild(o); }
+    rs.value = 'FH';
+    $('#dfIcRun').addEventListener('click', () => this.porkchop());
+    $('#dfIcUse').addEventListener('click', () => this.useIntercept());
+    rs.addEventListener('change', () => this.resetIc());
+    $('#dfHistCsv').addEventListener('click', () => this.downloadCsv());
+    $('#dfHistClear').addEventListener('click', () => { this.hist = []; saveHist(this.hist); this.renderHist(); });
     // grafikler görünür olunca (adım açılınca, "ayrıntılar" açılınca, panel yeniden boyutlanınca) çizilir
-    if (window.ResizeObserver) { const ro = new ResizeObserver(() => { if (this.result) this.drawCharts(); }); ro.observe($('#dfBplane')); ro.observe($('#dfSweep')); }
+    if (window.ResizeObserver) { const ro = new ResizeObserver(() => { if (this.result) this.drawCharts(); if (this.pc) this.drawPork(); }); ro.observe($('#dfBplane')); ro.observe($('#dfSweep')); ro.observe($('#dfPork')); }
     this.syncMethod(); this.syncScenario();
   }
   buildQuick() {
@@ -69,6 +90,13 @@ export class DeflectUI {
     const A = this.asts, idx = A.index;
     document.querySelectorAll('#dfQuick .chip').forEach((b) => { const ok = !!(idx && idx.has(b.dataset.des)); b.disabled = !ok; });
     const st = $('#dfCatalog'); st.textContent = A.n > 0 ? '' : (A.info && A.info.status) || 'Katalog yükleniyor…';
+    if (this.link && idx && A.n > 0) { const L = this.link; this.link = null; this.applyLink(L); }
+  }
+  // bağlantıdaki ya da geçmişteki bir denemeyi kur: hedefi seç, aynı aralığı tara, aynı geçişi ve itkiyi seçip hesapla
+  applyLink(L) {
+    const i = this.asts.index && this.asts.index.get(L.des);
+    if (i == null) { this.setStep(1); $('#dfCatalog').textContent = `Bağlantıdaki hedef (${L.des}) katalogda bulunamadı.`; return; }
+    this.setTarget(i, { link: L });
   }
 
   // ---------------------------------------------------------------- 1 · hedef
@@ -87,8 +115,11 @@ export class DeflectUI {
     const A = this.asts, my = ++this.pickSeq;
     this.kill(); A.select(i);
     this.target = { i, name: A.label(i), des: A.C.des[i], Dkm: A.diam(i) };
-    this.cas = []; this.caSel = -1; this.result = null; this.lastP = null; this.scanned = false; this.stale = false; this.leadsFor = ''; this.hide3d(); this.clearResult();
+    this.cas = []; this.caSel = -1; this.result = null; this.lastP = null; this.scanned = false; this.stale = false; this.leadsFor = ''; this.hide3d(); this.clearResult(); this.resetIc();
     if (opts.hypo != null) this.setScenario(!!opts.hypo);
+    const L = opts.link || null; this.linkRun = L;
+    if (L) { if (L.start) $('#dfStart').value = L.start; if (L.years) $('#dfYears').value = L.years; }
+    else this.writeUrl(null);
     this.renderTarget(null); this.renderCas(); this.setStep(2); this.refresh();
     $('#dfScanStatus').textContent = 'Hedef bilgileri alınıyor…';
     const t = this.getT(), today = etToISO(t + (E.jdTdb(0) - 2451545) * 86400, false);
@@ -97,13 +128,19 @@ export class DeflectUI {
     i = A.index.get(des) ?? -1; if (i < 0) { $('#dfScanStatus').textContent = 'Hedef katalogda yok'; return; }        // beklerken katalog yeniden kurulmuş olabilir (dizinler kayar)
     this.target.i = i;
     const d = A.details(i, t);
-    let el = A.elementsOf(i), src = 'katalog öğeleri (12 hane)';
+    let el = A.elementsOf(i), src = 'katalog öğeleri (12 hane)', ng = null, cov = null;
     if (det && det.orbit && det.orbit.elements) {
       const e = {}; for (const x of det.orbit.elements) e[x.name] = +x.value;
-      if (Number.isFinite(e.a) && Number.isFinite(e.ma)) { el = { a: e.a, e: e.e, i: e.i, om: e.om, w: e.w, ma: e.ma, epoch: +det.orbit.epoch }; src = `JPL çözümü ${det.orbit.orbit_id || ''} (tam duyarlık)`; }
+      if (Number.isFinite(e.a) && Number.isFinite(e.ma)) {
+        el = { a: e.a, e: e.e, i: e.i, om: e.om, w: e.w, ma: e.ma, epoch: +det.orbit.epoch }; src = `JPL çözümü ${det.orbit.orbit_id || ''} (tam duyarlık)`;
+        ng = ngFromSbdb(det.orbit.model_pars);                            // aynı çözümün kütleçekimsel olmayan parametreleri (öğelerle birlikte kestirilmiştir)
+        cov = covFromSbdb(det.orbit, { full: !!ng });                   // yörünge kovaryansı (cov=mat; A1/A2 dahil); yoksa null: yalnız itkinin belirsizliği
+      }
     }
-    Object.assign(this.target, { el, src, ca: (det && det.ca_data) || [], Dkm: d.D, GM: d.GM || (A.C.gm[i] > 0 ? A.C.gm[i] : 0) });
+    const msrc = { GM: d.GM || 0, GMsig: d.GMsig || 0, D: d.D, Dsig: d.Dsig || 0, Dmeasured: !!d.Dmeas, alb: d.alb, albSig: d.albSig || 0, rhoMeasured: !!d.rhoMeas };
+    Object.assign(this.target, { el, src, ng, cov, msrc, ca: (det && det.ca_data) || [], Dkm: d.D, GM: d.GM || (A.C.gm[i] > 0 ? A.C.gm[i] : 0) });
     $('#dfD').value = +d.D.toPrecision(4); this.massEdited = false; $('#dfRho').value = d.rho || RHO(d.spec);
+    if (L && L.D && L.rho) { $('#dfD').value = L.D; $('#dfRho').value = L.rho; this.massEdited = true; }
     this.renderTarget(d); this.renderMass(); this.refresh();
     this.scan();
   }
@@ -115,6 +152,8 @@ export class DeflectUI {
     if (d.moid != null) tg.appendChild(mk('div', null, `Dünya yörüngesine en çok ${distText(d.moid * AU)} yaklaşır (MOID)${d.sentry ? ` · Sentry çarpma olasılığı ${sig(d.sentry.ip, 2)}` : ''}`));
     if (d.moid > 0.05) tg.appendChild(mk('div', 'hint', 'Yörüngesi Dünya\'ya 0,05 AB\'den fazla yaklaşmıyor: yakın geçiş bulunamayabilir. Apophis gibi daha yakın bir hedef de deneyebilirsiniz.'));
     tg.appendChild(mk('div', 'k', 'Başlangıç durumu: ' + T.src));
+    if (T.cov) { const n = mk('div', 'k', 'Yörünge kovaryansı: JPL'); n.title = 'Yörüngenin gözlemlerden gelen belirsizliği: sonuçta çarpma olasılığı ve geçiş noktasının belirsizlik elipsi buna dayanır.'; tg.appendChild(n); }
+    if (T.ng) { const n = mk('div', 'k', ngText(T.ng)); n.title = 'Isıl ışımanın (Yarkovsky etkisi) yörünge boyunca küçük ama sürekli itkisi: JPL bunu gözlemlerden kestirir. Yüzyıllık taşımalarda yakın geçişi binlerce km kaydırabilir; motor bunu hesaba katar.'; tg.appendChild(n); }
   }
   mass() {
     const D = parseFloat($('#dfD').value), rho = parseFloat($('#dfRho').value);
@@ -139,11 +178,17 @@ export class DeflectUI {
     this.renderCas(); this.refresh();
     const id = ++this.seq;
     $('#dfScanStatus').textContent = 'Yakın geçişler taranıyor…';
-    this.worker().postMessage({ cmd: 'target', id, el: T.el, etStart: etFromISO(start), years, name: T.name });
+    this.worker().postMessage({ cmd: 'target', id, el: T.el, ng: T.ng || null, cov: T.cov || null, etStart: etFromISO(start), years, name: T.name });
   }
   onMsg(d) {
     if (d.id !== this.seq) return;
-    if (d.type === 'progress') { if (this.mode === 'scan') $('#dfScanStatus').textContent = d.msg; else $('#dfRunning').textContent = d.msg; return; }
+    if (d.type === 'progress') { if (this.mode === 'scan') $('#dfScanStatus').textContent = d.msg; else if (this.mode === 'porkchop') $('#dfIcMsg').textContent = d.msg; else $('#dfRunning').textContent = d.msg; return; }
+    if (this.mode === 'porkchop') {
+      this.pcBusy = false; $('#dfIcRun').disabled = false;
+      if (d.type === 'error') { $('#dfIcMsg').textContent = 'Hata: ' + d.msg; return; }
+      if (d.type === 'porkchop') this.renderPork(d.r);
+      return;
+    }
     this.busy = false;
     if (d.type === 'error') {
       if (this.mode === 'scan') $('#dfScanStatus').textContent = 'Hata: ' + d.msg;
@@ -154,7 +199,8 @@ export class DeflectUI {
       this.cas = d.cas; this.lastP = null; this.scanned = true; this.scanEt0 = d.et0; this.scanEt1 = d.et1; this.scanMs = d.ms;
       if (d.cas.length) this.caSel = d.cas.reduce((b, c, k) => (c.dist < d.cas[b].dist ? k : b), 0);
       this.renderCas(); this.refresh();
-    } else if (d.type === 'deflect') { this.result = d.r; this.renderResult(); this.refresh(); }
+      if (this.linkRun) this.continueLink();
+    } else if (d.type === 'deflect') { this.result = d.r; this.renderResult(); this.refresh(); this.remember(); }
   }
   renderCas() {
     const ul = $('#dfCas'), st = $('#dfScanStatus'), empty = $('#dfCasEmpty'); ul.replaceChildren();
@@ -166,7 +212,7 @@ export class DeflectUI {
       const sub = [cd.sub, c.bp ? `v∞ ${fmt(c.bp.vinf, 1)} km/s` : '', j ? `JPL ile uyumlu (${kmText(+j.dist * AU)})` : ''].filter(Boolean).join(' · ');
       const head = mk('span', 'cd', dateLong(c.et)); if (k === closest && this.cas.length > 1) head.appendChild(mk('span', 'badge', 'en yakın'));
       b.append(head, mk('span', 'cm', cd.main), mk('span', 'cs', sub));
-      b.addEventListener('click', () => { if (this.caSel === k) return; this.caSel = k; this.result = null; this.leadsFor = ''; this.clearResult(); this.hide3d(); this.renderCas(); this.refresh(); });
+      b.addEventListener('click', () => { if (this.caSel === k) return; this.caSel = k; this.result = null; this.leadsFor = ''; this.clearResult(); this.hide3d(); this.resetIc(); this.renderCas(); this.refresh(); });
       li.appendChild(b); ul.appendChild(li);
     });
     if (this.scanned) {
@@ -181,13 +227,144 @@ export class DeflectUI {
     $('#dfNext2').disabled = this.caSel < 0;
   }
 
+  // bağlantı: tarama bitti → aynı günün geçişi, itki ayarları, hesap
+  continueLink() {
+    const L = this.linkRun; this.linkRun = null;
+    if (L.caDay) {
+      const k = this.cas.findIndex((c) => etToISO(c.et, false) === L.caDay);
+      if (k < 0) { $('#dfScanStatus').textContent = `Bağlantıdaki yakın geçiş (${L.caDay}) bu taramada yok: bir geçiş seçin.`; return; }
+      this.caSel = k; this.renderCas();
+    }
+    if (this.caSel < 0) return;
+    this.prepareStep3();
+    const r = document.querySelector(`input[name=dfMethod][value=${['thrust', 'tractor'].includes(L.method) ? L.method : 'kinetic'}]`); if (r) { r.checked = true; this.syncMethod(); }
+    if (L.method === 'tractor') { if (L.gm) $('#dfGtM').value = L.gm; if (L.gk) $('#dfGtK').value = L.gk; if (L.days) $('#dfGtDays').value = L.days; }
+    for (const [k, id] of [['m', '#dfMass'], ['U', '#dfU'], ['beta', '#dfBeta'], ['F', '#dfF'], ['days', '#dfDays']]) if (L[k] != null && !(L.method === 'tractor' && k === 'days')) $(id).value = L[k];
+    if (L.dir === 'vec' && L.dirVec) this.setIcDir(L.dirVec);
+    else if (L.dir) $('#dfDir').value = L.dir;
+    if (L.hypo != null) this.setScenario(L.hypo);
+    if (L.applyDay) { $('#dfApply').value = L.applyDay; this.leadId = (this.leads.find((c) => c.ok && etToISO(c.et, false) === L.applyDay) || {}).id || null; this.renderLeads(); }
+    this.inputsChanged(); this.setStep(3);
+    if (L.applyDay) this.compute();
+  }
+  // şu anki ayarların bağlantı durumu (hesaplanmış bir geçiş ve hedef varsa)
+  linkState() {
+    const T = this.target, ca = this.cas[this.caSel]; if (!T || !ca) return null;
+    const q = this.readParams();
+    return { des: T.des, start: $('#dfStart').value, years: Math.max(1, Math.min(120, +$('#dfYears').value || 50)), caDay: etToISO(ca.et, false), method: q.method,
+      m: q.m, U: q.U, beta: q.beta, F: q.F, days: q.days, gm: q.gm, gk: q.gk, applyDay: $('#dfApply').value, dir: q.dir, dirVec: q.dirVec, hypo: q.hypo,
+      ...(this.massEdited ? { D: +$('#dfD').value, rho: +$('#dfRho').value } : {}) };
+  }
+  // adres çubuğu: saptırma açıkken son hesaplanan denemenin parametreleri (yeni hedef seçilince silinir)
+  writeUrl(o) {
+    if (!window.history || !history.replaceState) return;
+    const u = new URL(location.href); for (const k of LINK_KEYS) u.searchParams.delete(k);
+    if (o && document.body.dataset.exp === 'saptirma') for (const [k, v] of Object.entries(o)) u.searchParams.set(k, v);
+    if (u.href !== location.href) history.replaceState(history.state, '', u);
+  }
+  linkUrl(qs) { const u = new URL(location.pathname, location.origin); u.searchParams.set('mode', 'lab'); u.searchParams.set('exp', 'saptirma'); for (const [k, v] of new URLSearchParams(qs)) u.searchParams.set(k, v); return u.href; }
+  async copyLink() {
+    const h = this.hist[0], msg = $('#dfLinkMsg'); if (!this.result || !h) return;
+    const url = this.linkUrl(h.link);
+    try { await navigator.clipboard.writeText(url); msg.textContent = 'Bağlantı kopyalandı.'; }
+    catch (e) { msg.textContent = ''; window.prompt('Bağlantıyı kopyalayın:', url); }
+    setTimeout(() => { if (msg.textContent === 'Bağlantı kopyalandı.') msg.textContent = ''; }, 4000);
+  }
+  // ---------------------------------------------------------------- deneme geçmişi
+  remember() {
+    const st = this.runLink; this.runLink = null; if (!st || !this.result) return;
+    const o = linkFromState(st), qs = String(new URLSearchParams(o));
+    const row = historyRow(this.result, this.lastP, this.target, qs);
+    this.hist = [row, ...this.hist.filter((h) => h.link !== qs)].slice(0, HIST_MAX); saveHist(this.hist);
+    this.writeUrl(o); this.renderHist();
+  }
+  renderHist() {
+    const box = $('#dfHist'), tb = $('#dfHistTbl tbody'); tb.replaceChildren();
+    box.hidden = !this.hist.length; $('#dfHistN').textContent = this.hist.length ? `(${this.hist.length})` : '';
+    this.hist.forEach((h, k) => {
+      const tr = mk('tr', 'hrow ' + h.kind); tr.tabIndex = 0; tr.title = 'Bu denemeyi yeniden kur';
+      tr.append(mk('td', null, `${h.name} · ${dateLong(h.caEt)}`), howCell(h), mk('td', 'num', leadText(h.leadDays)),
+        mk('td', 'num', `${kmText(h.shiftKm)} / ${kmText(h.bEKm)}`), mk('td', 'res', h.title));
+      const go = () => { const L = stateFromLink(new URLSearchParams(this.hist[k].link)); if (L) this.applyLink(L); };
+      tr.addEventListener('click', go); tr.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); go(); } });
+      tb.appendChild(tr);
+    });
+  }
+  downloadCsv() {
+    if (!this.hist.length) return;
+    const rows = this.hist.map((h) => ({ ...h, link: this.linkUrl(h.link) }));
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([historyCsv(rows)], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'ls19_saptirma_denemeleri.csv'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  // ---------------------------------------------------------------- önleme görevi (fırlatma penceresi)
+  resetIc() {
+    this.pc = null; this.pcBusy = false; $('#dfIcRun').disabled = false; $('#dfIcOut').hidden = true; $('#dfIcMsg').textContent = '';
+    if ($('#dfDir').value === 'vec') $('#dfDir').value = 'along';
+    this.icDir = null; $('#dfDir').querySelector('option[value=vec]').disabled = true;
+  }
+  setIcDir(u) { this.icDir = u; const o = $('#dfDir').querySelector('option[value=vec]'); o.disabled = false; $('#dfDir').value = 'vec'; }
+  porkchop() {
+    const ca = this.cas[this.caSel]; if (!this.target || !ca || this.busy) return;
+    const M = this.mass(), beta = +$('#dfBeta').value;
+    if (!(M > 0 && beta >= 1)) { $('#dfIcMsg').textContent = 'Gelişmiş bölümünde kütle ve β geçerli olmalı.'; return; }
+    this.mode = 'porkchop'; this.pcBusy = true; $('#dfIcRun').disabled = true; $('#dfIcMsg').textContent = 'Hesaplanıyor…';
+    const id = ++this.seq;
+    this.worker().postMessage({ cmd: 'porkchop', id, p: { ca: this.caSel, rocket: $('#dfRocket').value, beta, M } });
+  }
+  renderPork(r) {
+    this.pc = r; const b = r.best;
+    $('#dfIcOut').hidden = false;
+    if (!b) { $('#dfIcMsg').textContent = 'Bu roketle bu geçişten önce ulaşılabilen bir önleme yörüngesi bulunamadı.'; $('#dfIcBest').replaceChildren(); $('#dfIcUse').disabled = true; this.drawPork(); return; }
+    $('#dfIcMsg').textContent = `${fmt(r.nL * r.nT, 0)} yörünge denendi. En büyük kayma ${kmText(b.shift)}: yakalama yarıçapının %${fmt(100 * b.shift / r.bE, b.shift < 0.1 * r.bE ? 1 : 0)}.`; $('#dfIcUse').disabled = false;
+    const tb = mk('table', 'tbl');
+    for (const [k, v] of interceptRows(b, r.bE, rocketOf($('#dfRocket').value).name)) { const tr = mk('tr'); tr.append(mk('td', null, k), mk('td', 'num', v)); tb.appendChild(tr); }
+    $('#dfIcBest').replaceChildren(tb);
+    this.drawPork();
+  }
+  drawPork() {
+    const r = this.pc; if (!r) return;
+    const P0 = this.prep($('#dfPork')); if (!P0) return;
+    const { g, w, h } = P0, L = 40, R = 6, T = 24, B = 22, cw = (w - L - R) / r.nL, ch = (h - T - B) / r.nT, DAY = 86400;
+    g.fillStyle = '#0d1118'; g.fillRect(L, T, w - L - R, h - T - B);
+    // renk: kayma, örgünün kendi aralığında (en büyüğün 1/1000'i → en büyük) logaritmik; koyu mor → turuncu → sarı. Yakalama yarıçapını aşan hücreler (kurtarır) beyaz çerçeveli
+    let mx = 0; for (const v of r.shift) if (v > mx) mx = v;
+    const lo = Math.log10(mx / 1000), stops = [[0, [60, 40, 110]], [0.55, [230, 90, 60]], [1, [255, 236, 150]]];
+    const col = (v) => {
+      const t = Math.max(0, Math.min(1, (Math.log10(v) - lo) / 3)); let k = 0; while (k < stops.length - 2 && t > stops[k + 1][0]) k++;
+      const [t0, c0] = stops[k], [t1, c1] = stops[k + 1], f = (t - t0) / (t1 - t0); return `rgb(${c0.map((x, i) => Math.round(x + (c1[i] - x) * f)).join(',')})`;
+    };
+    for (let i = 0; i < r.nL; i++) for (let j = 0; j < r.nT; j++) {
+      const v = r.shift[i * r.nT + j]; if (!Number.isFinite(v)) continue;
+      const x = L + i * cw, y = h - B - (j + 1) * ch;
+      g.fillStyle = col(v); g.fillRect(x, y, Math.ceil(cw), Math.ceil(ch));
+      if (v >= r.bE) { g.strokeStyle = '#ffffff'; g.strokeRect(x + 0.5, y + 0.5, Math.max(1, cw - 1), Math.max(1, ch - 1)); }
+    }
+    g.strokeStyle = '#3a4150'; g.strokeRect(L, T, w - L - R, h - T - B);
+    g.fillStyle = '#9aa3b2'; g.fillText('uçuş süresi (gün) ↑ · fırlatma günü →', 6, 12);
+    for (let j = 0; j < r.nT; j += Math.max(1, Math.round(r.nT / 5))) g.fillText(fmt((r.j0 + j) * r.h / DAY, 0), 4, h - B - j * ch - 2);
+    for (let i = 0; i < r.nL; i += Math.max(1, Math.round(r.nL / 4))) g.fillText(etToISO(r.L0 + i * r.h, false).slice(0, 7), Math.min(L + i * cw, w - 48), h - 7);
+    if (r.best) { const b = r.best; g.strokeStyle = '#5ee7ff'; g.lineWidth = 2; g.beginPath(); g.arc(L + (b.i + 0.5) * cw, h - B - (b.j + 0.5) * ch, 6, 0, 7); g.stroke(); g.lineWidth = 1; }
+  }
+  useIntercept() {
+    const b = this.pc && this.pc.best; if (!b) return;
+    const r = document.querySelector('input[name=dfMethod][value=kinetic]'); if (r) { r.checked = true; this.syncMethod(); }
+    $('#dfMass').value = Math.floor(b.m); $('#dfU').value = +b.U.toFixed(2);
+    $('#dfApply').value = etToISO(b.etA, false); this.leadId = null; this.renderLeads();
+    this.setIcDir(b.uDir); this.inputsChanged();
+    $('#dfIcMsg').textContent = 'Çözüm uygulandı: kütle, çarpma hızı, çarpma günü ve yönü önleme yörüngesinden. Şimdi Hesapla.';
+  }
+
   // ---------------------------------------------------------------- 3 · itki
   method() { const r = document.querySelector('input[name=dfMethod]:checked'); return r ? r.value : 'kinetic'; }
   hypo() { const r = document.querySelector('input[name=dfScn]:checked'); return !!r && r.value === 'hypo'; }
   setScenario(h) { const r = document.querySelector(`input[name=dfScn][value=${h ? 'hypo' : 'real'}]`); if (r) { r.checked = true; this.syncScenario(); } }
   syncMethod() {
-    const k = this.method() === 'kinetic';
-    $('#dfKin').hidden = !k; $('#dfThr').hidden = k;
+    const m = this.method(), k = m === 'kinetic';
+    $('#dfKin').hidden = !k; $('#dfThr').hidden = m !== 'thrust'; $('#dfGt').hidden = m !== 'tractor'; $('#dfIc').hidden = !k;
+    // önleme yönü (çarpma hızının yönü) yalnız kinetik çarpmada anlamlı: başka yöntemde seçenek kapanır, seçiliyse yörünge boyuna döner
+    const vo = $('#dfDir').querySelector('option[value=vec]'); vo.disabled = !k || !this.icDir;
+    if (!k && $('#dfDir').value === 'vec') $('#dfDir').value = 'along';
     document.querySelectorAll('input[name=dfMethod]').forEach((r) => r.closest('.mcard').classList.toggle('on', r.checked));
   }
   syncScenario() { document.querySelectorAll('input[name=dfScn]').forEach((r) => r.closest('.mcard').classList.toggle('on', r.checked)); }
@@ -222,12 +399,18 @@ export class DeflectUI {
   }
   readParams() {
     const v = $('#dfApply').value, method = this.method();
-    return { method, M: this.mass(), etApply: /^\d{4}-\d\d-\d\d$/.test(v) ? etFromISO(v) : NaN, dir: $('#dfDir').value, hypo: this.hypo(),
+    const dir = $('#dfDir').value;
+    if (method === 'tractor') {                                              // çekim traktörü: kuvvet fizikten (F = G·M·m/d², d = k·R)
+      const M = this.mass(), R = parseFloat($('#dfD').value) * 500, gm = +$('#dfGtM').value, gk = +$('#dfGtK').value, days = +$('#dfGtDays').value;
+      return { method, M, etApply: /^\d{4}-\d\d-\d\d$/.test(v) ? etFromISO(v) : NaN, dir, hypo: this.hypo(), gm, gk, R, days, F: tractorForce(M, gm, gk * R), m: +$('#dfMass').value, U: +$('#dfU').value, beta: +$('#dfBeta').value };
+    }
+    return { method, M: this.mass(), etApply: /^\d{4}-\d\d-\d\d$/.test(v) ? etFromISO(v) : NaN, dir, ...(dir === 'vec' && this.icDir ? { dirVec: this.icDir } : {}), hypo: this.hypo(),
       m: +$('#dfMass').value, U: +$('#dfU').value, beta: +$('#dfBeta').value, F: +$('#dfF').value, days: +$('#dfDays').value };
   }
   // alanlar değişince: özetleri yenile, hesaplanmış sonuç varsa "eski" işaretle
   inputsChanged() {
     this.applyReadout(); this.setMsg('');
+    if (this.method() === 'tractor') { const q = this.readParams(); $('#dfGtF').textContent = q.F > 0 ? `Çekim kuvveti F = G·M·m/d² ≈ ${sig(q.F, 3)} N (${fmt(q.gk * q.R, 0)} m uzaklıkta); asteroide verdiği ivme G·m/d² kütlesinden bağımsızdır.` : ''; }
     if (this.result && !this.busy) { this.stale = true; $('#dfStale').hidden = false; }
     this.refresh();
   }
@@ -239,7 +422,10 @@ export class DeflectUI {
     if (!(p.etApply < ca.et - 3600)) return 'İtki, yakın geçişten önce olmalı.';
     if (p.method === 'kinetic' && !(p.m > 0 && p.U > 0 && p.beta >= 1)) return 'Araç kütlesi ve çarpma hızı pozitif, β ≥ 1 olmalı.';
     if (p.method === 'thrust' && !(p.F > 0 && p.days > 0)) return 'Kuvvet ve süre pozitif olmalı.';
-    if (p.method === 'thrust' && p.etApply + p.days * 86400 >= ca.et - 3600) return 'İtki süresi yakın geçişe kadar bitmeli: süreyi kısaltın ya da daha erken başlatın.';
+    if (p.method === 'tractor' && !(p.gm > 0 && p.days > 0 && p.R > 0)) return 'Araç kütlesi, süre ve asteroidin çapı pozitif olmalı.';
+    if (p.method === 'tractor' && !(p.gk >= 1.2)) return 'Araç yüzeyin üstünde durmalı: uzaklık en az 1,2 yarıçap.';
+    if (p.dir === 'vec' && !p.dirVec) return 'Önleme yönü yok: önce fırlatma penceresini hesaplayın ya da başka bir yön seçin.';
+    if (p.method !== 'kinetic' && p.etApply + p.days * 86400 >= ca.et - 3600) return 'İtki süresi yakın geçişe kadar bitmeli: süreyi kısaltın ya da daha erken başlatın.';
     return '';
   }
   compute() {
@@ -247,7 +433,9 @@ export class DeflectUI {
     const q = this.readParams(), bad = this.validate(q, ca);
     if (bad) { this.setMsg(bad, true); this.setStep(3); return; }
     const p = { ca: this.caSel, ...q };
+    this.runLink = this.linkState();                                        // geçmişe ve adrese, hesaplanan ayarlar yazılır (beklerken değişenler değil)
     this.kill(); this.busy = true; this.mode = 'deflect'; this.lastP = p; this.stale = false; this.setMsg('');
+    if (this.pcBusy) { this.pcBusy = false; $('#dfIcRun').disabled = false; $('#dfIcMsg').textContent = ''; }    // süren pencere hesabı bu istekle iptal olur
     $('#dfStale').hidden = true; $('#dfResult').hidden = true; $('#dfRunning').hidden = false; $('#dfRunning').textContent = 'Hesaplanıyor…'; $('#df3d').disabled = true;
     this.hide3d(); this.setStep(4); this.refresh();
     const id = ++this.seq;
@@ -256,6 +444,7 @@ export class DeflectUI {
 
   // ---------------------------------------------------------------- 4 · sonuç
   clearResult() {
+    this.mc = null;
     $('#dfResult').hidden = true; $('#dfRunning').hidden = true; $('#dfStale').hidden = true; $('#dfOut').replaceChildren(); this.clearCharts();
   }
   renderResult() {
@@ -270,8 +459,37 @@ export class DeflectUI {
       $('#dfGaugeTxt').textContent = `Kayma ${kmText(v.dB)} · gereken (yakalama yarıçapı) ${kmText(v.bE)}`;
     }
     $('#dfNeed').textContent = needText(r, p);
+    const dq = p.method === 'kinetic' ? disruptionOf(p.m, p.U, r.M, parseFloat($('#dfD').value), parseFloat($('#dfRho').value)) : null, dbx = $('#dfDisrupt');
+    dbx.hidden = !dq || dq.kind === 'ok'; if (dq) { dbx.className = 'unc ' + (dq.kind === 'bad' ? 'bad' : 'warn'); $('#dfDT').textContent = dq.kind === 'bad' ? 'Asteroit parçalanır' : 'Parçalanma riski'; $('#dfDD').textContent = dq.text; }
+    this.renderUnc();
+    this.renderLater();
     this.renderTable();
     this.drawCharts();
+  }
+  // belirsizlik: kütle ve β (log-normal) + yörünge kovaryansı (B-düzlemi) → tohumlu Monte Carlo (uncert.js)
+  renderUnc() {
+    const r = this.result, p = this.lastP, T = this.target;
+    const msrc = this.massEdited ? { D: +$('#dfD').value, Dmeasured: true } : (T.msrc || {});
+    const sM = massSigma(msrc), sBeta = BETA_SIG, sDv = dvSigma(p.method, sM, sBeta, diamSigma(msrc)), SB = p.hypo ? null : r.SB || null;
+    const mc = monteCarlo({ n0: p.hypo ? [0, 0] : [r.b0.xi, r.b0.zeta], shift: [r.dXi, r.dZeta], bE: r.b0.bE, sDv, SB, N: 4000, seed: 19 });
+    this.mc = { ...mc, sDv, SB };
+    const u = uncertText(mc, { hypo: p.hypo, sM, sBeta, sDv, method: p.method, SB, dvReqMps: r.dvReqMps, M: r.M, p });
+    const box = $('#dfUnc'); box.hidden = false; box.className = 'unc ' + u.kind;
+    $('#dfUT').textContent = u.title; $('#dfUD').replaceChildren(...u.detail.flatMap((t, k) => (k ? [' ', mk('span', null, t)] : [mk('span', null, t)])));
+  }
+  // sonraki geçişler (gerçek yörünge senaryosu): nominal ve saptırılmış yörünge geçişten sonra tümlenir
+  renderLater() {
+    const r = this.result, p = this.lastP, box = $('#dfLaterBox'), lt = r.later;
+    box.hidden = !!p.hypo || !lt; if (box.hidden) return;
+    const tb = $('#dfLater tbody'); tb.replaceChildren();
+    const rows = laterRows(lt);
+    for (const x of rows) {
+      const tr = mk('tr'), cn = mk('td', 'num', passText(x.n)), cd = mk('td', 'num', passText(x.d));
+      if (x.n && x.n.impact) cn.classList.add('bad'); if (x.d && x.d.impact) cd.classList.add('bad');
+      tr.append(mk('td', null, dateLong(x.et)), cn, cd); tb.appendChild(tr);
+    }
+    if (!rows.length) { const tr = mk('tr'); tr.append(mk('td', 'dim', 'Bu aralıkta 0,05 AB\'den yakın başka geçiş yok'), mk('td'), mk('td')); tb.appendChild(tr); }
+    $('#dfLaterNote').textContent = `Yakın geçişten ${dateLong(lt.etEnd)} tarihine dek (0,05 AB'den yakın geçişler). Büyük bir yakın geçiş yörüngeyi değiştirir: küçük bir kayma bile sonraki geçişleri binlerce km oynatabilir. Daha uzak geçişler kaotik bölgededir; belirsizlikle birlikte okunmalıdır.`;
   }
   renderTable() {
     const r = this.result, p = this.lastP, out = $('#dfOut'); out.replaceChildren();
@@ -281,7 +499,9 @@ export class DeflectUI {
     row('İtki anı / önceden uyarı', `${etToISO(r.ca.et - r.leadDays * 86400, false)} · ${fmt(r.leadDays, 0)} gün (${fmt(r.leadDays / 365.25, 2)} yıl)`);
     row('Asteroit kütlesi', `${sig(r.M, 3)} kg`);
     if (p.method === 'kinetic') row('Çarpıcı', `${fmt(p.m, 0)} kg · ${fmt(p.U, 2)} km/s · β ${fmt(p.beta, 2)} · momentum ${sig(p.m * p.U * 1000, 3)} kg·m/s`);
+    else if (p.method === 'tractor') row('Çekim traktörü', `${fmt(p.gm, 0)} kg · ${fmt(p.gk, 1)} yarıçap (${fmt(p.gk * p.R, 0)} m) · F ${sig(r.Fn, 3)} N × ${fmt(p.days, 0)} gün`);
     else row('Sürekli kuvvet', `${sig(r.Fn, 3)} N × ${fmt(p.days, 0)} gün · toplam itme ${sig(r.Fn * p.days * 86400, 3)} N·s`);
+    if (p.method === 'kinetic') { const q = disruptionOf(p.m, p.U, r.M, parseFloat($('#dfD').value), parseFloat($('#dfRho').value)); row('Parçalanma (Q / Q*_D)', `${sig(q.Q, 2)} / ${sig(q.Qs, 2)} J/kg (%${fmt(100 * q.ratio, q.ratio < 0.1 ? 1 : 0)})`, q.kind === 'ok' ? '' : 'hl'); }
     row('Hız değişimi Δv', `${sig(r.dvMps * 1000, 3)} mm/s (${DIRS[p.dir]})`);
     row('Yarı büyük eksen / periyot', `${r.orbit.da >= 0 ? '+' : ''}${sig(r.orbit.da, 3)} km / ${r.orbit.dP >= 0 ? '+' : ''}${sig(r.orbit.dP, 3)} s`);
     row('B-düzleminde kayma |ΔB|', `${kmText(dB)} = ${sig(dB / R_E, 3)} R⊕`, 'hl');
@@ -305,7 +525,8 @@ export class DeflectUI {
     const P0 = this.prep($('#dfBplane')); if (!P0) return;
     const { g, w, h } = P0;
     const n0 = p.hypo ? [0, 0] : [r.b0.xi, r.b0.zeta], n1 = [n0[0] + r.dXi, n0[1] + r.dZeta], bE = r.b0.bE;
-    const ext = Math.max(bE * 1.4, Math.abs(n0[0]), Math.abs(n0[1]), Math.abs(n1[0]), Math.abs(n1[1])) * 1.15;
+    const kh = this.mc ? this.mc.kQ[2] : 1, n2 = [n0[0] + kh * r.dXi, n0[1] + kh * r.dZeta];
+    const ext = Math.max(bE * 1.4, Math.abs(n0[0]), Math.abs(n0[1]), Math.abs(n1[0]), Math.abs(n1[1]), Math.abs(n2[0]), Math.abs(n2[1])) * 1.15;
     const cx = w / 2, cy = h / 2 + 6, s = Math.min(w, h - 24) / 2 / ext;
     const P = (q) => [cx + q[0] * s, cy - q[1] * s];
     g.strokeStyle = '#2b313c'; g.beginPath(); g.moveTo(0, cy); g.lineTo(w, cy); g.moveTo(cx, 16); g.lineTo(cx, h); g.stroke();
@@ -313,7 +534,29 @@ export class DeflectUI {
     g.fillText(`Dünya'ya göre geçiş noktası (ölçek ±${kmText(ext)})`, 6, 12);
     g.setLineDash([4, 4]); g.strokeStyle = '#e66767'; g.beginPath(); g.arc(cx, cy, bE * s, 0, 7); g.stroke(); g.setLineDash([]);
     g.fillStyle = '#2f6fbf'; g.beginPath(); g.arc(cx, cy, Math.max(2, R_E * s), 0, 7); g.fill();
-    const a = P(n0), b = P(n1);
+    const a = P(n0), b = P(n1), mc = this.mc;
+    if (r.enc && !p.hypo) {                                                   // rezonans çemberleri (keyhole.js; Valsecchi vd. 2003)
+      g.save(); g.beginPath(); g.rect(0, 16, w, h - 16); g.clip();
+      g.setLineDash([3, 4]); g.strokeStyle = 'rgba(180, 140, 255, .55)'; g.fillStyle = 'rgba(200, 170, 255, .9)';
+      for (const C of circlesInView(r.enc, 0, 0, ext / AU, 30, 8)) {
+        const cy2 = cy - C.D * AU * s, rr = C.R * AU * s; if (rr > 50 * w) continue;
+        g.beginPath(); g.arc(cx, cy2, rr, 0, 2 * Math.PI); g.stroke();
+        const ang = Math.atan2(-(a[1] - cy2), a[0] - cx), lx = cx + rr * Math.cos(-ang), ly = cy2 + rr * Math.sin(-ang);       // etiket: nominal noktaya en yakın yerde
+        if (lx > 4 && lx < w - 30 && ly > 20 && ly < h - 4) g.fillText(`${C.k}:${C.h}`, lx + 3, ly - 3);
+      }
+      g.setLineDash([]); g.restore();
+    }
+    if (mc && mc.SB && !p.hypo) {                                           // yörünge belirsizliği: 1σ ve 3σ elipsleri, nominal ve saptırılmış noktada
+      const e = ellipse(mc.SB);
+      for (const [c, q] of [[a, '#d8dde6'], [b, '#ff8a3d']]) for (const k of [1, 3]) {
+        g.strokeStyle = q; g.globalAlpha = k === 1 ? 0.7 : 0.35; g.beginPath(); g.ellipse(c[0], c[1], Math.max(1, k * e.s1 * s), Math.max(1, k * e.s2 * s), -e.ang, 0, 2 * Math.PI); g.stroke();
+      }
+      g.globalAlpha = 1;
+    }
+    if (mc) {                                                                // itkinin belirsizliği: %5–95 kayma aralığı
+      const lo = P([n0[0] + mc.kQ[0] * r.dXi, n0[1] + mc.kQ[0] * r.dZeta]), hi = P([n0[0] + mc.kQ[2] * r.dXi, n0[1] + mc.kQ[2] * r.dZeta]);
+      g.strokeStyle = 'rgba(255, 138, 61, .45)'; g.lineWidth = 6; g.lineCap = 'round'; g.beginPath(); g.moveTo(lo[0], lo[1]); g.lineTo(hi[0], hi[1]); g.stroke(); g.lineCap = 'butt';
+    }
     g.strokeStyle = '#ff8a3d'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); g.lineWidth = 1;
     g.fillStyle = '#d8dde6'; g.beginPath(); g.arc(a[0], a[1], 4, 0, 7); g.fill();
     g.fillStyle = '#ff8a3d'; g.beginPath(); g.arc(b[0], b[1], 4, 0, 7); g.fill();

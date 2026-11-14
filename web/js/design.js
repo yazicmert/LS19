@@ -14,12 +14,15 @@
 //   5) TLI ve fazlama (varış noktası halo boyunca kayar; halo ve iniş zamanlaması sabit kalır)
 //  Araç boyutlandırma: Δv bütçesinden iniş aracı ve TLI kademesi yakıtı (varsayılandan küçük olmaz).
 import * as E from './engine.js';
-import { STAGES as BASE_STAGES, siteIcrf, R_SITE } from './mission.js';
+import { STAGES as BASE_STAGES } from './mission.js';
+import { siteOf, validSite, DEFAULT_SITE } from './moonsite.js';
+const LUNATION_RETRY = 29.6 * 86400;                 // s: sonraki aydınlanma penceresi (kameri ay 29,53 gün; arama başlangıcı önceki pencereyi kesin geçsin)
 import { ROCKETS, DEFAULT_ROCKET, stageRecord, parkPropellant, rocketOf } from './rockets.js';
 import { LEGACY_SITE, minIncl, incPenalty, padAllowed, homeSite, inclRange, azInRange } from './pads.js';
 import { HALO_PRESETS, haloMember, ephemerisHalo } from './halo.js';
 import * as CR from './cr3bp.js';
 import { solve as linSolve } from './linalg.js';
+import { lambert } from './lambert.js';
 import { ns, ew } from './i18n.js';
 const { add, sub, scale, dot, cross, norm, unit, mtv } = E;
 
@@ -70,6 +73,8 @@ export function normalizeConfig(c) {
   out.moon.llo.revs = Math.min(40, Math.max(1, Math.round(+out.moon.llo.revs)));
   // fırlatma aracı (rockets.js); varsayılan yazılmaz: hazır tasarımların önbellek anahtarı değişmesin
   if (cfg.rocket && cfg.rocket !== DEFAULT_ROCKET && ROCKETS[cfg.rocket]) out.rocket = cfg.rocket;
+  // Ay iniş yeri (moonsite.js); varsayılan (Apollo 11) yazılmaz: hazır tasarımların ve önbelleğin anahtarı değişmesin. Kutup bölgeleri desteklenmez (validSite)
+  if (cfg.moonSite && validSite(cfg.moonSite) !== DEFAULT_SITE) out.moonSite = validSite(cfg.moonSite);
   out.moon.halo.revs = Math.min(6, Math.max(1, Math.round(+out.moon.halo.revs)));
   if (!HALO_PRESETS[out.moon.halo.preset]) out.moon.halo.preset = 'NRHO92';
   if (out.moon.type !== 'HALO') out.moon.type = 'LLO';
@@ -80,7 +85,7 @@ function configLabel(cfg) {
   const park = `Dünya park ${e.h} km, i ${e.inc}°, ${e.revs} tur` + (e.raise && e.raise.n ? ` + ${e.raise.n} yükseltme yakışı (apoje ${e.raise.ha} km)` : '');
   const moon = m.type === 'HALO' ? `${HALO_PRESETS[m.halo.preset].name}, ${m.halo.revs} tur + LLO ${m.llo.h} km, ${m.llo.revs} tur`
                                   : `LLO ${m.llo.h} km, ${m.llo.revs} tur`;
-  return (cfg.rocket ? rocketOf(cfg.rocket).name + ' · ' : '') + (cfg.site ? cfg.site.name + ' · ' : '') + `${park} · ${moon}`;
+  return (cfg.rocket ? rocketOf(cfg.rocket).name + ' · ' : '') + (cfg.site ? cfg.site.name + ' · ' : '') + `${park} · ${moon}` + (cfg.moonSite ? ' · ' + siteOf(cfg.moonSite).name : '');
 }
 
 // tasarım bağlamı: yapılandırmadan türetilen sabitler
@@ -95,7 +100,7 @@ function ctx(cfg, stages) {
   return { cfg, H_PARK, R_PARK, PARK_REVS: cfg.earth.revs, incList, H_LLO, R_LLO, N_LLOm, P_LLO, N_REV, VINF: 0.85, RAISE, RA, V_PRE,
     STAGES: stages || BASE_STAGES.map((s, i) => (i === 0 && cfg.rocket ? stageRecord(cfg.rocket) : { ...s })),
     ROCKET: cfg.rocket || null, SITE: cfg.site || null,
-    site: cfg.site || LEGACY_SITE,
+    site: cfg.site || LEGACY_SITE, moonSite: siteOf(cfg.moonSite || DEFAULT_SITE),          // site: fırlatma rampası (Dünya); moonSite: Ay iniş yeri
     tLof: (tP) => tP + 700.0 + (N_REV + 0.5) * P_LLO, arrState: null };
 }
 
@@ -110,17 +115,18 @@ function lstsq(J, F) {                           // en küçük kareler; eksik b
 }
 
 // ---------------------------------------------------------------- Ay tarafı
-export function sunElevationAtSite(t) {
-  const s = siteIcrf(t), up = unit(s), sun = sub(E.sunPos(t), add(E.moonPos(t), s));
+// site: moonsite.js siteOf(...) sonucu (varsayılan Apollo 11)
+export function sunElevationAtSite(t, site = siteOf(DEFAULT_SITE)) {
+  const s = site.icrf(t), up = unit(s), sun = sub(E.sunPos(t), add(E.moonPos(t), s));
   return Math.asin(dot(up, unit(sun))) * 180 / Math.PI;
 }
-function findLandingWindow(tFrom) {       // Güneş SUN_EL_TARGET'ı yükselerek geçtiği ilk an
-  let t = tFrom, prev = sunElevationAtSite(t);
+export function findLandingWindow(tFrom, site = siteOf(DEFAULT_SITE)) {       // Güneş SUN_EL_TARGET'ı yükselerek geçtiği ilk an
+  let t = tFrom, prev = sunElevationAtSite(t, site);
   for (let i = 0; i < 24 * 40; i++) {
-    const t2 = t + 3600, e2 = sunElevationAtSite(t2);
+    const t2 = t + 3600, e2 = sunElevationAtSite(t2, site);
     if (prev < SUN_EL_TARGET && e2 >= SUN_EL_TARGET) {
       let a = t, b = t2;
-      for (let k = 0; k < 40; k++) { const m = 0.5 * (a + b); if (sunElevationAtSite(m) < SUN_EL_TARGET) a = m; else b = m; }
+      for (let k = 0; k < 40; k++) { const m = 0.5 * (a + b); if (sunElevationAtSite(m, site) < SUN_EL_TARGET) a = m; else b = m; }
       return 0.5 * (a + b);
     }
     t = t2; prev = e2;
@@ -131,7 +137,7 @@ function findLandingWindow(tFrom) {       // Güneş SUN_EL_TARGET'ı yükselere
 function rotAbout(v, k, a) { const c = Math.cos(a), s = Math.sin(a); return add(add(scale(v, c), scale(cross(k, v), s)), scale(k, dot(k, v) * (1 - c))); }
 // t_L'de iniş yerini içeren LLO düzlemi; tP'deki düzlem J2 düğüm kaymasıyla geriye alınır (uzun LLO kalışında iniş yeri düzlemde kalsın)
 function planeBasis(K, tL, beta, tP = tL) {
-  const s = unit(siteIcrf(tL)), zp = mtv(E.moonIcrfToMe(tL), [0, 0, 1]);
+  const s = unit(K.moonSite.icrf(tL)), zp = mtv(E.moonIcrfToMe(tL), [0, 0, 1]);
   const n0 = unit(sub(zp, scale(s, dot(zp, s))));
   const n = add(scale(n0, Math.cos(beta)), scale(cross(s, n0), Math.sin(beta)));
   let h = scale(n, -1), e1 = s;
@@ -430,7 +436,7 @@ function phasingShift(K, sol, ref = null) {
 // ---------------------------------------------------------------- araç boyutlandırma
 const PDI_DV = 1.915, MCC_RES = 0.020, MARGIN = 1.03;
 function doiDv(K) {                              // LLO -> 15 km perilünlü elips (Hohmann yarısı)
-  const r1 = K.R_LLO, r2 = R_SITE + 15, a = (r1 + r2) / 2;
+  const r1 = K.R_LLO, r2 = K.moonSite.r + 15, a = (r1 + r2) / 2;
   return Math.sqrt(E.MU_M / r1) - Math.sqrt(E.MU_M * (2 / r1 - 1 / a));
 }
 function sizeLander(K, lunarDv) {
@@ -468,38 +474,36 @@ function sizeTli(K, dvTli, incT = 28.5) {
 // tFrom: en erken fırlatma (motor zamanı); progress(msg, frac); cfg: görev yapılandırması
 // Üreteç: her ilerleme adımında durur (yield). designMission eşzamanlı koşar (Node testleri, worker),
 // designMissionAsync adımlar arasında tarayıcıya nefes aldırır (ana iş parçacığında çizim/ilerleme çubuğu donmaz).
-export function designMission(tFrom, progress = () => {}, cfg = DEFAULT_CONFIG) {
-  const g = designSteps(tFrom, progress, cfg);
+// opts.retry: Apollo 11 dışındaki yerde yakınsamayan aydınlanma penceresinden sonra en çok iki sonraki pencere denensin mi (yalnız Tasarla: app.js;
+// pencere/gün taramaları ve profil karşılaştırması "bu tarih" içindir, açmaz)
+export function designMission(tFrom, progress = () => {}, cfg = DEFAULT_CONFIG, opts = {}) {
+  const g = designSteps(tFrom, progress, cfg, opts);
   for (;;) { const r = g.next(); if (r.done) return r.value; }
 }
 const macrotask = () => new Promise((res) => { const ch = new MessageChannel(); ch.port1.onmessage = () => res(); ch.port2.postMessage(0); });
-export async function designMissionAsync(tFrom, progress = () => {}, cancelled = () => false, cfg = DEFAULT_CONFIG) {
-  const g = designSteps(tFrom, progress, cfg);
+export async function designMissionAsync(tFrom, progress = () => {}, cancelled = () => false, cfg = DEFAULT_CONFIG, opts = {}) {
+  const g = designSteps(tFrom, progress, cfg, opts);
   for (;;) {
     const r = g.next(); if (r.done) return r.value;
     await macrotask();
     if (cancelled()) return null;
   }
 }
-function* designSteps(tFrom, progress, cfg0) {
-  const cfg = normalizeConfig(cfg0), K = ctx(cfg);
+function* designSteps(tFrom, progress, cfg0, opts = {}) {
+  const cfg = normalizeConfig(cfg0);
   const log = (m, f) => progress(m, f);
   log('Yapılandırma: ' + configLabel(cfg), 0.01);
   if (cfg.rocket && cfg.site && !padAllowed(cfg.rocket, cfg.site.id)) throw new Error(`${rocketOf(cfg.rocket).name} ${cfg.site.name} rampasından fırlatılmıyor (gerçek rampaları dışında seçilemez; her rampa için genel TLI kademesini seçin)`);
-  // rampa verilmemişse gerçek roket kendi rampasından (pads.js homeSite: Vulcan → SLC-41, Falcon 9 → SLC-40, Falcon Heavy → LC-39A; SLS/Saturn V LC-39B'de kalır).
-  // Yapılandırmaya yazılmaz (cfg aynı kalır: önbellek anahtarı değişmez); fırlatma kaydı (LAUNCH.site, siteId, lat, lon) bu rampadandır
-  const home = cfg.rocket && !cfg.site ? homeSite(cfg.rocket) : null;
-  if (home) { K.site = home; K.SITE = home; log(`Rampa: ${home.name} (roketin kendi rampası)`, 0.015); }
-  if (cfg.rocket) { const r = rocketOf(cfg.rocket), st = r.stage; log(`Fırlatma aracı: ${r.name} (${r.pad}); TLI kademesi ${st.name}: ${st.engine}, ${st.T} kN, Isp ${st.isp} s, kuru ${st.dry} kg`, 0.02); }
-  let D = null;
-  for (;;) {
-    try { D = cfg.moon.type === 'HALO' ? yield* designHalo(K, tFrom, log) : yield* designApollo(K, tFrom, log); break; }
+  // Apollo 11 dışındaki iniş yerlerinde bir aydınlanma penceresi yakınsamazsa sonraki pencere (≈ 1 kameri ay sonra) denenir, en çok iki kez:
+  // "Tasarla" o tarihten sonraki ilk UYGUN pencereyi kurar. Her deneme tasarım bağlamını (K) baştan kurar. Varsayılan yerde davranış değişmez.
+  const retry = opts.retry && cfg.moonSite && cfg.moonSite !== DEFAULT_SITE ? 2 : 0;
+  let D = null, K = null, tF = tFrom;
+  for (let k = 0; ; k++) {
+    try { ({ D, K } = yield* designAttempt(cfg, tF, log)); break; }
     catch (e) {
-      // uzun TLI yakışında (ör. ICPS ~13 dk) çözülen park düzlemi biraz döner; eğim KSC enleminin (28,57°) altına inerse rampa düzlemden geçmez.
-      // Gerçek roket seçiliyse sıradaki park eğimiyle yeniden denenir (varsayılan araçta davranış değişmez)
-      if (!((K.ROCKET || K.SITE) && /fırlatma fırsatı/.test(e.message) && K.incList.length > 1)) throw e;
-      K.incList = K.incList.slice(1);
-      log(`  ${e.message}: park eğimi ${K.incList[0]}° ile yeniden deneniyor`, 0.3);
+      if (!(k < retry && /yakınsamadı/.test(e.message))) throw k ? new Error(`${e.message}: ${siteOf(cfg.moonSite).name} için ${k + 1} aydınlanma penceresi denendi`) : e;
+      tF += LUNATION_RETRY;
+      log(`Bu aydınlanma penceresinde ${e.message.toLowerCase()}; sonraki pencere deneniyor (${E.utcString(tF).slice(0, 10)} sonrası)`, 0.05);
     }
   }
   D.cfg = cfg; D.STAGES = K.STAGES.map((s) => ({ ...s }));
@@ -508,11 +512,32 @@ function* designSteps(tFrom, progress, cfg0) {
   if (K.TLI_NEED != null) D.TLI_NEED = K.TLI_NEED;
   if (K.LANDER_NEED != null) D.LANDER_NEED = K.LANDER_NEED;
   D.EARTH = { h: K.H_PARK, revs: K.PARK_REVS }; D.LLO = { ...(D.LLO || {}), h: K.H_LLO, revs: K.N_REV, P: K.P_LLO };
-  D.sunElAtLanding = sunElevationAtSite(D.t_L - 1620);
+  if (K.moonSite.id !== DEFAULT_SITE) D.MOONSITE = K.moonSite.id;           // yalnız varsayılan değilse: Mission ve görüntü yeri buradan alır (moonsite.js siteOf)
+  D.sunElAtLanding = sunElevationAtSite(D.t_L - 1620, K.moonSite);
   const m0 = D.STAGES.reduce((s, q) => s + q.dry + q.prop, 0);
   log(`Araç: toplam ${m0.toFixed(0)} kg (TLI kademesi yakıtı ${D.STAGES[0].prop} kg, iniş aracı yakıtı ${D.STAGES[1].prop} kg)`, 0.99);
   log(`Tasarım tamam: fırlatma ${E.utcString(D.LAUNCH.t_launch)}, iniş ~${E.utcString(D.t_L - 1620)}, Güneş ${D.sunElAtLanding.toFixed(1)}°`, 1);
   return D;
+}
+
+// tek tasarım denemesi (bağlam K baştan kurulur): rampa ve park eğimi yeniden denemeleri burada
+function* designAttempt(cfg, tFrom, log) {
+  const K = ctx(cfg);
+  // rampa verilmemişse gerçek roket kendi rampasından (pads.js homeSite: Vulcan → SLC-41, Falcon 9 → SLC-40, Falcon Heavy → LC-39A; SLS/Saturn V LC-39B'de kalır).
+  // Yapılandırmaya yazılmaz (cfg aynı kalır: önbellek anahtarı değişmez); fırlatma kaydı (LAUNCH.site, siteId, lat, lon) bu rampadandır
+  const home = cfg.rocket && !cfg.site ? homeSite(cfg.rocket) : null;
+  if (home) { K.site = home; K.SITE = home; log(`Rampa: ${home.name} (roketin kendi rampası)`, 0.015); }
+  if (cfg.rocket) { const r = rocketOf(cfg.rocket), st = r.stage; log(`Fırlatma aracı: ${r.name} (${r.pad}); TLI kademesi ${st.name}: ${st.engine}, ${st.T} kN, Isp ${st.isp} s, kuru ${st.dry} kg`, 0.02); }
+  for (;;) {
+    try { return { D: cfg.moon.type === 'HALO' ? yield* designHalo(K, tFrom, log) : yield* designApollo(K, tFrom, log), K }; }
+    catch (e) {
+      // uzun TLI yakışında (ör. ICPS ~13 dk) çözülen park düzlemi biraz döner; eğim KSC enleminin (28,57°) altına inerse rampa düzlemden geçmez.
+      // Gerçek roket seçiliyse sıradaki park eğimiyle yeniden denenir (varsayılan araçta davranış değişmez)
+      if (!((K.ROCKET || K.SITE) && /fırlatma fırsatı/.test(e.message) && K.incList.length > 1)) throw e;
+      K.incList = K.incList.slice(1);
+      log(`  ${e.message}: park eğimi ${K.incList[0]}° ile yeniden deneniyor`, 0.3);
+    }
+  }
 }
 
 // ---------------------------------------------------------------- Apollo profili (LLO)
@@ -521,7 +546,7 @@ function* designApollo(K, tFrom, log) {
   const vp = Math.sqrt(K.VINF ** 2 + 2 * E.MU_M / K.R_LLO), loiDv = vp - Math.sqrt(E.MU_M / K.R_LLO);
   sizeLander(K, loiDv);
   const LAND_AFTER = 4.35 * 86400 + (K.N_REV - 2) * K.P_LLO;
-  const tL0 = findLandingWindow(tFrom + LAND_AFTER);
+  const tL0 = findLandingWindow(tFrom + LAND_AFTER, K.moonSite);
   log(`Aydınlanma penceresi: iniş ~${E.utcString(tL0)} (Güneş ${SUN_EL_TARGET}° yükseklikte)`, 0.05); yield;
   let tP = tL0 - 700 - (K.N_REV + 0.5) * K.P_LLO;
   let incT = K.incList[0], x0 = null;
@@ -559,23 +584,7 @@ function* designApollo(K, tFrom, log) {
   };
 }
 
-// ---------------------------------------------------------------- iki cisimli Lambert (evrensel değişken, bisection)
-function stumpC(z) { if (z > 1e-8) return (1 - Math.cos(Math.sqrt(z))) / z; if (z < -1e-8) return (Math.cosh(Math.sqrt(-z)) - 1) / (-z); return 0.5 - z / 24; }
-function stumpS(z) { if (z > 1e-8) { const s = Math.sqrt(z); return (s - Math.sin(s)) / s ** 3; } if (z < -1e-8) { const s = Math.sqrt(-z); return (Math.sinh(s) - s) / s ** 3; } return 1 / 6 - z / 120; }
-function lambert(r1, r2, tof, mu, hRef) {
-  const R1 = norm(r1), R2 = norm(r2);
-  let dth = Math.acos(Math.max(-1, Math.min(1, dot(r1, r2) / (R1 * R2))));
-  if (dot(cross(r1, r2), hRef) < 0) dth = 2 * Math.PI - dth;
-  const A = Math.sin(dth) * Math.sqrt(R1 * R2 / (1 - Math.cos(dth)));
-  if (Math.abs(A) < 1e-9) return null;
-  const y = (z) => R1 + R2 + A * (z * stumpS(z) - 1) / Math.sqrt(stumpC(z));
-  const F = (z) => { const yy = y(z); if (yy < 0) return -1e30; return (yy / stumpC(z)) ** 1.5 * stumpS(z) + A * Math.sqrt(yy) - Math.sqrt(mu) * tof; };
-  let lo = -200, hi = 4 * Math.PI * Math.PI - 1e-6;
-  if (F(lo) > 0 || F(hi) < 0) return null;
-  for (let k = 0; k < 200; k++) { const m = 0.5 * (lo + hi); if (F(m) < 0) lo = m; else hi = m; }
-  const z = 0.5 * (lo + hi), yy = y(z), f = 1 - yy / R1, g = A * Math.sqrt(yy / mu), gd = 1 - yy / R2;
-  return { v1: scale(sub(r2, scale(r1, f)), 1 / g), v2: scale(sub(scale(r2, gd), r1), 1 / g) };
-}
+// iki cisimli Lambert: lambert.js (saptırma deneyinin önleme görevi de kullanır)
 // tam modelde itkisel atış: (t0, r0) -> t1'de rTgt; v tahmininden Newton. Döner {v0, v1 (varış hızı), err}
 function shootImpulse(t0, r0, vGuess, t1, rTgt, { tol = 0.05, iters = 25 } = {}) {
   const fly = (v) => { const P = new E.Propagator(new E.State(t0, r0, v, 'M'), dummy(), 1800.0); P.runUntil(t1); return P.s.seleno(); };
@@ -603,11 +612,11 @@ function* designHaloInner(K, tFrom, log) {
   log(`  periyot ${st.periodDays.toFixed(2)} g, perilün ${st.rpKm.toFixed(0)} km, apolün ${st.raKm.toFixed(0)} km, kararlılık ν=${orb.stability.toFixed(2)}`, 0.05); yield;
   const hoh = (r) => Math.PI * Math.sqrt(((r + K.R_LLO) / 2) ** 3 / E.MU_M);        // halo noktasından LLO'ya Hohmann süresi
   const LAND_AFTER = 4.0 * 86400 + (hc.revs + 1.0) * Ts + hoh(st.raKm) + 700 + (K.N_REV + 0.5) * K.P_LLO;
-  const tL = findLandingWindow(tFrom + LAND_AFTER);
+  const tL = findLandingWindow(tFrom + LAND_AFTER, K.moonSite);
   const tP2 = tL - 700 - (K.N_REV + 0.5) * K.P_LLO;
   log(`Aydınlanma penceresi: iniş ~${E.utcString(tL)}; LLO girişi ~${E.utcString(tP2)}`, 0.07); yield;
   // iki ayrılış seçeneği: (a) perilün civarından kısa transfer, (b) apolünden (düzlem değişimi ucuz) uzun transfer
-  const s = unit(siteIcrf(tL)), zp = mtv(E.moonIcrfToMe(tL), [0, 0, 1]), n0 = unit(sub(zp, scale(s, dot(zp, s)))), m0 = cross(s, n0);
+  const s = unit(K.moonSite.icrf(tL)), zp = mtv(E.moonIcrfToMe(tL), [0, 0, 1]), n0 = unit(sub(zp, scale(s, dot(zp, s)))), m0 = cross(s, n0);
   const hOf = (b) => scale(add(scale(n0, Math.cos(b)), scale(m0, Math.sin(b))), -1);
   let dep = null, ref = null, nEval = 0;
   for (const opt of [{ key: 'peri', tof: hoh(st.rpKm), anchorOff: 0, name: 'perilünden' }, { key: 'apo', tof: hoh(st.raKm), anchorOff: 0.5 * Ts, name: 'apolünden' }]) {

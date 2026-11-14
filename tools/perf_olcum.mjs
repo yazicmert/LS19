@@ -46,6 +46,13 @@ if (mod === 'yukleme') {
         const i = w.renderer.info; return { cagri: i.render.calls, ucgen: i.render.triangles, cizgi: i.render.lines, geometri: i.memory.geometries, doku: i.memory.textures, program: (i.programs || []).length }; }, cam);
       console.log(ad.padEnd(8), JSON.stringify(r));
     }
+    // alçak yörünge görünümleri (ufuk bandı: docs/performans.md §13): araç kamerası park yörüngesinde, LLO'da ve inişte
+    for (const sc of ['park', 'llo', 'indis']) {
+      await seek(SC[sc], sc === 'indis' ? 10000 : 6000);
+      const r = await page.evaluate(async (c) => { const w = window.LS19.world; w.cam.auto = false; Object.assign(w.cam, c, { focus: null }); await new Promise((res) => setTimeout(res, 7000));
+        const i = w.renderer.info; return { cagri: i.render.calls, ucgen: i.render.triangles }; }, CAMS.VEHICLE);
+      console.log(('ARAÇ/' + sc).padEnd(14), JSON.stringify(r));
+    }
   } else if (mod === 'kare') {
     const N = opt('n', 300);
     for (const sc of ['park', 'llo', 'indis']) {

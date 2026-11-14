@@ -147,8 +147,8 @@ export class AsteroidLayer {
       if (!r.ok || !d.cols) throw new Error(d.hata || ('HTTP ' + r.status));
       this.sets[set] = d; this.src[set] = { kaynak: d.kaynak || 'JPL SBDB', t: d.t };
       if (set === 'neo' && !this.epokP) this.epokP = fetch('data/neo_epok.json').then((x) => (x.ok ? x.json() : null)).catch(() => null)
-        .then((j) => { if (j && j.o) { this.epok = j; if (this.C) this.combine(); } });
-      this.combine();
+        .then((j) => { if (j && j.o) { this.epok = j; if (this.C || this.combineT) this.combineSoon(); } });
+      this.combineSoon();
     } catch (err) {
       this.info = { status: 'Asteroit verisi alınamadı: ' + err.message }; this.changed();
     }
@@ -162,11 +162,18 @@ export class AsteroidLayer {
       this.changed();
     } catch (err) { /* risk listesi isteğe bağlı */ }
   }
+  // NEO, ana kuşak ve epok dosyası ~1–2 sn içinde ayrı ayrı gelir; her biri baştan yeniden kurulumdu (telefon taklidinde üç kez ~200 ms).
+  // Son gelişten 800 ms sonra tek kurulum (ilk gelişten en çok 3 sn sonra mutlaka).
+  combineSoon() {
+    const now = performance.now(); if (!this.combineT0) this.combineT0 = now;
+    clearTimeout(this.combineT);
+    this.combineT = setTimeout(() => { this.combineT = null; this.combineT0 = 0; this.combine(); }, Math.max(0, Math.min(800, this.combineT0 + 3000 - now)));
+  }
   combine() {
     const order = ['neo', 'mb'].filter((k) => this.sets[k]);
     const keys = ['des', 'name', 'cls', 'pha', 'H', 'D', 'alb', 'ep', 'a', 'e', 'i', 'om', 'w', 'ma', 'moid', 'rot', 'spec', 'cc', 'arc', 'gm'];
-    const C = {}; for (const k of keys) C[k] = [];
-    for (const s of order) { const c = this.sets[s].cols; for (const k of keys) C[k].push(...(c[k] || new Array(c.a.length).fill(null))); }
+    const C = {};
+    for (const k of keys) C[k] = [].concat(...order.map((s) => { const c = this.sets[s].cols; return c[k] || new Array(c.a.length).fill(null); }));          // concat: push(...) yığına açıp ~5 kat yavaştı
     applyEpok(C, this.epok, keys);
     const selDes = this.C && this.sel >= 0 ? this.C.des[this.sel] : null;                // yeniden kurulumda seçim korunur (dizinler değişebilir)
     this.C = C; this.n = C.a.length; this.sel = -1; this.etProp = null; this.selOrbit = null;
@@ -318,9 +325,11 @@ export class AsteroidLayer {
       const disc = det.discovery; if (disc) out.discovery = (disc.date ? disc.date + ' · ' : '') + (disc.location || disc.site || '') + (disc.who ? ' · ' + disc.who : '');
       out.kind = det.object.kind; out.fullname = det.object.fullname;
       const pp = det.phys_par || []; const pv = (n) => { const x = pp.find((q) => q.name === n); return x ? x.value : null; };
-      if (pv('diameter')) { out.D = +pv('diameter'); out.Dmeas = true; }
-      if (pv('density')) out.rho = +pv('density') * 1000;
-      if (pv('GM')) out.GM = +pv('GM');
+      const ps = (n) => { const x = pp.find((q) => q.name === n); return x && +x.sigma > 0 ? +x.sigma : null; };          // 1σ (saptırma belirsizliği: uncert.js)
+      if (pv('diameter')) { out.D = +pv('diameter'); out.Dmeas = true; out.Dsig = ps('diameter'); }
+      if (pv('albedo')) { out.alb = +pv('albedo'); out.albSig = ps('albedo'); }
+      if (pv('density')) { out.rho = +pv('density') * 1000; out.rhoMeas = true; }
+      if (pv('GM')) { out.GM = +pv('GM'); out.GMsig = ps('GM'); }
       if (pv('extent')) out.extent = pv('extent');
       if (det.vi_data && det.vi_data.length) out.vi = det.vi_data.length;
       out.detailOk = true;
@@ -422,17 +431,20 @@ function damitMatrix(sh, jd) {
 // Değişim yalnız JPL çözümü dosya üretildiğindekiyle aynıysa (aynı dönem ve a) yapılır; JPL yeni gözlemle güncellediyse onun öğeleri kalır.
 // C.ep0: değiştirilen cisimlerde JPL'in özgün dönemi (kartta gösterilir), diğerlerinde null.
 export function applyEpok(C, ep, keys = Object.keys(C)) {
-  const n = C.a.length; C.ep0 = new Array(n).fill(null);
+  // döngüler doğrudan dizilerde (dilim/yapı bozma ve sütun başına süzme yok): 38 bin NEO'da masaüstünde ~35 → birkaç ms (telefonda ×4)
+  const n = C.a.length, ep0 = new Array(n).fill(null); C.ep0 = ep0;
   if (!ep || !ep.o) return { degisen: 0, cikan: 0 };
-  const gone = new Set((ep.carpan || []).map((c) => c.des));
+  const gone = new Set((ep.carpan || []).map((c) => c.des)), { des, a, e, om, w, ma } = C, EP = C.ep, I = C.i, O = ep.o, ek = ep.epok;
   let degisen = 0;
-  for (let i = 0; i < n; i++) {
-    const o = ep.o[C.des[i]];
-    if (!o || Math.abs(o[0] - C.ep[i]) > 1e-4 || Math.abs(o[1] - C.a[i]) > 1e-9 * C.a[i] || !(ep.epok > C.ep[i])) continue;
-    C.ep0[i] = C.ep[i]; C.ep[i] = ep.epok; [C.a[i], C.e[i], C.i[i], C.om[i], C.w[i], C.ma[i]] = o.slice(2); degisen++;
+  for (let k = 0; k < n; k++) {
+    const o = O[des[k]];
+    if (!o || Math.abs(o[0] - EP[k]) > 1e-4 || Math.abs(o[1] - a[k]) > 1e-9 * a[k] || !(ek > EP[k])) continue;
+    ep0[k] = EP[k]; EP[k] = ek; a[k] = o[2]; e[k] = o[3]; I[k] = o[4]; om[k] = o[5]; w[k] = o[6]; ma[k] = o[7]; degisen++;
   }
-  const keep = C.des.map((d) => !gone.has(d)), cikan = n - keep.filter(Boolean).length;
-  if (cikan) for (const k of [...keys, 'ep0']) C[k] = C[k].filter((_, i) => keep[i]);
+  if (!gone.size) return { degisen, cikan: 0 };
+  const keep = []; for (let k = 0; k < n; k++) if (!gone.has(des[k])) keep.push(k);
+  const cikan = n - keep.length;
+  if (cikan) for (const key of [...keys, 'ep0']) { const src = C[key], dst = new Array(keep.length); for (let j = 0; j < keep.length; j++) dst[j] = src[keep[j]]; C[key] = dst; }
   return { degisen, cikan };
 }
 // CAD kaydının JD'si (sbdb.api ca_data'da "jd" alanı yok: "cd" tarih metninden)

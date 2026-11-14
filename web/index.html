@@ -89,6 +89,7 @@
 <link rel="modulepreload" href="js/terrain.js">
 <link rel="modulepreload" href="js/terraingen.js">
 <link rel="modulepreload" href="js/i18n.js">
+<link rel="modulepreload" href="js/moonsite.js">
 <link rel="modulepreload" href="js/mission.js">
 <link rel="modulepreload" href="js/halo.js">
 <link rel="modulepreload" href="js/cr3bp.js">
@@ -127,6 +128,7 @@
 <link rel="modulepreload" href="lib/addons/math/ColorSpaces.js">
 <link rel="modulepreload" href="js/texplan.js">
 <link rel="modulepreload" href="js/bodyshaders.js">
+<link rel="modulepreload" href="js/bodyband.js">
 <link rel="modulepreload" href="js/mixin.js">
 <link rel="modulepreload" href="js/pointstore.js">
 <link rel="modulepreload" href="js/meshmerge.js">
@@ -139,6 +141,7 @@
 <link rel="modulepreload" href="js/uiutil.js">
 <link rel="modulepreload" href="js/design.js">
 <link rel="modulepreload" href="js/pads.js">
+<link rel="modulepreload" href="js/lambert.js">
 <link rel="modulepreload" href="js/rocketinfo.js">
 <link rel="modulepreload" href="js/pickcard.js">
 <link rel="modulepreload" href="js/satlayer.js">
@@ -159,6 +162,7 @@
 <link rel="modulepreload" href="js/launchui.js">
 <link rel="modulepreload" href="js/weather.js">
 <link rel="modulepreload" href="js/windowscan.js">
+<link rel="modulepreload" href="js/designjob.js">
 <link rel="modulepreload" href="js/profilecompare.js">
 <link rel="modulepreload" href="js/canvasinput.js">
 <link rel="modulepreload" href="js/ascentplay.js">
@@ -171,9 +175,17 @@
 <link rel="modulepreload" href="js/labui.js">
 <link rel="modulepreload" href="js/ayui.js">
 <link rel="modulepreload" href="js/aytext.js">
+<link rel="modulepreload" href="js/aymc.js">
+<link rel="modulepreload" href="js/mcstats.js">
+<link rel="modulepreload" href="js/ayabort.js">
+<link rel="modulepreload" href="js/abort.js">
 <link rel="modulepreload" href="js/touchdown.js">
 <link rel="modulepreload" href="js/landnav.js">
 <link rel="modulepreload" href="js/deflectui.js">
+<link rel="modulepreload" href="js/keyhole.js">
+<link rel="modulepreload" href="js/uncert.js">
+<link rel="modulepreload" href="js/lagrangeui.js">
+<link rel="modulepreload" href="js/lagrange.js">
 <link rel="modulepreload" href="js/updater.js">
 <link rel="modulepreload" href="js/tracker.js">
 <link rel="modulepreload" href="js/passes.js">
@@ -432,6 +444,8 @@
         <li><div class="grp">Gezegen savunması</div>
           <ul><li><button class="exp" type="button" data-exp="saptirma"><i data-icon="shield" class="ei"></i><span><b>Asteroit saptırma</b><small>Bir asteroidi itip Dünya'yı ıskalatmak için ne kadar itki gerekir? Hedefi seç, yakın geçişi seç, itkiyi dene.</small></span><i data-icon="chev" class="go"></i></button></li>
             <li><button class="exp" type="button" data-go="impact"><i data-icon="target" class="ei"></i><span><b>Çarpma riski</b><small>Uyduların yeniden girişi ve Sentry sanal çarpıcıları. Canlı Gökyüzü'nde, Çarpma sekmesinde açılır.</small></span><i data-icon="chev" class="go"></i></button></li></ul></li>
+        <li><div class="grp">Yörünge mekaniği</div>
+          <ul><li><button class="exp" type="button" data-exp="lagrange"><i data-icon="orbit" class="ei"></i><span><b>Lagrange noktaları</b><small>İki cismin çekiminin dengelendiği beş nokta: hangisinde durulur, hangisinden kayılır? Enerji kapılarını aç, araç bırak, halo yörüngelerini incele.</small></span><i data-icon="chev" class="go"></i></button></li></ul></li>
       </ul>
     </div>
 
@@ -454,6 +468,8 @@
             <option value="YUKSELTME">Yörünge yükseltmeli: 3 yakış (apoje 40.000 km) + LLO</option>
             <option value="CUSTOM">Özel</option>
           </select></div>
+        <div class="frow"><label for="cfgMoonSite">İniş yeri</label><select id="cfgMoonSite"></select></div>
+        <p id="moonSiteInfo" class="note"></p>
         <h3>Fırlatma rampası</h3>
         <div class="frow"><label for="padSel">Rampa</label><select id="padSel"><option value="0">KSC LC-39B — varsayılan</option></select></div>
         <p id="padInfo" class="note"></p>
@@ -540,6 +556,13 @@
           <h3>İletişim ve gölge (öngörü)</h3>
           <ul id="commPlan" class="plan comm"></ul>
           <p id="commNote" class="note"></p>
+          <h3>Görev iptali: Dünya'ya dönüş</h3>
+          <p class="note">Apollo 13 sorusu: şu an bir arıza olsa eve dönmek için ne kadar Δv gerekir? Aracın o anki durumundan tek yakışlık en küçük Δv, tam kuvvet modeliyle (Dünya, Ay çekim alanı, Güneş) aranır; hedef Dünya'ya dönüşte 40 km boşluk perijesi (Apollo giriş koridoru). Ay yörüngesinde dönüş yakışı yörüngenin belli bir noktasında yapılmalıdır: bir yörünge periyodu boyunca en iyi an da aranır. Canlı uçuş etkilenmez.</p>
+          <div class="daterow"><button id="abRun" class="sm" type="button">Dönüş Δv'sini hesapla</button><span id="abMsg" class="note" role="status" aria-live="polite"></span></div>
+          <div id="abOut" hidden>
+            <div id="abVerdict" class="unc info"><div id="abVT" class="ut"></div></div>
+            <table id="abTbl" class="tbl"><tbody></tbody></table>
+          </div>
           <h3>Olay günlüğü</h3>
           <ul id="log" class="log"></ul>
         </div>
@@ -571,6 +594,36 @@
           <table id="ayVTbl" class="tbl ayres"><tbody></tbody></table>
         </div>
         <div class="stepnav"><button class="sm" type="button" data-goto="gorev">Başka profille dene</button><button class="sm" type="button" data-goto="arac">Güdümü değiştir</button><button id="ayRestart" class="sm" type="button">Baştan uçur</button></div>
+        <div class="stepnav"><button id="ayLink" class="sm" type="button" title="Bu görevin tarihini, profilini, iniş yerini, roketini, rampasını, aracını ve güdümünü taşıyan bağlantı: açan kişi aynı görevi tasarlar">Bağlantıyı kopyala</button><span id="ayLinkMsg" class="k small" role="status" aria-live="polite"></span></div>
+        <details id="ayHist" class="adv dfhist" hidden><summary>Denemelerim <span id="ayHistN" class="k"></span></summary>
+          <p class="note">Bu tarayıcıda biten son uçuşlar. Satıra dokununca görev aynı ayarlarla yeniden tasarlanır; elle yapılan yakışlar ve bozulmalar bağlantıya girmez.</p>
+          <div class="tblwrap"><table id="ayHistTbl" class="tbl hist"><thead><tr><th>Görev</th><th>Düzen</th><th class="num">Yakıt</th><th class="num">Uzaklık</th><th>Sonuç</th></tr></thead><tbody></tbody></table></div>
+          <div class="stepnav"><button id="ayHistCsv" class="sm" type="button">CSV indir</button><button id="ayHistClear" class="sm" type="button">Temizle</button></div>
+        </details>
+        <h3>Dağılım denemesi (Monte Carlo)</h3>
+        <p class="note">Tek uçuş şansa bağlı olabilir. Burada aynı görev tohumlu hatalarla defalarca uçurulur: TLI kesme hatası rota düzeltmelerini, seyrüsefer hataları (IMU, iniş radarı, arazi göreli seyrüsefer) inişi değiştirir. Sonuç, seçili güdüm ve aracın ne kadar güvenilir olduğunu gösterir. Canlı uçuş etkilenmez.</p>
+        <div class="frow3">
+          <label>Uçuş sayısı<span><select id="mcN"><option value="20">20</option><option value="50" selected>50</option><option value="100">100</option></select></span></label>
+          <label>TLI kesme 1σ<span><input id="mcTli" type="number" min="0" max="10" step="0.5" value="1"> m/s</span></label>
+          <label>Seyrüsefer<span><select id="mcNav"><option value="on" selected>Gerçekçi</option><option value="off">Kusursuz</option></select></span></label>
+        </div>
+        <div class="frow"><label for="mcFault">Arıza</label><select id="mcFault"><option value="none">Yok</option><option value="trn">Arazi göreli seyrüsefer yok (Apollo gibi)</option><option value="alt">Altimetre 3 km altında susar</option><option value="vel">Hız ölçer 2 km altında susar</option></select></div>
+        <div class="daterow"><button id="mcRun" class="primary sm" type="button">Dağılım denemesini başlat</button><button id="mcCmp" class="sm" type="button" title="Aynı tohumlar (aynı hatalar) üç iniş güdümüyle uçurulur: farklar şanstan değil güdümden gelir">Üç güdümü karşılaştır</button><button id="mcStop" class="sm" type="button" hidden>Durdur</button><span id="mcMsg" class="note" role="status" aria-live="polite"></span></div>
+        <div id="mcOut" hidden>
+          <div id="mcVerdict" class="unc info"><div id="mcVT" class="ut"></div></div>
+          <canvas id="mcScatter" class="chart" role="img" aria-label="Monte Carlo: iniş noktaları ve temas hızları"></canvas>
+          <p class="note">Yeşil başarılı, kırmızı başarısız iniş. Sağda kesikli çizgi iniş takımının güvenli temas sınırı (dikey 3,05 m/s, yatay 1,22 m/s'de dikey 2,13 m/s).</p>
+          <table id="mcTbl" class="tbl"><tbody></tbody></table>
+          <div id="mcCmpOut" hidden>
+            <div class="tblwrap"><table id="mcCmpTbl" class="tbl"><thead><tr><th>Güdüm</th><th class="num">Başarı</th><th class="num">Kalan yakıt</th><th class="num">ZEM/ZEV'e göre (aynı tohum)</th><th class="num">Iska</th><th class="num">Yatay hız</th></tr></thead><tbody></tbody></table></div>
+            <p class="note">Her satır aynı tohumlarla (aynı TLI kesme hatası, aynı seyrüsefer hataları) uçuruldu; "ZEM/ZEV'e göre" sütunu aynı tohum çiftlerindeki yakıt farkının medyanı ve %90 aralığıdır. Değerler medyan; başarı %95 güven aralığıyla.</p>
+          </div>
+          <p id="mcFails" class="note"></p>
+        </div>
+        <details id="mcHist" class="adv" hidden><summary>Dağılım denemelerim</summary>
+          <div class="tblwrap"><table id="mcHistTbl" class="tbl"><thead><tr><th>Güdüm · araç</th><th>Hata modeli</th><th class="num">Başarı</th><th class="num">Yakıt (medyan)</th><th class="num">Iska (medyan)</th></tr></thead><tbody></tbody></table></div>
+          <div class="stepnav"><button id="mcClear" class="sm" type="button">Temizle</button></div>
+        </details>
         <h3>Δv bütçesi (m/s)</h3>
         <table id="dvtable" class="tbl">
           <thead><tr><th>Manevra</th><th class="num">Nominal</th><th class="num">Gerçekleşen</th><th class="num">Fark</th></tr></thead>
@@ -584,6 +637,71 @@
         <div class="daterow"><button id="btnCompare" class="sm">Bu tarih için hesapla</button><span id="cmpStatus" class="k"></span></div>
         <p class="note">Aynı iniş yeri için her profilin en az Δv'li tasarımı. "Ay Δv": Ay'a varıştan inişe kadar (iniş aracının taşıdığı). Satıra tıkla: o profil yüklenir.</p>
       </div>
+    </div>
+
+    <div id="lab-lagrange" class="labpage" hidden>
+      <p class="labsub">Dönen çerçeve: iki cisim sabit durur, x ekseni büyük cisimden küçüğe. Dairesel kısıtlı üç cisim problemi (CR3BP); turuncu noktalar kararsız, yeşiller kararlı.</p>
+      <canvas id="lgMap" class="chart lgmap" role="img" aria-label="Dönen çerçevede iki cisim, beş Lagrange noktası ve seçili adımın çizimi"></canvas>
+      <div class="chips" id="lgView" role="radiogroup" aria-label="Görünüm"><button class="chip" type="button" data-lgview="all">Tüm sistem</button><button class="chip" type="button" data-lgview="near">Küçük cisim yakını</button></div>
+      <ol id="lgSteps" class="steps">
+        <li class="step open" data-lgstep="1">
+          <button class="sh" type="button" aria-expanded="true" aria-controls="lgSb1"><span class="sn">1</span><span class="st">Sistem</span><span class="ss" id="lgSum1"></span></button>
+          <div class="sb" id="lgSb1">
+            <div class="chips" role="radiogroup" aria-label="Sistem"><button class="chip" type="button" data-lgsys="em">Dünya–Ay</button><button class="chip" type="button" data-lgsys="se">Güneş–Dünya</button><button class="chip" type="button" data-lgsys="ozel">Varsayımsal</button></div>
+            <div id="lgMuRow" class="frow" hidden><label for="lgMu">μ</label><input id="lgMu" type="range" min="-7" max="-0.30103" step="0.01" aria-label="Kütle oranı (logaritmik)"><span id="lgMuVal" class="k"></span></div>
+            <p id="lgSysNote" class="note"></p>
+            <div class="tblwrap"><table id="lgPts" class="tbl"><thead><tr><th>Nokta</th><th class="num">Küçük cisme</th><th class="num">Jacobi C</th><th>Kararlılık</th></tr></thead><tbody></tbody></table></div>
+            <p class="note">Kararsız noktada küçük bir hata her e-katlanma süresinde e ≈ 2,7 katına çıkar. Kararlı noktada (L4, L5) araç noktanın çevresinde salınır: Jüpiter'in Truva asteroitleri böyle durur. L4/L5 yalnız μ &lt; 0,0385 iken kararlıdır (Routh ölçütü).</p>
+            <div class="stepnav"><button class="primary sm" type="button" data-lggo="2">Devam: Enerji</button></div>
+          </div>
+        </li>
+        <li class="step" data-lgstep="2">
+          <button class="sh" type="button" aria-expanded="false" aria-controls="lgSb2"><span class="sn">2</span><span class="st">Enerji</span><span class="ss" id="lgSum2"></span></button>
+          <div class="sb" id="lgSb2">
+            <p class="stepsub">Jacobi sabiti C, dönen çerçevede korunan enerjidir: araç, potansiyelin bu enerjiye yetmediği gri bölgelere giremez. C düşünce Lagrange noktalarındaki "kapılar" sırayla açılır.</p>
+            <div class="frow"><label for="lgC">C</label><input id="lgC" type="range" min="0" max="1000" step="1" aria-label="Jacobi sabiti"><span id="lgCVal" class="k"></span></div>
+            <div class="chips" id="lgCSnap"></div>
+            <p id="lgGate" class="dinfo" role="status" aria-live="polite"></p>
+            <div class="stepnav"><button class="primary sm" type="button" data-lggo="3">Devam: Deney</button></div>
+          </div>
+        </li>
+        <li class="step" data-lgstep="3">
+          <button class="sh" type="button" aria-expanded="false" aria-controls="lgSb3"><span class="sn">3</span><span class="st">Deney</span><span class="ss" id="lgSum3"></span></button>
+          <div class="sb" id="lgSb3">
+            <p class="stepsub">Bir aracı noktaya küçük bir hatayla bırakın: orada kalır mı?</p>
+            <div class="chips" id="lgPoint" role="radiogroup" aria-label="Lagrange noktası"></div>
+            <div class="frow3">
+              <label>Konum hatası<span><input id="lgDr" type="number" min="0" step="1" value="10"> km</span></label>
+              <label>Hız hatası<span><input id="lgDv" type="number" min="0" step="0.1" value="0"> m/s</span></label>
+              <label>Süre<span><input id="lgDays" type="number" min="1" max="3650" step="1" value="60"> gün</span></label>
+            </div>
+            <div class="frow"><label for="lgDir">Yön</label><select id="lgDir"><option value="x">İki cismi birleştiren doğru (x)</option><option value="y">Yörünge yönü (y)</option><option value="z">Yörünge düzlemine dik (z)</option></select></div>
+            <div class="daterow"><button id="lgRun" class="primary sm" type="button">Bırak ve izle</button></div>
+            <div id="lgVerdict" class="verdict info" role="status" aria-live="polite" hidden>
+              <div id="lgVT" class="vt"></div>
+              <div id="lgVD" class="vd"></div>
+              <table id="lgVTbl" class="tbl ayres"><tbody></tbody></table>
+            </div>
+            <canvas id="lgDist" class="chart" role="img" aria-label="Noktaya uzaklığın zamanla değişimi (logaritmik)" hidden></canvas>
+            <p id="lgDistNote" class="note" hidden>Noktaya uzaklık (logaritmik). Kararsız noktada başta düz bir çizgi: üstel büyüme. Kesikli çizgi doğrusal kuramın eğimi.</p>
+            <div class="stepnav"><button class="primary sm" type="button" data-lggo="4">Devam: Halo yörüngeleri</button></div>
+          </div>
+        </li>
+        <li class="step" data-lgstep="4">
+          <button class="sh" type="button" aria-expanded="false" aria-controls="lgSb4"><span class="sn">4</span><span class="st">Halo yörüngeleri</span><span class="ss" id="lgSum4"></span></button>
+          <div class="sb" id="lgSb4">
+            <p class="stepsub">L1 ve L2 kararsızdır ama çevrelerinde kapalı yörüngeler vardır: araç noktanın çevresinde döner, az yakıtla orada tutulur. Artemis'in Gateway istasyonu L2 ailesinin NRHO üyesindedir. Yalnız Dünya–Ay.</p>
+            <div class="chips" id="lgFam" role="radiogroup" aria-label="Halo ailesi"><button class="chip" type="button" data-lgfam="1">L1 kuzey</button><button class="chip" type="button" data-lgfam="2">L2 güney</button><button class="chip" type="button" data-lgfam="nrho">NRHO 9:2</button></div>
+            <div id="lgAzRow" class="frow"><label for="lgAz">Az</label><input id="lgAz" type="range" min="2000" max="34000" step="1000" aria-label="Düzleme dik genlik (km)"><span id="lgAzVal" class="k"></span></div>
+            <div class="chips" id="lgProj" role="radiogroup" aria-label="İzdüşüm"><button class="chip" type="button" data-lgproj="xy">Üstten (x–y)</button><button class="chip" type="button" data-lgproj="xz">Yandan (x–z)</button><button class="chip" type="button" data-lgproj="yz">Önden (y–z)</button></div>
+            <div class="tblwrap"><table id="lgHaloTbl" class="tbl"><tbody></tbody></table></div>
+            <p id="lgHaloMsg" class="k small" role="status" aria-live="polite"></p>
+            <div class="stepnav"><button id="lgFly" class="sm" type="button" hidden>Ay görevinde bu bekleme yörüngesiyle uç</button></div>
+            <p class="note">Genlik aralığı halo kodunun Richardson başlangıcı ve düzeltmesiyle yakınsadığı aralıktır (L1: 2.000–26.000 km, L2: 2.000–34.000 km); daha büyük üyeler aile boyunca süreklilik ister. Kararlılık indeksi ν: 1'e yakınsa yörünge neredeyse kararlıdır; büyüdükçe konumu korumak daha çok yakıt ister.</p>
+          </div>
+        </li>
+      </ol>
+      <div class="stepnav"><button id="lgLink" class="sm" type="button" title="Bu deneyin sistemini, noktasını, hatasını, enerjisini ve halo seçimini taşıyan bağlantı">Bağlantıyı kopyala</button><span id="lgLinkMsg" class="k small" role="status" aria-live="polite"></span></div>
     </div>
 
     <div id="lab-saptirma" class="labpage" hidden>
@@ -625,11 +743,31 @@
             <div class="fttl">Nasıl itilsin?</div>
             <div class="mseg" role="radiogroup" aria-label="Saptırma yöntemi">
               <label class="mcard on"><input type="radio" name="dfMethod" value="kinetic" checked><span><b>Kinetik çarpıcı</b><small>Uzay aracı hızla çarpar (DART gibi)</small></span></label>
-              <label class="mcard"><input type="radio" name="dfMethod" value="thrust"><span><b>Sürekli itki</b><small>İyon motoru ya da çekim traktörü usulca iter</small></span></label>
+              <label class="mcard"><input type="radio" name="dfMethod" value="thrust"><span><b>Sürekli itki</b><small>İyon motoru ya da iyon ışını usulca iter</small></span></label>
+              <label class="mcard"><input type="radio" name="dfMethod" value="tractor"><span><b>Çekim traktörü</b><small>Araç yanında durur, kütle çekimiyle çeker</small></span></label>
             </div>
             <div class="frow3 two" id="dfKin">
               <label>Araç kütlesi<span><input id="dfMass" type="number" value="580" min="1" step="10"> kg</span></label>
               <label>Çarpma hızı<span><input id="dfU" type="number" value="6.1" min="0.1" step="0.1"> km/s</span></label>
+            </div>
+            <details id="dfIc" class="adv ic"><summary>Önleme görevi: bu çarpıcıyı hangi roketle, ne zaman fırlatırsınız?</summary>
+              <p class="note">Araç kütlesi, çarpma hızı ve yönü serbest sayılar değildir: Dünya'dan asteroide giden yörüngeden gelirler. Her fırlatma günü ve uçuş süresi için Güneş merkezli Lambert yörüngesi kurulur; kalkış enerjisi (C3) roketin taşıyabileceği kütleyi, varıştaki göreli hız çarpma hızını ve yönünü verir.</p>
+              <div class="frow"><label for="dfRocket">Roket</label><select id="dfRocket"></select></div>
+              <div class="daterow"><button id="dfIcRun" class="sm" type="button">Fırlatma penceresini hesapla</button><span id="dfIcMsg" class="k small" role="status" aria-live="polite"></span></div>
+              <div id="dfIcOut" hidden>
+                <canvas id="dfPork" class="chart" role="img" aria-label="Fırlatma penceresi: fırlatma günü ve uçuş süresine göre B-düzleminde kayma"></canvas>
+                <p class="note">Renk, o fırlatma günü (yatay) ve uçuş süresiyle (dikey) yakın geçişte ulaşılan kaymadır (logaritmik; sarı en büyük). Beyaz çerçeveli hücreler yakalama yarıçapını aşar: çarpacak olsaydı kurtarır. Boş bölgeler: çözüm yok ya da roket o enerjiye ulaşamaz. Mavi çember en iyi çözüm.</p>
+                <div id="dfIcBest" class="dfout"></div>
+                <div class="stepnav"><button id="dfIcUse" class="primary sm" type="button">Bu çözümü kullan</button></div>
+              </div>
+            </details>
+            <div id="dfGt" hidden>
+              <div class="frow3">
+                <label>Araç kütlesi<span><input id="dfGtM" type="number" value="20000" min="1" step="100"> kg</span></label>
+                <label>Uzaklık<span><input id="dfGtK" type="number" value="2" min="1.2" max="20" step="0.1"> × yarıçap</span></label>
+                <label>Süre<span><input id="dfGtDays" type="number" value="365" min="1" step="1"> gün</span></label>
+              </div>
+              <p id="dfGtF" class="k small"></p>
             </div>
             <div class="frow3 two" id="dfThr" hidden>
               <label>Kuvvet<span><input id="dfF" type="number" value="1" min="0.001" step="any"> N</span></label>
@@ -654,7 +792,7 @@
                 <label>β (itki artışı)<span><input id="dfBeta" type="number" value="3.6" min="1" max="10" step="0.1"></span></label>
               </div>
               <div class="frow"><label for="dfDir">Yön</label>
-                <select id="dfDir"><option value="along">Yörünge boyunca (ileri)</option><option value="anti">Yörünge boyunca (geri)</option><option value="best">En etkili yön (STM ile)</option><option value="radial">Radyal (Güneş'ten dışa)</option><option value="normal">Yörünge normali</option></select></div>
+                <select id="dfDir"><option value="along">Yörünge boyunca (ileri)</option><option value="anti">Yörünge boyunca (geri)</option><option value="best">En etkili yön (STM ile)</option><option value="radial">Radyal (Güneş'ten dışa)</option><option value="normal">Yörünge normali</option><option value="vec" disabled>Önleme yörüngesinden (çarpma hızı yönü)</option></select></div>
             </details>
             <div class="stepnav"><button id="dfRun" class="primary" type="button">Hesapla</button><span id="dfStatus" class="k small" role="status" aria-live="polite"></span></div>
           </div>
@@ -671,20 +809,33 @@
                 <div id="dfGauge" class="gauge" hidden><span class="gf"></span><span class="gm"></span></div>
                 <div id="dfGaugeTxt" class="k small"></div>
               </div>
+              <div id="dfDisrupt" class="unc warn" hidden><div id="dfDT" class="ut"></div><div id="dfDD" class="ud"></div></div>
+              <div id="dfUnc" class="unc info" role="status" aria-live="polite" hidden><div id="dfUT" class="ut"></div><div id="dfUD" class="ud"></div></div>
               <p id="dfNeed" class="need"></p>
               <canvas id="dfBplane" class="chart sq" role="img" aria-label="Dünya'ya göre geçiş noktası: nominal ve saptırılmış"></canvas>
-              <p class="note">Mavi daire Dünya; kesikli çember, çarpma bölgesinin sınırı (yakalama yarıçapı). Beyaz nokta nominal, turuncu nokta saptırılmış geçiş noktası.</p>
+              <p class="note">Mavi daire Dünya; kesikli çember, çarpma bölgesinin sınırı (yakalama yarıçapı). Beyaz nokta nominal, turuncu nokta saptırılmış geçiş noktası; turuncu kalın çizgi itkinin belirsizliğiyle %90 aralığı, elipsler yörünge belirsizliği (1σ ve 3σ, JPL kovaryansı varsa). Mor kesikli çemberler rezonans çemberleri: oradan geçen asteroit "k:h" ile yazılan k yıl sonra Dünya'ya yeniden yaklaşır; anahtar delikleri bu çemberlerin üzerindedir.</p>
+              <div id="dfLaterBox" hidden>
+                <div class="fttl">Sonraki yakın geçişler</div>
+                <div class="tblwrap"><table id="dfLater" class="tbl"><thead><tr><th>Tarih</th><th class="num">Nominal</th><th class="num">Saptırılmış</th></tr></thead><tbody></tbody></table></div>
+                <p id="dfLaterNote" class="note"></p>
+              </div>
               <div class="stepnav"><button id="df3d" class="sm" type="button" disabled>3B'de göster</button><button id="dfAgain" class="sm" type="button">İtkiyi değiştir</button></div>
+              <div class="stepnav"><button id="dfLink" class="sm" type="button" title="Bu deneyin tüm ayarlarını taşıyan bağlantı: açan kişi aynı hedefi, geçişi ve itkiyi görür">Bağlantıyı kopyala</button><span id="dfLinkMsg" class="k small" role="status" aria-live="polite"></span></div>
               <details class="adv"><summary>Tüm ayrıntılar</summary>
                 <div id="dfOut" class="dfout"></div>
                 <canvas id="dfSweep" class="chart" role="img" aria-label="Aynı hız değişimi için kayma, itki anına göre"></canvas>
                 <p id="dfDart" class="note"></p>
-                <p class="note">Fizik motoru: asteroit, Güneş + 8 gezegen + Ay + Plüton çekimi (konumlar JPL DE440'tan) ve Güneş'in genel görelilik düzeltmesiyle DOPRI5 ile tümlenir. Yakın geçiş, Dünya'ya uzaklığın yerel en küçüğü olarak ikiye bölmeyle bulunur. Kaçırma, B-düzleminde (Öpik–Valsecchi ξ, ζ) ölçülür: Dünya'yı ıskalamak için kayma, çekim odaklamasıyla büyüyen yakalama yarıçapını (bE) aşmalıdır. İtkinin etkisi hem durum geçiş matrisiyle (doğrusal) hem tam tümlemeyle hesaplanır. Kinetik çarpıcı: Δv = β·m·U / (M + m). Yarkovsky etkisi ve öteki asteroitlerin çekimi modelde yok.</p>
+                <p class="note">Fizik motoru: asteroit, Güneş + 8 gezegen + Ay + Plüton çekimi (konumlar JPL DE440'tan) ve Güneş'in genel görelilik düzeltmesiyle DOPRI5 ile tümlenir. Yakın geçiş, Dünya'ya uzaklığın yerel en küçüğü olarak ikiye bölmeyle bulunur. Kaçırma, B-düzleminde (Öpik–Valsecchi ξ, ζ) ölçülür: Dünya'yı ıskalamak için kayma, çekim odaklamasıyla büyüyen yakalama yarıçapını (bE) aşmalıdır. İtkinin etkisi hem durum geçiş matrisiyle (doğrusal) hem tam tümlemeyle hesaplanır. Kinetik çarpıcı: Δv = β·m·U / (M + m). JPL çözümü varsa Yarkovsky etkisi (kütleçekimsel olmayan A1/A2/A3 ivmesi) ve yakın geçişte Dünya'nın basıklığı (J2) da hesaba katılır; öteki asteroitlerin çekimi modelde yok.</p>
               </details>
             </div>
           </div>
         </li>
       </ol>
+      <details id="dfHist" class="adv dfhist" hidden><summary>Denemelerim <span id="dfHistN" class="k"></span></summary>
+        <p class="note">Bu tarayıcıda hesapladığınız son denemeler. Satıra dokununca deneme aynı ayarlarla yeniden kurulur ve hesaplanır.</p>
+        <div class="tblwrap"><table id="dfHistTbl" class="tbl hist"><thead><tr><th>Hedef · geçiş</th><th>İtki</th><th class="num">Önce</th><th class="num">Kayma / gereken</th><th>Sonuç</th></tr></thead><tbody></tbody></table></div>
+        <div class="stepnav"><button id="dfHistCsv" class="sm" type="button">CSV indir</button><button id="dfHistClear" class="sm" type="button">Temizle</button></div>
+      </details>
     </div>
   </aside>
 

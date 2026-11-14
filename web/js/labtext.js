@@ -1,6 +1,6 @@
 // Laboratuvar arayüzünün saf yardımcıları (DOM ve THREE yok; Node'da sınanır): düz dille biçimleme, itki zamanı seçenekleri, sonuç yargısı.
 import { fmt } from './format.js';
-import { AU, etFromJd, jdFromEt, kineticDv } from './deflect.js';
+import { AU, etFromJd, jdFromEt, kineticDv, G_SI, impactQ, qStarD } from './deflect.js';
 import { MONTHS } from './i18n.js';
 
 export const LD = 384399;                                    // Ay uzaklığı, km
@@ -18,6 +18,11 @@ export const sizeText = (Dkm) => (!(Dkm > 0) ? '' : Dkm < 1 ? `${fmt(Dkm * 1000,
 export const etFromISO = (s) => etFromJd(Date.parse(s + 'T00:00:00Z') / 86400000 + 2440587.5) + 69.184;
 export const etToISO = (et, withTime = true) => { const ms = (jdFromEt(et) - 2440587.5) * 86400000 - 69184; const s = new Date(ms).toISOString(); return withTime ? s.slice(0, 16).replace('T', ' ') : s.slice(0, 10); };
 export const dateLong = (et) => { const [y, m, d] = etToISO(et, false).split('-'); return `${+d} ${AYLAR[+m - 1]} ${y}`; };
+
+// kütleçekimsel olmayan model (deflect.js ngFromSbdb) → kısa açıklama: "Yarkovsky A2 = −2,90×10⁻¹⁴ AB/gün²"
+const SUP = { '-': '⁻', 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+export const sci = (x, n = 3) => { if (!(x !== 0 && Number.isFinite(x))) return fmt(x || 0, 0); const e = Math.floor(Math.log10(Math.abs(x))), m = x / 10 ** e; return `${fmt(m, n - 1)}×10${String(e).replace(/./g, (c) => SUP[c] || c)}`; };
+export const ngText = (ng) => (ng && ng.A2 ? `Yarkovsky A2 = ${sci(ng.A2)} AB/gün²` : ng ? 'kütleçekimsel olmayan ivme (JPL)' : '');
 
 // tayf türüne göre yoğunluk tahmini (kg/m³)
 export const RHO = (spec) => (/^[CBFGD]/.test(spec || '') ? 1400 : /^[SQVAKLR]/.test(spec || '') ? 2600 : /^[MXE]/.test(spec || '') ? 3500 : 2000);
@@ -52,6 +57,12 @@ export function verdictOf(r, p) {
   }
   const rp0 = r.b0.rp, imp0 = !!r.b0.impact, rp1 = r.after ? r.after.rp : null, imp1 = !!(r.after && r.after.impact);
   const move = rp1 == null ? '' : `En yakın geçiş ${distText(rp0)} → ${distText(rp1)}.`;
+  // sonraki geçişler (deflectwork 'later'): itki bu geçişi kurtarıp asteroidi yıllar sonraki bir çarpmaya götürebilir (anahtar deliği)
+  const lt = r.later, fD = lt && lt.D ? lt.D.find((x) => x.impact) : null, fN = lt && lt.N ? lt.N.find((x) => x.impact) : null;
+  if (!imp1 && fD && !(fN && Math.abs(fN.et - fD.et) < 0.5 * 365.25 * 86400)) {
+    return { ...base, kind: 'bad', title: 'Saptırma ileride çarpmaya yol açar', laterImpact: fD, detail: `${move} Ama ${dateLong(fD.et)} geçişinde Dünya'ya çarpar: itki asteroidi bir anahtar deliğine soktu. İtkinin büyüklüğünü, yönünü ya da zamanını biraz değiştirin.` };
+  }
+  if (!imp1 && fN && !fD) return { ...base, kind: 'good', title: imp0 ? 'Çarpma önlendi' : 'İleriki çarpma önlendi', detail: `${move} Nominal yörüngedeki ${dateLong(fN.et)} çarpması da ortadan kalkar.` };
   if (imp0 && !imp1) return { ...base, kind: 'good', title: 'Çarpma önlendi', detail: move };
   if (!imp0 && imp1) return { ...base, kind: 'bad', title: 'Saptırma çarpmaya yol açtı', detail: move };
   if (imp0 && imp1) return { ...base, kind: 'bad', title: 'Yine çarpar', detail: `${move} İtkiyi büyütün ya da daha erken uygulayın.` };
@@ -61,6 +72,10 @@ export function verdictOf(r, p) {
 export function needText(r, p) {
   const req = r.dvReqMps;
   if (!(req > 0)) return '';
+  if (p.method === 'tractor') {
+    const d = p.gk * p.R, mReq = r.FreqN * d * d / (G_SI * r.M);
+    return `Bir yakalama yarıçapı (${kmText(r.b0.bE)}) kadar kaydırmak için bu zamanlamayla Δv ≈ ${sig(req * 1000, 3)} mm/s gerekir: ${fmt(p.gk, 1)} yarıçap uzaklıkta ${fmt(p.days, 0)} gün duran ≈ ${sig(mReq, 3)} kg'lık bir araç.`;
+  }
   return p.method === 'kinetic'
     ? `Bir yakalama yarıçapı (${kmText(r.b0.bE)}) kadar kaydırmak için bu zamanlamayla Δv ≈ ${sig(req * 1000, 3)} mm/s gerekir: aynı hız ve β ile ≈ ${sig(req * r.M / (p.beta * p.U * 1000), 3)} kg'lık bir çarpıcı.`
     : `Bir yakalama yarıçapı (${kmText(r.b0.bE)}) kadar kaydırmak için bu zamanlamayla Δv ≈ ${sig(req * 1000, 3)} mm/s gerekir: ≈ ${sig(r.FreqN, 3)} N × ${fmt(p.days, 0)} gün itki.`;
@@ -71,10 +86,10 @@ export const targetSummary = (t) => (t ? `${t.name}${t.Dkm ? ' · Ø ' + sizeTex
 export const caSummary = (c) => (c ? `${dateLong(c.et)} · ${kmText(c.dist)}` : 'Önce bir hedef seçin');
 export function pushSummary(p, leadLabel) {
   if (!p) return 'Önce bir yakın geçiş seçin';
-  const how = p.method === 'kinetic' ? `Kinetik · ${fmt(p.m, 0)} kg × ${fmt(p.U, 1)} km/s` : `Sürekli · ${sig(p.F, 2)} N × ${fmt(p.days, 0)} gün`;
+  const how = p.method === 'kinetic' ? `Kinetik · ${fmt(p.m, 0)} kg × ${fmt(p.U, 1)} km/s` : p.method === 'tractor' ? `Çekim traktörü · ${fmt(p.gm, 0)} kg × ${fmt(p.days, 0)} gün` : `Sürekli · ${sig(p.F, 2)} N × ${fmt(p.days, 0)} gün`;
   return `${how} · ${leadLabel}`;
 }
-export const DIRS = { along: 'yörünge boyunca (ileri)', anti: 'yörünge boyunca (geri)', best: 'en etkili yön (STM)', radial: 'radyal (Güneş\'ten dışa)', normal: 'yörünge normali' };
+export const DIRS = { along: 'yörünge boyunca (ileri)', anti: 'yörünge boyunca (geri)', best: 'en etkili yön (STM)', radial: 'radyal (Güneş\'ten dışa)', normal: 'yörünge normali', vec: 'önleme yörüngesinden (çarpma hızı yönü)' };
 
 // doğrulama notu (DART/Dimorphos ölçümü ile motorun uyumu)
 export function dartNote() {
@@ -83,3 +98,114 @@ export function dartNote() {
     + `Ölçülen yörünge boyu bileşen 2,70 mm/s, ikili yörünge periyodunda ${fmt(3 * P * 2.7e-3 / v / 60, 1)} dk kısalma verir (gözlenen 33,0 ± 1,0 dk). `
     + 'Apophis 2029 yakın geçişi bu motorla JPL CAD değerinden ~2 km farkla bulunur.';
 }
+
+// ---------------------------------------------------------------- paylaşılabilir bağlantı ve deneme geçmişi
+// Saptırma deneyinin tüm ayarları adres parametrelerine yazılır: bağlantıyı açan aynı hedefi tarar, aynı geçişi seçer ve aynı itkiyi hesaplar.
+//   hedef (SBDB tanımı), bas (tarama başlangıcı), yil (tarama süresi), gecis (yakın geçiş günü), yontem (kin | sur), m, U, beta | F, gun,
+//   itki (itki günü), yon, yv (yon = vec: çarpma yönü "x,y,z"), senaryo (gercek | varsayim), D, rho (yalnız kullanıcı değiştirdiyse)
+export const LINK_KEYS = ['hedef', 'bas', 'yil', 'gecis', 'yontem', 'm', 'U', 'beta', 'F', 'gun', 'k', 'itki', 'yon', 'yv', 'senaryo', 'D', 'rho'];
+const ISO_DAY = /^\d{4}-\d\d-\d\d$/;
+const num = (s) => (s != null && s !== '' && Number.isFinite(+s) ? +s : null);
+// s: { des, start, years, caDay, method, m, U, beta, F, days, applyDay, dir, hypo, D?, rho? } → { anahtar: metin }
+export function linkFromState(s) {
+  const o = { hedef: s.des, bas: s.start, yil: String(s.years), gecis: s.caDay, yontem: s.method === 'thrust' ? 'sur' : s.method === 'tractor' ? 'cek' : 'kin' };
+  if (s.method === 'thrust') Object.assign(o, { F: String(s.F), gun: String(s.days) });
+  else if (s.method === 'tractor') Object.assign(o, { m: String(s.gm), k: String(s.gk), gun: String(s.days) });
+  else Object.assign(o, { m: String(s.m), U: String(s.U), beta: String(s.beta) });
+  Object.assign(o, { itki: s.applyDay, yon: s.dir, senaryo: s.hypo ? 'varsayim' : 'gercek' });
+  if (s.dir === 'vec' && Array.isArray(s.dirVec)) o.yv = s.dirVec.map((x) => x.toFixed(6)).join(',');       // önleme görevinin çarpma yönü (ICRF birim vektör)
+  if (s.D > 0 && s.rho > 0) Object.assign(o, { D: String(s.D), rho: String(s.rho) });
+  return o;
+}
+// adres parametreleri (URLSearchParams ya da düz nesne) → durum ya da null (hedef yoksa). Geçersiz alanlar atılır, eksikler varsayılana kalır.
+export function stateFromLink(q) {
+  const get = (k) => (typeof q.get === 'function' ? q.get(k) : q[k]);
+  const des = (get('hedef') || '').trim().slice(0, 40); if (!des) return null;
+  const day = (k) => { const v = get(k); return v && ISO_DAY.test(v) ? v : null; };
+  const yontem = get('yontem'), yon = get('yon'), sc = get('senaryo');
+  const s = { des, start: day('bas'), years: num(get('yil')), caDay: day('gecis'), method: yontem === 'sur' ? 'thrust' : yontem === 'cek' ? 'tractor' : 'kinetic', applyDay: day('itki'),
+    dir: Object.hasOwn(DIRS, yon || '') ? yon : null, hypo: sc === 'varsayim' ? true : sc === 'gercek' ? false : null };
+  for (const k of ['m', 'U', 'beta', 'F', 'D', 'rho']) { const v = num(get(k)); s[k] = v != null && v > 0 ? v : null; }
+  const g = num(get('gun')); s.days = g != null && g > 0 ? g : null;
+  const kk = num(get('k')); s.gk = kk != null && kk >= 1 && kk <= 50 ? kk : null;
+  if (s.method === 'tractor') { s.gm = s.m; s.m = null; }
+  const yv = (get('yv') || '').split(',').map(Number), yn = Math.hypot(...yv);
+  s.dirVec = yv.length === 3 && yv.every(Number.isFinite) && yn > 0.5 ? yv.map((x) => x / yn) : null;
+  if (s.dir === 'vec' && !s.dirVec) s.dir = null;
+  if (s.years != null) s.years = Math.max(1, Math.min(120, Math.round(s.years)));
+  return s;
+}
+// bir hesabın geçmiş satırı (deflectwork sonucu r, gönderilen parametreler p, hedef t, bağlantı link)
+export function historyRow(r, p, t, link) {
+  const v = verdictOf(r, p), dB = Math.hypot(r.dXi, r.dZeta);
+  return { at: Date.now(), name: t.name, des: t.des, caEt: r.ca.et, caDist: r.ca.dist, method: p.method, how: p.method === 'kinetic' ? `${fmt(p.m, 0)} kg × ${fmt(p.U, 1)} km/s` : p.method === 'tractor' ? `çekim traktörü ${fmt(p.gm, 0)} kg × ${fmt(p.days, 0)} gün` : `${sig(p.F, 2)} N × ${fmt(p.days, 0)} gün`,
+    leadDays: r.leadDays, dvMps: r.dvMps, shiftKm: dB, bEKm: r.b0.bE, hypo: !!p.hypo, kind: v.kind, title: v.title, link };
+}
+// geçmiş → CSV (virgülle ayrılmış, RFC 4180 tırnaklama; sayılar nokta ondalıklı ki tablolama programları okusun)
+export function historyCsv(rows) {
+  const q = (x) => { const s = String(x ?? ''); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const head = ['tarih', 'hedef', 'tanim', 'yakin_gecis_utc', 'gecis_km', 'yontem', 'itki', 'once_gun', 'dv_mm_s', 'kayma_km', 'yakalama_yaricapi_km', 'senaryo', 'sonuc', 'baglanti'];
+  const lines = rows.map((h) => [new Date(h.at).toISOString(), h.name, h.des, etToISO(h.caEt), h.caDist.toFixed(1), h.method, h.how, h.leadDays.toFixed(1), (h.dvMps * 1000).toPrecision(4),
+    h.shiftKm.toFixed(1), h.bEKm.toFixed(1), h.hypo ? 'carpacak_olsaydi' : 'gercek', h.title, h.link].map(q).join(','));
+  return [head.join(','), ...lines].join('\n') + '\n';
+}
+
+// ---------------------------------------------------------------- belirsizlik (uncert.js Monte Carlo sonucu → düz dil)
+// olasılık → yüzde sayısı ("%" şablondadır: çeviride "{0}%" olur); 4.000 örnekte en küçük adım %0,025
+const pct = (p) => (p <= 0 ? '0' : p >= 1 ? '100' : fmt(100 * p, p < 0.01 || p > 0.99 ? 2 : p < 0.1 || p > 0.9 ? 1 : 0));
+export const sigPct = (s) => fmt(100 * (Math.exp(s) - 1), 0);                         // ln-σ → yüzde (çarpımsal 1σ)
+// mc: monteCarlo sonucu; o: { hypo, sM, sBeta, sDv, method, SB (2×2 ya da null), dvReqMps, M, p (parametreler) }
+// Dönüş: { kind, title, detail: [cümle…] } (cümleler arayüzde ayrı metin düğümleri: çeviri her cümleyi ayrı eşler)
+export function uncertText(mc, o) {
+  const src = o.method === 'kinetic' ? `Hız değişiminde kütle (1σ %${sigPct(o.sM)}) ve β (1σ %${sigPct(o.sBeta)}) belirsiz.`
+    : o.method === 'tractor' ? `Çekim traktörü asteroidin kütlesinden bağımsızdır; hız değişiminde yalnız çap (aracın uzaklığı, 1σ %${sigPct(o.sDv / 2)}) belirsiz.`
+      : `Hız değişiminde kütle (1σ %${sigPct(o.sM)}) belirsiz.`;
+  const range = `Kayma %90 olasılıkla ${kmText(mc.shiftQ[0])} – ${kmText(mc.shiftQ[2])}.`;
+  if (o.hypo) {
+    const pm = 1 - mc.pImpact, kind = pm >= 0.95 ? 'good' : pm < 0.5 ? 'bad' : 'warn';
+    const dv95 = o.dvReqMps * Math.exp(1.6449 * o.sDv);
+    const need = o.method === 'kinetic' ? `%95 güvenle kurtarmak için Δv ≈ ${sig(dv95 * 1000, 3)} mm/s: ≈ ${sig(dv95 * o.M / (o.p.beta * o.p.U * 1000), 3)} kg'lık çarpıcı.`
+      : `%95 güvenle kurtarmak için Δv ≈ ${sig(dv95 * 1000, 3)} mm/s.`;
+    return { kind, title: `Belirsizlikle: %${pct(pm)} olasılıkla ıskalar`, detail: [src, range, need] };
+  }
+  const orbit = o.SB ? `Geçiş noktasının yörünge belirsizliği (1σ) ≈ ${kmText(Math.sqrt(Math.max(o.SB[0][0], o.SB[1][1], 0)))} (JPL kovaryansı).` : 'Yörünge kovaryansı yok: yalnız itkinin belirsizliği hesaba katıldı.';
+  const kind = mc.pImpact < mc.pImpact0 ? 'good' : mc.pImpact > mc.pImpact0 ? 'bad' : 'info';
+  return { kind, title: `Çarpma olasılığı: itkisiz %${pct(mc.pImpact0)} → itkili %${pct(mc.pImpact)}`, detail: [orbit, src, range] };
+}
+
+// ---------------------------------------------------------------- önleme görevi (intercept.js en iyi çözüm → düz dil)
+// b: porkchop en iyi hücresi, bE: yakalama yarıçapı (km), rocket: roket adı
+export function interceptRows(b, bE, rocket) {
+  return [
+    ['Fırlatma', `${dateLong(b.etL)} · ${rocket}`],
+    ['Uçuş süresi', `${fmt(b.tofDays, 0)} gün → çarpma ${dateLong(b.etA)}`],
+    ['Kalkış enerjisi C3', `${fmt(b.C3, 1)} km²/s² (v∞ ${fmt(b.vinf, 2)} km/s)`],
+    ['Çarpıcı kütlesi', `${fmt(b.m, 0)} kg (roketin bu C3'te taşıyabildiği)`],
+    ['Çarpma hızı', `${fmt(b.U, 2)} km/s`],
+    ['Δv', `${sig(b.dvMps * 1000, 3)} mm/s`],
+    ['Kayma / yakalama yarıçapı', `${kmText(b.shift)} / ${kmText(bE)} (%${fmt(100 * b.shift / bE, 0)})`],
+  ];
+}
+
+// ---------------------------------------------------------------- parçalanma (kinetik çarpma)
+// m (kg), U (km/s), M (kg), D (km), rho (kg/m³) → { Q, Qs, ratio, kind: ok | warn | bad, text }
+export function disruptionOf(m, U, M, D, rho) {
+  const Q = impactQ(m, U, M), Qs = qStarD(D * 500, rho || 2000), ratio = Q / Qs;
+  const base = `Çarpmanın özgül enerjisi ${sig(Q, 2)} J/kg; parçalanma eşiği Q*_D ≈ ${sig(Qs, 2)} J/kg (Benz ve Asphaug 1999)`;
+  if (ratio >= 1) return { Q, Qs, ratio, kind: 'bad', text: `${base}. Asteroit itilmez, parçalanır: parçalar aynı yörüngede kalabilir; saptırma modeli burada geçersizdir. Daha hafif ya da birden çok çarpıcı deneyin.` };
+  if (ratio >= 0.1) return { Q, Qs, ratio, kind: 'warn', text: `${base}. Eşiğe oranı %${fmt(100 * ratio, 0)}: moloz yığını bir asteroit dağılabilir.` };
+  return { Q, Qs, ratio, kind: 'ok', text: `${base}: eşiğin çok altında, asteroit bütün kalır.` };
+}
+
+// sonraki geçişler tablosu: nominal ve saptırılmış geçişler zamana göre eşlenir (±120 gün); { et, n, d } (n/d: { dist, impact } ya da null)
+export function laterRows(lt, max = 12) {
+  if (!lt) return [];
+  const W = 120 * 86400, N = lt.N || [], Dd = (lt.D || []).map((x) => ({ ...x, used: false })), rows = [];
+  for (const n of N) {
+    const d = Dd.filter((x) => !x.used && Math.abs(x.et - n.et) < W).sort((a, b) => Math.abs(a.et - n.et) - Math.abs(b.et - n.et))[0];
+    if (d) d.used = true; rows.push({ et: n.et, n, d: d || null });
+  }
+  for (const d of Dd) if (!d.used) rows.push({ et: d.et, n: null, d });
+  return rows.sort((a, b) => a.et - b.et).slice(0, max);
+}
+export const passText = (x) => (!x ? '—' : x.impact ? 'ÇARPMA' : distText(x.dist));
