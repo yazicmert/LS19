@@ -219,14 +219,17 @@ export class LagrangeUI {
     const view = { x0: cx - (w / 2) / s, x1: cx + (w / 2) / s, y0: cy - (h / 2 - 6) / s, y1: cy + (h / 2 + 6) / s };
     // yasak bölge (Enerji adımı): 2Ω < C
     if (step === 2 && proj === 'xy') {
-      // yasak bölge maskesi ızgara çözünürlüğünde (3 CSS pikseli) küçük bir tuvale yazılır, drawImage ile büyütülür: her cihaz pikselini
-      // dolaşmak yüksek yoğunluklu ekranda (DPR 2,6) ~7 kat daha pahalıydı (telefon taklidinde ~30 ms/çizim)
-      const n = Math.ceil(w / 3), m = Math.ceil(h / 3), grid = G.forbiddenGrid(this.st.Cj, mu, view, n, m), [r0, g0, b0, a0] = COL.forb;
-      const mc = this.maskCv || (this.maskCv = document.createElement('canvas')); if (mc.width !== n || mc.height !== m) { mc.width = n; mc.height = m; }
-      const mg = mc.getContext('2d'), img = mg.createImageData(n, m);
-      for (let i = 0; i < n * m; i++) if (grid[i]) { const k = i * 4; img.data[k] = r0; img.data[k + 1] = g0; img.data[k + 2] = b0; img.data[k + 3] = a0; }
-      mg.putImageData(img, 0, 0);
-      g.save(); g.imageSmoothingEnabled = false; g.drawImage(mc, 0, 0, w, h); g.restore();
+      // yasak bölge: ızgara (3 CSS pikseli) satır satır ardışık hücre dizileri fillRect ile çizilir. Piksel yazımı (putImageData / ImageData) yok:
+      // her cihaz pikselini dolaşmak telefonda ~30 ms/çizimdi; küçük maske tuvali + putImageData ise GPU sürecinde tek bir piksel yazımına dönüşüp
+      // arkada WebGL çizilirken (yazılım çiziminde) GPU'yu 12–41 sn tutuyordu. fillRect yalnız vektör komutu gönderir.
+      const n = Math.ceil(w / 3), m = Math.ceil(h / 3), grid = G.forbiddenGrid(this.st.Cj, mu, view, n, m), [r0, g0, b0, a0] = COL.forb, cw = w / n, ch = h / m;
+      g.fillStyle = `rgba(${r0},${g0},${b0},${(a0 / 255).toFixed(3)})`; g.beginPath();
+      for (let j = 0; j < m; j++) for (let i = 0; i < n; i++) {
+        if (!grid[j * n + i]) continue;
+        let k = i; while (k + 1 < n && grid[j * n + k + 1]) k++;
+        g.rect(i * cw, j * ch, (k - i + 1) * cw, ch); i = k;
+      }
+      g.fill();
     }
     // eksenler
     g.strokeStyle = COL.grid; g.beginPath(); g.moveTo(0, Y([0, 0, 0])); g.lineTo(w, Y([0, 0, 0])); g.stroke();

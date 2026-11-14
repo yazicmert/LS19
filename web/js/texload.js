@@ -108,26 +108,32 @@ const idleFrame = () => new Promise((res) => (typeof requestIdleCallback === 'fu
 // dokunun tamamı three'nin olağan yoluyla yüklenir.
 const BANDED = typeof location !== 'undefined' && new URLSearchParams(location.search).get('bant') === '1';
 const BAND_BYTES = 2 * 1024 * 1024;
+// gerçek kare (rAF); sekme gizliyse rAF durur: o zaman kısa zamanlayıcı (çizilen kare yok, bekletmenin anlamı yok)
+const nextFrame = () => new Promise((res) => { if (typeof document !== 'undefined' && document.hidden) setTimeout(res, 16); else requestAnimationFrame(() => res()); });
 // dönüş: 'tamam' (bantlar yüklendi), 'yedek' (GL hatası: three ilk çizimde tek parça yükler, veri bırakılmamalı), false (bantlanamaz: olağan yol)
 async function uploadBanded(renderer, t) {
   const m0 = t.mipmaps && t.mipmaps[0];
   if (!m0 || !m0.data || m0.width % 4 || m0.height % 4) return false;
-  const W = m0.width, rows = m0.height / 4, bytes = m0.data.byteLength;
-  if (bytes % rows) return false;                                               // 4×4 bloklu biçim değil (ör. PVRTC): bantlanamaz
+  if (t.mipmaps.some((m) => m.height >= 4 && (m.width % 4 || m.height % 4 || m.data.byteLength % (m.height / 4)))) return false;   // 4×4 bloklu değil (ör. PVRTC)
   const gl = renderer.getContext(), fmt = new THREE.WebGLUtils(gl, renderer.extensions).convert(t.format, t.colorSpace);
   if (!fmt) return false;
-  const rowB = bytes / rows, per = Math.max(1, Math.floor(BAND_BYTES / rowB)), E = m0.data.BYTES_PER_ELEMENT;
   t.source.dataReady = false;
   try { renderer.initTexture(t); } catch (e) { t.source.dataReady = true; return false; }          // yer ayrılır (texStorage2D), veri yazılmaz
   const tex = renderer.properties.get(t).__webglTexture;
   if (!tex) { t.source.dataReady = true; t.needsUpdate = true; return false; }
   const put = (level, y, w, h, data) => { renderer.state.bindTexture(gl.TEXTURE_2D, tex); gl.compressedTexSubImage2D(gl.TEXTURE_2D, level, 0, y, w, h, fmt, data); renderer.state.unbindTexture(); };
-  for (let r = 0; r < rows; r += per) {
-    const n = Math.min(per, rows - r);
-    put(0, r * 4, W, n * 4, m0.data.subarray(r * rowB / E, (r + n) * rowB / E));
-    await frame();                                                              // aralarda kare çizilir
+  // BAND_BYTES'tan büyük her seviye bantlanır (8192'lik dokuda 0. seviye 32 MB, 1. seviye 8 MB); her banttan sonra gerçek bir kare beklenir
+  // (frame()'in 150 ms yedeği kullanılmaz: kare çizilmeden bant göndermek GPU kuyruğunu doldurup bir sonraki bantta bekletiyordu). Küçük seviyeler birlikte.
+  for (let l = 0; l < t.mipmaps.length; l++) {
+    const m = t.mipmaps[l], b = m.data.byteLength;
+    if (b <= BAND_BYTES || m.height < 8) { put(l, 0, m.width, m.height, m.data); continue; }
+    const rows = m.height / 4, rowB = b / rows, per = Math.max(1, Math.floor(BAND_BYTES / rowB)), E = m.data.BYTES_PER_ELEMENT;
+    for (let r = 0; r < rows; r += per) {
+      const n = Math.min(per, rows - r);
+      put(l, r * 4, m.width, n * 4, m.data.subarray(r * rowB / E, (r + n) * rowB / E));
+      await nextFrame();
+    }
   }
-  for (let l = 1; l < t.mipmaps.length; l++) { const m = t.mipmaps[l]; put(l, 0, m.width, m.height, m.data); }      // küçük seviyeler tek seferde
   const err = gl.getError();                                                   // tek eşzamanlı denetim, son banttan sonra (önceden kalmış bir hata da tek parça yüklemeye düşürür: güvenli yön)
   t.source.dataReady = true;
   if (err !== gl.NO_ERROR) { t.needsUpdate = true; console.warn('Bantlı doku yüklemesi başarısız (GL ' + err + '): doku tek parça yüklenecek'); return 'yedek'; }
