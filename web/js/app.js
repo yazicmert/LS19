@@ -713,7 +713,7 @@ function applyUrlParams() {
 }
 $('#btnPanel').onclick = () => $('#labPanel').classList.toggle('open');
 $('#btnSkyPanel').onclick = () => (S.VIEW === 'lab' ? $('#labPanel') : $('#skyPanel')).classList.toggle('open');
-window.LS19 = { world, ui, send, ascent, setCam, setPlay, cinema, focusOn, setWorkspace, setSkyCam, clock, followSat, lookAtSat, labui, openLab, aymc, ayabort, get mode() { return S.MODE; }, get view() { return S.VIEW; }, get skyT() { return skyT; }, get deflect() { return deflect; },
+window.LS19 = { world, ui, send, ascent, setCam, setPlay, cinema, focusOn, setWorkspace, setSkyCam, clock, followSat, lookAtSat, labui, openLab, aymc, ayabort, lagrange, get mode() { return S.MODE; }, get view() { return S.VIEW; }, get skyT() { return skyT; }, get deflect() { return deflect; },
   get sats() { return S.sats; }, get asts() { return S.asts; }, get astui() { return S.astui; }, get updater() { return updater; }, get tracker() { return S.tracker; }, get skyui() { return S.skyui; }, get launches() { return S.launches; } };
 window.ROCSIM = window.LS19;
 

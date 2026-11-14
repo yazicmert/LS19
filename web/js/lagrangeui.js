@@ -110,10 +110,10 @@ export class LagrangeUI {
     $('#lgC').value = String(Math.round(1000 * (C - a) / (b - a))); $('#lgCVal').textContent = 'C = ' + cText(C, S);
     const g = G.gates(C, this.P);
     const txt = !g.L1 ? 'Kapılar kapalı: araç başladığı cismin çevresinde hapsolur (öbür cisme geçemez, sistemden çıkamaz).'
-      : !g.L2 ? 'L1 kapısı açık: araç iki cisim arasında gidip gelebilir ama sistemden çıkamaz. Apollo yörüngeleri bu enerjidedir.'
+      : !g.L2 ? 'L1 kapısı açık: araç iki cisim arasında gidip gelebilir ama sistemden çıkamaz.'
       : !g.L3 ? 'L1 ve L2 açık: araç küçük cismin ötesinden sistemden çıkabilir.'
       : !g.L4 ? 'L3 de açık: yalnız L4 ve L5 çevresindeki bölgeler yasak.'
-      : 'Tüm bölgeler açık: bu enerjide hiçbir yer yasak değil.';
+      : 'Tüm bölgeler açık: bu enerjide hiçbir yer yasak değil. Ay\'a giden araçlar TLI\'dan sonra bu enerjidedir (Apollo: C ≈ 2).';
     $('#lgGate').textContent = txt;
     $('#lgSum2').textContent = `C = ${cText(C, S)} · ${!g.L1 ? t('kapılar kapalı') : !g.L2 ? t('L1 açık') : !g.L3 ? t('L1, L2 açık') : !g.L4 ? t('L3 de açık') : t('her yer açık')}`;
   }
@@ -137,7 +137,8 @@ export class LagrangeUI {
     rows.push(['Başlangıç hatası', `${G.fmtKm(this.st.drKm)} · ${fmt(this.st.dvMps, 2)} m/s`]);
     if (I.lin.stable) rows.push(['Doğrusal kuram', t('kararlı: salınım {0}', G.fmtDays(Math.max(...I.oscDays)))]);
     else rows.push(['e-katlanma (doğrusal kuram)', G.fmtDays(I.efoldDays)]);
-    if (r.growthMeas) rows.push(['e-katlanma (tümlemeden ölçülen)', G.fmtDays(1 / r.growthMeas)]);
+    // ölçülen oran yalnız saf üstel bölgede anlamlı: L3'te e-katlanma (Dünya–Ay 24 gün) salınım periyoduna (27 gün) yakın, büyüme salınımla karışır → gösterilmez
+    if (r.growthMeas && r.growthLin > 0 && Math.abs(r.growthMeas / r.growthLin - 1) < 0.25) rows.push(['e-katlanma (tümlemeden ölçülen)', G.fmtDays(1 / r.growthMeas)]);
     if (r.tLeave != null) rows.push(['Noktadan ayrılış', G.fmtDays(r.tLeave)]);
     rows.push(['Noktaya en büyük uzaklık', G.fmtKm(r.maxKm)]);
     rows.push(['Jacobi sabitinin kayması', r.dC.toExponential(1).replace('.', ',') + ' (' + t('tümleme doğruluğu') + ')']);

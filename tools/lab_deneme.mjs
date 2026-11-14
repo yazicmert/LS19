@@ -76,7 +76,7 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   check('iki dallı üst çubuk: Canlı Gökyüzü · Laboratuvar (Laboratuvar etkin)', await page.evaluate(() => { const b = [...document.querySelectorAll('#modebar [data-workspace]')]; return b.map((x) => x.dataset.workspace).join() === 'sky,lab' && b[1].classList.contains('on') && document.body.dataset.mode === 'lab'; }));
   check('Laboratuvar paneli görünür; Canlı Gökyüzü paneli ve saati gizli', (await vis(page, '#labPanel')) && !(await vis(page, '#skyPanel')) && !(await vis(page, '#skyHud')));
   check('ana sayfa motoru değiştirmez: açılıştaki görev motoru sürer, görev çubuğu görünür, zaman/kamera çubuğu gizli', await page.evaluate(() => window.LS19.mode === 'mission' && document.body.dataset.engine === 'mission') && (await vis(page, '#controls')) && !(await vis(page, '#skyControls')));
-  check('deney merkezi ağacı: 3 dal (Ay görevi, Asteroit saptırma, Çarpma riski)', await page.evaluate(() => [...document.querySelectorAll('#lab-home .exp')].map((b) => b.querySelector('b').textContent).join('|') === 'Ay görevi|Asteroit saptırma|Çarpma riski'));
+  check('deney merkezi ağacı: 4 dal (Ay görevi, Asteroit saptırma, Çarpma riski, Lagrange noktaları)', await page.evaluate(() => [...document.querySelectorAll('#lab-home .exp')].map((b) => b.querySelector('b').textContent).join('|') === 'Ay görevi|Asteroit saptırma|Çarpma riski|Lagrange noktaları'));
   check('Saptırma artık Canlı Gökyüzü sekmelerinde değil (sekmeler: Takip, Uydular, Asteroitler, Çarpma, Fırlatmalar)', await page.evaluate(() => [...document.querySelectorAll('#skyPanel .tab')].map((b) => b.dataset.tab).join() === 'takip,uydular,asteroit,carpma,firlatma'));
   await shot(page, '1-merkez');
 

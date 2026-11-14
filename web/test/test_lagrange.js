@@ -58,6 +58,11 @@ for (const sp of [{ L: 1, Az: G.HALO_AZ[1][0] }, { L: 1, Az: G.HALO_AZ[1][1] }, 
   const h = G.haloOf(sp);
   check(Math.abs(h.Az - sp.Az) < 5 && h.closeKm < 0.01 && h.stability > 1, `L${sp.L} halo Az = ${sp.Az} km (aralığın ucu): yakınsar, bir periyot sonra kapanır`, `${h.periodDays.toFixed(2)} gün, kapanma ${h.closeKm.toExponential(1)} km, ν ${h.stability.toFixed(0)}`);
 }
+{
+  const bad = []; let n = 0;
+  for (const L of [1, 2]) for (let Az = G.HALO_AZ[L][0]; Az <= G.HALO_AZ[L][1]; Az += 1000) { n++; try { const h = G.haloOf({ L, Az }); if (Math.abs(h.Az - Az) > 5 || h.closeKm > 0.01) bad.push(`L${L} ${Az}`); } catch (e) { bad.push(`L${L} ${Az}: ${e.message}`); } }
+  check(!bad.length, `arayüzdeki kaydırıcının her değeri (1.000 km adım, ${n} üye) yakınsar ve kapanır`, bad.join(', '));
+}
 const nr = G.haloOf({ nrho: true });
 check(near(nr.periodDays, C.SYNODIC_DAYS / 4.5, 1e-6) && nr.rpKm < 4000 && nr.stability < 3 && nr.preset === 'NRHO', 'NRHO 9:2: periyot kameri ayın 2/9\'u (6,56 gün), Ay\'a ~3.300 km, neredeyse kararlı', `${nr.periodDays.toFixed(3)} gün, ${Math.round(nr.rpKm)} km, ν ${nr.stability.toFixed(2)}`);
 check(G.haloOf({ L: 2, Az: 13000 }).preset === 'L2' && G.haloOf({ L: 1, Az: 10000 }).preset === 'L1' && G.haloOf({ L: 2, Az: 99999 }).Az <= G.HALO_AZ[2][1] + 5, 'Ay görevi profilleriyle eşleşen üyeler tanınır; aralık dışı genlik kırpılır');
