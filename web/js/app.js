@@ -160,7 +160,7 @@ function writeAyUrl(u = new URL(location.href)) {
 function syncAyUrl() { if (!window.history || !history.replaceState) return; const u = writeAyUrl(); if (u.href !== location.href) history.replaceState(history.state, '', u); }
 // Canlı Gökyüzü katmanları: uydular (SGP4 worker + 3B modeller), asteroitler (katalog, DAMIT, worker), takip/asteroit/çarpma arayüzleri ve veri güncelleyici (canlı veri
 // indirmeleri). Gökyüzü motoru ilk kez açılınca (Canlı Gökyüzü, Laboratuvar › Asteroit saptırma / Lagrange noktaları: switchEngine) tek seferlik kurulur; ?prefetch=1 ile görev
-// hazır olur olmaz. Ay görevinde hiç kurulmaz: orada uydu/asteroit çizilmez, kurulum ise telefonda saniyeler süren bir kare boşluğu ve gereksiz indirme demekti (docs/performans.md §15).
+// hazır olur olmaz. Ay görevinde hiç kurulmaz: orada uydu/asteroit çizilmez; kurulum gereksiz modül, model ve veri indirmesi demekti (docs/performans.md §15).
 let skyInit = false;
 function initSky() {
   if (skyInit || !S.K) return; skyInit = true;

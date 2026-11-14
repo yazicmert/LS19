@@ -256,8 +256,21 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
 // ================================================================= Laboratuvar › Ay görevi: dört adım (Görev → Araç ve güdüm → Uçuş → Sonuç)
 {
   const { ctx, page, errors } = await open({ viewport: { width: 1280, height: 800 } }, '?sats=0&ast=0');
-  check('açılış derlemesi bindirme parçalarının (WELD/HLS, Kaguya) saydam geçiş programlarını da kapsar', await page.evaluate(() => { const w = window.LS19.world, r = w.renderer, gl = r.getContext(), M = w.warmMats || [];
-    return M.length === 3 && M.every((m) => m.transparent && r.properties.get(m).currentProgram && gl.getProgramParameter(r.properties.get(m).currentProgram.program, gl.LINK_STATUS)) && !w.scene.children.some((o) => M.includes(o.material)); }));
+  {
+    // gerçek parça malzemesi (layer.material, gerçek düğüm) saydam yapılıp kendi katman grubunda derlenir: yeni program doğmamalı, ısınma malzemesinin programını kullanmalı
+    const wr = await page.evaluate(() => { const w = window.LS19.world, r = w.renderer, gl = r.getContext(), M = w.warmMats || [], out = [];
+      [w.earthWeld, w.earthHls, w.moonTiles2].forEach((L, k) => {
+        const mat = L.material(M[k].uniforms.tileMap.value, L.node(L.minZ, 3, 1)); mat.transparent = true;
+        const o = new w.earth.constructor(w.earth.geometry, mat); o.frustumCulled = false; L.group.add(o);
+        const hid = []; for (let p = o; p; p = p.parent) if (!p.visible) { hid.push(p); p.visible = true; }
+        const n0 = r.info.programs.length; r.compile(w.scene, w.camera); const n1 = r.info.programs.length;
+        const cp = r.properties.get(mat).currentProgram, wp = r.properties.get(M[k]).currentProgram;
+        out.push({ grew: n1 - n0, same: !!cp && cp === wp, linked: !!wp && gl.getProgramParameter(wp.program, gl.LINK_STATUS) });
+        for (const p of hid) p.visible = false; L.group.remove(o); mat.dispose();
+      });
+      return { n: M.length, out, left: w.scene.children.some((o) => M.includes(o.material)) }; });
+    check('açılış derlemesi bindirme parçalarının (WELD, HLS, Kaguya) saydam geçiş programlarını kapsar: gerçek parça malzemesi yeni program doğurmaz', wr.n === 3 && !wr.left && wr.out.every((x) => x.grew === 0 && x.same && x.linked), JSON.stringify(wr));
+  }
   const stepOn = () => page.evaluate(() => (document.querySelector('#lab-ay > .tabs .tab.on') || {}).dataset?.tab);
   check('Ay görevi dört adımla açılır: 1. adım (Görev) etkin, özetler dolu', (await stepOn()) === 'gorev' && await page.evaluate(() => ['gorev', 'arac', 'ucus', 'dv'].join() === [...document.querySelectorAll('#lab-ay > .tabs .tab')].map((b) => b.dataset.tab).join()
     && /Eki 2026/.test(document.querySelector('#aySum-gorev').textContent) && document.querySelector('#aySum-arac').textContent === 'İki kademe · Optimal' && /Hazır|T\+/.test(document.querySelector('#aySum-ucus').textContent) && document.querySelector('#aySum-dv').textContent === 'İnişte belli olur'),
