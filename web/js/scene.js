@@ -148,6 +148,25 @@ export class World {
     for (const p of r.info.programs || []) if (p.program && !gl.getProgramParameter(p.program, gl.LINK_STATUS)) console.error('Gölgelendirici bağlanamadı:', gl.getProgramInfoLog(p.program));
   }
 
+  // Sonradan eklenen katmanların (gökyüzü noktaları, uydu aile modelleri) programlarını ilk çizimlerinden önce derle; yoksa veri gelince ilk karede derlenip
+  // ana iş parçacığını tutuyordu (docs/performans.md §17). Aynı geometri ve malzemeyle vekiller geçici bir sahneye konur ve yalnız onlar derlenir; ışıklar ve sis
+  // asıl sahneden gelir (three r170: compile(nesneSahnesi, kamera, hedefSahne)). Bütün sahne derlenseydi bu görünümde hiç çizilmeyen nesnelerin programları da
+  // derlenirdi (gökyüzüyle açılışta 16 fazla program). Paralel derleme varsa ana iş parçacığı tutulmaz.
+  async warm(objs) {
+    const r = this.renderer, tmp = new THREE.Scene();
+    for (const root of objs) if (root) root.traverse((o) => {
+      if (!o.material || !o.geometry) return;
+      const p = o.isInstancedMesh ? new THREE.InstancedMesh(o.geometry, o.material, 1) : o.isPoints ? new THREE.Points(o.geometry, o.material) : o.isLine ? null : o.isMesh ? new THREE.Mesh(o.geometry, o.material) : null;
+      if (p) { p.receiveShadow = o.receiveShadow; p.castShadow = o.castShadow; tmp.add(p); }
+    });
+    if (!tmp.children.length) return;
+    // ışık durumu program anahtarına girer: kare çizileceği ışıklarla çağrılmalı (app.js › skyFrame). Hata denetimi ilk kullanımda yapılır (checkShaderErrors).
+    try {
+      if (r.extensions.has('KHR_parallel_shader_compile')) await Promise.race([r.compileAsync(tmp, this.camera, this.scene), new Promise((res) => setTimeout(res, 10000))]);
+      else r.compile(tmp, this.camera, this.scene);                     // r170: nesneler 1. sahneden, ışık/sis hedef sahneden
+    } catch (e) { /* ilk çizimde derlenir */ }
+  }
+
   build(A) {
     const S = this.scene;
     const flat = (c) => { const d = new THREE.DataTexture(new Uint8Array(c), 1, 1); d.needsUpdate = true; return d; };

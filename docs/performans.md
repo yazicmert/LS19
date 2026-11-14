@@ -345,7 +345,7 @@ Yani 2,6–3,0 sn, yazılım çiziminin GPU sürecinde biriktirdiği işti: ilk 
 
 **Elemeler.** Boşluğun iki yanında çizim oranı, tampon boyutu ve CSS animasyonu sayısı aynı (uyarlanır çözünürlük ve CSS değil). WebGL çizimi durdurulunca boşluk kayboluyor (en uzun 0,2–0,3 sn): WebGL. GIBS parçaları kesilince de sürüyor (1,8–4,9 sn), ama parçalar açıkken ondan ayrı ikinci bir ana iş parçacığı uzun görevi çıkıyor. Yani iki ayrı neden:
 
-**A. Konumlanmamış ilk kare (gerçek, her cihazda).** Her çizimden sonra 1×1 `readPixels` ile kare GPU'da bitirilince maliyet tek kareye toplandı: yükleme örtüsü kalktıktan sonraki ilk kare, bazı açılışlarda görev durumunun ilk iletisi gelmeden çiziliyordu (bir yarış: eşitlemeli 7 koşunun 3'ünde). Sahne konumlanmamış olduğundan Dünya ve Ay ince ağları ufuk bandı ve LOD olmadan çiziliyordu: 66 çağrı, **2,25 M üçgen** (sonraki kareler 31 çağrı, 316 bin). Durum önce gelse bile ilk gerçek kare düzenli karenin ~3 katı sürüyor; nedeninin gölgelendiricilerin ve dokuların ilk kullanımı olduğu varsayımdır, ayrıca sınanmadı. Düzeltme (`app.js`): görev motorunda ilk durum gelmeden `world.render` çağrılmaz; 'ready'de örtü hemen kalkmaz, ilk gerçek kare çizilip 1×1 okumayla GPU'da bitince kalkar (durum 1,5 sn içinde gelmezse beklemeden). Kapsam: görev motoru; gökyüzü motoruyla açılış (`?mode=sky` ya da kayıtlı seçim) bu koşulla sınırlanmaz ve ölçülmedi. Karolar kesik, 5 koşu medyanı:
+**A. Konumlanmamış ilk kare (gerçek, her cihazda).** Her çizimden sonra 1×1 `readPixels` ile kare GPU'da bitirilince maliyet tek kareye toplandı: yükleme örtüsü kalktıktan sonraki ilk kare, bazı açılışlarda görev durumunun ilk iletisi gelmeden çiziliyordu (bir yarış: eşitlemeli 7 koşunun 3'ünde). Sahne konumlanmamış olduğundan Dünya ve Ay ince ağları ufuk bandı ve LOD olmadan çiziliyordu: 66 çağrı, **2,25 M üçgen** (sonraki kareler 31 çağrı, 316 bin). Durum önce gelse bile ilk gerçek kare düzenli karenin ~3 katı sürüyor; nedeninin gölgelendiricilerin ve dokuların ilk kullanımı olduğu varsayımdır, ayrıca sınanmadı. Düzeltme (`app.js`): görev motorunda ilk durum gelmeden `world.render` çağrılmaz; 'ready'de örtü hemen kalkmaz, ilk gerçek kare çizilip 1×1 okumayla GPU'da bitince kalkar (durum 1,5 sn içinde gelmezse beklemeden). Kapsam o turda görev motoruydu; gökyüzüyle açılış §17'de ölçüldü ve aynı koşul oraya da uygulandı. Karolar kesik, 5 koşu medyanı:
 
 | | Önce | Sonra |
 |---|---|---|
@@ -365,3 +365,37 @@ GIBS açık, 5 koşu medyanı, pencere hazırdan sonraki 11 sn:
 | A + B | 1,97 sn | 2,4 sn | 1,5 sn | 3,8 sn |
 
 Sağlam karşılaştırma önceki koddan A + B'ye olandır (5,16 → 1,97 sn; 1,5–4,3 sn aralık). A ile B'nin ayrı payı göstergedir: ayrı 5'erli gruplar ve bir koşu (4,3 sn) A'nın aralığında. Kalan boşlukların içinde parça yüklemeleri var; §15’teki eşitleme deneyine göre bunlar yazılım çiziminde GPU birikimini bekliyor. Gerçek ekran kartında parça başına birkaç ms beklenir (cihazda doğrulanmadı).
+
+## 17. Kasım 2026, beşinci tur: Canlı Gökyüzü ile açılış
+
+§16'daki sondasız telefon taklidi, adres `?mode=sky` (kayıtlı seçimle açılış da aynı `applyUrlParams` yolundan geçer). İki senaryo:
+
+- **Veri kapalı:** `sats=0&ast=0`.
+- **Tam veri:** gerçek `api/*.js` işleyicileri yerel fikstürlerle beslenir ve satırlar çoğaltılır: 16.600 uydu; 38.000 NEO, 15.000 ana kuşak ve 2.000 Truva asteroiti; kimlikler benzersiz. Uydu kopyalarının adları değiştirildi: 3B modelli uydu sayısı özgün 400 kayıtlık fikstürle aynı (82). SupGP'nin GitHub kopyası kesildi, aksi hâlde dış isteğin yetişip yetişmemesine göre 286 ek uydu rastgele birleşiyordu.
+
+Pencere: veri tam yüklendikten 5 sn sonrasına dek. Karşılaştırmalar aynı ölçüm betiğiyle, eski sürümler ayrı kapılardan sunularak yapıldı; kol başına 5 koşu.
+
+**Bulgu 1: konumlanmamış kare (önlem).** Gökyüzüyle açılışta ilk kare hafif (8 çağrı, 134 bin üçgen); görev açılışındaki 2,25 M üçgenlik kare burada yok. Açılışta yüklenen efemeris (şimdi ± 2 gün) gökyüzünün istediği aralığı kapsadığından gökyüzü kaynağı hep hazır. Yine de görev motorundaki koşul gökyüzüne de uygulandı: ilk `skyFrame` çalışmadan çizim ve örtü kaldırma yok (`skyPlaced`). Veri kapalı, 5 koşu medyanı:
+
+| | A'dan önce (fb5a067) | Şimdi |
+|---|---|---|
+| İlk gerçek karenin bittiği an | 6,78 sn | 6,22 sn |
+| Hazırdan sonraki en uzun boşluk | 1,34 sn | 0,72 sn |
+
+**Bulgu 2: gökyüzü katmanlarının geç derlenen programları (gerçek, her cihazda).** Tam veride uydu ve asteroit nokta katmanlarının ve uydu aile modellerinin (InstancedMesh) programları veri gelince, ilk çizimde derleniyordu (eski kodda o görev 1,2–1,7 sn). Düzeltme:
+
+- `World.warm(nesneler)` aynı geometri ve malzemeyle vekiller kurar ve yalnız onları derler. three r170'te `compile(nesneSahnesi, kamera, hedefSahne)` nesneleri ilk sahneden (görünürlüğe bakmadan), ışıkları ve sisi hedef sahneden alır. Bütün sahneyi derlemek gökyüzüyle açılışta 16 fazla program üretiyordu.
+- Isıtma ilk gökyüzü karesinde, `updateSky` ışıkları kurduktan sonra yapılır. Işık ve gölge sayısı `lights: false` malzemelerin program anahtarına da girer: `initSky` sırasında görev ışıklarıyla (gölge açık) ısıtılan asteroit programı gökyüzünde kullanılmıyor, yenisi derleniyordu.
+- Aile modelleri yüklenince (`SatInstancer.onReady`) grup da sıraya eklenir.
+
+Sonuçta program sayısı hazırda 26, aile modelleri yüklenince 27 ve sonra sabit; eskiden veri gelince +4,8–5,8 sn'de bir derleme daha vardı. Tam veri, 5 koşu medyanı:
+
+| | Önce (HEAD) | Sonra |
+|---|---|---|
+| En uzun boşluk | 1,32 sn | 1,00 sn |
+| En uzun uzun görev | 1,32 sn | 0,88 sn |
+| Toplam uzun görev | 3,0 sn | 2,6 sn |
+
+Yeni kodun bir koşusunda SupGP yine birleşti (16.886 uydu); kesilmemiş başka bir yol var, o koşu aykırı (4,2 sn toplam).
+
+**Kalan (taklide özgü).** Veri gelişindeki 0,85–1,25 sn'lik görevde derleme yok. Profile göre (iki koşu) zamanın ~%95'i ısıtılmış programın ilk kullanımında three'nin eşzamanlı durum sorgusunda: `getUniforms` → `getProgramInfoLog` + `getShaderInfoLog`. Önceki turlardaki gibi GPU sürecindeki birikimi bekleyen bir eşitleme. Gerçek cihazda program veri gelmeden saniyeler önce paralel derlenmiş olacağından bu sorgunun hemen dönmesi beklenir; cihazda `?olcum=1` ile doğrulanmalı. `checkShaderErrors` kapatılmadı: ilk kullanımda uniform listesi yine eşzamanlı sorgulanır, bekleme oraya kayar. Hazırdan ~1–1,5 sn sonraki 0,2–0,45 sn'lik iki görev ve +3 sn'deki 0,25–0,35 sn'lik görev atfedilmedi; ana iş parçacığı JS'idir ve telefonda sayılır (iş parçacıkları taklitte yavaşlatılmaz).

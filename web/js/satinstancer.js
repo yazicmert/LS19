@@ -37,6 +37,7 @@ export class SatInstancer {
       } catch (e) { /* aile modeli yüklenemezse o aile nokta kalır */ }
     }));
     this.ready = this.fam.size > 0; this.bindFamilies();
+    if (this.ready && this.onReady) this.onReady();                                  // app.js: programlar ilk çizimden önce derlensin (World.warm)
   }
   // famKeys: uydu indeksi -> aile anahtarı dizisi
   setFamilies(famKeys) { this.famKeys = famKeys; this.bindFamilies(); }

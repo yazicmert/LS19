@@ -180,6 +180,10 @@ function initSky() {
   S.launchcal = new LaunchCal({ launches: S.launches, sats: S.sats, follow: followSat,
     openTab: () => { ui.setTab('firlatma'); if (narrowScreen()) $('#skyPanel').classList.add('open'); } });
   world.obsPose = obsPose;
+  // katmanların programları veri gelmeden derlensin: ilk gökyüzü karesinde, ışık ve gölge durumu kurulduktan sonra (program anahtarına girer; görev motorunun
+  // ışıklarıyla derlenen program gökyüzünde kullanılmıyordu). Gökyüzüyle açılışta bu örtünün altında olur. Aile modelleri yüklenince sıraya eklenir.
+  skyWarm = [S.sats.points, S.asts.points];
+  if (S.sats.inst.ready) skyWarm.push(S.sats.inst.group); else S.sats.inst.onReady = () => skyWarm.push(S.sats.inst.group);
   if (gov.r !== gov.max) { S.sats.setPixelScale(gov.r / world.prMax); S.asts.setPixelScale(gov.r / world.prMax); }          // oran önceden düşmüşse yeni katmanlar da aynı ölçekte
   const jobs = {};
   if (q.get('sats') !== '0') jobs.gp = (v) => S.sats.load(v);
@@ -582,8 +586,8 @@ function frame(now) {
     ui.hud(S.latest, now);
     if (now - lastAy > 500) ayRefresh();                          // Ay görevi adım özetleri: saniyede 2 kez yeter (değişmeyen metin yeniden yazılmaz)
   }
-  // görev motorunda ilk durum gelmeden sahne konumlanmamıştır (Dünya ve Ay ince ağları ufuk bandı ve LOD olmadan, ~2,2 M üçgen): o kare çizilmez
-  const placed = S.MODE === 'sky' || ascent.active || !!S.latest;
+  // görev motorunda ilk durum gelmeden, gökyüzü motorunda ilk skyFrame'den önce sahne konumlanmamıştır (Dünya ve Ay ince ağları ufuk bandı ve LOD olmadan, ~2,2 M üçgen): o kare çizilmez
+  const placed = S.MODE === 'sky' ? skyPlaced : ascent.active || !!S.latest;           // gökyüzü: skyFrame en az bir kez çalıştı (efemeris kurulu)
   if (!S.designing && placed) world.render();                     // tasarım sırasında katman her şeyi örtüyor: işlemci tasarıma kalsın
   if (revealAt && !S.designing && (placed || now > revealAt)) reveal(placed);
   if (perfHud) perfHud.frame(now, dtMs);
@@ -598,8 +602,11 @@ function reveal(drawn) {
   $('#loading').style.display = 'none';
 }
 // Canlı Gökyüzü karesi (efemeris kurulu iken)
+let skyPlaced = false, skyWarm = null;
 function skyFrame(ms, now, dt) {
+    skyPlaced = true;
     world.updateSky(skyT, { dtReal: dt });
+    if (skyWarm && skyWarm.length) { world.warm(skyWarm); skyWarm = []; }        // initSky: katman programları gökyüzü ışıklarıyla
     const t = skyT, full = !!world.full, eye = world.eye;
     if (eye) {
       S.sats.suppressLabel = (id) => S.tracker.has(id); S.sats.obsView = world.cam.mode === 'OBS';

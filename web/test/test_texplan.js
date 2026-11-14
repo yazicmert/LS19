@@ -127,8 +127,14 @@ function dims(file) {
   check('precompile: bindirme katmanlarının saydam geçiş malzemesi (warmMaterial) de derlenir, sonra sahneden çıkarılır; malzeme atılmaz (warmMats)', /warmMaterial\(\) \{[^]*m\.transparent = true/.test(tiles) && /\[this\.earthWeld, this\.earthHls, this\.moonTiles2\][^\n]*L\.warmMaterial\(\)/.test(sc) && /this\.warmMats = warm\.map/.test(sc) && /for \(const o of warm\) \{ this\.scene\.remove\(o\); o\.geometry\.dispose\(\); \}/.test(sc));
   {
     const app = fs.readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
-    check('app.js: görev motorunda ilk durum gelmeden sahne çizilmez (konumlanmamış ~2,2 M üçgen); yükleme örtüsü ilk gerçek kare GPU\'da bitince kalkar, durum gelmezse 1,5 sn sonra', /const placed = S\.MODE === 'sky' \|\| ascent\.active \|\| !!S\.latest;/.test(app) && /if \(!S\.designing && placed\) world\.render\(\);/.test(app)
+    check('app.js: görev motorunda ilk durum gelmeden sahne çizilmez (konumlanmamış ~2,2 M üçgen); yükleme örtüsü ilk gerçek kare GPU\'da bitince kalkar, durum gelmezse 1,5 sn sonra', /const placed = S\.MODE === 'sky' \? skyPlaced : ascent\.active \|\| !!S\.latest;/.test(app) && /function skyFrame\(ms, now, dt\) \{\s*skyPlaced = true;/.test(app) && /if \(!S\.designing && placed\) world\.render\(\);/.test(app)
       && /revealAt = performance\.now\(\) \+ 1500/.test(app) && /function reveal\(drawn\)[^]*gl\.readPixels\(0, 0, 1, 1/.test(app) && !/world\.resetDynamic\(\);\n\s*\$\('#loading'\)\.style\.display = 'none';/.test(app));
+  }
+  {
+    const app = fs.readFileSync(new URL('../js/app.js', import.meta.url), 'utf8'), inst = fs.readFileSync(new URL('../js/satinstancer.js', import.meta.url), 'utf8');
+    check('gökyüzü katmanlarının programları ilk gökyüzü karesinde, gökyüzü ışıklarıyla ısıtılır (uydu/asteroit noktaları, aile modelleri yüklenince); yalnız vekiller derlenir, nesneler 1. sahneden', /skyWarm = \[S\.sats\.points, S\.asts\.points\];/.test(app) && /S\.sats\.inst\.onReady = \(\) => skyWarm\.push\(S\.sats\.inst\.group\)/.test(app)
+      && /world\.updateSky\(skyT, \{ dtReal: dt \}\);\s*if \(skyWarm && skyWarm\.length\) \{ world\.warm\(skyWarm\); skyWarm = \[\]; \}/.test(app) && /if \(this\.ready && this\.onReady\) this\.onReady\(\);/.test(inst)
+      && /async warm\(objs\)[^]*new THREE\.InstancedMesh\(o\.geometry, o\.material, 1\)[^]*r\.compileAsync\(tmp, this\.camera, this\.scene\)/.test(sc) && !/async warm\(objs\)[^]*?debug\.checkShaderErrors =[^]*?build\(A\)/.test(sc));
   }
   check('tiles: bu karede istenen yaprağın dokusu açılırken hemen yüklenir (initTexture); öne bakan/ata parçalar tembel kalır (bellek); katmanlara çizici verilir', /W\.clear\(\); for \(const n of leaves\) W\.add\(n\.key\);/.test(tiles) && /if \(R && D && D\.has\(e\.n\.key\)\) R\.initTexture\(e\.tex\)/.test(tiles)
     && /L\.renderer = this\.renderer;/.test(fs.readFileSync(new URL('../js/surfaceview.js', import.meta.url), 'utf8')));
