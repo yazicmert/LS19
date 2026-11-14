@@ -108,6 +108,7 @@ const idleFrame = () => new Promise((res) => (typeof requestIdleCallback === 'fu
 // dokunun tamamı three'nin olağan yoluyla yüklenir.
 const BANDED = typeof location !== 'undefined' && new URLSearchParams(location.search).get('bant') === '1';
 const BAND_BYTES = 2 * 1024 * 1024;
+// dönüş: 'tamam' (bantlar yüklendi), 'yedek' (GL hatası: three ilk çizimde tek parça yükler, veri bırakılmamalı), false (bantlanamaz: olağan yol)
 async function uploadBanded(renderer, t) {
   const m0 = t.mipmaps && t.mipmaps[0];
   if (!m0 || !m0.data || m0.width % 4 || m0.height % 4) return false;
@@ -129,14 +130,15 @@ async function uploadBanded(renderer, t) {
   for (let l = 1; l < t.mipmaps.length; l++) { const m = t.mipmaps[l]; put(l, 0, m.width, m.height, m.data); }      // küçük seviyeler tek seferde
   const err = gl.getError();                                                   // tek eşzamanlı denetim, son banttan sonra (önceden kalmış bir hata da tek parça yüklemeye düşürür: güvenli yön)
   t.source.dataReady = true;
-  if (err !== gl.NO_ERROR) { t.needsUpdate = true; console.warn('Bantlı doku yüklemesi başarısız (GL ' + err + '): doku tek parça yüklenecek'); return true; }
-  return true;
+  if (err !== gl.NO_ERROR) { t.needsUpdate = true; console.warn('Bantlı doku yüklemesi başarısız (GL ' + err + '): doku tek parça yüklenecek'); return 'yedek'; }
+  return 'tamam';
 }
 async function upload(renderer, t, idle = false) {
   await (idle ? idleFrame() : frame());
   if (idle && BANDED && t.isCompressedTexture) {
-    let ok = false; try { ok = await uploadBanded(renderer, t); } catch (e) { t.source.dataReady = true; t.needsUpdate = true; ok = false; }
-    if (ok) { if (!t.needsUpdate || t.version === renderer.properties.get(t).__version) { if (t.userData.release) t.userData.release(); } return; }
+    let st = false; try { st = await uploadBanded(renderer, t); } catch (e) { t.source.dataReady = true; t.needsUpdate = true; st = 'yedek'; }
+    if (st === 'tamam') { if (t.userData.release) t.userData.release(); return; }
+    if (st === 'yedek') return;                                                  // veri kalır: three ilk çizimde tamamını yükler
   }
   const gl = renderer.getContext(), drain = () => { for (let i = 0; i < 8 && gl.getError() !== gl.NO_ERROR; i++); };       // önceki hatalar bu yüklemeye yazılmasın
   if (t.format === THREE.RedFormat && r8 === false) { t.format = THREE.RGBAFormat; t.needsUpdate = true; }          // R8 bu tarayıcıda çalışmıyor: baştan RGBA
