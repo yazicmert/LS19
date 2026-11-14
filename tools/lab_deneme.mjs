@@ -376,6 +376,15 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   check('konsol hatası yok (Lagrange bağlantısı)', errors.length === 0, errors.slice(0, 3).join(' | '));
   await ctx.close();
 }
+// ================================================================= cihazda başarım okuması (?olcum=1)
+{
+  const { ctx, page, errors } = await open({ viewport: { width: 1280, height: 800 } }, '?sats=0&ast=0&olcum=1');
+  const ok = await page.waitForFunction(() => { const e = document.querySelector('#perfHud'); return e && /üçgen \d/.test(e.textContent) && /oran \d/.test(e.textContent); }, null, { timeout: 60000 }).then(() => true, () => false);
+  const t = await page.evaluate(() => (document.querySelector('#perfHud') || {}).textContent || '');
+  check('?olcum=1: başarım kutusu dolar (kare aralıkları, üçgen, oran, doku katmanı); parametresiz açılışta yüklenmez', ok && /kare \d/.test(t) && /doku (KTX2|WebP)/.test(t), t.replace(/\n/g, ' | ').slice(0, 200));
+  check('konsol hatası yok (başarım okuması)', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await ctx.close();
+}
 // ================================================================= Ay görevi bağlantısı: başka bir tarayıcıda açılınca aynı görev (iniş yeri, roket, araç, güdüm)
 {
   const { ctx, page, errors } = await open({ viewport: { width: 1280, height: 800 } }, '?sats=0&ast=0&mode=lab&exp=ay&date=2026-10-13&profile=APOLLO&yer=A15&roket=SATURN_V&arac=one&gudum=zem');
