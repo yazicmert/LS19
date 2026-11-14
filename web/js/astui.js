@@ -4,8 +4,10 @@ import { AST_GROUPS } from './asteroids.js';
 import { fmt } from './format.js';
 import { sig, LD, distText as dist } from './labtext.js';
 import { $, mk } from './uiutil.js';
-import { LOC } from './i18n.js';
+import { LOC, t } from './i18n.js';
 
+// katalog kümelerinin adları (sunucunun Türkçe "aciklama" alanı yerine: arayüz dilinde gösterilsin)
+const SET_NAMES = { neo: "Dünya'ya yakın asteroitler (tümü)", mb: 'Ana kuşak (H < 13,5) + Jüpiter Truvalıları (H < 13)' };
 export class AstUI {
   // openLab(i, opts): Laboratuvar çalışma alanında saptırma deneyini bu asteroitle açar (app.js)
   constructor({ world, asts, getT, focusOn, setCam, ui, openLab }) {
@@ -28,7 +30,7 @@ export class AstUI {
     const line = (t) => st.appendChild(mk('div', null, t));
     if (A.n > 0) {
       line(`${fmt(A.n, 0)} asteroit · kaynak: JPL SBDB${A.sentry.size ? ` · Sentry risk listesi ${fmt(A.sentry.size, 0)}` : ''}`);
-      for (const k of ['neo', 'mb']) if (A.sets[k]) line(`${A.sets[k].aciklama}: ${fmt(A.sets[k].n, 0)} (alındı ${new Date(A.sets[k].t).toLocaleString(LOC, { dateStyle: 'short', timeStyle: 'short' })})`);
+      for (const k of ['neo', 'mb']) if (A.sets[k]) line(`${t(SET_NAMES[k])}: ${fmt(A.sets[k].n, 0)} (alındı ${new Date(A.sets[k].t).toLocaleString(LOC, { dateStyle: 'short', timeStyle: 'short' })})`);
       if (A.info.status !== 'hazır') line(A.info.status);
       if (A.nearCount != null) line(`Şu an Dünya'nın 0,05 AB (≈19 Ay uzaklığı) içinde: ${fmt(A.nearCount, 0)} asteroit. Güneş sistemi kamerası dışındaki görünümlerde yalnız bunlar çizilir.`);
       const b = mk('button', 'sm', 'Tümünü Güneş sistemi görünümünde göster');

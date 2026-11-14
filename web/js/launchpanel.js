@@ -364,7 +364,7 @@ export class LaunchPanel {
     }
     if (cat || this.launches.cat) {
       const c = cat || this.launches.cat, src = CREDITS[c.kod] || CREDITS.ll2;
-      parts.push([mk('span', null, db ? 'Son günler:' : 'Kaynak:'), ' ', link(src.t, src.u), ' · ', mk('span', null, `${fmt(Math.max(0, (Date.now() - c.t) / 60000), 0)} dk önce alındı`)]);
+      parts.push([mk('span', null, db ? 'Son günler:' : 'Kaynak:'), ' ', link(t(src.t), src.u), ' · ', mk('span', null, `${fmt(Math.max(0, (Date.now() - c.t) / 60000), 0)} dk önce alındı`)]);
     }
     parts.forEach((ps, k) => { if (k) p.appendChild(mk('br')); p.append(...ps); });
     if (!db) p.append(mk('br'), mk('span', null, 'Saatler yerel saattir; T-0 kesinliği kaynağın bildirdiği kadardır.'));

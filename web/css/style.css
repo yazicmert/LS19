@@ -248,8 +248,12 @@ input[type=search] { flex: 1; font: inherit; font-size: 13px; color: var(--text-
 
 
 @media (max-width: 1100px) {
-  body[data-engine="mission"] #labPanel { width: 300px; }
   #hud { width: 280px; }
+}
+/* tablet: görev motorunda panel daralır (uçuş görünümüne yer). Telefonda (≤ 760 px) panel tam genişlik açılır: bu kural oraya sızmasın
+   (özgüllüğü #labPanel.open'dan yüksek; eskiden telefonda Laboratuvar paneli 300 px kalıyor, arkadaki uçuş göstergesi sağda görünüyordu). */
+@media (min-width: 761px) and (max-width: 1100px) {
+  body[data-engine="mission"] #labPanel { width: 300px; }
 }
 @media (max-width: 760px) {
   #btnPanel { display: inline-block; }

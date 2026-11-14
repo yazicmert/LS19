@@ -449,6 +449,7 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   check('telefon: Laboratuvar paneli kendiliğinden açılır, üst çubuk 390 px\'e sığar (yatay taşma yok)', await page.evaluate(() => { const m = document.querySelector('#modebar').getBoundingClientRect(); return document.querySelector('#labPanel').classList.contains('open') && m.left >= 0 && m.right <= innerWidth + 0.5 && document.documentElement.scrollWidth <= innerWidth; }));
   await shot(page, 'm1-merkez');
   check('telefon: merkezde gökyüzü katmanları kurulmamış', await page.evaluate(() => !window.LS19.asts && !window.LS19.sats));
+  check('telefon: görev motorunda da Laboratuvar paneli tam genişlik (tablet daraltması telefona sızmaz)', await page.evaluate(() => document.body.dataset.engine === 'mission' && document.querySelector('#labPanel').getBoundingClientRect().width >= innerWidth - 20));
   await page.click('#lab-home [data-exp=saptirma]');
   await page.waitForFunction(() => window.LS19.asts && window.LS19.asts.n > 0, null, { timeout: 120000 });
   await page.click('#dfQuick [data-des="99942"]'); await waitCas(page);
