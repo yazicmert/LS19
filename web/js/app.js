@@ -535,7 +535,7 @@ worker.onmessage = (e) => {
     ui.reset(d.plan, d.t0, S.DESIGN.LAUNCH.t_launch);
     if (d.type === 'restarted') cinema.onRestarted();
     world.resetTrail(); world.resetDynamic && world.resetDynamic();
-    $('#loading').style.display = 'none';
+    if (d.type === 'ready') revealAt = performance.now() + 1500; else $('#loading').style.display = 'none';      // yeni görev: örtü ilk gerçek kare bitince kalkar (frame › reveal)
     if (d.seek) { if (!S.running) setPlay(true); }
     else { S.running = false; setBtn($('#btnPlay'), 'play', 'Başlat'); }
     if (d.type === 'ready' && !urlApplied) { urlApplied = true; applyUrlParams(); if (new URLSearchParams(location.search).get('prefetch') === '1') initSky(); }
@@ -582,9 +582,20 @@ function frame(now) {
     ui.hud(S.latest, now);
     if (now - lastAy > 500) ayRefresh();                          // Ay görevi adım özetleri: saniyede 2 kez yeter (değişmeyen metin yeniden yazılmaz)
   }
-  if (!S.designing) world.render();                               // tasarım sırasında katman her şeyi örtüyor: işlemci tasarıma kalsın
+  // görev motorunda ilk durum gelmeden sahne konumlanmamıştır (Dünya ve Ay ince ağları ufuk bandı ve LOD olmadan, ~2,2 M üçgen): o kare çizilmez
+  const placed = S.MODE === 'sky' || ascent.active || !!S.latest;
+  if (!S.designing && placed) world.render();                     // tasarım sırasında katman her şeyi örtüyor: işlemci tasarıma kalsın
+  if (revealAt && !S.designing && (placed || now > revealAt)) reveal(placed);
   if (perfHud) perfHud.frame(now, dtMs);
   requestAnimationFrame(frame);
+}
+// Yükleme örtüsünü kaldır. İlk gerçek karenin GPU işi (gölgelendiricilerin ve dokuların ilk kullanımı) örtünün altında bitsin diye 1×1 okumayla beklenir:
+// yoksa örtü kalktıktan sonra ilk kareler sırada birikip sayfa saniyelerce donmuş görünüyordu (docs/performans.md §16). Durum 1,5 sn içinde gelmezse beklemeden kalkar.
+let revealAt = 0;
+function reveal(drawn) {
+  revealAt = 0;
+  if (drawn) { try { const gl = world.renderer.getContext(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4)); } catch (e) { /* bağlam kaybı: beklemeden kaldır */ } }
+  $('#loading').style.display = 'none';
 }
 // Canlı Gökyüzü karesi (efemeris kurulu iken)
 function skyFrame(ms, now, dt) {

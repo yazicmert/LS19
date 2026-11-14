@@ -125,6 +125,11 @@ function dims(file) {
   check('precompile: derleme sırasında checkShaderErrors kapalı (paralel derleme), sonra eski değer ve bağlama durumu denetimi; 10 sn zaman aşımı; eklenti yoksa eşzamanlı compile (uyarı yok)', /checkShaderErrors = false/.test(sc) && /finally \{ r\.debug\.checkShaderErrors = was;/.test(sc) && /LINK_STATUS/.test(sc) && /setTimeout\(res, 10000\)/.test(sc) && /extensions\.has\('KHR_parallel_shader_compile'\)/.test(sc) && /else r\.compile\(this\.scene, this\.camera\)/.test(sc));
   check('bağlam kaybı: webglcontextlost preventDefault; geri gelince bir kez yenile (30 sn içinde ikinci kayıpta döngü yok)', /webglcontextlost[^\n]*preventDefault/.test(sc) && /webglcontextrestored/.test(sc) && /ls19\.ctxReload/.test(sc) && /Date\.now\(\) - last > 30000/.test(sc));
   check('precompile: bindirme katmanlarının saydam geçiş malzemesi (warmMaterial) de derlenir, sonra sahneden çıkarılır; malzeme atılmaz (warmMats)', /warmMaterial\(\) \{[^]*m\.transparent = true/.test(tiles) && /\[this\.earthWeld, this\.earthHls, this\.moonTiles2\][^\n]*L\.warmMaterial\(\)/.test(sc) && /this\.warmMats = warm\.map/.test(sc) && /for \(const o of warm\) \{ this\.scene\.remove\(o\); o\.geometry\.dispose\(\); \}/.test(sc));
+  {
+    const app = fs.readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
+    check('app.js: görev motorunda ilk durum gelmeden sahne çizilmez (konumlanmamış ~2,2 M üçgen); yükleme örtüsü ilk gerçek kare GPU\'da bitince kalkar, durum gelmezse 1,5 sn sonra', /const placed = S\.MODE === 'sky' \|\| ascent\.active \|\| !!S\.latest;/.test(app) && /if \(!S\.designing && placed\) world\.render\(\);/.test(app)
+      && /revealAt = performance\.now\(\) \+ 1500/.test(app) && /function reveal\(drawn\)[^]*gl\.readPixels\(0, 0, 1, 1/.test(app) && !/world\.resetDynamic\(\);\n\s*\$\('#loading'\)\.style\.display = 'none';/.test(app));
+  }
   check('tiles: parça bitmap\'i GPU yüklemesinden sonra (onUpdate) ve atılırken kapatılır', /t\.onUpdate = \(\) => \{ t\.onUpdate = null; bm\.close\(\); \}/.test(tiles) && (tiles.match(/closeBitmap\(/g) || []).length >= 3);
 }
 
