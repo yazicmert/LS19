@@ -40,6 +40,11 @@ const KM = 0.001;                        // m -> km
 // Örnek (800×450, fov 50°): kaba ağa geçiş ~4.400 km yükseklikten öte (2× piksel oranlı 1080p'de ~21.000 km); park yörüngesi (~180 km) hep ince ağda kalır.
 const EARTH_SEG = [[1024, 512], [256, 128]];
 const EARTH_SAG_LO = E.R_E * (1 - Math.cos(Math.SQRT2 * Math.PI / EARTH_SEG[1][0]));          // km, kaba ağın en büyük kiriş hatası
+// Ay küresi LOD'u: kaba ağın köşeleri ince ağınkilerin alt kümesi (aynı uv, aynı LOLA yer değiştirmesi), bu yüzden hata ≤ kaba kiriş sapması +
+// bir kaba hücre (4×4 ince hücre) içindeki en büyük yükseklik farkı. O fark tam ve düşük bellek yükseklik haritalarında en çok 8,93 km ölçüldü
+// (tools/ay_lod.py; sabit bunun altına düşerse araç hata verir). Kamera ile görünür yüzey arasındaki en kısa uzaklık ≥ d − (R_ay + 11,05 km).
+const MOON_RELIEF_CELL = 9.0;                                                                   // km
+const MOON_ERR_LO = E.R_M * (1 - Math.cos(Math.SQRT2 * Math.PI / EARTH_SEG[1][0])) + MOON_RELIEF_CELL;
 const EARTH_LOD_IN = 0.2, EARTH_LOD_OUT = 0.3;                                                 // piksel (en kötü durum üst sınırı; kenar yumuşatmalı sınırda < 24/255 fark)
 // model malzemelerinin PBR değerleri [metalik, pürüzlülük] (kaynak: NASA modellerindeki Maya "blinn" malzemeleri, adlarıyla)
 const PBR = {
@@ -181,8 +186,9 @@ export class World {
       siteDir: { value: new THREE.Vector3(sd[0], sd[1], sd[2]) }, albScale: { value: 0.8 }, holeCos: { value: 2.0 },          // delik (arazi yaması varken küre çizilmez): arazi hazır olunca açılır (loadTerrain)
       tileMap: { value: flat([128, 128, 128, 255]) }, useTile: { value: 0 }, lodDelta: { value: 0 }, tileAlpha: { value: 0 }, latCut: { value: 2 }, tilePull: { value: 0 },
       parentMap: { value: flat([128, 128, 128, 255]) }, pXf: { value: new THREE.Vector4(1, 1, 0, 0) }, pHas: { value: 0 }, tileFade: { value: 1 } };
-    this.moon = new THREE.Mesh(sphereGeometry(E.R_M, 1024, 512), new THREE.ShaderMaterial({ uniforms: mu, vertexShader: VS_BODY, fragmentShader: FS_MOON }));
-    this.moon.geometry.boundingSphere.radius = E.R_M + 15; S.add(this.moon);          // LOLA yer değiştirmesi (±11 km) küre sınırının dışına taşabilir
+    this.moonGeo = EARTH_SEG.map(([a, b]) => { const g = sphereGeometry(E.R_M, a, b); g.boundingSphere.radius = E.R_M + 15; return g; }); this.moonLod = 0;   // LOLA yer değiştirmesi (±11 km) küre sınırının dışına taşabilir
+    this.moon = new THREE.Mesh(this.moonGeo[0], new THREE.ShaderMaterial({ uniforms: mu, vertexShader: VS_BODY, fragmentShader: FS_MOON }));
+    S.add(this.moon);
     this.moonU = mu; this.earthU = eu; this.holeCos0 = mu.holeCos.value;
     this.buildTiles(eu, mu);                                           // yüzey parçaları (surfaceview.js)
     // iniş arazisi: üretimi Web Worker'da (~0,9 sn, ana iş parçacığını tutmaz). Gelene dek aynı öznitelik/malzeme kümesiyle yer tutucu ağ durur:
@@ -458,10 +464,17 @@ export class World {
 
   // Dünya küresi ayrıntı düzeyi (bkz. EARTH_SEG): kaba ağın ekrandaki en kötü kiriş hatası (piksel) eşiğin altındaysa 256×128, değilse 1024×512.
   // Kamera orijinde: Dünya merkezine uzaklık = earth.position'ın boyu. Yüzeyde/içeride (h ≤ 0) ya da sayı değilse ince ağ.
-  earthLodErr() {
-    const h = this.earth.position.length() - E.R_E, c = this.camera, t2 = Math.tan(c.fov * Math.PI / 360) ** 2;
+  earthLodErr() { return this.lodErr(this.earth.position.length() - E.R_E, EARTH_SAG_LO); }
+  moonLodErr() { return this.lodErr(this.moon.position.length() - (E.R_M + 11.05), MOON_ERR_LO); }
+  // en kötü ekran hatası (piksel): yüzey sapması s, görünür yüzeye en kısa uzaklık h; piksel/radyan görüntü köşesi büyümesiyle
+  lodErr(h, s) {
+    const c = this.camera, t2 = Math.tan(c.fov * Math.PI / 360) ** 2;
     const kPx = this.renderer.domElement.height / 2 / Math.sqrt(t2) * (1 + t2 * (1 + c.aspect * c.aspect));
-    return h > 0 ? EARTH_SAG_LO * kPx / h : Infinity;
+    return h > 0 ? s * kPx / h : Infinity;
+  }
+  moonLodUpdate() {
+    const err = this.moonLodErr(), lod = err <= (this.moonLod === 1 ? EARTH_LOD_OUT : EARTH_LOD_IN) ? 1 : 0;
+    if (lod !== this.moonLod) { this.moonLod = lod; this.moon.geometry = this.moonGeo[lod]; }
   }
   // Ufuk bandı (bodyband.js): ince küre ağında yalnız kameradan görülebilecek enlem satırları çizilir (setDrawRange). Kamera orijinde: yerel
   // çerçevedeki konumu −Q⁻¹·P. Görülemeyen üçgenler zaten arka yüz ya da örtülü olduğundan görüntü değişmez; köşe işi azalır
@@ -498,7 +511,8 @@ export class World {
     this.atm.position.copy(this.earth.position); this.earthLodUpdate();
     if (this.earthLod === 0) this.bodyBand(this.earth, 1024, 512, E.R_E - 0.07, E.R_E);                 // ince ağ: yalnız ufkun berisindeki satırlar
     rel(rm, this.moon.position); this.moon.quaternion.copy(m3ToQuat(E.mT(Mme)));
-    this.bodyBand(this.moon, 1024, 512, E.R_M - 10.1, E.R_M + 11.05);                                  // LOLA kabartması −10…+11 km (+ kiriş hatası)
+    this.moonLodUpdate();
+    if (this.moonLod === 0) this.bodyBand(this.moon, 1024, 512, E.R_M - 10.1, E.R_M + 11.05);           // LOLA kabartması −10…+11 km (+ kiriş hatası)
     if (this.texUp && !this.texUp.moon && this.moon.position.length() < 40 * E.R_M) this.upgradeTextures('moon');          // Ay'a yaklaşıldı (~70.000 km): tam çözünürlük
     this.updateTiles();
     if (this.terrainReady) this.placeTerrain(rm, Mme, eye, rel);
