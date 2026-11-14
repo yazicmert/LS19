@@ -987,7 +987,7 @@ const dict = {
   "kararlı: salınım {0}": "stable: oscillation {0}",
   "kararsız: e-katlanma {0}": "unstable: e-folding {0}",
   "Dünya–Ay: μ = 0,01215. L1 ve L2 Ay'ın iki yanında, halo yörüngeleri ve Gateway (NRHO) burada.": "Earth–Moon: μ = 0.01215. L1 and L2 sit on either side of the Moon; halo orbits and the Gateway (NRHO) are here.",
-  "Güneş–Dünya: μ = 3,04·10⁻⁶. L1'de SOHO, L2'de James Webb Uzay Teleskobu durur; L4/L5'te Dünya'nın Truva asteroidi 2010 TK7 salınır.": "Sun–Earth: μ = 3.04·10⁻⁶. SOHO sits at L1 and the James Webb Space Telescope at L2; Earth's Trojan asteroid 2010 TK7 librates about L4.",
+  "Güneş–Dünya: μ = 3,04·10⁻⁶. L1'de SOHO, L2'de James Webb Uzay Teleskobu durur; L4 çevresinde Dünya'nın Truva asteroidi 2010 TK7 salınır.": "Sun–Earth: μ = 3.04·10⁻⁶. SOHO sits at L1 and the James Webb Space Telescope at L2; Earth's Trojan asteroid 2010 TK7 librates about L4.",
   "Varsayımsal sistem (Dünya–Ay ölçeğinde): μ Routh sınırının (0,0385) altında, L4/L5 kararlı.": "Hypothetical system (Earth–Moon scale): μ is below the Routh limit (0.0385), L4/L5 are stable.",
   "Varsayımsal sistem (Dünya–Ay ölçeğinde): μ Routh sınırının (0,0385) üstünde, L4/L5 de kararsız.": "Hypothetical system (Earth–Moon scale): μ is above the Routh limit (0.0385), L4/L5 are unstable too.",
   "Kapılar kapalı: araç başladığı cismin çevresinde hapsolur (öbür cisme geçemez, sistemden çıkamaz).": "Gates closed: the craft is trapped around the body it started at (it cannot cross to the other body or leave the system).",

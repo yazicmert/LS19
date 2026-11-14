@@ -97,7 +97,7 @@ export class LagrangeUI {
       tr.append(mk('td', null, p.id), mk('td', 'num', G.fmtKm(p.d2Km)), mk('td', 'num', cText(p.C, S)), mk('td', p.lin.stable ? 'good' : 'bad', st)); tb.appendChild(tr);
     }
     const note = S.id === 'em' ? 'Dünya–Ay: μ = 0,01215. L1 ve L2 Ay\'ın iki yanında, halo yörüngeleri ve Gateway (NRHO) burada.'
-      : S.id === 'se' ? 'Güneş–Dünya: μ = 3,04·10⁻⁶. L1\'de SOHO, L2\'de James Webb Uzay Teleskobu durur; L4/L5\'te Dünya\'nın Truva asteroidi 2010 TK7 salınır.'
+      : S.id === 'se' ? 'Güneş–Dünya: μ = 3,04·10⁻⁶. L1\'de SOHO, L2\'de James Webb Uzay Teleskobu durur; L4 çevresinde Dünya\'nın Truva asteroidi 2010 TK7 salınır.'
       : (S.mu < G.MU_ROUTH ? 'Varsayımsal sistem (Dünya–Ay ölçeğinde): μ Routh sınırının (0,0385) altında, L4/L5 kararlı.' : 'Varsayımsal sistem (Dünya–Ay ölçeğinde): μ Routh sınırının (0,0385) üstünde, L4/L5 de kararsız.');
     $('#lgSysNote').textContent = note;
     $('#lgSum1').textContent = `${S.id === 'ozel' ? t('Varsayımsal') : S.name} · μ = ${muText(S.mu)}`;

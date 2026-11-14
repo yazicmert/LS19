@@ -12,16 +12,18 @@ LS19
 └─ Laboratuvar         deney: "ya şöyle olsaydı?"
     ├─ Görev tasarımı
     │   └─ Ay görevi            görev motoru: Görev → Araç ve güdüm → Uçuş → Sonuç
-    └─ Gezegen savunması
-        ├─ Asteroit saptırma    gökyüzü motoru: Hedef → Yakın geçiş → İtki → Sonuç
-        └─ Çarpma riski         Canlı Gökyüzü ▸ Çarpma sekmesine kısayol
+    ├─ Gezegen savunması
+    │   ├─ Asteroit saptırma    gökyüzü motoru: Hedef → Yakın geçiş → İtki → Sonuç
+    │   └─ Çarpma riski         Canlı Gökyüzü ▸ Çarpma sekmesine kısayol
+    └─ Yörünge mekaniği
+        └─ Lagrange noktaları   gökyüzü motoru (yalnız panel): Sistem → Enerji → Deney → Halo yörüngeleri
 ```
 
 - İki dal üst çubukta eşit düğmelerdir (klavye: **M** ikisi arasında geçer; Laboratuvar'a dönünce açık deney korunur). Telefonda yalnız etkin düğmenin yazısı görünür.
 - **Canlı Gökyüzü gözlem içindir** (gerçek veri, gerçek saat); **Laboratuvar deney içindir** (hedef seç, ayar değiştir, sonucu gör).
 - **Varsayılan açılış Laboratuvar › Ay görevi**: ilk izlenim (görev, iniş, sinematik gösterim) eskisiyle aynıdır. Son açılan alan ve deney `localStorage`'da hatırlanır (`ls19.mode`, `ls19.exp`).
 - Deneyde başlığın solundaki **‹ Laboratuvar** düğmesi ya da **Esc** ana sayfaya döner (önce açık bilgi kartı ya da menü kapanır). **K** Ay görevinin Kontrol sekmesini açar.
-- Adresler: `?mode=lab` (ana sayfa), `?mode=lab&exp=ay`, `?mode=lab&exp=saptirma`, `?mode=sky`. Eski bağlantılar çalışır: `?mode=mission` ve Ay görevi sekmeleri (`?tab=gorev|kontrol|dv|grafik|yorunge|efemeris`) Laboratuvar › Ay görevi'ni, `?tab=saptirma` Asteroit saptırma'yı, Canlı Gökyüzü sekmeleri (`?tab=takip|uydular|asteroit|carpma`) Canlı Gökyüzü'nü açar. Çözüm saf bir işlevdedir (`labui.js` › `resolveView`), Node'da sınanır.
+- Adresler: `?mode=lab` (ana sayfa), `?mode=lab&exp=ay`, `?mode=lab&exp=saptirma`, `?mode=lab&exp=lagrange`, `?mode=sky`. Eski bağlantılar çalışır: `?mode=mission` ve Ay görevi sekmeleri (`?tab=gorev|kontrol|dv|grafik|yorunge|efemeris`) Laboratuvar › Ay görevi'ni, `?tab=saptirma` Asteroit saptırma'yı, Canlı Gökyüzü sekmeleri (`?tab=takip|uydular|asteroit|carpma`) Canlı Gökyüzü'nü açar. Çözüm saf bir işlevdedir (`labui.js` › `resolveView`), Node'da sınanır.
 
 ## 2. Mimari: iki motor, iki görünüm, deney kaydı
 
@@ -66,6 +68,7 @@ engineFor(view, exp, cur)   // 'sky' → 'sky'; Laboratuvar'da deneyin motoru; a
 | `js/keyhole.js` | Rezonans çemberleri (Valsecchi): karşılaşma geometrisi, geçiş sonrası a', çemberler |
 | `js/uncert.js` | Saf belirsizlik hesabı: kütle/β modeli, JPL kovaryansı → B-düzlemi, tohumlu Monte Carlo |
 | `js/astui.js` | Yalnız asteroit kataloğu ve bilgi kartı; saptırmaya geçişi `openLab` ile yapar |
+| `js/lagrange.js` / `js/lagrangeui.js` | Lagrange noktaları: saf CR3BP hesabı (beş nokta, Jacobi, kararlılık, deney, halo özeti, bağlantı) ve arayüz (dört adım, dönen çerçeve çizimi) |
 
 ## 3. Ay görevi deneyi: dört adım
 
@@ -208,11 +211,34 @@ Her hesap, deneyin tüm ayarlarını adres çubuğuna yazar; **Bağlantıyı kop
 
 **Denemelerim**, bu tarayıcıda hesaplanan son 30 denemeyi (`localStorage` › `ls19.dfHist`) hedef, geçiş, itki, önceden uyarı süresi, kayma / gereken kayma ve kararla listeler; satıra dokununca deneme yeniden kurulup hesaplanır. **CSV indir** tabloyu (bağlantılarıyla) tablolama programlarına verir.
 
-## 5. Telefon düzeni
+## 5. Lagrange noktaları deneyi
 
-Ana sayfa ya da saptırma açılınca panel kendiliğinden açılır (deney ana içeriktir); Ay görevinde açılmaz (3B uçuş ana içeriktir; görev çubuğundaki panel düğmesi açar/kapar, deney ağaçtan seçilirse panel açık kalır). Saptırmada "3B'de göster" paneli kapatır ki 3B görünüm örtülmesin; zaman/kamera çubuğundaki panel düğmesi geri açar. Adımlar tam genişlik, yatay taşma yoktur (tarayıcı denemesinde denetlenir).
+İki cismin (Dünya–Ay, Güneş–Dünya ya da kütle oranı serbest varsayımsal bir sistem) çekimiyle dönen çerçevenin merkezkaç etkisinin dengelendiği beş nokta. Soru: **bir aracı noktaya küçük bir hatayla bırakırsak orada kalır mı?** Model dairesel kısıtlı üç cisim problemidir (CR3BP; dönen çerçeve, boyutsuz birimler: uzunluk iki cisim arası, zaman 1/n, μ = m₂/(m₁+m₂)). Hesap `lagrange.js`'te (saf), tümleyici ve halo aileleri mevcut `cr3bp.js` / `halo.js`'ten; bu modüllere dokunulmadı (Ay görevinin hazır tasarımları bit düzeyinde aynı). Deney paneldedir: panelin üstündeki **dönen çerçeve çizimi** kaydırırken yerinde kalır ve açık adıma göre değişir; 3B sahnede çizim yoktur (sahneler eylemsiz çerçevededir). Motor gökyüzüdür: görev çubuğu gizlenir, zaman/kamera çubuğu kalır.
 
-## 6. Doğrulama
+| Adım | İçerik |
+|---|---|
+| **1 Sistem** | Dünya–Ay (μ = 0,01215), Güneş–Dünya (μ = 3,04·10⁻⁶; Dünya–Ay kütle merkezi küçük cisim) ya da **Varsayımsal** (μ kaydırıcı, 10⁻⁷–0,5, Dünya–Ay ölçeğinde). Beş noktanın küçük cisme uzaklığı, Jacobi sabiti ve kararlılığı: kararsızsa e-katlanma süresi, kararlıysa salınım periyodu (doğrusallaştırılmış dinamik, Szebehely 1967) |
+| **2 Enerji** | Jacobi sabiti C (dönen çerçevede korunan enerji, C = 2Ω − v²) kaydırıcısı ve C(L1)…C(L4) düğmeleri; araç 2Ω < C bölgelerine giremez (gri). Hangi "kapının" açık olduğu düz dille: kapalı → L1 açık (iki cisim arası; Apollo) → L2 açık (sistemden çıkış) → L3 açık → her yer |
+| **3 Deney** | Nokta (L1–L5), konum hatası (km), hız hatası (m/s), yön (x: iki cismi birleştiren doğru, y: yörünge yönü, z: düzleme dik), süre. Tam tümleme (DOPRI5, Jacobi kayması 10⁻¹² mertebesi), cisme çarpma ya da kaçışta durur. Yargı kartı: **"L1 noktasında kalmaz"** (yakın sınırı: küçük cisme L1 uzaklığının yarısı, Dünya–Ay ≈ 29.000 km, Güneş–Dünya ≈ 750.000 km), **"L4 noktası çevresinde kalır"**, "Ay'a düşer", "Sistemden kaçar"; doğrusal kuramın e-katlanma süresi ile tümlemeden ölçülen (hatanın 10 katından 100 katına büyüme süresi) yan yana; noktaya uzaklık–zaman grafiği (logaritmik, kesikli çizgi doğrusal kuram) |
+| **4 Halo yörüngeleri** | Yalnız Dünya–Ay: L1 kuzey ve L2 güney aileleri (düzleme dik genlik Az), NRHO 9:2 (Gateway). Periyot, Ay'a en yakın/uzak, kararlılık indeksi ν, bir periyot sonra kapanma; üç izdüşüm. Üye Ay görevinin bir profiliyle aynıysa (L1 Az 10.000, L2 Az 13.000, NRHO) **"Ay görevinde bu bekleme yörüngesiyle uç"** Ay görevini o profille tasarlar |
+
+**Bağlantı:** `sistem` (`em`/`se`/`ozel`), `kutle` (yalnız varsayımsal μ), `nokta`, `sapma` (km), `hata` (m/s), `yonu` (`x`/`y`/`z`), `sure` (gün), `enerji` (C), `aile` (`1`/`2`/`nrho`), `genlik` (km). Bağlantıyla gelince deney kendiliğinden koşar. Anahtarlar saptırma ve Ay görevininkilerle çakışmaz, deneyden çıkınca adresten silinir.
+
+**Doğrulama** (`test/test_lagrange.js`, analitik ve yayımlanmış değerler, ağ yok):
+- beş noktada potansiyelin eğimi < 10⁻¹² (üç sistemde); L4/L5 (½ − μ, ±√3/2); L1/L2 `cr3bp.js` › `xL` ile aynı;
+- Jacobi: C(L4) = 3 − μ(1−μ), C1 > C2 > C3 > C4; Dünya–Ay 3,18834 / 3,17216 / 3,01215 / 2,98800 (yayımlanmış değerler, 5 basamak);
+- Dünya–Ay L1 Ay'dan 58.071 km, L2 64.573 km; Güneş–Dünya L2 Dünya'dan 1,51 milyon km; μ → 0'da L1/L2 uzaklığı Hill yarıçapına (μ/3)^(1/3) yaklaşır;
+- Routh ölçütü: μ_R = 0,03852; sınırın %2 altında L4 kararlı, %2 üstünde kararsız;
+- e-katlanma: Dünya–Ay L1 1,48 gün, Güneş–Dünya L2 23,4 gün; tümlemede ölçülen büyüme doğrusal kuramla %3 içinde; L4'e 100 km hatayla bırakılan araç bir yıl < 5.000 km içinde salınır, μ = 0,05'te aynı deneyde ayrılır;
+- halo: genlik aralığının uçlarında (L1 2.000 ve 26.000 km, L2 2.000 ve 34.000 km) üyeler yakınsar ve bir periyot sonra < 1 cm kapanır; NRHO periyodu kameri ayın 2/9'u (6,562 gün), Ay'a ~3.300 km, ν ≈ 1,3.
+
+**Sınırlar:** dairesel kısıtlı model (Ay'ın yörünge dışmerkezliği, Güneş'in Dünya–Ay sistemindeki etkisi ve gezegenler yok: Ay görevi ise tam N-cisim modelinde uçar); halo genliği halo kodunun Richardson başlangıcıyla yakınsadığı aralıkla sınırlı (aile boyunca süreklilik yok); Güneş–Dünya ve varsayımsal sistemlerde halo hesaplanmaz; konum koruma yakışları ve bunların Δv'si modellenmez. Ay görevindeki gibi bir "Denemelerim" listesi ve 3B çizim yok.
+
+## 6. Telefon düzeni
+
+Ana sayfa, saptırma ya da Lagrange noktaları açılınca panel kendiliğinden açılır (deney ana içeriktir; Lagrange çizimi telefonda 210 px yüksekliğindedir); Ay görevinde açılmaz (3B uçuş ana içeriktir; görev çubuğundaki panel düğmesi açar/kapar, deney ağaçtan seçilirse panel açık kalır). Saptırmada "3B'de göster" paneli kapatır ki 3B görünüm örtülmesin; zaman/kamera çubuğundaki panel düğmesi geri açar. Adımlar tam genişlik, yatay taşma yoktur (tarayıcı denemesinde denetlenir).
+
+## 7. Doğrulama
 
 - `node test/test_ayexp.js` — Ay görevi deneyi: adım özetleri, sonuç yargısı (başarılı, sert temas, atmosfere giriş), güvenli temas sınırlarının `mission.js` ile aynılığı, arayüz sözleşmesi (dört adım ve aletler, eski sekme kimlikleri, panel ↔ menü araç/güdüm düğmeleri, `ayui.js` worker'a komut göndermez).
 - `node test/test_lab.js` — saf yardımcılar (itki zamanı seçenekleri, sonuç yargısı her senaryo için, metinler) ve arayüz sözleşmesi (JS'nin başvurduğu her kimlik index.html'de var, iki alan, deney kaydı ↔ ağaç ↔ sayfa uyumu, `data-for` kuralları, görünüm → motor eşlemesi, eski/yeni adresler, simgeler, erişilebilirlik öznitelikleri).
@@ -221,12 +247,13 @@ Ana sayfa ya da saptırma açılınca panel kendiliğinden açılır (deney ana 
 - `node test/test_abort.js` — görev iptali: çeviri yolculuğu ve LLO'dan dönüş Δv'si, yamalı konik sınırları, 40 km perije bağımsız süzülmeyle.
 - `node test/test_keyhole.js` — rezonans çemberleri: Valsecchi ↔ tam tümleme, 7:6 rezonanslı dönüş; sonraki geçiş yargısı.
 - `node test/test_moonsite.js` — iniş yeri: varsayılan bit düzeyinde aynı, aydınlanma pencereleri, Apollo 15'e nominal ve dağılımlı iniş, yarıçapların veri dosyasına kilidi, modül sözleşmesi.
+- `node test/test_lagrange.js` — Lagrange noktaları: analitik konumlar ve Jacobi sabitleri, Routh ölçütü, e-katlanma (kuram ↔ tümleme), halo kapanması ve NRHO periyodu, bağlantı, deney kaydı (§5).
 - `node test/test_aymc.js` — Ay görevi dağılım denemesi: yüzdelik, Wilson aralığı, özet; aynı tohum aynı uçuş, farklı tohum farklı TLI hatası, hatasız koşu = nominal; arayüz sözleşmesi.
 - `node tools/lab_deneme.mjs` — başsız Chromium'da tam akış: iki dallı gezinme, deney → motor geçişleri (ana sayfa motoru değiştirmez; Ay görevi görev motorunu, saptırma gökyüzü motorunu açar), Ay görevinin dört adımı (Devam düğmeleri, panelden güdüm seçimi menüyle eşlenir, Uçuş aletleri, K, inişe atlayıp sonuç kartı, Baştan uçur, `?tab=dv`), Esc/M/K kısayolları, Betulia boş durumu, Apophis 2029 (4 yakın geçiş, ilki 13 Nisan 2029, 38.013 km), itki, "çarpacak olsaydı", 3B yollar, çapraz bağlantılar, eski/yeni adres parametreleri (`?mode=mission`, `?tab=kontrol`), telefon (390×844; varsayılan açılışta panel kapalı). `api/*` istekleri gerçek bulut işlevleriyle `web/test/fixtures` yanıtlarından karşılanır: internet gerekmez.
 
 **Sınırlar:** tarayıcı denemesi yazılım çizimiyle (SwiftShader) ve sahte kaynak verisiyle yapıldı; ayrıntı (tam duyarlıklı JPL çözümü) yalnız Apophis için var, öteki hedefler katalog öğeleriyle çalışır. Gerçek JPL sunucusuyla, gerçek GPU'yla ve gerçek bir telefonda denenmedi.
 
-## 7. Yeni deney eklemek
+## 8. Yeni deney eklemek
 
 1. `index.html`'de `#labPanel` içine `<div id="lab-<ad>" class="labpage" hidden>…</div>` ekleyin (sekmeli bir deneyse `class="labpage labtabs"`, içinde `nav.tabs` ve `.tabpage`'ler).
 2. Merkez ağacına (`#lab-home`) bir dal ekleyin: `<button class="exp" data-exp="<ad>">`. Başka bir alana kısayolsa `data-go="…"` ve `labui.js`'te karşılığı.
@@ -234,4 +261,4 @@ Ana sayfa ya da saptırma açılınca panel kendiliğinden açılır (deney ana 
 4. Yalnız bu deneyde görünmesi gereken bir çubuk ya da gösterge varsa `data-for="lab@<motor>"` verin.
 5. Karar/biçim mantığını `labtext.js`'e (Node'da sınanır), arayüzü ayrı bir modüle koyun; `node test/test_preload.js --print` ile `modulepreload` listesini yenileyin; `test_lab.js` kayıt/ağaç/sayfa tutarlılığını kendiliğinden denetler.
 
-Mevcut kodla eklenmeye aday deney: **Lagrange noktaları ve halo yörüngeler** (`cr3bp.js`, `halo.js`; görev motoru). İniş güdümü karşılaştırması artık Ay görevinin Sonuç adımındadır (Dağılım denemesi › Üç güdümü karşılaştır).
+Lagrange noktaları bu yolla eklendi (§5). İniş güdümü karşılaştırması Ay görevinin Sonuç adımındadır (Dağılım denemesi › Üç güdümü karşılaştır).
