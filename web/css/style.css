@@ -902,3 +902,10 @@ body.launch-cine .asccredit { position: fixed; left: 12px; bottom: 8px; max-widt
 body.launch-cine .asctele { background: linear-gradient(180deg, rgba(6, 8, 14, .58), rgba(6, 8, 14, .44)); }
 @media (max-width: 760px) { body.launch-cine .asccredit { left: 8px; right: 8px; max-width: none; text-align: center; } body.launch-cine .ascbar { top: 8px; } }
 @media (prefers-reduced-motion: reduce) { .asctele .at-flash, body.launch-cine .ascbtns { transition: none; } }
+
+/* Laboratuvar › Lagrange noktaları */
+.chart.lgmap { height: 260px; position: sticky; top: 0; z-index: 2; margin-top: 6px; box-shadow: 0 6px 12px -6px rgba(0, 0, 0, .6); }
+@media (max-width: 760px) { .chart.lgmap { height: 210px; } }
+#lab-lagrange .frow3 input { width: 100%; min-width: 0; }
+#lgMu, #lgC, #lgAz { flex: 1; min-width: 0; }
+#lgView { margin-top: 6px; }

@@ -26,6 +26,8 @@ import { AyAbort } from './ayabort.js';
 import { setViewSite, ephSpanDays, validSite, DEFAULT_SITE, siteOf } from './moonsite.js';
 import { AY_LINK_KEYS, ayLinkFromState, ayStateFromLink } from './aytext.js';
 import { DeflectUI } from './deflectui.js';
+import { LagrangeUI } from './lagrangeui.js';
+import { LG_LINK_KEYS } from './lagrange.js';
 import { Updater } from './updater.js';
 import { Tracker } from './tracker.js';
 import { SkyUI, SkyClock } from './skyui.js';
@@ -243,8 +245,10 @@ function syncWorkspace(push = true) {
     const u = new URL(location.href); u.searchParams.set('mode', S.VIEW); if (exp && exp !== LAB_HOME) u.searchParams.set('exp', exp); else u.searchParams.delete('exp');
     if (exp !== 'saptirma') for (const k of LINK_KEYS) u.searchParams.delete(k);                 // saptırma denemesinin parametreleri yalnız o deneyde adreste kalır
     writeAyUrl(u);                                                                                 // Ay görevininkiler de
+    if (exp !== 'lagrange') for (const k of LG_LINK_KEYS) u.searchParams.delete(k);                // Lagrange deneyininkiler de
     history.replaceState(null, '', u);
   }
+  if (exp === 'lagrange') lagrange.show();
   resize();
 }
 // view: 'sky' | 'lab' (eski 'mission' → Laboratuvar › Ay görevi); exp: Laboratuvar'da açılacak deney (verilmezse açık olan kalır)
@@ -258,6 +262,15 @@ function setWorkspace(view, push = true, exp = null) {
 const narrowScreen = () => window.matchMedia('(max-width: 760px)').matches;
 // Laboratuvar: deney merkezi. Deney değişince motor ve adres eşlenir; "Çarpma riski" Canlı Gökyüzü'ne kısayoldur. openLab: saptırma deneyini bir asteroitle açar (pick kartı, Asteroitler/Çarpma sekmeleri)
 let quietShow = false;
+// Laboratuvar › Lagrange noktaları (yalnız panel: dönen çerçeve çizimi; motor gökyüzü, değişmez). Ay görevine halo profiliyle geçiş: onFly
+const lagrange = new LagrangeUI({
+  onFly: (key) => { setWorkspace('lab', true, 'ay'); if (PROFILES[key]) ui.onProfile(key); },
+  onLink: (o) => {
+    if (document.body.dataset.exp !== 'lagrange' || !window.history || !history.replaceState) return;
+    const u = new URL(location.href); for (const k of LG_LINK_KEYS) u.searchParams.delete(k); for (const [k, v] of Object.entries(o)) u.searchParams.set(k, v);
+    if (u.href !== location.href) history.replaceState(history.state, '', u);
+  },
+});
 const labui = new LabUI({
   initial: 'ay',
   openImpact: () => { setWorkspace('sky'); ui.setTab('carpma'); if (narrowScreen()) $('#skyPanel').classList.add('open'); },

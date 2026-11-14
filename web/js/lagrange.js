@@ -5,6 +5,7 @@
 import * as E from './engine.js';
 import * as C from './cr3bp.js';
 import { haloMember, HALO_PRESETS } from './halo.js';
+import { fmt } from './format.js';
 
 const AU = 149597870.7, YEAR = 365.256363004 * 86400, R_SUN = 695700;
 // sistem: { id, name, mu, L_km (uzunluk birimi), T_s (zaman birimi = 1/n), p1/p2: { name, R (km) } }
@@ -168,7 +169,7 @@ export function verdict(run, sys) {
   return { kind: 'good', title: `${where} noktası çevresinde kalır`, detail: `${fmtDays(run.tEnd)} boyunca noktadan en çok ${fmtKm(run.maxKm)} uzaklaştı (sınır ${fmtKm(near)}).` };
 }
 const HIT_TITLE = { 'Dünya': "Dünya'ya düşer", 'Ay': "Ay'a düşer", 'Güneş': "Güneş'e düşer", 'Büyük cisim': 'Büyük cisme düşer', 'Küçük cisim': 'Küçük cisme düşer' };
-const nf = (x, d = 0) => x.toLocaleString('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d });
+const nf = (x, d = 0) => fmt(x, d);
 export const fmtKm = (km) => (km >= 1e6 ? nf(km / 1e6, 2) + ' milyon km' : km >= 100 ? nf(Math.round(km)) + ' km' : nf(km, 1) + ' km');
 export const fmtDays = (d) => (d >= 730 ? nf(d / 365.25, 1) + ' yıl' : d >= 10 ? nf(d, 0) + ' gün' : nf(d, 1) + ' gün');
 

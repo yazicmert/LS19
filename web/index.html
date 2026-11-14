@@ -182,6 +182,8 @@
 <link rel="modulepreload" href="js/deflectui.js">
 <link rel="modulepreload" href="js/keyhole.js">
 <link rel="modulepreload" href="js/uncert.js">
+<link rel="modulepreload" href="js/lagrangeui.js">
+<link rel="modulepreload" href="js/lagrange.js">
 <link rel="modulepreload" href="js/updater.js">
 <link rel="modulepreload" href="js/tracker.js">
 <link rel="modulepreload" href="js/passes.js">
@@ -440,6 +442,8 @@
         <li><div class="grp">Gezegen savunması</div>
           <ul><li><button class="exp" type="button" data-exp="saptirma"><i data-icon="shield" class="ei"></i><span><b>Asteroit saptırma</b><small>Bir asteroidi itip Dünya'yı ıskalatmak için ne kadar itki gerekir? Hedefi seç, yakın geçişi seç, itkiyi dene.</small></span><i data-icon="chev" class="go"></i></button></li>
             <li><button class="exp" type="button" data-go="impact"><i data-icon="target" class="ei"></i><span><b>Çarpma riski</b><small>Uyduların yeniden girişi ve Sentry sanal çarpıcıları. Canlı Gökyüzü'nde, Çarpma sekmesinde açılır.</small></span><i data-icon="chev" class="go"></i></button></li></ul></li>
+        <li><div class="grp">Yörünge mekaniği</div>
+          <ul><li><button class="exp" type="button" data-exp="lagrange"><i data-icon="orbit" class="ei"></i><span><b>Lagrange noktaları</b><small>İki cismin çekiminin dengelendiği beş nokta: hangisinde durulur, hangisinden kayılır? Enerji kapılarını aç, araç bırak, halo yörüngelerini incele.</small></span><i data-icon="chev" class="go"></i></button></li></ul></li>
       </ul>
     </div>
 
@@ -631,6 +635,71 @@
         <div class="daterow"><button id="btnCompare" class="sm">Bu tarih için hesapla</button><span id="cmpStatus" class="k"></span></div>
         <p class="note">Aynı iniş yeri için her profilin en az Δv'li tasarımı. "Ay Δv": Ay'a varıştan inişe kadar (iniş aracının taşıdığı). Satıra tıkla: o profil yüklenir.</p>
       </div>
+    </div>
+
+    <div id="lab-lagrange" class="labpage" hidden>
+      <p class="labsub">Dönen çerçeve: iki cisim sabit durur, x ekseni büyük cisimden küçüğe. Dairesel kısıtlı üç cisim problemi (CR3BP); turuncu noktalar kararsız, yeşiller kararlı.</p>
+      <canvas id="lgMap" class="chart lgmap" role="img" aria-label="Dönen çerçevede iki cisim, beş Lagrange noktası ve seçili adımın çizimi"></canvas>
+      <div class="chips" id="lgView" role="radiogroup" aria-label="Görünüm"><button class="chip" type="button" data-lgview="all">Tüm sistem</button><button class="chip" type="button" data-lgview="near">Küçük cisim yakını</button></div>
+      <ol id="lgSteps" class="steps">
+        <li class="step open" data-lgstep="1">
+          <button class="sh" type="button" aria-expanded="true" aria-controls="lgSb1"><span class="sn">1</span><span class="st">Sistem</span><span class="ss" id="lgSum1"></span></button>
+          <div class="sb" id="lgSb1">
+            <div class="chips" role="radiogroup" aria-label="Sistem"><button class="chip" type="button" data-lgsys="em">Dünya–Ay</button><button class="chip" type="button" data-lgsys="se">Güneş–Dünya</button><button class="chip" type="button" data-lgsys="ozel">Varsayımsal</button></div>
+            <div id="lgMuRow" class="frow" hidden><label for="lgMu">μ</label><input id="lgMu" type="range" min="-7" max="-0.30103" step="0.01" aria-label="Kütle oranı (logaritmik)"><span id="lgMuVal" class="k"></span></div>
+            <p id="lgSysNote" class="note"></p>
+            <div class="tblwrap"><table id="lgPts" class="tbl"><thead><tr><th>Nokta</th><th class="num">Küçük cisme</th><th class="num">Jacobi C</th><th>Kararlılık</th></tr></thead><tbody></tbody></table></div>
+            <p class="note">Kararsız noktada küçük bir hata her e-katlanma süresinde e ≈ 2,7 katına çıkar. Kararlı noktada (L4, L5) araç noktanın çevresinde salınır: Jüpiter'in Truva asteroitleri böyle durur. L4/L5 yalnız μ &lt; 0,0385 iken kararlıdır (Routh ölçütü).</p>
+            <div class="stepnav"><button class="primary sm" type="button" data-lggo="2">Devam: Enerji</button></div>
+          </div>
+        </li>
+        <li class="step" data-lgstep="2">
+          <button class="sh" type="button" aria-expanded="false" aria-controls="lgSb2"><span class="sn">2</span><span class="st">Enerji</span><span class="ss" id="lgSum2"></span></button>
+          <div class="sb" id="lgSb2">
+            <p class="stepsub">Jacobi sabiti C, dönen çerçevede korunan enerjidir: araç, potansiyelin bu enerjiye yetmediği gri bölgelere giremez. C düşünce Lagrange noktalarındaki "kapılar" sırayla açılır.</p>
+            <div class="frow"><label for="lgC">C</label><input id="lgC" type="range" min="0" max="1000" step="1" aria-label="Jacobi sabiti"><span id="lgCVal" class="k"></span></div>
+            <div class="chips" id="lgCSnap"></div>
+            <p id="lgGate" class="dinfo" role="status" aria-live="polite"></p>
+            <div class="stepnav"><button class="primary sm" type="button" data-lggo="3">Devam: Deney</button></div>
+          </div>
+        </li>
+        <li class="step" data-lgstep="3">
+          <button class="sh" type="button" aria-expanded="false" aria-controls="lgSb3"><span class="sn">3</span><span class="st">Deney</span><span class="ss" id="lgSum3"></span></button>
+          <div class="sb" id="lgSb3">
+            <p class="stepsub">Bir aracı noktaya küçük bir hatayla bırakın: orada kalır mı?</p>
+            <div class="chips" id="lgPoint" role="radiogroup" aria-label="Lagrange noktası"></div>
+            <div class="frow3">
+              <label>Konum hatası<span><input id="lgDr" type="number" min="0" step="1" value="10"> km</span></label>
+              <label>Hız hatası<span><input id="lgDv" type="number" min="0" step="0.1" value="0"> m/s</span></label>
+              <label>Süre<span><input id="lgDays" type="number" min="1" max="3650" step="1" value="60"> gün</span></label>
+            </div>
+            <div class="frow"><label for="lgDir">Yön</label><select id="lgDir"><option value="x">İki cismi birleştiren doğru (x)</option><option value="y">Yörünge yönü (y)</option><option value="z">Yörünge düzlemine dik (z)</option></select></div>
+            <div class="daterow"><button id="lgRun" class="primary sm" type="button">Bırak ve izle</button></div>
+            <div id="lgVerdict" class="verdict info" role="status" aria-live="polite" hidden>
+              <div id="lgVT" class="vt"></div>
+              <div id="lgVD" class="vd"></div>
+              <table id="lgVTbl" class="tbl ayres"><tbody></tbody></table>
+            </div>
+            <canvas id="lgDist" class="chart" role="img" aria-label="Noktaya uzaklığın zamanla değişimi (logaritmik)" hidden></canvas>
+            <p id="lgDistNote" class="note" hidden>Noktaya uzaklık (logaritmik). Kararsız noktada başta düz bir çizgi: üstel büyüme. Kesikli çizgi doğrusal kuramın eğimi.</p>
+            <div class="stepnav"><button class="primary sm" type="button" data-lggo="4">Devam: Halo yörüngeleri</button></div>
+          </div>
+        </li>
+        <li class="step" data-lgstep="4">
+          <button class="sh" type="button" aria-expanded="false" aria-controls="lgSb4"><span class="sn">4</span><span class="st">Halo yörüngeleri</span><span class="ss" id="lgSum4"></span></button>
+          <div class="sb" id="lgSb4">
+            <p class="stepsub">L1 ve L2 kararsızdır ama çevrelerinde kapalı yörüngeler vardır: araç noktanın çevresinde döner, az yakıtla orada tutulur. Artemis'in Gateway istasyonu L2 ailesinin NRHO üyesindedir. Yalnız Dünya–Ay.</p>
+            <div class="chips" id="lgFam" role="radiogroup" aria-label="Halo ailesi"><button class="chip" type="button" data-lgfam="1">L1 kuzey</button><button class="chip" type="button" data-lgfam="2">L2 güney</button><button class="chip" type="button" data-lgfam="nrho">NRHO 9:2</button></div>
+            <div id="lgAzRow" class="frow"><label for="lgAz">Az</label><input id="lgAz" type="range" min="2000" max="34000" step="1000" aria-label="Düzleme dik genlik (km)"><span id="lgAzVal" class="k"></span></div>
+            <div class="chips" id="lgProj" role="radiogroup" aria-label="İzdüşüm"><button class="chip" type="button" data-lgproj="xy">Üstten (x–y)</button><button class="chip" type="button" data-lgproj="xz">Yandan (x–z)</button><button class="chip" type="button" data-lgproj="yz">Önden (y–z)</button></div>
+            <div class="tblwrap"><table id="lgHaloTbl" class="tbl"><tbody></tbody></table></div>
+            <p id="lgHaloMsg" class="k small" role="status" aria-live="polite"></p>
+            <div class="stepnav"><button id="lgFly" class="sm" type="button" hidden>Ay görevinde bu bekleme yörüngesiyle uç</button></div>
+            <p class="note">Genlik aralığı halo kodunun Richardson başlangıcı ve düzeltmesiyle yakınsadığı aralıktır (L1: 2.000–26.000 km, L2: 2.000–34.000 km); daha büyük üyeler aile boyunca süreklilik ister. Kararlılık indeksi ν: 1'e yakınsa yörünge neredeyse kararlıdır; büyüdükçe konumu korumak daha çok yakıt ister.</p>
+          </div>
+        </li>
+      </ol>
+      <div class="stepnav"><button id="lgLink" class="sm" type="button" title="Bu deneyin sistemini, noktasını, hatasını, enerjisini ve halo seçimini taşıyan bağlantı">Bağlantıyı kopyala</button><span id="lgLinkMsg" class="k small" role="status" aria-live="polite"></span></div>
     </div>
 
     <div id="lab-saptirma" class="labpage" hidden>

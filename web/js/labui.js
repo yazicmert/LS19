@@ -10,6 +10,7 @@ import { $ } from './uiutil.js';
 export const EXPERIMENTS = {
   ay: { title: 'Ay görevi', engine: 'mission', phoneOpen: false },
   saptirma: { title: 'Asteroit saptırma', engine: 'sky', phoneOpen: true },
+  lagrange: { title: 'Lagrange noktaları', engine: 'sky', phoneOpen: true },
 };
 export const LAB_HOME = 'home';
 export const LAB_PAGES = { [LAB_HOME]: 'Laboratuvar', ...Object.fromEntries(Object.entries(EXPERIMENTS).map(([k, v]) => [k, v.title])) };
