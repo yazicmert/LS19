@@ -30,6 +30,16 @@ import { TEX, UPGRADE } from './texplan.js';
 const { add, sub, scale, dot, cross, norm, unit } = E;
 const EARTH_I = 1.15;                    // Dünya (bulutlar ve okyanus yansıması parlak olduğundan düşük)
 const KM = 0.001;                        // m -> km
+// Dünya küresinin ayrıntı düzeyi (LOD). Dünya küresi yer değiştirmesizdir (useHeight 0): köşeler yalnız şekli taşır, iki ağ arasındaki fark yalnız kiriş hatasıdır.
+// Hata sınırı: 1024×512 ve 256×128 ızgarada her dörtgen Δ = 2π/nLon kenarlı iki dik üçgen; en büyük üçgen ekvatorda, çevrel açısal yarıçapı ρ = Δ/√2
+// (hipotenüs ortası). Düzlem ile küre arasındaki en büyük uzaklık (sagitta) s = R(1 − cos ρ) ≈ RΔ²/4 (256'da 0,96 km, 1024'te 0,06 km). Kutup yelpazesindeki
+// doku kayması da ≤ RΔ²/4 (teğet). Görünen herhangi bir yüzey noktasının kameraya uzaklığı ≥ h = d − R olduğundan s kadar kayma ekranda ≤ s/h radyan;
+// piksel/radyan: (tampon yüksekliği / 2) / tan(fov/2), görüntü köşesine doğru büyüme payıyla × (1 + tan²(fov/2)(1 + en-boy²)) (merkezde 1, köşede ~1,9).
+// Kaba ağ bu üst sınır EARTH_LOD_IN pikselin altındayken çizilir, EARTH_LOD_OUT'u aşınca ince ağa dönülür (histerezis bandı: eşikte titreme olmaz).
+// Örnek (800×450, fov 50°): kaba ağa geçiş ~4.400 km yükseklikten öte (2× piksel oranlı 1080p'de ~21.000 km); park yörüngesi (~180 km) hep ince ağda kalır.
+const EARTH_SEG = [[1024, 512], [256, 128]];
+const EARTH_SAG_LO = E.R_E * (1 - Math.cos(Math.SQRT2 * Math.PI / EARTH_SEG[1][0]));          // km, kaba ağın en büyük kiriş hatası
+const EARTH_LOD_IN = 0.2, EARTH_LOD_OUT = 0.3;                                                 // piksel (en kötü durum üst sınırı; kenar yumuşatmalı sınırda < 24/255 fark)
 // model malzemelerinin PBR değerleri [metalik, pürüzlülük] (kaynak: NASA modellerindeki Maya "blinn" malzemeleri, adlarıyla)
 const PBR = {
   lander: { 'blinn1SG.002': [0.55, 0.36], 'blinn4SG.002': [0.4, 0.4], 'blinn5SG.002': [0.35, 0.5], 'blinn2SG.002': [0.4, 0.42], 'blinn6SG.001': [0.1, 0.6], 'initialShadingGr.001': [0.45, 0.4],
@@ -155,7 +165,8 @@ export class World {
       heightMap: { value: flat([0, 0, 0, 255]) }, hSize: { value: new THREE.Vector2(1, 1) }, radius: { value: E.R_E }, useHeight: { value: 0 }, obsMode: { value: 0 },
       tileMap: { value: flat([0, 0, 0, 255]) }, useTile: { value: 0 }, tileKind: { value: 0 },
       parentMap: { value: flat([0, 0, 0, 255]) }, pXf: { value: new THREE.Vector4(1, 1, 0, 0) }, pHas: { value: 0 }, tileFade: { value: 1 } };      // parça geçişi (her parça kendi kopyasını alır: tiles.js)
-    this.earth = new THREE.Mesh(sphereGeometry(E.R_E, 1024, 512), new THREE.ShaderMaterial({ uniforms: eu, vertexShader: VS_BODY, fragmentShader: FS_EARTH }));
+    this.earthGeo = EARTH_SEG.map(([a, b]) => sphereGeometry(E.R_E, a, b)); this.earthLod = 0;          // ayrıntı düzeyleri (earthLodUpdate); ikisi de atılmaz
+    this.earth = new THREE.Mesh(this.earthGeo[0], new THREE.ShaderMaterial({ uniforms: eu, vertexShader: VS_BODY, fragmentShader: FS_EARTH }));
     S.add(this.earth);                                    // görüş dışındaki cisim köşe işlemeye girmez (frustum culling): her biri ~1 milyon üçgen
     this.atm = new THREE.Mesh(sphereGeometry(E.R_E * 1.0125, 256, 128), new THREE.ShaderMaterial({
       uniforms: { sunDir: eu.sunDir, sunI: eu.sunI }, vertexShader: VS_ATM, fragmentShader: FS_ATM, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -444,6 +455,17 @@ export class World {
   setPixelRatio(r) { this.renderer.setPixelRatio(r); this.resize(this.canvas.clientWidth, this.canvas.clientHeight); }          // uyarlanır çözünürlük: tampon yeni orana göre yeniden boyutlanır
   resize(w, h) { if (this.cine.on && this.post && this._prOf) this.renderer.setPixelRatio(this._prOf(this.post.level)); this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); if (this.post) this.post.setSize(w, h); }
 
+  // Dünya küresi ayrıntı düzeyi (bkz. EARTH_SEG): kaba ağın ekrandaki en kötü kiriş hatası (piksel) eşiğin altındaysa 256×128, değilse 1024×512.
+  // Kamera orijinde: Dünya merkezine uzaklık = earth.position'ın boyu. Yüzeyde/içeride (h ≤ 0) ya da sayı değilse ince ağ.
+  earthLodErr() {
+    const h = this.earth.position.length() - E.R_E, c = this.camera, t2 = Math.tan(c.fov * Math.PI / 360) ** 2;
+    const kPx = this.renderer.domElement.height / 2 / Math.sqrt(t2) * (1 + t2 * (1 + c.aspect * c.aspect));
+    return h > 0 ? EARTH_SAG_LO * kPx / h : Infinity;
+  }
+  earthLodUpdate() {
+    const err = this.earthLodErr(), lod = err <= (this.earthLod === 1 ? EARTH_LOD_OUT : EARTH_LOD_IN) ? 1 : 0;          // NaN → 0
+    if (lod !== this.earthLod) { this.earthLod = lod; this.earth.geometry = this.earthGeo[lod]; }
+  }
   // ortak kare yerleşimi (görev ve Canlı Gökyüzü): kamera yönü, Güneş yönü ve görüntüsü, Dünya/Ay konum ve yönelimi, yüzey parçaları, iniş arazisi.
   // Sahne kameraya göre çizilir (kamera orijinde): rel(p) dünya konumunu kameraya göre vektöre çevirir. Dönüş: { eye, rel, sd (Güneş yönü) }
   placeFrame(pose, sun, rm, Mitrf, Mme) {
@@ -463,7 +485,7 @@ export class World {
     this.sunSprite.position.copy(sd.clone().multiplyScalar(5e6));
     // Dünya ve Ay
     rel([0, 0, 0], this.earth.position); this.earth.quaternion.copy(m3ToQuat(E.mT(Mitrf)));
-    this.atm.position.copy(this.earth.position);
+    this.atm.position.copy(this.earth.position); this.earthLodUpdate();
     rel(rm, this.moon.position); this.moon.quaternion.copy(m3ToQuat(E.mT(Mme)));
     if (this.texUp && !this.texUp.moon && this.moon.position.length() < 40 * E.R_M) this.upgradeTextures('moon');          // Ay'a yaklaşıldı (~70.000 km): tam çözünürlük
     this.updateTiles();
