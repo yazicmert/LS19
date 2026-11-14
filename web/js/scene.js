@@ -15,6 +15,7 @@ import { CameraRig } from './camerarig.js';
 import { SkyView } from './skyview.js';
 import { SurfaceView } from './surfaceview.js';
 import { VS_BODY, FS_EARTH, VS_ATM, FS_ATM, FS_MOON } from './bodyshaders.js';
+import { bandRange } from './bodyband.js';
 import { sphereGeometry, m3ToQuat, glowTexture, ringTexture, unit3, conicEach, conicPoints, SUN_I } from './scenegeom.js';
 import { mixin } from './mixin.js';
 
@@ -462,6 +463,15 @@ export class World {
     const kPx = this.renderer.domElement.height / 2 / Math.sqrt(t2) * (1 + t2 * (1 + c.aspect * c.aspect));
     return h > 0 ? EARTH_SAG_LO * kPx / h : Infinity;
   }
+  // Ufuk bandı (bodyband.js): ince küre ağında yalnız kameradan görülebilecek enlem satırları çizilir (setDrawRange). Kamera orijinde: yerel
+  // çerçevedeki konumu −Q⁻¹·P. Görülemeyen üçgenler zaten arka yüz ya da örtülü olduğundan görüntü değişmez; köşe işi azalır
+  // (185 km park yörüngesinde Dünya'nın ~14°'lik başlığı görünür).
+  bodyBand(mesh, W, H, rMin, rMax) {
+    const q = this._bq || (this._bq = new THREE.Quaternion()), v = this._bv || (this._bv = new THREE.Vector3());
+    if (this.noBand) { mesh.geometry.setDrawRange(0, Infinity); return; }                         // karşılaştırma (sayfa içi A/B denetimi)
+    q.copy(mesh.quaternion).invert(); v.copy(mesh.position).negate().applyQuaternion(q);
+    const [st, n] = bandRange([v.x, v.y, v.z], rMin, rMax, W, H); mesh.geometry.setDrawRange(st, n);
+  }
   earthLodUpdate() {
     const err = this.earthLodErr(), lod = err <= (this.earthLod === 1 ? EARTH_LOD_OUT : EARTH_LOD_IN) ? 1 : 0;          // NaN → 0
     if (lod !== this.earthLod) { this.earthLod = lod; this.earth.geometry = this.earthGeo[lod]; }
@@ -486,7 +496,9 @@ export class World {
     // Dünya ve Ay
     rel([0, 0, 0], this.earth.position); this.earth.quaternion.copy(m3ToQuat(E.mT(Mitrf)));
     this.atm.position.copy(this.earth.position); this.earthLodUpdate();
+    if (this.earthLod === 0) this.bodyBand(this.earth, 1024, 512, E.R_E - 0.07, E.R_E);                 // ince ağ: yalnız ufkun berisindeki satırlar
     rel(rm, this.moon.position); this.moon.quaternion.copy(m3ToQuat(E.mT(Mme)));
+    this.bodyBand(this.moon, 1024, 512, E.R_M - 10.1, E.R_M + 11.05);                                  // LOLA kabartması −10…+11 km (+ kiriş hatası)
     if (this.texUp && !this.texUp.moon && this.moon.position.length() < 40 * E.R_M) this.upgradeTextures('moon');          // Ay'a yaklaşıldı (~70.000 km): tam çözünürlük
     this.updateTiles();
     if (this.terrainReady) this.placeTerrain(rm, Mme, eye, rel);
