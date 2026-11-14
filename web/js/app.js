@@ -563,6 +563,9 @@ function applyPixelRatio(r) {
   world.setPixelRatio(r);
   const k = r / world.prMax; if (S.sats) S.sats.setPixelScale(k); if (S.asts) S.asts.setPixelScale(k);
 }
+// ?olcum=1: cihazda başarım okuması (perfhud.js; yalnız bu parametreyle yüklenir)
+let perfHud = null;
+if (new URLSearchParams(location.search).get('olcum') === '1') import('./perfhud.js').then((m) => { perfHud = new m.PerfHud(world); }).catch(() => {});
 function frame(now) {
   const dtMs = now - lastFrame, dt = Math.min(0.1, dtMs / 1000); lastFrame = now;
   if (govOn && !cinema.on && !S.designing && !document.hidden) { const r = gov.tick(dtMs, now, !!world.tilesBusy); if (r) applyPixelRatio(r); }
@@ -582,6 +585,7 @@ function frame(now) {
     if (now - lastAy > 500) ayRefresh();                          // Ay görevi adım özetleri: saniyede 2 kez yeter (değişmeyen metin yeniden yazılmaz)
   }
   if (!S.designing) world.render();                               // tasarım sırasında katman her şeyi örtüyor: işlemci tasarıma kalsın
+  if (perfHud) perfHud.frame(now, dtMs);
   requestAnimationFrame(frame);
 }
 // Canlı Gökyüzü karesi (efemeris kurulu iken)
