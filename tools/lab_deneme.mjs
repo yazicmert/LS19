@@ -335,7 +335,7 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
 // ================================================================= Laboratuvar › Lagrange noktaları: dört adım, dönen çerçeve çizimi, bağlantı
 {
   const { ctx, page, errors } = await open({ viewport: { width: 1280, height: 800 } }, '?sats=0&ast=0&mode=lab');
-  const ink = (sel) => page.evaluate((s) => { const c = document.querySelector(s), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; }, sel);
+  const ink = (sel) => page.evaluate((s) => new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(() => res())))).then(() => page.evaluate((s) => { const c = document.querySelector(s), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; }, sel));
   await page.click('#lab-home [data-exp=lagrange]');
   await page.waitForFunction(() => document.querySelectorAll('#lgPts tbody tr').length === 5, null, { timeout: 60000 });
   const l1 = await page.evaluate(() => ({ exp: document.body.dataset.exp, engine: window.LS19.mode, title: document.querySelector('#labTitle').textContent, rows: [...document.querySelectorAll('#lgPts tbody tr')].map((r) => r.textContent), sum: document.querySelector('#lgSum1').textContent, sky: getComputedStyle(document.querySelector('#skyControls')).display !== 'none', dock: getComputedStyle(document.querySelector('#controls')).display === 'none' }));

@@ -924,6 +924,7 @@ const dict = {
   "ls19_ay_denemeleri.csv": "ls19_moon_runs.csv",
   "Kopyala": "Copy",
   "Kopyalandı": "Copied",
+  "açılıştan beri en uzun kare aralığı": "longest frame gap since load",
   "en uzun": "longest",
   "üçgen": "triangles",
   "çağrı": "calls",

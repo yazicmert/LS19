@@ -100,8 +100,44 @@ const frame = () => new Promise((res) => { let d = false; const go = () => { if 
 let r8 = null;
 // idle: yüklemeyi tarayıcının boşta olduğu ana bırak (en çok 2 sn bekler): tam çözünürlüğe yükseltme kullanıcı gezinirken kare kaçırtmasın
 const idleFrame = () => new Promise((res) => (typeof requestIdleCallback === 'function' ? requestIdleCallback(() => res(), { timeout: 2000 }) : setTimeout(res, 50)));
+// ?bant=1 (deneme, varsayılan kapalı): tam çözünürlüğe yükseltmede (idle yolu) sıkıştırılmış dokunun 0. seviyesi tek çağrı yerine ~2 MB'lık
+// satır bantlarıyla karelere yayılır. Ölçüm (yazılım çizimi, SwiftShader): 8192×4096 BC7'nin 32 MB'lık 0. seviyesi tek çağrıda ana iş parçacığını
+// 1,3–3,6 sn kilitliyordu. Gerçek GPU'da bu sürenin ne olduğu bilinmiyor: bayrak açık/kapalı karşılaştırması için (?olcum=1 en uzun kare aralığını gösterir).
+// three r170'te copyTextureToTexture sıkıştırılmış biçimi renk uzayı olmadan çevirir (sRGB dokularda yanlış biçim → GL hatası): bu yüzden yer
+// three ile ayrılır (source.dataReady = false: texStorage2D, veri yok), bantlar doğrudan GL ile yazılır. Bir şey eksik ya da GL hatası olursa
+// dokunun tamamı three'nin olağan yoluyla yüklenir.
+const BANDED = typeof location !== 'undefined' && new URLSearchParams(location.search).get('bant') === '1';
+const BAND_BYTES = 2 * 1024 * 1024;
+async function uploadBanded(renderer, t) {
+  const m0 = t.mipmaps && t.mipmaps[0];
+  if (!m0 || !m0.data || m0.width % 4 || m0.height % 4) return false;
+  const W = m0.width, rows = m0.height / 4, bytes = m0.data.byteLength;
+  if (bytes % rows) return false;                                               // 4×4 bloklu biçim değil (ör. PVRTC): bantlanamaz
+  const gl = renderer.getContext(), fmt = new THREE.WebGLUtils(gl, renderer.extensions).convert(t.format, t.colorSpace);
+  if (!fmt) return false;
+  const rowB = bytes / rows, per = Math.max(1, Math.floor(BAND_BYTES / rowB)), E = m0.data.BYTES_PER_ELEMENT;
+  t.source.dataReady = false;
+  try { renderer.initTexture(t); } catch (e) { t.source.dataReady = true; return false; }          // yer ayrılır (texStorage2D), veri yazılmaz
+  const tex = renderer.properties.get(t).__webglTexture;
+  if (!tex) { t.source.dataReady = true; t.needsUpdate = true; return false; }
+  const put = (level, y, w, h, data) => { renderer.state.bindTexture(gl.TEXTURE_2D, tex); gl.compressedTexSubImage2D(gl.TEXTURE_2D, level, 0, y, w, h, fmt, data); renderer.state.unbindTexture(); };
+  for (let r = 0; r < rows; r += per) {
+    const n = Math.min(per, rows - r);
+    put(0, r * 4, W, n * 4, m0.data.subarray(r * rowB / E, (r + n) * rowB / E));
+    await frame();                                                              // aralarda kare çizilir
+  }
+  for (let l = 1; l < t.mipmaps.length; l++) { const m = t.mipmaps[l]; put(l, 0, m.width, m.height, m.data); }      // küçük seviyeler tek seferde
+  const err = gl.getError();                                                   // tek eşzamanlı denetim, son banttan sonra (önceden kalmış bir hata da tek parça yüklemeye düşürür: güvenli yön)
+  t.source.dataReady = true;
+  if (err !== gl.NO_ERROR) { t.needsUpdate = true; console.warn('Bantlı doku yüklemesi başarısız (GL ' + err + '): doku tek parça yüklenecek'); return true; }
+  return true;
+}
 async function upload(renderer, t, idle = false) {
   await (idle ? idleFrame() : frame());
+  if (idle && BANDED && t.isCompressedTexture) {
+    let ok = false; try { ok = await uploadBanded(renderer, t); } catch (e) { t.source.dataReady = true; t.needsUpdate = true; ok = false; }
+    if (ok) { if (!t.needsUpdate || t.version === renderer.properties.get(t).__version) { if (t.userData.release) t.userData.release(); } return; }
+  }
   const gl = renderer.getContext(), drain = () => { for (let i = 0; i < 8 && gl.getError() !== gl.NO_ERROR; i++); };       // önceki hatalar bu yüklemeye yazılmasın
   if (t.format === THREE.RedFormat && r8 === false) { t.format = THREE.RGBAFormat; t.needsUpdate = true; }          // R8 bu tarayıcıda çalışmıyor: baştan RGBA
   const probe = t.format === THREE.RedFormat && r8 === null;

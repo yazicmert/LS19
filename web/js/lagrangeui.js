@@ -191,8 +191,17 @@ export class LagrangeUI {
     g.font = '11px system-ui, sans-serif'; return { g, w, h, dpr };
   }
   // kaydırıcı sürüklenirken olaylar kareden sık gelebilir: kare başına en çok bir çizim
-  drawSoon() { if (this.rafDraw) return; this.rafDraw = requestAnimationFrame(() => { this.rafDraw = 0; this.draw(); }); }
-  draw() {
+  // Bütün çizimler kare başında (rAF) yapılır: 2D tuval rAF dışında (iş parçacığı yanıtı, zamanlayıcı, tıklama görevi) çizilirse Chrome görevin sonunda
+  // tuval karesini kapatırken arkadaki WebGL sahnesinin GPU işini bekler (SharedContextRateLimiter). Yazılım çiziminde (SwiftShader) bu bekleme
+  // 40+ sn ölçüldü; gerçek GPU'da birkaç kare beklenir. Aynı karede birden çok istek tek çizime iner.
+  drawSoon(dist = false) {
+    if (dist) this.wantDist = true;
+    if (this.rafDraw) return;
+    this.rafDraw = requestAnimationFrame(() => { this.rafDraw = 0; this.drawNow(); if (this.wantDist) { this.wantDist = false; this.drawDistNow(); } });
+  }
+  draw() { this.drawSoon(); }
+  drawDist() { this.drawSoon(true); }
+  drawNow() {
     if (!this.shown || !this.P) return;
     const c = $('#lgMap'), P0 = this.prep(c); if (!P0) return;
     const { g, w, h } = P0, S = this.sys, mu = S.mu, step = this.st.step, haloMode = step === 4 && this.halo;
@@ -250,7 +259,7 @@ export class LagrangeUI {
     const scale = G.fmtKm(2 * half * S.L_km / Math.min(w, h - 16) * 80);
     g.fillText(t('Dönen çerçeve · {0}', haloMode ? { xy: t('üstten (x–y)'), xz: t('yandan (x–z)'), yz: t('önden (y–z)') }[proj] : t('üstten (x–y)')) + ` · 80 px ≈ ${scale}`, 6, 12);
   }
-  drawDist() {
+  drawDistNow() {
     const r = this.run; if (!this.shown || !r || this.st.step !== 3) return;
     const P0 = this.prep($('#lgDist')); if (!P0) return;
     const { g, w, h } = P0, pad = 34, T = r.tEnd || 1;
