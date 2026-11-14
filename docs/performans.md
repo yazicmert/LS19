@@ -335,6 +335,33 @@ Yani 2,6–3,0 sn, yazılım çiziminin GPU sürecinde biriktirdiği işti: ilk 
 
 **Gerçek olan parça: geç derlenen gölgelendirici.** Aynı pencerede program sayısı 18'den 19'a çıkıyordu (17'si açılış derlemesinde, 18. gölge derinlik programı) ve o karede derleme çağrıları sürüyordu (`shaderSource` 0,6–2,1 sn, `getProgramInfoLog` 0,7–1,4 sn; yazılım çiziminde). Yeni program Dünya gölgelendiricisinin (`VS_BODY`/`FS_EARTH`) saydam kopyasıydı. Bindirme katmanının (varsayılan Landsat WELD) parçası, ata parçası yokken solarken `transparent = true` olur (`tiles.js`); bu three'nin program anahtarındaki `opaque` bitini değiştirir. Bu kopya açılış derlemesinde yoktu, ilk bindirme parçası solarken çizim karesinde derleniyordu; bu gerçek cihazda da olur (büyük gövde gölgelendiricisi). Düzeltme: `TileLayer.warmMaterial()` her bindirme katmanının (WELD, HLS, Kaguya) saydam malzemesini verir, `World.precompile` bunları derleme boyunca sahneye koyar, sonra çıkarır. Malzemeler atılmaz (`warmMats`), program önbellekte kalır. Sonra açılışta 17 yerine 19 program derleniyor (Dünya ve Ay saydam kopyaları); sonrasında yalnız gölge derinlik programı ekleniyor (20), parçalar solarken derleme çağrısı yok. `lab_deneme.mjs` üç malzemenin programının bağlandığını denetler. Taklitteki 2,9–3,2 sn'lik uzun görevler düzeltmeden sonra da sürer: içlerinde yukarıdaki parça yükleme beklemeleri vardır (yazılım çizimine özgü).
 
-**Açıklanmayan:** hazırdan ~1–2 sn sonra 4,7–5,5 sn'lik bir kare boşluğu her koşuda (gökyüzü katmanları açık ya da kapalı, düzeltmeden önce ve sonra) var; içinde uzun görev yok, yani GPU tarafında. Bu tur değişmedi. **İlk gökyüzü açılışı (telefon taklidi, iki koşu):** `setWorkspace('sky')` çağrısı (`initSky` dahil) 194–210 ms; hemen ardından 2,4–2,6 sn'lik bir uzun görev ve bir yeni program (20 → 21). Uzun görev `initSky` çağrısının dışında, gökyüzü motorunun ilk karelerinde; katmanlar önceden kurulu olsa da büyük ölçüde ödenmesi beklenir, ama önceki düzenin ilk açılışı ölçülmedi. Ertelemenin ilk açılışa kesin eklediği: `initSky`'ın ~0,2 sn'si ve katalog indirme süresi.
+**O tur açıklanmayan:** hazırdan ~1–2 sn sonraki 4,7–5,5 sn'lik kare boşluğu; §16'da açıklandı ve düzeltildi. **İlk gökyüzü açılışı (telefon taklidi, iki koşu):** `setWorkspace('sky')` çağrısı (`initSky` dahil) 194–210 ms; hemen ardından 2,4–2,6 sn'lik bir uzun görev ve bir yeni program (20 → 21). Uzun görev `initSky` çağrısının dışında, gökyüzü motorunun ilk karelerinde; katmanlar önceden kurulu olsa da büyük ölçüde ödenmesi beklenir, ama önceki düzenin ilk açılışı ölçülmedi. Ertelemenin ilk açılışa kesin eklediği: `initSky`'ın ~0,2 sn'si ve katalog indirme süresi.
 
 **Kalan (bilinçli):** gölge haritasının derinlik programı ilk gölge karesinde derlenir (hazırdan ~0,5 sn sonra; `compileAsync` gölge malzemelerini kapsamaz). GIBS parça yüklemeleri kare başına sınırlı kalır (`MAX_PROMOTE`).
+
+## 16. Kasım 2026, dördüncü tur: hazırdan sonraki 4,7–5,5 sn'lik kare boşluğu
+
+§15'teki telefon taklidi; bu kez sayfaya **sonda yok** (profilci ve GL sarmalayıcı zamanlamayı kaydırıyordu), yalnız rAF aralıkları, uzun görevler ve her karede durum (çizim oranı, tampon, LOD, üçgen, çağrı, geometri/doku/program sayısı, kamera, CSS animasyonları) kaydedildi. Ölçüt: hazırdan sonraki en uzun kare aralığı; kol başına 5 koşu. Saniyeler yazılım çizimine (SwiftShader) ait; gerçek cihaz için `?olcum=1` okuması gerekir (§11.4).
+
+**Elemeler.** Boşluğun iki yanında çizim oranı, tampon boyutu ve CSS animasyonu sayısı aynı (uyarlanır çözünürlük ve CSS değil). WebGL çizimi durdurulunca boşluk kayboluyor (en uzun 0,2–0,3 sn): WebGL. GIBS parçaları kesilince de sürüyor (1,8–4,9 sn), ama parçalar açıkken ondan ayrı ikinci bir ana iş parçacığı uzun görevi çıkıyor. Yani iki ayrı neden:
+
+**A. Konumlanmamış ilk kare (gerçek, her cihazda).** Her çizimden sonra 1×1 `readPixels` ile kare GPU'da bitirilince maliyet tek kareye toplandı: yükleme örtüsü kalktıktan sonraki ilk kare, görev durumunun ilk iletisi gelmeden çiziliyordu. Sahne konumlanmamış olduğundan Dünya ve Ay ince ağları ufuk bandı ve LOD olmadan çiziliyordu: 66 çağrı, **2,25 M üçgen** (sonraki kareler 31 çağrı, 316 bin). Durum önce gelse bile ilk gerçek kare düzenli karenin ~3 katı sürüyor (gölgelendiricilerin ve dokuların ilk kullanımı). Düzeltme (`app.js`): görev motorunda ilk durum gelmeden `world.render` çağrılmaz; 'ready'de örtü hemen kalkmaz, ilk gerçek kare çizilip 1×1 okumayla GPU'da bitince kalkar (durum 1,5 sn içinde gelmezse beklemeden). Karolar kesik, 5 koşu medyanı:
+
+| | Önce | Sonra |
+|---|---|---|
+| İlk gerçek karenin bittiği an (açılıştan) | 9,96 sn | 6,64 sn |
+| Hazırdan sonraki en uzun boşluk | 4,7 sn | 1,3 sn (bir düzenli kare) |
+
+"Hazır" (örtünün kalkması) artık ilk karenin GPU işini de içerdiğinden daha geç; karşılaştırılabilir ölçüt ilk gerçek karenin bittiği andır.
+
+**B. Toplu parça açılışı (büyüklüğü taklide özgü).** Yavaş karede kare başına en çok 24 parça açılıyor (`dt / 6`); dokular çizim sırasında tembel yüklendiğinden her biri o karenin önceki çizimlerini bekleyerek arka arkaya diziliyordu (tek karede 13–20 parça). Düzeltme (`tiles.js`): bu karede istenen yaprakların dokusu açılırken `renderer.initTexture` ile hemen yüklenir; öne bakan ve ata parçalar çizilirlerse tembel yüklenir. Hepsini önceden yüklemek doku sayısını 52–53'ten 55–60'a çıkarıyordu (~4–9 MB GPU belleği); seçici yüklemede değişmedi. Denenip bırakılan: paylaşılan süre bütçesi (kare başına 10 ms). Kuyruk 9,5 sn'de boşalıyordu (iki kat yavaş), tepe önceden yüklemeden iyi değildi ve gerçek GPU'da nadiren devreye girerdi.
+
+GIBS açık, 5 koşu medyanı, pencere hazırdan sonraki 11 sn:
+
+| | En uzun boşluk | Toplam uzun görev | En uzun uzun görev | Parça kuyruğunun boşalması |
+|---|---|---|---|---|
+| Önceki kod | 5,16 sn | 5,0 sn | 4,4 sn | — |
+| A | 3,25 sn | 4,3 sn | 3,3 sn | 4,6 sn |
+| A + B | 1,97 sn | 2,4 sn | 1,5 sn | 3,8 sn |
+
+Bir koşu aykırı kaldı (4,3 sn). Kalan boşlukların içinde parça yüklemeleri var; §15’teki eşitleme deneyine göre bunlar yazılım çiziminde GPU birikimini bekliyor. Gerçek ekran kartında parça başına birkaç ms beklenir (cihazda doğrulanmadı).

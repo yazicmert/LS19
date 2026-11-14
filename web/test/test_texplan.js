@@ -130,6 +130,8 @@ function dims(file) {
     check('app.js: görev motorunda ilk durum gelmeden sahne çizilmez (konumlanmamış ~2,2 M üçgen); yükleme örtüsü ilk gerçek kare GPU\'da bitince kalkar, durum gelmezse 1,5 sn sonra', /const placed = S\.MODE === 'sky' \|\| ascent\.active \|\| !!S\.latest;/.test(app) && /if \(!S\.designing && placed\) world\.render\(\);/.test(app)
       && /revealAt = performance\.now\(\) \+ 1500/.test(app) && /function reveal\(drawn\)[^]*gl\.readPixels\(0, 0, 1, 1/.test(app) && !/world\.resetDynamic\(\);\n\s*\$\('#loading'\)\.style\.display = 'none';/.test(app));
   }
+  check('tiles: bu karede istenen yaprağın dokusu açılırken hemen yüklenir (initTexture); öne bakan/ata parçalar tembel kalır (bellek); katmanlara çizici verilir', /W\.clear\(\); for \(const n of leaves\) W\.add\(n\.key\);/.test(tiles) && /if \(R && D && D\.has\(e\.n\.key\)\) R\.initTexture\(e\.tex\)/.test(tiles)
+    && /L\.renderer = this\.renderer;/.test(fs.readFileSync(new URL('../js/surfaceview.js', import.meta.url), 'utf8')));
   check('tiles: parça bitmap\'i GPU yüklemesinden sonra (onUpdate) ve atılırken kapatılır', /t\.onUpdate = \(\) => \{ t\.onUpdate = null; bm\.close\(\); \}/.test(tiles) && (tiles.match(/closeBitmap\(/g) || []).length >= 3);
 }
 
