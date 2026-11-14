@@ -100,7 +100,7 @@ Arazi üretimi (263 bin köşe × 7 krater sınıfı, ~0,85 sn) saf sayısal kod
 | Dokuları sıkıştırılmış biçime (KTX2/Basis) çevirmek | GPU belleğini ¼–⅙ düşürür ama araç zinciri (kodlayıcı) ve lisans/yeniden üretim yükü ekler; R8 + düşük bellek katmanı bugünkü ihtiyacı karşılıyor |
 | Çekirdekleri worker'larla paylaşmak | §2: kazanç küçük, `SharedArrayBuffer` başlık ister |
 | "Tasarla"yı iş parçacığına taşımak | Telefon taklidinde (CPU ×4) Apollo × Apollo 15 13 sn (en uzun görev 5,3 sn), NRHO × Apollo 15 132 sn (129 sn uzun görev) ölçüldü; ama bekleme tam ekran yükleme katmanının altında (etkileşim yok, yalnız ilerleme çubuğu takılır) ve `app.js`'teki kayda göre bazı tarayıcılarda iş parçacıkları düşük öncelikle koşup birkaç kat yavaşlıyor (bu ortamda sınanamaz). Canlı sayfadaki tasarımlar (profil karşılaştırması) iş parçacığına taşındı: §13 |
-| Ay ve gezegen küreleri için LOD | Dünya küresi için yapıldı (§13); Ay kabartmalıdır (LOLA yer değiştirmesi köşe ister), gezegenler yalnız Güneş sistemi görünümünde: sonraki tur |
+| İniş yeri başına hazır tasarım dosyası (Apollo 11 dışındaki yerler) | Varsayılan tarihte Tasarla'yı 13–132 sn'den dosya yüklemesine indirirdi (5 yer × 6 profil ≈ 64 KB gzip; `web/test/make_designs.js`). Bu PR'a alınmadı: yalnız varsayılan tarihe yarar, 30 tasarımın 6'sı sonraki pencereye kayar (karşılaştırma kullanamaz), her fizik değişikliğinde yeniden üretilmesi gerekir. Sıradaki aday |
 | `SatInstancer` (14 bin uydu) kare başına döngüsü | Kod incelemesine göre tahminen ~1–2 ms ve yalnız Canlı Gökyüzü'nde (bu ortamda uydu verisi indirilemediği için ölçülemedi); seçim her karede yenilenmezse model "zıplar" |
 | `world.update` içindeki küçük nesne ayırmaları | Kare başına yığın artışı ölçümde ±10 KB (GC payı ~%1–4); okunabilirlik pahasına değmez |
 
@@ -294,4 +294,21 @@ Sınır: ölçüm yerel sunucuda, ağ gecikmesi ve bant genişliği taklit edilm
 **Cihazda okuma (`?olcum=1`):** sol altta kutu: son 5 sn'nin kare aralıkları (medyan, %95, en uzun, 50 ms'den uzun kare sayısı), açılıştan beri en uzun kare aralığı ve zamanı, son karenin üçgen ve çizim çağrısı sayısı, çizim oranı ve tampon boyutu, doku katmanı (KTX2/WebP, düşük bellek, Dünya haritası boyutu), uzun görevler (tarayıcı destekliyorsa; Safari'de yok), cihaz bilgisi; **Kopyala** JSON verir. Yalnız bu parametreyle tembel yüklenir.
 
 **Hâlâ gerçek cihaz isteyenler:** `?bant=1`'in gerçek GPU'daki etkisi; bulut (R8) yüklemesi; telefonda ısınma ve Safari bellek sınırı.
+
+## 14. Kasım 2026, ikinci tur: kayıpsız köşe azaltma ve canlı sayfa tasarımları
+
+Plan ve türetmeler advisor'dan; uygulama, ölçüm ve doğrulama burada. Sayılar **çizilen üçgen sayısıdır** (kare süresi değil: gerçek GPU yok); telefon taklit edildi (Pixel 7 profili, CPU ×4; iş parçacıklarına uygulanmaz). Her görüntü değişikliği sayfa içi A/B ile denetlendi: aynı durum, özellik açık ve kapalı, piksel farkı; sınır %0,1 piksel > 24/255.
+
+| Değişiklik | Önce → sonra (üçgen) | Görüntü |
+|---|---|---|
+| **Ufuk bandı** (`bodyband.js`): Dünya ve Ay ince ağında yalnız görülebilen enlem satırları çizilir (`setDrawRange`). Görülebilen bir noktaya giden doğru parçası rMin küresine giremez: kameranın altındaki noktaya açı ψ ≤ acos(rMin/d) + acos(rMin/rMax). Dünya [R⊕ − 0,07, R⊕] (kiriş), Ay LOLA −10…+11 km; kamera kabartma kabuğunun içindeyken de geçerli. `test_bodyband.js` kaba kuvvetle sınar | Park yörüngesi (araç) 1,19 M → 321 bin; LLO 1,12 M → 434 bin; iniş 1,64 M → 769 bin | Park (4 bakış), LLO, iniş, uzak, gökyüzü (ekvatordaki gözlemci dahil) piksel piksel aynı. Kalkışta Dünya küresi ekrana piksel düşürmüyor (yalnız-Dünya çizimi siyah): orada kanıt 58 km anındaki tam sahne A/B'si |
+| **Uzak Ay LOD'u**: kaba ağ (256×128) köşeleri ince ağın alt kümesi; hata ≤ kaba kiriş (0,26 km) + kaba hücre içindeki en büyük yükseklik farkı. Bu fark yükseklik haritalarından ölçüldü: 8,93 km (`tools/ay_lod.py`; sabit 9,5 km, araç altına düşerse hata verir). Dünya'yla aynı 0,2/0,3 piksel eşiği | Ay 45–90 bin km'den 1,13 M → 147 bin; SYSTEM 964 bin → 277 bin | Eşiğin hemen ötesinde en kötü %0,0028 (DPR 2'de %0,0008) |
+| **İniş arazisi yaması**: iniş yeri Ay'ın ufkunun ötesindeyken (aynı sınır + 0,06 rad köşe payı) yama ve küredeki delik kapatılır | LLO'da Ay kamerası 1,36 M → 831 bin | Altı LLO anı ve iniş piksel piksel aynı |
+| **Gezegen LOD'u**: 32/64/128/256 dilim, aynı ölçüt | Güneş sistemi 2,24 M → 211 bin; Satürn yakından 544 bin → 47 bin | Satürn (halka gölgesiyle) ve Jüpiter eşiklerin hemen ötesinde en kötü %0,021 |
+| **Canlı sayfadaki tasarımlar iş parçacığında** (`designwork.js`, `designjob.js`): profil karşılaştırması, günlük pencere ve pencere taraması. Sonuç ana iş parçacığıyla birebir aynı (Apollo ve NRHO × Apollo 15, JSON); yeni tasarım başlayınca açıkça iptal edilir | Telefon taklidinde karşılaştırma sırasında 90 sn'de 89 sn uzun görev (en uzun 5,3 sn) → 0; pencere taraması 36 sn → 0 | — |
+| **Gökyüzü verisi yükleme kuyruğu**: uydu ailesi ve modeli iş parçacığında (16.600 uyduda sonuç aynı); asteroit kataloğu NEO, ana kuşak ve epok için üç kez değil bir kez kurulur (son gelişten 800 ms sonra), `concat` ve doğrudan döngülerle | Telefon taklidinde uydu `loaded` işleyicisi 225 → 105 ms; asteroit kurulumu toplam 802 → 342 ms (sentetik büyütülmüş katalog) | İlk açılışta asteroitler en çok ~1 sn geç görünür |
+
+**Bilerek değiştirilmeyen:** "Tasarla" ana iş parçacığında kalır (§8). Telefon taklidinde Apollo × Apollo 15 13 sn (en uzun görev 5,3 sn), NRHO × Apollo 15 132 sn ölçüldü; bekleme tam ekran yükleme katmanının altında ve bazı tarayıcılarda iş parçacıkları yavaş (bu ortamda sınanamaz). İş parçacığına taşınan karşılaştırma ve taramalar sayfayı dondurmuyor ama tasarımlar aynı sürer; yavaş iş parçacıklı tarayıcılarda daha uzun sürebilirler.
+
+**Açık kalanlar:** iniş yeri başına hazır tasarım dosyası (§8); gökyüzü katmanlarını ilk açılışa ertelemek (kullanıcı kararı); telefonda bir kez görülen 2,6–3,0 sn'lik doku yüklemesi (açıklanamadı).
 
