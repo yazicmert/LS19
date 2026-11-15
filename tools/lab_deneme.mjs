@@ -398,6 +398,35 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   check('konsol hatası yok (Lagrange bağlantısı)', errors.length === 0, errors.slice(0, 3).join(' | '));
   await ctx.close();
 }
+// ================================================================= Canlı Gökyüzü: zaman düğmesi yok, kamera sağ altta yuvarlak düğme
+{
+  const { ctx, page, errors } = await open({ viewport: { width: 1280, height: 800 } }, '?sats=0&ast=0&mode=sky');
+  await page.waitForFunction(() => window.LS19.mode === 'sky' && window.LS19.skyui, null, { timeout: 60000 });
+  check('Canlı Gökyüzü: zaman düğmeleri yok (Şimdi, Duraklat, Hız, zamanda atlama); kamera düğmesi sağ altta, o anki görünümün simgesiyle', await page.evaluate(() => {
+    const d = document.querySelector('#skyControls'), r = d.getBoundingClientRect(), btn = d.querySelector('.camdial-btn');
+    return !document.querySelector('#skyNow, #skyPause, [data-rate], #skyBack, #skyFwd') && d.classList.contains('camdial') && r.right > innerWidth - 40 && r.bottom > innerHeight - 40 && btn.dataset.ic === 'globe' && /Dünya/.test(btn.textContent); }));
+  await page.click('#skyControls .camdial-btn'); await page.click('#skyControls [data-skycam=MOON]'); await page.waitForTimeout(500);
+  check('kamera menüsünden Ay: görünüm değişir, düğmenin simgesi ve adı Ay olur, menü kapanır', await page.evaluate(() => { const btn = document.querySelector('#skyControls .camdial-btn');
+    return window.LS19.world.cam.mode === 'MOON' && btn.dataset.ic === 'moon' && /Ay/.test(btn.textContent) && document.querySelector('#skyControls .tm-pop').hidden; }));
+  await page.keyboard.press('5'); await page.waitForTimeout(300);
+  const k5 = await page.evaluate(() => window.LS19.world.cam.mode === 'SOLAR' && document.querySelector('#skyControls .camdial-btn').dataset.ic === 'sun');
+  for (const k of [' ', 'n', '.', '.', ',']) await page.keyboard.press(k === ' ' ? 'Space' : k);
+  check('klavye: 5 Güneş sistemi; Boşluk, N, virgül ve nokta saati gerçek zamandan çıkarmaz', k5 && await page.evaluate(() => window.LS19.clock.isLive() && window.LS19.clock.rate === 1 && !window.LS19.clock.paused));
+  check('konsol hatası yok (gökyüzü kamerası)', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await ctx.close();
+}
+{
+  const { ctx, page, errors } = await open({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, '?sats=0&ast=0&mode=sky');
+  await page.waitForFunction(() => window.LS19.mode === 'sky' && window.LS19.skyui, null, { timeout: 60000 });
+  const before = await page.evaluate(() => document.querySelector('#skyPanel').classList.contains('open'));
+  await page.click('#btnSkyPanel');
+  const after = await page.evaluate(() => document.querySelector('#skyPanel').classList.contains('open'));
+  check('telefon: kamera ve panel düğmeleri sağ altta yan yana; panel düğmesi Canlı Gökyüzü panelini açıp kapatır', before !== after && await page.evaluate(() => { const a = document.querySelector('#skyControls .camdial-btn').getBoundingClientRect(), b = document.querySelector('#btnSkyPanel').getBoundingClientRect();
+    return Math.abs(a.top - b.top) < 4 && b.right <= innerWidth && a.right < b.left && document.documentElement.scrollWidth <= innerWidth; }));
+  await shot(page, 'm-gok-kamera');
+  check('konsol hatası yok (telefon gökyüzü kamerası)', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await ctx.close();
+}
 // ================================================================= Laboratuvar › Çarpma riski (eskiden Canlı Gökyüzü sekmesi + Laboratuvar kısayolu)
 {
   const { ctx, page, errors } = await open({ viewport: { width: 1280, height: 800 } }, '?sats=0&mode=lab');

@@ -49,7 +49,7 @@ engineFor(view, exp, cur)   // 'sky' → 'sky'; Laboratuvar'da deneyin motoru; a
 | `#skyHud`, `#skyPanel` | `sky` | Canlı Gökyüzü |
 | `#labPanel` | `lab` | Laboratuvar'ın her sayfası |
 | `#hud`, `#manual`, `#controls` (görev çubuğu) | `lab@mission` | Ay görevi (ve ondan dönülen ana sayfa) |
-| `#skyControls` (zaman/kamera) | `sky lab@sky` | Canlı Gökyüzü, saptırma (ve ondan dönülen ana sayfa) |
+| `#skyControls` (kamera düğmesi; zaman denetimi yok, Canlı Gökyüzü hep gerçek zaman) | `sky lab@sky` | Canlı Gökyüzü ve gökyüzü motorundaki deneyler (saptırma, çarpma riski, Lagrange; ve onlardan dönülen ana sayfa) |
 
 - **Tek panel**: Ay görevi (eski `#panel`) Laboratuvar panelinin `#lab-ay` sayfasıdır (`.labpage.labtabs`: adım çubuğu sabit, sayfalar kendi içinde kayar). Başlık, geri düğmesi ve telefon davranışı her deneyde aynıdır. `ui.setTab` sekmeyi kendi grubunda değiştirir (sekme sayfasının ebeveyni: `#skyPanel`, `#lab-ay` ya da iç içe `#tab-ucus`); iç sayfa açılınca onu taşıyan adım da açılır. `ui.tab` görünen **yaprak** sayfadır (kare başına güncellenen Kontrol, Yörünge, Efemeris, Grafik buna bakar), saptırma adımlarıyla karışmaz.
 

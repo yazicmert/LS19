@@ -680,11 +680,8 @@ window.addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   if (k === 'escape') { if (e.defaultPrevented) return; if (!$('#pick').hidden) ui.hidePick(); else if (S.VIEW === 'lab' && labui.page !== LAB_HOME) labui.show(LAB_HOME); return; }       // Esc: önce bilgi kartı, sonra deneyden Laboratuvar ana sayfasına
   if (k === 'm') { setWorkspace(S.VIEW === 'sky' ? 'lab' : 'sky'); return; }                        // M: Canlı Gökyüzü ↔ Laboratuvar
-  if (S.MODE === 'sky') {                                          // Canlı Gökyüzü: zaman ve kamera
-    if (k === ' ') { e.preventDefault(); clock.pause(!clock.paused); S.skyui.syncClock(); }
-    else if (k === 'n') { clock.live(); S.skyui.syncClock(); }
-    else if (k === '.' || k === ',') { const R = [1, 10, 60, 600, 3600], i = R.indexOf(clock.rate); clock.setRate(R[Math.max(0, Math.min(R.length - 1, (i < 0 ? 0 : i) + (k === '.' ? 1 : -1)))]); S.skyui.syncClock(); }
-    else if (/^[1-5]$/.test(k)) setSkyCam(['EARTH', 'OBS', 'SYSTEM', 'MOON', 'SOLAR'][+k - 1]);
+  if (S.MODE === 'sky') {                                          // Canlı Gökyüzü: yalnız kamera (zaman hep gerçek; Boşluk/N/virgül/nokta saati değiştirmez)
+    if (/^[1-5]$/.test(k)) setSkyCam(['EARTH', 'OBS', 'SYSTEM', 'MOON', 'SOLAR'][+k - 1]);
     return;
   }
   if (k === ' ') { e.preventDefault(); setPlay(!S.running); }

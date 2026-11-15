@@ -130,6 +130,19 @@ body[data-mode="lab"][data-engine="sky"] [data-for]:not([data-for~="lab"]):not([
 
 #controls, #skyControls { position: absolute; left: 50%; transform: translateX(-50%); bottom: 14px; width: max-content; max-width: calc(100% - 28px); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 7px 8px; z-index: 5;
   background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+/* Canlı Gökyüzü kamerası: alt çubuk yerine sağ altta yuvarlak düğme. Ortada o anki görünümün simgesi, köşede küçük kamera rozeti, solunda görünümün adı;
+   görünümler yukarı açılır (klavye 1–5). Canlı Gökyüzü hep gerçek zamanda akar: zaman düğmesi yok. Telefonda panel düğmesi de aynı biçimde yanında. */
+#skyControls.camdial { left: auto; right: 14px; bottom: 14px; transform: none; width: auto; max-width: none; padding: 0; gap: 10px; flex-wrap: nowrap; justify-content: flex-end;
+  background: none; border: 0; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.camdial .camdial-btn, .camdial #btnSkyPanel { position: relative; width: 52px; height: 52px; padding: 0; justify-content: center; border-radius: 50%; background: var(--card); border: 1px solid var(--line);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 6px 22px rgba(0, 0, 0, .45); transition: transform .15s var(--ease), border-color .15s var(--ease); }
+.camdial .camdial-btn:hover, .camdial #btnSkyPanel:hover { transform: translateY(-1px); border-color: var(--accent-2); }
+.camdial .camdial-btn svg.camdial-ic { width: 24px; height: 24px; color: var(--accent-2); }
+.camdial .camdial-btn svg.camdial-badge { position: absolute; right: -4px; bottom: -4px; width: 21px; height: 21px; padding: 4px; border-radius: 50%; background: var(--accent); color: #fff; box-shadow: 0 0 0 2px var(--bg); }
+.camdial .camdial-btn.focus svg.camdial-badge { display: none; }                  /* uydu/asteroit odağında ana simge zaten kamera */
+.camdial .camdial-btn .tm-val { position: absolute; right: calc(100% + 10px); top: 50%; transform: translateY(-50%); padding: 4px 10px; border-radius: 999px; pointer-events: none;
+  background: rgba(12, 15, 21, .85); border: 1px solid var(--line); font-size: 12px; color: var(--text-secondary); }
+.camdial .tm-pop { bottom: calc(100% + 12px); }
 .grp { display: flex; align-items: center; gap: 6px; }
 .warp { min-width: 64px; text-align: center; font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 500; }
 .chk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); }
@@ -538,6 +551,8 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
   .tk-icbtn { width: 40px; height: 40px; } .tk-x { width: 36px; height: 36px; } .tk-seg button { padding: 7px 12px; } .tk-prow { padding: 11px 8px; }      /* dokunma hedefleri */
   .launches { margin: 6px 0 0; padding-top: 5px; } .launches .lc-row ~ .lc-row { display: none; }          /* telefonda yalnız sıradaki fırlatma */
   #controls, #skyControls { left: 8px; right: 8px; transform: none; width: auto; max-width: none; bottom: 8px; gap: 6px; padding: 6px; justify-content: space-between; flex-wrap: nowrap; }
+  #skyControls.camdial { left: auto; right: 10px; bottom: 10px; padding: 0; gap: 10px; justify-content: flex-end; }
+  .camdial .tm-pop { bottom: 74px; }                                              /* telefonda menü sabit konumlu: kadranın hemen üstünde */
   .dock > button:not(.icon) span, .tm-btn .tm-k { display: none; }
   .tm-btn { padding: 7px 8px; gap: 5px; } .tm-btn .tm-val { font-size: 12.5px; } .tm-btn .chev { display: none; }
   .tm-val[data-from] { display: none; } .tm.warn .tm-btn { border-color: rgba(251, 191, 36, .6); color: var(--warn); }
