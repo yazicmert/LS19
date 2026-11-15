@@ -1,7 +1,7 @@
 // Kamera düzeni (scene.js'ten ayrıldı; World'e karıştırılır): kamera kiplerinin pozları (Dünya, Ay, sistem, odak, gözlemci, Güneş, iniş yeri, araç;
 // kalkış yayını ascentview.js'te), yakın kipler arası yumuşak geçiş, sinematik görüş açısı, görev evresine göre otomatik kamera, yedek yönelim.
 import * as E from './engine.js';
-import { siteIcrf } from './mission.js';
+import { VIEW } from './moonsite.js';
 import { m3ToQuat, bodyMatrix } from './scenegeom.js';
 import { add, sub, scale, dot, cross, norm, unit } from './vec3.js';
 
@@ -47,7 +47,7 @@ export class CameraRig {
       return { eye: add(sun, scale(fromBasis([xx, y, ecl], sph(c.az, c.el)), c.dist)), target: sun, up: ecl };
     }
     if (c.mode === 'SITE') {
-      const s = add(rm, siteIcrf(t)), up = unit(siteIcrf(t));
+      const s = add(rm, VIEW.site.icrf(t)), up = unit(VIEW.site.icrf(t));
       const ax = info.drAxis || unit(cross([0, 0, 1], up)), xx = unit(sub(ax, scale(up, dot(ax, up)))), y = cross(up, xx);
       // yer gözlemcisi Güneş tarafında (~180 m); araç kadrajın üstünde, ufuk altında kalacak şekilde
       const obs = add(s, fromBasis([xx, y, up], [-0.125, -0.13, 0.002]));
@@ -127,7 +127,7 @@ export class CameraRig {
   // yönelimi olmayan fizik sürücüsü için (uyumluluk kipi): itki yönü / ileri yön / inişte yerel dikey, anlık; fizikten gelen x.q varken kullanılmaz
   fallbackAttitude(x, central, rm, t) {
     let zDir;
-    if (x.phase === 'INDI' || x.phase === 'SON_INIS' || x.phase === 'YAKLASMA') zDir = unit(siteIcrf(t));
+    if (x.phase === 'INDI' || x.phase === 'SON_INIS' || x.phase === 'YAKLASMA') zDir = unit(VIEW.site.icrf(t));
     else if (x.thr > 0 && x.u && norm(x.u) > 0) zDir = x.u;
     else zDir = unit(central === 'M' ? sub(x.v, E.moonVel(t)) : x.v);
     return m3ToQuat(bodyMatrix(zDir, central === 'M' ? unit(sub(x.r, rm)) : unit(x.r)));

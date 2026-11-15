@@ -1,6 +1,6 @@
 // Laboratuvar çalışma alanı: deney merkezi (ağaç), deney kaydı ve deneyler arası gezinme. Deneylerin kendisi ayrı modüllerdedir
-// (Ay görevi: ui.js + fizik worker'ı; asteroit saptırma: deflectui.js).
-//   LS19 › Canlı Gökyüzü · Laboratuvar › { Ay görevi · Asteroit saptırma · Çarpma riski (Canlı Gökyüzü'ne kısayol) }
+// (Ay görevi: ui.js + fizik worker'ı; asteroit saptırma: deflectui.js; çarpma riski: impactui.js; Lagrange noktaları: lagrangeui.js).
+//   LS19 › Canlı Gökyüzü · Laboratuvar › { Ay görevi · Asteroit saptırma · Çarpma riski · Lagrange noktaları }
 import { $ } from './uiutil.js';
 
 // Deney kaydı: her deney hangi MOTORU kullandığını kendisi bildirir. app.js görünüm → motor eşlemesini buradan yapar:
@@ -10,6 +10,8 @@ import { $ } from './uiutil.js';
 export const EXPERIMENTS = {
   ay: { title: 'Ay görevi', engine: 'mission', phoneOpen: false },
   saptirma: { title: 'Asteroit saptırma', engine: 'sky', phoneOpen: true },
+  carpma: { title: 'Çarpma riski', engine: 'sky', phoneOpen: true },                // eskiden Canlı Gökyüzü'nde "Çarpma" sekmesiydi
+  lagrange: { title: 'Lagrange noktaları', engine: 'sky', phoneOpen: true },
 };
 export const LAB_HOME = 'home';
 export const LAB_PAGES = { [LAB_HOME]: 'Laboratuvar', ...Object.fromEntries(Object.entries(EXPERIMENTS).map(([k, v]) => [k, v.title])) };
@@ -23,7 +25,7 @@ export function engineFor(view, exp, cur) {
 //   mode: ?mode= ya da localStorage değeri; exp: ?exp=; tab: ?tab= (eski bağlantılar); tabOwner(tab) → 'mission' | 'sky' | null
 export function resolveView({ mode, exp, tab, tabOwner }) {
   const own = tab ? tabOwner(tab) : null;
-  if (tab === 'saptirma') return { view: 'lab', exp: 'saptirma' };
+  if (tab === 'saptirma' || tab === 'carpma') return { view: 'lab', exp: tab };   // eski sekme bağlantıları: bu deneyler artık Laboratuvar'da
   if (own === 'mission') return { view: 'lab', exp: 'ay', tab };
   if (own === 'sky') return { view: 'sky', exp: null, tab };
   if (mode === 'mission') return { view: 'lab', exp: 'ay' };
@@ -33,14 +35,13 @@ export function resolveView({ mode, exp, tab, tabOwner }) {
 }
 
 export class LabUI {
-  // openImpact: Canlı Gökyüzü ▸ Çarpma sekmesine gider (app.js). onShow(name): sayfa değişince (app.js motoru ve adresi eşler)
-  constructor({ openImpact, initial = LAB_HOME }) {
+  // onShow(name): sayfa değişince (app.js motoru ve adresi eşler)
+  constructor({ initial = LAB_HOME } = {}) {
     this.page = LAB_HOME; this.onShow = null;
     const panel = $('#labPanel');
     panel.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-exp], [data-go]'); if (!b || !panel.contains(b)) return;
-      if (b.dataset.exp) this.show(b.dataset.exp);
-      else if (b.dataset.go === 'impact') openImpact();
+      const b = e.target.closest('[data-exp]'); if (!b || !panel.contains(b)) return;
+      this.show(b.dataset.exp);
     });
     // formlarda yazarken ve düğmelerde Boşluk/Enter'da genel kısayollar (duraklat, kamera…) çalışmasın
     panel.addEventListener('keydown', (e) => {

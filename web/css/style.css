@@ -130,6 +130,19 @@ body[data-mode="lab"][data-engine="sky"] [data-for]:not([data-for~="lab"]):not([
 
 #controls, #skyControls { position: absolute; left: 50%; transform: translateX(-50%); bottom: 14px; width: max-content; max-width: calc(100% - 28px); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 7px 8px; z-index: 5;
   background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+/* Canlı Gökyüzü kamerası: alt çubuk yerine sağ altta yuvarlak düğme. Ortada o anki görünümün simgesi, köşede küçük kamera rozeti, solunda görünümün adı;
+   görünümler yukarı açılır (klavye 1–5). Canlı Gökyüzü hep gerçek zamanda akar: zaman düğmesi yok. Telefonda panel düğmesi de aynı biçimde yanında. */
+#skyControls.camdial { left: auto; right: 14px; bottom: 14px; transform: none; width: auto; max-width: none; padding: 0; gap: 10px; flex-wrap: nowrap; justify-content: flex-end;
+  background: none; border: 0; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.camdial .camdial-btn, .camdial #btnSkyPanel { position: relative; width: 52px; height: 52px; padding: 0; justify-content: center; border-radius: 50%; background: var(--card); border: 1px solid var(--line);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 6px 22px rgba(0, 0, 0, .45); transition: transform .15s var(--ease), border-color .15s var(--ease); }
+.camdial .camdial-btn:hover, .camdial #btnSkyPanel:hover { transform: translateY(-1px); border-color: var(--accent-2); }
+.camdial .camdial-btn svg.camdial-ic { width: 24px; height: 24px; color: var(--accent-2); }
+.camdial .camdial-btn svg.camdial-badge { position: absolute; right: -4px; bottom: -4px; width: 21px; height: 21px; padding: 4px; border-radius: 50%; background: var(--accent); color: #fff; box-shadow: 0 0 0 2px var(--bg); }
+.camdial .camdial-btn.focus svg.camdial-badge { display: none; }                  /* uydu/asteroit odağında ana simge zaten kamera */
+.camdial .camdial-btn .tm-val { position: absolute; right: calc(100% + 10px); top: 50%; transform: translateY(-50%); padding: 4px 10px; border-radius: 999px; pointer-events: none;
+  background: rgba(12, 15, 21, .85); border: 1px solid var(--line); font-size: 12px; color: var(--text-secondary); }
+.camdial .tm-pop { bottom: calc(100% + 12px); }
 .grp { display: flex; align-items: center; gap: 6px; }
 .warp { min-width: 64px; text-align: center; font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 500; }
 .chk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); }
@@ -248,8 +261,12 @@ input[type=search] { flex: 1; font: inherit; font-size: 13px; color: var(--text-
 
 
 @media (max-width: 1100px) {
-  body[data-engine="mission"] #labPanel { width: 300px; }
   #hud { width: 280px; }
+}
+/* tablet: görev motorunda panel daralır (uçuş görünümüne yer). Telefonda (≤ 760 px) panel tam genişlik açılır: bu kural oraya sızmasın
+   (özgüllüğü #labPanel.open'dan yüksek; eskiden telefonda Laboratuvar paneli 300 px kalıyor, arkadaki uçuş göstergesi sağda görünüyordu). */
+@media (min-width: 761px) and (max-width: 1100px) {
+  body[data-engine="mission"] #labPanel { width: 300px; }
 }
 @media (max-width: 760px) {
   #btnPanel { display: inline-block; }
@@ -534,6 +551,8 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
   .tk-icbtn { width: 40px; height: 40px; } .tk-x { width: 36px; height: 36px; } .tk-seg button { padding: 7px 12px; } .tk-prow { padding: 11px 8px; }      /* dokunma hedefleri */
   .launches { margin: 6px 0 0; padding-top: 5px; } .launches .lc-row ~ .lc-row { display: none; }          /* telefonda yalnız sıradaki fırlatma */
   #controls, #skyControls { left: 8px; right: 8px; transform: none; width: auto; max-width: none; bottom: 8px; gap: 6px; padding: 6px; justify-content: space-between; flex-wrap: nowrap; }
+  #skyControls.camdial { left: auto; right: 10px; bottom: 10px; padding: 0; gap: 10px; justify-content: flex-end; }
+  .camdial .tm-pop { bottom: 74px; }                                              /* telefonda menü sabit konumlu: kadranın hemen üstünde */
   .dock > button:not(.icon) span, .tm-btn .tm-k { display: none; }
   .tm-btn { padding: 7px 8px; gap: 5px; } .tm-btn .tm-val { font-size: 12.5px; } .tm-btn .chev { display: none; }
   .tm-val[data-from] { display: none; } .tm.warn .tm-btn { border-color: rgba(251, 191, 36, .6); color: var(--warn); }
@@ -569,8 +588,8 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
 .cp-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 6px 0; }
 .cp-filters label { display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; color: var(--text-muted); min-width: 0; }
 .cp-filters select { width: 100%; min-width: 0; }
-#tab-carpma input[type=search] { width: 100%; box-sizing: border-box; }
-#tab-carpma .tbl td.k { color: var(--text-muted); width: 42%; vertical-align: top; }
+#lab-carpma input[type=search] { width: 100%; box-sizing: border-box; }
+#lab-carpma .tbl td.k { color: var(--text-muted); width: 42%; vertical-align: top; }
 .cp-filters .wide { grid-column: 1 / -1; }
 
 /* kuvvet dökümü (Yörünge sekmesi) */
@@ -688,6 +707,14 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
 .step.open .sb { display: block; animation: stepIn .18s var(--ease) both; }
 @keyframes stepIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 .stepsub { margin: 2px 0 6px; font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); }
+.dfhist { margin-top: 12px; }
+.tbl td.bad { color: var(--bad); font-weight: 650; }
+.unc { margin-top: 8px; padding: 8px 12px; border-radius: 10px; border: 1px dashed var(--line-2); }
+.unc .ut { font-weight: 650; } .unc .ud { margin-top: 3px; font-size: 12px; line-height: 1.45; color: var(--text-secondary); }
+.unc.good .ut { color: var(--good); } .unc.bad .ut { color: var(--bad); } .unc.warn .ut { color: var(--warn, #f5b041); } .unc.info .ut { color: var(--accent-2); }
+.tbl.hist .hrow { cursor: pointer; }
+.tbl.hist .hrow:hover, .tbl.hist .hrow:focus-visible { background: var(--surface-1); outline: none; }
+.tbl.hist .hrow.good .res { color: var(--good); } .tbl.hist .hrow.bad .res { color: var(--bad); } .tbl.hist .hrow.info .res { color: var(--accent-2); }
 .stepnav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .stepnav .primary { flex: 1 1 auto; }
 .hint { margin-top: 4px; padding: 6px 8px; border-radius: 8px; background: rgba(245, 185, 58, .08); border: 1px solid rgba(245, 185, 58, .35); color: var(--warn); font-size: 12px; line-height: 1.45; }
@@ -709,6 +736,7 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
 .labempty p { margin: 0 0 4px; }
 
 .mseg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 6px 0; }
+.mseg > .mcard:last-child:nth-child(odd) { grid-column: 1 / -1; }          /* tek sayıda seçenek: sonuncusu tam genişlik */
 .mcard { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; background: var(--surface-1); border: 1px solid var(--line-2); cursor: pointer; transition: border-color .15s var(--ease), background-color .15s var(--ease); }
 .mcard.on { border-color: var(--accent); background: rgba(59, 130, 246, .14); }
 .mcard input { margin: 2px 0 0; accent-color: var(--accent); flex: none; }
@@ -893,3 +921,10 @@ body.launch-cine .asccredit { position: fixed; left: 12px; bottom: 8px; max-widt
 body.launch-cine .asctele { background: linear-gradient(180deg, rgba(6, 8, 14, .58), rgba(6, 8, 14, .44)); }
 @media (max-width: 760px) { body.launch-cine .asccredit { left: 8px; right: 8px; max-width: none; text-align: center; } body.launch-cine .ascbar { top: 8px; } }
 @media (prefers-reduced-motion: reduce) { .asctele .at-flash, body.launch-cine .ascbtns { transition: none; } }
+
+/* Laboratuvar › Lagrange noktaları */
+.chart.lgmap { height: 260px; position: sticky; top: 0; z-index: 2; margin-top: 6px; box-shadow: 0 6px 12px -6px rgba(0, 0, 0, .6); }
+@media (max-width: 760px) { .chart.lgmap { height: 210px; } }
+#lab-lagrange .frow3 input { width: 100%; min-width: 0; }
+#lgMu, #lgC, #lgAz { flex: 1; min-width: 0; }
+#lgView { margin-top: 6px; }

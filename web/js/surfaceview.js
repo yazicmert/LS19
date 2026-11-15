@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import * as E from './engine.js';
 import { TileLayer } from './tiles.js';
 import { VS_BODY, FS_EARTH, FS_MOON } from './bodyshaders.js';
-import { add, sub, norm, mtv } from './vec3.js';
+import { add, sub, norm, dot, mtv } from './vec3.js';
 import { t } from './i18n.js';
 import { groundCovers } from './launchcam.js';
 
@@ -37,10 +37,17 @@ export class SurfaceView {
       material: (tex, n) => new THREE.ShaderMaterial({ uniforms: { ...mu, tileMap: { value: tex }, useTile: { value: 1 }, tileAlpha: { value: 1 }, tilePull: { value: 0.0735 }, latCut: { value: Math.sin(58 * Math.PI / 180) }, radius: { value: E.R_M + 0.009 }, lodDelta: { value: Math.min(7, Math.max(0, Math.log2(baseTexel(E.R_M) / n.texelKm))) } },
         vertexShader: VS_BODY, fragmentShader: FS_MOON }) });
     this.moonTiles2.group.renderOrder = 2;
+    for (const L of [this.earthTiles, this.earthWeld, this.earthHls, this.moonTiles, this.moonTiles2]) L.renderer = this.renderer;      // promote: bu karede çizilecek parçanın dokusu açılırken hemen yüklenir (tiles.js)
   }
   // iniş arazisi yaması: yalnız yakınken çizilir; uzakta (yama ~0,25°'nin altında) hem yama hem Ay küresindeki delik kapatılır (yarım milyon üçgen ve delik gölgelendirme işi kalmaz)
+  // Ufuk ötesi: yama, kameradan bakışta Ay'ın ufkunun tamamen ötesindeyse görünemez (LLO'da yörüngenin çoğu): çizilmez. Görülebilen bir noktaya
+  // giden doğru parçası (R_ay − 10,1) küresine giremez → Ay merkezinden açı ≤ acos(rMin/d) + acos(rMin/rMax); yamanın köşeleri (~85 km) için
+  // 0,06 rad pay (köşeler 0,049 rad; bodyband.js ile aynı sınır).
   placeTerrain(rm, Mme, eye, rel) {
-    const sp = add(rm, mtv(Mme, this.terrainSite)), near = norm(sub(sp, eye)) < TERRAIN_FAR_KM;
+    const sp = add(rm, mtv(Mme, this.terrainSite)), ce = sub(eye, rm), sv = sub(sp, rm), dm = norm(ce), rMin = E.R_M - 10.1, rMax = E.R_M + 11.05;
+    const ang = Math.acos(Math.max(-1, Math.min(1, dot(ce, sv) / (dm * norm(sv)))));
+    const over = !this.noTerrainHorizon && dm > rMin && ang > Math.acos(Math.min(1, rMin / dm)) + Math.acos(rMin / rMax) + 0.06;
+    const near = norm(sub(sp, eye)) < TERRAIN_FAR_KM && !over;
     rel(sp, this.terrain.position); this.terrain.quaternion.copy(this.moon.quaternion);
     if (this.terrain.visible !== near) { this.terrain.visible = near; this.moonU.holeCos.value = near ? this.holeCos0 : 2.0; }
   }

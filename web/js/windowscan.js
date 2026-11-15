@@ -7,11 +7,19 @@ import { designMissionAsync } from './design.js';
 import { minIncl, LEGACY_SITE, dailyIncls } from './pads.js';
 import { launchWeather, pickLaunch } from './weather.js';
 import { S } from './appstate.js';
+import { DesignJob } from './designjob.js';
 
 export class WindowScanner {
   // deps: { ui, launch (LaunchUI), siteIncl, tOfUtcMs, missionEtWindow, dateStr }; çekirdekler, tasarım ve tasarım durumu ortak durumdan (appstate.js)
-  constructor(deps) { Object.assign(this, deps); this.scanning = false; this.cancelled = false; }
-  cancel() { this.cancelled = true; }
+  constructor(deps) { Object.assign(this, deps); this.scanning = false; this.cancelled = false; this.job = new DesignJob(); }
+  cancel() { this.cancelled = true; this.job.drop(); }
+  // tasarım iş parçacığında (designjob.js); kurulamazsa ana iş parçacığında (ana efemeris kaynağı kurulur, tarama sonunda geri yüklenir)
+  async design(tFrom, tStart, cfg, prog) {
+    const stop = () => this.cancelled || S.designing, K = S.K;
+    let D = this.noWorker ? undefined : await this.job.run({ tFrom, tStart, cfg, win: this.missionEtWindow(tStart, cfg) }, prog, stop);
+    if (D === undefined) { makeLive(K.spk, K.pck, K.eo, tStart); D = await designMissionAsync(tFrom, prog, stop, cfg); }
+    return D && !stop() ? D : null;
+  }
   // günlük fırlatma penceresi: aynı gün, menzilin izin verdiği park eğimleriyle (farklı azimut → farklı saat) fırsatlar; her birinin fırlatma anındaki hava;
   // önerilen: hava uygun olanlar arasında en az yakıt (weather.js pickLaunch)
   async day() {
@@ -27,9 +35,8 @@ export class WindowScanner {
       for (let k = 0; k < rows.length && !this.cancelled; k++) {
         const row = rows[k]; render(`${k + 1}/${rows.length}: eğim ${row.inc}° tasarlanıyor…`, true);
         try {
-          makeLive(K.spk, K.pck, K.eo, tStart);
           const cfg = JSON.parse(JSON.stringify(cfg0)); cfg.earth.inc = row.inc;
-          const D = await designMissionAsync(tFrom, () => {}, () => this.cancelled || S.designing, cfg);
+          const D = await this.design(tFrom, tStart, cfg, () => {});
           if (!D) break;
           row.D = D; row.busy = false;
           row.cost = (D.LANDER_NEED ?? D.STAGES.slice(1).reduce((q, x) => q + x.prop, 0)) + (D.TLI_NEED ?? D.STAGES[0].prop);
@@ -42,7 +49,7 @@ export class WindowScanner {
       for (const r of ok) { const prev = uniq[uniq.length - 1]; if (prev && Math.abs(prev.D.LAUNCH.t_launch - r.D.LAUNCH.t_launch) < 600) { if (r.cost < prev.cost) uniq[uniq.length - 1] = r; } else uniq.push(r); }
       rows.length = 0; rows.push(...uniq);
     } finally {
-      E.setProvider(prov0); this.scanning = false;
+      E.setProvider(prov0); this.scanning = false; this.job.drop();
       const p = pickLaunch(rows.map((r) => ({ t: r.D.LAUNCH.t_launch, cost: r.cost, wx: r.wx })));
       render(this.cancelled ? 'Durduruldu.' : rows.length ? `${rows.length} fırsat · ${p.index >= 0 ? 'önerilen ★: ' : ''}${p.why}` : 'Fırsat bulunamadı.', false);
     }
@@ -60,8 +67,7 @@ export class WindowScanner {
         try {
           const tStart = tFrom - 86400;
           await K.eph.ensure(...this.missionEtWindow(tStart));
-          makeLive(K.spk, K.pck, K.eo, tStart);
-          const D = await designMissionAsync(tFrom, (m) => this.launch.setScan(rows, `${k + 1}/${N}: ${m.slice(0, 50)}`, true), () => this.cancelled || S.designing, cfg);
+          const D = await this.design(tFrom, tStart, cfg, (m) => this.launch.setScan(rows, `${k + 1}/${N}: ${m.slice(0, 50)}`, true));
           if (!D) break;
           // yakıt: iniş aracının ve TLI'ın gerektirdiği (tasarım tabanları olmadan) — pencereler arasındaki gerçek fark
           const pay = D.LANDER_NEED ?? D.STAGES.slice(1).reduce((q, x) => q + x.prop, 0);
@@ -75,7 +81,7 @@ export class WindowScanner {
         } catch (err) { row.busy = false; row.err = String(err.message || err).slice(0, 90); break; }
       }
     } finally {
-      E.setProvider(prov0); this.scanning = false;
+      E.setProvider(prov0); this.scanning = false; this.job.drop();
       this.launch.setScan(rows, this.cancelled ? 'Tarama durduruldu.' : '', false);
     }
   }

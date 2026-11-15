@@ -5,7 +5,7 @@ import * as E from './engine.js';
 import { BODIES } from './ephem.js';
 import { etOf } from './live.js';
 import { PLANETS, planetQuaternion, loadPlanetTextures } from './planets.js';
-import { conicPoints, unit3, SUN_I } from './scenegeom.js';
+import { conicPoints, unit3, SUN_I, sphereGeometry } from './scenegeom.js';
 import * as CR from './cr3bp.js';
 import { K_EMB } from './camerarig.js';
 import { add, sub, scale, dot, norm, unit } from './vec3.js';
@@ -123,6 +123,11 @@ export class SkyView {
         const appR = info ? info.R / dCam * (this.canvas.clientHeight / 2) / Math.tan(this.camera.fov * Math.PI / 360) : 0;
         pl.appR = appR; pl.m.visible = appR < 5;                       // yakından işaret yerine küre
         if (pl.mesh) {
+          // ayrıntı düzeyi: küre ağının ekrandaki en kötü kiriş hatası (sagitta R(1 − cos(√2·π/N)), Dünya/Ay ile aynı ölçüt: lodErr) 0,2 pikselin altındaki
+          // en kaba dilim sayısı; ince ağa 0,3 pikselde dönülür. Güneş sistemi görünümünde dokuz küre birkaç piksellikken 256×128 (toplam 524 bin üçgen) çiziliyordu.
+          const cur = pl.seg || 256; let N = 256;
+          if (!this.noPlanetLod) for (const n of [32, 64, 128]) if (this.lodErr(dCam - info.R, info.R * (1 - Math.cos(Math.SQRT2 * Math.PI / n))) <= (n < cur ? 0.2 : 0.3)) { N = n; break; }
+          if (N !== cur) { pl.geos = pl.geos || { 256: pl.mesh.geometry }; pl.mesh.geometry = pl.geos[N] || (pl.geos[N] = sphereGeometry(info.R, N, N / 2)); pl.seg = N; }
           pl.mesh.position.copy(pl.m.position); pl.mesh.material.uniforms.sunDir.value.copy(unit3(sub(sS[0], p)));
           planetQuaternion(info, pl.vis, et, pl.mesh.quaternion);                    // IAU dönme fazı: dokudaki özellikler gerçek yerinde
           if (pl.atm) pl.atm.position.copy(pl.m.position);

@@ -133,7 +133,7 @@ export function sunlightFraction(rv, rSun, bodies) {
 // ------------------------------------------------------------------ yakıt ve Δv
 // Kademe başına kalan Δv (km/s): etkin kademe şimdiki kütle ve yakıtla, sonrakiler tam yakıtla (arkalarındaki kademeler yük).
 // Atılmış kademe (j < k) için null. stages: [{dry, prop, T, isp}], k: etkin kademe, mNow/propNow: etkin kademenin şimdiki toplam kütlesi/yakıtı.
-function stageDvs(stages, k, mNow, propNow) {
+export function stageDvs(stages, k, mNow, propNow) {
   return stages.map((st, j) => {
     if (j < k) return null;
     let payload = 0; for (let i = j + 1; i < stages.length; i++) payload += stages[i].dry + stages[i].prop;

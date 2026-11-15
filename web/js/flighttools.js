@@ -5,6 +5,7 @@ import * as EO from './earth.js';
 import { etOf } from './live.js';
 import { BODIES, IS, IE, IM } from './ephem.js';
 import { sunElevationAtSite } from './design.js';
+import { VIEW } from './moonsite.js';
 import { fmt, fmtDur } from './format.js';
 import { $, setText, setWidth, utcShort } from './uiutil.js';
 
@@ -136,7 +137,7 @@ export class FlightTools {
       ['Dönüş periyodu', fmt(360 / wDeg, 3) + ' gün'],
       ['Dünya\'dan görünen libration (enlem / boylam)', `${fmt(libLat, 2)}° / ${fmt(libLon, 2)}°`],
       ['Ay ekvatorunun ekliptiğe eğimi', fmt(moonEclInc, 3) + '°'],
-      ['İniş yerinde Güneş yüksekliği', fmt(sunElevationAtSite(t), 2) + '°'],
+      ['İniş yerinde Güneş yüksekliği', fmt(sunElevationAtSite(t, VIEW.site), 2) + '°'],
       ['Yönelim: DE440 farkı', dPA == null ? '—' : fmt(dPA, 3) + '″'],
       sec('Entegratör'),
       ['Cisimler', '11 (Güneş, 8 gezegen, Plüton, Ay)'],

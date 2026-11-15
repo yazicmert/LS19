@@ -256,8 +256,8 @@ def sentry(force=False):
 
 
 def sbdb_one(des):
-    key = 'sbdb_' + hashlib.sha1(des.encode()).hexdigest()[:16] + '.json'
-    q = {'sstr': des, 'phys-par': '1', 'ca-data': '1', 'ca-body': 'Earth', 'discovery': '1', 'vi-data': '1', 'full-prec': '1'}
+    key = 'sbdb2_' + hashlib.sha1(des.encode()).hexdigest()[:16] + '.json'          # sbdb2: kovaryanslı yanıt (eski önbellek kullanılmaz)
+    q = {'sstr': des, 'phys-par': '1', 'ca-data': '1', 'ca-body': 'Earth', 'discovery': '1', 'vi-data': '1', 'full-prec': '1', 'cov': 'mat'}
     return cached(key, 24 * 3600, lambda: get_retry('https://ssd-api.jpl.nasa.gov/sbdb.api?' + urllib.parse.urlencode(q), 60), key_lock(key))[0]
 
 

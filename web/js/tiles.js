@@ -69,6 +69,12 @@ export class TileLayer {
     n.radKm = Math.max(Math.sin(Math.min(n.rad, 1.5)) * this.R, 1e-3); this.nodes.set(key, n); return n;
   }
   up(n) { return n.z > this.minZ ? this.node(n.z - 1, n.x >> 1, n.y >> 1) : null; }
+  // bindirme katmanının saydam geçiş malzemesi (update › fade: ata parçası yokken transparent = true): World.precompile açılışta derlesin diye.
+  // Saydamlık program anahtarını değiştirir (three: opaque); yoksa ilk parça solarken büyük gövde gölgelendiricisi çizim karesinde derlenirdi.
+  warmMaterial() {
+    const t = new THREE.DataTexture(new Uint8Array(4), 1, 1); t.needsUpdate = true;
+    const m = this.material(t, this.node(this.rootZ, 0, 0)); m.transparent = true; return m;
+  }
   // cam: kamera konumu (cisim sabit çerçevede, km) · fwd: bakış yönü (birim) · fov: dikey (rad) · aspect · viewH: piksel
   update(cam, fwd, fov, aspect, viewH) {
     this.frame++; this.allHidden = false; const now = performance.now();
@@ -117,6 +123,7 @@ export class TileLayer {
     }
     for (const n of ahead) if (!this.cache.has(n.key)) this.request(n, n.dist * 4 + 1e4, true);                      // en düşük öncelik
     const dt = this.lastT ? now - this.lastT : 16; this.lastT = now;
+    if (this.nReady > 0) { const W = this.wantSet || (this.wantSet = new Set()); W.clear(); for (const n of leaves) W.add(n.key); }      // istenen yapraklar: açılınca bu karede kendileri çizilir
     const promoted = this.nReady > 0 ? this.promote(Math.min(24, Math.max(MAX_PROMOTE, Math.round(dt / 6)))) : 0;   // yavaş karede daha çok (kare başına sabit sınır yavaş cihazda beklemeye yol açmasın)
     if (promoted) this.lastPromote = now;
     this.pump(now);
@@ -220,7 +227,10 @@ export class TileLayer {
     let k = 0; const list = [];
     for (const e of this.cache.values()) if (e.ready && !e.tex) list.push(e);
     list.sort((a, b) => (a.prio || 0) - (b.prio || 0));
-    const open = (e) => { e.tex = e.ready; this.nReady--; k++; };
+    // bu karede çizilecek parçanın dokusu açılırken hemen yüklenir: çizim sırasında tembel yüklenseydi her biri o karenin önceki çizimlerini bekleyerek
+    // arka arkaya dizilirdi (yazılım çiziminde kare başına saniyeler, docs/performans.md §16). Öne bakan / ata parçalar çizilirlerse tembel yüklenir (bellek).
+    const R = this.renderer, D = this.wantSet;
+    const open = (e) => { e.tex = e.ready; this.nReady--; k++; if (R && D && D.has(e.n.key)) R.initTexture(e.tex); };
     for (const e of list) {
       if (k >= max) break; if (e.tex) continue;
       open(e);

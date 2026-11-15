@@ -6,7 +6,7 @@ web/data/cache/
 __pycache__/
 *.pyc
 .DS_Store
-node_modules/
+node_modules
 .vercel/
 # Basis Universal kodlayıcısı (tools/doku_ktx2.mjs indirir, SHA-256 denetler)
 tools/basis/

@@ -65,7 +65,7 @@ Arazi üretimi (263 bin köşe × 7 krater sınıfı, ~0,85 sn) saf sayısal kod
 ### 5.3 Hazır nominal Δv ve ertelenen gökyüzü
 
 - `data/designs_default.json` artık her profil için `nominalBy` taşır (`zem+2`, `opt`, `opt+2`, `free`, `free+2`; tek kademe + ZEM zaten `nominal`). Aynı koşu işlevi (`js/nominalrun.js`) hem tarayıcıdaki `nominal.js`'te hem üretici betikte (`node test/make_designs.js --nominal-by`, tasarımlara dokunmaz) kullanılır; test iki birleşimi yeniden uçurup dosyadakiyle bit düzeyinde karşılaştırır. Varsayılan açılış (opt + iki kademe) artık nominal worker'ı çalıştırmaz; önbellek hazır tasarımları da tutar (başka güdüme geçince tekrar hesap yok).
-- **Canlı Gökyüzü katmanları** (uydu SGP4 worker'ı + 3B modeller, asteroit kataloğu/DAMIT/worker, takip/asteroit/çarpma arayüzleri, veri güncelleyici ve indirmeleri) açılışta kurulmaz: görev hazır olup arayüz boşa çıkınca (`requestIdleCallback`, en geç 8 sn) ya da gökyüzü çalışma alanı daha önce açılırsa o an kurulur (`?prefetch=1`: hemen). Görev motorunda (Laboratuvar › Ay görevi) uydu/asteroit zaten çizilmez; kaybedilen bir şey yoktur.
+- **Canlı Gökyüzü katmanları** (uydu SGP4 worker'ı + 3B modeller, asteroit kataloğu/DAMIT/worker, takip/asteroit/çarpma arayüzleri, veri güncelleyici ve indirmeleri) yalnız gökyüzü motoru ilk kez açılınca kurulur: Canlı Gökyüzü, Laboratuvar › Asteroit saptırma ya da Lagrange noktaları (`?prefetch=1`: görev hazır olur olmaz). Ay görevinde hiç kurulmaz; orada uydu/asteroit zaten çizilmez (§15).
 - `<link rel="modulepreload">`: 57 modül (ana grafik + yalnız worker'ın kullandıkları) düz liste olarak HTML ayrıştırılırken paralel inmeye başlar (içe aktarma zinciri tek tek keşfedilince her seviye bir ağ gidiş-dönüşüdür). Liste `test_preload.js` ile modül grafiğinden doğrulanır (`--print` yeniden üretir).
 
 ### 5.4 Açılış ölçümü (SwiftShader; yön için)
@@ -90,7 +90,7 @@ Arazi üretimi (263 bin köşe × 7 krater sınıfı, ~0,85 sn) saf sayısal kod
 
 - **Uyarlanır çözünürlük** (`js/perfgov.js`): kare süresinin medyanı (40 karelik pencere) sürekli > 24 ms ise piksel oranı 0,25'lik kademelerle (en düşük 1) düşer. Kare süresi GPU maliyetini değil ekranın ritmini de yansıttığı ve darboğaz piksel olmayabileceği için üç korumalı: (1) **düşüşün faydası ölçülür**: sonraki pencerede kare süresi ≥ %5 iyileşmediyse darboğaz piksel değildir (yavaş CPU, köşe işi, iOS Düşük Güç Modu'nun 30 Hz sınırı) → eski oran geri verilir ve 5 dk daha düşürülmez; (2) **geri çıkış**: kare süresi ekran ritmine yakınsa bir kademe denenir, deneme yavaşlatırsa o seviye 30 dk "tavan" sayılır, tavan seviyesinde kare süresi ≥ %15 düşerse (hafif sahne, güç tasarrufu kalktı) tavan kalkar; tabanda takılı kalmaz ve salınmaz; (3) 250 ms'den uzun kareler de (çok yavaş cihaz) ölçülür, yalnız > 1,5 sn'lik duraklamalar ölçümü sıfırlar, birkaç kare sıçraması medyanı bozmaz. Nokta katmanlarının (uydu/asteroit) boyutu ekranda sabit kalır. Kapalı: `?adapt=0`, otomasyon (`navigator.webdriver`), sinematik kip (kendi kalitesini yönetir), tasarım ve gizli sekme. **Taban** (`floorRatio`): yüksek yoğunluklu ekranda oran en çok %25 düşer (2× → 1,5×; 1,5× → 1,25×): 1×'e inmek metin ve kenarlarda belirgin pikselleşme yapıyordu. **Akış sırasında ölçüm yok** (`busy`): yakınlaşırken parçalar GPU'ya yüklenip yumuşak geçiş yaparken (`world.tilesBusy`, yüklemeden sonra 400 ms) kısa takılmalar sahnenin kalıcı yükü sayılmaz; aksi halde yüzey tam netleşirken çözünürlük düşerdi.
 - **Parça akışı akıcılığı** (`js/tiles.js`): (1) **yumuşak geçiş**: yeni parça, yerinde önceden çizilen kaba görüntüden (en yakın hazır ata parça; yoksa taban 8K doku) 450 ms'de karışarak gelir — gölgelendiricide iki örnek (`parentMap`, `pXf` uv dönüşümü, `tileFade`) karışır, ek çizim ya da derinlik çatışması yok; Landsat/HLS/Kaguya kaplamaları atası yoksa saydamlıkla belirir. Ata, geçiş bitene dek bellekten atılmaz. (2) **kardeşler birlikte**: aynı atanın hazır dört parçası aynı karede açılır (bütçe en çok 3 aşılır), dörtlünün biri net biri bulanık yamalı görüntü kalmaz. (3) **bakılan yer önce**: istek önceliği uzaklık × (1 + 1,5 · ekran merkezinden açı / yarı köşegen). Sınama: `test_tiles.js` (uv dönüşümü 2400 noktada < 1e-15, kardeş açma, busy, taban, bağlantılar); başsız Chromium'da sahte parçalarla geçiş sayıları ve gölgelendirici derlemesi (hata yok).
-- Parametreler: `?lowmem=1|0` (düşük bellek dokuları), `?adapt=0` (uyarlanır çözünürlüğü kapat), `?bg=1` (arka planda da sürsün), `?prefetch=1` (gökyüzü katmanlarını hemen kur).
+- Parametreler: `?lowmem=1|0` (düşük bellek dokuları), `?adapt=0` (uyarlanır çözünürlüğü kapat), `?bg=1` (arka planda da sürsün), `?prefetch=1` (gökyüzü katmanlarını hemen kur), `?olcum=1` (cihazda başarım okuması, §13), `?bant=1` (tam çözünürlüğe yükseltmede bantlı doku yüklemesi, deneme, §13).
 
 ## 8. Yapılmayanlar ve nedenleri
 
@@ -99,7 +99,8 @@ Arazi üretimi (263 bin köşe × 7 krater sınıfı, ~0,85 sn) saf sayısal kod
 | SOCP yeniden planlarını asenkron/ayrı iş parçacığına bölmek | Belirleyicilik: çözümün zamanlaması yola girer; ana iş parçacığını zaten etkilemiyor |
 | Dokuları sıkıştırılmış biçime (KTX2/Basis) çevirmek | GPU belleğini ¼–⅙ düşürür ama araç zinciri (kodlayıcı) ve lisans/yeniden üretim yükü ekler; R8 + düşük bellek katmanı bugünkü ihtiyacı karşılıyor |
 | Çekirdekleri worker'larla paylaşmak | §2: kazanç küçük, `SharedArrayBuffer` başlık ister |
-| Küre ağı için LOD | Frustum culling + arazi gizleme ana kazancı verdi; ağ LOD'u yakın görünümde görünür kalite riski taşır |
+| "Tasarla"yı iş parçacığına taşımak | Telefon taklidinde (CPU ×4) Apollo × Apollo 15 13 sn (en uzun görev 5,3 sn), NRHO × Apollo 15 132 sn (129 sn uzun görev) ölçüldü; ama bekleme tam ekran yükleme katmanının altında (etkileşim yok, yalnız ilerleme çubuğu takılır) ve `app.js`'teki kayda göre bazı tarayıcılarda iş parçacıkları düşük öncelikle koşup birkaç kat yavaşlıyor (bu ortamda sınanamaz). Canlı sayfadaki tasarımlar (profil karşılaştırması) iş parçacığına taşındı: §13 |
+| İniş yeri başına hazır tasarım dosyası (Apollo 11 dışındaki yerler) | Varsayılan tarihte Tasarla'yı 13–132 sn'den dosya yüklemesine indirirdi (5 yer × 6 profil ≈ 64 KB gzip; `web/test/make_designs.js`). Bu PR'a alınmadı: yalnız varsayılan tarihe yarar, 30 tasarımın 6'sı sonraki pencereye kayar (karşılaştırma kullanamaz), her fizik değişikliğinde yeniden üretilmesi gerekir. Sıradaki aday |
 | `SatInstancer` (14 bin uydu) kare başına döngüsü | Kod incelemesine göre tahminen ~1–2 ms ve yalnız Canlı Gökyüzü'nde (bu ortamda uydu verisi indirilemediği için ölçülemedi); seçim her karede yenilenmezse model "zıplar" |
 | `world.update` içindeki küçük nesne ayırmaları | Kare başına yığın artışı ölçümde ±10 KB (GC payı ~%1–4); okunabilirlik pahasına değmez |
 
@@ -274,3 +275,127 @@ Etkin uydu listesi (CelesTrak OMM JSON, ~16.900 uydu, her biri 17 alanlı nesne)
 **Aşamalı yüklemeden sonra (2026-11):** ilk görüntüden önce inen doku masaüstünde 29,3 → 9,3 MB (yerel ölçümde hazır olma 2,5 sn); ilk 20 saniyede toplam 31,3 → 24,7 MB (Dünya'nın tam çözünürlüğü dahil); Ay'ın tam çözünürlüğü (14,5 MB) yalnız Ay'a yaklaşınca. Telefonda ilk açılış 15,1 → 11,3 MB (Ay yükseklik haritasının `_lo` sürümüyle).
 
 Sınır: ölçüm yerel sunucuda, ağ gecikmesi ve bant genişliği taklit edilmeden yapıldı; gerçek bağlantıda süre kazancı indirilen baytla orantılıdır (ör. 50 Mbit/sn'de ~92 MB ≈ 15 sn → 35 MB ≈ 6 sn masaüstü, 18 MB ≈ 3 sn telefon).
+
+## 13. Kasım 2026: alt ajanlarla başarım turu (web ve telefon)
+
+Ölçümler başsız Chromium'da yazılım çizimiyle (SwiftShader) yapıldı; telefon Pixel 7 profili (412×915, DPR 2,625, `deviceMemory` 4) ve CDP ile 4 kat yavaşlatılmış işlemciyle taklit edildi (bu yavaşlatma iş parçacıklarına ve GPU sürecine uygulanmaz). Dört ölçüm hattı ayrı yürütüldü; her tarayıcı açılışı tek bir kilitten geçti (aynı anda iki ölçüm işlemciyi paylaşmasın). Her düzeltme ikinci bir turda aynı betiklerle, düzeltilmiş dal ile temel dal karşılaştırılarak doğrulandı.
+
+| Bulgu | Ölçülen | Yapılan | Doğrulama |
+|---|---|---|---|
+| Dünya küresi kabartmasız (`useHeight` 0) ama her uzaklıkta 1024×512 (1,05 M üçgen) çiziliyordu | EARTH 1,12 M, SYSTEM 2,24 M, SOLAR 2,76 M üçgen | Uzaklığa bağlı ayrıntı düzeyi: kaba ağın (256×128) en kötü ekran kiriş hatası (sagitta s = R(1 − cos(√2·π/256)) ≈ 0,96 km, görüntü köşesi büyümesiyle) 0,2 pikselin altındayken kaba ağ, 0,3'ü aşınca ince ağ (histerezis). Park yörüngesi her zaman ince ağda | EARTH 134 bin, SYSTEM 1,26 M, SOLAR 1,78 M; piksel farkı en kötü %0,032 (> 24/255), park yörüngesinde 0; gökyüzü görünümü ve telefon tamponu dahil |
+| Gökyüzü katmanları kurulunca (`initSky`) sahneye üçüncü bir yönlü ışık ekleniyor, iniş aracının 4 programı hazır olduktan sonra yeniden derleniyordu | +180–400 ms bağlama beklemesi; telefonda bir koşuda 2,9 sn'lik uzun görev | Uydu dolgu ışığı sahne kurulurken eklenir (`scene.js` `satFill`), `satmodels.js` onu kullanır | `initSky`'dan sonra yeni program 0, bağlama beklemesi 0 ms (masaüstü ve telefon) |
+| Lagrange haritası 2D tuvale `requestAnimationFrame` dışında çiziliyordu; görev sonunda Chrome tuval karesini arkadaki WebGL'in GPU işini bekleterek kapatıyor (`SharedContextRateLimiter`), maske piksel yazımı GPU sürecini tutuyordu | Telefon taklidinde 43–55 sn'lik ana iş parçacığı beklemesi, ardından GPU sürecinde 12,7 sn'lik piksel yazımı (yazılım çizimi; gerçek GPU'da birkaç kare beklenir) | Bütün Lagrange çizimleri kare başında (rAF, kare başına tek çizim); yasak bölge `fillRect` dizileriyle (piksel yazımı yok); halo hesabı ayrı iş parçacığında (`lagrangework.js`) | Halo istekleri 55 sn → 0,16–0,36 sn; ana iş parçacığında > 300 ms görev yok; piksel yazımı 0 |
+| Masaüstü tam çözünürlüğe yükseltme: dört 8192×4096 doku, her biri tek çağrıda | Çağrı başına 1,3–5,4 sn (yazılım çizimi), yükseltme boyunca 0,6–1,0 kare/sn | `?bant=1` (deneme, varsayılan kapalı): 2 MB'tan büyük sıkıştırılmış seviyeler ~2 MB'lık satır bantlarıyla, her banttan sonra gerçek bir kare beklenerek | Görüntü birebir aynı; en uzun sıkıştırılmış çağrı ≤ 3 ms; yükseltme sırasında 1,08–1,19 kare/sn (gürültünün az üstünde) ama yükseltme 12–20 sn yerine ~60 sn sürer; R8 bulut dokusu hâlâ tek parça (1,7–3,4 sn). Varsayılan yapılmadı: gerçek GPU'da `?olcum=1` ile karşılaştırılmalı |
+| Telefon katmanı KTX2 kullanıyor mu? | Evet (`_lo.ktx2`; SwiftShader'da BC7, gerçek Android'de ETC2 beklenir); hazırdan sonra yalnız iki küçük model dokusu (20–34 ms) | — | Telefonun hazırdan sonraki tek bir ölçümünde görülen 2,6–3,0 sn'lik doku yüklemesi o tur yeniden üretilemedi; sonradan açıklandı (§15) |
+| Ay görevindeyken gizli gökyüzü katmanları | Yüklendikten sonra iş parçacığı trafiği 0, kare başına ~6 µs (telefonda ~30 µs); başlangıçta `initSky` 37–121 ms, veri yükleme kuyruğu telefonda tam katalogla ~2 sn takılma, gizliyken güncelleyici yeniden yüklemeleri (uydular 2 saatte bir) | Değiştirilmedi: `initSky`'ı ertelemek Canlı Gökyüzü'nün ilk açılışını masaüstünde ~1,5 sn, telefonda ~5 sn yavaşlatır (kullanıcı kararı) | — |
+| Gölgelendirici hata denetimini kapatmak | Bekleme kaybolmuyor, `getProgramParameter`'a kayıyor; hazırdan sonra yeni program derlenmiyor | Yapılmadı | — |
+| Laboratuvar/gökyüzü/sinema modüllerini tembel yüklemek | Açılıştaki 717 KB (gzip, yayın) JS'in 108 KB'ı | Yapılmadı (en küçük kazanç, `app.js` çakışma noktası) | — |
+
+**Cihazda okuma (`?olcum=1`):** sol altta kutu: son 5 sn'nin kare aralıkları (medyan, %95, en uzun, 50 ms'den uzun kare sayısı), açılıştan beri en uzun kare aralığı ve zamanı, son karenin üçgen ve çizim çağrısı sayısı, çizim oranı ve tampon boyutu, doku katmanı (KTX2/WebP, düşük bellek, Dünya haritası boyutu), uzun görevler (tarayıcı destekliyorsa; Safari'de yok), cihaz bilgisi; **Kopyala** JSON verir. Yalnız bu parametreyle tembel yüklenir.
+
+**Hâlâ gerçek cihaz isteyenler:** `?bant=1`'in gerçek GPU'daki etkisi; bulut (R8) yüklemesi; telefonda ısınma ve Safari bellek sınırı.
+
+## 14. Kasım 2026, ikinci tur: kayıpsız köşe azaltma ve canlı sayfa tasarımları
+
+Plan ve türetmeler advisor'dan; uygulama, ölçüm ve doğrulama burada. Sayılar **çizilen üçgen sayısıdır** (kare süresi değil: gerçek GPU yok); telefon taklit edildi (Pixel 7 profili, CPU ×4; iş parçacıklarına uygulanmaz). Her görüntü değişikliği sayfa içi A/B ile denetlendi: aynı durum, özellik açık ve kapalı, piksel farkı; sınır %0,1 piksel > 24/255.
+
+| Değişiklik | Önce → sonra (üçgen) | Görüntü |
+|---|---|---|
+| **Ufuk bandı** (`bodyband.js`): Dünya ve Ay ince ağında yalnız görülebilen enlem satırları çizilir (`setDrawRange`). Görülebilen bir noktaya giden doğru parçası rMin küresine giremez: kameranın altındaki noktaya açı ψ ≤ acos(rMin/d) + acos(rMin/rMax). Dünya [R⊕ − 0,07, R⊕] (kiriş), Ay LOLA −10…+11 km; kamera kabartma kabuğunun içindeyken de geçerli. `test_bodyband.js` kaba kuvvetle sınar | Park yörüngesi (araç) 1,19 M → 321 bin; LLO 1,12 M → 434 bin; iniş 1,64 M → 769 bin | Park (4 bakış), LLO, iniş, uzak, gökyüzü (ekvatordaki gözlemci dahil) piksel piksel aynı. Kalkışta Dünya küresi ekrana piksel düşürmüyor (yalnız-Dünya çizimi siyah): orada kanıt 58 km anındaki tam sahne A/B'si |
+| **Uzak Ay LOD'u**: kaba ağ (256×128) köşeleri ince ağın alt kümesi; hata ≤ kaba kiriş (0,26 km) + kaba hücre içindeki en büyük yükseklik farkı. Bu fark yükseklik haritalarından ölçüldü: 8,93 km (`tools/ay_lod.py`; sabit 9,5 km, araç altına düşerse hata verir). Dünya'yla aynı 0,2/0,3 piksel eşiği | Ay 45–90 bin km'den 1,13 M → 147 bin; SYSTEM 964 bin → 277 bin | Eşiğin hemen ötesinde en kötü %0,0028 (DPR 2'de %0,0008) |
+| **İniş arazisi yaması**: iniş yeri Ay'ın ufkunun ötesindeyken (aynı sınır + 0,06 rad köşe payı) yama ve küredeki delik kapatılır | LLO'da Ay kamerası 1,36 M → 831 bin | Altı LLO anı ve iniş piksel piksel aynı |
+| **Gezegen LOD'u**: 32/64/128/256 dilim, aynı ölçüt | Güneş sistemi 2,24 M → 211 bin; Satürn yakından 544 bin → 47 bin | Satürn (halka gölgesiyle) ve Jüpiter eşiklerin hemen ötesinde en kötü %0,021 |
+| **Canlı sayfadaki tasarımlar iş parçacığında** (`designwork.js`, `designjob.js`): profil karşılaştırması, günlük pencere ve pencere taraması. Sonuç ana iş parçacığıyla birebir aynı (Apollo ve NRHO × Apollo 15, JSON); yeni tasarım başlayınca açıkça iptal edilir | Telefon taklidinde karşılaştırma sırasında 90 sn'de 89 sn uzun görev (en uzun 5,3 sn) → 0; pencere taraması 36 sn → 0 | — |
+| **Gökyüzü verisi yükleme kuyruğu**: uydu ailesi ve modeli iş parçacığında (16.600 uyduda sonuç aynı); asteroit kataloğu NEO, ana kuşak ve epok için üç kez değil bir kez kurulur (son gelişten 800 ms sonra), `concat` ve doğrudan döngülerle | Telefon taklidinde uydu `loaded` işleyicisi 225 → 105 ms; asteroit kurulumu toplam 802 → 342 ms (sentetik büyütülmüş katalog) | İlk açılışta asteroitler en çok ~1 sn geç görünür |
+
+**Bilerek değiştirilmeyen:** "Tasarla" ana iş parçacığında kalır (§8). Telefon taklidinde Apollo × Apollo 15 13 sn (en uzun görev 5,3 sn), NRHO × Apollo 15 132 sn ölçüldü; bekleme tam ekran yükleme katmanının altında ve bazı tarayıcılarda iş parçacıkları yavaş (bu ortamda sınanamaz). İş parçacığına taşınan karşılaştırma ve taramalar sayfayı dondurmuyor ama tasarımlar aynı sürer; yavaş iş parçacıklı tarayıcılarda daha uzun sürebilirler.
+
+**Açık kalanlar:** iniş yeri başına hazır tasarım dosyası (§8). Gökyüzü katmanlarının ertelenmesi ve telefondaki 2,6–3,0 sn'lik doku yüklemesi: §15.
+
+
+## 15. Kasım 2026, üçüncü tur: gökyüzü katmanları ertelendi, telefondaki 2,6–3,0 sn'lik doku yüklemesi açıklandı
+
+Ölçüm: §13'teki telefon taklidi (Pixel 7 profili, CPU ×4, `deviceMemory` 4, `?sats=0&ast=0`, dış sunucular açık, `/api/` 503), sayfaya her WebGL çağrısını süreyle, yığınla ve önceki çağrılarla kaydeden bir sonda; koşul başına çoğunlukla iki koşu (GIBS kesik ve yavaşlatmasız koşular birer kez). Sayılar yazılım çiziminde (SwiftShader) ölçüldüğünden **maliyetin türü** raporlanır, saniyesi değil; gerçek süre için cihazda `?olcum=1` okuması gerekir (§11.4).
+
+**Gökyüzü katmanları ertelendi.** Önceden görev hazır olup arayüz boşa çıkınca (en geç 8 sn) kuruluyordu; artık yalnız gökyüzü motoru ilk kez açılınca (Canlı Gökyüzü, Asteroit saptırma, Lagrange noktaları). Varsayılan açılış Laboratuvar › Ay görevi olduğundan (adreste ve kayıtta seçim yoksa) kazanç çoğu ziyarette geçerli: bu taklitte açılışta 22 yerel istek (gökyüzü modülleri, iş parçacıkları, uydu modelleri) ve 2 fırlatma takvimi isteği eksildi; normal ziyarette uydu ve asteroit kataloglarının indirilmesi de Ay görevinde artık yok. Bedeli ilk gökyüzü açılışında ödenir: saptırma kataloğu gelene dek durumu yazılır ("bekleniyor", "Katalog yükleniyor…"), hızlı seçim çipleri kapalıdır; masaüstü taklidinde (yerel fikstür kataloğu) ilk saptırma açılışından katalog hazır olana dek 1,8–4,3 sn (üç koşu). Lagrange deneyi de gökyüzü motorunu kullandığından katmanları kurar (`skyFrame` uydu, asteroit ve takip katmanlarını koşulsuz çizer; bölünmedi).
+
+**Doku yüklemesinin nedeni.** Yavaş çağrının kendisi bir 512×512 NASA GIBS Dünya parçasıydı (ImageBitmap, çizim sırasında ilk yükleme):
+
+| Deney | Sonuç | Çıkarım |
+|---|---|---|
+| Aynı senaryo, iki koşu | 2,46 sn / 0,61 sn | yeniden üretildi |
+| Gökyüzü katmanları kapalı (dört koşu) | 0,36–1,64 sn | katmanlardan değil |
+| GIBS parçaları kesik | yavaş yükleme yok | kaynak Dünya parçaları |
+| CPU yavaşlatması yok | 1,01 sn | işlemci yavaşlatmasıyla ölçeklenmiyor: GPU sürecinde |
+| DPR 1 (7 kat az piksel) | 0,76–1,23 sn | çizim tamponunun boyutu değil |
+| Aynı yükleme yalıtılmış sayfada (`readPixels` ile GPU'nun bitmesi beklenerek) | parça başına 12–25 ms (sRGB mipmap dahil) | yüklemenin kendi maliyeti küçük |
+| Uygulamada parça yüklemesinden hemen önce `readPixels` eşitlemesi | bekleme eşitlemeye taşındı (11–13 sn); 37 parça yüklemesi toplam ~300 ms | parça, GPU sürecinde birikmiş işi ödüyor |
+
+Yani 2,6–3,0 sn, yazılım çiziminin GPU sürecinde biriktirdiği işti: ilk eşzamanlı yükleme onu bekliyordu. Birikimin içeriği ayrıştırılmadı. Gerçek ekran kartında bu birikimin olmaması beklenir; bunu ancak cihazda `?olcum=1` okuması doğrular. (Chromium'da `gl.finish()` beklemez; eşitleme sınamasında 1×1 `readPixels` kullanıldı, 4096×2048 sRGB mipmap'in 333 ms'lik GPU maliyeti onunla görüldü.)
+
+**Gerçek olan parça: geç derlenen gölgelendirici.** Aynı pencerede program sayısı 18'den 19'a çıkıyordu (17'si açılış derlemesinde, 18. gölge derinlik programı) ve o karede derleme çağrıları sürüyordu (`shaderSource` 0,6–2,1 sn, `getProgramInfoLog` 0,7–1,4 sn; yazılım çiziminde). Yeni program Dünya gölgelendiricisinin (`VS_BODY`/`FS_EARTH`) saydam kopyasıydı. Bindirme katmanının (varsayılan Landsat WELD) parçası, ata parçası yokken solarken `transparent = true` olur (`tiles.js`); bu three'nin program anahtarındaki `opaque` bitini değiştirir. Bu kopya açılış derlemesinde yoktu, ilk bindirme parçası solarken çizim karesinde derleniyordu; bu gerçek cihazda da olur (büyük gövde gölgelendiricisi). Düzeltme: `TileLayer.warmMaterial()` her bindirme katmanının (WELD, HLS, Kaguya) saydam malzemesini verir, `World.precompile` bunları derleme boyunca sahneye koyar, sonra çıkarır. Malzemeler atılmaz (`warmMats`), program önbellekte kalır. Sonra açılışta 17 yerine 19 program derleniyor (Dünya ve Ay saydam kopyaları); sonrasında yalnız gölge derinlik programı ekleniyor (20), parçalar solarken derleme çağrısı yok. `lab_deneme.mjs` üç malzemenin programının bağlandığını denetler. Taklitteki 2,9–3,2 sn'lik uzun görevler düzeltmeden sonra da sürer: içlerinde yukarıdaki parça yükleme beklemeleri vardır (yazılım çizimine özgü).
+
+**O tur açıklanmayan:** hazırdan ~1–2 sn sonraki 4,7–5,5 sn'lik kare boşluğu; §16'da açıklandı ve düzeltildi. **İlk gökyüzü açılışı (telefon taklidi, iki koşu):** `setWorkspace('sky')` çağrısı (`initSky` dahil) 194–210 ms; hemen ardından 2,4–2,6 sn'lik bir uzun görev ve bir yeni program (20 → 21). Uzun görev `initSky` çağrısının dışında, gökyüzü motorunun ilk karelerinde; katmanlar önceden kurulu olsa da büyük ölçüde ödenmesi beklenir, ama önceki düzenin ilk açılışı ölçülmedi. Ertelemenin ilk açılışa kesin eklediği: `initSky`'ın ~0,2 sn'si ve katalog indirme süresi.
+
+**Kalan (bilinçli):** gölge haritasının derinlik programı ilk gölge karesinde derlenir (`compileAsync` gölge malzemelerini kapsamaz); §16'dan sonra bu kare örtünün altında çizilir (hazırdan sonraki ilk karede program sayısı zaten 20). GIBS parça yüklemeleri kare başına sınırlı kalır (`MAX_PROMOTE`).
+
+## 16. Kasım 2026, dördüncü tur: hazırdan sonraki 4,7–5,5 sn'lik kare boşluğu
+
+§15'teki telefon taklidi; bu kez sayfaya **sonda yok** (profilci ve GL sarmalayıcı zamanlamayı kaydırıyordu), yalnız rAF aralıkları, uzun görevler ve her karede durum (çizim oranı, tampon, LOD, üçgen, çağrı, geometri/doku/program sayısı, kamera, CSS animasyonları) kaydedildi. Ölçüt: hazırdan sonraki en uzun kare aralığı; kol başına 5 koşu. Saniyeler yazılım çizimine (SwiftShader) ait; gerçek cihaz için `?olcum=1` okuması gerekir (§11.4).
+
+**Elemeler.** Boşluğun iki yanında çizim oranı, tampon boyutu ve CSS animasyonu sayısı aynı (uyarlanır çözünürlük ve CSS değil). WebGL çizimi durdurulunca boşluk kayboluyor (en uzun 0,2–0,3 sn): WebGL. GIBS parçaları kesilince de sürüyor (1,8–4,9 sn), ama parçalar açıkken ondan ayrı ikinci bir ana iş parçacığı uzun görevi çıkıyor. Yani iki ayrı neden:
+
+**A. Konumlanmamış ilk kare (gerçek, her cihazda).** Her çizimden sonra 1×1 `readPixels` ile kare GPU'da bitirilince maliyet tek kareye toplandı: yükleme örtüsü kalktıktan sonraki ilk kare, bazı açılışlarda görev durumunun ilk iletisi gelmeden çiziliyordu (bir yarış: eşitlemeli 7 koşunun 3'ünde). Sahne konumlanmamış olduğundan Dünya ve Ay ince ağları ufuk bandı ve LOD olmadan çiziliyordu: 66 çağrı, **2,25 M üçgen** (sonraki kareler 31 çağrı, 316 bin). Durum önce gelse bile ilk gerçek kare düzenli karenin ~3 katı sürüyor; nedeninin gölgelendiricilerin ve dokuların ilk kullanımı olduğu varsayımdır, ayrıca sınanmadı. Düzeltme (`app.js`): görev motorunda ilk durum gelmeden `world.render` çağrılmaz; 'ready'de örtü hemen kalkmaz, ilk gerçek kare çizilip 1×1 okumayla GPU'da bitince kalkar (durum 1,5 sn içinde gelmezse beklemeden). Kapsam o turda görev motoruydu; gökyüzüyle açılış §17'de ölçüldü ve aynı koşul oraya da uygulandı. Karolar kesik, 5 koşu medyanı:
+
+| | Önce | Sonra |
+|---|---|---|
+| İlk gerçek karenin bittiği an (açılıştan) | 9,96 sn | 6,64 sn |
+| Hazırdan sonraki en uzun boşluk | 4,7 sn | 1,3 sn (bir düzenli kare) |
+
+"Hazır" (örtünün kalkması) artık ilk karenin GPU işini de içerdiğinden daha geç: GIBS açık, yalnız A ile medyan 4,1 → 6,8 sn. Karşılaştırılabilir ölçüt ilk gerçek karenin bittiği andır. Cihazda `?olcum=1` okurken "açılıştan beri en uzun kare aralığı" artık yükleme evresini ve örtü karesinin eşitlemesini de içerir; örtü kalktıktan sonraki değer için yanındaki saniyeye ya da son 5 sn satırına bakın.
+
+**B. Toplu parça açılışı (büyüklüğü taklide özgü).** Yavaş karede kare başına en çok 24 parça açılıyor (`dt / 6`); dokular çizim sırasında tembel yüklendiğinden her biri o karenin önceki çizimlerini bekleyerek arka arkaya diziliyordu (tek karede 13–20 parça). Düzeltme (`tiles.js`): bu karede istenen yaprakların dokusu açılırken `renderer.initTexture` ile hemen yüklenir; öne bakan ve ata parçalar çizilirlerse tembel yüklenir. Hepsini önceden yüklemek doku sayısını 52–53'ten 55–60'a çıkarıyordu (~4–9 MB GPU belleği); seçici yüklemede değişmedi. Denenip bırakılan: paylaşılan süre bütçesi (kare başına 10 ms). Kuyruk 9,5 sn'de boşalıyordu (iki kat yavaş), tepe önceden yüklemeden iyi değildi ve gerçek GPU'da nadiren devreye girerdi.
+
+GIBS açık, 5 koşu medyanı, pencere hazırdan sonraki 11 sn:
+
+| | En uzun boşluk | Toplam uzun görev | En uzun uzun görev | Parça kuyruğunun boşalması |
+|---|---|---|---|---|
+| Önceki kod | 5,16 sn | 5,0 sn | 4,4 sn | — |
+| A | 3,25 sn | 4,3 sn | 3,3 sn | 4,6 sn |
+| A + B | 1,97 sn | 2,4 sn | 1,5 sn | 3,8 sn |
+
+Sağlam karşılaştırma önceki koddan A + B'ye olandır (5,16 → 1,97 sn; 1,5–4,3 sn aralık). A ile B'nin ayrı payı göstergedir: ayrı 5'erli gruplar ve bir koşu (4,3 sn) A'nın aralığında. Kalan boşlukların içinde parça yüklemeleri var; §15’teki eşitleme deneyine göre bunlar yazılım çiziminde GPU birikimini bekliyor. Gerçek ekran kartında parça başına birkaç ms beklenir (cihazda doğrulanmadı).
+
+## 17. Kasım 2026, beşinci tur: Canlı Gökyüzü ile açılış
+
+§16'daki sondasız telefon taklidi, adres `?mode=sky` (kayıtlı seçimle açılış da aynı `applyUrlParams` yolundan geçer). İki senaryo:
+
+- **Veri kapalı:** `sats=0&ast=0`.
+- **Tam veri:** gerçek `api/*.js` işleyicileri yerel fikstürlerle beslenir ve satırlar çoğaltılır: 16.600 uydu; 38.000 NEO, 15.000 ana kuşak ve 2.000 Truva asteroiti; kimlikler benzersiz. Uydu kopyalarının adları değiştirildi: 3B modelli uydu sayısı özgün 400 kayıtlık fikstürle aynı (82). Fikstür 2 saatten eski göründüğünden uygulama arka planda CelesTrak'ı doğrudan dener (`celestrakDirect` → `setGp`, profilde görüldü); dış isteğin yetiştiği koşularda gerçek katalog (16.886 uydu, 219 modelli) fikstürün yerini aldı. SupGP'nin GitHub kopyası da kesildi, ama asıl değişkenlik buydu.
+
+Pencere: veri tam yüklendikten 5 sn sonrasına dek. Karşılaştırmalar aynı ölçüm betiğiyle, eski sürümler ayrı kapılardan sunularak yapıldı; kol başına 5 koşu.
+
+**Bulgu 1: konumlanmamış kare (önlem).** Gökyüzüyle açılışta ilk kare hafif (8 çağrı, 134 bin üçgen); görev açılışındaki 2,25 M üçgenlik kare burada yok. Açılışta yüklenen efemeris (şimdi ± 2 gün) gökyüzünün istediği aralığı kapsadığından gökyüzü kaynağı hep hazır. Yine de görev motorundaki koşul gökyüzüne de uygulandı: ilk `skyFrame` çalışmadan çizim ve örtü kaldırma yok (`skyPlaced`). Veri kapalı, 5 koşu medyanı:
+
+| | A'dan önce (fb5a067) | Şimdi |
+|---|---|---|
+| İlk gerçek karenin bittiği an | 6,78 sn | 6,22 sn |
+| Hazırdan sonraki en uzun boşluk | 1,34 sn | 0,72 sn |
+
+**Bulgu 2: gökyüzü katmanlarının geç derlenen programları (gerçek, her cihazda).** Tam veride uydu ve asteroit nokta katmanlarının ve uydu aile modellerinin (InstancedMesh) programları veri gelince, ilk çizimde derleniyordu (eski kodda o görev 1,2–1,7 sn). Düzeltme:
+
+- `World.warm(nesneler)` aynı geometri ve malzemeyle vekiller kurar ve yalnız onları derler. three r170'te `compile(nesneSahnesi, kamera, hedefSahne)` nesneleri ilk sahneden (görünürlüğe bakmadan), ışıkları ve sisi hedef sahneden alır. Bütün sahneyi derlemek gökyüzüyle açılışta 16 fazla program üretiyordu.
+- Isıtma ilk gökyüzü karesinde, `updateSky` ışıkları kurduktan sonra yapılır. Işık ve gölge sayısı `lights: false` malzemelerin program anahtarına da girer: `initSky` sırasında görev ışıklarıyla (gölge açık) ısıtılan asteroit programı gökyüzünde kullanılmıyor, yenisi derleniyordu.
+- Aile modelleri yüklenince (`SatInstancer.onReady`) grup da sıraya eklenir.
+
+Sonuçta program sayısı hazırda 26, aile modelleri yüklenince 27 ve sonra sabit; eskiden veri gelince +4,8–5,8 sn'de bir derleme daha vardı. Tam veri, 5 koşu medyanı:
+
+| | Önce (HEAD) | Sonra |
+|---|---|---|
+| En uzun boşluk | 1,32 sn | 1,00 sn |
+| En uzun uzun görev | 1,32 sn | 0,88 sn |
+| Toplam uzun görev | 3,0 sn | 2,6 sn |
+
+Yeni kodun bir koşusunda gerçek CelesTrak kataloğu fikstürün yerini aldı (16.886 uydu; doğrudan CelesTrak kesilmemişti); o koşu aykırı (4,2 sn toplam).
+
+**Kalan (taklide özgü).** Veri gelişindeki 0,85–1,25 sn'lik görevde derleme yok. Profile göre (iki koşu) zamanın ~%95'i ısıtılmış programın ilk kullanımında three'nin eşzamanlı durum sorgusunda: `getUniforms` → `getProgramInfoLog` + `getShaderInfoLog`. Önceki turlardaki gibi GPU sürecindeki birikimi bekleyen bir eşitleme. Gerçek cihazda program veri gelmeden saniyeler önce paralel derlenmiş olacağından bu sorgunun hemen dönmesi beklenir; cihazda `?olcum=1` ile doğrulanmalı. `checkShaderErrors` kapatılmadı: ilk kullanımda uniform listesi yine eşzamanlı sorgulanır, bekleme oraya kayar. Hazırdan ~1–1,5 sn sonraki 0,2–0,45 sn'lik iki görev ve +3 sn'deki 0,25–0,35 sn'lik görev atfedilmedi; ana iş parçacığı JS'idir ve telefonda sayılır (iş parçacıkları taklitte yavaşlatılmaz).

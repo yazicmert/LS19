@@ -5,7 +5,7 @@
 //   · Bindirmeler cinemaui.js + css/cinema.css; son işlem (bloom, film) scene.js setCinematic → post.js.
 import * as THREE from 'three';
 import * as E from './engine.js';
-import { siteIcrf } from './mission.js';
+import { VIEW } from './moonsite.js';
 import { ellipsoidAlt } from './geo.js';
 import { LANDING_PHASES as POWERED } from './telemetry.js';
 import { CineUI } from './cinemaui.js';
@@ -91,7 +91,7 @@ const RIG = {
   // yerden: iniş yerinin yaklaşma eksenli çerçevesinde (x ileri, y yan, h yükseklik; m) sabit gözlemci; araca bakar (fixed: iniş noktasına bakar, tripod: araç kadraja iner), görüş açısı mesafeye göre
   ground(c, p, e) {
     const a = (k) => (Array.isArray(p[k]) ? lerp(p[k][0], p[k][1], e) : p[k]);
-    const t = c.x.t, up = unit(siteIcrf(t)), s = add(c.info.rm, siteIcrf(t));
+    const t = c.x.t, up = unit(VIEW.site.icrf(t)), s = add(c.info.rm, VIEW.site.icrf(t));
     const ax = c.info.drAxis || unit(cross([0, 0, 1], up)), xx = unit(sub(ax, scale(up, dot(ax, up)))), yy = cross(up, xx);
     const obs = add(s, add(add(scale(xx, a('x') * KM), scale(yy, a('y') * KM)), scale(up, a('h') * KM)));
     const tgt = add(p.fixed ? s : c.info.vehPos, scale(up, (a('aimUp') || 0) * KM)), dM = norm(sub(tgt, obs)) * 1000;

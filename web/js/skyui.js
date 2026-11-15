@@ -4,7 +4,7 @@ import * as P from './passes.js';
 import { CITIES } from './tracker.js';
 import { fmt } from './format.js';
 import { $, mk } from './uiutil.js';
-import { applyIcons } from './icons.js';
+import { applyIcons, icon } from './icons.js';
 import { ns, ew, compass16, LOC, t, UNIT } from './i18n.js';
 
 const hm = (ms, sec = false) => new Date(ms).toLocaleTimeString(LOC, { hour: '2-digit', minute: '2-digit', ...(sec ? { second: '2-digit' } : {}) });
@@ -32,14 +32,7 @@ export class SkyUI {
   constructor({ clock, tracker, sats, asts, setSkyCam, lookAt, follow }) {
     Object.assign(this, { clock, tracker, sats, asts, setSkyCam, lookAt, follow });
     this.selPass = null; this.lastList = 0;
-    // zaman denetimleri
-    $('#skyNow').addEventListener('click', () => { clock.live(); this.syncClock(); });
-    $('#skyPause').addEventListener('click', () => { clock.pause(!clock.paused); this.syncClock(); });
-    document.querySelectorAll('#skyControls [data-rate]').forEach((b) => b.addEventListener('click', () => { clock.setRate(+b.dataset.rate); this.syncClock(); }));
-    $('#skyBack').addEventListener('click', () => { clock.shift(-3600e3); this.syncClock(); });
-    $('#skyFwd').addEventListener('click', () => { clock.shift(3600e3); this.syncClock(); });
-    $('#skyBackD').addEventListener('click', () => { clock.shift(-86400e3); this.syncClock(); });
-    $('#skyFwdD').addEventListener('click', () => { clock.shift(86400e3); this.syncClock(); });
+    // Canlı Gökyüzü hep gerçek zamanda akar: zaman denetimi yok (saat yalnız SkyClock.live ile kurulur). Kamera: yuvarlak düğme (#skyControls.camdial)
     document.querySelectorAll('[data-skycam]').forEach((b) => b.addEventListener('click', () => this.setSkyCam(b.dataset.skycam)));
     // gözlemci: şehir adının kendisi seçim kutusu; "Özel konum…" seçilince enlem/boylam/yükseklik alanları açılır
     const sel = $('#obsCity');
@@ -87,18 +80,11 @@ export class SkyUI {
     this.syncPassControls();
     tracker.onChange = () => this.render();
     tracker.onToast = (m) => this.toast(m);
-    this.syncClock(); this.render();
+    this.render();
   }
   toast(msg) {
     const box = $('#toasts'), d = mk('div', 'toast', msg); box.appendChild(d);
     setTimeout(() => d.classList.add('out'), 7000); setTimeout(() => d.remove(), 7600);
-  }
-  syncClock() {
-    const c = this.clock;
-    document.querySelectorAll('#skyControls [data-rate]').forEach((b) => b.classList.toggle('on', !c.paused && +b.dataset.rate === c.rate));
-    $('#skyPause').classList.toggle('on', c.paused);
-    $('#skyPause').setAttribute('aria-pressed', c.paused ? 'true' : 'false');
-    $('#skyPause').querySelector('span').textContent = c.paused ? 'Devam' : 'Duraklat';
   }
   searchAdd(q) {
     const L = this.sats, ul = $('#watchResults'); ul.replaceChildren();
@@ -116,7 +102,14 @@ export class SkyUI {
     document.querySelectorAll('#passFilter [data-vis]').forEach((b) => b.setAttribute('aria-pressed', (b.dataset.vis === '1') === this.visOnly ? 'true' : 'false'));
     $('#passNotify').setAttribute('aria-pressed', this.tracker.notify ? 'true' : 'false');
   }
-  setCamButtons(mode) { document.querySelectorAll('[data-skycam]').forEach((b) => b.classList.toggle('on', b.dataset.skycam === mode)); }
+  // kamera düğmeleri; yuvarlak kamera düğmesi o anki görünümün simgesini taşır (uydu/asteroit odağında kamera simgesi)
+  setCamButtons(mode) {
+    let ic = 'camera';
+    document.querySelectorAll('[data-skycam]').forEach((b) => { const on = b.dataset.skycam === mode; b.classList.toggle('on', on); if (on && b.dataset.ic) ic = b.dataset.ic; });
+    const btn = document.querySelector('#skyControls .camdial-btn'), svg = btn && btn.querySelector('svg.camdial-ic');
+    if (svg && btn.dataset.ic !== ic) { btn.dataset.ic = ic; svg.outerHTML = icon(ic, 'camdial-ic'); }
+    btn && btn.classList.toggle('focus', ic === 'camera');
+  }
 
   // ---------------------------------------------------------------- her kare (sık) : üst kart ve liste değerleri
   hud(t, ms) {
@@ -253,8 +246,8 @@ export class SkyUI {
     row('Süre', `${Math.floor(p.duration / 60)} ${UNIT.min} ${Math.round(p.duration % 60)} s`);
     const vis = mk('p', 'tk-vis' + (p.visible ? ' yes' : ''), p.visible ? `çıplak gözle görünür: ${hm(p.visFrom)}–${hm(p.visTo)} (uydu Güneş'te, gökyüzü karanlık)` : p.kind === 'gölgede' ? "uydu Dünya'nın gölgesinde (görünmez)" : 'gökyüzü aydınlık (gündüz ya da alacakaranlık)');
     const cv = mk('canvas', 'tk-sky'); cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', 'Geçişin gökyüzündeki yolu');
-    const go = mk('button', 'primary tk-go'); go.type = 'button'; go.innerHTML = '<i data-icon="telescope"></i>'; go.appendChild(mk('span', null, 'Geçişe git ve gökte izle'));
-    go.addEventListener('click', () => { this.clock.jump(p.rise.ms - 60000); this.clock.setRate(1); this.syncClock(); this.lookAt(p.id); });
+    const go = mk('button', 'primary tk-go'); go.type = 'button'; go.innerHTML = '<i data-icon="telescope"></i>'; go.appendChild(mk('span', null, 'Gökte izle'));
+    go.addEventListener('click', () => this.lookAt(p.id));                  // saat atlatılmaz (Canlı Gökyüzü hep gerçek zaman): ufkun altındaysa sonraki geçiş bildirilir
     box.append(dl, vis, cv, go); applyIcons(box);
     requestAnimationFrame(() => this.drawSky(p, cv));                  // boyut yerleşimden sonra belli olur
     return box;

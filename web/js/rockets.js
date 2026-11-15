@@ -119,6 +119,16 @@ export function tliCapacity(id) {
   if (M - s.dry - P > s.tank) P = s.tank / (k - 1) - s.dry; // tank doluyken
   return P;
 }
+// herhangi bir kaçış enerjisi C3 (km²/s²) için türetilmiş yük kapasitesi (kg): tliCapacity'nin genel biçimi (200 km park yörüngesinden tek dürtüsel yakış).
+// Gezegenlerarası fırlatma (saptırma deneyinin önleme görevi) için. Yayımlanmış başarım eğrileri değil; üst kademenin roket denkleminden kaba kestirim. null: başarımı yok (GENEL).
+export function c3Capacity(id, C3) {
+  const r = rocketOf(id), s = r.stage, M = parkMass(id);
+  if (M == null || !Number.isFinite(C3)) return null;
+  const k = Math.exp((Math.sqrt(2 * MU_E / R_PARK_REF + C3) - vc) * 1000 / (s.isp * G0));
+  let P = M / k - s.dry;
+  if (M - s.dry - P > s.tank) P = s.tank / (k - 1) - s.dry;
+  return Math.max(0, P);
+}
 // yük (kg) için park yörüngesinde üst kademede kalan yakıt (kg); null: roketin yakıtı göreve göre boyutlanır (GENEL)
 // yük (kg) için park yörüngesinde üst kademede kalan yakıt (kg); null: roketin yakıtı göreve göre boyutlanır (GENEL).
 // dvPen (km/s): başvuru eğiminden farklı park eğiminin ek Δv'si (pads.js incPenalty); üst kademe karşılar → park kütlesi exp(−dvPen/c) ile azalır

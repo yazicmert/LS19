@@ -48,7 +48,7 @@ export function attachCanvasInput(canvas, ctx) {
         actions: [{ label: 'Yakınlaş', fn: () => ctx.focusOn({ kind: 'planet', i: c.i }, 6 * R) }] }, mx, my, t);
     } else if (c.kind === 'sat') {
       const id = +S.sats.ids[c.i];
-      const watchAct = () => (S.tracker.has(id) ? { label: 'Takipten çıkar', fn: () => { S.tracker.remove(id); ctx.ui.hidePick(); } } : { label: 'Takibe al', fn: () => { S.tracker.add(id); S.tracker.computePasses(true); ctx.ui.hidePick(); S.skyui.toast(`${S.sats.names[c.i]} takip listesine eklendi (Takip sekmesi).`); } });
+      const watchAct = () => (S.tracker.has(id) ? { label: 'Takipten çıkar', fn: () => { S.tracker.remove(id); ctx.ui.hidePick(); } } : { label: 'Takibe al', fn: () => { S.tracker.add(id); S.tracker.computePasses(true); ctx.ui.hidePick(); S.skyui.toast(S.VIEW === 'lab' ? `${S.sats.names[c.i]} takip listesine eklendi (Canlı Gökyüzü › Takip).` : `${S.sats.names[c.i]} takip listesine eklendi (Takip sekmesi).`); } });
       const mdl = S.sats.modelOf(id);
       ctx.ui.showPick({ kind: 'sat', refresh: (tt) => {
         const d = S.sats.satDetails(c.i, tt); if (!d) return d;

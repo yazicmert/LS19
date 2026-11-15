@@ -100,3 +100,101 @@ export function verdict(result, { dvUsed = null, dvNominal = null, profileName =
   return { kind: 'bad', title: 'Sert temas', rows,
     detail: `Temas hızı güvenli sınırı aştı (dikey < ${fmt(SAFE_VZ, 1)}, yatay < ${fmt(SAFE_VH, 2)} m/s). ${result.manual ? 'Elle inişte son yüz metrede itkiyi artırıp dikey hızı düşürün ya da otopilotla deneyin.' : 'Bozulma eklendiyse ya da yakıt yetmediyse görevi baştan uçurun ya da başka bir güdüm deneyin.'}` };
 }
+
+// ---------------------------------------------------------------- görev iptali (abort.js sonucu → düz dil)
+// now: şimdi yakılırsa, win: en iyi an (sonraki yörünge periyodu ya da 6 saat), dvLeft: aracın kalan Δv'si (m/s), t: şimdi, utc(t) → metin
+// Dönüş: { kind, title, rows: [[etiket, değer]…] }
+export function abortSummary({ now, win, dvLeft, t, utc, halo = false }) {
+  const r = abortSummaryCore({ now, win, dvLeft, t, utc });
+  if (halo) r.rows.push(['Kapsam', 'Halo/NRHO: yalnız tek yakışlık doğrudan dönüş arandı; iki yakışlı, Ay yakın geçişli (Artemis) yol daha ucuz olabilir']);
+  return r;
+}
+function abortSummaryCore({ now, win, dvLeft, t, utc }) {
+  const days = (a, b) => `${fmt((b - a) / 86400, 1)} gün`, rows = [];
+  const line = (x) => `${fmt(x.dvMag, 0)} m/s → Dünya'ya giriş ${utc(x.tEntry)} (yakıştan ${days(x.tBurn, x.tEntry)} sonra)`;
+  if (now && now.ok && now.free) return { kind: 'good', title: 'Serbest dönüş: yakış gerekmez', rows: [['Şimdiki yörünge', `Kendiliğinden Dünya'ya döner: boşluk perijesi ${fmt(now.hp, 0)} km, giriş ${utc(now.tEntry)}`]] };
+  rows.push(['Şimdi yakılırsa', now && now.ok ? line(now) : 'Bu anda tek yakışla dönüş yok (yörüngenin uygun noktası beklenmeli)']);
+  if (win && win.ok) rows.push([`En iyi an (sonraki ${fmt(win.period / 60, 0)} dk içinde)`, `+${fmt((win.tBurn - t) / 60, 0)} dk: ${line(win)}`]);
+  const need = [now, win].filter((x) => x && x.ok).reduce((m, x) => Math.min(m, x.dvMag), Infinity);
+  if (Number.isFinite(dvLeft)) rows.push(['Aracın kalan Δv\'si', `${fmt(dvLeft, 0)} m/s`]);
+  if (!Number.isFinite(need)) return { kind: 'bad', title: 'Dönüş yolu bulunamadı', rows };
+  if (!Number.isFinite(dvLeft)) return { kind: 'info', title: `Dönüş için en az ${fmt(need, 0)} m/s`, rows };
+  return need <= dvLeft ? { kind: 'good', title: `Eve dönülebilir: ${fmt(need, 0)} m/s gerekli, ${fmt(dvLeft, 0)} m/s var`, rows }
+    : { kind: 'bad', title: `Kalan Δv yetmez: ${fmt(need, 0)} m/s gerekli, ${fmt(dvLeft, 0)} m/s var`, rows };
+}
+
+// ---------------------------------------------------------------- paylaşılabilir bağlantı ve "Denemelerim"
+// ?mode=lab&exp=ay&date=…&profile=…&yer=…&roket=…&rampa=…&arac=…&gudum=… (eski ?date= ve ?profile= bağlantıları aynı anlamla çalışır).
+// Hazır profil yoksa (Özel) yörünge alanları ayrı anahtarlarla yazılır. Saptırmanın anahtarlarıyla (labtext.js › LINK_KEYS) çakışmaz (test_ayexp.js).
+// Tarih istenen tarihtir (tasarım sonraki aydınlanma penceresine kaydıysa aynı kayma yeniden olur).
+export const AY_CFG_KEYS = {
+  park: ['earth', 'h'], egim: ['earth', 'inc'], ptur: ['earth', 'revs'], ykn: ['earth', 'raise', 'n'], yap: ['earth', 'raise', 'ha'],
+  bekle: ['moon', 'type'], llo: ['moon', 'llo', 'h'], lltur: ['moon', 'llo', 'revs'], halo: ['moon', 'halo', 'preset'], htur: ['moon', 'halo', 'revs'],
+};
+export const AY_LINK_KEYS = ['date', 'profile', 'yer', 'roket', 'rampa', 'arac', 'gudum', ...Object.keys(AY_CFG_KEYS)];
+const VEHICLES = ['two', 'one'], LANDINGS = ['opt', 'free', 'zem'], ISO_DAY = /^\d{4}-\d\d-\d\d$/;
+const numOf = (s) => (s != null && s !== '' && Number.isFinite(+s) ? +s : null);
+const getPath = (o, p) => p.reduce((a, k) => (a == null ? a : a[k]), o);
+// st: { date (YYYY-AA-GG), cfg (normalizeConfig çıktısı), profileKey (hazır profil ya da 'CUSTOM'), vehicle, landing } → { anahtar: metin }
+// Varsayılan iniş yeri, genel roket ve varsayılan rampa yazılmaz (bağlantıyı açan tarafta da varsayılandır); araç ve güdüm her zaman yazılır
+// (açan kişinin kayıtlı tercihi farklı olabilir).
+export function ayLinkFromState({ date, cfg, profileKey, vehicle, landing }) {
+  const o = {};
+  if (ISO_DAY.test(date || '')) o.date = date;
+  if (profileKey && profileKey !== 'CUSTOM') o.profile = profileKey;
+  else if (cfg) {
+    for (const [k, p] of Object.entries(AY_CFG_KEYS)) {
+      if ((k === 'yap') && !(getPath(cfg, ['earth', 'raise', 'n']) > 0)) continue;
+      if ((k === 'halo' || k === 'htur') && getPath(cfg, ['moon', 'type']) !== 'HALO') continue;
+      const v = getPath(cfg, p); if (v != null && v !== '') o[k] = String(v);
+    }
+  }
+  if (cfg && cfg.moonSite) o.yer = cfg.moonSite;
+  if (cfg && cfg.rocket && cfg.rocket !== 'GENEL') o.roket = cfg.rocket;
+  if (cfg && cfg.site && cfg.site.id > 0) o.rampa = String(cfg.site.id);
+  if (VEHICLES.includes(vehicle)) o.arac = vehicle;
+  if (LANDINGS.includes(landing)) o.gudum = landing;
+  return o;
+}
+// q: URLSearchParams; profiles: design.js PROFILES; validSite: moonsite.js validSite → bağlantı durumu ya da null (Ay görevi anahtarı yoksa).
+//   { date?, profile?, custom? (kısmi yapılandırma: normalizeConfig tamamlar), moonSite?, rocket?, pad?, vehicle?, landing?, full }
+//   full: yeni biçim (araç ya da güdüm var): yazılmayan yer/roket/rampa varsayılandır. Eski ?profile= bağlantısında (full değil) yalnız profil uygulanır.
+// Bozuk ya da tanınmayan değerler atılır.
+export function ayStateFromLink(q, { profiles = {}, validSite = (x) => x } = {}) {
+  if (!AY_LINK_KEYS.some((k) => q.has(k))) return null;
+  const L = { full: q.has('arac') || q.has('gudum') };
+  const d = q.get('date'); if (ISO_DAY.test(d || '') && Number.isFinite(Date.parse(d + 'T00:00:00Z'))) L.date = d;
+  const pk = (q.get('profile') || '').toUpperCase(); if (Object.hasOwn(profiles, pk)) L.profile = pk;
+  if (!L.profile) {
+    const c = {}; let n = 0;
+    for (const [k, p] of Object.entries(AY_CFG_KEYS)) {
+      const raw = q.get(k); if (raw == null) continue;
+      const v = k === 'bekle' ? (raw === 'LLO' || raw === 'HALO' ? raw : null) : k === 'halo' ? (/^[A-Z0-9]{2,12}$/.test(raw) ? raw : null) : numOf(raw);
+      if (v == null) continue;
+      let o = c; for (const s of p.slice(0, -1)) o = o[s] ||= {}; o[p[p.length - 1]] = v; n++;
+    }
+    if (n) L.custom = c;
+  }
+  const y = q.get('yer'); if (y && validSite(y) === y) L.moonSite = y;
+  const r = q.get('roket'); if (r && r !== 'GENEL' && Object.hasOwn(ROCKETS, r)) L.rocket = r;
+  const p = q.get('rampa'); if (/^\d{1,6}$/.test(p || '') && +p > 0) L.pad = +p;
+  const v = q.get('arac'); if (VEHICLES.includes(v)) L.vehicle = v;
+  const g = q.get('gudum'); if (LANDINGS.includes(g)) L.landing = g;
+  return L;
+}
+
+// Ay görevi "Denemelerim" satırı: biten bir uçuşun özeti. r: mission.js result; v: verdict(); link: bağlantının sorgu dizgisi
+//   setup: kısa düzen metni ("Saturn V · Apollo 11 gibi · Apollo 15 · İki kademe · Optimal")
+export function ayHistoryRow(r, v, { date, launchISO = '', setup = '', site = '', dvUsed = null, link = '' }) {
+  const [ex, ey] = (r && r.posErr_m) || [NaN, NaN], [vx, vy, vz] = (r && r.v_mps) || [NaN, NaN, NaN];
+  const fin = (x, d) => (Number.isFinite(x) ? +x.toFixed(d) : null);
+  return { date, launch: launchISO, setup, site, kind: v.kind, title: v.title, prop: r && !r.reentry ? fin(r.prop, 0) : null,
+    miss: r && !r.reentry ? fin(Math.hypot(ex, ey), 1) : null, vz: r && !r.reentry ? fin(Math.abs(vz), 2) : null, vh: r && !r.reentry ? fin(Math.hypot(vx, vy), 2) : null,
+    dv: fin(dvUsed, 1), link };
+}
+// CSV (tablolama programları için; ondalık nokta, alan ayırıcı virgül). rows: ayHistoryRow + link tam adres
+export function ayHistoryCsv(rows) {
+  const q = (x) => (x == null ? '' : /[",\n]/.test(String(x)) ? `"${String(x).replace(/"/g, '""')}"` : String(x));
+  const head = ['tarih', 'firlatma', 'duzen', 'inis_yeri', 'sonuc', 'kalan_yakit_kg', 'inis_yerine_uzaklik_m', 'dikey_hiz_mps', 'yatay_hiz_mps', 'kullanilan_dv_mps', 'baglanti'];
+  return [head.join(','), ...rows.map((h) => [h.date, h.launch, h.setup, h.site, h.title, h.prop, h.miss, h.vz, h.vh, h.dv, h.link].map(q).join(','))].join('\n') + '\n';
+}

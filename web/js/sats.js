@@ -1,6 +1,8 @@
 // Uydu iş parçacığı: CelesTrak GP (OMM) kayıtlarından SGP4 ile konum/hız, TEME -> ICRF (IAU 2006/2000A)
 import * as S from '../lib/satellite.esm.js';
 import * as EO from './earth.js';
+import { familyOf } from './satfamilies.js';
+import { modelFor } from './satcatalog.js';
 
 let recs = [], eoLoaded = false;
 
@@ -21,17 +23,19 @@ onmessage = (e) => {
   const d = e.data;
   if (d.cmd === 'load') {
     if (!eoLoaded && d.eo) { EO.loadEarthOrientation(d.eo); eoLoaded = true; }
-    recs = []; const groups = [], names = [], ids = [], epochs = [];
+    recs = []; const groups = [], names = [], ids = [], epochs = [], fams = [], mkeys = [];
     for (const o of d.omm) {
       try {
         const sr = S.json2satrec(o);
         if (!sr || sr.error) continue;
         recs.push(sr); groups.push(classify(o)); names.push(o.OBJECT_NAME); ids.push(o.NORAD_CAT_ID);
+        // model ailesi ve gerçek 3B modeli burada (16 bin kayıtta telefonda ~100–130 ms ana iş parçacığı işiydi: satlayer.js 'loaded')
+        fams.push(familyOf(o)); const m = modelFor(o.NORAD_CAT_ID, o.OBJECT_NAME); mkeys.push(m ? m.key : null);
         epochs.push(Date.parse(o.EPOCH + 'Z'));
       } catch (err) { /* bozuk kayıt */ }
     }
     epochs.sort((a, b) => a - b);
-    postMessage({ type: 'loaded', n: recs.length, groups: Uint8Array.from(groups), names, ids, epochMs: epochs[Math.floor(epochs.length / 2)] || 0,
+    postMessage({ type: 'loaded', n: recs.length, groups: Uint8Array.from(groups), names, ids, fams, mkeys, epochMs: epochs[Math.floor(epochs.length / 2)] || 0,
       epochMin: epochs[0] || 0, epochMax: epochs[epochs.length - 1] || 0 });
     return;
   }
