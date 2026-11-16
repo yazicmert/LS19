@@ -526,9 +526,9 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   const { ctx, page, errors } = await open({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, '?sats=0&ast=0');
   check('telefon: varsayılan açılışta Ay görevi paneli açık (deney adı ve geri düğmesi görünür), görev çubuğu ve üst çubuk sığar', await page.evaluate(() => { const m = document.querySelector('#modebar').getBoundingClientRect(); return document.querySelector('#labPanel').classList.contains('open') && !document.querySelector('#labBack').hidden && window.LS19.labui.page === 'ay' && m.right <= innerWidth + 0.5 && document.documentElement.scrollWidth <= innerWidth; }) && (await vis(page, '#controls')));
   await shot(page, 'm0-acilis');
-  const h0 = await page.evaluate(() => history.length);
+  const h0 = await page.evaluate(() => (history.state && history.state.based ? -1 : history.length));          // yeni sekme about:blank kaydıyla başlar
   await page.click('#btnPanel');
-  check('telefon: merkez geçmiş kaydı ilk dokunuşta eklenir (etkileşimsiz eklenen kaydı tarayıcı geri düğmesinde atlar)', h0 === 1 && await page.evaluate(() => history.length === 2 && history.state.based && history.state.nav === 'lab/ay'), String(h0));
+  check('telefon: merkez geçmiş kaydı ilk dokunuşta eklenir (etkileşimsiz eklenen kaydı tarayıcı geri düğmesinde atlar)', h0 > 0 && await page.evaluate((n) => history.length === n + 1 && history.state.based && history.state.nav === 'lab/ay', h0), String(h0));
   check('telefon: panel düğmesi açılış panelini kapatır (3B uçuş tam ekran)', await page.evaluate(() => !document.querySelector('#labPanel').classList.contains('open')));
   check('telefon: bilgi kartı tek satır (evre, irtifa, hız); dokununca tam kart açılır', await page.evaluate(() => { const h = document.querySelector('#hud'); return h.getBoundingClientRect().height < 50 && !h.classList.contains('open') && getComputedStyle(h.querySelector('.grid2')).display === 'none'; })
     && await (async () => { await page.tap('#hud'); return page.evaluate(() => { const h = document.querySelector('#hud'); const ok = h.classList.contains('open') && h.getBoundingClientRect().height > 150; h.click(); return ok; }); })());
