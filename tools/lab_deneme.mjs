@@ -532,8 +532,9 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
     && await (async () => { await page.tap('#hud'); return page.evaluate(() => { const h = document.querySelector('#hud'); const ok = h.classList.contains('open') && h.getBoundingClientRect().height > 150; h.click(); return ok; }); })());
   await page.click('#btnPanel'); await page.waitForTimeout(400);
   check('telefon: panel alttan yarım yükseklikte açılır (3B uçuş üstte görünür), tutamağa dokununca tam ekran', await page.evaluate(() => { const p = document.querySelector('#labPanel').getBoundingClientRect(); return p.height > innerHeight * 0.4 && p.height < innerHeight * 0.6 && p.top > innerHeight * 0.3; })
-    && await (async () => { const g = await page.evaluate(() => { const r = document.querySelector('#labPanel .sheet-grip').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }); await page.touchscreen.tap(g[0], g[1]); await page.waitForTimeout(400);
-      return page.evaluate(() => document.querySelector('#labPanel').getBoundingClientRect().height > innerHeight * 0.75); })());
+    && await (async () => { await page.waitForFunction(() => !document.querySelector('#labPanel').getAnimations().length, null, { timeout: 5000 }).catch(() => {});
+      const g = await page.evaluate(() => { const r = document.querySelector('#labPanel .sheet-grip').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }); await page.touchscreen.tap(g[0], g[1]);
+      return page.waitForFunction(() => document.querySelector('#labPanel').getBoundingClientRect().height > innerHeight * 0.75, null, { timeout: 5000 }).then(() => true, () => false); })());
   {
     const cdp = await page.context().newCDPSession(page);
     const settle = () => page.waitForFunction(() => !document.querySelector('#labPanel').getAnimations().length, null, { timeout: 5000 }).catch(() => {});          // yükseklik geçişi bitmeden tutamaç yeri oynar
