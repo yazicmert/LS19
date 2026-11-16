@@ -566,12 +566,18 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await page.goBack(); await page.waitForTimeout(800); const ex1 = await page.evaluate(() => document.body.dataset.exp);
   await page.goBack(); await page.waitForTimeout(800);
   check('telefon: açılıştaki deneyden de geri gelinir; ilk açılış kaydının altında merkez var (geri düğmesi siteden çıkmaz)', ex1 === 'ay' && await page.evaluate(() => document.body.dataset.exp === 'home' && /127\.0\.0\.1|localhost/.test(location.host)), ex1);
+  await page.click('#lab-home [data-exp=ay]'); await page.waitForTimeout(800);            // önceki geri denetimleri merkezde bıraktı: kalkış Ay görevinden
   await page.evaluate(() => document.querySelector('#btnAscent').click());
   await page.waitForFunction(() => !document.querySelector('#ascBar').hidden, null, { timeout: 60000 }); await page.waitForTimeout(1500);
   await page.evaluate(() => { const f = document.querySelector('#atFlash'); f.textContent = 'TLI kademesi · Kennedy Uzay Merkezi LC-39B (28.6271°K, 80.6041°B)'; f.classList.add('on'); }); await page.waitForTimeout(500);
   check('telefon: kalkış telemetri bandı ve olay alt yazısı ekrana sığar (sayaç kesilmez)', await page.evaluate(() => { const t = document.querySelector('#ascTele'), out = [...t.querySelectorAll('*')].filter((e) => { const b = e.getBoundingClientRect(); return e.getClientRects().length && (b.right > innerWidth + 0.5 || b.left < -0.5); });
     return t.scrollWidth <= t.clientWidth + 1 && !out.length && document.querySelector('#atT').getBoundingClientRect().right <= t.getBoundingClientRect().right; }));
   await shot(page, 'm8-kalkis');
+  await page.goBack(); await page.waitForTimeout(1200);
+  check('telefon: kalkışı izlerken geri, kalkışı kapatıp Ay görevine döner (siteden çıkmaz)', await page.evaluate(() => !window.LS19.ascent.active && !document.body.classList.contains('launch-cine') && document.body.dataset.exp === 'ay' && /127\.0\.0\.1|localhost/.test(location.host) && !(history.state && history.state.layer)));
+  await page.evaluate(() => document.querySelector('#btnCine').click()); await page.waitForFunction(() => window.LS19.cinema.on, null, { timeout: 30000 }); await page.waitForTimeout(800);
+  await page.goBack(); await page.waitForTimeout(1200);
+  check('telefon: sinematik gösterimde geri, gösterimi kapatır (siteden çıkmaz)', await page.evaluate(() => !window.LS19.cinema.on && document.body.dataset.exp === 'ay' && /127\.0\.0\.1|localhost/.test(location.host)));
   check('konsol hatası yok (telefon açılış)', errors.length === 0, errors.slice(0, 3).join(' | '));
   await ctx.close();
 }
