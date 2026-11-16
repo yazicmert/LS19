@@ -241,10 +241,7 @@ function syncWorkspace(push = true) {
   if (S.VIEW === 'lab' && narrowScreen() && (exp === LAB_HOME || (EXPERIMENTS[exp] && EXPERIMENTS[exp].phoneOpen))) $('#labPanel').classList.add('open');     // telefonda deney paneli ana içerikse açılır
   try { localStorage.setItem('ls19.mode', S.VIEW); if (exp) localStorage.setItem('ls19.exp', exp); } catch (e) { /* özel pencere */ }
   if (push) {
-    const u = new URL(location.href); u.searchParams.set('mode', S.VIEW); if (exp && exp !== LAB_HOME) u.searchParams.set('exp', exp); else u.searchParams.delete('exp');
-    if (exp !== 'saptirma') for (const k of LINK_KEYS) u.searchParams.delete(k);                 // saptırma denemesinin parametreleri yalnız o deneyde adreste kalır
-    writeAyUrl(u);                                                                                 // Ay görevininkiler de
-    if (exp !== 'lagrange') for (const k of LG_LINK_KEYS) u.searchParams.delete(k);                // Lagrange deneyininkiler de
+    const u = navUrl(S.VIEW, exp);
     // alan ya da deney değişince geçmişe yeni kayıt: telefonda geri hareketi siteden çıkmak yerine bir önceki görünüme döner (popstate)
     const nav = S.VIEW + '/' + (exp || ''), st = history.state && history.state.nav;
     if (st && st !== nav) history.pushState({ nav }, '', u); else history.replaceState({ nav }, '', u);
@@ -252,6 +249,22 @@ function syncWorkspace(push = true) {
   if (exp === 'lagrange') lagrange.show();
   if (exp === 'carpma' && impactui) impactui.open();                             // gökyüzü motoru (initSky) yukarıda kuruldu
   resize();
+}
+// alanın ve deneyin adresi (geçmiş kaydı için)
+function navUrl(view, exp) {
+  const u = new URL(location.href); u.searchParams.set('mode', view); if (exp && exp !== LAB_HOME) u.searchParams.set('exp', exp); else u.searchParams.delete('exp');
+  if (exp !== 'saptirma') for (const k of LINK_KEYS) u.searchParams.delete(k);                 // saptırma denemesinin parametreleri yalnız o deneyde adreste kalır
+  writeAyUrl(u);                                                                                 // Ay görevininkiler de
+  if (exp !== 'lagrange') for (const k of LG_LINK_KEYS) u.searchParams.delete(k);                // Lagrange deneyininkiler de
+  return u;
+}
+// İlk açılış kaydı. Site bir deneyde ya da Canlı Gökyüzü'nde açıldıysa altına Laboratuvar merkezi kaydı konur: tarayıcının geri düğmesi siteden çıkmadan önce
+// merkeze döner. Sayfa yenilenince kayıt zaten vardır (history.state), yeniden eklenmez.
+function initHistory() {
+  const nav = S.VIEW + '/' + (S.VIEW === 'lab' ? labui.page : '');
+  if ((history.state && history.state.nav) || nav === 'lab/' + LAB_HOME) { history.replaceState({ nav }, '', location.href); return; }
+  const here = location.href;
+  history.replaceState({ nav: 'lab/' + LAB_HOME }, '', navUrl('lab', LAB_HOME)); history.pushState({ nav }, '', here);
 }
 // view: 'sky' | 'lab' (eski 'mission' → Laboratuvar › Ay görevi); exp: Laboratuvar'da açılacak deney (verilmezse açık olan kalır)
 function setWorkspace(view, push = true, exp = null) {
@@ -549,7 +562,7 @@ worker.onmessage = (e) => {
     if (d.type === 'ready') revealAt = performance.now() + 1500; else $('#loading').style.display = 'none';      // yeni görev: örtü ilk gerçek kare bitince kalkar (frame › reveal)
     if (d.seek) { if (!S.running) setPlay(true); }
     else { S.running = false; setBtn($('#btnPlay'), 'play', 'Başlat'); }
-    if (d.type === 'ready' && !urlApplied) { urlApplied = true; applyUrlParams(); history.replaceState({ nav: S.VIEW + '/' + (S.VIEW === 'lab' ? labui.page : '') }, '', location.href); if (new URLSearchParams(location.search).get('prefetch') === '1') initSky(); if (narrowScreen() && S.VIEW === 'lab') $('#labPanel').classList.add('open'); }      // telefon: ilk açılışta deney paneli açık (hangi deney, geri dönüş görünsün)
+    if (d.type === 'ready' && !urlApplied) { urlApplied = true; applyUrlParams(); initHistory(); if (new URLSearchParams(location.search).get('prefetch') === '1') initSky(); if (narrowScreen() && S.VIEW === 'lab') $('#labPanel').classList.add('open'); }      // telefon: ilk açılışta deney paneli açık (hangi deney, geri dönüş görünsün)
     if (d.type === 'ready') syncAyUrl();
     ayRefresh();
   } else if (d.type === 'state') {
