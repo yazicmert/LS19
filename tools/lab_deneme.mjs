@@ -566,6 +566,7 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await page.goBack(); await page.waitForTimeout(800); const ex1 = await page.evaluate(() => document.body.dataset.exp);
   await page.goBack(); await page.waitForTimeout(800);
   check('telefon: açılıştaki deneyden de geri gelinir; ilk açılış kaydının altında merkez var (geri düğmesi siteden çıkmaz)', ex1 === 'ay' && await page.evaluate(() => document.body.dataset.exp === 'home' && /127\.0\.0\.1|localhost/.test(location.host)), ex1);
+  await page.click('#lab-home [data-exp=ay]'); await page.waitForTimeout(800);            // önceki geri denetimleri merkezde bıraktı: kalkış Ay görevinden
   await page.evaluate(() => document.querySelector('#btnAscent').click());
   await page.waitForFunction(() => !document.querySelector('#ascBar').hidden, null, { timeout: 60000 }); await page.waitForTimeout(1500);
   await page.evaluate(() => { const f = document.querySelector('#atFlash'); f.textContent = 'TLI kademesi · Kennedy Uzay Merkezi LC-39B (28.6271°K, 80.6041°B)'; f.classList.add('on'); }); await page.waitForTimeout(500);
