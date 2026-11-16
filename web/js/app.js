@@ -244,7 +244,8 @@ function syncWorkspace(push = true) {
     const u = navUrl(S.VIEW, exp);
     // alan ya da deney değişince geçmişe yeni kayıt: telefonda geri hareketi siteden çıkmak yerine bir önceki görünüme döner (popstate)
     const nav = S.VIEW + '/' + (exp || ''), st = history.state && history.state.nav;
-    if (st && st !== nav) history.pushState({ nav }, '', u); else history.replaceState({ nav }, '', u);
+    const based = !!(history.state && history.state.based);                       // merkez kaydı altta (initHistory): yenilemede yeniden eklenmesin
+    if (st && st !== nav) history.pushState({ nav, based }, '', u); else history.replaceState({ nav, based }, '', u);
   }
   if (exp === 'lagrange') lagrange.show();
   if (exp === 'carpma' && impactui) impactui.open();                             // gökyüzü motoru (initSky) yukarıda kuruldu
@@ -259,12 +260,22 @@ function navUrl(view, exp) {
   return u;
 }
 // İlk açılış kaydı. Site bir deneyde ya da Canlı Gökyüzü'nde açıldıysa altına Laboratuvar merkezi kaydı konur: tarayıcının geri düğmesi siteden çıkmadan önce
-// merkeze döner. Sayfa yenilenince kayıt zaten vardır (history.state), yeniden eklenmez.
+// merkeze döner. Kayıt ilk kullanıcı dokunuşunda eklenir: tarayıcılar (Chrome, Safari) kullanıcı etkileşimi olmadan eklenen geçmiş kayıtlarını geri düğmesinde
+// atlar; açılışta eklenen kayıt telefonda atlanıp siteden çıkılıyordu. pointerup/keydown kullanıcı etkinleştirmesi sayılır (pointerdown dokunmatikte sayılmaz) ve
+// tıklamadan önce gelir: ilk dokunuş bir gezinme tıklamasıysa merkez kaydı onun altında kalır. Sayfa yenilenince kayıt zaten vardır (history.state.based).
 function initHistory() {
-  const nav = S.VIEW + '/' + (S.VIEW === 'lab' ? labui.page : '');
-  if ((history.state && history.state.nav) || nav === 'lab/' + LAB_HOME) { history.replaceState({ nav }, '', location.href); return; }
-  const here = location.href;
-  history.replaceState({ nav: 'lab/' + LAB_HOME }, '', navUrl('lab', LAB_HOME)); history.pushState({ nav }, '', here);
+  const nav = S.VIEW + '/' + (S.VIEW === 'lab' ? labui.page : ''), st = history.state || {};
+  const home = nav === 'lab/' + LAB_HOME;
+  history.replaceState({ ...st, nav, based: !!st.based || home }, '', location.href);
+  if (st.based || home) return;
+  const arm = () => {
+    window.removeEventListener('pointerup', arm, true); window.removeEventListener('keydown', arm, true);
+    const cur = history.state || {};
+    if (cur.based || !cur.nav || cur.nav === 'lab/' + LAB_HOME) return;
+    const here = location.href;
+    history.replaceState({ nav: 'lab/' + LAB_HOME, based: true }, '', navUrl('lab', LAB_HOME)); history.pushState({ ...cur, based: true }, '', here);
+  };
+  window.addEventListener('pointerup', arm, true); window.addEventListener('keydown', arm, true);
 }
 // view: 'sky' | 'lab' (eski 'mission' → Laboratuvar › Ay görevi); exp: Laboratuvar'da açılacak deney (verilmezse açık olan kalır)
 function setWorkspace(view, push = true, exp = null) {

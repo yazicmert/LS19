@@ -974,7 +974,20 @@ body.launch-cine:not(.asc-ui-on) .ascbar:not(:hover):not(:focus-within) .ascbtns
 body.launch-cine .asccredit { position: fixed; left: calc(12px + var(--sl)); bottom: calc(8px + var(--sb)); max-width: min(32vw, 520px); text-align: left; font-size: 10px; line-height: 1.35;
   color: rgba(255, 255, 255, .66); text-shadow: 0 1px 2px rgba(0, 0, 0, .85); pointer-events: none; }
 body.launch-cine .asctele { background: linear-gradient(180deg, rgba(6, 8, 14, .58), rgba(6, 8, 14, .44)); }
-@media (max-width: 760px) { body.launch-cine .asccredit { left: 8px; right: 8px; max-width: none; text-align: center; } body.launch-cine .ascbar { top: 8px; } }
+@media (max-width: 760px) { body.launch-cine .asccredit { left: 8px; right: 8px; max-width: none; text-align: center; font-size: 9px; } body.launch-cine .ascbar { top: calc(8px + var(--st)); } }
+/* telefon: telemetri bandı sığsın. Üst satır ikiye bölünür (durum · sayaç / hız · irtifa), alt satır kayar; olay alt yazısı satır kaydırır.
+   Karo durum hapı kalkışta gizlenir (üstteki hız/kamera düğmeleriyle çakışıyordu). */
+@media (max-width: 760px) {
+  .asctele .at-row:first-child { flex-wrap: wrap; row-gap: 2px; }
+  .asctele .at-row:first-child > * { order: 3; }
+  .asctele .at-row:first-child > .at-st { order: 0; }
+  .asctele .at-row:first-child > .at-t { order: 1; margin-left: auto; }
+  .asctele .at-row:first-child::after { content: ''; order: 2; flex-basis: 100%; height: 0; }
+  .asctele .at-row:first-child > .at-st + .at-k { margin-left: 0; }
+  .asctele .at-sub { flex-wrap: wrap; row-gap: 2px; }
+  .asctele .at-flash { white-space: normal; width: max-content; max-width: calc(100vw - 40px); text-align: center; font-size: 12px; line-height: 1.35; letter-spacing: .02em; }
+  body.launch-cine .tilestatus, body.launch-cine .tilemode { display: none; }
+}
 @media (prefers-reduced-motion: reduce) { .asctele .at-flash, body.launch-cine .ascbtns { transition: none; } }
 
 /* Laboratuvar › Lagrange noktaları */
