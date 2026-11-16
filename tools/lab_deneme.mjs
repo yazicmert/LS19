@@ -560,6 +560,9 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await page.click('#btnPanel'); await page.click('#labBack'); await page.click('#lab-home [data-exp=lagrange]'); await page.waitForTimeout(800);
   await page.goBack(); await page.waitForTimeout(800);
   check('telefon: geri hareketi deneyden merkeze döner, siteden çıkmaz', await page.evaluate(() => document.body.dataset.exp === 'home' && /127\.0\.0\.1|localhost/.test(location.host)));
+  await page.goBack(); await page.waitForTimeout(800); const ex1 = await page.evaluate(() => document.body.dataset.exp);
+  await page.goBack(); await page.waitForTimeout(800);
+  check('telefon: açılıştaki deneyden de geri gelinir; ilk açılış kaydının altında merkez var (geri düğmesi siteden çıkmaz)', ex1 === 'ay' && await page.evaluate(() => document.body.dataset.exp === 'home' && /127\.0\.0\.1|localhost/.test(location.host)), ex1);
   check('konsol hatası yok (telefon açılış)', errors.length === 0, errors.slice(0, 3).join(' | '));
   await ctx.close();
 }
