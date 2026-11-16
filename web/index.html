@@ -484,6 +484,7 @@
         </div>
         <div id="designInfo" class="dinfo"></div>
         <div id="wxBox" class="wx" aria-live="polite"></div>
+        <details id="ayWinBox" class="adv"><summary>Fırlatma penceresi araçları</summary>
         <h3>Günlük fırlatma penceresi</h3>
         <p class="note">Aynı gün, fırlatma azimutu (park eğimi) değiştikçe farklı saatlerde fırsat açılır; iniş aynı gün kalır. Menzilin izin verdiği eğimlerle günün fırsatları tasarlanır, her birinin fırlatma anındaki hava değerlendirilir. Önerilen (★): hava uygun olanlar arasında en az yakıtlı. Satıra tıklayınca görev o fırsatla kurulur.</p>
         <div class="daterow"><button id="btnDay" class="sm" type="button">Günün fırsatlarını havayla değerlendir</button><span id="dayMsg" class="note"></span></div>
@@ -492,6 +493,7 @@
         <p class="note">Seçili rampa, roket ve profille sonraki dört pencere tasarlanır (her biri bir öncekinin ertesi gününden aranır). Yakıt = iniş aracı yakıtı + TLI için gereken yakıt; "Fark" en ucuz pencereye göre. Satıra tıklayınca görev o pencereyle kurulur.</p>
         <div class="daterow"><button id="btnScan" class="sm" type="button">Sonraki 4 pencereyi tara</button><span id="winMsg" class="note"></span></div>
         <div class="tblwrap"><table id="wintable" class="tbl wintbl"><thead><tr><th>Fırlatma (UTC)</th><th>Az.</th><th>Eğim</th><th>Δv (m/s)</th><th>Yakıt (kg)</th><th>Fark</th><th>TLI payı</th><th>Hava</th></tr></thead><tbody></tbody></table></div>
+        </details>
         <details class="dlog"><summary>Tasarım günlüğü</summary><ul id="designLog"></ul></details>
         <div class="stepnav"><button class="primary sm" type="button" data-goto="arac">Devam: Araç ve güdüm</button></div>
       </div>
@@ -574,7 +576,7 @@
           <div class="tblwrap"><table id="ayHistTbl" class="tbl hist"><thead><tr><th>Görev</th><th>Düzen</th><th class="num">Yakıt</th><th class="num">Uzaklık</th><th>Sonuç</th></tr></thead><tbody></tbody></table></div>
           <div class="stepnav"><button id="ayHistCsv" class="sm" type="button">CSV indir</button><button id="ayHistClear" class="sm" type="button">Temizle</button></div>
         </details>
-        <h3>Dağılım denemesi (Monte Carlo)</h3>
+        <details id="ayMcBox" class="adv"><summary>Dağılım denemesi (Monte Carlo)</summary>
         <p class="note">Tek uçuş şansa bağlı olabilir. Burada aynı görev tohumlu hatalarla defalarca uçurulur: TLI kesme hatası rota düzeltmelerini, seyrüsefer hataları (IMU, iniş radarı, arazi göreli seyrüsefer) inişi değiştirir. Sonuç, seçili güdüm ve aracın ne kadar güvenilir olduğunu gösterir. Canlı uçuş etkilenmez.</p>
         <div class="frow3">
           <label>Uçuş sayısı<span><select id="mcN"><option value="20">20</option><option value="50" selected>50</option><option value="100">100</option></select></span></label>
@@ -598,6 +600,7 @@
           <div class="tblwrap"><table id="mcHistTbl" class="tbl"><thead><tr><th>Güdüm · araç</th><th>Hata modeli</th><th class="num">Başarı</th><th class="num">Yakıt (medyan)</th><th class="num">Iska (medyan)</th></tr></thead><tbody></tbody></table></div>
           <div class="stepnav"><button id="mcClear" class="sm" type="button">Temizle</button></div>
         </details>
+        </details>
         <h3>Δv bütçesi (m/s)</h3>
         <table id="dvtable" class="tbl">
           <thead><tr><th>Manevra</th><th class="num">Nominal</th><th class="num">Gerçekleşen</th><th class="num">Fark</th></tr></thead>
@@ -606,10 +609,11 @@
         </table>
         <p class="note">Nominal: otopilotun bozulmasız uçuşu. Bozulma ya da elle yakış eklersen rota düzeltmeleri bunları telafi eder, fark burada görünür.</p>
         <p class="note">Apollo 11 (planlanan, Press Kit): LOI 891 + 48, DOI 22.6, MCC-2 6.4 m/s.</p>
-        <h3>Profil karşılaştırması</h3>
+        <details id="ayCmpBox" class="adv"><summary>Profil karşılaştırması</summary>
         <table id="cmptable" class="tbl cmp"><thead><tr><th>Profil</th><th class="num">Ay Δv</th><th class="num">Toplam</th><th class="num">Görev</th></tr></thead><tbody></tbody></table>
         <div class="daterow"><button id="btnCompare" class="sm">Bu tarih için hesapla</button><span id="cmpStatus" class="k"></span></div>
         <p class="note">Aynı iniş yeri için her profilin en az Δv'li tasarımı. "Ay Δv": Ay'a varıştan inişe kadar (iniş aracının taşıdığı). Satıra tıkla: o profil yüklenir.</p>
+        </details>
       </div>
     </div>
 

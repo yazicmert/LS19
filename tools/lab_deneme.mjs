@@ -335,6 +335,8 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   check('"Baştan uçur" görevi yeniden başlatır, Uçuş › Çizelge açılır, sonuç sıfırlanır', await page.waitForFunction(() => document.querySelector('#aySum-dv').textContent === 'İnişte belli olur' && !document.querySelector('#tab-plan').hidden && /info/.test(document.querySelector('#ayVerdict').className), null, { timeout: 60000 }).then(() => true, () => false));
   await page.goto(base + 'index.html?sats=0&ast=0&tab=dv', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => { const l = document.querySelector('#loading'); return l && getComputedStyle(l).display === 'none'; }, null, { timeout: 280000 });
+  check('Sonuç: dağılım denemesi ve profil karşılaştırması kapalı bölümlerde (sayfa kısa kalır)', await page.evaluate(() => !document.querySelector('#ayMcBox').open && !document.querySelector('#ayCmpBox').open && !document.querySelector('#ayWinBox').open));
+  await page.evaluate(() => { for (const id of ['#ayMcBox', '#ayCmpBox']) document.querySelector(id).open = true; });
   check('eski ?tab=dv Sonuç adımını açar (Δv bütçesi ve karşılaştırma orada)', (await stepOn()) === 'dv' && (await vis(page, '#dvtable')) && (await vis(page, '#cmptable')));
   // dağılım denemesi (Monte Carlo): denemede 3 uçuş (seçenek listesine eklenir), ayrı iş parçacıkları
   await page.evaluate(() => { const sel = document.querySelector('#mcN'); sel.add(new Option('3', '3')); sel.value = '3'; });

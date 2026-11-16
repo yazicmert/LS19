@@ -996,3 +996,11 @@ body.launch-cine .asctele { background: linear-gradient(180deg, rgba(6, 8, 14, .
 #lab-lagrange .frow3 input { width: 100%; min-width: 0; }
 #lgMu, #lgC, #lgAz { flex: 1; min-width: 0; }
 #lgView { margin-top: 6px; }
+
+/* telefon: panel içeriği kısalır (yarım sayfada daha çok iş görünsün). Açıklama notları ve adım alt yazıları iki satır (sonunda …):
+   dokununca tamamı açılır (app.js). Seçenek kartlarında (roket, araç, güdüm) açıklama yalnız seçili kartta. */
+@media (max-width: 760px) {
+  #labPanel :is(p.note, .stepsub, .kp-note), #skyPanel p.note { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  #labPanel :is(p.note, .stepsub, .kp-note).open, #skyPanel p.note.open { display: block; -webkit-line-clamp: unset; line-clamp: none; overflow: visible; }
+  #labPanel .optcards .optcard:not(.on) small { display: none; }
+}

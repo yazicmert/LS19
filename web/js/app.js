@@ -819,6 +819,13 @@ function sheetGrip(panel) {
 sheetGrip($('#labPanel')); sheetGrip($('#skyPanel'));
 // iOS Safari touch-action'ı tam uygulamaz: sayfa büyütme hareketi kesilir
 document.addEventListener('gesturestart', (e) => e.preventDefault());
+// telefonda iki satıra kısaltılan açıklama notları (style.css): dokununca tamamı açılır/kapanır; kısalmayan nota dokunmak bir şey yapmaz
+const NOTE_SEL = '#labPanel :is(p.note, .stepsub, .kp-note), #skyPanel p.note';
+document.addEventListener('click', (e) => {
+  if (!narrowScreen() || e.target.closest('a, button, input, select, label, summary')) return;
+  const n = e.target.closest(NOTE_SEL); if (!n) return;
+  if (n.classList.contains('open') || n.scrollHeight > n.clientHeight + 2) n.classList.toggle('open');
+});
 // telefonda sinematik gösterim "⋯" menüsünde
 $('#btnCineMenu').addEventListener('click', () => $('#btnCine').click());
 $('#btnSkyPanel').onclick = () => (S.VIEW === 'lab' ? $('#labPanel') : $('#skyPanel')).classList.toggle('open');

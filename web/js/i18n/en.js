@@ -516,6 +516,7 @@ const dict = {
   "{0} takip listesine eklendi (Takip sekmesi).": "{0} added to the watch list (Tracking tab).",
   "Kamera: görünümü seç (1–5)": "Camera: choose the view (1–5)",
   "Gösterim": "Playback",
+  "Fırlatma penceresi araçları": "Launch window tools",
   "Görevi fragman gibi baştan oynat": "Replay the mission from the start like a trailer",
   "{0} takip listesine eklendi (Canlı Gökyüzü › Takip).": "{0} added to the watch list (Live Sky › Tracking).",
   "Dünya'ya yakın asteroitler (tümü)": "Near-Earth asteroids (all)",
