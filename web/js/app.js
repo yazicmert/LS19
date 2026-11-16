@@ -602,9 +602,10 @@ function frame(now) {
 }
 // Yükleme örtüsünü kaldır. İlk gerçek karenin GPU işi (gölgelendiricilerin ve dokuların ilk kullanımı) örtünün altında bitsin diye 1×1 okumayla beklenir:
 // yoksa örtü kalktıktan sonra ilk kareler sırada birikip sayfa saniyelerce donmuş görünüyordu (docs/performans.md §16). Durum 1,5 sn içinde gelmezse beklemeden kalkar.
-let revealAt = 0;
+let revealAt = 0, primed = false;
 function reveal(drawn) {
   revealAt = 0;
+  if (drawn && S.MODE === 'mission' && !primed) { primed = true; world.primeHidden(); }      // alevler vb. ilk kez uçuş ortasında görünecek nesneler: ilk çizim burada (scene.js)
   if (drawn) { try { const gl = world.renderer.getContext(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4)); } catch (e) { /* bağlam kaybı: beklemeden kaldır */ } }
   $('#loading').style.display = 'none';
 }
@@ -764,8 +765,12 @@ function sheetGrip(panel) {
     if (h > (half + full) / 2) panel.style.setProperty('--sheet-h', full + 'px'); else panel.style.removeProperty('--sheet-h');
   };
   g.addEventListener('pointerup', end); g.addEventListener('pointercancel', end);
+  // klavye açılınca yarım sayfa daralır: yazı alanına girilince sayfa tam yüksekliğe çıkar
+  panel.addEventListener('focusin', (e) => { if (narrowScreen() && e.target.matches('input:not([type=range]):not([type=checkbox]):not([type=radio]), select, textarea')) panel.style.setProperty('--sheet-h', '100dvh'); });
 }
 sheetGrip($('#labPanel')); sheetGrip($('#skyPanel'));
+// iOS Safari touch-action'ı tam uygulamaz: sayfa büyütme hareketi kesilir
+document.addEventListener('gesturestart', (e) => e.preventDefault());
 // telefonda sinematik gösterim "⋯" menüsünde
 $('#btnCineMenu').addEventListener('click', () => $('#btnCine').click());
 $('#btnSkyPanel').onclick = () => (S.VIEW === 'lab' ? $('#labPanel') : $('#skyPanel')).classList.toggle('open');

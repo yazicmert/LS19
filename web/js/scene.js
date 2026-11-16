@@ -147,6 +147,27 @@ export class World {
     } catch (e) { /* ilk çizimde derlenir */ } finally { r.debug.checkShaderErrors = was; for (const o of warm) { this.scene.remove(o); o.geometry.dispose(); } }
     for (const p of r.info.programs || []) if (p.program && !gl.getProgramParameter(p.program, gl.LINK_STATUS)) console.error('Gölgelendirici bağlanamadı:', gl.getProgramInfoLog(p.program));
   }
+  // O ana kadar çizilmemiş (gizli) nesnelerin ilk çizimi yükleme örtüsü altında (app.js › reveal, ilk gerçek kareden hemen sonra): motor alevleri ve ışıma
+  // sprite'ları ilk kez TLI yanmasında görünür; derlenmiş programın ilk kullanımı (three'nin eşzamanlı hata/uniform sorgusu, bazı sürücülerde ertelenmiş derleme)
+  // uçuşun ortasında 0,5–0,8 sn kilitliyordu (performans.md §18). Vekiller asıl malzemeyle, asıl sahnenin ışıklarıyla (program anahtarı aynı) tuvale 1×1 makasla
+  // çizilir; sahnenin geri kalanı o an gizlenir.
+  primeHidden() {
+    const r = this.renderer, S = this.scene, prox = [], hid = [];
+    const hidden = (o) => { for (let p = o; p && p !== S; p = p.parent) if (!p.visible) return true; return false; };
+    S.traverse((o) => {
+      if (!o.material || !hidden(o)) return;
+      const p = o.isSprite ? new THREE.Sprite(o.material) : o.isInstancedMesh ? new THREE.InstancedMesh(o.geometry, o.material, 1) : o.isPoints ? new THREE.Points(o.geometry, o.material) : o.isMesh && !o.isSkinnedMesh ? new THREE.Mesh(o.geometry, o.material) : null;
+      if (p) { p.receiveShadow = o.receiveShadow; p.castShadow = o.castShadow; p.frustumCulled = false; prox.push(p); }
+    });
+    if (!prox.length) return 0;
+    for (const c of S.children) if (!c.isLight && c.visible) { c.visible = false; hid.push(c); }
+    S.add(...prox);
+    try { r.setScissorTest(true); r.setScissor(0, 0, 1, 1); r.render(S, this.camera); } catch (e) { /* ilk görünüşte çizilir */ } finally {
+      r.setScissorTest(false); S.remove(...prox); for (const c of hid) c.visible = true;
+      for (const p of prox) if (p.isInstancedMesh) p.dispose();
+    }
+    return prox.length;
+  }
 
   // Sonradan eklenen katmanların (gökyüzü noktaları, uydu aile modelleri) programlarını ilk çizimlerinden önce derle; yoksa veri gelince ilk karede derlenip
   // ana iş parçacığını tutuyordu (docs/performans.md §17). Aynı geometri ve malzemeyle vekiller geçici bir sahneye konur ve yalnız onlar derlenir; ışıklar ve sis

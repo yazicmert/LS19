@@ -32,6 +32,8 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text-p
 :root { --st: env(safe-area-inset-top, 0px); --sb: env(safe-area-inset-bottom, 0px); --sl: env(safe-area-inset-left, 0px); --sr: env(safe-area-inset-right, 0px); }
 html { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overscroll-behavior: none; }
 body { overscroll-behavior: none; }
+/* iki parmak sayfayı büyütmez (tuvalde kamera yaklaşır); kaydırma serbest. touch-action kesişir: alt öğeler de büyütmez */
+html, body { touch-action: pan-x pan-y; }
 /* 3B tuval kendi sürükleme ve iki parmak yakınlaştırmasını işler (canvasinput.js): tarayıcı sayfayı kaydırmaz/büyütmez */
 #view { touch-action: none; }
 /* denetimler: çift dokunma yakınlaştırması ve 300 ms gecikme yok; uzun basınca yazısı seçilmez (içerik metni seçilebilir kalır) */
