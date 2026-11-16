@@ -245,7 +245,9 @@ function syncWorkspace(push = true) {
     if (exp !== 'saptirma') for (const k of LINK_KEYS) u.searchParams.delete(k);                 // saptırma denemesinin parametreleri yalnız o deneyde adreste kalır
     writeAyUrl(u);                                                                                 // Ay görevininkiler de
     if (exp !== 'lagrange') for (const k of LG_LINK_KEYS) u.searchParams.delete(k);                // Lagrange deneyininkiler de
-    history.replaceState(null, '', u);
+    // alan ya da deney değişince geçmişe yeni kayıt: telefonda geri hareketi siteden çıkmak yerine bir önceki görünüme döner (popstate)
+    const nav = S.VIEW + '/' + (exp || ''), st = history.state && history.state.nav;
+    if (st && st !== nav) history.pushState({ nav }, '', u); else history.replaceState({ nav }, '', u);
   }
   if (exp === 'lagrange') lagrange.show();
   if (exp === 'carpma' && impactui) impactui.open();                             // gökyüzü motoru (initSky) yukarıda kuruldu
@@ -273,6 +275,13 @@ const lagrange = new LagrangeUI({
 });
 const labui = new LabUI({ initial: 'ay' });
 labui.onShow = () => { if (S.VIEW === 'lab') syncWorkspace(!quietShow); };
+// geri/ileri: adresteki alanı ve deneyi kur (adres yazılmaz; kayıt zaten o adreste)
+window.addEventListener('popstate', () => {
+  if (!urlApplied) return;
+  const q = new URLSearchParams(location.search);
+  const r = resolveView({ mode: q.get('mode'), exp: q.get('exp'), tab: null, tabOwner: () => null }) || { view: 'lab', exp: 'ay' };
+  setWorkspace(r.view, false, r.view === 'lab' ? (r.exp || LAB_HOME) : null);
+});
 function openLab(i, opts) {
   setWorkspace('lab', true, 'saptirma');
   if (deflect) deflect.setTarget(i, opts);
@@ -540,7 +549,7 @@ worker.onmessage = (e) => {
     if (d.type === 'ready') revealAt = performance.now() + 1500; else $('#loading').style.display = 'none';      // yeni görev: örtü ilk gerçek kare bitince kalkar (frame › reveal)
     if (d.seek) { if (!S.running) setPlay(true); }
     else { S.running = false; setBtn($('#btnPlay'), 'play', 'Başlat'); }
-    if (d.type === 'ready' && !urlApplied) { urlApplied = true; applyUrlParams(); if (new URLSearchParams(location.search).get('prefetch') === '1') initSky(); if (narrowScreen() && S.VIEW === 'lab') $('#labPanel').classList.add('open'); }      // telefon: ilk açılışta deney paneli açık (hangi deney, geri dönüş görünsün)
+    if (d.type === 'ready' && !urlApplied) { urlApplied = true; applyUrlParams(); history.replaceState({ nav: S.VIEW + '/' + (S.VIEW === 'lab' ? labui.page : '') }, '', location.href); if (new URLSearchParams(location.search).get('prefetch') === '1') initSky(); if (narrowScreen() && S.VIEW === 'lab') $('#labPanel').classList.add('open'); }      // telefon: ilk açılışta deney paneli açık (hangi deney, geri dönüş görünsün)
     if (d.type === 'ready') syncAyUrl();
     ayRefresh();
   } else if (d.type === 'state') {
@@ -587,13 +596,14 @@ function frame(now) {
   // görev motorunda ilk durum gelmeden, gökyüzü motorunda ilk skyFrame'den önce sahne konumlanmamıştır (Dünya ve Ay ince ağları ufuk bandı ve LOD olmadan, ~2,2 M üçgen): o kare çizilmez
   const placed = S.MODE === 'sky' ? skyPlaced : ascent.active || !!S.latest;           // gökyüzü: skyFrame en az bir kez çalıştı (efemeris kurulu)
   if (!S.designing && placed) world.render();                     // tasarım sırasında katman her şeyi örtüyor: işlemci tasarıma kalsın
+  if (!primed && !S.designing && placed && S.MODE === 'mission') { primed = true; world.primeHidden(); }     // alevler vb. uçuş ortasında ilk kez görünecek nesneler: ilk çizim ilk görev karesinde (açılışta örtü altında; scene.js)
   if (revealAt && !S.designing && (placed || now > revealAt)) reveal(placed);
   if (perfHud) perfHud.frame(now, dtMs);
   requestAnimationFrame(frame);
 }
 // Yükleme örtüsünü kaldır. İlk gerçek karenin GPU işi (gölgelendiricilerin ve dokuların ilk kullanımı) örtünün altında bitsin diye 1×1 okumayla beklenir:
 // yoksa örtü kalktıktan sonra ilk kareler sırada birikip sayfa saniyelerce donmuş görünüyordu (docs/performans.md §16). Durum 1,5 sn içinde gelmezse beklemeden kalkar.
-let revealAt = 0;
+let revealAt = 0, primed = false;
 function reveal(drawn) {
   revealAt = 0;
   if (drawn) { try { const gl = world.renderer.getContext(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4)); } catch (e) { /* bağlam kaybı: beklemeden kaldır */ } }
@@ -730,6 +740,39 @@ function applyUrlParams() {
   if (q.get('cine') && !q.get('seek')) setTimeout(() => cinema.start({ scale: Math.max(0.2, parseFloat(q.get('cine')) || 1) }), 800);       // ?cine=1: açılışta sinematik gösterim (sayı: süre ölçeği)
 }
 $('#btnPanel').onclick = () => $('#labPanel').classList.toggle('open');
+// ---------------------------------------------------------------- telefon yerleşimi (style.css ≤ 760 px)
+// bilgi kartları tek satır: dokununca tam kart (içindeki düğme ve bağlantılar kartı kapatmaz)
+for (const id of ['#hud', '#skyHud']) {
+  const h = $(id); h.setAttribute('aria-expanded', 'false');
+  h.addEventListener('click', (e) => { if (!narrowScreen() || e.target.closest('button, a, input, select, label')) return; const on = h.classList.toggle('open'); h.setAttribute('aria-expanded', on ? 'true' : 'false'); });
+}
+// paneller alttan açılan sayfa: tutamaçla sürükle (yukarı tam ekran, aşağı kapanır), tutamağa dokunmak yarım ↔ tam
+function sheetGrip(panel) {
+  const g = document.createElement('div'); g.className = 'sheet-grip'; g.setAttribute('aria-hidden', 'true'); panel.prepend(g);
+  let y0 = 0, h0 = 0, moved = false;
+  g.addEventListener('pointerdown', (e) => { g.setPointerCapture(e.pointerId); y0 = e.clientY; h0 = panel.getBoundingClientRect().height; moved = false; document.body.classList.add('sheet-drag'); });
+  g.addEventListener('pointermove', (e) => {
+    if (!document.body.classList.contains('sheet-drag')) return;
+    if (Math.abs(e.clientY - y0) > 6) moved = true;
+    panel.style.setProperty('--sheet-h', Math.max(60, h0 + (y0 - e.clientY)) + 'px');
+  });
+  const end = () => {
+    if (!document.body.classList.contains('sheet-drag')) return;
+    document.body.classList.remove('sheet-drag');
+    const h = panel.getBoundingClientRect().height, vh = innerHeight, full = parseFloat(getComputedStyle(panel).maxHeight) || vh, half = 0.52 * vh;
+    if (!moved) { panel.style.setProperty('--sheet-h', h0 < (half + full) / 2 - 10 ? full + 'px' : '52dvh'); return; }
+    if (h < 0.28 * vh) { panel.classList.remove('open'); panel.style.removeProperty('--sheet-h'); return; }
+    if (h > (half + full) / 2) panel.style.setProperty('--sheet-h', full + 'px'); else panel.style.removeProperty('--sheet-h');
+  };
+  g.addEventListener('pointerup', end); g.addEventListener('pointercancel', end);
+  // klavye açılınca yarım sayfa daralır: yazı alanına girilince sayfa tam yüksekliğe çıkar
+  panel.addEventListener('focusin', (e) => { if (narrowScreen() && e.target.matches('input:not([type=range]):not([type=checkbox]):not([type=radio]), select, textarea')) panel.style.setProperty('--sheet-h', '100dvh'); });
+}
+sheetGrip($('#labPanel')); sheetGrip($('#skyPanel'));
+// iOS Safari touch-action'ı tam uygulamaz: sayfa büyütme hareketi kesilir
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+// telefonda sinematik gösterim "⋯" menüsünde
+$('#btnCineMenu').addEventListener('click', () => $('#btnCine').click());
 $('#btnSkyPanel').onclick = () => (S.VIEW === 'lab' ? $('#labPanel') : $('#skyPanel')).classList.toggle('open');
 window.LS19 = { world, ui, send, ascent, setCam, setPlay, cinema, focusOn, setWorkspace, setSkyCam, clock, followSat, lookAtSat, labui, openLab, aymc, ayabort, lagrange, compare, get mode() { return S.MODE; }, get view() { return S.VIEW; }, get skyT() { return skyT; }, get deflect() { return deflect; },
   get sats() { return S.sats; }, get asts() { return S.asts; }, get astui() { return S.astui; }, get updater() { return updater; }, get tracker() { return S.tracker; }, get skyui() { return S.skyui; }, get launches() { return S.launches; } };

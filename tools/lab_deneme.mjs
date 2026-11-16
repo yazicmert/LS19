@@ -501,6 +501,20 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await page.click('#btnPanel'); await page.click('#labBack'); await page.click('#lab-home [data-exp=lagrange]');
   check('telefon: Lagrange noktaları paneli açık, çizim ve adımlar yatay taşmaz', await page.evaluate(() => { const p = document.querySelector('#labPanel .labpage:not([hidden])'); return p.id === 'lab-lagrange' && document.querySelector('#labPanel').classList.contains('open') && p.scrollWidth <= p.clientWidth + 1 && document.querySelector('#lgMap').clientWidth > 300; }));
   await shot(page, 'm7-lagrange');
+  {
+    const cdp = await page.context().newCDPSession(page);
+    await page.evaluate(() => document.querySelector('#lab-lagrange [data-lgsys=ozel]').click());            // özel sistem: kütle oranı kaydırıcısı görünür
+    const v0 = await page.evaluate(() => { const e = document.querySelector('#lgMu'); e.scrollIntoView({ block: 'end' }); return e.value; });          // yarım sayfada yapışkan çizimin altında kalmasın await page.waitForTimeout(200);
+    const r = await page.evaluate(() => { const b = document.querySelector('#lgMu').getBoundingClientRect(); return [b.left, b.width, b.top + b.height / 2]; });
+    const ev = (type, x) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y: r[2] }] });
+    await ev('touchStart', r[0] + r[1] * 0.2); for (let i = 1; i <= 10; i++) { await ev('touchMove', r[0] + r[1] * (0.2 + 0.06 * i)); await page.waitForTimeout(16); } await ev('touchEnd'); await page.waitForTimeout(200);
+    check('telefon: kaydırıcı parmakla sürüklenir (sayfa büyütme kuralı kaydırıcıyı kilitlemez)', await page.evaluate((v) => document.querySelector('#lgMu').value !== v, v0));
+    await cdp.detach();
+    await page.evaluate(() => { document.querySelector('#lab-lagrange [data-lgsys=em]').click(); document.querySelector('#lab-lagrange [data-lggo="3"]').click(); });
+    await page.focus('#lgDays');
+    check('telefon: paneldeki yazı alanına girilince panel tam yüksekliğe çıkar (klavye yarım sayfayı daraltmasın)', await page.waitForFunction(() => document.querySelector('#labPanel').getBoundingClientRect().height > innerHeight * 0.75, null, { timeout: 5000 }).then(() => true, () => false));
+    await page.evaluate(() => document.activeElement.blur());
+  }
   await page.click('#labBack'); await page.click('#lab-home [data-exp=ay]'); await page.click('#btnPanel');
   check('telefon: görev çubuğundaki panel düğmesi Laboratuvar panelini kapatır (3B uçuş görünür)', await page.evaluate(() => !document.querySelector('#labPanel').classList.contains('open')) && (await vis(page, '#controls')) && (await vis(page, '#hud')));
   await shot(page, 'm6-ay-gorevi');
@@ -514,6 +528,38 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await shot(page, 'm0-acilis');
   await page.click('#btnPanel');
   check('telefon: panel düğmesi açılış panelini kapatır (3B uçuş tam ekran)', await page.evaluate(() => !document.querySelector('#labPanel').classList.contains('open')));
+  check('telefon: bilgi kartı tek satır (evre, irtifa, hız); dokununca tam kart açılır', await page.evaluate(() => { const h = document.querySelector('#hud'); return h.getBoundingClientRect().height < 50 && !h.classList.contains('open') && getComputedStyle(h.querySelector('.grid2')).display === 'none'; })
+    && await (async () => { await page.tap('#hud'); return page.evaluate(() => { const h = document.querySelector('#hud'); const ok = h.classList.contains('open') && h.getBoundingClientRect().height > 150; h.click(); return ok; }); })());
+  await page.click('#btnPanel'); await page.waitForTimeout(400);
+  check('telefon: panel alttan yarım yükseklikte açılır (3B uçuş üstte görünür), tutamağa dokununca tam ekran', await page.evaluate(() => { const p = document.querySelector('#labPanel').getBoundingClientRect(); return p.height > innerHeight * 0.4 && p.height < innerHeight * 0.6 && p.top > innerHeight * 0.3; })
+    && await (async () => { const g = await page.evaluate(() => { const r = document.querySelector('#labPanel .sheet-grip').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }); await page.touchscreen.tap(g[0], g[1]); await page.waitForTimeout(400);
+      return page.evaluate(() => document.querySelector('#labPanel').getBoundingClientRect().height > innerHeight * 0.75); })());
+  {
+    const cdp = await page.context().newCDPSession(page);
+    const settle = () => page.waitForFunction(() => !document.querySelector('#labPanel').getAnimations().length, null, { timeout: 5000 }).catch(() => {});          // yükseklik geçişi bitmeden tutamaç yeri oynar
+    const drag = async (dy) => { await settle(); const g = await page.evaluate(() => { const r = document.querySelector('#labPanel .sheet-grip').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+      const ev = (type, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x: g[0], y }] });
+      await ev('touchStart', g[1]); for (let i = 1; i <= 10; i++) { await ev('touchMove', g[1] + dy * i / 10); await page.waitForTimeout(16); } await ev('touchEnd'); await page.waitForTimeout(100); await settle(); };
+    const st = () => page.evaluate(() => { const p = document.querySelector('#labPanel'); return [p.classList.contains('open'), p.getBoundingClientRect().height / innerHeight]; });
+    await drag(550); const down = await st();
+    await page.click('#btnPanel'); await page.waitForTimeout(400); await drag(-300); const up = await st();
+    check('telefon: tutamaç aşağı sürüklenince panel kapanır, yarımdan yukarı sürüklenince tam ekran olur', !down[0] && up[0] && up[1] > 0.75, JSON.stringify([down, up]));
+    await cdp.detach();
+  }
+  await page.click('#btnPanel');
+  await page.click('#controls .flighttm .tm-btn');
+  check('telefon: alt çubukta Başlat, hız, kamera, ⋯ ve panel; sinematik gösterim ⋯ menüsünde', await page.evaluate(() => getComputedStyle(document.querySelector('#btnCine')).display === 'none' && document.querySelector('#btnCineMenu').getClientRects().length > 0 && document.querySelector('#controls .flighttm .ico-more').getClientRects().length > 0));
+  await page.keyboard.press('Escape');
+  {
+    const cdp = await ctx.newCDPSession(page), d0 = await page.evaluate(() => window.LS19.world.cam.dist), tp = (a) => a.map(([x, y], i) => ({ x, y, id: i }));
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: tp([[170, 450], [220, 450]]) });
+    for (let k = 1; k <= 6; k++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: tp([[170 - k * 12, 450], [220 + k * 12, 450]]) });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await page.waitForTimeout(300);
+    check('telefon: iki parmakla açınca kamera yaklaşır, sayfa büyümez', await page.evaluate((d) => window.LS19.world.cam.dist < d && window.visualViewport.scale === 1, d0));
+  }
+  await page.click('#btnPanel'); await page.click('#labBack'); await page.click('#lab-home [data-exp=lagrange]'); await page.waitForTimeout(800);
+  await page.goBack(); await page.waitForTimeout(800);
+  check('telefon: geri hareketi deneyden merkeze döner, siteden çıkmaz', await page.evaluate(() => document.body.dataset.exp === 'home' && /127\.0\.0\.1|localhost/.test(location.host)));
   check('konsol hatası yok (telefon açılış)', errors.length === 0, errors.slice(0, 3).join(' | '));
   await ctx.close();
 }
