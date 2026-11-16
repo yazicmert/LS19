@@ -503,14 +503,16 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await shot(page, 'm7-lagrange');
   {
     const cdp = await page.context().newCDPSession(page);
-    const v0 = await page.evaluate(() => { const e = document.querySelector('#lgMu'); e.scrollIntoView({ block: 'center' }); return e.value; }); await page.waitForTimeout(200);
+    await page.evaluate(() => document.querySelector('#lab-lagrange [data-lgsys=ozel]').click());            // özel sistem: kütle oranı kaydırıcısı görünür
+    const v0 = await page.evaluate(() => { const e = document.querySelector('#lgMu'); e.scrollIntoView({ block: 'end' }); return e.value; });          // yarım sayfada yapışkan çizimin altında kalmasın await page.waitForTimeout(200);
     const r = await page.evaluate(() => { const b = document.querySelector('#lgMu').getBoundingClientRect(); return [b.left, b.width, b.top + b.height / 2]; });
     const ev = (type, x) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y: r[2] }] });
     await ev('touchStart', r[0] + r[1] * 0.2); for (let i = 1; i <= 10; i++) { await ev('touchMove', r[0] + r[1] * (0.2 + 0.06 * i)); await page.waitForTimeout(16); } await ev('touchEnd'); await page.waitForTimeout(200);
     check('telefon: kaydırıcı parmakla sürüklenir (sayfa büyütme kuralı kaydırıcıyı kilitlemez)', await page.evaluate((v) => document.querySelector('#lgMu').value !== v, v0));
     await cdp.detach();
-    await page.focus('#lgDays'); await page.waitForTimeout(400);
-    check('telefon: paneldeki yazı alanına girilince panel tam yüksekliğe çıkar (klavye yarım sayfayı daraltmasın)', await page.evaluate(() => document.querySelector('#labPanel').getBoundingClientRect().height > innerHeight * 0.75));
+    await page.evaluate(() => { document.querySelector('#lab-lagrange [data-lgsys=em]').click(); document.querySelector('#lab-lagrange [data-lggo="3"]').click(); });
+    await page.focus('#lgDays');
+    check('telefon: paneldeki yazı alanına girilince panel tam yüksekliğe çıkar (klavye yarım sayfayı daraltmasın)', await page.waitForFunction(() => document.querySelector('#labPanel').getBoundingClientRect().height > innerHeight * 0.75, null, { timeout: 5000 }).then(() => true, () => false));
     await page.evaluate(() => document.activeElement.blur());
   }
   await page.click('#labBack'); await page.click('#lab-home [data-exp=ay]'); await page.click('#btnPanel');
