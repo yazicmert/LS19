@@ -295,8 +295,8 @@
         </div></details>
       </div>
     </div>
-    <div class="tm">
-      <button class="tm-btn" title="Uçuş seçenekleri"><i data-icon="sliders"></i><span class="tm-k">Uçuş</span><span class="tm-val" data-from="#chkAuto" data-on="Otopilot" data-off="Elle kumanda"></span><i data-icon="chev" class="chev"></i></button>
+    <div class="tm flighttm">
+      <button class="tm-btn" title="Uçuş seçenekleri"><i data-icon="sliders" class="ico-sliders"></i><i data-icon="more" class="ico-more"></i><span class="tm-k">Uçuş</span><span class="tm-val" data-from="#chkAuto" data-on="Otopilot" data-off="Elle kumanda"></span><i data-icon="chev" class="chev"></i></button>
       <div class="tm-pop" role="menu" aria-label="Uçuş seçenekleri" hidden>
         <details open><summary>Kumanda</summary><div class="tm-sub">
           <label class="tm-toggle"><input id="chkAuto" type="checkbox" role="menuitemcheckbox" checked><span>Otopilot</span><kbd>G</kbd></label>
@@ -315,6 +315,9 @@
         <details open><summary>Senaryo</summary><div class="tm-sub">
           <button id="btnPerturb" role="menuitem" title="Rastgele 2 m/s hız bozulması"><i data-icon="shake"></i><span>Bozulma ekle</span><kbd>P</kbd></button>
           <button id="btnRestart" role="menuitem" title="Görevi baştan başlat"><i data-icon="restart"></i><span>Baştan başlat</span></button>
+        </div></details>
+        <details open class="phone-only"><summary>Gösterim</summary><div class="tm-sub">
+          <button id="btnCineMenu" role="menuitem" title="Görevi fragman gibi baştan oynat"><i data-icon="film"></i><span>Sinematik gösterim</span><kbd>C</kbd></button>
         </div></details>
       </div>
     </div>

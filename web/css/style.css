@@ -576,6 +576,40 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
   #skyPanel.open, #labPanel.open { top: calc(60px + var(--st)); bottom: calc(64px + var(--sb)); }
 }
 @media (max-width: 520px) { #modebar .seg button:not(.on) span { display: none; } }
+/* ---------------------------------------------------------------- telefon yerleşimi: 3B görünüme yer (≤ 760 px)
+   Bilgi kartları tek satır (dokununca tam kart: .open), paneller alttan açılan sayfa (tutamaçla yarım/tam/kapalı; app.js sheetGrip),
+   Ay görevi alt çubuğunda Başlat, hız, kamera, ⋯ (uçuş seçenekleri + sinematik), panel; üst çubuk ince. Bulanıklaştırma (backdrop-filter)
+   her karede yeniden çizilen tuvalin üstünde pahalı: telefonda kapalı, zeminler biraz daha koyu. */
+.phone-only, .ico-more, .sheet-grip { display: none; }
+@media (max-width: 760px) {
+  #modebar, #hud, #skyHud, .panel, .dock, .camdial .camdial-btn, .camdial #btnSkyPanel, .tm-pop { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  #modebar, #hud, #skyHud, .dock { background: rgba(10, 12, 18, .9); }
+  #modebar { padding: 2px 3px 2px 9px; gap: 6px; }
+  #modebar .brand { font-size: 12.5px; gap: 5px; }
+  #modebar .seg button { padding: 5px 10px; font-size: 12px; }
+  #modebar .langbtn { padding: 4px 8px; font-size: 11px; }
+  #hud, #skyHud { top: calc(50px + var(--st)); cursor: pointer; }
+  #hud:not(.open), #skyHud:not(.open) { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 7px 30px 7px 12px; }
+  #hud::after, #skyHud::after { content: ''; position: absolute; right: 13px; top: 15px; width: 6px; height: 6px; border-right: 1.5px solid var(--text-muted); border-bottom: 1.5px solid var(--text-muted); transform: rotate(45deg); transition: transform .2s var(--ease); }
+  #hud.open::after, #skyHud.open::after { transform: rotate(-135deg); top: 18px; }
+  #hud:not(.open) > :not(#phase):not(.big):not(.status) { display: none; }
+  #hud:not(.open) .phase { flex: 1; min-width: 0; margin: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #hud:not(.open) .big { display: flex; gap: 12px; margin: 0; }
+  #hud:not(.open) .big .k { display: none; }
+  #hud:not(.open) .bv { font-size: 14px; }
+  #hud:not(.open) .status { flex-basis: 100%; margin: 0; } #hud:not(.open) .status:empty { display: none; }
+  #skyHud:not(.open) > :not(.hud-top):not(.clockbig) { display: none; }
+  #skyHud:not(.open) .hud-top, #skyHud:not(.open) .clockbig { margin: 0; }
+  #skyHud:not(.open) .clockbig { font-size: 17px; }
+  #controls #btnCine { display: none; }
+  #controls .phone-only { display: block; }
+  #controls .flighttm .ico-sliders { display: none; }
+  #controls .flighttm .ico-more { display: inline; }
+  #skyPanel.open, #labPanel.open { top: auto; height: var(--sheet-h, 52dvh); max-height: calc(100dvh - 56px - var(--st) - 64px - var(--sb)); border-radius: 16px 16px 12px 12px; transition: height .22s var(--ease); }
+  body.sheet-drag #skyPanel, body.sheet-drag #labPanel { transition: none; }
+  .sheet-grip { display: block; flex: none; height: 22px; margin-bottom: -6px; touch-action: none; cursor: grab; position: relative; }
+  .sheet-grip::before { content: ''; position: absolute; left: 50%; top: 8px; width: 40px; height: 4px; margin-left: -20px; border-radius: 2px; background: var(--line-2); }
+}
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
 /* yüzey parçası yükleme göstergesi */
@@ -584,6 +618,12 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
 .tilestatus.warn { color: var(--warn); border-color: var(--warn); max-width: 360px; border-radius: 12px; }
 .tilemode { position: fixed; left: calc(16px + var(--sl)); bottom: calc(54px + var(--sb)); z-index: 5; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-family: var(--font); color: var(--text-secondary); background: rgba(12, 15, 21, .85); border: 1px solid var(--line-2); backdrop-filter: blur(6px); cursor: pointer; }
 @media (hover: hover) and (pointer: fine) { .tilemode:hover { color: var(--text-primary); border-color: var(--accent); } }
+@media (max-width: 760px) {
+  /* yüzey parçası durumu ve kaynak düğmesi telefonda alt çubuğun ve kamera düğmesinin üstüne biniyordu: tek satır kartın altına */
+  .tilestatus { left: calc(8px + var(--sl)); right: auto; bottom: auto; top: calc(92px + var(--st)); max-width: calc(100% - 16px - var(--sl) - var(--sr)); font-size: 11.5px; }
+  .tilemode { left: calc(8px + var(--sl)); bottom: auto; top: calc(124px + var(--st)); font-size: 11.5px; }
+  body:has(#hud.open) .tilestatus, body:has(#hud.open) .tilemode, body:has(#skyHud.open) .tilestatus, body:has(#skyHud.open) .tilemode { display: none; }
+}
 .tilemode[hidden] { display: none; }
 
 /* Çarpma sekmesi */

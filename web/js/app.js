@@ -739,6 +739,35 @@ function applyUrlParams() {
   if (q.get('cine') && !q.get('seek')) setTimeout(() => cinema.start({ scale: Math.max(0.2, parseFloat(q.get('cine')) || 1) }), 800);       // ?cine=1: açılışta sinematik gösterim (sayı: süre ölçeği)
 }
 $('#btnPanel').onclick = () => $('#labPanel').classList.toggle('open');
+// ---------------------------------------------------------------- telefon yerleşimi (style.css ≤ 760 px)
+// bilgi kartları tek satır: dokununca tam kart (içindeki düğme ve bağlantılar kartı kapatmaz)
+for (const id of ['#hud', '#skyHud']) {
+  const h = $(id); h.setAttribute('aria-expanded', 'false');
+  h.addEventListener('click', (e) => { if (!narrowScreen() || e.target.closest('button, a, input, select, label')) return; const on = h.classList.toggle('open'); h.setAttribute('aria-expanded', on ? 'true' : 'false'); });
+}
+// paneller alttan açılan sayfa: tutamaçla sürükle (yukarı tam ekran, aşağı kapanır), tutamağa dokunmak yarım ↔ tam
+function sheetGrip(panel) {
+  const g = document.createElement('div'); g.className = 'sheet-grip'; g.setAttribute('aria-hidden', 'true'); panel.prepend(g);
+  let y0 = 0, h0 = 0, moved = false;
+  g.addEventListener('pointerdown', (e) => { g.setPointerCapture(e.pointerId); y0 = e.clientY; h0 = panel.getBoundingClientRect().height; moved = false; document.body.classList.add('sheet-drag'); });
+  g.addEventListener('pointermove', (e) => {
+    if (!document.body.classList.contains('sheet-drag')) return;
+    if (Math.abs(e.clientY - y0) > 6) moved = true;
+    panel.style.setProperty('--sheet-h', Math.max(60, h0 + (y0 - e.clientY)) + 'px');
+  });
+  const end = () => {
+    if (!document.body.classList.contains('sheet-drag')) return;
+    document.body.classList.remove('sheet-drag');
+    const h = panel.getBoundingClientRect().height, vh = innerHeight, full = parseFloat(getComputedStyle(panel).maxHeight) || vh, half = 0.52 * vh;
+    if (!moved) { panel.style.setProperty('--sheet-h', h0 < (half + full) / 2 - 10 ? full + 'px' : '52dvh'); return; }
+    if (h < 0.28 * vh) { panel.classList.remove('open'); panel.style.removeProperty('--sheet-h'); return; }
+    if (h > (half + full) / 2) panel.style.setProperty('--sheet-h', full + 'px'); else panel.style.removeProperty('--sheet-h');
+  };
+  g.addEventListener('pointerup', end); g.addEventListener('pointercancel', end);
+}
+sheetGrip($('#labPanel')); sheetGrip($('#skyPanel'));
+// telefonda sinematik gösterim "⋯" menüsünde
+$('#btnCineMenu').addEventListener('click', () => $('#btnCine').click());
 $('#btnSkyPanel').onclick = () => (S.VIEW === 'lab' ? $('#labPanel') : $('#skyPanel')).classList.toggle('open');
 window.LS19 = { world, ui, send, ascent, setCam, setPlay, cinema, focusOn, setWorkspace, setSkyCam, clock, followSat, lookAtSat, labui, openLab, aymc, ayabort, lagrange, compare, get mode() { return S.MODE; }, get view() { return S.VIEW; }, get skyT() { return skyT; }, get deflect() { return deflect; },
   get sats() { return S.sats; }, get asts() { return S.asts; }, get astui() { return S.astui; }, get updater() { return updater; }, get tracker() { return S.tracker; }, get skyui() { return S.skyui; }, get launches() { return S.launches; } };
