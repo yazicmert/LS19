@@ -596,6 +596,7 @@ function frame(now) {
   // görev motorunda ilk durum gelmeden, gökyüzü motorunda ilk skyFrame'den önce sahne konumlanmamıştır (Dünya ve Ay ince ağları ufuk bandı ve LOD olmadan, ~2,2 M üçgen): o kare çizilmez
   const placed = S.MODE === 'sky' ? skyPlaced : ascent.active || !!S.latest;           // gökyüzü: skyFrame en az bir kez çalıştı (efemeris kurulu)
   if (!S.designing && placed) world.render();                     // tasarım sırasında katman her şeyi örtüyor: işlemci tasarıma kalsın
+  if (!primed && !S.designing && placed && S.MODE === 'mission') { primed = true; world.primeHidden(); }     // alevler vb. uçuş ortasında ilk kez görünecek nesneler: ilk çizim ilk görev karesinde (açılışta örtü altında; scene.js)
   if (revealAt && !S.designing && (placed || now > revealAt)) reveal(placed);
   if (perfHud) perfHud.frame(now, dtMs);
   requestAnimationFrame(frame);
@@ -605,7 +606,6 @@ function frame(now) {
 let revealAt = 0, primed = false;
 function reveal(drawn) {
   revealAt = 0;
-  if (drawn && S.MODE === 'mission' && !primed) { primed = true; world.primeHidden(); }      // alevler vb. ilk kez uçuş ortasında görünecek nesneler: ilk çizim burada (scene.js)
   if (drawn) { try { const gl = world.renderer.getContext(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4)); } catch (e) { /* bağlam kaybı: beklemeden kaldır */ } }
   $('#loading').style.display = 'none';
 }

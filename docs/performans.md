@@ -406,14 +406,14 @@ Yeni kodun bir koşusunda gerçek CelesTrak kataloğu fikstürün yerini aldı (
 
 **Neden.** Motor alevleri (plüm `ShaderMaterial`) ve çıkış ışıma sprite'ları uçuşta ilk kez TLI'da görünür. Programları yüklemede derlenmişti (`precompile`), ancak ilk kullanımda three eşzamanlı hata ve uniform sorgusu yapar. Bazı sürücüler de derlemeyi ilk çizime erteler. Bu ilk çizim uçuşun ortasına düşüyordu.
 
-**Düzeltme.** Değişiklikler `scene.js › primeHidden` ve `app.js › reveal` içinde. Yükleme örtüsü kalkmadan, ilk gerçek kare çizildikten hemen sonra, o ana kadar çizilmemiş (gizli) her nesne bir kez çizilir:
+**Düzeltme.** Değişiklikler `scene.js › primeHidden` ve `app.js › reveal` içinde. Yükleme örtüsü kalkmadan, ilk gerçek kare çizildikten hemen sonra, aracın (alevler, RCS, ışıma sprite'ları) ve parçacıkların (ayrılma pufları, Ay tozu) o ana kadar çizilmemiş (gizli) nesneleri bir kez çizilir. Kapsam bilerek dar tutulur: sahnenin tamamı alınınca 78 vekil, 239 ms ve 5 ek doku yüklemesi oluyordu, ertelenmiş katmanlar açılışa geri taşınıyordu (§15–§17). Dar kapsamla 44 vekil, 48 ms (4× yavaşlatma, `gl.finish` dahil) ve 1 doku (ışıma) kalır. Tetik, ilk görev karesidir (`app.js › frame`); bu sayede Canlı Gökyüzü ile açılıp sonra Ay görevine geçince de çalışır:
 - Vekiller asıl malzemeyle ve asıl sahnenin ışıklarıyla oluşturulur, böylece program anahtarı aynı kalır.
 - Çizim tuvale 1×1 makasla yapılır; sahnenin geri kalanı o an gizlenir.
 - Maliyet, örtünün zaten beklediği 1×1 okumaya katılır.
 
 `precompile` sırasında yapılamazdı: alevler o anda görünür durumdadır, ilk karede gizlenirler.
 
-Sonuç (aynı koşul): TLI'daki uzun görev 454–785 ms'den kayboldu; koşudaki en uzun görev 141 ms. Gerçek GPU'daki süre `?olcum=1` ile doğrulanmalı.
+Sonuç (aynı koşul, üç koşu): TLI'daki 454–785 ms'lik uzun görev kayboldu; koşulardaki en uzun görev 141, 87 ve 80 ms. Sonraki evreler (LOI, iniş) `seek` ile bu taklitte ölçülemedi: araç ve parçacık malzemelerinin hepsi kapsamda olduğundan aynı ilk kullanım takılmasının orada da önlendiği varsayılıyor. Gerçek GPU'daki süre `?olcum=1` ile doğrulanmalı.
 
 **Telefonda gezinme.**
 - İki parmak hareketi:

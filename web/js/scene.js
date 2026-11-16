@@ -151,10 +151,11 @@ export class World {
   // sprite'ları ilk kez TLI yanmasında görünür; derlenmiş programın ilk kullanımı (three'nin eşzamanlı hata/uniform sorgusu, bazı sürücülerde ertelenmiş derleme)
   // uçuşun ortasında 0,5–0,8 sn kilitliyordu (performans.md §18). Vekiller asıl malzemeyle, asıl sahnenin ışıklarıyla (program anahtarı aynı) tuvale 1×1 makasla
   // çizilir; sahnenin geri kalanı o an gizlenir.
+  // Kapsam yalnız araç (alevler, RCS, ışımalar) ve parçacıklar: sahnenin geri kalanındaki gizli katmanların dokuları ertelenmiş kalır (§15–§17).
   primeHidden() {
     const r = this.renderer, S = this.scene, prox = [], hid = [];
     const hidden = (o) => { for (let p = o; p && p !== S; p = p.parent) if (!p.visible) return true; return false; };
-    S.traverse((o) => {
+    for (const root of [this.vehicle, this.dust && this.dust.group, this.puffs && this.puffs.group]) if (root) root.traverse((o) => {
       if (!o.material || !hidden(o)) return;
       const p = o.isSprite ? new THREE.Sprite(o.material) : o.isInstancedMesh ? new THREE.InstancedMesh(o.geometry, o.material, 1) : o.isPoints ? new THREE.Points(o.geometry, o.material) : o.isMesh && !o.isSkinnedMesh ? new THREE.Mesh(o.geometry, o.material) : null;
       if (p) { p.receiveShadow = o.receiveShadow; p.castShadow = o.castShadow; p.frustumCulled = false; prox.push(p); }
