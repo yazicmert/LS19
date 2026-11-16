@@ -245,7 +245,9 @@ function syncWorkspace(push = true) {
     if (exp !== 'saptirma') for (const k of LINK_KEYS) u.searchParams.delete(k);                 // saptırma denemesinin parametreleri yalnız o deneyde adreste kalır
     writeAyUrl(u);                                                                                 // Ay görevininkiler de
     if (exp !== 'lagrange') for (const k of LG_LINK_KEYS) u.searchParams.delete(k);                // Lagrange deneyininkiler de
-    history.replaceState(null, '', u);
+    // alan ya da deney değişince geçmişe yeni kayıt: telefonda geri hareketi siteden çıkmak yerine bir önceki görünüme döner (popstate)
+    const nav = S.VIEW + '/' + (exp || ''), st = history.state && history.state.nav;
+    if (st && st !== nav) history.pushState({ nav }, '', u); else history.replaceState({ nav }, '', u);
   }
   if (exp === 'lagrange') lagrange.show();
   if (exp === 'carpma' && impactui) impactui.open();                             // gökyüzü motoru (initSky) yukarıda kuruldu
@@ -273,6 +275,13 @@ const lagrange = new LagrangeUI({
 });
 const labui = new LabUI({ initial: 'ay' });
 labui.onShow = () => { if (S.VIEW === 'lab') syncWorkspace(!quietShow); };
+// geri/ileri: adresteki alanı ve deneyi kur (adres yazılmaz; kayıt zaten o adreste)
+window.addEventListener('popstate', () => {
+  if (!urlApplied) return;
+  const q = new URLSearchParams(location.search);
+  const r = resolveView({ mode: q.get('mode'), exp: q.get('exp'), tab: null, tabOwner: () => null }) || { view: 'lab', exp: 'ay' };
+  setWorkspace(r.view, false, r.view === 'lab' ? (r.exp || LAB_HOME) : null);
+});
 function openLab(i, opts) {
   setWorkspace('lab', true, 'saptirma');
   if (deflect) deflect.setTarget(i, opts);
@@ -540,7 +549,7 @@ worker.onmessage = (e) => {
     if (d.type === 'ready') revealAt = performance.now() + 1500; else $('#loading').style.display = 'none';      // yeni görev: örtü ilk gerçek kare bitince kalkar (frame › reveal)
     if (d.seek) { if (!S.running) setPlay(true); }
     else { S.running = false; setBtn($('#btnPlay'), 'play', 'Başlat'); }
-    if (d.type === 'ready' && !urlApplied) { urlApplied = true; applyUrlParams(); if (new URLSearchParams(location.search).get('prefetch') === '1') initSky(); if (narrowScreen() && S.VIEW === 'lab') $('#labPanel').classList.add('open'); }      // telefon: ilk açılışta deney paneli açık (hangi deney, geri dönüş görünsün)
+    if (d.type === 'ready' && !urlApplied) { urlApplied = true; applyUrlParams(); history.replaceState({ nav: S.VIEW + '/' + (S.VIEW === 'lab' ? labui.page : '') }, '', location.href); if (new URLSearchParams(location.search).get('prefetch') === '1') initSky(); if (narrowScreen() && S.VIEW === 'lab') $('#labPanel').classList.add('open'); }      // telefon: ilk açılışta deney paneli açık (hangi deney, geri dönüş görünsün)
     if (d.type === 'ready') syncAyUrl();
     ayRefresh();
   } else if (d.type === 'state') {

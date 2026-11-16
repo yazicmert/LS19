@@ -7,14 +7,28 @@ import { $ } from './uiutil.js';
 
 // ctx: { world, ui, curT, focusOn, followSat, lookAtSat, setCam, setSkyCam }; motor, son durum ve katmanlar ortak durumdan (appstate.js)
 export function attachCanvasInput(canvas, ctx) {
-  let drag = null, press = null;
-  canvas.addEventListener('pointerdown', (e) => { $('#hoverTip').hidden = true; drag = { x: e.clientX, y: e.clientY }; press = { x: e.clientX, y: e.clientY, t: performance.now() }; canvas.setPointerCapture(e.pointerId); });
-  canvas.addEventListener('pointerup', (e) => {
-    drag = null;
-    // sürüklemeden kısa tıklama: gezegen / uydu seçimi
-    if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 5 && performance.now() - press.t < 450) handleClick(e);
-    press = null;
+  // dokunmatik: tek parmak döndürür, iki parmak yakınlaştırır (tuvalde touch-action: none; tarayıcı sayfayı büyütmez). Fare: sürükle + tekerlek
+  let drag = null, press = null, pinchD = 0;
+  const pts = new Map();
+  const spread = () => { const [a, b] = [...pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+  canvas.addEventListener('pointerdown', (e) => {
+    $('#hoverTip').hidden = true; canvas.setPointerCapture(e.pointerId);
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2) { pinchD = spread(); drag = null; press = null; return; }       // ikinci parmak: döndürme ve seçim biter, yakınlaştırma başlar
+    if (pts.size > 2) return;
+    drag = { x: e.clientX, y: e.clientY }; press = { x: e.clientX, y: e.clientY, t: performance.now() };
   });
+  const lift = (e, tap) => {
+    const had = pts.size; pts.delete(e.pointerId);
+    if (had === 2 && pts.size === 1) { const [q] = pts.values(); drag = { x: q.x, y: q.y }; press = null; pinchD = 0; return; }   // kalan parmak döndürmeye sıçramadan devam eder
+    if (pts.size) return;
+    drag = null;
+    // sürüklemeden kısa dokunuş/tıklama: gezegen / uydu seçimi (parmakta 10 px pay)
+    if (tap && press && Math.hypot(e.clientX - press.x, e.clientY - press.y) < (e.pointerType === 'touch' ? 10 : 5) && performance.now() - press.t < 450) handleClick(e);
+    press = null;
+  };
+  canvas.addEventListener('pointerup', (e) => lift(e, true));
+  canvas.addEventListener('pointercancel', (e) => lift(e, false));
   function pickAt(e) {
     const rect = canvas.getBoundingClientRect(), mx = e.clientX - rect.left, my = e.clientY - rect.top;
     const cands = [];
@@ -73,6 +87,8 @@ export function attachCanvasInput(canvas, ctx) {
     }
   }
   canvas.addEventListener('pointermove', (e) => {
+    if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size >= 2) { const d = spread(); if (pinchD > 0 && d > 0) zoom(pinchD / d, pinchD / d); pinchD = d; return; }   // parmaklar açılınca yakınlaşır
     if (!drag) { const now = performance.now(); if (now - hoverT > 120) { hoverT = now; hover(e); } return; }
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag = { x: e.clientX, y: e.clientY };
     if (ctx.world.cam.mode === 'SITE') return;
@@ -82,13 +98,14 @@ export function attachCanvasInput(canvas, ctx) {
     if (ctx.world.cam.auto) { ctx.world.cam.auto = false; document.querySelectorAll('[data-cam]').forEach((b) => b.classList.toggle('on', b.dataset.cam === ctx.world.cam.mode)); }
     ctx.world.cam.az -= dx * 0.005; ctx.world.cam.el = Math.max(-1.5, Math.min(1.5, ctx.world.cam.el + dy * 0.005));
   });
-  canvas.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    if (ctx.world.cam.mode === 'SITE' || ctx.world.cam.mode === 'OBS') { ctx.world.cam.userFov = true; ctx.world.camera.fov = Math.max(2, Math.min(ctx.world.cam.mode === 'OBS' ? 100 : 70, ctx.world.camera.fov * Math.exp(e.deltaY * 0.001))); ctx.world.camera.updateProjectionMatrix(); return; }
+  canvas.addEventListener('wheel', (e) => { e.preventDefault(); zoom(Math.exp(e.deltaY * 0.001), Math.exp(e.deltaY * 0.0012)); }, { passive: false });
+  // yakınlaştırma (tekerlek ve iki parmak ortak): kf görüş açısı çarpanı (yer/gözlemci kipleri), kd uzaklık çarpanı; > 1 uzaklaşır. Kipe göre sınırlar
+  function zoom(kf, kd) {
+    if (ctx.world.cam.mode === 'SITE' || ctx.world.cam.mode === 'OBS') { ctx.world.cam.userFov = true; ctx.world.camera.fov = Math.max(2, Math.min(ctx.world.cam.mode === 'OBS' ? 100 : 70, ctx.world.camera.fov * kf)); ctx.world.camera.updateProjectionMatrix(); return; }
     const f = ctx.world.cam.focus;
     const minD = ctx.world.cam.mode === 'FOCUS' ? (f && f.kind === 'planet' ? ctx.world.planetInfo(f.i, ctx.curT()).R * 1.15 : f && (f.kind === 'ast' || f.R) ? Math.max(0.004, f.R * 1.3) : 0.004)
       : { VEHICLE: 0.012, LAUNCH: 0.03, EARTH: E.R_E * 1.05, MOON: E.R_M * 1.03, SYSTEM: 50000, EMB: 9000, SOLAR: 2e6 }[ctx.world.cam.mode] || 0.01;
     const maxD = ctx.world.cam.mode === 'SOLAR' || ctx.world.cam.mode === 'FOCUS' ? 1e10 : 3e6;
-    ctx.world.cam.dist = Math.max(minD, Math.min(maxD, ctx.world.cam.dist * Math.exp(e.deltaY * 0.0012)));
-  }, { passive: false });
+    ctx.world.cam.dist = Math.max(minD, Math.min(maxD, ctx.world.cam.dist * kd));
+  }
 }
