@@ -514,6 +514,7 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
     await page.focus('#lgDays');
     check('telefon: paneldeki yazı alanına girilince panel tam yüksekliğe çıkar (klavye yarım sayfayı daraltmasın)', await page.waitForFunction(() => document.querySelector('#labPanel').getBoundingClientRect().height > innerHeight * 0.75, null, { timeout: 5000 }).then(() => true, () => false));
     await page.evaluate(() => document.activeElement.blur());
+    check('telefon: yazı alanından çıkınca panel önceki yüksekliğine döner (tam ekranda kalmaz)', await page.waitForFunction(() => { const h = document.querySelector('#labPanel').getBoundingClientRect().height; return h > 0 && h < innerHeight * 0.6; }, null, { timeout: 5000 }).then(() => true, () => false));
   }
   await page.click('#labBack'); await page.click('#lab-home [data-exp=ay]'); await page.click('#btnPanel');
   check('telefon: görev çubuğundaki panel düğmesi Laboratuvar panelini kapatır (3B uçuş görünür)', await page.evaluate(() => !document.querySelector('#labPanel').classList.contains('open')) && (await vis(page, '#controls')) && (await vis(page, '#hud')));
