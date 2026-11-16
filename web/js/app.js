@@ -92,7 +92,7 @@ const ayRefresh = () => { lastAy = performance.now(); ayui.update(ayState()); };
 // sinematik "fragman" gösterimi (cinema.js): görevi baştan oynatır; kamera, zaman hızı ve bindirmeleri yönetir
 const cinema = new Cinema({ world, send, ui, root: $('#app'), latest: () => S.latest, play: (on) => setPlay(on), running: () => S.running, landing: () => landingMode, ascent: () => ascent,
   onStart: () => { document.querySelectorAll('.tm-pop').forEach((p) => { p.hidden = true; }); ui.hidePick(); $('#hoverTip').hidden = true; },
-  onStop: () => { resize(); } });
+  onStop: () => { resize(); dropLayer('cine'); } });
 
 async function boot() {
   resize();
@@ -245,7 +245,7 @@ function syncWorkspace(push = true) {
     // alan ya da deney değişince geçmişe yeni kayıt: telefonda geri hareketi siteden çıkmak yerine bir önceki görünüme döner (popstate)
     const nav = S.VIEW + '/' + (exp || ''), st = history.state && history.state.nav;
     const based = !!(history.state && history.state.based);                       // merkez kaydı altta (initHistory): yenilemede yeniden eklenmesin
-    if (st && st !== nav) history.pushState({ nav, based }, '', u); else history.replaceState({ nav, based }, '', u);
+    if (st && st !== nav) history.pushState({ nav, based }, '', u); else history.replaceState({ ...(history.state || {}), nav, based }, '', u);     // aynı görünüm: katman işareti korunur
   }
   if (exp === 'lagrange') lagrange.show();
   if (exp === 'carpma' && impactui) impactui.open();                             // gökyüzü motoru (initSky) yukarıda kuruldu
@@ -300,8 +300,15 @@ const lagrange = new LagrangeUI({
 const labui = new LabUI({ initial: 'ay' });
 labui.onShow = () => { if (S.VIEW === 'lab') syncWorkspace(!quietShow); };
 // geri/ileri: adresteki alanı ve deneyi kur (adres yazılmaz; kayıt zaten o adreste)
+// Ekranı kaplayan katmanlar (kalkış izleme, sinematik gösterim) geçmişte ayrı kayıt: telefonda geri önce katmanı kapatır, görünüm aynı kalır.
+// Kayıt kullanıcı tıklamasında, beklemeden önce eklenir (etkileşimsiz eklenen kaydı tarayıcı geri düğmesinde atlar); katman kendiliğinden bitince kaydı geri alınır.
+function pushLayer(layer) { const st = history.state || {}; if (st.layer !== layer) history.pushState({ ...st, layer }, '', location.href); }
+function dropLayer(layer) { setTimeout(() => { if (history.state && history.state.layer === layer) history.back(); }, 0); }          // bir tur sonra: katman alan geçişiyle kapandıysa yeni kayıt zaten üstte, geri alınmaz
 window.addEventListener('popstate', () => {
   if (!urlApplied) return;
+  const layer = (history.state && history.state.layer) || null;
+  if (cinema.on && layer !== 'cine') cinema.stop();
+  else if (ascent.active && layer !== 'asc') ascent.stop();
   const q = new URLSearchParams(location.search);
   const r = resolveView({ mode: q.get('mode'), exp: q.get('exp'), tab: null, tabOwner: () => null }) || { view: 'lab', exp: 'ay' };
   setWorkspace(r.view, false, r.view === 'lab' ? (r.exp || LAB_HOME) : null);
@@ -490,17 +497,18 @@ ui.onRocketInfo = (id) => rocketSheet.open(id);
 // kalkış canlandırması (ascentplay.js): rampadan yörüngeye girişe; bitince görev girişten sürer
 let insState = null;
 const ascent = new AscentPlayer({ world, E, send, getDesign: () => S.DESIGN, getIns: () => insState, getState: () => S.latest,
-  onEnd: () => { send({ cmd: 'seek', t: ui.t0 }); } });
+  onEnd: () => { send({ cmd: 'seek', t: ui.t0 }); dropLayer('asc'); } });
 initG3dPanel(world);                                                                // Google 3B karolar ayarları (kalkış çubuğu)
 $('#btnAscent').addEventListener('click', async () => {
   const btn = $('#btnAscent');
   if (S.designing || ascent.active || btn.disabled) return;
   btn.disabled = true; btn.setAttribute('aria-busy', 'true');                      // model ve gökyüzü yüklenirken düğme kapalı: yeniden basılınca ikinci kez başlamaz
+  pushLayer('asc');                                                                 // geri düğmesi kalkışı kapatır (kayıt tıklama anında)
   try {
     if (!insState) { send({ cmd: 'seek', t: ui.t0 }); await new Promise((r) => setTimeout(r, 400)); }
     if (S.running) setPlay(false);
-    if (!(await ascent.start())) ui.designMsg && ui.designMsg('Kalkış canlandırması başlatılamadı (görev henüz hazır değil).');
-  } catch (e) { console.error(e); ui.designMsg && ui.designMsg('Kalkış canlandırması başlatılamadı (görev henüz hazır değil).'); }
+    if (!(await ascent.start())) { dropLayer('asc'); ui.designMsg && ui.designMsg('Kalkış canlandırması başlatılamadı (görev henüz hazır değil).'); }
+  } catch (e) { console.error(e); dropLayer('asc'); ui.designMsg && ui.designMsg('Kalkış canlandırması başlatılamadı (görev henüz hazır değil).'); }
   finally { btn.disabled = false; btn.removeAttribute('aria-busy'); }
 });
 // fırlatma rampası (dünyadaki yörüngesel rampalar) ve fırlatma pencereleri tarayıcısı (launchui.js)
@@ -670,7 +678,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) { if (S.running && !S.designing) { bgPaused = true; setPlay(false); } }
   else if (bgPaused) { bgPaused = false; setPlay(true); }
 });
-$('#btnCine').onclick = () => { if (cinema.on) cinema.stop(); else cinema.start(); };
+$('#btnCine').onclick = () => { if (cinema.on) cinema.stop(); else { pushLayer('cine'); cinema.start(); } };
 let warp = 1;
 const setWarp = (w) => { warp = Math.max(1, Math.min(100000, w)); send({ cmd: 'warp', value: warp }); $('#chkAutoWarp').checked = false; send({ cmd: 'autoWarp', on: false }); };
 $('#btnFast').onclick = () => setWarp((S.latest ? S.latest.warp : warp) * 2);
