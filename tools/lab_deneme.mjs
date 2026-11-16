@@ -516,7 +516,7 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   check('telefon: panel düğmesi açılış panelini kapatır (3B uçuş tam ekran)', await page.evaluate(() => !document.querySelector('#labPanel').classList.contains('open')));
   check('telefon: bilgi kartı tek satır (evre, irtifa, hız); dokununca tam kart açılır', await page.evaluate(() => { const h = document.querySelector('#hud'); return h.getBoundingClientRect().height < 50 && !h.classList.contains('open') && getComputedStyle(h.querySelector('.grid2')).display === 'none'; })
     && await (async () => { await page.tap('#hud'); return page.evaluate(() => { const h = document.querySelector('#hud'); const ok = h.classList.contains('open') && h.getBoundingClientRect().height > 150; h.click(); return ok; }); })());
-  await page.click('#btnPanel');
+  await page.click('#btnPanel'); await page.waitForTimeout(400);
   check('telefon: panel alttan yarım yükseklikte açılır (3B uçuş üstte görünür), tutamağa dokununca tam ekran', await page.evaluate(() => { const p = document.querySelector('#labPanel').getBoundingClientRect(); return p.height > innerHeight * 0.4 && p.height < innerHeight * 0.6 && p.top > innerHeight * 0.3; })
     && await (async () => { const g = await page.evaluate(() => { const r = document.querySelector('#labPanel .sheet-grip').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }); await page.touchscreen.tap(g[0], g[1]); await page.waitForTimeout(400);
       return page.evaluate(() => document.querySelector('#labPanel').getBoundingClientRect().height > innerHeight * 0.75); })());
