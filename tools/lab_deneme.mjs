@@ -536,9 +536,10 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
       return page.evaluate(() => document.querySelector('#labPanel').getBoundingClientRect().height > innerHeight * 0.75); })());
   {
     const cdp = await page.context().newCDPSession(page);
-    const drag = async (dy) => { const g = await page.evaluate(() => { const r = document.querySelector('#labPanel .sheet-grip').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+    const settle = () => page.waitForFunction(() => !document.querySelector('#labPanel').getAnimations().length, null, { timeout: 5000 }).catch(() => {});          // yükseklik geçişi bitmeden tutamaç yeri oynar
+    const drag = async (dy) => { await settle(); const g = await page.evaluate(() => { const r = document.querySelector('#labPanel .sheet-grip').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
       const ev = (type, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x: g[0], y }] });
-      await ev('touchStart', g[1]); for (let i = 1; i <= 10; i++) { await ev('touchMove', g[1] + dy * i / 10); await page.waitForTimeout(16); } await ev('touchEnd'); await page.waitForTimeout(400); };
+      await ev('touchStart', g[1]); for (let i = 1; i <= 10; i++) { await ev('touchMove', g[1] + dy * i / 10); await page.waitForTimeout(16); } await ev('touchEnd'); await page.waitForTimeout(100); await settle(); };
     const st = () => page.evaluate(() => { const p = document.querySelector('#labPanel'); return [p.classList.contains('open'), p.getBoundingClientRect().height / innerHeight]; });
     await drag(550); const down = await st();
     await page.click('#btnPanel'); await page.waitForTimeout(400); await drag(-300); const up = await st();
