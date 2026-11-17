@@ -615,18 +615,19 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
 /* yüzey parçası yükleme göstergesi */
-.tilestatus { position: fixed; left: calc(16px + var(--sl)); bottom: calc(16px + var(--sb)); z-index: 5; padding: 6px 12px; border-radius: 999px; font-size: 12px; color: var(--text-secondary); background: rgba(12, 15, 21, .85); border: 1px solid var(--line-2); backdrop-filter: blur(6px); pointer-events: none; }
+.tilestatus { position: fixed; left: calc(16px + var(--sl)); bottom: calc(80px + var(--sb)); z-index: 5; padding: 6px 12px; border-radius: 999px; font-size: 12px; color: var(--text-secondary); background: rgba(12, 15, 21, .85); border: 1px solid var(--line-2); backdrop-filter: blur(6px); pointer-events: none; }
 .tilestatus[hidden] { display: none; }
 .tilestatus.warn { color: var(--warn); border-color: var(--warn); max-width: 360px; border-radius: 12px; }
-.tilemode { position: fixed; left: calc(16px + var(--sl)); bottom: calc(54px + var(--sb)); z-index: 5; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-family: var(--font); color: var(--text-secondary); background: rgba(12, 15, 21, .85); border: 1px solid var(--line-2); backdrop-filter: blur(6px); cursor: pointer; }
+.tilemode { position: fixed; left: calc(16px + var(--sl)); bottom: calc(118px + var(--sb)); z-index: 5; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-family: var(--font); color: var(--text-secondary); background: rgba(12, 15, 21, .85); border: 1px solid var(--line-2); backdrop-filter: blur(6px); cursor: pointer; }
 @media (hover: hover) and (pointer: fine) { .tilemode:hover { color: var(--text-primary); border-color: var(--accent); } }
 @media (max-width: 760px) {
   /* yüzey parçası durumu ve kaynak düğmesi telefonda alt çubuğun ve kamera düğmesinin üstüne biniyordu: tek satır kartın altına */
   .tilestatus { left: calc(8px + var(--sl)); right: auto; bottom: auto; top: calc(92px + var(--st)); max-width: calc(100% - 16px - var(--sl) - var(--sr)); font-size: 11.5px; }
   .tilemode { left: calc(8px + var(--sl)); bottom: auto; top: calc(124px + var(--st)); font-size: 11.5px; }
-  body:has(#hud.open) .tilestatus, body:has(#hud.open) .tilemode, body:has(#skyHud.open) .tilestatus, body:has(#skyHud.open) .tilemode { display: none; }
+  body:has(#hud.open, #skyHud.open, #labPanel.open, #skyPanel.open) :is(.tilestatus, .tilemode) { display: none; }          /* açık kart ya da panel: durum hapı üstüne binmesin */
 }
 .tilemode[hidden] { display: none; }
+body.launch-cine :is(.tilestatus, .tilemode) { display: none; }          /* kalkış: alt bant ve hız düğmeleriyle çakışmasın (atıf zaten görünür) */
 
 /* Çarpma sekmesi */
 .cpseg { display: flex; gap: 4px; margin: 6px 0 8px; }
@@ -986,7 +987,6 @@ body.launch-cine .asctele { background: linear-gradient(180deg, rgba(6, 8, 14, .
   .asctele .at-row:first-child > .at-st + .at-k { margin-left: 0; }
   .asctele .at-sub { flex-wrap: wrap; row-gap: 2px; }
   .asctele .at-flash { white-space: normal; width: max-content; max-width: calc(100vw - 40px); text-align: center; font-size: 12px; line-height: 1.35; letter-spacing: .02em; }
-  body.launch-cine .tilestatus, body.launch-cine .tilemode { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .asctele .at-flash, body.launch-cine .ascbtns { transition: none; } }
 
