@@ -1011,7 +1011,7 @@ body.launch-cine .asctele { background: linear-gradient(180deg, rgba(6, 8, 14, .
   :is(#modebar .seg button, #modebar .langbtn, #controls button, #skyControls button, .cine-mute, .cine-exit, .ascbtns button) { position: relative; }
   :is(#modebar .seg button, #modebar .langbtn, #controls button, #skyControls button, .cine-mute, .cine-exit, .ascbtns button)::after { content: ''; position: absolute; inset: -9px -3px; }
   #modebar button.langbtn::after { inset: -11px -6px; }          /* :is() listesinin özgüllüğüne eşit, sonra geldiği için geçerli */
-  #controls :is(#btnSlow, #btnFast, .tm-btn, #btnPanel) { min-width: 40px; }          /* bitişik dar düğmeler: komşuya taşmadan 44 px'e erişsin diye kendileri biraz genişler */
+  #controls :is(#btnPlay, #btnSlow, #btnFast, .tm-btn, #btnPanel) { min-width: 40px; }          /* bitişik dar düğmeler: komşuya taşmadan 44 px'e erişsin diye kendileri biraz genişler */
   .ascbtns button { padding: 7px 10px; font-size: 13px; }
   .ascbtns button::after { inset: -4px -2px; }
 }
