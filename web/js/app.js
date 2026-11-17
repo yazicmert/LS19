@@ -41,6 +41,7 @@ import { Cinema } from './cinema.js';
 import { PixelGovernor, floorRatio } from './perfgov.js';
 import { $ } from './uiutil.js';
 import { LOC, workerOpts, isEn, setLang } from './i18n.js';
+import { installGlossary } from './glossary.js';
 import { initG3dPanel } from './g3dpanel.js';
 import { Launches } from './launches.js';
 import { LaunchCal } from './launchcal.js';
@@ -819,6 +820,7 @@ function sheetGrip(panel) {
 sheetGrip($('#labPanel')); sheetGrip($('#skyPanel'));
 // iOS Safari touch-action'ı tam uygulamaz: sayfa büyütme hareketi kesilir
 document.addEventListener('gesturestart', (e) => e.preventDefault());
+installGlossary([$('#labPanel'), $('#skyPanel')]);                                 // kısaltmalara dokununca tanım (glossary.js)
 // telefonda iki satıra kısaltılan açıklama notları (style.css): dokununca tamamı açılır/kapanır; kısalmayan nota dokunmak bir şey yapmaz
 const NOTE_SEL = '#labPanel :is(p.note, .stepsub, .kp-note), #skyPanel p.note';
 document.addEventListener('click', (e) => {

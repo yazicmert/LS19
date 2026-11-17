@@ -1023,3 +1023,11 @@ body.launch-cine .asctele { background: linear-gradient(180deg, rgba(6, 8, 14, .
   #lab-ay .ays .tab.on { flex: 1 1 auto; min-width: 0; }
   .panel { background: rgb(13, 16, 23); }
 }
+
+/* kısaltma sözlüğü (glossary.js): noktalı alt çizgi; dokununca tanım kutusu */
+abbr.gl { text-decoration: underline dotted; text-decoration-color: var(--text-muted); text-underline-offset: 3px; cursor: help; }
+abbr.gl:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 2px; }
+.glosstip { position: fixed; z-index: 60; max-width: min(300px, calc(100vw - 24px)); padding: 8px 10px; border-radius: 10px; background: rgb(16, 20, 28); border: 1px solid var(--line-2);
+  color: var(--text-secondary); font-size: 12.5px; line-height: 1.45; box-shadow: 0 8px 24px rgba(0, 0, 0, .5); }
+.glosstip[hidden] { display: none; }
+.glosstip b { color: var(--text-primary); }
