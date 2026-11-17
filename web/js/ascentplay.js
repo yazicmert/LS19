@@ -29,7 +29,12 @@ export class AscentPlayer {
     this.world = world; this.E = E; this.send = send; this.getDesign = getDesign; this.getIns = getIns; this.getState = getState; this.onEnd = onEnd;
     this.active = false; this.warp = 10; this.camUser = 'auto'; this.bar = $('#ascBar'); this.txt = $('#ascTxt'); this.credit = $('#ascCredit'); this.tele = $('#ascTele');
     this.bar.addEventListener('click', (e) => {
-      const c = e.target.closest('[data-ascam]'); if (c) { this.camUser = c.dataset.ascam; this.syncBar(); return; }
+      const c = e.target.closest('[data-ascam]'); if (c) {
+        this.camUser = c.dataset.ascam; this.syncBar();
+        // dokunmatikte ipucu (title) görünmez: kameranın ne gösterdiği yayın alt yazısında, ilk cümlesiyle
+        if (typeof matchMedia === 'function' && matchMedia('(hover: none)').matches && c.title) this.flash(c.title.split(/[;(]/)[0].trim(), 3200);
+        return;
+      }
       if (e.target.closest('[data-ascui]')) { this.cine = !this.cine; this.applyCine(); return; }
       const b = e.target.closest('[data-asc]'); if (!b) return;
       const v = b.dataset.asc; if (v === 'end') this.stop(); else { this.warp = +v; this.userWarp = true; this.syncBar(); }

@@ -499,6 +499,8 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await shot(page, 'm5-3b');
   await page.click('#btnSkyPanel'); await page.click('#labBack'); await page.click('#lab-home [data-exp=ay]');
   check('telefon: Laboratuvar › Ay görevi görev motorunu açar, adım çubuğu panele sığar', await page.evaluate(() => window.LS19.mode === 'mission' && document.querySelector('#labPanel').classList.contains('open') && (() => { const t = document.querySelector('#lab-ay > .tabs'); return t.scrollWidth <= t.clientWidth + 1 && document.querySelector('#labPanel').scrollWidth <= document.querySelector('#labPanel').clientWidth + 1; })()));
+  check('telefon: adım adları kesilmez (Görev, Araç, Uçuş, Sonuç tam okunur; adım çubuğu panelin içinde)', await page.evaluate(() => { const bar = document.querySelector('#lab-ay > .tabs').getBoundingClientRect();
+    return [...document.querySelectorAll('#lab-ay > .tabs .tab')].every((t) => { const st = t.querySelector('.st'), r = t.getBoundingClientRect(); return st.scrollWidth <= st.clientWidth + 1 && r.left >= bar.left - 0.5 && r.right <= bar.right + 0.5; }); }));
   await page.click('#btnPanel');
   await page.click('#btnPanel'); await page.click('#labBack'); await page.click('#lab-home [data-exp=lagrange]');
   check('telefon: Lagrange noktaları paneli açık, çizim ve adımlar yatay taşmaz', await page.evaluate(() => { const p = document.querySelector('#labPanel .labpage:not([hidden])'); return p.id === 'lab-lagrange' && document.querySelector('#labPanel').classList.contains('open') && p.scrollWidth <= p.clientWidth + 1 && document.querySelector('#lgMap').clientWidth > 300; }));

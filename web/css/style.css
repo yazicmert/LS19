@@ -1004,3 +1004,22 @@ body.launch-cine .asctele { background: linear-gradient(180deg, rgba(6, 8, 14, .
   #labPanel :is(p.note, .stepsub, .kp-note).open, #skyPanel p.note.open { display: block; -webkit-line-clamp: unset; line-clamp: none; overflow: visible; }
   #labPanel .optcards .optcard:not(.on) small { display: none; }
 }
+
+/* dokunmatik: sabit çubuklardaki düğmelerin dokunma alanı ≥ 44 px (görünüm değişmez; görünmez ::after kenarı genişletir, komşuya taşmayacak kadar).
+   Üst çubuk ince kalır (kullanıcı tercihi); kalkış şeridinin satırları arası 8 px olduğundan orada düğmenin kendisi biraz büyür. */
+@media (pointer: coarse) {
+  :is(#modebar .seg button, #modebar .langbtn, #controls button, #skyControls button, .cine-mute, .cine-exit, .ascbtns button) { position: relative; }
+  :is(#modebar .seg button, #modebar .langbtn, #controls button, #skyControls button, .cine-mute, .cine-exit, .ascbtns button)::after { content: ''; position: absolute; inset: -8px -3px; }
+  #modebar .langbtn::after { inset: -11px -6px; }
+  .ascbtns button { padding: 7px 10px; font-size: 13px; }
+  .ascbtns button::after { inset: -4px -2px; }
+}
+
+/* telefon: Ay görevi adım çubuğu sığsın. Etkin olmayan adımlar yalnız numara ve ad (içerik genişliğinde, kesilmez); etkin adım kalan yeri alır, özeti onda.
+   Panel arka planı opak: bulanıklık telefonda kapalı olduğundan yarı saydam zeminden 3B sahne etiketleri sızıyordu. */
+@media (max-width: 760px) {
+  #lab-ay .ays .tab:not(.on) { flex: 0 0 auto; grid-template-columns: 18px auto; }
+  #lab-ay .ays .tab:not(.on) .ss { display: none; }
+  #lab-ay .ays .tab.on { flex: 1 1 auto; min-width: 0; }
+  .panel { background: rgb(13, 16, 23); }
+}
