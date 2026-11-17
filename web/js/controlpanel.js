@@ -150,12 +150,14 @@ export class ControlPanel {
     const thr = mk('div', 'kp-thr'); this.thrLabel = mk('span', 'k', 'Gaz'), this.thrVal = mk('span', 'v', '—'); const tb = mk('div', 'track'); this.thrFill = mk('div', 'fill thr'); tb.appendChild(this.thrFill);
     thr.append(this.thrLabel, this.thrVal, tb); r.appendChild(thr);
     // Δv bütçesi tablosu
-    const bs = mk('details', 'kp-sec'); bs.open = true; bs.appendChild(mk('summary', null, 'Δv bütçesi (m/s)'));
+    // telefonda bölümler kapalı başlar (iniş hariç: yalnız inişe yakın görünür): yarım sayfada ana göstergeler kaydırmadan görünsün
+    const phoneUI = typeof matchMedia === 'function' && matchMedia('(max-width: 760px)').matches;
+    const bs = mk('details', 'kp-sec'); bs.open = !phoneUI; bs.appendChild(mk('summary', null, 'Δv bütçesi (m/s)'));
     this.budget = mk('table', 'tbl kp-budget'); this.budget.innerHTML = '<thead><tr><th>Kademe</th><th class="num">Kalan</th><th class="num">Gerekli</th><th class="num">Pay</th></tr></thead><tbody></tbody>';
     this.budgetNote = mk('div', 'note kp-note'); bs.append(this.budget, this.budgetNote); r.appendChild(bs); this.sections.budget = bs;
     // bölümler
     for (const S of SECTIONS) {
-      const d = mk('details', 'kp-sec'); d.open = !!S.open; d.appendChild(mk('summary', null, S.title));
+      const d = mk('details', 'kp-sec'); d.open = !!S.open && (!phoneUI || S.id === 'inis'); d.appendChild(mk('summary', null, S.title));
       const tb = mk('table', 'tbl kp-tbl'), body = mk('tbody'); tb.appendChild(body);
       const rows = [];
       for (const [label, fn, tip] of S.rows) {
@@ -168,6 +170,7 @@ export class ControlPanel {
       if (S.canvas && S.id !== 'inis') d.appendChild(this[S.canvas + 'Cv']);
       if (S.id === 'yorunge') d.appendChild(mk('div', 'note kp-note', 'Yörünge düzlemi, açısal momentum yönünden bakışla; periapsis sağda. Mavi elips, turuncu hiperbol, mor Ay merkezli.'));
       r.appendChild(d); this.sections[S.id] = d; this.rows.push(...rows.map((x) => ({ ...x, sec: S.id })));
+      d.addEventListener('toggle', () => { if (d.open) for (const x of this.rows) if (x.sec === S.id) x.last = null; });     // açılınca değerler hemen yazılsın
     }
     const notes = mk('details', 'kp-sec'); notes.appendChild(mk('summary', null, 'Fizik notları'));
     const ul = mk('ul', 'kp-notes'); for (const n of NOTES) ul.appendChild(mk('li', null, n)); notes.appendChild(ul); r.appendChild(notes);
@@ -230,6 +233,7 @@ export class ControlPanel {
     let link = null; try { link = linkState(s.t, s.r); } catch (err) { link = null; }
     const ctx2 = { rSite: c.rSite, touchCls: risk ? 'warn' : null, landing: s.landing && s.opt !== undefined && T.LANDING_PHASES.has(s.phase) ? s.landing : null, opt: s.opt, link };
     for (const row of this.rows) {
+      if (!this.sections[row.sec].open) continue;                                 // kapalı bölüm: hesaplanmaz, yazılmaz
       const q = row.fn(tel, ctx2), txt = Array.isArray(q) ? q[0] : q, cls = Array.isArray(q) ? q[1] || '' : '';
       if (txt == null) { if (!row.tr.hidden) row.tr.hidden = true; continue; }
       if (row.tr.hidden) row.tr.hidden = false;

@@ -335,6 +335,8 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   check('"Baştan uçur" görevi yeniden başlatır, Uçuş › Çizelge açılır, sonuç sıfırlanır', await page.waitForFunction(() => document.querySelector('#aySum-dv').textContent === 'İnişte belli olur' && !document.querySelector('#tab-plan').hidden && /info/.test(document.querySelector('#ayVerdict').className), null, { timeout: 60000 }).then(() => true, () => false));
   await page.goto(base + 'index.html?sats=0&ast=0&tab=dv', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => { const l = document.querySelector('#loading'); return l && getComputedStyle(l).display === 'none'; }, null, { timeout: 280000 });
+  check('Sonuç: dağılım denemesi ve profil karşılaştırması kapalı bölümlerde (sayfa kısa kalır)', await page.evaluate(() => !document.querySelector('#ayMcBox').open && !document.querySelector('#ayCmpBox').open && !document.querySelector('#ayWinBox').open));
+  await page.evaluate(() => { for (const id of ['#ayMcBox', '#ayCmpBox']) document.querySelector(id).open = true; });
   check('eski ?tab=dv Sonuç adımını açar (Δv bütçesi ve karşılaştırma orada)', (await stepOn()) === 'dv' && (await vis(page, '#dvtable')) && (await vis(page, '#cmptable')));
   // dağılım denemesi (Monte Carlo): denemede 3 uçuş (seçenek listesine eklenir), ayrı iş parçacıkları
   await page.evaluate(() => { const sel = document.querySelector('#mcN'); sel.add(new Option('3', '3')); sel.value = '3'; });
@@ -497,6 +499,8 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await shot(page, 'm5-3b');
   await page.click('#btnSkyPanel'); await page.click('#labBack'); await page.click('#lab-home [data-exp=ay]');
   check('telefon: Laboratuvar › Ay görevi görev motorunu açar, adım çubuğu panele sığar', await page.evaluate(() => window.LS19.mode === 'mission' && document.querySelector('#labPanel').classList.contains('open') && (() => { const t = document.querySelector('#lab-ay > .tabs'); return t.scrollWidth <= t.clientWidth + 1 && document.querySelector('#labPanel').scrollWidth <= document.querySelector('#labPanel').clientWidth + 1; })()));
+  check('telefon: adım adları kesilmez (Görev, Araç, Uçuş, Sonuç tam okunur; adım çubuğu panelin içinde)', await page.evaluate(() => { const bar = document.querySelector('#lab-ay > .tabs').getBoundingClientRect();
+    return [...document.querySelectorAll('#lab-ay > .tabs .tab')].every((t) => { const st = t.querySelector('.st'), r = t.getBoundingClientRect(); return st.scrollWidth <= st.clientWidth + 1 && r.left >= bar.left - 0.5 && r.right <= bar.right + 0.5; }); }));
   await page.click('#btnPanel');
   await page.click('#btnPanel'); await page.click('#labBack'); await page.click('#lab-home [data-exp=lagrange]');
   check('telefon: Lagrange noktaları paneli açık, çizim ve adımlar yatay taşmaz', await page.evaluate(() => { const p = document.querySelector('#labPanel .labpage:not([hidden])'); return p.id === 'lab-lagrange' && document.querySelector('#labPanel').classList.contains('open') && p.scrollWidth <= p.clientWidth + 1 && document.querySelector('#lgMap').clientWidth > 300; }));
@@ -514,6 +518,7 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
     await page.focus('#lgDays');
     check('telefon: paneldeki yazı alanına girilince panel tam yüksekliğe çıkar (klavye yarım sayfayı daraltmasın)', await page.waitForFunction(() => document.querySelector('#labPanel').getBoundingClientRect().height > innerHeight * 0.75, null, { timeout: 5000 }).then(() => true, () => false));
     await page.evaluate(() => document.activeElement.blur());
+    check('telefon: yazı alanından çıkınca panel önceki yüksekliğine döner (tam ekranda kalmaz)', await page.waitForFunction(() => { const h = document.querySelector('#labPanel').getBoundingClientRect().height; return h > 0 && h < innerHeight * 0.6; }, null, { timeout: 5000 }).then(() => true, () => false));
   }
   await page.click('#labBack'); await page.click('#lab-home [data-exp=ay]'); await page.click('#btnPanel');
   check('telefon: görev çubuğundaki panel düğmesi Laboratuvar panelini kapatır (3B uçuş görünür)', await page.evaluate(() => !document.querySelector('#labPanel').classList.contains('open')) && (await vis(page, '#controls')) && (await vis(page, '#hud')));
@@ -576,6 +581,7 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await page.goBack(); await page.waitForTimeout(1200);
   check('telefon: kalkışı izlerken geri, kalkışı kapatıp Ay görevine döner (siteden çıkmaz)', await page.evaluate(() => !window.LS19.ascent.active && !document.body.classList.contains('launch-cine') && document.body.dataset.exp === 'ay' && /127\.0\.0\.1|localhost/.test(location.host) && !(history.state && history.state.layer)));
   await page.evaluate(() => document.querySelector('#btnCine').click()); await page.waitForFunction(() => window.LS19.cinema.on, null, { timeout: 30000 }); await page.waitForTimeout(800);
+  check('telefon: sinematik gösterimde klavye kısayolu satırı gizli (dokunmatik)', await page.evaluate(() => { const h = document.querySelector('.cine-hint'); return !h || getComputedStyle(h).display === 'none'; }));
   await page.goBack(); await page.waitForTimeout(1200);
   check('telefon: sinematik gösterimde geri, gösterimi kapatır (siteden çıkmaz)', await page.evaluate(() => !window.LS19.cinema.on && document.body.dataset.exp === 'ay' && /127\.0\.0\.1|localhost/.test(location.host)));
   check('konsol hatası yok (telefon açılış)', errors.length === 0, errors.slice(0, 3).join(' | '));

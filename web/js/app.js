@@ -41,6 +41,7 @@ import { Cinema } from './cinema.js';
 import { PixelGovernor, floorRatio } from './perfgov.js';
 import { $ } from './uiutil.js';
 import { LOC, workerOpts, isEn, setLang } from './i18n.js';
+import { installGlossary } from './glossary.js';
 import { initG3dPanel } from './g3dpanel.js';
 import { Launches } from './launches.js';
 import { LaunchCal } from './launchcal.js';
@@ -782,7 +783,8 @@ for (const id of ['#hud', '#skyHud']) {
 function sheetGrip(panel) {
   const g = document.createElement('div'); g.className = 'sheet-grip'; g.setAttribute('aria-hidden', 'true'); panel.prepend(g);
   let y0 = 0, h0 = 0, moved = false;
-  g.addEventListener('pointerdown', (e) => { g.setPointerCapture(e.pointerId); y0 = e.clientY; h0 = panel.getBoundingClientRect().height; moved = false; document.body.classList.add('sheet-drag'); });
+  g.addEventListener('pointerdown', (e) => { kbd = null; g.setPointerCapture(e.pointerId);          // kullanıcı yüksekliği kendisi seçiyor: klavye dönüşü iptal
+    y0 = e.clientY; h0 = panel.getBoundingClientRect().height; moved = false; document.body.classList.add('sheet-drag'); });
   g.addEventListener('pointermove', (e) => {
     if (!document.body.classList.contains('sheet-drag')) return;
     if (Math.abs(e.clientY - y0) > 6) moved = true;
@@ -797,12 +799,35 @@ function sheetGrip(panel) {
     if (h > (half + full) / 2) panel.style.setProperty('--sheet-h', full + 'px'); else panel.style.removeProperty('--sheet-h');
   };
   g.addEventListener('pointerup', end); g.addEventListener('pointercancel', end);
-  // klavye açılınca yarım sayfa daralır: yazı alanına girilince sayfa tam yüksekliğe çıkar
-  panel.addEventListener('focusin', (e) => { if (narrowScreen() && e.target.matches('input:not([type=range]):not([type=checkbox]):not([type=radio]), select, textarea')) panel.style.setProperty('--sheet-h', '100dvh'); });
+  // Klavye açılınca yarım sayfa daralır: yazı alanına girilince sayfa tam yüksekliğe çıkar, klavye kapanınca önceki yüksekliğine döner.
+  // Dönüş üç yoldan: odak yazı alanından çıkınca; paneldeki başka bir şeye dokununca (iOS'ta odaklanamayan öğeye dokunmak odağı taşımaz: alan bırakılır);
+  // görünür alan yeniden büyüyünce (Android'de geri tuşu klavyeyi kapatır, odak alanda kalır).
+  const TEXT = 'input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=date]):not([type=button]), textarea';
+  let kbd = null;                                                                    // { prev: önceki --sheet-h, h0: odaktaki pencere yüksekliği, low: klavye açıldı mı }
+  const restore = () => { if (!kbd) return; const p = kbd.prev; kbd = null; if (p) panel.style.setProperty('--sheet-h', p); else panel.style.removeProperty('--sheet-h'); };
+  panel.addEventListener('focusin', (e) => {
+    if (!narrowScreen() || !e.target.matches(TEXT)) return;
+    if (!kbd) kbd = { prev: panel.style.getPropertyValue('--sheet-h'), h0: innerHeight, low: false };
+    panel.style.setProperty('--sheet-h', '100dvh');
+  });
+  panel.addEventListener('focusout', () => setTimeout(() => { const a = document.activeElement; if (!(a && panel.contains(a) && a.matches(TEXT))) restore(); }, 0));
+  panel.addEventListener('click', (e) => { const a = document.activeElement; if (kbd && a && a.matches(TEXT) && panel.contains(a) && !e.target.closest(TEXT + ', label')) a.blur(); });
+  if (window.visualViewport) visualViewport.addEventListener('resize', () => {
+    if (!kbd) return; const h = visualViewport.height;
+    if (h < kbd.h0 * 0.8) kbd.low = true; else if (kbd.low && h > kbd.h0 * 0.9) { const a = document.activeElement; if (a && panel.contains(a)) a.blur(); restore(); }
+  });
 }
 sheetGrip($('#labPanel')); sheetGrip($('#skyPanel'));
 // iOS Safari touch-action'ı tam uygulamaz: sayfa büyütme hareketi kesilir
 document.addEventListener('gesturestart', (e) => e.preventDefault());
+installGlossary([$('#labPanel'), $('#skyPanel')]);                                 // kısaltmalara dokununca tanım (glossary.js)
+// telefonda iki satıra kısaltılan açıklama notları (style.css): dokununca tamamı açılır/kapanır; kısalmayan nota dokunmak bir şey yapmaz
+const NOTE_SEL = '#labPanel :is(p.note, .stepsub, .kp-note), #skyPanel p.note';
+document.addEventListener('click', (e) => {
+  if (!narrowScreen() || e.target.closest('a, button, input, select, label, summary')) return;
+  const n = e.target.closest(NOTE_SEL); if (!n) return;
+  if (n.classList.contains('open') || n.scrollHeight > n.clientHeight + 2) n.classList.toggle('open');
+});
 // telefonda sinematik gösterim "⋯" menüsünde
 $('#btnCineMenu').addEventListener('click', () => $('#btnCine').click());
 $('#btnSkyPanel').onclick = () => (S.VIEW === 'lab' ? $('#labPanel') : $('#skyPanel')).classList.toggle('open');

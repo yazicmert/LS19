@@ -615,18 +615,19 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
 /* yüzey parçası yükleme göstergesi */
-.tilestatus { position: fixed; left: calc(16px + var(--sl)); bottom: calc(16px + var(--sb)); z-index: 5; padding: 6px 12px; border-radius: 999px; font-size: 12px; color: var(--text-secondary); background: rgba(12, 15, 21, .85); border: 1px solid var(--line-2); backdrop-filter: blur(6px); pointer-events: none; }
+.tilestatus { position: fixed; left: calc(16px + var(--sl)); bottom: calc(80px + var(--sb)); z-index: 5; padding: 6px 12px; border-radius: 999px; font-size: 12px; color: var(--text-secondary); background: rgba(12, 15, 21, .85); border: 1px solid var(--line-2); backdrop-filter: blur(6px); pointer-events: none; }
 .tilestatus[hidden] { display: none; }
 .tilestatus.warn { color: var(--warn); border-color: var(--warn); max-width: 360px; border-radius: 12px; }
-.tilemode { position: fixed; left: calc(16px + var(--sl)); bottom: calc(54px + var(--sb)); z-index: 5; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-family: var(--font); color: var(--text-secondary); background: rgba(12, 15, 21, .85); border: 1px solid var(--line-2); backdrop-filter: blur(6px); cursor: pointer; }
+.tilemode { position: fixed; left: calc(16px + var(--sl)); bottom: calc(118px + var(--sb)); z-index: 5; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-family: var(--font); color: var(--text-secondary); background: rgba(12, 15, 21, .85); border: 1px solid var(--line-2); backdrop-filter: blur(6px); cursor: pointer; }
 @media (hover: hover) and (pointer: fine) { .tilemode:hover { color: var(--text-primary); border-color: var(--accent); } }
 @media (max-width: 760px) {
   /* yüzey parçası durumu ve kaynak düğmesi telefonda alt çubuğun ve kamera düğmesinin üstüne biniyordu: tek satır kartın altına */
   .tilestatus { left: calc(8px + var(--sl)); right: auto; bottom: auto; top: calc(92px + var(--st)); max-width: calc(100% - 16px - var(--sl) - var(--sr)); font-size: 11.5px; }
   .tilemode { left: calc(8px + var(--sl)); bottom: auto; top: calc(124px + var(--st)); font-size: 11.5px; }
-  body:has(#hud.open) .tilestatus, body:has(#hud.open) .tilemode, body:has(#skyHud.open) .tilestatus, body:has(#skyHud.open) .tilemode { display: none; }
+  body:has(#hud.open, #skyHud.open, #labPanel.open, #skyPanel.open) :is(.tilestatus, .tilemode) { display: none; }          /* açık kart ya da panel: durum hapı üstüne binmesin */
 }
 .tilemode[hidden] { display: none; }
+body.launch-cine :is(.tilestatus, .tilemode) { display: none; }          /* kalkış: alt bant ve hız düğmeleriyle çakışmasın (atıf zaten görünür) */
 
 /* Çarpma sekmesi */
 .cpseg { display: flex; gap: 4px; margin: 6px 0 8px; }
@@ -986,7 +987,6 @@ body.launch-cine .asctele { background: linear-gradient(180deg, rgba(6, 8, 14, .
   .asctele .at-row:first-child > .at-st + .at-k { margin-left: 0; }
   .asctele .at-sub { flex-wrap: wrap; row-gap: 2px; }
   .asctele .at-flash { white-space: normal; width: max-content; max-width: calc(100vw - 40px); text-align: center; font-size: 12px; line-height: 1.35; letter-spacing: .02em; }
-  body.launch-cine .tilestatus, body.launch-cine .tilemode { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .asctele .at-flash, body.launch-cine .ascbtns { transition: none; } }
 
@@ -996,3 +996,39 @@ body.launch-cine .asctele { background: linear-gradient(180deg, rgba(6, 8, 14, .
 #lab-lagrange .frow3 input { width: 100%; min-width: 0; }
 #lgMu, #lgC, #lgAz { flex: 1; min-width: 0; }
 #lgView { margin-top: 6px; }
+
+/* telefon: panel içeriği kısalır (yarım sayfada daha çok iş görünsün). Açıklama notları ve adım alt yazıları iki satır (sonunda …):
+   dokununca tamamı açılır (app.js). Seçenek kartlarında (roket, araç, güdüm) açıklama yalnız seçili kartta. */
+@media (max-width: 760px) {
+  #labPanel :is(p.note, .stepsub, .kp-note), #skyPanel p.note { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  #labPanel :is(p.note, .stepsub, .kp-note).open, #skyPanel p.note.open { display: block; -webkit-line-clamp: unset; line-clamp: none; overflow: visible; }
+  #labPanel .optcards .optcard:not(.on) small { display: none; }
+}
+
+/* dokunmatik: sabit çubuklardaki düğmelerin dokunma alanı ≥ 44 px (görünüm değişmez; görünmez ::after kenarı genişletir, komşuya taşmayacak kadar).
+   Üst çubuk ince kalır (kullanıcı tercihi); kalkış şeridinin satırları arası 8 px olduğundan orada düğmenin kendisi biraz büyür. */
+@media (pointer: coarse) {
+  :is(#modebar .seg button, #modebar .langbtn, #controls button, #skyControls button, .cine-mute, .cine-exit, .ascbtns button) { position: relative; }
+  :is(#modebar .seg button, #modebar .langbtn, #controls button, #skyControls button, .cine-mute, .cine-exit, .ascbtns button)::after { content: ''; position: absolute; inset: -9px -3px; }
+  #modebar button.langbtn::after { inset: -11px -6px; }          /* :is() listesinin özgüllüğüne eşit, sonra geldiği için geçerli */
+  #controls :is(#btnPlay, #btnSlow, #btnFast, .tm-btn, #btnPanel) { min-width: 40px; }          /* bitişik dar düğmeler: komşuya taşmadan 44 px'e erişsin diye kendileri biraz genişler */
+  .ascbtns button { padding: 7px 10px; font-size: 13px; }
+  .ascbtns button::after { inset: -4px -2px; }
+}
+
+/* telefon: Ay görevi adım çubuğu sığsın. Etkin olmayan adımlar yalnız numara ve ad (içerik genişliğinde, kesilmez); etkin adım kalan yeri alır, özeti onda.
+   Panel arka planı opak: bulanıklık telefonda kapalı olduğundan yarı saydam zeminden 3B sahne etiketleri sızıyordu. */
+@media (max-width: 760px) {
+  #lab-ay .ays .tab:not(.on) { flex: 0 0 auto; grid-template-columns: 18px auto; }
+  #lab-ay .ays .tab:not(.on) .ss { display: none; }
+  #lab-ay .ays .tab.on { flex: 1 1 auto; min-width: 0; }
+  .panel { background: rgb(13, 16, 23); }
+}
+
+/* kısaltma sözlüğü (glossary.js): noktalı alt çizgi; dokununca tanım kutusu */
+abbr.gl { text-decoration: underline dotted; text-decoration-color: var(--text-muted); text-underline-offset: 3px; cursor: help; }
+abbr.gl:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 2px; }
+.glosstip { position: fixed; z-index: 60; max-width: min(300px, calc(100vw - 24px)); padding: 8px 10px; border-radius: 10px; background: rgb(16, 20, 28); border: 1px solid var(--line-2);
+  color: var(--text-secondary); font-size: 12.5px; line-height: 1.45; box-shadow: 0 8px 24px rgba(0, 0, 0, .5); }
+.glosstip[hidden] { display: none; }
+.glosstip b { color: var(--text-primary); }

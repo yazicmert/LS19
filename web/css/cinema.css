@@ -219,3 +219,6 @@ body.cine-on #view { cursor: none; }
 /* başlık kartının arkasında yumuşak karartma: parlak sahnede (rampa, gökyüzü) yazı okunur kalsın */
 .cine-card.title::before { content: ""; position: absolute; left: 50%; top: 50%; width: min(1100px, 92vw); height: 160%; transform: translate(-50%, -50%); z-index: -1; pointer-events: none;
   background: radial-gradient(ellipse at center, rgba(4, 6, 10, 0.62) 0%, rgba(4, 6, 10, 0.36) 42%, rgba(4, 6, 10, 0) 72%); }
+
+/* dokunmatik: klavye kısayolları (Esc, Boşluk, →, M) işe yaramaz ve logonun altındaki satırla çakışıyordu; ekranda Ses ve Çık düğmeleri var */
+@media (pointer: coarse) { .cine-hint { display: none; } }
