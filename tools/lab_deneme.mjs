@@ -581,6 +581,7 @@ const waitCas = (page) => page.waitForFunction(() => window.LS19.deflect && wind
   await page.goBack(); await page.waitForTimeout(1200);
   check('telefon: kalkışı izlerken geri, kalkışı kapatıp Ay görevine döner (siteden çıkmaz)', await page.evaluate(() => !window.LS19.ascent.active && !document.body.classList.contains('launch-cine') && document.body.dataset.exp === 'ay' && /127\.0\.0\.1|localhost/.test(location.host) && !(history.state && history.state.layer)));
   await page.evaluate(() => document.querySelector('#btnCine').click()); await page.waitForFunction(() => window.LS19.cinema.on, null, { timeout: 30000 }); await page.waitForTimeout(800);
+  check('telefon: sinematik gösterimde klavye kısayolu satırı gizli (dokunmatik)', await page.evaluate(() => { const h = document.querySelector('.cine-hint'); return !h || getComputedStyle(h).display === 'none'; }));
   await page.goBack(); await page.waitForTimeout(1200);
   check('telefon: sinematik gösterimde geri, gösterimi kapatır (siteden çıkmaz)', await page.evaluate(() => !window.LS19.cinema.on && document.body.dataset.exp === 'ay' && /127\.0\.0\.1|localhost/.test(location.host)));
   check('konsol hatası yok (telefon açılış)', errors.length === 0, errors.slice(0, 3).join(' | '));
