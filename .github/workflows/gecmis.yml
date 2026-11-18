@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.23.4          # sabit: bit düzeyi testler (nominal Δv) V8 sürümüne bağlı; Node 24 Math.pow farklı, veri yeniden üretilmeli
           cache: npm
       - name: Geçmiş özetini üret (son ~14 ay, 7 günde bir örnek)
         run: node tools/gecmis_derle.mjs --adim-gun 7 --pencere-gun 425 --onbellek "$RUNNER_TEMP/gecmis"
