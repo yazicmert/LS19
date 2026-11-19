@@ -171,7 +171,7 @@ export class CineUI {
 
   // kapanış özeti: sayılar number-flow ile 0'dan değerlerine yuvarlanır (yalnız bir kez gösterilen kart: gösteri aşaması)
   async summary(rows) {
-    let NF = null; try { NF = (await import('number-flow')).default; } catch (e) { NF = null; }
+    let NF = null; if (!this.plain) { try { NF = (await import('number-flow')).default; } catch (e) { NF = null; } }     // dışa aktarımda düz metin (gölge DOM resme dökülmez)
     const box = el('div', 'cc-stats');
     const nodes = rows.map((r) => {
       const row = el('div', 'cc-stat'), val = el('span', 'cc-sv'), unit = el('span', 'cc-su', r.unit || '');

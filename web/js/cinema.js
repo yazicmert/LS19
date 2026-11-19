@@ -315,7 +315,8 @@ export class Cinema {
     const ui = this.ui; ui.root.classList.remove('ended'); ui.look(this.cut); ui.bug(this.cut.over || translateText('Ay görevi'), this.cut.title || 'LS19');
     ui.enter(); ui.fade(1, 0); ui.quality(W.cine.level === 'ultra' ? '4K' : 'HD');
     if (this.audio) this.audio.stop();
-    this.audio = new CineAudio({ mood: this.cut.mood, sfx: this.cut.sfx }); if (!this.opts.preview) this.audio.start();
+    this.audio = this.opts.export ? this.opts.export.recorder : new CineAudio({ mood: this.cut.mood, sfx: this.cut.sfx }); if (!this.opts.preview) this.audio.start();   // dışa aktarımda ses kaydedilir (exporter.js), çalınmaz
+    ui.plain = !!this.opts.export; ui.root.classList.toggle('exporting', !!this.opts.export);
     ui.setMuted(this.audio.muted); ui.muteBtn.onclick = () => this.toggleMute();
     this.keyHandler = (e) => this.key(e); window.addEventListener('keydown', this.keyHandler, true);
     this.moveHandler = () => { ui.root.classList.add('active'); clearTimeout(this.activeTimer); this.activeTimer = setTimeout(() => ui.root.classList.remove('active'), 2600); };

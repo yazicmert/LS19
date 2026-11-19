@@ -187,7 +187,7 @@ check('Apollo iki kademe: dokuz bölüm, anma süre 110–150 s, açılış INS\
   check('cinema.css: prefers-reduced-motion bloğu var ve açılış kaydırmasını/silmesini söndürür (letterbox geçişi, clip-path, ayrılma parlaması)', !!rm && /\.cine-bar \{ transition: none/.test(rm[1]) && /clip-path: none/.test(rm[1]) && /cine-flash\.go \{ animation: none/.test(rm[1]));
   check('cinema.css: eğriler tanımlı (--cine-out güçlü ease-out, --cine-io ease-in-out) ve yalnız onlar kullanılır', /--cine-out: cubic-bezier\(0\.23, 1, 0\.32, 1\)/.test(css) && /--cine-io: cubic-bezier\(0\.77, 0, 0\.175, 1\)/.test(css) && !/ease-in[^-o]/.test(css.replace(/ease-in-out/g, '')));
   check('cinema.css: dar/dikey ve kısa ekran (telefon) düzenleri var; letterbox çubuğu dikey ekranda en çok %15; alt karartma yalnız opacity ile belirir',
-    /@media \(max-width: 700px\), \(max-aspect-ratio: 1\/1\)/.test(css) && /@media \(max-height: 520px\)/.test(css) && /--bar: clamp\(0px, calc\(\(100vh - 100vw \/ 2\.39\) \/ 2\), 15vh\)/.test(css)
+    /@media \(max-width: 700px\), \(max-aspect-ratio: 1\/1\)/.test(css) && /@media \(max-height: 520px\)/.test(css) && /\.cine > \* \{ --bar: clamp\(0px, calc\(\(100cqh - 100cqw \/ 2\.39\) \/ 2\), 15cqh\); \}/.test(css) && /container-type: size/.test(css) && !/\dv[wh]\b/.test(css)
     && /\.cine-scrim \{[^}]*transition: opacity/.test(css) && !/\.cine-scrim \{[^}]*transform/.test(css));
   // cinemaui.js sınıfları CSS'te tanımlı
   const cls = new Set([...ui.matchAll(/class="([^"]+)"/g)].flatMap((m) => m[1].split(/\s+/)).filter((c) => /^(cine|cs-|ct-|cc-)/.test(c)));

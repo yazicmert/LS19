@@ -104,10 +104,12 @@ export class ProducerDesk {
     st.append(this.status, this.saved);
     const reset = el('button', 'pd-reset', 'Hepsini sıfırla'); reset.type = 'button'; reset.title = 'Yönetmenin kurgusuna dön (geri alınabilir)'; reset.onclick = () => this.reset();
     const share = el('button'); share.type = 'button'; share.innerHTML = '<i data-icon="link"></i><span>Bağlantıyı kopyala</span>'; share.title = 'Kurgunu paylaş: bağlantıyı açan fragmanı senin kurgunla izler'; share.onclick = () => this.share();
+    const xp = el('button'); xp.type = 'button'; xp.innerHTML = '<i data-icon="download"></i><span>Video olarak kaydet</span>'; xp.title = 'Fragmanı 4K (ya da 1440p, 1080p) MP4 video olarak dışa aktar';
+    xp.onclick = () => this.h.onExport && this.h.onExport(this.cut); xp.hidden = !this.h.onExport;
     const play = el('button', 'primary'); play.type = 'button'; play.innerHTML = '<i data-icon="play"></i><span>Fragmanı oynat</span>'; play.onclick = () => this.play();
     this.playBtn = play;
     this.playLabel = play.querySelector('span');
-    foot.append(st, reset, share, play);
+    foot.append(st, reset, share, xp, play);
     box.append(head, tabs, this.banner, body, foot);
     document.body.append(root); applyIcons(root);
     root.addEventListener('click', (e) => { if (e.target === root && !this.docked && !host.standalone) this.close(); });

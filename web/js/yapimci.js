@@ -19,6 +19,7 @@ const desk = new ProducerDesk({
   onPlay: (cut) => send('play', { cut }),
   onPreview: (cut, k) => send('preview', { cut, k }),
   onChange: (cut) => send('cut', { cut }),
+  onExport: (cut) => { send('export', { cut }); desk.say('Video dışa aktarımı LS19 penceresinde açıldı.'); },
 });
 const open = (cut) => { desk.open(cut || loadCut()); opened = true; };
 

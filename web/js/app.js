@@ -107,6 +107,7 @@ const desk = new ProducerDesk({ cinema, onPlay: (cut) => { if (desk.docked) { de
   onChange: (cut) => { sharedCut = null; link.sendCut(cut); if (cinema.on) cinema.liveCut(cut); },              // yerel düzenleme: oynayan fragmana canlı, ayrı pencereye eşit
   onDock: () => requestAnimationFrame(() => { resize(); if (cinema.on && cinema.shots) cinema.ui.ticks(cinema.tickMarks()); }),     // sahne daralır; çizelge etiketleri yeni genişliğe göre
   onPopOut: () => openPopOut(),
+  onExport: (cut) => openExport(cut),
   onPreview: (cut, k) => { pushLayer('cine'); cinema.preview(null, 0.45, null, { cut, fromDesk: true, grp: k }).then((ok) => { if (!ok && cinema.on) cinema.stop(); else if (!ok) desk.reopen(); }); } });
 // o.back: bölüm önizlemesinden dönüş (masa olduğu gibi); yoksa masa kayıtlı (ya da paylaşılan) kurguyla açılır.
 // Fragman oynarken geniş ekranda masa sağa yanaşır, fragman sürer ve değişiklikler canlı yansır; dar ekranda fragman durur.
@@ -122,7 +123,19 @@ const link = new MainLink({ chapters: () => cinema.chapterInfo(), cut: () => sha
   onCut: (cut) => { sharedCut = null; desk.load(cut); if (cinema.on) cinema.liveCut(cut); },
   onPlay: (cut) => { if (desk.isOpen) desk.close(); playCut(cut); },
   onPreview: (cut, k) => { if (desk.isOpen) desk.hide(); if (cinema.on) cinema.stop(); pushLayer('cine'); cinema.preview(null, 0.45, null, { cut, fromDesk: 'pop', grp: k }).then((ok) => { if (!ok && cinema.on) cinema.stop(); }); },
-  onStop: () => { if (cinema.on) cinema.stop(); } });
+  onStop: () => { if (cinema.on) cinema.stop(); },
+  onExport: (cut) => { openExport(cut); try { window.focus(); } catch (e) { /* yok */ } } });
+// Video dışa aktarımı (4K): kare kare, sanal saatle (exporter.js; ilk kullanımda yüklenir). Panel exportui.js; masa ve ayrı pencere açar.
+let stepWaiter = null, exporter = null, exportPanel = null;
+const exportHost = { world, cinema, appEl: $('#app'), resize: () => resize(), send: (m) => send(m), step: (dt, n) => new Promise((resolve) => { stepWaiter = { n, resolve }; send({ cmd: 'step', dt, n }); }) };
+async function openExport(cut) {
+  if (desk.isOpen) { if (desk.docked) desk.setDock(false); desk.close(); }
+  if (cinema.on) cinema.stop();
+  const [EX, UI] = await Promise.all([import('./exporter.js'), import('./exportui.js')]);
+  exporter = exporter || new EX.Exporter(exportHost);
+  exportPanel = exportPanel || new UI.ExportPanel({ exporter, EX, planned: () => (ui.plan || []).length > 0, estimate: (c) => cinema.estimate(c), onClose: () => {} });
+  exportPanel.open(cut || sharedCut || loadCut());
+}
 function openPopOut() {
   const u = new URL('yapimci.html', location.href); u.searchParams.set('ana', link.id);
   const w = window.open(u.href, 'ls19-yapimci', 'popup,width=1040,height=920');
@@ -624,6 +637,7 @@ worker.onmessage = (e) => {
     ayRefresh();
   } else if (d.type === 'state') {
     S.latest = d;
+    if (stepWaiter && d.step === stepWaiter.n) { const r = stepWaiter.resolve; stepWaiter = null; r(d); }       // dışa aktarım: elle saatte kare adımı (exporter.js)
     if (!insState && Math.abs(d.t - ui.t0) < 1) insState = { t: d.t, r: d.r.slice(), v: d.v.slice() };   // yörüngeye giriş durumu (kalkış canlandırmasının varış noktası)
     if (d.nbody !== undefined && chkNbody.checked !== d.nbody) chkNbody.checked = d.nbody;          // durum iletisi saniyede ~60: DOM sorgusu önbellekte
     if (d.trail && (d.trail.length || d.trailReset)) withMission(() => { world.addTrail(d.trail, d.trailReset); ui.addSamples(d.trail, d.trailReset); });
@@ -646,7 +660,7 @@ function applyPixelRatio(r) {
 let perfHud = null;
 if (new URLSearchParams(location.search).get('olcum') === '1') import('./perfhud.js').then((m) => { perfHud = new m.PerfHud(world); }).catch(() => {});
 function frame(now) {
-  const dtMs = now - lastFrame, dt = Math.min(0.1, dtMs / 1000); lastFrame = now;
+  const dtMs = now - lastFrame, dt = Math.max(0, Math.min(0.1, dtMs / 1000)); lastFrame = now;          // ≥ 0: dışa aktarımın sanal saatinden dönüşte (vclock.js) bir kez geri gidebilir
   if (govOn && !cinema.on && !S.designing && !document.hidden) { const r = gov.tick(dtMs, now, !!world.tilesBusy); if (r) applyPixelRatio(r); }
   if (S.MODE === 'sky' && S.K && S.skyui && !S.designing) {
     const ms = clock.nowMs(); skyT = tOfUtcMs(ms);
@@ -713,6 +727,7 @@ $('#btnPlay').onclick = () => setPlay(!S.running);
 let bgPaused = false;
 document.addEventListener('visibilitychange', () => {
   if (new URLSearchParams(location.search).get('bg') === '1') return;
+  if (exporter && exporter.busy) return;                                       // video dışa aktarımı: fizik elle ilerler, duraklatılmaz (sekme arka planda da sürer)
   if (document.hidden) { if (S.running && !S.designing) { bgPaused = true; setPlay(false); } }
   else if (bgPaused) { bgPaused = false; setPlay(true); }
 });
@@ -872,7 +887,7 @@ document.addEventListener('click', (e) => {
 // telefonda sinematik gösterim "⋯" menüsünde
 $('#btnCineMenu').addEventListener('click', () => $('#btnCine').click());
 $('#btnSkyPanel').onclick = () => (S.VIEW === 'lab' ? $('#labPanel') : $('#skyPanel')).classList.toggle('open');
-window.LS19 = { world, ui, send, ascent, setCam, setPlay, cinema, desk, link, focusOn, setWorkspace, setSkyCam, clock, followSat, lookAtSat, labui, openLab, aymc, ayabort, lagrange, compare, get mode() { return S.MODE; }, get view() { return S.VIEW; }, get skyT() { return skyT; }, get deflect() { return deflect; },
+window.LS19 = { world, ui, send, ascent, setCam, setPlay, cinema, desk, link, exportHost, openExport, focusOn, setWorkspace, setSkyCam, clock, followSat, lookAtSat, labui, openLab, aymc, ayabort, lagrange, compare, get mode() { return S.MODE; }, get view() { return S.VIEW; }, get skyT() { return skyT; }, get deflect() { return deflect; },
   get sats() { return S.sats; }, get asts() { return S.asts; }, get astui() { return S.astui; }, get updater() { return updater; }, get tracker() { return S.tracker; }, get skyui() { return S.skyui; }, get launches() { return S.launches; } };
 window.ROCSIM = window.LS19;
 

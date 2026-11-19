@@ -45,6 +45,7 @@ async function setupDate(d) {
 let M = null, tDisp = 0, warp = 1, autoWarp = true, paused = true, maxWarp = 20000;
 let manual = { throttle: 0, mode: 'PRO', hold: null };
 let lastReal = 0, status = '', timer = null, sentEvents = 0;
+let manualClock = false;                                           // dışa aktarım (exporter.js): saat elle, her 'step' bir kare (dt s), fizik hedefe tam varır
 let nbody = true, forces = null, lastForces = -1e9;                // çözücü: true N-cisim (tek çerçeve), false etki küresi; kuvvet dökümü (~2 Hz)
 const TICK_MS = 1000 / 60;
 
@@ -166,9 +167,9 @@ function manualCtrl(P) {
   return [Math.max(0, manual.throttle), u];
 }
 
-function tick() {
+function tick(step = null) {
   const now = performance.now();
-  const dtReal = Math.min(0.1, (now - lastReal) / 1000); lastReal = now;
+  const dtReal = step ? step.dt : Math.min(0.1, (now - lastReal) / 1000); lastReal = now;
   if (!M) return;
   let x = M.stateAt(tDisp) || M.hist[M.hist.length - 1];
   const wEff = chooseWarp(x);
@@ -176,6 +177,8 @@ function tick() {
   if (!paused && (!M.done || M.surf)) {                         // temastan sonra saat işlemeye devam eder: araç Ay yüzeyinde (M.surfaceAdvance), olay çizelgesi sürer
     const tTarget = tDisp + dtReal * wEff;
     res = M.advance(tTarget, 12, manualCtrl, () => performance.now());
+    // elle saat (dışa aktarım): ağır hesap (planlama) parça parça sürer; kare, fizik hedefe varınca biter (gerçek zaman yok, kare süresi değişmez)
+    if (step) for (let k = 0; k < 100000 && M.P.s.t < tTarget - 1e-9 && (!M.done || M.surf); k++) { const t0 = M.P.s.t; res = M.advance(tTarget, 200, manualCtrl, () => performance.now()); if (res !== 'COMPUTE' && M.P.s.t <= t0) break; }
     if (res === 'COMPUTE') status = M.status;
     else status = M.status || '';
     // ekran zamanı: fizik geride kalırsa (ağır hesap) onu bekle
@@ -204,7 +207,7 @@ function tick() {
     lastForces = now;
     try { forces = E.accelBreakdown(x.t, x.r, 'N'); const st = M.veh.stages[x.k]; forces.thrust = st && x.thr > 0 ? (1000 * x.thr * st.T) / x.m : 0; } catch (err) { forces = null; }
   }
-  postMessage({ ...obsTick(x, now), type: 'state', t: x.t, r: x.r, v: x.v, m: x.m, prop: x.prop, k: x.k, thr: x.thr, u: x.u, q: x.q, w: x.w, att: x.att, rcsUsed: x.rcsUsed, phase: x.phase, nbody, forces,
+  postMessage({ ...obsTick(x, now), type: 'state', step: step ? step.n : undefined, t: x.t, r: x.r, v: x.v, m: x.m, prop: x.prop, k: x.k, thr: x.thr, u: x.u, q: x.q, w: x.w, att: x.att, rcsUsed: x.rcsUsed, phase: x.phase, nbody, forces,
     dv: x.dv, stage, debris, local, auto: M.auto, done: M.done, result: M.result, paused, warp: wEff, warpSet: warp, autoWarp,
     tNext: M.tNext, status, events: newEv, drAxis: M.drAxis, manual, trail, trailReset: reset, landing: M.landing, opt: M.descentInfo ? { tf: M.descentInfo.tf, fuel: M.descentInfo.fuel, replans: M.descentInfo.replans, fails: M.descentInfo.fails } : null });
 }
@@ -216,11 +219,16 @@ onmessage = (e) => {
     case 'init':
     case 'design':
       M = null;
-      setupDate(d).then(() => { lastReal = performance.now(); if (!timer) timer = setInterval(tick, TICK_MS); })
+      setupDate(d).then(() => { lastReal = performance.now(); if (!timer && !manualClock) timer = setInterval(tick, TICK_MS); })
         .catch((err) => postMessage({ type: 'error', msg: String(err.message || err) }));
       break;
     case 'restart': if (!M) break; newMission(); paused = true; postMessage({ type: 'restarted', t0: M.P.s.t, plan: M.plan }); break;
     case 'pause': paused = d.on; lastReal = performance.now(); break;
+    case 'clock':                                                                   // dışa aktarım: elle saat aç/kapa
+      manualClock = !!d.manual; clearInterval(timer); timer = null; lastReal = performance.now();
+      if (!manualClock) timer = setInterval(tick, TICK_MS);
+      break;
+    case 'step': if (manualClock) tick({ dt: Math.max(0, Math.min(1, +d.dt || 0)), n: d.n }); break;
     case 'warp': warp = Math.max(0.05, Math.min(100000, d.value)); break;               // < 1: sinematik yavaş çekim (arayüz düğmeleri ≥ 1 gönderir)
     case 'autoWarp': autoWarp = d.on; break;
     case 'auto':

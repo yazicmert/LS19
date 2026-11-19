@@ -38,6 +38,7 @@ export class MainLink {
     else if (m.t === 'play' && cut) this.h.onPlay(cut);
     else if (m.t === 'preview' && cut && typeof m.k === 'string') this.h.onPreview(cut, m.k);
     else if (m.t === 'stop') this.h.onStop();
+    else if (m.t === 'export' && cut) { if (this.h.onExport) this.h.onExport(cut); }
     else if (m.t === 'chapters') this.send('info', { to: m.pop, chapters: this.h.chapters(), cut: null, state: this.state });
   }
   close() { if (this.ch) this.ch.close(); }

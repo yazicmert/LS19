@@ -121,7 +121,7 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   check('app.js: masa (ProducerDesk), film düğmesi masayı açar, C doğrudan oynatır, Y masa, paylaşılan kurgu #kurgu= ile (decodeCut)',
     /new ProducerDesk\(/.test(app) && /\$\('#btnCine'\)\.onclick = \(\) => \{ if \(cinema\.on\) cinema\.stop\(\); else openDesk\(\); \}/.test(app) && /k === 'c'\) \{ pushLayer\('cine'\); playCine\(\); \}/.test(app) && /k === 'y'\) openDesk\(\)/.test(app) && /location\.hash\.slice\(1\)\)\.get\('kurgu'\)/.test(app) && /decodeCut\(hk\)/.test(app));
   check('index.html: producer.css bağlı; cinema.css: kadraj seçenekleri (1,85:1, tam ekran), grafik gizleme, sahne atlama levhası',
-    /css\/producer\.css/.test(html) && /\.cine\[data-ar="185"\]/.test(css) && /\.cine\[data-ar="full"\] \{ --bar: 0px; \}/.test(css) && /\.cine\.hide-strip \.cine-strip/.test(css) && /\.cine-slate \{/.test(css) && !/rgba\(255, 179, 92/.test(css));
+    /css\/producer\.css/.test(html) && /\.cine\[data-ar="185"\]/.test(css) && /\.cine\[data-ar="full"\] > \* \{ --bar: 0px; \}/.test(css) && /\.cine\.hide-strip \.cine-strip/.test(css) && /\.cine-slate \{/.test(css) && !/rgba\(255, 179, 92/.test(css));
 }
 // ---------------------------------------------------------------- 7) yazı, yerleşim, renk, geçiş ve özel kamera
 {
@@ -160,8 +160,8 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   check('hazır kurgular (destansı dahil) tanınır ve yazı/yerleşimi de kurar', Object.keys(P.PRESETS).every((k) => P.presetOf(P.applyPreset({ title: 'A' }, k)) === k) && P.applyPreset({}, 'epic').hFont === 'cinzel' && P.applyPreset({}, 'epic').ch.tli.cam === 'engine' && P.applyPreset({ ch: { tli: { cAz: 33 } } }, 'epic').ch.tli.cAz === 33);
   const css = rd('../css/cinema.css'), cin = rd('../js/cinema.js'), ui = rd('../js/cinemaui.js'), desk = rd('../js/producerui.js'), app = rd('../js/app.js');
   check('cinema.css: başlık boyutu, yazı tipi, kalınlık, harf aralığı ve büyük harf değişkenlerle; metin yazı tipi ve boyutu; bölüm kartı konumları; başlık/kapanış/alt yazı/köşe işareti konumları; numara gizleme; okunurluk perdesi',
-    /\.cc-h \{ margin: 0; font-family: var\(--cine-hf, var\(--font\)\); font-weight: var\(--cine-hw, 600\); font-size: calc\(clamp\(22px, 3\.4vw, 52px\) \* var\(--cine-k, 1\)\)/.test(css) && /text-transform: var\(--cine-tt, uppercase\)/.test(css)
-    && /\.cc-s \{[^}]*calc\(clamp\(11px, 1\.25vw, 16px\) \* var\(--cine-tk, 1\)\) \/ 1\.6 var\(--cine-tf, var\(--mono\)\)/.test(css) && ['tl', 'tr', 'br', 'bc', 'c'].every((p) => css.includes(`.cine-card.pos-${p}`))
+    /\.cc-h \{ margin: 0; font-family: var\(--cine-hf, var\(--font\)\); font-weight: var\(--cine-hw, 600\); font-size: calc\(clamp\(22px, 3\.4cqw, 52px\) \* var\(--cine-k, 1\)\)/.test(css) && /text-transform: var\(--cine-tt, uppercase\)/.test(css)
+    && /\.cc-s \{[^}]*calc\(clamp\(11px, 1\.25cqw, 16px\) \* var\(--cine-tk, 1\)\) \/ 1\.6 var\(--cine-tf, var\(--mono\)\)/.test(css) && ['tl', 'tr', 'br', 'bc', 'c'].every((p) => css.includes(`.cine-card.pos-${p}`))
     && /\.cine\[data-title="top"\]/.test(css) && /\.cine\[data-close="c"\]/.test(css) && /\.cine\[data-cue="bl"\]/.test(css) && /\.cine\[data-cue="tc"\]/.test(css) && /\.cine\[data-bug="off"\] \.cine-bug \{ display: none; \}/.test(css) && /\.cine\.no-num \.cc-idx/.test(css) && /calc\(0\.58 \* var\(--cine-shade, 1\)\)/.test(css));
   check('cinemaui.js: görünüm değişkenleri (yazı tipi, boyut, kalınlık, aralık, renk, perde) ve konum öznitelikleri; kart konumu sınıfı; önizleme çubuğu',
     ['--cine-hf', '--cine-tf', '--cine-k', '--cine-tk', '--cine-hw', '--cine-ls', '--cine-tt', '--cine-shade', '--cine-ink-2'].every((v) => ui.includes(`'${v}'`)) && /r\.dataset\.cue = /.test(ui) && /r\.dataset\.bug = /.test(ui) && /pos-' \+ c\.pos/.test(ui) && /previewBar\(o\)/.test(ui));

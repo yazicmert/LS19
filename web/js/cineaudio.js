@@ -28,13 +28,58 @@ export function engineLevel(thr, warp = 1, air = false) {
 }
 
 const LS_KEY = 'ls19.cineMute';
+
+// ---------------------------------------------------------------- dışa aktarım (exporter.js): fragman sırasında ses olaylarını sanal zamanla kaydeder, sonra
+// OfflineAudioContext'te aynı sesi kare doğruluğunda üretir (renderAudio). CineAudio ile aynı arayüz; canlı ses çalmaz.
+export class AudioRecorder {
+  constructor(opts = {}) { this.mood = this.mood0 = opts.mood || 'gizem'; this.sfx = this.sfx0 = opts.sfx !== false; this.muted = false; this.log = []; this.t0 = null; this.lastUpd = null; this.spoken = new Set(); }
+  get lead() { return 0; }
+  get ok() { return true; }
+  at() { const t = performance.now(); return this.t0 == null ? 0 : Math.max(0, (t - this.t0) / 1000); }
+  rec(m, a = []) { this.log.push({ t: this.at(), m, a }); }
+  start() {} stop() {} setMuted() {}
+  // motor düzeyi her denetim adımında gelir: değişmedikçe ya da 0,1 s dolmadıkça yazılmaz
+  update(thr, warp, air) {
+    const L = this.lastUpd, t = this.at();
+    if (L && t - L.t < 0.1 && Math.abs(L.thr - thr) < 0.02 && Math.abs(Math.log((L.warp || 1) / (warp || 1))) < 0.1 && L.air === air) return;
+    this.lastUpd = { t, thr, warp, air }; this.rec('update', [thr, warp, air]);
+  }
+  chapter(i) { this.rec('chapter', [i]); }
+  thump() { this.rec('thump'); }
+  beep() { this.rec('beep'); }
+  tick(last = false) { this.rec('tick', [last]); }
+  say(key, text, o = {}) { if (this.spoken.has(key)) return; this.spoken.add(key); this.rec('say', [key, text, o]); }
+  setMix(o) { if (o.mood) this.mood = o.mood; if (o.sfx != null) this.sfx = o.sfx; this.rec('setMix', [o]); }
+}
+// kayıttan sesi üret: süre (s), örnekleme 48 kHz stereo; çanlar müzik açıkken 2,3 s'de bir (canlıdaki zamanlayıcının eşi). Olaylar işleme kuantumuna (128 örnek)
+// yuvarlanır ve aynı kuantumdakiler birlikte uygulanır (OfflineAudioContext.suspend). Dönen: AudioBuffer
+export async function renderAudio(rec, duration, sampleRate = 48000) {
+  const OAC = globalThis.OfflineAudioContext || globalThis.webkitOfflineAudioContext; if (!OAC) return null;
+  const len = Math.max(1, Math.ceil(duration * sampleRate)), ctx = new OAC(2, len, sampleRate);
+  const a = new CineAudio({ mood: rec.mood0, sfx: rec.sfx0 });                      // kayıt başındaki ayarlar; sonraki canlı değişiklikler setMix olayıyla
+  a.muted = false; a.start(ctx);
+  const ev = rec.log.filter((e) => e.t < duration).map((e) => ({ ...e })), Q = 128 / sampleRate;
+  let musicOn = a.mood !== 'off';
+  for (let t = 2.3; t < duration; t += 2.3) ev.push({ t, m: 'bell', a: [] });
+  ev.sort((x, y) => x.t - y.t);
+  const groups = new Map();
+  for (const e of ev) { const q = Math.max(1, Math.round(e.t / Q)); if (!groups.has(q)) groups.set(q, []); groups.get(q).push(e); }
+  const apply = (e) => {
+    if (e.m === 'bell') { if (musicOn) a.bell(); return; }
+    if (e.m === 'setMix') { a.setMix(e.a[0]); musicOn = a.mood !== 'off'; return; }
+    if (typeof a[e.m] === 'function') a[e.m](...e.a);
+  };
+  for (const [q, list] of groups) { const t = q * Q; if (t >= len / sampleRate) continue; ctx.suspend(t).then(() => { for (const e of list) apply(e); ctx.resume(); }); }
+  return ctx.startRendering();
+}
 export class CineAudio {
   // opts (Yapımcı masası): mood (müzik ruhu; 'off' müzik yok), sfx (motor, çarpma, bip, tık; false: susar)
   constructor(opts = {}) { this.mood = opts.mood || 'gizem'; this.sfx = opts.sfx !== false; this.ctx = null; this.muted = false; try { this.muted = localStorage.getItem(LS_KEY) === '1'; } catch (e) { /* özel pencere */ } this.chord = -1; this.spoken = new Set(); }
   get ok() { return !!this.ctx; }
-  start() {
-    const AC = window.AudioContext || window.webkitAudioContext; if (!AC || this.ctx) return;
-    const c = this.ctx = new AC(), now = c.currentTime;
+  // ctx: hazır bağlam (dışa aktarımda OfflineAudioContext: ses çevrimdışı üretilir; çan zamanlayıcısı, konuşma ve tarayıcı izni yok)
+  start(ctx = null) {
+    const AC = window.AudioContext || window.webkitAudioContext; if ((!AC && !ctx) || this.ctx) return;
+    const c = this.ctx = ctx || new AC(), now = c.currentTime; this.offline = !!ctx && typeof ctx.startRendering === 'function';
     // ana yol: ana kazanç → sıkıştırıcı → çıkış
     this.master = c.createGain(); this.master.gain.value = 0;
     const comp = c.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 3;
@@ -61,7 +106,7 @@ export class CineAudio {
     if (musicOn) this.music.gain.setTargetAtTime(0.3, now, 2.5);
     // çanlar: akorun seslerinden seyrek, yumuşak notalar (sinüs, 2,6 s sönüm) yankıya; müziğe hareket verir
     this.bellOut = c.createGain(); this.bellOut.gain.value = 0.5; this.bellOut.connect(rev); const bd = c.createGain(); bd.gain.value = 0.25; this.bellOut.connect(bd); bd.connect(this.master);
-    this.bellN = 0; if (musicOn) this.bellTimer = setInterval(() => this.bell(), 2300);
+    this.bellN = 0; if (musicOn && !this.offline) this.bellTimer = setInterval(() => this.bell(), 2300);
     // motor: döngülü kahverengi gürültü → alçak geçiren → kazanç; çatırtı: aynı gürültü → yüksek geçiren → kazanç (rastgele genlik)
     const noise = this.noiseBuffer(4);
     const src = c.createBufferSource(); src.buffer = noise; src.loop = true;
@@ -70,6 +115,7 @@ export class CineAudio {
     const hp = c.createBiquadFilter(); hp.type = 'bandpass'; hp.frequency.value = 900; hp.Q.value = 0.6;
     this.crk = c.createGain(); this.crk.gain.value = 0; src.connect(hp); hp.connect(this.crk); this.crk.connect(this.fx);
     src.start(); this.src = src;
+    if (this.offline) return;
     this.warmSpeech();
     // tarayıcı kendiliğinden başlatmayı engellediyse ilk dokunuşta sürdür
     if (c.state === 'suspended') { this.resume = () => { c.resume(); }; window.addEventListener('pointerdown', this.resume, { once: true }); window.addEventListener('keydown', this.resume, { once: true }); }
@@ -82,7 +128,7 @@ export class CineAudio {
   }
   // çan notası: akorun bir sesi (bir ya da iki oktav üstte), sırayla dolaşır; ara sıra susar
   bell() {
-    const c = this.ctx; if (!c || c.state !== 'running') return;
+    const c = this.ctx; if (!c || (c.state !== 'running' && !this.offline)) return;
     const k = this.bellN++; if (k % 5 === 4) return;
     const fs = chordFreqs(Math.max(0, this.chord), this.mood), f = fs[[0, 2, 1, 3, 2][k % 5]] * (k % 3 === 0 ? 4 : 2), t = c.currentTime + 0.05;
     const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.value = f;
@@ -190,6 +236,7 @@ export class CineAudio {
   say(key, text, { urgent = false, quindar = !urgent } = {}) {
     if (this.muted || !this.ctx || this.spoken.has(key)) return; this.spoken.add(key);
     if (quindar) this.tone(2525, 0.25, 0.05);
+    if (this.offline) { if (quindar) this.tone(2475, 0.25, 0.05, 1.6); return; }      // dışa aktarım: konuşma sentezi kaydedilemez (yalnız hat tonları)
     try {
       const S = window.speechSynthesis; if (!S || typeof SpeechSynthesisUtterance !== 'function') return;
       if (S.paused) S.resume();

@@ -504,7 +504,8 @@ export class World {
   }
 
   setPixelRatio(r) { this.renderer.setPixelRatio(r); this.resize(this.canvas.clientWidth, this.canvas.clientHeight); }          // uyarlanır çözünürlük: tampon yeni orana göre yeniden boyutlanır
-  resize(w, h) { if (this.cine.on && this.post && this._prOf) this.renderer.setPixelRatio(this._prOf(this.post.level)); this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); if (this.post) this.post.setSize(w, h); }
+  // cine.prOverride: video dışa aktarımı (exporter.js) tam çıktı boyunu ister (sinematik kademenin piksel oranı yerine)
+  resize(w, h) { if (this.cine.on && this.post && this._prOf) this.renderer.setPixelRatio(this.cine.prOverride || this._prOf(this.post.level)); this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); if (this.post) this.post.setSize(w, h); }
 
   // Dünya küresi ayrıntı düzeyi (bkz. EARTH_SEG): kaba ağın ekrandaki en kötü kiriş hatası (piksel) eşiğin altındaysa 256×128, değilse 1024×512.
   // Kamera orijinde: Dünya merkezine uzaklık = earth.position'ın boyu. Yüzeyde/içeride (h ≤ 0) ya da sayı değilse ince ağ.

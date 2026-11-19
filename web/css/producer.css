@@ -307,3 +307,39 @@ body.pd-docked #app { right: var(--pd-dock); }
   .pd-foot > button:not(.primary) { flex: 1 1 0; justify-content: center; }
 }
 @media (prefers-reduced-motion: reduce) { .pd-box, .pdesk.docked .pd-box, .pd-live::before { animation: none; } .pd-chbtn > svg, .pd-ch, .pd-switch, .pd-switch::after, .pd-saved { transition: none; } }
+
+/* ---- video dışa aktarım paneli (js/exportui.js) ---- */
+.xpanel { position: fixed; inset: 0; z-index: 72; display: grid; place-items: center; padding: 16px; background: rgba(3, 5, 10, .66); }
+.xpanel[hidden] { display: none; }
+.xp-box { width: min(620px, 100%); max-height: min(92vh, 820px); overflow: auto; background: var(--surface-1); border: 1px solid var(--line-2); border-radius: 16px; box-shadow: 0 30px 80px rgba(0, 0, 0, .5); }
+.xp-head { display: flex; justify-content: space-between; gap: 12px; padding: 16px 18px 8px; }
+.xp-head h2 { margin: 0; font-size: 18px; }
+.xp-sub { margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--text-secondary); overflow-wrap: anywhere; }
+.xp-body { display: flex; flex-direction: column; gap: 14px; padding: 8px 18px 14px; }
+.xp-body .pd-seg button { display: inline-flex; flex-direction: column; align-items: center; gap: 1px; min-width: 92px; padding: 6px 12px; }
+.xp-tip { font-size: 10.5px; color: var(--text-muted); }
+.xp-body .pd-check { flex: none; align-items: flex-start; }
+.xp-body .pd-check input { margin-top: 2px; }
+.xp-info { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); font: 500 12.5px var(--mono); color: var(--text-primary); }
+.xp-info span:empty { display: none; }
+.xp-codec { color: var(--accent-2); }
+.xp-warn { display: flex; flex-direction: column; gap: 6px; }
+.xp-warn[hidden] { display: none; }
+.xp-warn p { margin: 0; padding: 8px 10px; border-radius: 8px; font-size: 12.5px; line-height: 1.45; background: rgba(245, 185, 58, .12); color: var(--text-primary); }
+.xp-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px 16px; border-top: 1px solid var(--line); }
+.xp-foot button, .xp-dl { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; }
+.xp-dl { padding: 8px 16px; border-radius: 8px; text-decoration: none; font-weight: 600; color: #fff; background: var(--accent); }
+.xp-foot svg, .xp-dl svg { width: 16px; height: 16px; }
+/* sürerken: altta ince çubuk, sahne üstte görünür */
+.xpanel.running { inset: auto 0 0 0; padding: 0; background: none; place-items: stretch; }
+.xpanel.running .xp-box { width: 100%; max-height: none; border-radius: 0; border-width: 1px 0 0; box-shadow: 0 -10px 30px rgba(0, 0, 0, .4); }
+.xp-prog { display: flex; align-items: center; gap: 14px; padding: 12px 18px 8px; }
+.xp-ptext { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.xp-ptext b { font-size: 14px; font-variant-numeric: tabular-nums; }
+.xp-pline { font: 500 11.5px var(--mono); color: var(--text-secondary); overflow-wrap: anywhere; }
+.xp-bar { height: 4px; margin: 0 18px 14px; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
+.xp-bar i { display: block; height: 100%; background: var(--accent-2); transform: scaleX(0); transform-origin: left center; transition: transform .3s var(--ease); }
+/* dışa aktarım sürerken sahne (küçültülmüş) siyah zeminde */
+body.exporting { background: #000; }
+body.exporting #toasts, body.exporting #cineDesk { display: none !important; }
+@media (prefers-reduced-motion: reduce) { .xp-bar i { transition: none; } }

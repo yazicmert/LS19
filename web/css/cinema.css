@@ -16,8 +16,9 @@ body.cine-on .tilemode, body.cine-on .tilestatus, body.cine-on #skyHud, body.cin
 }
 body.cine-on #view { cursor: none; }
 
-.cine { position: absolute; inset: 0; z-index: 20; display: none; pointer-events: none; overflow: hidden; color: var(--cine-ink); font-family: var(--font);
-  --bar: clamp(0px, calc((100vh - 100vw / 2.39) / 2), 15vh); }              /* 2,39:1 letterbox; daha geniş pencerede çubuk yok; dikey ekranda çubuk en çok %15 (resim alanı kalsın) */
+.cine { position: absolute; inset: 0; z-index: 20; display: none; pointer-events: none; overflow: hidden; color: var(--cine-ink); font-family: var(--font); container-type: size; }
+/* ölçüler kap birimleriyle (cqw/cqh = sinematik katmanın boyutu): tam pencerede vw/vh ile aynı; yanaşık masada ve 4K dışa aktarımda katman sahneyle birlikte ölçeklenir */
+.cine > * { --bar: clamp(0px, calc((100cqh - 100cqw / 2.39) / 2), 15cqh); }              /* 2,39:1 letterbox; daha geniş pencerede çubuk yok; dikey ekranda çubuk en çok %15 (resim alanı kalsın) */
 .cine.live { display: block; }
 
 /* letterbox */
@@ -27,22 +28,22 @@ body.cine-on #view { cursor: none; }
 .cine.on .cine-bar { transform: none; }
 
 /* alt karartma: parlak yüzeylerde (Ay, Dünya, bulut) alt şeridin ve kartların okunurluğu; yalnız opacity */
-.cine-scrim { position: absolute; left: 0; right: 0; bottom: var(--bar); height: clamp(150px, 32vh, 320px); pointer-events: none;
+.cine-scrim { position: absolute; left: 0; right: 0; bottom: var(--bar); height: clamp(150px, 32cqh, 320px); pointer-events: none;
   background: linear-gradient(to top, rgba(0, 0, 0, calc(0.58 * var(--cine-shade, 1))), rgba(0, 0, 0, calc(0.3 * var(--cine-shade, 1))) 42%, rgba(0, 0, 0, 0)); opacity: 0; transition: opacity 0.8s var(--cine-out) 0.4s; }
 .cine.on .cine-scrim { opacity: 1; }
 .cine.nostrip .cine-scrim { opacity: 0; transition-delay: 0s; }
 
 /* bölüm kartları */
 .cine-cards { position: absolute; inset: 0; }
-.cine-card { position: absolute; left: clamp(24px, 6vw, 96px); bottom: calc(var(--bar) + clamp(78px, 12vh, 140px)); max-width: min(620px, 62vw); opacity: 0; }
+.cine-card { position: absolute; left: clamp(24px, 6cqw, 96px); bottom: calc(var(--bar) + clamp(78px, 12cqh, 140px)); max-width: min(620px, 62cqw); opacity: 0; }
 .cine-card.in { opacity: 1; }
 .cine-card.out { opacity: 0; transition: opacity 0.45s var(--cine-out); }
 .cc-idx { display: block; margin-bottom: 12px; font: 500 12px var(--mono); letter-spacing: 0.32em; color: var(--cine-accent); opacity: 0; transition: opacity 0.6s var(--cine-out); }
 .cc-idx i { font-style: normal; opacity: 0.5; margin: 0 0.45em; }
-.cc-h { margin: 0; font-family: var(--cine-hf, var(--font)); font-weight: var(--cine-hw, 600); font-size: calc(clamp(22px, 3.4vw, 52px) * var(--cine-k, 1)); line-height: 1.12; letter-spacing: calc(0.2em * var(--cine-ls, 1)); text-transform: var(--cine-tt, uppercase); text-shadow: 0 2px 34px rgba(0, 0, 0, 0.6);
+.cc-h { margin: 0; font-family: var(--cine-hf, var(--font)); font-weight: var(--cine-hw, 600); font-size: calc(clamp(22px, 3.4cqw, 52px) * var(--cine-k, 1)); line-height: 1.12; letter-spacing: calc(0.2em * var(--cine-ls, 1)); text-transform: var(--cine-tt, uppercase); text-shadow: 0 2px 34px rgba(0, 0, 0, 0.6);
   clip-path: inset(-0.2em 100% -0.2em 0); transform: translateX(-14px); transition: clip-path 0.95s var(--cine-out), transform 0.95s var(--cine-out); }
 .cc-rule { display: block; height: 2px; width: min(240px, 42%); margin: 18px 0 14px; background: linear-gradient(90deg, var(--cine-accent), transparent); transform: scaleX(0); transform-origin: left center; transition: transform 0.8s var(--cine-out) 0.22s; }
-.cc-s { margin: 0; font: 400 calc(clamp(11px, 1.25vw, 16px) * var(--cine-tk, 1)) / 1.6 var(--cine-tf, var(--mono)); letter-spacing: 0.1em; color: var(--cine-ink-2); text-shadow: 0 1px 14px rgba(0, 0, 0, 0.8);
+.cc-s { margin: 0; font: 400 calc(clamp(11px, 1.25cqw, 16px) * var(--cine-tk, 1)) / 1.6 var(--cine-tf, var(--mono)); letter-spacing: 0.1em; color: var(--cine-ink-2); text-shadow: 0 1px 14px rgba(0, 0, 0, 0.8);
   opacity: 0; transform: translateY(8px); transition: opacity 0.7s var(--cine-out) 0.42s, transform 0.7s var(--cine-out) 0.42s; }
 .cine-card.in .cc-idx { opacity: 1; }
 .cine-card.in .cc-h { clip-path: inset(-0.2em 0 -0.2em 0); transform: none; }
@@ -51,9 +52,9 @@ body.cine-on #view { cursor: none; }
 
 /* açılış kartı ortada; kapanış kartı solda (özne sağda kalır) */
 .cine-card.open { left: 0; right: 0; bottom: auto; top: 38%; max-width: none; margin: 0 auto; text-align: center; transform: translateY(-50%); }
-.cine-card.close { max-width: min(560px, 48vw); bottom: calc(var(--bar) + clamp(70px, 11vh, 120px)); }
-.cine-card.open .cc-h { font-size: calc(clamp(44px, 10vw, 150px) * var(--cine-k, 1)); letter-spacing: calc(0.4em * var(--cine-ls, 1)); padding-left: calc(0.4em * var(--cine-ls, 1)); }
-.cine-card.close .cc-h { font-size: calc(clamp(28px, 4.6vw, 70px) * var(--cine-k, 1)); letter-spacing: calc(0.26em * var(--cine-ls, 1)); }
+.cine-card.close { max-width: min(560px, 48cqw); bottom: calc(var(--bar) + clamp(70px, 11cqh, 120px)); }
+.cine-card.open .cc-h { font-size: calc(clamp(44px, 10cqw, 150px) * var(--cine-k, 1)); letter-spacing: calc(0.4em * var(--cine-ls, 1)); padding-left: calc(0.4em * var(--cine-ls, 1)); }
+.cine-card.close .cc-h { font-size: calc(clamp(28px, 4.6cqw, 70px) * var(--cine-k, 1)); letter-spacing: calc(0.26em * var(--cine-ls, 1)); }
 .cine-card.open .cc-rule { margin-left: auto; margin-right: auto; transform-origin: center; width: min(300px, 50%); background: linear-gradient(90deg, transparent, var(--cine-accent), transparent); }
 .cine-card.open .cc-h { transform: none; clip-path: inset(-0.2em 50% -0.2em 50%); }
 .cine-card.open.in .cc-h { clip-path: inset(-0.2em 0 -0.2em 0); }
@@ -62,12 +63,12 @@ body.cine-on #view { cursor: none; }
 .cc-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 44px; margin-top: 28px; text-align: left; }
 .cc-stat { display: flex; flex-direction: column; gap: 5px; padding-top: 9px; border-top: 1px solid rgba(243, 239, 230, 0.26); }
 .cc-sk { font: 500 10px var(--cine-tf, var(--mono)); letter-spacing: 0.22em; text-transform: uppercase; color: var(--cine-ink-2); }
-.cc-sval { font: 500 clamp(18px, 2.3vw, 30px) var(--cine-tf, var(--mono)); font-variant-numeric: tabular-nums; }
+.cc-sval { font: 500 clamp(18px, 2.3cqw, 30px) var(--cine-tf, var(--mono)); font-variant-numeric: tabular-nums; }
 .cc-sv { display: inline-block; }
 .cc-su { margin-left: 0.45em; font-size: 0.52em; letter-spacing: 0.14em; color: var(--cine-ink-2); }
 
 /* veri şeridi (alt üçte bir) */
-.cine-strip { position: absolute; left: clamp(24px, 6vw, 96px); right: clamp(24px, 6vw, 96px); bottom: calc(var(--bar) + clamp(20px, 3.6vh, 42px)); display: flex; align-items: flex-end; gap: clamp(18px, 3.2vw, 56px);
+.cine-strip { position: absolute; left: clamp(24px, 6cqw, 96px); right: clamp(24px, 6cqw, 96px); bottom: calc(var(--bar) + clamp(20px, 3.6cqh, 42px)); display: flex; align-items: flex-end; gap: clamp(18px, 3.2cqw, 56px);
   opacity: 0; transform: translateY(8px); transition: opacity 0.6s var(--cine-out) 0.5s, transform 0.6s var(--cine-out) 0.5s; }
 .cine.on .cine-strip { opacity: 1; transform: none; }
 .cine.nostrip .cine-strip { opacity: 0; transition-delay: 0s; }
@@ -76,10 +77,10 @@ body.cine-on #view { cursor: none; }
 .cs-phase .cs-v { overflow: hidden; text-overflow: ellipsis; }                      /* uzun aşama adı (dar sahne: yanaşık masa) komşu değerin üstüne binmez */
 .cs-warp { margin-left: auto; text-align: right; }
 .cs-k { font: 500 10px var(--cine-tf, var(--mono)); letter-spacing: 0.24em; text-transform: uppercase; color: var(--cine-ink-2); text-shadow: 0 1px 10px rgba(0, 0, 0, 0.85); }
-.cs-v { font: 500 clamp(13px, 1.5vw, 20px) var(--cine-tf, var(--mono)); letter-spacing: 0.06em; font-variant-numeric: tabular-nums; white-space: nowrap; text-shadow: 0 1px 14px rgba(0, 0, 0, 0.85); }
+.cs-v { font: 500 clamp(13px, 1.5cqw, 20px) var(--cine-tf, var(--mono)); letter-spacing: 0.06em; font-variant-numeric: tabular-nums; white-space: nowrap; text-shadow: 0 1px 14px rgba(0, 0, 0, 0.85); }
 
 /* zaman çizelgesi: ilerleme yalnız scaleX */
-.cine-timeline { position: absolute; left: clamp(24px, 6vw, 96px); right: clamp(24px, 6vw, 96px); bottom: calc(var(--bar) + 9px); height: 2px; opacity: 0; transition: opacity 0.6s var(--cine-out) 0.6s; }
+.cine-timeline { position: absolute; left: clamp(24px, 6cqw, 96px); right: clamp(24px, 6cqw, 96px); bottom: calc(var(--bar) + 9px); height: 2px; opacity: 0; transition: opacity 0.6s var(--cine-out) 0.6s; }
 .cine.on .cine-timeline { opacity: 1; }
 .ct-track, .ct-prog { position: absolute; inset: 0; display: block; }
 .ct-track { background: rgba(243, 239, 230, 0.22); }
@@ -89,19 +90,19 @@ body.cine-on #view { cursor: none; }
 
 /* ipucu ve çıkış düğmesi */
 /* görüntü atfı: alt siyah bandın içinde, küçük ve soluk (sağlayıcı koşulları gereği görünür) */
-.cine-credit { position: absolute; right: clamp(24px, 6vw, 96px); bottom: 6px; max-width: 70vw; font: 400 10px var(--mono); letter-spacing: 0.04em; color: rgba(243, 239, 230, 0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cine-credit { position: absolute; right: clamp(24px, 6cqw, 96px); bottom: 6px; max-width: 70cqw; font: 400 10px var(--mono); letter-spacing: 0.04em; color: rgba(243, 239, 230, 0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* olay alt yazısı: sağ altta, veri şeridinin üstünde; girişte sağdan hafif kayma, çıkışta sönme */
-.cine-cue { position: absolute; right: clamp(24px, 6vw, 96px); bottom: calc(var(--bar) + clamp(78px, 12vh, 140px)); max-width: min(440px, 34vw); text-align: right;
-  font: 500 calc(clamp(10px, 1.05vw, 13px) * var(--cine-tk, 1)) / 1.5 var(--cine-tf, var(--mono)); letter-spacing: 0.22em; text-transform: uppercase; color: var(--cine-ink); text-shadow: 0 1px 12px rgba(0, 0, 0, 0.9);
+.cine-cue { position: absolute; right: clamp(24px, 6cqw, 96px); bottom: calc(var(--bar) + clamp(78px, 12cqh, 140px)); max-width: min(440px, 34cqw); text-align: right;
+  font: 500 calc(clamp(10px, 1.05cqw, 13px) * var(--cine-tk, 1)) / 1.5 var(--cine-tf, var(--mono)); letter-spacing: 0.22em; text-transform: uppercase; color: var(--cine-ink); text-shadow: 0 1px 12px rgba(0, 0, 0, 0.9);
   padding-right: 12px; border-right: 2px solid var(--cine-accent); opacity: 0; transform: translateX(10px); transition: opacity 0.5s var(--cine-out), transform 0.5s var(--cine-out); }
 .cine-cue.in { opacity: 1; transform: none; }
-.cine-hint { position: absolute; top: calc(var(--bar) + 14px); left: clamp(24px, 6vw, 96px); font: 500 11px var(--mono); letter-spacing: 0.12em; color: var(--cine-ink-2); text-shadow: 0 1px 10px rgba(0, 0, 0, 0.9); opacity: 0; transition: opacity 0.5s var(--cine-out); }
+.cine-hint { position: absolute; top: calc(var(--bar) + 14px); left: clamp(24px, 6cqw, 96px); font: 500 11px var(--mono); letter-spacing: 0.12em; color: var(--cine-ink-2); text-shadow: 0 1px 10px rgba(0, 0, 0, 0.9); opacity: 0; transition: opacity 0.5s var(--cine-out); }
 .cine-hint.show { opacity: 1; }
 .cine-hint kbd { background: rgba(0, 0, 0, 0.45); border-color: rgba(243, 239, 230, 0.35); color: var(--cine-ink); }
-.cine-exit { position: absolute; top: calc(var(--bar) + 10px); right: clamp(18px, 3vw, 40px); pointer-events: auto; background: rgba(0, 0, 0, 0.5); border-color: rgba(243, 239, 230, 0.3); color: var(--cine-ink);
+.cine-exit { position: absolute; top: calc(var(--bar) + 10px); right: clamp(18px, 3cqw, 40px); pointer-events: auto; background: rgba(0, 0, 0, 0.5); border-color: rgba(243, 239, 230, 0.3); color: var(--cine-ink);
   opacity: 0; transition: opacity 0.4s var(--cine-out), background-color 0.18s ease; }
 .cine.active .cine-exit, .cine-exit:focus-visible { opacity: 1; }
-.cine-mute { position: absolute; top: calc(var(--bar) + 10px); right: calc(clamp(18px, 3vw, 40px) + 82px); pointer-events: auto; background: rgba(0, 0, 0, 0.5); border-color: rgba(243, 239, 230, 0.3); color: var(--cine-ink);
+.cine-mute { position: absolute; top: calc(var(--bar) + 10px); right: calc(clamp(18px, 3cqw, 40px) + 82px); pointer-events: auto; background: rgba(0, 0, 0, 0.5); border-color: rgba(243, 239, 230, 0.3); color: var(--cine-ink);
   opacity: 0; transition: opacity 0.4s var(--cine-out), background-color 0.18s ease; }
 .cine.active .cine-mute, .cine-mute:focus-visible { opacity: 1; }
 .cine-mute[aria-pressed="true"] { color: var(--cine-ink-2); }
@@ -119,18 +120,18 @@ body.cine-on #view { cursor: none; }
   .cine-strip { left: 24px; right: 24px; bottom: calc(var(--bar) + 24px); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; align-items: end; }
   .cs-phase { display: none; }
   .cs-warp { margin-left: 0; text-align: left; }
-  .cs-v { font-size: clamp(12px, 3.6vw, 17px); }
+  .cs-v { font-size: clamp(12px, 3.6cqw, 17px); }
   .cine-timeline { left: 24px; right: 24px; }
-  .cine-card { left: 24px; max-width: calc(100vw - 48px); bottom: calc(var(--bar) + 118px); }
-  .cc-h { font-size: calc(clamp(18px, 6vw, 30px) * var(--cine-k, 1)); letter-spacing: calc(0.14em * var(--cine-ls, 1)); }
+  .cine-card { left: 24px; max-width: calc(100cqw - 48px); bottom: calc(var(--bar) + 118px); }
+  .cc-h { font-size: calc(clamp(18px, 6cqw, 30px) * var(--cine-k, 1)); letter-spacing: calc(0.14em * var(--cine-ls, 1)); }
   .cc-s { font-size: calc(12px * var(--cine-tk, 1)); letter-spacing: 0.06em; }
   .cine-card.open { left: 0; max-width: none; bottom: auto; }
-  .cine-card.open .cc-h { font-size: calc(clamp(40px, 16vw, 90px) * var(--cine-k, 1)); }
-  .cine-card.close { max-width: calc(100vw - 48px); top: calc(var(--bar) + 36px); bottom: auto; }
-  .cine-card.close .cc-h { font-size: calc(clamp(22px, 7vw, 34px) * var(--cine-k, 1)); }
+  .cine-card.open .cc-h { font-size: calc(clamp(40px, 16cqw, 90px) * var(--cine-k, 1)); }
+  .cine-card.close { max-width: calc(100cqw - 48px); top: calc(var(--bar) + 36px); bottom: auto; }
+  .cine-card.close .cc-h { font-size: calc(clamp(22px, 7cqw, 34px) * var(--cine-k, 1)); }
   .cc-stats { gap: 12px 18px; margin-top: 18px; }
-  .cc-sval { font-size: clamp(15px, 4.6vw, 22px); }
-  .cine-hint { left: 24px; max-width: calc(100vw - 150px); font-size: 10px; }
+  .cc-sval { font-size: clamp(15px, 4.6cqw, 22px); }
+  .cine-hint { left: 24px; max-width: calc(100cqw - 150px); font-size: 10px; }
   .cine-exit { right: 16px; }
   .cine-mute { right: 98px; }
   .cine-cue { right: 24px; left: 24px; max-width: none; top: calc(var(--bar) + 58px); bottom: auto; font-size: calc(10px * var(--cine-tk, 1)); letter-spacing: 0.16em; }
@@ -139,11 +140,11 @@ body.cine-on #view { cursor: none; }
 /* kısa ekran (yatay telefon): başlıklar yüksekliğe göre ölçeklenir, kartlar sıkılaşır */
 @media (max-height: 520px) {
   .cine-card { bottom: calc(var(--bar) + 76px); }
-  .cc-h { font-size: calc(min(clamp(22px, 3.4vw, 52px), 7vh) * var(--cine-k, 1)); }
+  .cc-h { font-size: calc(min(clamp(22px, 3.4cqw, 52px), 7cqh) * var(--cine-k, 1)); }
   .cc-rule { margin: 10px 0 8px; }
-  .cine-card.open .cc-h { font-size: calc(min(clamp(44px, 10vw, 150px), 16vh) * var(--cine-k, 1)); }
+  .cine-card.open .cc-h { font-size: calc(min(clamp(44px, 10cqw, 150px), 16cqh) * var(--cine-k, 1)); }
   .cine-card.close { bottom: calc(var(--bar) + 44px); }
-  .cine-card.close .cc-h { font-size: calc(min(clamp(28px, 4.6vw, 70px), 7.5vh) * var(--cine-k, 1)); }
+  .cine-card.close .cc-h { font-size: calc(min(clamp(28px, 4.6cqw, 70px), 7.5cqh) * var(--cine-k, 1)); }
   .cc-stats { gap: 8px 28px; margin-top: 12px; }
   .cc-stat { padding-top: 6px; gap: 3px; }
   .cine-strip { bottom: calc(var(--bar) + 16px); }
@@ -163,16 +164,16 @@ body.cine-on #view { cursor: none; }
 
 /* ---- yayın grafikleri ---- */
 /* köşe işareti (yayın "bug"ı): amblem + ad, sağında kalite rozeti */
-.cine-bug { position: absolute; top: calc(var(--bar) + clamp(12px, 2.4vh, 26px)); left: clamp(24px, 6vw, 96px); display: flex; align-items: center; gap: 10px; color: var(--cine-ink);
+.cine-bug { position: absolute; top: calc(var(--bar) + clamp(12px, 2.4cqh, 26px)); left: clamp(24px, 6cqw, 96px); display: flex; align-items: center; gap: 10px; color: var(--cine-ink);
   opacity: 0; transition: opacity 0.8s var(--cine-out) 0.9s; text-shadow: 0 1px 10px rgba(0, 0, 0, 0.8); }
 .cine.on .cine-bug { opacity: 0.92; }
-.cine-bug .cine-emblem { width: clamp(26px, 2.6vw, 38px); height: auto; filter: drop-shadow(0 1px 6px rgba(0, 0, 0, 0.7)); }
+.cine-bug .cine-emblem { width: clamp(26px, 2.6cqw, 38px); height: auto; filter: drop-shadow(0 1px 6px rgba(0, 0, 0, 0.7)); }
 .cb-t { display: flex; flex-direction: column; gap: 2px; line-height: 1; }
-.cb-t b { font: 600 clamp(11px, 1.05vw, 14px) var(--cine-hf, var(--font)); letter-spacing: 0.34em; }
+.cb-t b { font: 600 clamp(11px, 1.05cqw, 14px) var(--cine-hf, var(--font)); letter-spacing: 0.34em; }
 .cb-t span { font: 500 9px var(--mono); letter-spacing: 0.26em; text-transform: uppercase; color: var(--cine-ink-2); }
 .cb-q { font: 600 9px var(--mono); font-style: normal; letter-spacing: 0.16em; padding: 3px 6px 2px; border: 1px solid rgba(243, 239, 230, 0.45); border-radius: 3px; color: var(--cine-ink-2); }
 .cb-q:empty { display: none; }
-.cine-hint { top: calc(var(--bar) + clamp(52px, 7.5vh, 76px)); }
+.cine-hint { top: calc(var(--bar) + clamp(52px, 7.5cqh, 76px)); }
 
 /* olay çizelgesi: adlı düğümler; geçilenler dolu, şimdiki vurgulu */
 .ct-ticks i { top: -4px; width: 9px; height: 9px; margin-left: -4.5px; border-radius: 50%; background: #0b0d12; border: 1px solid rgba(243, 239, 230, 0.6); transition: background-color 0.4s var(--cine-out), transform 0.4s var(--cine-out); }
@@ -182,10 +183,10 @@ body.cine-on #view { cursor: none; }
   color: rgba(243, 239, 230, 0.5); text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9); }
 .ct-ticks i.done b { color: rgba(243, 239, 230, 0.78); } .ct-ticks i.cur b { color: var(--cine-accent); }
 .ct-ticks i:first-child b { left: 0; transform: none; } .ct-ticks i:last-child b { left: auto; right: 0; transform: none; }
-.cine-strip { bottom: calc(var(--bar) + clamp(40px, 6.4vh, 66px)); }
+.cine-strip { bottom: calc(var(--bar) + clamp(40px, 6.4cqh, 66px)); }
 .cine-timeline { bottom: calc(var(--bar) + 12px); }
-.cine-card { bottom: calc(var(--bar) + clamp(104px, 15.5vh, 170px)); }
-.cine-cue { bottom: calc(var(--bar) + clamp(104px, 15.5vh, 170px)); }
+.cine-card { bottom: calc(var(--bar) + clamp(104px, 15.5cqh, 170px)); }
+.cine-cue { bottom: calc(var(--bar) + clamp(104px, 15.5cqh, 170px)); }
 
 /* cisim etiketleri (geniş çekim): nokta + kılavuz çizgi + ad + uzaklık */
 .cine-tags { position: absolute; inset: 0; }
@@ -193,16 +194,16 @@ body.cine-on #view { cursor: none; }
 .cine-tag.in { opacity: 1; }
 .cine-tag i { position: absolute; left: 0; top: 34px; width: 22px; height: 1px; background: rgba(243, 239, 230, 0.65); transform-origin: left center; transform: rotate(-52deg); }
 .cine-tag i::before { content: ""; position: absolute; left: -3px; top: -3px; width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--cine-accent); }
-.cine-tag b { display: block; font: 600 clamp(10px, 0.95vw, 12px) var(--cine-tf, var(--mono)); letter-spacing: 0.26em; text-transform: uppercase; color: var(--cine-ink); }
+.cine-tag b { display: block; font: 600 clamp(10px, 0.95cqw, 12px) var(--cine-tf, var(--mono)); letter-spacing: 0.26em; text-transform: uppercase; color: var(--cine-ink); }
 .cine-tag span { display: block; margin-top: 3px; font: 400 10px var(--cine-tf, var(--mono)); letter-spacing: 0.1em; color: var(--cine-ink-2); font-variant-numeric: tabular-nums; }
 
 /* başlık kartı: amblem + üst satır + görev adı + ayrıntı */
 .cine-card.title { left: 0; right: 0; bottom: auto; top: 46%; max-width: none; margin: 0 auto; text-align: center; transform: translateY(-50%); }
-.cine-card.title .cine-emblem { width: clamp(64px, 8vw, 118px); height: auto; margin: 0 auto 18px; display: block; color: var(--cine-ink); opacity: 0; transform: scale(0.92); transition: opacity 0.9s var(--cine-out), transform 1s var(--cine-out); }
+.cine-card.title .cine-emblem { width: clamp(64px, 8cqw, 118px); height: auto; margin: 0 auto 18px; display: block; color: var(--cine-ink); opacity: 0; transform: scale(0.92); transition: opacity 0.9s var(--cine-out), transform 1s var(--cine-out); }
 .cine-card.title.in .cine-emblem { opacity: 1; transform: none; }
-.cc-over { display: block; margin-bottom: 10px; font: 500 calc(clamp(10px, 1vw, 13px) * var(--cine-tk, 1)) var(--cine-tf, var(--mono)); letter-spacing: 0.42em; text-transform: uppercase; color: var(--cine-accent); opacity: 0; transition: opacity 0.7s var(--cine-out) 0.25s; }
+.cc-over { display: block; margin-bottom: 10px; font: 500 calc(clamp(10px, 1cqw, 13px) * var(--cine-tk, 1)) var(--cine-tf, var(--mono)); letter-spacing: 0.42em; text-transform: uppercase; color: var(--cine-accent); opacity: 0; transition: opacity 0.7s var(--cine-out) 0.25s; }
 .cine-card.in .cc-over { opacity: 1; }
-.cine-card.title .cc-h { font-size: calc(clamp(34px, 7vw, 104px) * var(--cine-k, 1)); letter-spacing: calc(0.36em * var(--cine-ls, 1)); padding-left: calc(0.36em * var(--cine-ls, 1)); transform: none; clip-path: inset(-0.2em 50% -0.2em 50%); }
+.cine-card.title .cc-h { font-size: calc(clamp(34px, 7cqw, 104px) * var(--cine-k, 1)); letter-spacing: calc(0.36em * var(--cine-ls, 1)); padding-left: calc(0.36em * var(--cine-ls, 1)); transform: none; clip-path: inset(-0.2em 50% -0.2em 50%); }
 .cine-card.title.in .cc-h { clip-path: inset(-0.2em 0 -0.2em 0); }
 .cine-card.title .cc-rule { margin-left: auto; margin-right: auto; transform-origin: center; width: min(300px, 50%); background: linear-gradient(90deg, transparent, var(--cine-accent), transparent); }
 .cine-card.title .cc-s { white-space: pre-line; }
@@ -218,48 +219,48 @@ body.cine-on #view { cursor: none; }
 .ct-ticks i.tight b { display: none; } .ct-ticks i.tight.cur b { display: block; }
 .ct-ticks i.cur ~ i:not(.tight) b { opacity: 0.85; }
 /* başlık kartının arkasında yumuşak karartma: parlak sahnede (rampa, gökyüzü) yazı okunur kalsın */
-.cine-card.title::before { content: ""; position: absolute; left: 50%; top: 50%; width: min(1100px, 92vw); height: 160%; transform: translate(-50%, -50%); z-index: -1; pointer-events: none;
+.cine-card.title::before { content: ""; position: absolute; left: 50%; top: 50%; width: min(1100px, 92cqw); height: 160%; transform: translate(-50%, -50%); z-index: -1; pointer-events: none;
   background: radial-gradient(ellipse at center, rgba(4, 6, 10, calc(0.62 * var(--cine-shade, 1))) 0%, rgba(4, 6, 10, calc(0.36 * var(--cine-shade, 1))) 42%, rgba(4, 6, 10, 0) 72%); }
 
 /* ---- Yapımcı masası ayarları (js/producer.js): kadraj, yayın grafikleri, sahne atlama levhası ---- */
-.cine[data-ar="185"] { --bar: clamp(0px, calc((100vh - 100vw / 1.85) / 2), 15vh); }
-.cine[data-ar="full"] { --bar: 0px; }
+.cine[data-ar="185"] > * { --bar: clamp(0px, calc((100cqh - 100cqw / 1.85) / 2), 15cqh); }
+.cine[data-ar="full"] > * { --bar: 0px; }
 .cine.hide-strip .cine-strip, .cine.hide-strip .cine-scrim { opacity: 0; transition-delay: 0s; }
 .cine.hide-timeline .cine-timeline { opacity: 0; transition-delay: 0s; }
 /* yapımcı bir bölümü çıkardığında aradaki görev süresi kararma altında geçilir: levha kararmanın üstünde, görev saati akar */
 .cine-slate { position: absolute; left: 24px; right: 24px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; opacity: 0; transition: opacity 0.5s var(--cine-out); }
 .cine-slate.in { opacity: 1; }
-.cine-slate b { font: 600 clamp(11px, 1.2vw, 15px) var(--cine-tf, var(--mono)); letter-spacing: 0.42em; padding-left: 0.42em; text-transform: uppercase; color: var(--cine-accent); }
-.cine-slate span { font: 500 clamp(18px, 2.6vw, 34px) var(--cine-tf, var(--mono)); letter-spacing: 0.08em; font-variant-numeric: tabular-nums; color: var(--cine-ink); }
+.cine-slate b { font: 600 clamp(11px, 1.2cqw, 15px) var(--cine-tf, var(--mono)); letter-spacing: 0.42em; padding-left: 0.42em; text-transform: uppercase; color: var(--cine-accent); }
+.cine-slate span { font: 500 clamp(18px, 2.6cqw, 34px) var(--cine-tf, var(--mono)); letter-spacing: 0.08em; font-variant-numeric: tabular-nums; color: var(--cine-ink); }
 
 /* yerleşim (yapımcı): bölüm kartı konumu kartın sınıfında (pos-*), başlık/kapanış kartı, alt yazı ve köşe işareti kökün veri özniteliklerinde */
-.cine-card.pos-tl, .cine-card.pos-tr { top: calc(var(--bar) + clamp(96px, 14vh, 150px)); bottom: auto; }
-.cine-card.pos-tr, .cine-card.pos-br { left: auto; right: clamp(24px, 6vw, 96px); text-align: right; }
+.cine-card.pos-tl, .cine-card.pos-tr { top: calc(var(--bar) + clamp(96px, 14cqh, 150px)); bottom: auto; }
+.cine-card.pos-tr, .cine-card.pos-br { left: auto; right: clamp(24px, 6cqw, 96px); text-align: right; }
 .cine-card.pos-tr .cc-rule, .cine-card.pos-br .cc-rule { margin-left: auto; transform-origin: right center; background: linear-gradient(270deg, var(--cine-accent), transparent); }
-.cine-card.pos-bc, .cine-card.pos-c { left: 0; right: 0; margin: 0 auto; text-align: center; max-width: min(820px, 86vw); }
+.cine-card.pos-bc, .cine-card.pos-c { left: 0; right: 0; margin: 0 auto; text-align: center; max-width: min(820px, 86cqw); }
 .cine-card.pos-c { top: 50%; bottom: auto; transform: translateY(-50%); }
 .cine-card.pos-bc .cc-rule, .cine-card.pos-c .cc-rule { margin-left: auto; margin-right: auto; transform-origin: center; background: linear-gradient(90deg, transparent, var(--cine-accent), transparent); }
 .cine-card.pos-bc .cc-h, .cine-card.pos-c .cc-h { transform: none; clip-path: inset(-0.2em 50% -0.2em 50%); }
 .cine-card.pos-bc.in .cc-h, .cine-card.pos-c.in .cc-h { clip-path: inset(-0.2em 0 -0.2em 0); }
 .cine[data-title="top"] .cine-card.title, .cine[data-title="top"] .cine-card.open { top: 30%; }
 .cine[data-title="bottom"] .cine-card.title, .cine[data-title="bottom"] .cine-card.open { top: 66%; }
-.cine[data-close="c"] .cine-card.close { left: 0; right: 0; margin: 0 auto; text-align: center; max-width: min(680px, 86vw); }
+.cine[data-close="c"] .cine-card.close { left: 0; right: 0; margin: 0 auto; text-align: center; max-width: min(680px, 86cqw); }
 .cine[data-close="c"] .cine-card.close .cc-rule { margin-left: auto; margin-right: auto; transform-origin: center; }
-.cine[data-close="r"] .cine-card.close { left: auto; right: clamp(24px, 6vw, 96px); }
+.cine[data-close="r"] .cine-card.close { left: auto; right: clamp(24px, 6cqw, 96px); }
 .cine.no-num .cc-idx { display: none; }
 .cine[data-bug="off"] .cine-bug { display: none; }
-.cine[data-bug="tr"] .cine-bug { left: auto; right: clamp(24px, 6vw, 96px); top: calc(var(--bar) + clamp(56px, 8vh, 76px)); flex-direction: row-reverse; text-align: right; }
+.cine[data-bug="tr"] .cine-bug { left: auto; right: clamp(24px, 6cqw, 96px); top: calc(var(--bar) + clamp(56px, 8cqh, 76px)); flex-direction: row-reverse; text-align: right; }
 .cine[data-bug="tr"] .cb-t { align-items: flex-end; }
 @media (min-width: 701px) and (min-aspect-ratio: 1/1) {
-  .cine[data-cue="bl"] .cine-cue { right: auto; left: clamp(24px, 6vw, 96px); bottom: calc(var(--bar) + clamp(230px, 34vh, 340px)); text-align: left; padding-right: 0; padding-left: 12px; border-right: 0; border-left: 2px solid var(--cine-accent); transform: translateX(-10px); }
-  .cine[data-cue="bc"] .cine-cue, .cine[data-cue="tc"] .cine-cue { left: 0; right: 0; margin: 0 auto; max-width: min(760px, 80vw); text-align: center; padding: 0; border-right: 0; transform: translateY(6px); }
-  .cine[data-cue="bc"] .cine-cue { bottom: calc(var(--bar) + clamp(76px, 11vh, 110px)); }
-  .cine[data-cue="tc"] .cine-cue { top: calc(var(--bar) + clamp(60px, 9vh, 96px)); bottom: auto; }
+  .cine[data-cue="bl"] .cine-cue { right: auto; left: clamp(24px, 6cqw, 96px); bottom: calc(var(--bar) + clamp(230px, 34cqh, 340px)); text-align: left; padding-right: 0; padding-left: 12px; border-right: 0; border-left: 2px solid var(--cine-accent); transform: translateX(-10px); }
+  .cine[data-cue="bc"] .cine-cue, .cine[data-cue="tc"] .cine-cue { left: 0; right: 0; margin: 0 auto; max-width: min(760px, 80cqw); text-align: center; padding: 0; border-right: 0; transform: translateY(6px); }
+  .cine[data-cue="bc"] .cine-cue { bottom: calc(var(--bar) + clamp(76px, 11cqh, 110px)); }
+  .cine[data-cue="tc"] .cine-cue { top: calc(var(--bar) + clamp(60px, 9cqh, 96px)); bottom: auto; }
   .cine[data-cue] .cine-cue.in { transform: none; }
 }
 
 /* önizleme çubuğu (Yapımcı masasından bölüm önizlemesi): üstte ortada; kamera hareketi çekimde konumla izlenir */
-.cine-pv { position: absolute; top: calc(var(--bar) + 12px); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; max-width: calc(100vw - 32px);
+.cine-pv { position: absolute; top: calc(var(--bar) + 12px); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; max-width: calc(100cqw - 32px);
   padding: 8px 10px 8px 16px; border-radius: 999px; background: rgba(6, 8, 12, 0.78); border: 1px solid rgba(243, 239, 230, 0.22); pointer-events: auto; font: 500 12px var(--mono); color: var(--cine-ink); }
 .cine-pv[hidden] { display: none; }
 .cine-pv > b { letter-spacing: 0.3em; text-transform: uppercase; color: var(--cine-accent); font-size: 11px; }
@@ -268,13 +269,16 @@ body.cine-on #view { cursor: none; }
 .pv-shots button { min-width: 30px; min-height: 30px; padding: 0 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.08); border-color: rgba(243, 239, 230, 0.25); color: var(--cine-ink); }
 .pv-shots button.on { background: var(--cine-accent); color: #000; border-color: var(--cine-accent); }
 .pv-tau { display: inline-flex; align-items: center; gap: 8px; color: var(--cine-ink-2); }
-.pv-tau input { width: clamp(120px, 22vw, 260px); accent-color: var(--cine-accent); }
+.pv-tau input { width: clamp(120px, 22cqw, 260px); accent-color: var(--cine-accent); }
 .pv-back { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; border-radius: 999px; background: rgba(255, 255, 255, 0.12); border-color: rgba(243, 239, 230, 0.3); color: var(--cine-ink); }
 .pv-back svg { width: 15px; height: 15px; }
 body.cine-on .cine-pv:not([hidden]) ~ * { cursor: default; }
 
+/* dışa aktarım: düğmeler, ipuçları ve önizleme çubuğu kareye girmez */
+.cine.exporting .cine-exit, .cine.exporting .cine-mute, .cine.exporting .cine-edit, .cine.exporting .cine-hint, .cine.exporting .cine-pv { display: none; }
+
 /* kurguyu düzenle (Yapımcı masası): fare oynayınca ve gösterim bitince görünür; Ses düğmesinin solunda */
-.cine-edit { position: absolute; top: calc(var(--bar) + 10px); right: calc(clamp(18px, 3vw, 40px) + 172px); pointer-events: auto; background: rgba(0, 0, 0, 0.5); border-color: rgba(243, 239, 230, 0.3); color: var(--cine-ink);
+.cine-edit { position: absolute; top: calc(var(--bar) + 10px); right: calc(clamp(18px, 3cqw, 40px) + 172px); pointer-events: auto; background: rgba(0, 0, 0, 0.5); border-color: rgba(243, 239, 230, 0.3); color: var(--cine-ink);
   opacity: 0; transition: opacity 0.4s var(--cine-out), background-color 0.18s ease; }
 .cine.active .cine-edit, .cine.ended .cine-edit, .cine-edit:focus-visible { opacity: 1; }
 .cine-edit[hidden] { display: none; }
