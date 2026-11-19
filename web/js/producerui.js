@@ -87,9 +87,9 @@ export class ProducerDesk {
     this.panes = {}; this.tabBtns = {}; this.badges = {};
     const body = this.body = el('div', 'pd-body');
     this.banner = el('div', 'pd-banner'); this.banner.setAttribute('role', 'status'); this.banner.hidden = true;
-    for (const [k, name] of [['ch', 'Bölümler'], ['credits', 'İsimler'], ['type', 'Yazılar'], ['look', 'Görüntü ve ses']]) {
+    for (const [k, name, short] of [['ch', 'Bölümler'], ['credits', 'İsimler'], ['type', 'Yazılar'], ['look', 'Görüntü ve ses', 'Görüntü']]) {
       const b = el('button'); b.type = 'button'; b.setAttribute('role', 'tab'); b.id = `pdTab-${k}`; b.setAttribute('aria-controls', `pdPane-${k}`);
-      const bd = this.badges[k] = el('span', 'pd-badge'); bd.hidden = true; b.append(el('span', null, name), bd);
+      const bd = this.badges[k] = el('span', 'pd-badge'); bd.hidden = true; b.append(el('span', short ? 'pd-long' : null, name), ...(short ? [el('span', 'pd-short', short)] : []), bd);   // dar ekranda kısa ad
       b.onclick = () => this.setTab(k);
       b.onkeydown = (e) => { if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return; e.preventDefault(); const ks = Object.keys(this.tabBtns), i = ks.indexOf(k), n = ks[(i + (e.key === 'ArrowRight' ? 1 : ks.length - 1)) % ks.length]; this.setTab(n); this.tabBtns[n].focus(); };
       tabs.append(b); this.tabBtns[k] = b;
@@ -98,19 +98,22 @@ export class ProducerDesk {
     }
     // alt çubuk: durum, kaydedildi, sıfırla, bağlantı, oynat (geri al / yinele başlıkta)
     const foot = el('footer', 'pd-foot');
+    // durum: alt çubuğun üstünde kısa süre görünen bildirim (alt çubuğu büyütmez); "Kaydedildi" alt çubukta küçük işaret
+    this.toast = el('div', 'pd-toast'); this.toast.setAttribute('role', 'status'); this.toast.setAttribute('aria-live', 'polite');
+    this.status = el('span', 'pd-status'); this.toast.append(this.status);
     const st = el('div', 'pd-statusbox');
-    this.status = el('span', 'pd-status'); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
     this.saved = el('span', 'pd-saved'); this.saved.innerHTML = '<i data-icon="check"></i><span>Kaydedildi</span>'; applyIcons(this.saved);
-    st.append(this.status, this.saved);
-    const reset = el('button', 'pd-reset', 'Hepsini sıfırla'); reset.type = 'button'; reset.title = 'Yönetmenin kurgusuna dön (geri alınabilir)'; reset.onclick = () => this.reset();
-    const share = el('button'); share.type = 'button'; share.innerHTML = '<i data-icon="link"></i><span>Bağlantıyı kopyala</span>'; share.title = 'Kurgunu paylaş: bağlantıyı açan fragmanı senin kurgunla izler'; share.onclick = () => this.share();
-    const xp = el('button'); xp.type = 'button'; xp.innerHTML = '<i data-icon="download"></i><span>Video olarak kaydet</span>'; xp.title = 'Fragmanı 4K (ya da 1440p, 1080p) MP4 video olarak dışa aktar';
+    st.append(this.saved);
+    const reset = el('button', 'pd-reset'); reset.type = 'button'; reset.innerHTML = '<i data-icon="restart"></i><span>Hepsini sıfırla</span>'; reset.title = 'Yönetmenin kurgusuna dön (geri alınabilir)'; reset.onclick = () => this.reset();
+    reset.setAttribute('aria-label', translateText('Hepsini sıfırla'));
+    const share = el('button'); share.type = 'button'; share.innerHTML = '<i data-icon="link"></i><span>Bağlantıyı kopyala</span>'; share.title = 'Kurgunu paylaş: bağlantıyı açan fragmanı senin kurgunla izler'; share.onclick = () => this.share(); share.setAttribute('aria-label', translateText('Bağlantıyı kopyala'));
+    const xp = el('button'); xp.type = 'button'; xp.innerHTML = '<i data-icon="download"></i><span>Video olarak kaydet</span>'; xp.title = 'Fragmanı 4K (ya da 1440p, 1080p) MP4 video olarak dışa aktar'; xp.setAttribute('aria-label', translateText('Video olarak kaydet'));
     xp.onclick = () => this.h.onExport && this.h.onExport(this.cut); xp.hidden = !this.h.onExport;
     const play = el('button', 'primary'); play.type = 'button'; play.innerHTML = '<i data-icon="play"></i><span>Fragmanı oynat</span>'; play.onclick = () => this.play();
     this.playBtn = play;
     this.playLabel = play.querySelector('span');
     foot.append(st, reset, share, xp, play);
-    box.append(head, tabs, this.banner, body, foot);
+    box.append(head, tabs, this.banner, body, this.toast, foot);
     document.body.append(root); applyIcons(root);
     root.addEventListener('click', (e) => { if (e.target === root && !this.docked && !host.standalone) this.close(); });
     // klavye: masa açıkken uygulama kısayolları (C, Boşluk, M…) çalışmaz; Esc kapatır; Ctrl+Z / Ctrl+Y (yazı alanında tarayıcının kendi geri alması); odak masada kalır
@@ -194,9 +197,11 @@ export class ProducerDesk {
   }
   // durum satırı; undo: yanında "Geri al" düğmesi
   say(text, undo = false) {
-    this.status.replaceChildren(); if (!text) return;
+    this.status.replaceChildren(); clearTimeout(this.toastT);
+    if (!text) { this.toast.classList.remove('in'); return; }
     this.status.append(document.createTextNode(translateText(text)));
     if (undo && this.hist.canUndo) { const b = el('button', 'pd-link', 'Geri al'); b.type = 'button'; b.onclick = () => this.undo(); this.status.append(' ', b); }
+    this.toast.classList.add('in'); this.toastT = setTimeout(() => this.toast.classList.remove('in'), undo ? 7000 : 4500);
   }
   setIntro(on) {
     this.introOn = on; try { localStorage.setItem(INTRO_KEY, on ? '0' : '1'); } catch (e) { /* özel pencere */ }
@@ -436,7 +441,7 @@ export class ProducerDesk {
   cameraPanel(ch, set) {
     const box = el('div', 'pd-camera'); const D = DEFAULT_CH;
     const deg = (v) => `${nf(v)}°`;
-    const az = this.slider('Aracın neresinden', RANGE.cAz, () => ch().cAz, (v) => set((c) => { c.cAz = v; }, 'cAz'), (v) => `${deg(v)} · ${translateText(azWord(v))}`, { ends: ['arkadan', 'önden', 'arkadan'], def: D.cAz });
+    const az = this.slider('Kamera yönü', RANGE.cAz, () => ch().cAz, (v) => set((c) => { c.cAz = v; }, 'cAz'), (v) => `${deg(v)} · ${translateText(azWord(v))}`, { ends: ['arkadan', 'önden', 'arkadan'], def: D.cAz });
     const elv = this.slider('Yükseklik', RANGE.cEl, () => ch().cEl, (v) => set((c) => { c.cEl = v; }, 'cEl'), deg, { ends: ['alttan', 'tepeden'], def: D.cEl });
     const dist = this.slider('Uzaklık', RANGE.cDist, () => ch().cDist, (v) => set((c) => { c.cDist = v; }, 'cDist'), (v) => (v >= 1000 ? `${nf(v / 1000, 2)} km` : `${nf(v)} m`), { map: distToS, unmap: sToDist, ends: ['yakın', 'uzak'], def: D.cDist });
     const fov = this.slider('Yakınlaştırma', RANGE.cFov, () => ch().cFov, (v) => set((c) => { c.cFov = v; }, 'cFov'), (v) => `${deg(v)} ${translateText('görüş açısı')}`, { ends: ['yakın çekim', 'geniş açı'], def: D.cFov });
@@ -532,12 +537,12 @@ export class ProducerDesk {
     const cue = el('div', 'pf-cue'), strip = el('div', 'pf-strip');
     for (const t of ['T+0g 02:41:08', 'TLI', '312 km', '10,84 km/s']) strip.append(el('span', null, t));
     scr.append(el('i', 'pf-scrim'), el('i', 'pf-bar top'), el('i', 'pf-bar bottom'), bug, card, cue, strip);
-    fr.append(scr, el('figcaption', null, 'Canlı maket: değiştirdikçe yazıların yeri ve görünüşü burada güncellenir (kamera görüntüsü yerine koyu fon).'));
-    // maket üstte ve yapışkan: ayarları değiştirirken görünür kalır
+    fr.append(scr, el('figcaption', null, 'Canlı maket: değiştirdikçe burada güncellenir.'));
+    // geniş masada maket solda sabit, ayarlar sağda; dar masada maket üstte yapışkan (küçük): ayarları değiştirirken görünür kalır
     const mk = el('div', 'pd-maket'); mk.append(fr);
-    pane.append(mk,
-      this.group('Yazı tipi ve görünüş', '', hf, tf, hs, ts, hw, tr, ink, sh, up),
-      this.group('Yazıların yeri', '', spots, tp, cp, qp, bp, hold, num));
+    const col = el('div', 'pd-typecol');
+    col.append(this.group('Yazı tipi ve görünüş', '', hf, tf, hs, ts, hw, tr, ink, sh, up), this.group('Yazıların yeri', '', spots, tp, cp, qp, bp, hold, num));
+    pane.classList.add('pd-typepane'); pane.append(mk, col);
     for (const f of [hf, tf, hs, ts, hw, tr, up, ink, sh, spots, tp, cp, qp, bp, num, hold]) S.push(f.sync);
     S.push(() => {
       const c = this.cut, tli = c.ch.tli; this.typeVars(scr);

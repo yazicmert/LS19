@@ -218,8 +218,6 @@ body.pd-open { overflow: hidden; }
 .pd-tl-off { flex: 0 0 10px; padding: 0; border: 1px dashed var(--line-2); background: repeating-linear-gradient(135deg, transparent 0 3px, rgba(255, 255, 255, .07) 3px 5px); }
 
 /* Yazılar: maket yapışkan, ayarları değiştirirken görünür kalır */
-.pd-maket { position: sticky; top: -14px; z-index: 1; margin: -14px -18px 12px; padding: 12px 18px 8px; background: var(--surface-1); border-bottom: 1px solid var(--line); }
-.pd-maket .pd-frame { margin: 0; max-width: 560px; margin-inline: auto; }
 
 /* başlıkta canlı işareti, ayraç; bilgi bandı; oynayan bölüm */
 .pd-live { display: inline-flex; align-items: center; gap: 5px; margin-left: 6px; padding: 2px 8px; border-radius: 999px; vertical-align: 3px; font: 600 10.5px var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--good); background: rgba(52, 211, 153, .12); }
@@ -252,16 +250,16 @@ body.pd-docked #app { right: var(--pd-dock); }
 .pdesk.docked .pd-cam { flex: 1 1 0; max-width: none; margin-left: 46px; }
 .pdesk.docked .pd-strip button span { display: none; }
 .pdesk.docked .pd-foot > button:not(.primary) span { display: none; }
-.pdesk.docked .pd-statusbox { flex-basis: 100%; }
+.pdesk.docked .pd-statusbox { display: none; }
+.pdesk.docked .pd-foot { flex-wrap: nowrap; }
+.pdesk.docked .pd-foot > button:not(.primary) { flex: none; width: 42px; padding: 0; justify-content: center; }
 .pdesk.docked .pd-foot .primary { flex: 1; justify-content: center; }
-.pdesk.docked .pd-maket { margin: -14px -18px 12px; }
 
 /* ayrı pencere (yapimci.html): masa bütün pencere */
 .pdesk.standalone { position: fixed; inset: 0; padding: 0; background: var(--bg); place-items: stretch; }
 .pdesk.standalone .pd-box { width: 100%; max-width: none; height: 100%; max-height: none; border: 0; border-radius: 0; box-shadow: none; animation: none; }
 .pdesk.standalone .pd-head, .pdesk.standalone .pd-tabs, .pdesk.standalone .pd-foot, .pdesk.standalone .pd-banner { width: 100%; padding-inline: max(18px, calc((100% - 1044px) / 2)); }
 .pdesk.standalone .pd-body { padding-inline: max(18px, calc((100% - 1044px) / 2)); }
-.pdesk.standalone .pd-maket { margin-inline: calc(-1 * max(18px, calc((100vw - 1044px) / 2))); padding-inline: max(18px, calc((100vw - 1044px) / 2)); }
 
 /* alt çubuk */
 .pd-foot { display: flex; align-items: center; gap: 8px; padding: 12px 18px calc(12px + var(--sb, 0px)); border-top: 1px solid var(--line); background: var(--surface-1); flex-wrap: wrap; }
@@ -293,18 +291,15 @@ body.pd-docked #app { right: var(--pd-dock); }
   .pd-detail { padding: 2px 10px 12px; }
   .pd-cam { flex: 1 1 0; min-width: 0; max-width: none; margin-left: 46px; }
   .pd-foot { padding: 10px 14px calc(10px + var(--sb, 0px)); }
-  .pd-foot .primary { flex: 1 1 100%; justify-content: center; order: 3; min-height: 46px; }
+  .pd-foot .primary { justify-content: center; min-height: 46px; }
   .pd-camera { grid-template-columns: 1fr; }
   .pd-camgrid { grid-template-columns: 1fr; }
   .pd-kroki { grid-column: 1; grid-row: auto; max-width: 300px; }
   .pd-steps { grid-template-columns: 1fr 1fr; }
-  .pd-maket { top: -12px; margin: -12px -14px 12px; padding: 10px 14px 8px; }
   .pd-strip { height: 22px; }
   .pd-strip button span { display: none; }
   .pd-acts .pd-reset { margin-left: 0; }
   .pd-opts { gap: 12px; }
-  .pd-statusbox { flex-basis: 100%; order: 0; }
-  .pd-foot > button:not(.primary) { flex: 1 1 0; justify-content: center; }
 }
 @media (prefers-reduced-motion: reduce) { .pd-box, .pdesk.docked .pd-box, .pd-live::before { animation: none; } .pd-chbtn > svg, .pd-ch, .pd-switch, .pd-switch::after, .pd-saved { transition: none; } }
 
@@ -343,3 +338,52 @@ body.pd-docked #app { right: var(--pd-dock); }
 body.exporting { background: #000; }
 body.exporting #toasts, body.exporting #cineDesk { display: none !important; }
 @media (prefers-reduced-motion: reduce) { .xp-bar i { transition: none; } }
+
+/* ---- cila (tur 1): Yazılar sekmesi iki sütun, bildirim, anahtarlar, telefonda tek satır alt çubuk ---- */
+/* Yazılar: geniş masada maket solda (yapışkan), ayarlar sağda; dar masada maket üstte küçük ve yapışkan */
+.pd-typepane { display: grid; grid-template-columns: minmax(260px, 38%) minmax(0, 1fr); gap: 16px; align-items: start; }
+.pd-maket { position: sticky; top: 0; z-index: 1; }
+.pd-maket .pd-frame { margin: 0; }
+.pd-typecol { min-width: 0; }
+.pd-typecol .pd-group:last-child { margin-bottom: 0; }
+.pdesk.docked .pd-typepane { display: block; }
+.pdesk.docked .pd-maket { margin: -14px -18px 12px; padding: 10px 18px 8px; background: var(--surface-1); border-bottom: 1px solid var(--line); }
+.pdesk.docked .pd-maket .pd-frame { max-width: 300px; margin-inline: auto; }
+/* bölüm ayrıntısındaki seçim kutusu etiketi öteki alanlarla aynı biçimde */
+.pd-opts .pd-field > label { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 1px; }
+/* onay kutuları anahtar görünümünde (bölüm anahtarlarıyla tutarlı) */
+.pd-check input[type="checkbox"], .xp-body .pd-check input[type="checkbox"] { appearance: none; -webkit-appearance: none; flex: none; position: relative; width: 34px; height: 20px; margin: 1px 0 0; border-radius: 999px; background: var(--surface-3); border: 1px solid var(--line-2); cursor: pointer; transition: background-color .18s var(--ease); }
+.pd-check input[type="checkbox"]::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--text-secondary); transition: transform .18s var(--ease), background-color .18s var(--ease); }
+.pd-check input[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent); }
+.pd-check input[type="checkbox"]:checked::after { transform: translateX(14px); background: #fff; }
+.pd-check { align-items: flex-start; gap: 10px; }
+/* bildirim: alt çubuğun üstünde, kısa süre (Geri al bağlantısıyla) */
+.pd-box { position: relative; }
+.pd-toast { position: absolute; left: 50%; bottom: 78px; z-index: 3; max-width: min(560px, calc(100% - 32px)); padding: 9px 14px; border-radius: 10px; font-size: 12.5px; line-height: 1.4; color: var(--text-primary);
+  background: rgba(22, 26, 36, .96); border: 1px solid var(--line-2); box-shadow: 0 12px 32px rgba(0, 0, 0, .45); opacity: 0; transform: translate(-50%, 8px); pointer-events: none; transition: opacity .2s var(--ease), transform .2s var(--ease); }
+.pd-toast.in { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.pd-toast .pd-link { margin-left: 4px; font-weight: 600; }
+.pd-statusbox { flex: 1 1 auto; }
+.pd-short { display: none; }
+@media (max-width: 760px) {
+  .pd-typepane { display: block; }
+  .pd-maket { margin: -12px -14px 12px; padding: 8px 14px 6px; background: var(--surface-1); border-bottom: 1px solid var(--line); }
+  .pd-maket .pd-frame { max-width: 260px; margin-inline: auto; }
+  .pd-maket figcaption { display: none; }
+  .pd-long { display: none; } .pd-short { display: inline; }
+  /* alt çubuk tek satır: ikincil işler simge, oynat geniş */
+  .pd-foot { flex-wrap: nowrap; gap: 6px; }
+  .pd-statusbox { display: none; }
+  .pd-foot > button:not(.primary) { flex: none; width: 46px; min-height: 46px; padding: 0; justify-content: center; }
+  .pd-foot > button:not(.primary) span { display: none; }
+  .pd-foot > button:not(.primary) svg { width: 18px; height: 18px; }
+  .pd-foot .primary { flex: 1 1 auto; order: 0; }
+  .pd-toast { bottom: 72px; }
+}
+@media (prefers-reduced-motion: reduce) { .pd-toast, .pd-check input[type="checkbox"], .pd-check input[type="checkbox"]::after { transition: none; } }
+/* tüm alan etiketleri tek biçimde (küçük, büyük harf, aralıklı): masa ve dışa aktarım paneli */
+.pdesk .pd-field > label, .pdesk .pd-sltop label, .xpanel .pd-field > label { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+.pdesk .pd-sltop { min-height: 18px; }
+/* masa ve panel kutuları programla (odak, scrollIntoView) kaymasın: başlık ve alt çubuk hep yerinde */
+.pd-box, .xp-box { overflow: clip; }
+.xp-box { overflow-y: auto; }
