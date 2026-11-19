@@ -26,3 +26,6 @@ tools/basis/
 /web/data/gecmis.json
 /web/data/neo_epok.json
 /web/data/f107.json
+
+# Model otomasyonu ara dosyaları (tools/model)
+.model-ara/

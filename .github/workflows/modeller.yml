@@ -1,0 +1,76 @@
+# Aylık 3B model otomasyonu: açık lisanslı kaynakları tarar, LS19'a uyan yeni modelleri ekler ve inceleme için PR açar (doğrudan main'e yazmaz).
+#   - DAMIT (CC BY 4.0): LS19'un asteroit kümesindeki her asteroidin en iyi şekil modeli (tools/model/damit.mjs; DAMIT ayın 1'inde tam döküm yayımlar)
+#   - NASA 3D Resources: yörüngedeki uydularla kesin eşleşen modeller, ölçek GCAT'tan (tools/model/uydu.mjs)
+# Modeller git'e girmez: yeni paketler GitHub Release'e (varliklar) yüklenir, PR yalnız bildirimi (varliklar.json) ve kataloğu değiştirir.
+# PR'ı açabilmek için: Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests". Kapalıysa dal yine gönderilir,
+# özet sayfasında PR açma bağlantısı yazar. GITHUB_TOKEN'la açılan PR'da diğer iş akışları (denetim) koşmaz: bu yüzden testler burada koşar.
+name: 3B modelleri güncelle
+
+on:
+  schedule:
+    - cron: '23 4 2 * *'          # her ayın 2'si 04:23 UTC (DAMIT'in aylık dökümünden sonra)
+  workflow_dispatch:
+    inputs:
+      kaynak:
+        description: 'Taranacak kaynak'
+        type: choice
+        options: [hepsi, damit, uydu]
+        default: hepsi
+      en_cok:
+        description: 'Bir çalıştırmada en çok kaç yeni uydu modeli'
+        default: '20'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: modeller
+  cancel-in-progress: false
+
+jobs:
+  guncelle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      KAYNAK: ${{ inputs.kaynak || 'hepsi' }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22.23.4
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            tools/model/package-lock.json
+      - name: Bağımlılıklar
+        run: |
+          npm ci
+          npm ci --prefix tools/model
+      - name: Varlıklar (GitHub Release)
+        run: node tools/varliklar.mjs indir
+      - name: DAMIT asteroit şekilleri
+        if: env.KAYNAK != 'uydu'
+        run: node tools/model/damit.mjs --indir
+      - name: Uydu modelleri (NASA 3D Resources)
+        if: env.KAYNAK != 'damit'
+        run: node tools/model/uydu.mjs --en-cok "${{ inputs.en_cok || '20' }}"
+      - name: Önizlemeler
+        if: env.KAYNAK != 'damit'
+        run: |
+          (cd tools/model && npx playwright install --with-deps chromium)
+          node tools/model/onizle.mjs
+      - name: Paketle ve değişiklik var mı bak
+        id: degisim
+        run: |
+          node tools/varliklar.mjs paketle
+          git add varliklar.json web/models/ast/damit/damit.json web/js/satcatalog_oto.js
+          if git diff --cached --quiet; then echo "yok=true" >> "$GITHUB_OUTPUT"; echo "Yeni model yok." >> "$GITHUB_STEP_SUMMARY"; else echo "yok=false" >> "$GITHUB_OUTPUT"; fi
+      - name: Testler
+        if: steps.degisim.outputs.yok == 'false'
+        run: npm test
+      - name: Yükle, dal gönder, PR aç
+        if: steps.degisim.outputs.yok == 'false'
+        run: node tools/model/pr.mjs

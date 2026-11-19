@@ -5,6 +5,8 @@
 // size: gerçek en uzun boyut (m, açılmış paneller ve antenler dahil, yaklaşık) · note: aynı tasarımdaki kardeş uydular için açıklama
 // rot: model eksenlerini sahneye (Y başucu, Z uçuş yönü) çeviren Euler XYZ (rad). Eyes modellerinde Eyes'ın kendi 'align' tanımından
 //      (Dünya'ya bakan eksen, uçuş yönündeki eksen) hesaplandı: alet yüzleri Dünya'ya bakar
+import { OTO } from './satcatalog_oto.js';
+
 export const MODELS = {
   iss:       { title: 'Uluslararası Uzay İstasyonu', size: 109, rot: [0, Math.PI / 2, 0] },   // kafes (truss) yörünge normali boyunca, modüller uçuş yönünde
   hubble:    { title: 'Hubble Uzay Teleskobu', size: 13.2 },
@@ -77,6 +79,9 @@ const BY_NAME = [
   [/^(INTELSAT|SES-|ASTRA|EUTELSAT|ECHOSTAR|GALAXY|TELSTAR|ANIK|AMC-|DIRECTV|SIRIUS|SKYNET|NILESAT|YAHSAT|INMARSAT)/, 'ssl1300', 'SSL-1300 sınıfı ticari GEO platformunun temsili modeli — bu uydunun kendi modeli yayımlanmamıştır'],
   [/^GRACE-FO/, 'gracefo', null],
 ];
+// otomatik eklenen modeller (tools/model/uydu.mjs → satcatalog_oto.js): elle yazılanlar önceliklidir
+for (const [k, m] of Object.entries(OTO.models)) if (!MODELS[k]) MODELS[k] = m;
+for (const [id, k] of Object.entries(OTO.byId)) if (!BY_ID[id] && MODELS[k]) BY_ID[id] = k;
 // Ay uyduları (Horizons): LRO ve ARTEMIS P1/P2 (THEMIS B/C)
 export const MOON_MODELS = { LRO: 'lro', 'ARTEMIS P1': 'themis', 'ARTEMIS P2': 'themis' };
 
