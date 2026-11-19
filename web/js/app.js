@@ -38,6 +38,9 @@ import { MODELS } from './satmodels.js';
 import { srcOf } from './satcatalog.js';
 import { ImpactUI } from './impactui.js';
 import { Cinema } from './cinema.js';
+import { ProducerDesk } from './producerui.js';
+import { loadCut, decodeCut } from './producer.js';
+import { MainLink } from './producersync.js';
 import { PixelGovernor, floorRatio } from './perfgov.js';
 import { $ } from './uiutil.js';
 import { LOC, workerOpts, isEn, setLang } from './i18n.js';
@@ -93,7 +96,54 @@ const ayRefresh = () => { lastAy = performance.now(); ayui.update(ayState()); };
 // sinematik "fragman" gösterimi (cinema.js): görevi baştan oynatır; kamera, zaman hızı ve bindirmeleri yönetir
 const cinema = new Cinema({ world, send, ui, root: $('#app'), latest: () => S.latest, play: (on) => setPlay(on), running: () => S.running, landing: () => landingMode, ascent: () => ascent,
   onStart: () => { document.querySelectorAll('.tm-pop').forEach((p) => { p.hidden = true; }); ui.hidePick(); $('#hoverTip').hidden = true; },
-  onStop: () => { resize(); dropLayer('cine'); } });
+  onStop: () => { resize(); dropLayer('cine'); if (desk.docked) desk.setDock(false); }, openDesk: (o) => openDesk(o),
+  onShot: (st) => { link.setState(st); desk.setNowPlaying(st.grp, st.on); } });
+// Yapımcı masası (producerui.js): izleyici fragmanın kurgusunu kurar (bölümler, kamera, metinler, görünüm, ses); paylaşılan bağlantıdaki kurgu (#kurgu=…) bu oturumda önceliklidir
+let sharedCut = null;
+// yanaşık masa için geniş masaüstü ekranı (dar ekranda ve dokunmatikte masa fragmanı durdurup ortada açılır)
+const dockable = () => matchMedia('(min-width: 1100px) and (hover: hover)').matches;
+const playCut = (cut) => { sharedCut = null; if (cinema.on) cinema.stop(); pushLayer('cine'); cinema.start({ cut }); };
+const desk = new ProducerDesk({ cinema, onPlay: (cut) => { if (desk.docked) { desk.setDock(false); desk.hide(); } playCut(cut); },
+  onChange: (cut) => { sharedCut = null; link.sendCut(cut); if (cinema.on) cinema.liveCut(cut); },              // yerel düzenleme: oynayan fragmana canlı, ayrı pencereye eşit
+  onDock: () => requestAnimationFrame(() => { resize(); if (cinema.on && cinema.shots) cinema.ui.ticks(cinema.tickMarks()); }),     // sahne daralır; çizelge etiketleri yeni genişliğe göre
+  onPopOut: () => openPopOut(),
+  onExport: (cut) => openExport(cut),
+  onPreview: (cut, k) => { pushLayer('cine'); cinema.preview(null, 0.45, null, { cut, fromDesk: true, grp: k }).then((ok) => { if (!ok && cinema.on) cinema.stop(); else if (!ok) desk.reopen(); }); } });
+// o.back: bölüm önizlemesinden dönüş (masa olduğu gibi); yoksa masa kayıtlı (ya da paylaşılan) kurguyla açılır.
+// Fragman oynarken geniş ekranda masa sağa yanaşır, fragman sürer ve değişiklikler canlı yansır; dar ekranda fragman durur.
+function openDesk(o = {}) {
+  if (o.back) { desk.reopen(); return; }
+  if (desk.isOpen && desk.docked) { desk.close(); return; }                       // Y: yanaşık masayı kapat/aç
+  const live = cinema.on && cinema.state !== 'preview' && dockable();
+  if (cinema.on && !live) cinema.stop();
+  desk.open(sharedCut || loadCut(), { shared: !!sharedCut, dock: live, instant: !!o.key });
+}
+// Ayrı pencerede editör (yapimci.html): bu sekmeyle BroadcastChannel üzerinden konuşur (producersync.js)
+const link = new MainLink({ chapters: () => cinema.chapterInfo(), cut: () => sharedCut || loadCut(), estimate: (cut) => cinema.estimate(cut, true),
+  onCut: (cut) => { sharedCut = null; desk.load(cut); if (cinema.on) cinema.liveCut(cut); },
+  onPlay: (cut) => { if (desk.isOpen) desk.close(); playCut(cut); },
+  onPreview: (cut, k) => { if (desk.isOpen) desk.hide(); if (cinema.on) cinema.stop(); pushLayer('cine'); cinema.preview(null, 0.45, null, { cut, fromDesk: 'pop', grp: k }).then((ok) => { if (!ok && cinema.on) cinema.stop(); }); },
+  onStop: () => { if (cinema.on) cinema.stop(); },
+  onExport: (cut) => { openExport(cut); try { window.focus(); } catch (e) { /* yok */ } } });
+// Video dışa aktarımı (4K): kare kare, sanal saatle (exporter.js; ilk kullanımda yüklenir). Panel exportui.js; masa ve ayrı pencere açar.
+let stepWaiter = null, exporter = null, exportPanel = null;
+const exportHost = { world, cinema, appEl: $('#app'), resize: () => resize(), send: (m) => send(m), step: (dt, n) => new Promise((resolve) => { stepWaiter = { n, resolve }; send({ cmd: 'step', dt, n }); }) };
+async function openExport(cut) {
+  if (desk.isOpen) { if (desk.docked) desk.setDock(false); desk.close(); }
+  if (cinema.on) cinema.stop();
+  const [EX, UI] = await Promise.all([import('./exporter.js'), import('./exportui.js')]);
+  exporter = exporter || new EX.Exporter(exportHost);
+  exportPanel = exportPanel || new UI.ExportPanel({ exporter, EX, planned: () => (ui.plan || []).length > 0, estimate: (c) => cinema.estimate(c), onClose: () => {} });
+  exportPanel.open(cut || sharedCut || loadCut());
+}
+function openPopOut() {
+  const u = new URL('yapimci.html', location.href); u.searchParams.set('ana', link.id);
+  const w = window.open(u.href, 'ls19-yapimci', 'popup,width=1040,height=920');
+  if (!w) { desk.say('Tarayıcı açılır pencereyi engelledi: bu site için açılır pencerelere izin ver.'); return; }
+  if (desk.docked) desk.setDock(false);
+  desk.close(); try { w.focus(); } catch (e) { /* yok */ }
+}
+const playCine = (opts = {}) => cinema.start({ ...opts, cut: sharedCut || undefined });
 
 async function boot() {
   resize();
@@ -587,6 +637,7 @@ worker.onmessage = (e) => {
     ayRefresh();
   } else if (d.type === 'state') {
     S.latest = d;
+    if (stepWaiter && d.step === stepWaiter.n) { const r = stepWaiter.resolve; stepWaiter = null; r(d); }       // dışa aktarım: elle saatte kare adımı (exporter.js)
     if (!insState && Math.abs(d.t - ui.t0) < 1) insState = { t: d.t, r: d.r.slice(), v: d.v.slice() };   // yörüngeye giriş durumu (kalkış canlandırmasının varış noktası)
     if (d.nbody !== undefined && chkNbody.checked !== d.nbody) chkNbody.checked = d.nbody;          // durum iletisi saniyede ~60: DOM sorgusu önbellekte
     if (d.trail && (d.trail.length || d.trailReset)) withMission(() => { world.addTrail(d.trail, d.trailReset); ui.addSamples(d.trail, d.trailReset); });
@@ -609,7 +660,7 @@ function applyPixelRatio(r) {
 let perfHud = null;
 if (new URLSearchParams(location.search).get('olcum') === '1') import('./perfhud.js').then((m) => { perfHud = new m.PerfHud(world); }).catch(() => {});
 function frame(now) {
-  const dtMs = now - lastFrame, dt = Math.min(0.1, dtMs / 1000); lastFrame = now;
+  const dtMs = now - lastFrame, dt = Math.max(0, Math.min(0.1, dtMs / 1000)); lastFrame = now;          // ≥ 0: dışa aktarımın sanal saatinden dönüşte (vclock.js) bir kez geri gidebilir
   if (govOn && !cinema.on && !S.designing && !document.hidden) { const r = gov.tick(dtMs, now, !!world.tilesBusy); if (r) applyPixelRatio(r); }
   if (S.MODE === 'sky' && S.K && S.skyui && !S.designing) {
     const ms = clock.nowMs(); skyT = tOfUtcMs(ms);
@@ -676,10 +727,11 @@ $('#btnPlay').onclick = () => setPlay(!S.running);
 let bgPaused = false;
 document.addEventListener('visibilitychange', () => {
   if (new URLSearchParams(location.search).get('bg') === '1') return;
+  if (exporter && exporter.busy) return;                                       // video dışa aktarımı: fizik elle ilerler, duraklatılmaz (sekme arka planda da sürer)
   if (document.hidden) { if (S.running && !S.designing) { bgPaused = true; setPlay(false); } }
   else if (bgPaused) { bgPaused = false; setPlay(true); }
 });
-$('#btnCine').onclick = () => { if (cinema.on) cinema.stop(); else { pushLayer('cine'); cinema.start(); } };
+$('#btnCine').onclick = () => { if (cinema.on) cinema.stop(); else openDesk(); };          // film düğmesi Yapımcı masasını açar ("Fragmanı oynat"); C kısayolu doğrudan oynatır
 let warp = 1;
 const setWarp = (w) => { warp = Math.max(1, Math.min(100000, w)); send({ cmd: 'warp', value: warp }); $('#chkAutoWarp').checked = false; send({ cmd: 'autoWarp', on: false }); };
 $('#btnFast').onclick = () => setWarp((S.latest ? S.latest.warp : warp) * 2);
@@ -733,7 +785,8 @@ window.addEventListener('keydown', (e) => {
   else if (k === 'g') { $('#chkAuto').checked = !$('#chkAuto').checked; send({ cmd: 'auto', on: $('#chkAuto').checked }); refreshTreeMenus(); }
   else if (k === 'p') send({ cmd: 'perturb', dv: 2.0 });
   else if (k === 'k') { setWorkspace('lab', true, 'ay'); ui.setTab('kontrol'); $('#labPanel').classList.add('open'); }
-  else if (k === 'c') cinema.start();
+  else if (k === 'c') { pushLayer('cine'); playCine(); }
+  else if (k === 'y') openDesk({ key: true });
   else if (/^[1-8]$/.test(k)) setCam(['AUTO', 'VEHICLE', 'EARTH', 'MOON', 'SYSTEM', 'SITE', 'EMB', 'SOLAR'][+k - 1]);
   else if (!autoPilot) {
     const modes = { w: 'PRO', s: 'RETRO', a: 'NML', d: 'ANML', q: 'RADOUT', e: 'RADIN', r: 'SRFRETRO', h: 'HOLD' };
@@ -770,7 +823,10 @@ function applyUrlParams() {
   if (r) setWorkspace(r.view, false, r.exp);
   if (tab) ui.setTab(tab);
   if (q.get('skycam')) setSkyCam(q.get('skycam').toUpperCase());
-  if (q.get('cine') && !q.get('seek')) setTimeout(() => cinema.start({ scale: Math.max(0.2, parseFloat(q.get('cine')) || 1) }), 800);       // ?cine=1: açılışta sinematik gösterim (sayı: süre ölçeği)
+  // paylaşılan kurgu: #kurgu=… (adresin # kısmı sunucuya gitmez); ?cine= ile açılışta oynar, yoksa Yapımcı masası açılır
+  const hk = new URLSearchParams(location.hash.slice(1)).get('kurgu'); sharedCut = hk ? decodeCut(hk) : null;
+  if (q.get('cine') && !q.get('seek')) setTimeout(() => playCine({ scale: Math.max(0.2, parseFloat(q.get('cine')) || 1) }), 800);       // ?cine=1: açılışta sinematik gösterim (sayı: süre ölçeği)
+  else if (sharedCut) setTimeout(() => openDesk(), 800);
 }
 $('#btnPanel').onclick = () => $('#labPanel').classList.toggle('open');
 // ---------------------------------------------------------------- telefon yerleşimi (style.css ≤ 760 px)
@@ -782,21 +838,32 @@ for (const id of ['#hud', '#skyHud']) {
 // paneller alttan açılan sayfa: tutamaçla sürükle (yukarı tam ekran, aşağı kapanır), tutamağa dokunmak yarım ↔ tam
 function sheetGrip(panel) {
   const g = document.createElement('div'); g.className = 'sheet-grip'; g.setAttribute('aria-hidden', 'true'); panel.prepend(g);
-  let y0 = 0, h0 = 0, moved = false;
-  g.addEventListener('pointerdown', (e) => { kbd = null; g.setPointerCapture(e.pointerId);          // kullanıcı yüksekliği kendisi seçiyor: klavye dönüşü iptal
-    y0 = e.clientY; h0 = panel.getBoundingClientRect().height; moved = false; document.body.classList.add('sheet-drag'); });
+  // Sürükleme: yükseklik doğrudan öğeye yazılır (kalıtılan --sheet-h her harekette tüm alt öğelerin stilini yeniden hesaplatırdı),
+  // kare başına bir kez (rAF). Bırakınca hız da sayılır: hızlı bir fiske (> 0,11 px/ms) mesafeden bağımsız bir sonraki duruşa götürür.
+  let y0 = 0, h0 = 0, moved = false, raf = 0, nextH = 0, samples = [];
+  const paint = () => { raf = 0; panel.style.height = nextH + 'px'; };
+  g.addEventListener('pointerdown', (e) => { if (document.body.classList.contains('sheet-drag')) return;    // ikinci parmak sürüklemeyi devralmaz
+    kbd = null; g.setPointerCapture(e.pointerId);          // kullanıcı yüksekliği kendisi seçiyor: klavye dönüşü iptal
+    y0 = e.clientY; h0 = panel.getBoundingClientRect().height; moved = false; samples = [{ y: e.clientY, t: e.timeStamp }]; document.body.classList.add('sheet-drag'); });
   g.addEventListener('pointermove', (e) => {
     if (!document.body.classList.contains('sheet-drag')) return;
     if (Math.abs(e.clientY - y0) > 6) moved = true;
-    panel.style.setProperty('--sheet-h', Math.max(60, h0 + (y0 - e.clientY)) + 'px');
+    samples.push({ y: e.clientY, t: e.timeStamp }); if (samples.length > 5) samples.shift();
+    nextH = Math.max(60, h0 + (y0 - e.clientY)); if (!raf) raf = requestAnimationFrame(paint);
   });
-  const end = () => {
+  const end = (e) => {
     if (!document.body.classList.contains('sheet-drag')) return;
-    document.body.classList.remove('sheet-drag');
+    if (raf) { cancelAnimationFrame(raf); paint(); }
     const h = panel.getBoundingClientRect().height, vh = innerHeight, full = parseFloat(getComputedStyle(panel).maxHeight) || vh, half = 0.52 * vh;
+    const a = samples[0], b = samples[samples.length - 1];
+    const v = b && a && b.t > a.t && !(e && e.timeStamp - b.t > 100) ? (b.y - a.y) / (b.t - a.t) : 0;   // + aşağı, px/ms; durup bırakınca 0
+    // Geçiş yeniden açılır ve satır içi yükseklik kaldırılır: panel şu anki yüksekliğinden hedefe çekmece eğrisiyle oturur.
+    document.body.classList.remove('sheet-drag'); panel.style.removeProperty('height');
+    const to = (x) => { if (x === 'full') panel.style.setProperty('--sheet-h', full + 'px'); else if (x === 'half') panel.style.removeProperty('--sheet-h'); else { panel.classList.remove('open'); panel.style.removeProperty('--sheet-h'); } };
     if (!moved) { panel.style.setProperty('--sheet-h', h0 < (half + full) / 2 - 10 ? full + 'px' : '52dvh'); return; }
-    if (h < 0.28 * vh) { panel.classList.remove('open'); panel.style.removeProperty('--sheet-h'); return; }
-    if (h > (half + full) / 2) panel.style.setProperty('--sheet-h', full + 'px'); else panel.style.removeProperty('--sheet-h');
+    if (Math.abs(v) > 0.11) { to(v < 0 ? 'full' : h0 > (half + full) / 2 && h > 0.28 * vh ? 'half' : 'close'); return; }
+    if (h < 0.28 * vh) { to('close'); return; }
+    to(h > (half + full) / 2 ? 'full' : 'half');
   };
   g.addEventListener('pointerup', end); g.addEventListener('pointercancel', end);
   // Klavye açılınca yarım sayfa daralır: yazı alanına girilince sayfa tam yüksekliğe çıkar, klavye kapanınca önceki yüksekliğine döner.
@@ -831,7 +898,7 @@ document.addEventListener('click', (e) => {
 // telefonda sinematik gösterim "⋯" menüsünde
 $('#btnCineMenu').addEventListener('click', () => $('#btnCine').click());
 $('#btnSkyPanel').onclick = () => (S.VIEW === 'lab' ? $('#labPanel') : $('#skyPanel')).classList.toggle('open');
-window.LS19 = { world, ui, send, ascent, setCam, setPlay, cinema, focusOn, setWorkspace, setSkyCam, clock, followSat, lookAtSat, labui, openLab, aymc, ayabort, lagrange, compare, get mode() { return S.MODE; }, get view() { return S.VIEW; }, get skyT() { return skyT; }, get deflect() { return deflect; },
+window.LS19 = { world, ui, send, ascent, setCam, setPlay, cinema, desk, link, exportHost, openExport, focusOn, setWorkspace, setSkyCam, clock, followSat, lookAtSat, labui, openLab, aymc, ayabort, lagrange, compare, get mode() { return S.MODE; }, get view() { return S.VIEW; }, get skyT() { return skyT; }, get deflect() { return deflect; },
   get sats() { return S.sats; }, get asts() { return S.asts; }, get astui() { return S.astui; }, get updater() { return updater; }, get tracker() { return S.tracker; }, get skyui() { return S.skyui; }, get launches() { return S.launches; } };
 window.ROCSIM = window.LS19;
 
