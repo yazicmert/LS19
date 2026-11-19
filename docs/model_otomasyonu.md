@@ -16,12 +16,20 @@
 
 ## DAMIT
 
-DAMIT her ayın 1'inde tam bir döküm yayımlıyor (~4 GB). Araç önce DAMIT'in asteroit tablosundan LS19 kümesindeki asteroitleri bulur. Sonra dökümü akış halinde indirip **yalnız** o asteroitlerin `shape.txt` dosyalarını ve model tablosunu çıkarır. Seçim ve çıktı biçimi `tools/damit_paketle.py` ile aynıdır:
+DAMIT her ayın 1'inde tam bir döküm yayımlıyor (~4 GB). Araç önce DAMIT'in asteroit tablosundan LS19 kümesindeki asteroitleri bulur. Sonra dökümü diske indirir (kesilirse HTTP Range ile kaldığı yerden) ve **yalnız** o asteroitlerin `shape.txt` ve `spin.txt` dosyalarını çıkarır. Yeni dökümlerde tablo yok: model tablosu ayrı dışa aktarımdan (`exports/table/asteroid_models`) alınır. Seçim ve çıktı biçimi `tools/damit_paketle.py` ile aynıdır:
 
 - Model sıralaması: dışbükey olmayan > kalite > ölçeklenmiş boyut > yeni.
 - ≤ 800 üçgen, hacim eşdeğeri yarıçap 1, int16/uint16 nicemleme, 60'lık gzip parçalar.
 
-Fark: sadeleştirme Blender yerine meshoptimizer'la yapılır, böylece CI'da çalışır. NASA PDS/Eyes modeli olan asteroitler (`web/models/ast/katalog.json`) atlanır. 4.000'den az model çıkarsa hiçbir şey yazılmaz.
+Fark: sadeleştirme Blender yerine meshoptimizer'la yapılır, böylece CI'da çalışır.
+
+**Tablosuz kip:** DAMIT'in model tablosu dışa aktarımı Kasım 2026'da sunucu hatası (500) veriyordu. Tablo alınamazsa:
+- Mevcut modeller (tabloyla seçilmiş) olduğu gibi korunur; yalnız yeni asteroitler eklenir.
+- Yeni asteroitlerde model listesi klasörlerden gelir; dönme durumu `spin.txt`'den okunur (λ β P / JD0 φ0).
+- Seçim: en yeni model (en büyük kimlik). Kalite bayrağı ve ölçeklenmiş boyut bilinmez.
+- "Dışbükey değil" bayrağı geometriden hesaplanır: bir köşe bir yüz düzleminin 0,1 R dışındaysa. Üçgenleme gürültüsü ≤ ~%1,5 R, gerçek oyuklar ≳ %30 R. Tabloyla karşılaştırıldığında yeniden üretilen 136 asteroitte bayrakların %85'i aynıydı; farkın çoğu farklı modelin seçilmesinden.
+
+Tablo yeniden alınabildiğinde tam yeniden üretim yapılır. NASA PDS/Eyes modeli olan asteroitler (`web/models/ast/katalog.json`) atlanır. 4.000'den az model çıkarsa hiçbir şey yazılmaz.
 
 ## Uydular
 
