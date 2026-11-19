@@ -1,7 +1,7 @@
 # Sinematik gösterim ("fragman" kipi) ve araç görünümü
 
 Bu belge iki şeyi anlatır: (1) görevi NASA fragmanları gibi baştan sona gösteren **Sinematik** kip, (2) hem sinematik kipte hem normal görünümde araç ve çevresinin daha iyi görünmesini sağlayan **ışık, malzeme ve efekt** işleri.
-Kod: `web/js/cinema.js` (yönetmen), `web/js/cinemaui.js` + `web/css/cinema.css` (bindirmeler), `web/js/post.js` (son işlem), `web/js/fx.js` (plüm, parçacık, ortam ışığı), `web/js/scene.js` (sahne). Test: `cd web && node test/test_cinema.js`.
+Kod: `web/js/cinema.js` (yönetmen), `web/js/producer.js` + `web/js/producerui.js` + `web/css/producer.css` (Yapımcı masası: kullanıcının kurgusu), `web/js/cinemaui.js` + `web/css/cinema.css` (bindirmeler), `web/js/post.js` (son işlem), `web/js/fx.js` (plüm, parçacık, ortam ışığı), `web/js/scene.js` (sahne). Test: `cd web && node test/test_cinema.js` ve `node test/test_producer.js`.
 
 **Sinematik kip bir video değil, gerçek simülasyonun kendisidir:** görev baştan kurulur ve fizik motoruyla (N-cisim, 6-DOF, optimal iniş) gerçekten uçurulur; yönetmen yalnız **kamerayı**, **zaman hızını** ve **bindirmeleri** yönetir. Hiçbir konum, yakış ya da kademe ayrılması taklit değildir.
 
@@ -9,7 +9,8 @@ Kod: `web/js/cinema.js` (yönetmen), `web/js/cinemaui.js` + `web/css/cinema.css`
 
 | Eylem | Nasıl |
 |---|---|
-| Başlat | alt çubukta **film simgesi** düğmesi, `C` tuşu ya da adreste `?cine=1` (sayı süre ölçeğidir: `?cine=0.5` iki kat hızlı) |
+| Başlat | alt çubukta **film simgesi** (önce **Yapımcı masası** açılır: "Fragmanı oynat"), `C` tuşu (kayıtlı kurguyla doğrudan) ya da adreste `?cine=1` (sayı süre ölçeğidir: `?cine=0.5` iki kat hızlı) |
+| Kurguyu düzenle | `Y` tuşu, film simgesi ya da gösterimde sağ üstteki **Kurguyu düzenle** (bkz. §1.1) |
 | Çık | `Esc` ya da sağ üstteki **Çık** düğmesi (fare oynayınca belirir); kamera, otomatik zaman hızı ve oynatma durumu eski haline döner |
 | Duraklat / sürdür | `Boşluk` |
 | Ses aç / kapat | `M` ya da sağ üstteki **Ses** düğmesi |
@@ -17,6 +18,27 @@ Kod: `web/js/cinema.js` (yönetmen), `web/js/cinemaui.js` + `web/css/cinema.css`
 | Yeniden izle | gösterim bitince `R` |
 
 Gösterim yaklaşık **3 dakika** sürer: ~42–54 s kalkış açılışı (rokete göre) + görev çekimleri (Apollo profilinde ~134 s anma süre; halo profillerinde uzun yolculuk nedeniyle 2,5–3 dakikayı bulabilir). Kalkış açılışında `→` kalkışı bitirip görevi yörüngeye girişten sürdürür; `?cine=1` adresine kalkış eklenmesin istenirse `LS19.cinema.start({ ascent: false })`. Gerçek bir ekran kartında kare hızı düşerse kalite kendiliğinden azalır (bkz. §5).
+
+### 1.1 Yapımcı masası: kendi fragmanın (`web/js/producer.js`, `web/js/producerui.js`, `web/css/producer.css`)
+
+İzleyici fragmanın **yapımcısı** olabilir: ipler onun elindedir. Masa dört sekmedir; her değişiklik tarayıcıda saklanır (`localStorage` `ls19.cineCut`, yalnız varsayılandan farklar).
+
+| Sekme | Ne seçilir |
+|---|---|
+| **Bölümler** | hazır kurgu (*Yönetmenin kurgusu*, *Kısa kurgu*, *Belgesel*, *Destansı*, *Saf görüntü*; metinler ve özel kamera değerleri korunur), tahmini süre. Her bölüm için: aç/kapa; **kamera** (yönetmenin seçimi · yakın plan · dönen kamera · omuz üstü: Dünya ya da Ay fonda · motor yakın planı · geniş: araç cisme yakınken Dünya ya da Ay bütünüyle, yolculukta Dünya–Ay sistemi · tepeden · **özel kamera**); **canlı önizleme** (göz düğmesi); **başlık**, **alt yazı**, **anlatıcı notu** (ekranda alt yazı yerinde görünür; istenirse konuşma sentezi okur); **uzunluk** (kısa ×0,6 · normal · uzun ×1,6); **geçiş** (yönetmen · kararma · kesme · beyaz parlama); **kart konumu** (genel ayar · sol alt · sol üst · sağ üst · sağ alt · alt orta · orta · kart yok). Kapanış bölümünde başlık ve söz kapanış kartınındır. |
+| **Künye** | fragman adı (başlık kartı, açılış kartı, köşe işareti), üst satır, yapımcı (başlık kartında "… sunar", kapanış jeneriğinde *Yapımcı* satırı); başlık kartı önizlemesi |
+| **Yazı ve yerleşim** | başlık ve metin **yazı tipi** (Exo, Roboto Mono, Cinzel, Bebas Neue, Playfair Display, Space Grotesk, Rajdhani, Georgia, daktilo; Google Fonts'takiler yalnız seçilince yüklenir, yüklenemezse yerel yedek), başlık ve metin **boyutu** (×0,6…×1,6 / ×0,7…×1,5), başlık kalınlığı, harf aralığı, büyük harf, **yazı rengi**, okunurluk perdesi (yazının arkasındaki karartma); **yerleşim**: bölüm kartları (ekran üzerinde altı nokta), başlık kartı (üst/orta/alt), kapanış kartı (sol/orta/sağ), alt yazılar ve anlatıcı (sağ alt/sol alt/alt orta/üst orta), köşe işareti (sol üst/sağ üst/gizli), bölüm numarası, kart süresi (×0,5…×2); **sahne maketi**: seçilen yazı tipi, renk ve konumlarla ölçekli ekran |
+| **Görünüm ve ses** | tempo (süre ölçeği ×0,5…×2), kadraj (2,39:1 · 1,85:1 · tam ekran), film dokusu (yok · hafif · normal · yoğun: vinyet, tane, kromatik sapma), **renk düzeni** (doğal · sıcak · soğuk · mavi-turuncu · siyah-beyaz · sepya: film geçişinde doygunluk, renk süzgeci, sepya, sıcak/soğuk ayrımı, kontrast), vurgu rengi, yayın grafikleri (veri şeridi, zaman çizelgesi, olay alt yazıları, cisim etiketleri), müzik ruhu (gizemli · umutlu · gerilim · yok), görev kontrol anonsları, anlatıcı sesi, motor ve efekt sesleri |
+
+**Özel kamera:** aracın çevresinde yerel dikey (LVLH) çerçevede **yatay açı** (0° önden, ±90° yandan, 180° arkadan; yatay eksen hızın yatay izdüşümü, motorlu inişte yaklaşma ekseni), **yükseklik** (−30°…85°), **uzaklık** (12 m…3 km, logaritmik sürgü), **görüş açısı** (12°…80°), **hareket** (sabit · sola/sağa 40° dön · yaklaş ×0,55 · uzaklaş ×1,9 · 30° yüksel · tam tur), **kadraj kaydırma** (±20°: aracı kadrajın bir yanına alır, yazıya yer açar) ve **el kamerası titreşimi**. Masada üstten ve yandan **kroki** kameranın yerini, görüş konisini ve hareket yayını gösterir.
+
+**Canlı önizleme:** bölüm satırındaki göz düğmesi masayı gizler, benzetimi o bölümün ilk çekiminin ortasına sarar ve kurguyla (kamera, kart konumu, yazı tipi, renk, anlatıcı notu) donmuş bir kare gösterir. Üstteki çubukta **çekimde konum** sürgüsü kamera hareketini baştan sona oynatır (benzetim zamanı o anda durur), bölümün öteki çekimlerine geçilir; `Esc` ya da **Masaya dön** masayı olduğu gibi (açık bölümler, kaydırma) geri getirir ve benzetim önizlemeden önceki anına sarılır. Kapalı bölüm de önizlenebilir; kalkış açılışı önizlenemez.
+
+**Fizik değişmez.** Yapımcı yalnız yönetmenin tuttuğu ipleri tutar: hangi bölüm, hangi kamera, ne kadar, hangi söz. Olayların sırası gerçek görev akışıdır. **Kapatılan bölüm** atlanmaz, görev süresi **kararma altında hızla geçilir** (en çok ×40 000; ekranda "Kurgu: sahne atlanıyor → bölüm" levhası ve akan görev saati); sonraki çekim yönetmenin yakalama düzeneğiyle başlar. Bölüm kapatılınca ardındaki çekim `afterCut` taşır: durum güdümlü çekimler (yakışlar, iniş) de yakalanır, hedef olaydan 20 s öncedir (plan tahmini sapabilir). Atlanan sürenin olayları (worker'dan geç gelir) sonraki sahnede alt yazı olmaz. Bütün bölümler kapatılamaz (temas ve kapanış kalır). Kalkış bölümünde kamera seçilemez (yayın kameraları gerçek görünürlükle çalışır) ve uzunluk yoktur (uçuş zamanına bağlı).
+
+**Paylaşım:** "Bağlantıyı kopyala" kurguyu adresin `#` kısmına kodlar (`?cine=1#kurgu=…`; varsayılandan farklar, JSON → UTF-8 → base64url; `#` kısmı sunucuya gitmez). Bağlantıyı açan fragmanı o kurguyla izler; `?cine=` yoksa masa paylaşılan kurguyla açılır. Paylaşılan kurgu ilk değişikliğe dek saklanmaz.
+
+**Güvenlik:** dışarıdan gelen her kurgu `normalize` ile süzülür: bilinmeyen anahtarlar atılır, seçenekler listeden, tempo sınırlı, metinlerden denetim, sıfır genişlikli ve yön değiştiren karakterler çıkar, uzunluk kod noktasıyla sınırlıdır (fragman adı 24, bölüm başlığı 40, alt yazı 90, anlatıcı 160). Kart metinleri bindirmede kaçışlanır (`esc`), anlatıcı notu ve masa alanları `textContent`/`value` ile yazılır; yapımcının metinlerine sayfa çevirmeni dokunmaz (`translate="no"`).
 
 **Dil:** fragman arayüzün dilini izler (`?lang=en`, kayıtlı tercih ya da tarayıcı dili). İngilizcede kartlar, veri şeridi, alt yazılar, hava bildirimi ve kapanış özeti sayfanın DOM çevirmeniyle (`i18n.js`, `i18n/en.js`), görev kontrol anonsları `translateText` ve `en-US` sesiyle, geri sayım İngilizce sayılarla söylenir; sayılar `LOC` biçimindedir. İngilizce uçtan uca koşuda fragman katmanındaki 869 metnin hiçbiri Türkçe kalmadı; `test_cinema` görev alt yazılarını ve anonsları sözlükle denetler.
 
@@ -101,4 +123,5 @@ Hepsi Web Audio ile üretilir (ses dosyası yok); `M` ya da sağ üstteki **Ses*
 * Araç yığını fizik yığınıdır (gerçek Apollo düzeni değil; bkz. [modeller.md](modeller.md)); komuta modülü yoktur.
 * Gösterim süresi tasarıma bağlıdır; çok uzun yolculuklu profillerde (halo) yolculuk çekimleri fiziğin yetişebildiği hızla (≤ ×40 000) uzar. Hesap duraklamaları (iniş planlaması) çekimi uzatabilir; kararma altında yakalama bunu toparlar.
 * Ses tamamen üretilmiştir (Web Audio; ses dosyası yok) ve stilizedir: vakumda motor sesi duyulmaz, burada gövdeden duyulan titreşim gibi alçak bir uğultudur. Anonslar tarayıcının konuşma sentezidir (ses ve kalite tarayıcıya/işletim sistemine göre değişir; yoksa atlanır). Tarayıcı kendiliğinden ses başlatmayı engellerse ilk dokunuşta açılır.
+* Yapımcı kurgusunda tahmini süre yaklaşıktır: kapatılan bölümlerin kararma altındaki geçişi (ağır hesap duraklamasıyla birkaç saniye ile ~20 s) ve yakış/iniş çekimlerinin durum güdümlü uzaması sayılmaz. Kamera seçenekleri yönetmenin düzeneklerindendir; seçilen kamera bölümün bütün çekimlerine uygulanır (yönetmenin çekim içi geçişleri yerine tek düzenek). Renk düzeni ve film dokusu son işlem hattındadır: kalite *düşük* kademeye inerse (son işlem kapalı) görünmez. Yazı tipleri Google Fonts'tan gelir; çevrimdışıyken yerel yedek yazı tipi kullanılır.
 * Doğrulama: `node test/test_cinema.js` (çekim listesi altı profil × tek/iki kademe, zaman eğrileri, plüm geometrisi, parçacıklar, CSS kuralları, bağlantılar) ve tarayıcıda (Chromium + SwiftShader, yazılımla çizim ≈ 1 kare/sn) tam gösterim: denetim çizimden bağımsız olduğu için çekim süreleri gerçek zamanda yürür; kare kare görünümler önizleme (`LS19.cinema.preview(çekim, τ)`) ile alınır.

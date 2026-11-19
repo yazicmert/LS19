@@ -38,6 +38,8 @@ import { MODELS } from './satmodels.js';
 import { srcOf } from './satcatalog.js';
 import { ImpactUI } from './impactui.js';
 import { Cinema } from './cinema.js';
+import { ProducerDesk } from './producerui.js';
+import { loadCut, decodeCut } from './producer.js';
 import { PixelGovernor, floorRatio } from './perfgov.js';
 import { $ } from './uiutil.js';
 import { LOC, workerOpts, isEn, setLang } from './i18n.js';
@@ -93,7 +95,14 @@ const ayRefresh = () => { lastAy = performance.now(); ayui.update(ayState()); };
 // sinematik "fragman" gösterimi (cinema.js): görevi baştan oynatır; kamera, zaman hızı ve bindirmeleri yönetir
 const cinema = new Cinema({ world, send, ui, root: $('#app'), latest: () => S.latest, play: (on) => setPlay(on), running: () => S.running, landing: () => landingMode, ascent: () => ascent,
   onStart: () => { document.querySelectorAll('.tm-pop').forEach((p) => { p.hidden = true; }); ui.hidePick(); $('#hoverTip').hidden = true; },
-  onStop: () => { resize(); dropLayer('cine'); } });
+  onStop: () => { resize(); dropLayer('cine'); }, openDesk: (o) => openDesk(o) });
+// Yapımcı masası (producerui.js): izleyici fragmanın kurgusunu kurar (bölümler, kamera, metinler, görünüm, ses); paylaşılan bağlantıdaki kurgu (#kurgu=…) bu oturumda önceliklidir
+let sharedCut = null;
+const desk = new ProducerDesk({ cinema, onPlay: (cut) => { sharedCut = null; pushLayer('cine'); cinema.start({ cut }); },
+  onPreview: (cut, k) => { pushLayer('cine'); cinema.preview(null, 0.45, null, { cut, fromDesk: true, grp: k }).then((ok) => { if (!ok && cinema.on) cinema.stop(); else if (!ok) desk.reopen(); }); } });
+// o.back: bölüm önizlemesinden dönüş (masa olduğu gibi); yoksa masa kayıtlı (ya da paylaşılan) kurguyla açılır
+function openDesk(o = {}) { if (cinema.on) cinema.stop(); if (o.back) desk.reopen(); else desk.open(sharedCut || loadCut(), { shared: !!sharedCut }); }
+const playCine = (opts = {}) => cinema.start({ ...opts, cut: sharedCut || undefined });
 
 async function boot() {
   resize();
@@ -679,7 +688,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) { if (S.running && !S.designing) { bgPaused = true; setPlay(false); } }
   else if (bgPaused) { bgPaused = false; setPlay(true); }
 });
-$('#btnCine').onclick = () => { if (cinema.on) cinema.stop(); else { pushLayer('cine'); cinema.start(); } };
+$('#btnCine').onclick = () => { if (cinema.on) cinema.stop(); else openDesk(); };          // film düğmesi Yapımcı masasını açar ("Fragmanı oynat"); C kısayolu doğrudan oynatır
 let warp = 1;
 const setWarp = (w) => { warp = Math.max(1, Math.min(100000, w)); send({ cmd: 'warp', value: warp }); $('#chkAutoWarp').checked = false; send({ cmd: 'autoWarp', on: false }); };
 $('#btnFast').onclick = () => setWarp((S.latest ? S.latest.warp : warp) * 2);
@@ -733,7 +742,8 @@ window.addEventListener('keydown', (e) => {
   else if (k === 'g') { $('#chkAuto').checked = !$('#chkAuto').checked; send({ cmd: 'auto', on: $('#chkAuto').checked }); refreshTreeMenus(); }
   else if (k === 'p') send({ cmd: 'perturb', dv: 2.0 });
   else if (k === 'k') { setWorkspace('lab', true, 'ay'); ui.setTab('kontrol'); $('#labPanel').classList.add('open'); }
-  else if (k === 'c') cinema.start();
+  else if (k === 'c') { pushLayer('cine'); playCine(); }
+  else if (k === 'y') openDesk();
   else if (/^[1-8]$/.test(k)) setCam(['AUTO', 'VEHICLE', 'EARTH', 'MOON', 'SYSTEM', 'SITE', 'EMB', 'SOLAR'][+k - 1]);
   else if (!autoPilot) {
     const modes = { w: 'PRO', s: 'RETRO', a: 'NML', d: 'ANML', q: 'RADOUT', e: 'RADIN', r: 'SRFRETRO', h: 'HOLD' };
@@ -770,7 +780,10 @@ function applyUrlParams() {
   if (r) setWorkspace(r.view, false, r.exp);
   if (tab) ui.setTab(tab);
   if (q.get('skycam')) setSkyCam(q.get('skycam').toUpperCase());
-  if (q.get('cine') && !q.get('seek')) setTimeout(() => cinema.start({ scale: Math.max(0.2, parseFloat(q.get('cine')) || 1) }), 800);       // ?cine=1: açılışta sinematik gösterim (sayı: süre ölçeği)
+  // paylaşılan kurgu: #kurgu=… (adresin # kısmı sunucuya gitmez); ?cine= ile açılışta oynar, yoksa Yapımcı masası açılır
+  const hk = new URLSearchParams(location.hash.slice(1)).get('kurgu'); sharedCut = hk ? decodeCut(hk) : null;
+  if (q.get('cine') && !q.get('seek')) setTimeout(() => playCine({ scale: Math.max(0.2, parseFloat(q.get('cine')) || 1) }), 800);       // ?cine=1: açılışta sinematik gösterim (sayı: süre ölçeği)
+  else if (sharedCut) setTimeout(() => openDesk(), 800);
 }
 $('#btnPanel').onclick = () => $('#labPanel').classList.toggle('open');
 // ---------------------------------------------------------------- telefon yerleşimi (style.css ≤ 760 px)
@@ -831,7 +844,7 @@ document.addEventListener('click', (e) => {
 // telefonda sinematik gösterim "⋯" menüsünde
 $('#btnCineMenu').addEventListener('click', () => $('#btnCine').click());
 $('#btnSkyPanel').onclick = () => (S.VIEW === 'lab' ? $('#labPanel') : $('#skyPanel')).classList.toggle('open');
-window.LS19 = { world, ui, send, ascent, setCam, setPlay, cinema, focusOn, setWorkspace, setSkyCam, clock, followSat, lookAtSat, labui, openLab, aymc, ayabort, lagrange, compare, get mode() { return S.MODE; }, get view() { return S.VIEW; }, get skyT() { return skyT; }, get deflect() { return deflect; },
+window.LS19 = { world, ui, send, ascent, setCam, setPlay, cinema, desk, focusOn, setWorkspace, setSkyCam, clock, followSat, lookAtSat, labui, openLab, aymc, ayabort, lagrange, compare, get mode() { return S.MODE; }, get view() { return S.VIEW; }, get skyT() { return skyT; }, get deflect() { return deflect; },
   get sats() { return S.sats; }, get asts() { return S.asts; }, get astui() { return S.astui; }, get updater() { return updater; }, get tracker() { return S.tracker; }, get skyui() { return S.skyui; }, get launches() { return S.launches; } };
 window.ROCSIM = window.LS19;
 

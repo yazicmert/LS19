@@ -63,6 +63,7 @@
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap"></noscript>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/cinema.css">
+<link rel="stylesheet" href="css/producer.css">
 <script type="importmap">
 { "imports": { "three": "./lib/three.module.js", "three/addons/": "./lib/addons/",
   "motion": "./lib/motion.esm.js", "number-flow": "./lib/number-flow.esm.js", "torph": "./lib/torph.esm.js" } }
@@ -200,6 +201,8 @@
 <link rel="modulepreload" href="js/cinema.js">
 <link rel="modulepreload" href="js/cinemaui.js">
 <link rel="modulepreload" href="js/cineaudio.js">
+<link rel="modulepreload" href="js/producer.js">
+<link rel="modulepreload" href="js/producerui.js">
 <link rel="modulepreload" href="js/perfgov.js">
 <link rel="modulepreload" href="js/g3dpanel.js">
 <link rel="modulepreload" href="js/launches.js">
@@ -318,11 +321,11 @@
           <button id="btnRestart" role="menuitem" title="Görevi baştan başlat"><i data-icon="restart"></i><span>Baştan başlat</span></button>
         </div></details>
         <details open class="phone-only"><summary>Gösterim</summary><div class="tm-sub">
-          <button id="btnCineMenu" role="menuitem" title="Görevi fragman gibi baştan oynat"><i data-icon="film"></i><span>Sinematik gösterim</span><kbd>C</kbd></button>
+          <button id="btnCineMenu" role="menuitem" title="Yapımcı masası: fragmanın kurgusunu kur, sonra oynat"><i data-icon="film"></i><span>Sinematik gösterim</span><kbd>Y</kbd></button>
         </div></details>
       </div>
     </div>
-    <button id="btnCine" class="icon" title="Sinematik gösterim: görevi fragman gibi baştan oynat (C)" aria-label="Sinematik gösterim"><i data-icon="film"></i></button>
+    <button id="btnCine" class="icon" title="Sinematik gösterim: Yapımcı masasında fragmanın kurgusunu kur ve oynat (Y); C doğrudan oynatır" aria-label="Sinematik gösterim ve Yapımcı masası"><i data-icon="film"></i></button>
     <button id="btnPanel" class="icon" title="Paneli aç/kapa" aria-label="Panel"><i data-icon="panel"></i></button>
   </footer>
 

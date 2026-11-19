@@ -4,10 +4,11 @@
 import * as THREE from 'three';
 
 const FILM = {
-  uniforms: { tDiffuse: { value: null }, time: { value: 0 }, res: { value: new THREE.Vector2(1, 1) }, aspect: { value: 1 }, vignette: { value: 0.5 }, grain: { value: 0.045 }, chroma: { value: 0.0016 }, contrast: { value: 0.22 }, fade: { value: 0 } },
+  uniforms: { tDiffuse: { value: null }, time: { value: 0 }, res: { value: new THREE.Vector2(1, 1) }, aspect: { value: 1 }, vignette: { value: 0.5 }, grain: { value: 0.045 }, chroma: { value: 0.0016 }, contrast: { value: 0.22 }, fade: { value: 0 },
+    sat: { value: 1 }, tint: { value: new THREE.Vector3(1, 1, 1) }, sepia: { value: 0 }, split: { value: 0.6 } },        // renk düzeni (Yapımcı masası, producer.js GRADE)
   vertexShader: /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: /* glsl */`
-    uniform sampler2D tDiffuse; uniform vec2 res; uniform float time, aspect, vignette, grain, chroma, contrast, fade; varying vec2 vUv;
+    uniform sampler2D tDiffuse; uniform vec2 res; uniform float time, aspect, vignette, grain, chroma, contrast, fade, sat, sepia, split; uniform vec3 tint; varying vec2 vUv;
     float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
     void main() {
       vec2 c = vUv - 0.5, ca = c * vec2(aspect, 1.0); float r2 = dot(ca, ca);
@@ -15,8 +16,10 @@ const FILM = {
       vec3 col = vec3(texture2D(tDiffuse, vUv + off).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - off).b);
       col = mix(col, col * col * (3.0 - 2.0 * col), contrast);                      // hafif S eğrisi (gösterim uzayında)
       float l = dot(col, vec3(0.2126, 0.7152, 0.0722));
-      col *= mix(vec3(1.0), vec3(1.035, 1.0, 0.95), smoothstep(0.45, 1.0, l) * 0.6); // sıcak parlak alanlar
-      col *= mix(vec3(1.0), vec3(0.93, 0.985, 1.07), (1.0 - smoothstep(0.0, 0.4, l)) * 0.6);   // soğuk gölgeler
+      col *= mix(vec3(1.0), vec3(1.035, 1.0, 0.95), smoothstep(0.45, 1.0, l) * split); // sıcak parlak alanlar
+      col *= mix(vec3(1.0), vec3(0.93, 0.985, 1.07), (1.0 - smoothstep(0.0, 0.4, l)) * split);   // soğuk gölgeler
+      col = max(mix(vec3(l), col, sat), 0.0) * tint;                                // doygunluk (0: siyah-beyaz) ve renk süzgeci
+      col = mix(col, l * vec3(1.07, 0.95, 0.76), sepia);                           // sepya
       col *= 1.0 - vignette * smoothstep(0.12, 0.75, r2 * 1.6);
       col += (h21(vUv * res + fract(time * 7.13) * 97.0) - 0.5) * grain * (0.4 + 0.6 * (1.0 - l));     // film tanesi: karanlıkta belirgin
       gl_FragColor = vec4(col * (1.0 - fade), 1.0);
@@ -79,8 +82,18 @@ export class Post {
     } else this.streak = null;
     composer.addPass(new M.OutputPass());
     this.film = new M.ShaderPass(FILM); composer.addPass(this.film);
+    this.applyLook();
     this.film.uniforms.res.value.set(W, H); this.film.uniforms.aspect.value = W / H;
     this.w = W; this.h = H;
+  }
+
+  // film dokusu ve renk düzeni (Yapımcı masası, producer.js filmLook): { vignette, grain, chroma, sat, tint, sepia, split, contrast }; null: özgün değerler.
+  // Kademe değişince (build) yeniden uygulanır
+  setLook(look) { this.look = look || null; this.applyLook(); }
+  applyLook() {
+    if (!this.film) return; const u = this.film.uniforms, L = this.look || {}, F = FILM.uniforms;
+    for (const k of ['vignette', 'grain', 'chroma', 'sat', 'sepia', 'split', 'contrast']) u[k].value = L[k] ?? F[k].value;
+    const t = L.tint || [1, 1, 1]; u.tint.value.set(t[0], t[1], t[2]);
   }
 
   dispose(keepRenderer) {

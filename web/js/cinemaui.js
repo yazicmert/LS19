@@ -2,6 +2,7 @@
 // Hareket yalnız transform / opacity / clip-path ile ve css/cinema.css'teki geçişlerle yapılır; JS yalnız sınıf ve metin değiştirir.
 import { applyIcons, setBtn } from './icons.js';
 import { LOC } from './i18n.js';
+import { esc, ACCENTS, INKS, FONTS, WEIGHTS, TRACKS, SHADES } from './producer.js';
 
 // görev amblemi (üretilmiş SVG; herhangi bir kurumun işareti değildir): halka içinde Dünya yayı, Ay ve ikisini bağlayan gidiş yolu
 export const EMBLEM = `<svg class="cine-emblem" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="56" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="60" cy="60" r="50" fill="none" stroke="currentColor" stroke-width="0.6" opacity=".55"/>
@@ -22,7 +23,7 @@ export class CineUI {
       <div class="cine-scrim"></div>
       <div class="cine-tags" data-f="tags" aria-hidden="true"></div>
       <div class="cine-cards" aria-live="polite"></div>
-      <div class="cine-bug" aria-hidden="true">${EMBLEM}<span class="cb-t"><b>LS19</b><span data-f="bugSub">Ay görevi</span></span><i class="cb-q" data-f="q"></i></div>
+      <div class="cine-bug" aria-hidden="true">${EMBLEM}<span class="cb-t"><b data-f="bugT">LS19</b><span data-f="bugSub">Ay görevi</span></span><i class="cb-q" data-f="q"></i></div>
       <div class="cine-cue" data-f="cue" aria-live="polite"></div>
       <small class="cine-credit" data-f="credit"></small>
       <div class="cine-strip">
@@ -36,11 +37,15 @@ export class CineUI {
       <div class="cine-hint" data-f="hint"><kbd>Esc</kbd> çık · <kbd>Boşluk</kbd> duraklat · <kbd>→</kbd> sonraki çekim · <kbd>M</kbd> ses aç/kapat</div>
       <button class="cine-mute" type="button" aria-pressed="false" aria-label="Sesi kapat"><i data-icon="volume"></i><span>Ses</span></button>
       <button class="cine-exit" type="button" aria-label="Sinematik gösterimden çık"><i data-icon="x"></i><span>Çık</span></button>
+      <button class="cine-edit" type="button" title="Yapımcı masası: bölümler, kamera, metinler, görünüm ve ses (Y)"><i data-icon="sliders"></i><span>Kurguyu düzenle</span></button>
       <div class="cine-flash"></div>
-      <div class="cine-fade"></div>`;
+      <div class="cine-fade"></div>
+      <div class="cine-pv" data-f="pv" hidden role="group" aria-label="Önizleme"><b>Önizleme</b><span class="pv-name" data-f="pvName"></span><span class="pv-shots" data-f="pvShots"></span>
+        <label class="pv-tau">Çekimde konum <input type="range" min="0" max="1" step="0.01" data-f="pvTau"></label><button type="button" class="pv-back" data-f="pvBack"><i data-icon="back"></i><span>Masaya dön</span></button></div>
+      <div class="cine-slate" data-f="slate" aria-live="polite"><b data-f="slateT"></b><span data-f="slateS"></span></div>`;
     parent.appendChild(root); applyIcons(root);
     this.f = {}; root.querySelectorAll('[data-f]').forEach((n) => { this.f[n.dataset.f] = n; });
-    this.cards = root.querySelector('.cine-cards'); this.flashEl = root.querySelector('.cine-flash'); this.fadeEl = root.querySelector('.cine-fade'); this.exitBtn = root.querySelector('.cine-exit'); this.muteBtn = root.querySelector('.cine-mute');
+    this.cards = root.querySelector('.cine-cards'); this.flashEl = root.querySelector('.cine-flash'); this.fadeEl = root.querySelector('.cine-fade'); this.exitBtn = root.querySelector('.cine-exit'); this.muteBtn = root.querySelector('.cine-mute'); this.editBtn = root.querySelector('.cine-edit');
   }
 
   after(ms, fn) { const id = setTimeout(() => { this.timers.delete(id); fn(); }, ms); this.timers.add(id); return id; }
@@ -56,16 +61,18 @@ export class CineUI {
     this.clearTimers();
     this.root.classList.remove('on'); document.body.classList.remove('cine-on');
     this.cards.textContent = ''; this.numbers = []; this.tags([]); this.credit(''); clearTimeout(this.cueT); if (this.f.cue) this.f.cue.classList.remove('in');
-    this.fade(0, 0); this.cache = {};
+    this.fade(0, 0); this.slate(null); this.cache = {};
     if (instant) this.root.classList.remove('live'); else this.after(700, () => this.root.classList.remove('live'));
   }
 
   // bölüm kartı: {idx, total, title, sub, kind: 'chapter' | 'open' | 'close', hold (s)}; yeni kart eskisini söndürür
   card(c) {
     for (const old of this.cards.querySelectorAll('.cine-card:not(.out)')) this.dismiss(old);
-    const k = c.kind || 'chapter', d = el('div', `cine-card ${k}`);
+    const k = c.kind || 'chapter', d = el('div', `cine-card ${k}${c.pos ? ' pos-' + c.pos : ''}`);     // pos: yapımcının bölüm kartı konumu (tl, tr, br, bc, c; varsayılan sol alt)
     const idx = c.idx != null ? `<span class="cc-idx">${String(c.idx).padStart(2, '0')}<i>/</i>${String(c.total).padStart(2, '0')}</span>` : '';
-    d.innerHTML = `${k === 'title' ? EMBLEM : ''}${idx}${c.over ? `<span class="cc-over">${c.over}</span>` : ''}<h2 class="cc-h">${c.title}</h2><span class="cc-rule"></span>${c.sub ? `<p class="cc-s">${c.sub}</p>` : ''}${c.extra || ''}`;
+    // metinler kaçışlanır (yapımcının yazdıkları da buradan geçer); user/userSub/userOver: yapımcının metni, sayfa çevirmeni dokunmaz (translate="no")
+    const no = (on) => (on ? ' translate="no"' : '');
+    d.innerHTML = `${k === 'title' ? EMBLEM : ''}${idx}${c.over ? `<span class="cc-over"${no(c.userOver)}>${esc(c.over)}</span>` : ''}<h2 class="cc-h"${no(c.user)}>${esc(c.title)}</h2><span class="cc-rule"></span>${c.sub ? `<p class="cc-s"${no(c.userSub)}>${esc(c.sub)}</p>` : ''}${c.extra || ''}`;
     this.cards.appendChild(d);
     requestAnimationFrame(() => requestAnimationFrame(() => d.classList.add('in')));
     if (c.hold) this.after(c.hold * 1000, () => this.dismiss(d));
@@ -82,7 +89,42 @@ export class CineUI {
   }
   // kalite rozeti (4K / HD) ve köşe işaretinin alt satırı
   quality(text) { if (this.f.q && this.f.q.textContent !== text) this.f.q.textContent = text; }
-  bug(sub) { if (this.f.bugSub && sub && this.f.bugSub.textContent !== sub) this.f.bugSub.textContent = sub; }
+  bug(sub, title) {
+    if (this.f.bugSub && sub && this.f.bugSub.textContent !== sub) this.f.bugSub.textContent = sub;
+    if (this.f.bugT && title && this.f.bugT.textContent !== title) { this.f.bugT.textContent = title; this.f.bugT.setAttribute('translate', 'no'); }
+  }
+  // yapımcının görünüm ayarları (producer.js): kadraj (2,39:1 | 1,85:1 | tam), vurgu rengi, veri şeridi ve zaman çizelgesi; yazı (yazı tipi, boyut, kalınlık,
+  // harf aralığı, büyük harf, renk, okunurluk perdesi); yerleşim (başlık/kapanış kartı, alt yazı, köşe işareti, bölüm numarası). Hepsi CSS değişkeni ya da veri özniteliği
+  look(cut) {
+    const r = this.root, st = r.style, ink = INKS[cut.ink] || INKS.cream;
+    r.dataset.ar = cut.aspect || '239'; r.dataset.title = cut.titlePos || 'c'; r.dataset.close = cut.closePos || 'l'; r.dataset.cue = cut.cuePos || 'br'; r.dataset.bug = cut.bugPos || 'tl';
+    st.setProperty('--cine-accent', ACCENTS[cut.accent] || ACCENTS.amber);
+    st.setProperty('--cine-ink', ink[0]); st.setProperty('--cine-ink-2', ink[1]);
+    st.setProperty('--cine-hf', (FONTS[cut.hFont] || FONTS.exo).css); st.setProperty('--cine-tf', (FONTS[cut.tFont] || FONTS.mono).css);
+    st.setProperty('--cine-k', String(cut.hSize ?? 1)); st.setProperty('--cine-tk', String(cut.tSize ?? 1));
+    st.setProperty('--cine-hw', String(WEIGHTS[cut.hWeight] || 600)); st.setProperty('--cine-ls', String(TRACKS[cut.track] ?? 1));
+    st.setProperty('--cine-tt', cut.upper === false ? 'none' : 'uppercase'); st.setProperty('--cine-shade', String(SHADES[cut.shade] ?? 1));
+    r.classList.toggle('hide-strip', cut.strip === false); r.classList.toggle('hide-timeline', cut.timeline === false); r.classList.toggle('no-num', cut.chNum === false);
+  }
+  // önizleme çubuğu (Yapımcı masasından açılan bölüm önizlemesi): o = { name, tau, shots, cur, onTau(τ), onShot(n), onBack() }; null: kapanır
+  previewBar(o) {
+    const b = this.f.pv; if (!b) return;
+    if (!o) { b.hidden = true; return; }
+    b.hidden = false; this.f.pvName.textContent = o.name || ''; this.f.pvName.setAttribute('translate', 'no');
+    const r = this.f.pvTau; r.value = String(o.tau ?? 0.5); r.oninput = () => o.onTau(+r.value);
+    const box = this.f.pvShots; box.replaceChildren();
+    if (o.shots > 1) for (let n = 0; n < o.shots; n++) { const btn = el('button', n === o.cur ? 'on' : '', String(n + 1)); btn.type = 'button'; btn.setAttribute('aria-pressed', String(n === o.cur)); btn.title = `Çekim ${n + 1}`; btn.onclick = () => o.onShot(n); box.appendChild(btn); }
+    this.f.pvBack.onclick = () => o.onBack();
+    requestAnimationFrame(() => this.f.pvBack.focus());
+  }
+  // sahne atlama levhası (yapımcı bir bölümü çıkardı: aradaki görev süresi kararma altında hızla geçilir): üst satır başlık, alt satır görev süresi; null: kapanır
+  slate(title, sub = '') {
+    const n = this.f.slate; if (!n) return;
+    if (!title) { n.classList.remove('in'); return; }
+    if (this.f.slateT.textContent !== title) this.f.slateT.textContent = title;
+    if (this.f.slateS.textContent !== sub) this.f.slateS.textContent = sub;
+    n.classList.add('in');
+  }
   // geniş çekimlerde cisim etiketleri: list = [{ k, name, sub, x, y }] (CSS piksel; görünmeyenler listede yok)
   tags(list) {
     const box = this.f.tags; if (!box) return; this.tagEls = this.tagEls || {};
@@ -96,7 +138,7 @@ export class CineUI {
     for (const k in this.tagEls) if (!seen.has(k)) this.tagEls[k].classList.remove('in');
   }
   // kapanış jeneriği: rows = [[başlık, metin], …]
-  credits(rows) { const b = el('div', 'cc-credits', rows.map(([k, v]) => `<div><span>${k}</span><p>${v}</p></div>`).join('')); return b; }
+  credits(rows) { const b = el('div', 'cc-credits', rows.map(([k, v, user]) => `<div><span>${esc(k)}</span><p${user ? ' translate="no"' : ''}>${esc(v)}</p></div>`).join('')); return b; }
   // olay çizelgesi: list = [{ p (0..1), label }]; geçilen olaylar dolu, sıradaki vurgulu (progress günceller)
   ticks(list) {
     this.tickList = list.map((t) => (typeof t === 'number' ? { p: t, label: '' } : t));
@@ -112,8 +154,10 @@ export class CineUI {
   // ses düğmesi: sessizse "Sessiz" (üstü çizili hoparlör)
   setMuted(on) { const b = this.muteBtn; if (!b) return; setBtn(b, on ? 'mute' : 'volume', on ? 'Sessiz' : 'Ses'); b.setAttribute('aria-pressed', String(!!on)); b.setAttribute('aria-label', on ? 'Sesi aç' : 'Sesi kapat'); }
   // olay alt yazısı (kalkış anonsları, Ay'ın arkası, temas ışığı…): sağ altta kısa süre; yenisi eskisinin yerine geçer
-  cue(text, ms = 3200) {
+  // user: yapımcının anlatıcı notu (sayfa çevirmeni dokunmaz)
+  cue(text, ms = 3200, user = false) {
     const c = this.f.cue; if (!c) return;
+    if (user) c.setAttribute('translate', 'no'); else c.removeAttribute('translate');
     c.textContent = text; c.classList.remove('in'); void c.offsetWidth; c.classList.add('in');
     clearTimeout(this.cueT); this.cueT = setTimeout(() => c.classList.remove('in'), ms);
   }
