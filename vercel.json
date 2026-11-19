@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "npm ci",
-  "buildCommand": "node tools/kucult.mjs --yerinde",
+  "buildCommand": "node tools/varliklar.mjs indir --site && node tools/kucult.mjs --yerinde",
   "outputDirectory": "web",
   "functions": {
     "api/*.js": {

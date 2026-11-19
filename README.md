@@ -107,6 +107,8 @@ python3 sunucu.py          # macOS'ta baslat.command'a, Windows'ta baslat.bat'a 
 # tarayıcıda: http://localhost:8765
 ```
 
+İlk açılışta `sunucu.py` ağır varlıkları (dokular, efemeris parçaları, 3B modeller; ~170 MB) GitHub Release'ten indirir: bunlar git'te tutulmaz ([docs/varliklar.md](docs/varliklar.md)). Sonraki açılışlarda yalnız değişen paket iner.
+
 Linux'ta `bash web/baslat.command` aynı işi yapar (tarayıcıyı `xdg-open` ile açar). Farklı kapı için `LS19_PORT=9000`.
 
 **Docker ile (Python kurmadan):** Docker Desktop ya da Docker Engine yeterli.
@@ -126,7 +128,7 @@ Depo Vercel'e olduğu gibi bağlanabilir; ayar gerekmez (`vercel.json` hazır):
 
 1. Vercel → **Add New… → Project** → GitHub'dan `LS19` deposunu seç → **Deploy**.
 2. Site `web/` klasöründen statik olarak sunulur; canlı veri vekili `api/` klasöründeki sunucusuz işlevlerdir (`/api/gp`, `/api/asteroids`, `/api/sbdb`, `/api/sentry`, `/api/horizons`, `/api/surum`).
-3. Yayın sırasında tek derleme adımı küçültmedir: Vercel `npm ci` ile esbuild'i kurar ve `node tools/kucult.mjs --yerinde` yayımlanacak kopyada `web/js`, `web/lib/addons` ve `web/css` dosyalarını küçültür (kaynak haritalarıyla; gzip'li JS ~0,64 → ~0,45 MB). Depodaki kaynak okunur hâliyle kalır; yerelde (`sunucu.py`) küçültme yoktur. Araç her dosyanın dışa aktarımlarını ve içe aktarımlarını önce/sonra karşılaştırır, fark varsa yayını durdurur.
+3. Derleme önce ağır varlıkları GitHub Release'ten indirir (`node tools/varliklar.mjs indir --site`; [docs/varliklar.md](docs/varliklar.md)), sonra küçültür: Vercel `npm ci` ile esbuild'i kurar ve `node tools/kucult.mjs --yerinde` yayımlanacak kopyada `web/js`, `web/lib/addons` ve `web/css` dosyalarını küçültür (kaynak haritalarıyla; gzip'li JS ~0,64 → ~0,45 MB). Depodaki kaynak okunur hâliyle kalır; yerelde (`sunucu.py`) küçültme yoktur. Araç her dosyanın dışa aktarımlarını ve içe aktarımlarını önce/sonra karşılaştırır, fark varsa yayını durdurur.
 
 Notlar:
 
@@ -140,6 +142,7 @@ Notlar:
 Tek komutla (depo kökünde; ilk seferde `npm ci` ESLint'i kurar):
 
 ```bash
+npm run varliklar # ilk seferde (ve varliklar.json değişince): dokular, efemeris, modeller ve JPL çekirdekleri GitHub Release'ten (~210 MB)
 npm run lint      # kod denetimi: tanımsız ad, kullanılmayan değişken/içe aktarma (eslint.config.mjs)
 npm test          # tüm testler paralel (tools/testler.mjs; çekirdek sayısı kadar, uzunlar önce: ~2 dk); başarısızların çıktısını gösterir
 npm run test:seq  # sıralı (eski davranış: ilk başarısızda durur)
