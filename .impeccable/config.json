@@ -1,0 +1,18 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "pulsing-dot",
+        "value": "*",
+        "files": [
+          "web/css/style.css",
+          "web/index.html"
+        ],
+        "createdAt": "2026-11-19T18:35:12.636Z",
+        "reason": "CANLI göstergesi gerçek zamanlı saate bağlı; veri kesilince durur (.live.off) ve azaltılmış harekette kapanır"
+      }
+    ]
+  }
+}

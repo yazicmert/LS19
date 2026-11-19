@@ -2775,6 +2775,7 @@ const dict = {
 // Çıkarıcının bilerek almadığı ama ekranda görünen metinler: boşluksuz küçük harfli sözcükler (kimliklerle karışmasın diye
 // tools/i18n_cikar.mjs bunları atlar) ve çalışma anında parçalardan birleşen metinler.
 export const manual = {
+  "oynuyor": "playing",
   "kare": "frame",
   "kalan": "left",
   "Video": "Video",

@@ -352,13 +352,14 @@ export class ProducerDesk {
     const E = this.h.cinema.estimate(this.cut, true), parts = (E && E.parts) || {}, total = (E && E.total) || 0;
     this.est.textContent = E ? `${translateText('Tahmini süre')} ≈ ${mmss(Math.round(total / 5) * 5)}` : '';
     this.strip.replaceChildren();
+    const summary = matchMedia('(max-width: 760px)').matches; this.strip.toggleAttribute('aria-hidden', summary);     // telefonda yalnız özet: dokunulmaz, odaklanılmaz
     for (const info of this.chapters) {
       const on = this.cut.ch[info.k].on, sec = parts[info.k] || 0, b = el('button', 'pd-tl-' + (on ? 'on' : 'off')); b.type = 'button'; b.setAttribute('role', 'listitem');
       b.style.flexGrow = on ? String(Math.max(sec, total * 0.035)) : '0';
       const nm = translateText(info.name); b.title = on ? `${nm} · ≈ ${mmss(sec)}` : `${nm} · ${translateText('kapalı')}`; b.setAttribute('aria-label', b.title);
       if (on) b.append(el('span', null, nm));
       b.classList.toggle('changed', chapterChanged(this.cut, info.k));
-      b.dataset.k = info.k; b.classList.toggle('now', info.k === this.now);
+      b.dataset.k = info.k; b.classList.toggle('now', info.k === this.now); if (summary) b.tabIndex = -1;
       b.onclick = () => this.focusChapter(info.k);
       this.strip.append(b);
     }
@@ -380,7 +381,7 @@ export class ProducerDesk {
     const nb = el('button', 'pd-chbtn'); nb.type = 'button'; nb.setAttribute('aria-expanded', 'false'); nb.setAttribute('aria-controls', did);
     nb.innerHTML = '<i data-icon="chev"></i>'; applyIcons(nb);
     const nm = el('span', 'pd-chname'), chg = el('span', 'pd-chg', 'değişti'); chg.hidden = true;
-    const nmTop = el('span', 'pd-chtop'); nmTop.append(el('b', null, info.name), chg);
+    const nmTop = el('span', 'pd-chtop'); nmTop.append(el('b', null, info.name), chg, el('span', 'pd-nowchip', 'oynuyor'));      // oynayan bölüm (canlı ve ayrı pencerede)
     nm.append(nmTop, el('small', 'pd-chtitle', ''));
     nb.append(el('span', 'pd-n'), nm);
     const camL = el('label', 'pd-sr', 'Kamera'), cam = el('select', 'pd-cam'); cam.id = nextId('pdc'); camL.htmlFor = cam.id;

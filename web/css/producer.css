@@ -184,7 +184,7 @@ body.pd-open { overflow: hidden; }
 .pd-tabs button { display: inline-flex; align-items: center; gap: 6px; }
 .pd-badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; font: 600 10.5px/18px var(--mono); text-align: center; color: #001018; background: var(--accent-2); }
 .pd-badge[hidden] { display: none; }
-.pd-hint { display: block; font-size: 11px; line-height: 1.4; color: var(--text-muted); }
+.pd-hint { display: block; font-size: 12px; line-height: 1.4; color: var(--text-muted); }
 .pd-ghint { flex: 1 1 100%; margin: -4px 0 2px; font-size: 12px; color: var(--text-muted); }
 .pd-checkt { display: flex; flex-direction: column; gap: 1px; }
 .pd-sltop { display: flex; align-items: center; gap: 8px; }
@@ -215,22 +215,23 @@ body.pd-open { overflow: hidden; }
 .pd-strip button span { overflow: hidden; text-overflow: ellipsis; }
 .pd-tl-on { background: rgba(59, 130, 246, .22); border: 1px solid rgba(59, 130, 246, .45); color: var(--text-primary); }
 .pd-tl-on.changed { border-color: var(--accent-2); box-shadow: inset 0 -2px 0 var(--accent-2); }
-.pd-tl-off { flex: 0 0 10px; padding: 0; border: 1px dashed var(--line-2); background: repeating-linear-gradient(135deg, transparent 0 3px, rgba(255, 255, 255, .07) 3px 5px); }
+.pd-tl-off { flex: 0 0 10px; padding: 0; border: 1px dashed var(--line-2); background: transparent; }
 
 /* Yazılar: maket yapışkan, ayarları değiştirirken görünür kalır */
 
 /* başlıkta canlı işareti, ayraç; bilgi bandı; oynayan bölüm */
 .pd-live { display: inline-flex; align-items: center; gap: 5px; margin-left: 6px; padding: 2px 8px; border-radius: 999px; vertical-align: 3px; font: 600 10.5px var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--good); background: rgba(52, 211, 153, .12); }
-.pd-live::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--good); animation: pd-pulse 1.6s ease-in-out infinite; }
+.pd-live::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--good); }
 .pd-live[hidden] { display: none; }
-@keyframes pd-pulse { 50% { opacity: .35; } }
 .pd-hsep { width: 1px; align-self: stretch; margin: 4px 2px; background: var(--line-2); }
 .pd-popbtn[hidden] { display: none; }
 .pd-banner { flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 8px 18px; font-size: 12.5px; color: var(--text-primary); background: rgba(59, 130, 246, .14); border-bottom: 1px solid var(--line); }
 .pd-banner[data-kind="warn"] { background: rgba(245, 185, 58, .14); }
 .pd-banner[data-kind="ok"] { background: rgba(52, 211, 153, .12); }
 .pd-banner[hidden] { display: none; }
-.pd-ch.now { border-color: rgba(52, 211, 153, .55); box-shadow: inset 3px 0 0 var(--good); }
+.pd-ch.now { border-color: rgba(52, 211, 153, .55); background: rgba(52, 211, 153, .06); }
+.pd-nowchip { display: none; flex: none; font-size: 10px; font-weight: 600; letter-spacing: .04em; padding: 1px 7px; border-radius: 999px; color: var(--good); background: rgba(52, 211, 153, .14); }
+.pd-ch.now .pd-nowchip { display: inline-block; }
 .pd-ch.now .pd-n { color: var(--good); }
 .pd-strip button.now { outline: 2px solid var(--good); outline-offset: 1px; }
 
@@ -265,7 +266,7 @@ body.pd-docked #app { right: var(--pd-dock); }
 .pd-foot { display: flex; align-items: center; gap: 8px; padding: 12px 18px calc(12px + var(--sb, 0px)); border-top: 1px solid var(--line); background: var(--surface-1); flex-wrap: wrap; }
 .pd-statusbox { flex: 1 1 200px; min-width: 0; display: flex; align-items: center; gap: 10px; }
 .pd-status { min-width: 0; font-size: 12px; color: var(--text-secondary); }
-.pd-saved { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--good); opacity: 0; transition: opacity .3s var(--ease); white-space: nowrap; }
+.pd-saved { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--good); opacity: 0; transition: opacity .3s var(--ease); white-space: nowrap; }
 .pd-saved svg { width: 14px; height: 14px; }
 .pd-saved.in { opacity: 1; transition-duration: .1s; }
 .pd-link { background: none; border: 0; padding: 0 2px; min-height: 0; color: var(--accent-2); font-size: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
@@ -301,7 +302,7 @@ body.pd-docked #app { right: var(--pd-dock); }
   .pd-acts .pd-reset { margin-left: 0; }
   .pd-opts { gap: 12px; }
 }
-@media (prefers-reduced-motion: reduce) { .pd-box, .pdesk.docked .pd-box, .pd-live::before { animation: none; } .pd-chbtn > svg, .pd-ch, .pd-switch, .pd-switch::after, .pd-saved { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .pd-box, .pdesk.docked .pd-box,  .pd-chbtn > svg, .pd-ch, .pd-switch, .pd-switch::after, .pd-saved { transition: none; } }
 
 /* ---- video dışa aktarım paneli (js/exportui.js) ---- */
 .xpanel { position: fixed; inset: 0; z-index: 72; display: grid; place-items: center; padding: 16px; background: rgba(3, 5, 10, .66); }
@@ -323,7 +324,7 @@ body.pd-docked #app { right: var(--pd-dock); }
 .xp-warn p { margin: 0; padding: 8px 10px; border-radius: 8px; font-size: 12.5px; line-height: 1.45; background: rgba(245, 185, 58, .12); color: var(--text-primary); }
 .xp-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px 16px; border-top: 1px solid var(--line); }
 .xp-foot button, .xp-dl { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; }
-.xp-dl { padding: 8px 16px; border-radius: 8px; text-decoration: none; font-weight: 600; color: #fff; background: var(--accent); }
+.xp-dl { padding: 8px 16px; border-radius: 8px; text-decoration: none; font-weight: 600; color: #fff; background: var(--accent-fill); }
 .xp-foot svg, .xp-dl svg { width: 16px; height: 16px; }
 /* sürerken: altta ince çubuk, sahne üstte görünür */
 .xpanel.running { inset: auto 0 0 0; padding: 0; background: none; place-items: stretch; }
@@ -331,7 +332,7 @@ body.pd-docked #app { right: var(--pd-dock); }
 .xp-prog { display: flex; align-items: center; gap: 14px; padding: 12px 18px 8px; }
 .xp-ptext { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .xp-ptext b { font-size: 14px; font-variant-numeric: tabular-nums; }
-.xp-pline { font: 500 11.5px var(--mono); color: var(--text-secondary); overflow-wrap: anywhere; }
+.xp-pline { font: 500 12px var(--mono); color: var(--text-secondary); overflow-wrap: anywhere; }
 .xp-bar { height: 4px; margin: 0 18px 14px; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
 .xp-bar i { display: block; height: 100%; background: var(--accent-2); transform: scaleX(0); transform-origin: left center; transition: transform .3s var(--ease); }
 /* dışa aktarım sürerken sahne (küçültülmüş) siyah zeminde */
@@ -387,3 +388,21 @@ body.exporting #toasts, body.exporting #cineDesk { display: none !important; }
 /* masa ve panel kutuları programla (odak, scrollIntoView) kaymasın: başlık ve alt çubuk hep yerinde */
 .pd-box, .xp-box { overflow: clip; }
 .xp-box { overflow-y: auto; }
+/* kart konumu noktaları basılınca: yerleşim kaydırması korunur */
+.pd-spots button:active:not(:disabled) { transform: translate(-50%, -50%) scale(.94); }
+/* dokunmatik: hızlı başlangıç bağlantıları geniş dokunma alanı; telefonda akış şeridi yalnız özet (bölüm listesi aynı işi büyük hedeflerle yapar) */
+@media (pointer: coarse) { .pd-steps .pd-link { padding: 10px 0; margin: -6px 0; } }
+@media (max-width: 760px) { .pd-strip { height: 12px; pointer-events: none; } .pd-strip button { border-radius: 3px; } }
+/* dokunmatik: anahtarlar en az 24 px (WCAG 2.5.8), parmak için biraz daha geniş */
+@media (pointer: coarse) {
+  .pd-switch { width: 46px; height: 28px; }
+  .pd-switch::after { top: 3px; left: 3px; width: 20px; height: 20px; }
+  .pd-switch:checked::after { transform: translateX(18px); }
+  .pd-check input[type="checkbox"] { width: 42px; height: 26px; }
+  .pd-check input[type="checkbox"]::after { top: 3px; left: 3px; width: 18px; height: 18px; }
+  .pd-check input[type="checkbox"]:checked::after { transform: translateX(16px); }
+}
+@media (max-width: 760px) {
+  .pd-chbtn { flex: 1 1 calc(100% - 64px); min-width: 0; }
+  .pd-cam { margin-left: 56px; }
+}
