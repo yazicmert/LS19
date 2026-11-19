@@ -1,5 +1,5 @@
 # Haftalık: halka açık CelesTrak geçmişinden uydu yörünge özetini (web/data/gecmis.json) ve CelesTrak uzay havası dosyasından aylık F10.7 tablosunu
-# (web/data/f107.json; yeniden giriş tahmininde Güneş aktivitesi) ve eski dönemli NEO öğelerini (web/data/neo_epok.json) yeniler ve değiştiyse main'e işler.
+# (web/data/f107.json; yeniden giriş tahmininde Güneş aktivitesi) ve eski dönemli NEO öğelerini (web/data/neo_epok.json) yeniler ve değiştiyse yeni 'veri' paketini GitHub Release'e yükleyip main'e yalnız bildirimi (varliklar.json) işler.
 # Space-Track kullanılmaz. Elle de çalıştırılabilir (Actions > "Geçmiş yörünge verisini yenile" > Run workflow).
 name: Geçmiş yörünge verisini yenile
 
@@ -49,13 +49,18 @@ jobs:
         run: npm ci
       - name: Tüm testler
         run: npm test
-      - name: Değiştiyse işle ve gönder
+      - name: Değiştiyse yükle, işle ve gönder
         id: commit
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add web/data/gecmis.json web/data/f107.json web/data/neo_epok.json
+          # veri dosyaları git'te değil: değiştiyse yeni 'veri' paketi Release'e yüklenir, depoya yalnız bildirim (varliklar.json) girer
+          node tools/varliklar.mjs paketle
+          git add varliklar.json
           if git diff --cached --quiet; then echo "değişiklik yok"; echo "pushed=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          node tools/varliklar.mjs yukle
           git commit -m "Geçmiş yörünge verisi yenilendi ($(date -u +%F))"
           git pull --rebase origin "${GITHUB_REF_NAME}"
           git push origin "HEAD:${GITHUB_REF_NAME}"

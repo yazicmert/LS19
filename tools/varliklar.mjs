@@ -81,8 +81,13 @@ function paketle() {
   const gz = uyduGz(); if (gz) console.log(`uydu: ${gz} model gzip'lendi (.glb.gz)`);
   const b = { surum: 1, depo: DEPO, etiket: ETIKET, aciklama: 'Ağır varlıklar GitHub Release\'te; indir: node tools/varliklar.mjs indir', paketler: {} };
   fs.mkdirSync(ARA, { recursive: true });
+  const eski = fs.existsSync(BILDIRIM) ? oku().paketler : {};
   for (const g of GRUPLAR) {
-    const liste = tara(g); if (!liste.length) { console.log(`${g.ad}: dosya yok, atlandı`); continue; }
+    const liste = tara(g);
+    if (!liste.length) {                                             // indirilmemiş grup bildirimden sessizce düşmesin
+      if (eski[g.ad]) throw new Error(`${g.ad}: yerelde dosya yok ama bildirimde var (önce: node tools/varliklar.mjs indir)`);
+      console.log(`${g.ad}: dosya yok, atlandı`); continue;
+    }
     const dosyalar = {}; let bayt = 0;
     for (const p of liste) { const buf = fs.readFileSync(path.join(ROOT, p)); dosyalar[p] = sha(buf); bayt += buf.length; }
     const ad = paketAdi(g, dosyalar);

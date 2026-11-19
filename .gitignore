@@ -23,3 +23,6 @@ tools/basis/
 /web/models/ast/damit/*.bin.gz
 /web/data/de440s.bsp
 /web/data/moon_pa_de440_200625.bpc
+/web/data/gecmis.json
+/web/data/neo_epok.json
+/web/data/f107.json

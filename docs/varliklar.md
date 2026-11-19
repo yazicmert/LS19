@@ -16,6 +16,7 @@ Not: Taşımadan önceki git geçmişi olduğu gibi kalır (GitHub'daki depo boy
 | `efemeris` | `web/data/eph/v1/*.bin` (`index.json` git'te) | evet |
 | `uydu` | `web/models/sats/*.glb.gz` | evet |
 | `asteroit` | `web/models/ast/*.glb`, `web/models/ast/damit/*.bin.gz` (katalog JSON'ları git'te) | evet |
+| `veri` | `web/data/gecmis.json`, `neo_epok.json`, `f107.json` (haftalık yenilenir, `gecmis.yml`) | evet |
 | `cekirdek` | `web/data/de440s.bsp`, `web/data/moon_pa_de440_200625.bpc` | hayır (testler ve araçlar) |
 
 Paket adı içerikten türetilir (`doku-c2696adccfe6.tar`). Bir kez yüklenen paket değişmez; içerik değişince yeni adla yeni paket yüklenir.
@@ -30,6 +31,14 @@ Uydu modelleri gzip'li saklanır ve sunulur (`.glb.gz`). Meshopt verisi gzip ile
 - **Yalnız Python ile çalıştırma:** `sunucu.py` ilk açılışta siteye giden paketleri indirir. Docker imajı bunları derleme sırasında indirir (`sunucu.py --varliklar`).
 
 Önce `https://github.com/<depo>/releases/download/varliklar/<paket>` denenir. Olmazsa GitHub API'sinin varlık adresi kullanılır (`GITHUB_TOKEN` varsa onunla). Açılan her dosya bildirimdeki özetle doğrulanır.
+
+## Haftalık veri
+
+`gecmis.yml` her pazartesi veriyi yeniler. Değişiklik varsa `paketle` yeni bir `veri-<özet>.tar` üretir, `yukle` onu Release'e koyar ve depoya yalnız `varliklar.json` işlenir. Önceden her hafta yaklaşık 0,5 MB sıkıştırılmış JSON git geçmişine giriyordu; artık birkaç satır giriyor. `paketle`, bildirimde olup yerelde bulunmayan bir grubu sessizce düşürmez, hata verir.
+
+## Model boyut sınırı
+
+Uydu modeli `.glb.gz` en çok 1,2 MB, asteroit modeli `.glb` en çok 600 KB olabilir (`test_varliklar.js`). Otomasyonun ekleyeceği modeller de bu sınıra uyar.
 
 ## Yeni ya da değişen varlık
 
