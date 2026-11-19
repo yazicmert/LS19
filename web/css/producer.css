@@ -3,7 +3,7 @@
 body.pd-open { overflow: hidden; }
 .pdesk { position: fixed; inset: 0; z-index: 62; display: grid; place-items: center; padding: 16px; background: rgba(3, 5, 10, .66); }
 .pdesk[hidden] { display: none; }
-.pd-box { width: min(880px, 100%); max-height: min(92vh, 860px); display: flex; flex-direction: column; background: var(--surface-1); border: 1px solid var(--line-2); border-radius: 16px; overflow: hidden;
+.pd-box { width: min(880px, 100%); max-height: min(92dvh, 860px); display: flex; flex-direction: column; background: var(--surface-1); border: 1px solid var(--line-2); border-radius: 16px; overflow: hidden;
   box-shadow: 0 30px 80px rgba(0, 0, 0, .5); animation: pd-in .22s var(--ease) both; }
 @keyframes pd-in { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: none; } }
 .pd-head, .pd-tabs, .pd-foot { flex-shrink: 0; }
@@ -311,7 +311,7 @@ body.pd-docked #app { right: var(--pd-dock); }
 /* ---- video dışa aktarım paneli (js/exportui.js) ---- */
 .xpanel { position: fixed; inset: 0; z-index: 72; display: grid; place-items: center; padding: 16px; background: rgba(3, 5, 10, .66); }
 .xpanel[hidden] { display: none; }
-.xp-box { width: min(620px, 100%); max-height: min(92vh, 820px); overflow: auto; background: var(--surface-1); border: 1px solid var(--line-2); border-radius: 16px; box-shadow: 0 30px 80px rgba(0, 0, 0, .5); }
+.xp-box { width: min(620px, 100%); max-height: min(92dvh, 820px); overflow: auto; background: var(--surface-1); border: 1px solid var(--line-2); border-radius: 16px; box-shadow: 0 30px 80px rgba(0, 0, 0, .5); }
 .xp-head { display: flex; justify-content: space-between; gap: 12px; padding: 16px 18px 8px; }
 .xp-head h2 { margin: 0; font-size: 18px; }
 .xp-sub { margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--text-secondary); overflow-wrap: anywhere; }
@@ -394,7 +394,7 @@ body.exporting #toasts, body.exporting #cineDesk { display: none !important; }
 .pdesk .pd-sltop { min-height: 18px; }
 /* masa ve panel kutuları programla (odak, scrollIntoView) kaymasın: başlık ve alt çubuk hep yerinde */
 .pd-box, .xp-box { overflow: clip; }
-.xp-box { overflow-y: auto; }
+.xp-box { overflow-y: auto; overscroll-behavior: contain; }
 /* kart konumu noktaları basılınca: yerleşim kaydırması korunur */
 .pd-spots button:active:not(:disabled) { transform: translate(-50%, -50%) scale(.94); }
 /* dokunmatik: hızlı başlangıç bağlantıları geniş dokunma alanı; telefonda akış şeridi yalnız özet (bölüm listesi aynı işi büyük hedeflerle yapar) */
