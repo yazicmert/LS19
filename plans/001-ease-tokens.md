@@ -1,6 +1,6 @@
 # 001 — Add shared easing tokens and use them for hand-typed curves
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: 9bb3264
 - **Severity**: LOW
 - **Category**: Cohesion & tokens

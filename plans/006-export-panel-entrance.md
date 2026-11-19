@@ -1,6 +1,6 @@
 # 006 — Export panel gets the same entrance as the Producer desk
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: 9bb3264
 - **Severity**: LOW (missed opportunity)
 - **Category**: Missed opportunities

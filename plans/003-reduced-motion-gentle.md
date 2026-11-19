@@ -1,6 +1,6 @@
 # 003 — Replace the global reduced-motion kill switch with targeted rules
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: 9bb3264
 - **Severity**: MEDIUM
 - **Category**: Accessibility

@@ -1,6 +1,6 @@
 # 004 — Toasts: 400 ms `ease`, and the telemetry flash enters with ease-out
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: 9bb3264
 - **Severity**: LOW
 - **Category**: Easing & duration

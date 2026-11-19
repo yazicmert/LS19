@@ -4,12 +4,12 @@ Audit at commit `9bb3264`, at standard effort. The audit was done in-thread rath
 
 | # | Title | Severity | Status |
 | --- | --- | --- | --- |
-| 001 | Shared easing tokens | LOW | TODO |
-| 002 | Press feedback animates on cards/tabs | MEDIUM | TODO |
-| 003 | Gentle reduced motion instead of a global kill | MEDIUM | TODO |
-| 004 | Toast 400 ms `ease`; telemetry flash ease-out | LOW | TODO |
-| 005 | Bottom sheet drawer curve | LOW | TODO |
-| 006 | Export panel entrance | LOW | TODO |
+| 001 | Shared easing tokens | LOW | DONE |
+| 002 | Press feedback animates on cards/tabs | MEDIUM | DONE |
+| 003 | Gentle reduced motion instead of a global kill | MEDIUM | DONE |
+| 004 | Toast 400 ms `ease`; telemetry flash ease-out | LOW | DONE |
+| 005 | Bottom sheet drawer curve | LOW | DONE |
+| 006 | Export panel entrance | LOW | DONE |
 
 Dependencies: 002, 004 and 005 use the `--ease-*` tokens from 001. 006 uses `pd-fade` from 003.
 
