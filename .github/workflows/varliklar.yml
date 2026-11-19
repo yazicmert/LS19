@@ -1,0 +1,41 @@
+# Ağır varlık paketlerini GitHub Release'e ('varliklar' etiketi) yükler: varliklar.json'da adı geçen ama Release'te olmayan her paket,
+# depodaki dosyalardan (o işlemede hâlâ git'teyse) üretilip yüklenir. Paket adları içerik özetidir: yüklenen paket bir daha değişmez.
+# Dosyalar git'te değilse (olağan durum) bu iş yalnız denetler: bildirimdeki her paket Release'te var mı?
+# Yerelde üretilen yeni varlıklar için: node tools/varliklar.mjs paketle && GITHUB_TOKEN=… node tools/varliklar.mjs yukle
+name: Varlıkları yayımla
+
+on:
+  push:
+    paths:
+      - varliklar.json
+      - tools/varliklar.mjs
+      - .github/workflows/varliklar.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: varliklar
+  cancel-in-progress: false
+
+jobs:
+  yukle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22.23.4
+      - name: Eksik paketleri yükle
+        run: node tools/varliklar.mjs yukle
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Release'ten indirip doğrula (siteye giden paketler)
+        run: |
+          rm -rf web/textures web/data/eph/v1/*.bin web/models/sats/*.glb.gz web/models/ast/*.glb web/models/ast/damit/*.bin.gz
+          node tools/varliklar.mjs indir --site
+          node tools/varliklar.mjs denetle --site
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

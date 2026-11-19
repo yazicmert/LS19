@@ -10,3 +10,6 @@ node_modules
 .vercel/
 # Basis Universal kodlayıcısı (tools/doku_ktx2.mjs indirir, SHA-256 denetler)
 tools/basis/
+
+# Varlık paketleri (tools/varliklar.mjs paketle üretir; GitHub Release'e yüklenir)
+.varliklar/
