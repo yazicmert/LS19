@@ -10,6 +10,9 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app/web
 # .dockerignore yalnız web/ klasörünü geçirir (testler, önbellek ve tarayıcının indirmediği tam JPL çekirdekleri hariç)
 COPY web/ /app/web/
+# ağır varlıklar GitHub Release'te (varliklar.json): imaj derlenirken indirilir
+COPY varliklar.json /app/varliklar.json
+RUN python3 /app/web/sunucu.py --varliklar
 
 # root olmayan kullanıcı; önbellek klasörü ona ait (compose.yaml buraya adlandırılmış bir birim bağlar, birim bu sahipliği devralır)
 RUN useradd --system --uid 10001 --no-create-home ls19 \

@@ -687,7 +687,54 @@ def make_server(port=PORT, host=HOST):
     return srv
 
 
+# Ağır varlıklar (dokular, efemeris, modeller) git'te değil, GitHub Release'te durur (../varliklar.json, tools/varliklar.mjs).
+# Eksik ya da eski olanlar ilk açılışta indirilir: yalnız Python yeter (Node gerekmez). Paketteki yollar depo köküne göredir (web/…).
+def varliklari_hazirla(sessiz=False):
+    import io, tarfile
+    kok = os.path.dirname(ROOT)
+    yol = next((p for p in (os.path.join(kok, 'varliklar.json'), os.path.join(ROOT, 'varliklar.json')) if os.path.exists(p)), None)
+    if not yol:
+        return True
+    with open(yol, encoding='utf-8') as f:
+        b = json.load(f)
+    def eksik(pk):
+        for p, h in pk['dosyalar'].items():
+            f = os.path.join(kok, *p.split('/'))
+            if not os.path.exists(f):
+                return True
+            with open(f, 'rb') as fh:
+                if hashlib.sha256(fh.read()).hexdigest() != h:
+                    return True
+        return False
+    tamam = True
+    for ad, pk in b['paketler'].items():
+        if not pk.get('site') or not eksik(pk):
+            continue
+        url = f"https://github.com/{b['depo']}/releases/download/{b['etiket']}/{pk['ad']}"
+        print(f'Varlıklar indiriliyor: {ad} ({pk["bayt"] / 1048576:.0f} MB) …', flush=True)
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=300) as r:
+                veri = r.read()
+            with tarfile.open(fileobj=io.BytesIO(veri)) as t:
+                for m in t.getmembers():                                   # yalnız web/ altındaki düz dosyalar (yol kaçışı yok)
+                    if not m.isfile() or not m.name.startswith('web/') or '..' in m.name.split('/'):
+                        continue
+                    hedef = os.path.join(kok, *m.name.split('/'))
+                    os.makedirs(os.path.dirname(hedef), exist_ok=True)
+                    with open(hedef, 'wb') as out:
+                        out.write(t.extractfile(m).read())
+            if eksik(pk):
+                raise ValueError('paketteki dosyalar bildirimle uyuşmuyor')
+        except Exception as e:  # noqa: BLE001 — site yine açılır; eksik doku/model yerine yedekler kullanılır
+            tamam = False
+            print(f'  {ad} indirilemedi: {e}\n  Elle: npm run varliklar  (ya da {url})', flush=True)
+    return tamam
+
+
 def main():
+    if '--varliklar' in sys.argv:                                          # yalnız indir ve çık (Docker imajı derlenirken)
+        sys.exit(0 if varliklari_hazirla() else 1)
+    varliklari_hazirla()
     srv = make_server()
     print(f'LS19 (Look Star 19): http://localhost:{PORT}  (durdurmak için Ctrl+C)')
     try:

@@ -10,6 +10,15 @@ export { MODELS, modelFor, showDist, MOON_MODELS };
 
 const MAX_ON = 3, KEEP = 8;
 
+// Modeller gzip'li saklanır ve sunulur (models/sats/<anahtar>.glb.gz; tools/varliklar.mjs): meshopt verisi gzip'le ~%60 küçülür.
+// Sunucu dosyayı kendisi açıp gönderirse (Content-Encoding) gövde zaten GLB olur: ilk iki bayta (1f 8b) bakılır.
+export async function fetchGlb(url) {
+  const r = await fetch(url); if (!r.ok) throw new Error(`${url}: ${r.status}`);
+  let buf = new Uint8Array(await r.arrayBuffer());
+  if (buf[0] === 0x1f && buf[1] === 0x8b) buf = new Uint8Array(await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
+  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+}
+
 export class SatModels {
   // posFn(entry, t) -> ICRF konum (km) · entries: [{ uid, key, name }] (model eşleşen uydular)
   constructor(scene) {
@@ -28,7 +37,7 @@ export class SatModels {
     let c = this.cache.get(key);
     if (c) { c.used = performance.now(); return c; }
     c = { used: performance.now(), obj: null, err: null };
-    c.promise = this.loader.loadAsync(`models/sats/${key}.glb`).then((g) => {
+    c.promise = fetchGlb(`models/sats/${key}.glb.gz`).then((buf) => this.loader.parseAsync(buf, 'models/sats/')).then((g) => {
       const root = g.scene, box = new THREE.Box3().setFromObject(root), size = box.getSize(new THREE.Vector3()), cen = box.getCenter(new THREE.Vector3());
       const k = MODELS[key].size / 1000 / Math.max(size.x, size.y, size.z);
       root.traverse((o) => {

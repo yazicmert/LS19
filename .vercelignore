@@ -17,3 +17,5 @@ skills-lock.json
 web/data/de440s.bsp
 web/data/moon_pa_de440_200625.bpc
 web/baslat.bat
+# yalnız testler (Node) okur; tarayıcı indirmez
+web/data/rocsim_eph_2026Q4.json

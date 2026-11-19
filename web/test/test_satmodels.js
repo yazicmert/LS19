@@ -3,7 +3,7 @@ import { MODELS, modelFor, showDist, MOON_MODELS, SRC_TITLE, srcOf } from '../js
 import fs from 'fs';
 let fail = 0;
 const ok = (c, m) => { if (!c) { fail++; console.log('HATA', m); } else console.log('tamam', m); };
-for (const k of Object.keys(MODELS)) ok(fs.existsSync(new URL(`../models/sats/${k}.glb`, import.meta.url)), `dosya ${k}.glb`);
+for (const k of Object.keys(MODELS)) ok(fs.existsSync(new URL(`../models/sats/${k}.glb.gz`, import.meta.url)), `dosya ${k}.glb.gz`);
 ok(modelFor(25544, 'ISS (ZARYA)').key === 'iss', 'ISS');
 ok(modelFor(49260, 'LANDSAT 9').key === 'landsat9' && modelFor(39084, 'LANDSAT 8').key === 'landsat8', 'Landsat 9 kendi modeliyle (NASA Eyes), Landsat 8 kendi modeliyle');
 // NASA Eyes on the Earth modelleri: aktif uydular kendi resmî modelleriyle
@@ -21,7 +21,7 @@ const ALIGN = { swot: [n(Y), n(Z)], nisar: [n(Y), Z], pace: [n(Y), n(X)], smap: 
   landsat9: [Y, X], noaa20: [Y, n(Z)], noaa21: [Y, n(Z)], gracefo: [n(Y), Z], polar: [n(Y), Z], image: [Z, X] };
 const near = (a, b) => a.every((q, i) => Math.abs(q - b[i]) < 1e-12);
 ok(Object.entries(ALIGN).every(([k, [e, v]]) => near(rotV(MODELS[k].rot, e), [0, -1, 0]) && near(rotV(MODELS[k].rot, v), [0, 0, 1])), `Eyes yönelimleri: Dünya'ya bakan eksen başucunun tersine, uçuş ekseni hız yönüne (${Object.keys(ALIGN).length} model)`);
-const big = Object.keys(MODELS).filter((k) => fs.statSync(new URL(`../models/sats/${k}.glb`, import.meta.url)).size > 2 * 1024 * 1024);
+const big = Object.keys(MODELS).filter((k) => fs.statSync(new URL(`../models/sats/${k}.glb.gz`, import.meta.url)).size > 2 * 1024 * 1024);
 ok(big.length === 0, 'her model dosyası ≤ 2 MB (yalnız yaklaşınca indirilir)' + (big.length ? ': ' + big.join(',') : ''));
 ok(modelFor(99999, 'GOES 19').key === 'goes', 'GOES ad kalıbı');
 ok(modelFor(99998, 'TDRS 12').key === 'tdrs3' && modelFor(99997, 'TDRS 5').key === 'tdrs1', 'TDRS kuşakları');

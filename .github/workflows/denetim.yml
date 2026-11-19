@@ -29,5 +29,9 @@ jobs:
         run: npm ci
       - name: Kod denetimi
         run: npm run lint
+      - name: Varlıklar (GitHub Release)
+        run: node tools/varliklar.mjs indir
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Testler
         run: npm test

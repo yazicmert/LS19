@@ -25,6 +25,10 @@ jobs:
         with:
           node-version: 22.23.4          # sabit: bit düzeyi testler (nominal Δv) V8 sürümüne bağlı; Node 24 Math.pow farklı, veri yeniden üretilmeli
           cache: npm
+      - name: Varlıklar (GitHub Release)
+        run: node tools/varliklar.mjs indir
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Geçmiş özetini üret (son ~14 ay, 7 günde bir örnek)
         run: node tools/gecmis_derle.mjs --adim-gun 7 --pencere-gun 425 --onbellek "$RUNNER_TEMP/gecmis"
         env:

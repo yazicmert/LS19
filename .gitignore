@@ -13,3 +13,13 @@ tools/basis/
 
 # Varlık paketleri (tools/varliklar.mjs paketle üretir; GitHub Release'e yüklenir)
 .varliklar/
+
+# Ağır varlıklar git'te değil, GitHub Release'te (varliklar.json, docs/varliklar.md; indir: npm run varliklar)
+/web/textures/
+/web/data/eph/v1/*.bin
+/web/models/sats/*.glb
+/web/models/sats/*.glb.gz
+/web/models/ast/*.glb
+/web/models/ast/damit/*.bin.gz
+/web/data/de440s.bsp
+/web/data/moon_pa_de440_200625.bpc

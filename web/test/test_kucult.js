@@ -41,8 +41,8 @@ try {
   check('surface: içe aktarma (statik, dinamik, yeniden dışa aktarma) ve dışa aktarılan adlar (yapı bozumu, varsayılan, yeniden adlandırma)',
     JSON.stringify(s) === JSON.stringify({ exp: ['*', '*:ns', 'K', 'default', 'f', 'p', 'r1', 'r2', 'uu', 'y', 'z'].sort(), imp: ['./a.js', './b.js', './c.js', './d.js', './dyn.js', './e.js'] }), JSON.stringify(s));
   const v = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8')), pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
-  check('vercel.json: npm ci (esbuild, espree) + yayın kopyasında yerinde küçültme; web/ yayımlanır; esbuild sürümü sabit',
-    v.installCommand === 'npm ci' && v.buildCommand === 'node tools/kucult.mjs --yerinde' && v.outputDirectory === 'web' && /^\d+\.\d+\.\d+$/.test(pkg.devDependencies.esbuild || '') && !!pkg.devDependencies.espree);
+  check('vercel.json: npm ci (esbuild, espree) + önce varlıklar (GitHub Release, yalnız siteye gidenler), sonra yayın kopyasında yerinde küçültme; web/ yayımlanır; esbuild sürümü sabit',
+    v.installCommand === 'npm ci' && v.buildCommand === 'node tools/varliklar.mjs indir --site && node tools/kucult.mjs --yerinde' && v.outputDirectory === 'web' && /^\d+\.\d+\.\d+$/.test(pkg.devDependencies.esbuild || '') && !!pkg.devDependencies.espree);
 } finally { fs.rmSync(out, { recursive: true, force: true }); }
 
 console.log(fail ? `\n${fail} HATA` : '\nTüm denetimler geçti');

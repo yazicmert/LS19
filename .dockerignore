@@ -1,6 +1,7 @@
 # Kapsayıcıya yalnız site (web/) girer — .vercelignore ile aynı kapsam
 *
 !web/
+!varliklar.json
 web/test/
 web/data/cache/
 web/data/de440s.bsp
@@ -10,3 +11,4 @@ web/baslat.bat
 **/__pycache__/
 **/*.pyc
 **/.DS_Store
+web/data/rocsim_eph_2026Q4.json

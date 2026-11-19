@@ -7,6 +7,7 @@
     "node": ">=20"
   },
   "scripts": {
+    "varliklar": "node tools/varliklar.mjs indir",
     "lint": "eslint",
     "test": "node tools/testler.mjs",
     "test:seq": "cd web && for t in test/test_*.js; do echo \"== $t\"; out=$(node \"$t\" 2>&1) || { echo \"$out\" | grep -v '^TAMAM' | tail -30; exit 1; }; done && echo 'Tüm testler geçti'",

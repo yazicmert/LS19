@@ -13,6 +13,12 @@ import os from 'os';
 import path from 'path';
 
 const WEB = new URL('../web/', import.meta.url).pathname;
+// Ağır varlıklar (dokular, efemeris, modeller, JPL çekirdekleri) git'te değil, GitHub Release'te: eksikse testler anlamsız hatalar verir
+try {
+  const { spawnSync } = await import('child_process');
+  const d = spawnSync(process.execPath, [new URL('./varliklar.mjs', import.meta.url).pathname, 'denetle', '--sessiz']);
+  if (d.status !== 0) { console.error('Varlıklar eksik ya da eski: önce  npm run varliklar  (node tools/varliklar.mjs indir)'); process.exit(1); }
+} catch (e) { /* denetlenemezse testler yine koşar */ }
 // yerelde ölçülen en uzunlar (sn): twostage 136 (4 parça), pdg 85 (3 parça), impact 57, rockets 27, raise 26, dynamics6 22, profiles 18, attitude 12, pads 10, nominalby 7
 const PARCA = { 'test_twostage.js': 4, 'test_pdg.js': 3 };
 const SLOW = ['test_twostage.js', 'test_pdg.js', 'test_impact.js', 'test_rockets.js', 'test_raise.js', 'test_dynamics6.js', 'test_profiles.js', 'test_attitude.js', 'test_pads.js', 'test_nominalby.js', 'test_telemetry.js'];
