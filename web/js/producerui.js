@@ -12,6 +12,7 @@
 import { OPT, MAX, RANGE, ACCENTS, INKS, FONTS, WEIGHTS, TRACKS, PRESETS, DEFAULT_CUT, DEFAULT_CH, normalize, applyPreset, presetOf, saveCut, encodeCut, isDefault, loadFonts, camMove,
   History, changedCounts, chapterChanged } from './producer.js';
 import { applyIcons } from './icons.js';
+import { hasChannel } from './producersync.js';
 import { translateText, LOC } from './i18n.js';
 
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -58,24 +59,34 @@ const sToDist = (v) => Math.round(Math.exp(DL[0] + (v / 1000) * (DL[1] - DL[0]))
 const azWord = (a) => { const x = Math.abs(a); return x <= 25 ? 'önden' : x <= 65 ? 'önden çapraz' : x <= 115 ? 'yandan' : x <= 155 ? 'arkadan çapraz' : 'arkadan'; };
 
 export class ProducerDesk {
-  // host: { cinema, onPlay(cut), onPreview(cut, k) }
+  // host: { cinema (chapterInfo, estimate), onPlay(cut), onPreview(cut, k), onChange(cut) (yerel düzenleme: canlı uygulama, eşitleme), onPopOut() (ayrı pencere),
+  //         onDock(on) (yanaşık masa: sahne yeniden boyutlanır), standalone (ayrı pencerenin kendisi) }
   constructor(host) {
     this.h = host; this.cut = normalize({}); this.shared = false; this.back = null; this.tab = 'ch'; this.syncs = []; this.open_ = new Set(); this.hist = new History(); this.rows = {};
     try { this.introOn = localStorage.getItem(INTRO_KEY) !== '1'; } catch (e) { this.introOn = true; }
-    const root = this.root = el('div', 'pdesk'); root.id = 'cineDesk'; root.hidden = true;
+    const root = this.root = el('div', 'pdesk' + (host.standalone ? ' standalone' : '')); root.id = 'cineDesk'; root.hidden = true; this.docked = false;
     root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-labelledby', 'pdTitle');
     const box = el('div', 'pd-box'); root.append(box);
     const head = el('header', 'pd-head'), ht = el('div'), h2 = el('h2', null, 'Yapımcı masası'); h2.id = 'pdTitle';
     ht.append(h2, el('p', 'pd-lead', 'Fragmanın ipleri sende. Her değişiklik kendiliğinden kaydedilir ve geri alınabilir; görev fiziği ve olayların sırası gerçek kalır.'));
+    this.live = el('span', 'pd-live', 'Canlı'); this.live.title = 'Değişiklikler oynayan fragmana anında yansır'; this.live.hidden = true;
+    h2.append(' ', this.live);
+    this.undoBtn = iconBtn('pd-iconbtn', '<i data-icon="undo"></i>', translateText('Geri al (Ctrl+Z)')); this.undoBtn.onclick = () => this.undo();
+    this.redoBtn = iconBtn('pd-iconbtn', '<i data-icon="redo"></i>', translateText('Yinele (Ctrl+Y)')); this.redoBtn.onclick = () => this.redo();
+    const pop = this.popBtn = iconBtn('pd-iconbtn pd-popbtn', '<i data-icon="external"></i>', translateText('Ayrı pencerede aç: LS19 öbür pencerede oynarken düzenle, değişiklikler anında yansır'));
+    pop.onclick = () => host.onPopOut && host.onPopOut(); pop.hidden = !!host.standalone || !host.onPopOut || !hasChannel();
     const help = this.helpBtn = iconBtn('pd-iconbtn', '<i data-icon="help"></i>', translateText('Hızlı başlangıç ve ipuçları')); help.setAttribute('aria-pressed', 'false');
     help.onclick = () => { this.setIntro(!this.introOn); this.setTab('ch'); if (this.introOn) this.intro.scrollIntoView({ block: 'nearest' }); };
     const close = el('button', 'pd-close', '×'); close.type = 'button'; close.setAttribute('aria-label', 'Kapat'); close.onclick = () => this.close();
-    const hb = el('div', 'pd-headbtns'); hb.append(help, close);
+    if (host.standalone) { close.setAttribute('aria-label', translateText('Pencereyi kapat')); close.onclick = () => window.close(); }
+    const sep = el('i', 'pd-hsep'); sep.setAttribute('aria-hidden', 'true');
+    const hb = el('div', 'pd-headbtns'); hb.append(this.undoBtn, this.redoBtn, sep, pop, help, close);
     head.append(ht, hb);
     // sekmeler (ok tuşlarıyla gezilir); rozet: o sekmede kaç şey değişti
     const tabs = el('div', 'pd-tabs'); tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Yapımcı masası bölümleri');
     this.panes = {}; this.tabBtns = {}; this.badges = {};
     const body = this.body = el('div', 'pd-body');
+    this.banner = el('div', 'pd-banner'); this.banner.setAttribute('role', 'status'); this.banner.hidden = true;
     for (const [k, name] of [['ch', 'Bölümler'], ['credits', 'İsimler'], ['type', 'Yazılar'], ['look', 'Görüntü ve ses']]) {
       const b = el('button'); b.type = 'button'; b.setAttribute('role', 'tab'); b.id = `pdTab-${k}`; b.setAttribute('aria-controls', `pdPane-${k}`);
       const bd = this.badges[k] = el('span', 'pd-badge'); bd.hidden = true; b.append(el('span', null, name), bd);
@@ -85,11 +96,8 @@ export class ProducerDesk {
       const pane = el('section', 'pd-pane'); pane.id = `pdPane-${k}`; pane.setAttribute('role', 'tabpanel'); pane.setAttribute('aria-labelledby', b.id); pane.tabIndex = -1;
       body.append(pane); this.panes[k] = pane;
     }
-    // alt çubuk: geri al / yinele, durum, kaydedildi, sıfırla, bağlantı, oynat
+    // alt çubuk: durum, kaydedildi, sıfırla, bağlantı, oynat (geri al / yinele başlıkta)
     const foot = el('footer', 'pd-foot');
-    this.undoBtn = iconBtn('pd-iconbtn', '<i data-icon="undo"></i>', translateText('Geri al (Ctrl+Z)')); this.undoBtn.onclick = () => this.undo();
-    this.redoBtn = iconBtn('pd-iconbtn', '<i data-icon="redo"></i>', translateText('Yinele (Ctrl+Y)')); this.redoBtn.onclick = () => this.redo();
-    const hist = el('div', 'pd-hist'); hist.append(this.undoBtn, this.redoBtn);
     const st = el('div', 'pd-statusbox');
     this.status = el('span', 'pd-status'); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
     this.saved = el('span', 'pd-saved'); this.saved.innerHTML = '<i data-icon="check"></i><span>Kaydedildi</span>'; applyIcons(this.saved);
@@ -98,19 +106,20 @@ export class ProducerDesk {
     const share = el('button'); share.type = 'button'; share.innerHTML = '<i data-icon="link"></i><span>Bağlantıyı kopyala</span>'; share.title = 'Kurgunu paylaş: bağlantıyı açan fragmanı senin kurgunla izler'; share.onclick = () => this.share();
     const play = el('button', 'primary'); play.type = 'button'; play.innerHTML = '<i data-icon="play"></i><span>Fragmanı oynat</span>'; play.onclick = () => this.play();
     this.playBtn = play;
-    foot.append(hist, st, reset, share, play);
-    box.append(head, tabs, body, foot);
+    this.playLabel = play.querySelector('span');
+    foot.append(st, reset, share, play);
+    box.append(head, tabs, this.banner, body, foot);
     document.body.append(root); applyIcons(root);
-    root.addEventListener('click', (e) => { if (e.target === root) this.close(); });
+    root.addEventListener('click', (e) => { if (e.target === root && !this.docked && !host.standalone) this.close(); });
     // klavye: masa açıkken uygulama kısayolları (C, Boşluk, M…) çalışmaz; Esc kapatır; Ctrl+Z / Ctrl+Y (yazı alanında tarayıcının kendi geri alması); odak masada kalır
     root.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.close(); return; }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (!host.standalone) this.close(); return; }
       const typing = e.target && (e.target.tagName === 'TEXTAREA' || (e.target.tagName === 'INPUT' && e.target.type === 'text'));
       if ((e.ctrlKey || e.metaKey) && !e.altKey && !typing) {
         const k = e.key.toLowerCase();
         if (k === 'z' && !e.shiftKey) { e.preventDefault(); this.undo(); } else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); this.redo(); }
       }
-      if (e.key === 'Tab') { const f = [...root.querySelectorAll('button, input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter((n) => !n.disabled && n.offsetParent !== null); if (f.length) { const a = f[0], z = f[f.length - 1]; if (e.shiftKey && document.activeElement === a) { e.preventDefault(); z.focus(); } else if (!e.shiftKey && document.activeElement === z) { e.preventDefault(); a.focus(); } } }
+      if (e.key === 'Tab' && !this.docked && !host.standalone) { const f = [...root.querySelectorAll('button, input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter((n) => !n.disabled && n.offsetParent !== null); if (f.length) { const a = f[0], z = f[f.length - 1]; if (e.shiftKey && document.activeElement === a) { e.preventDefault(); z.focus(); } else if (!e.shiftKey && document.activeElement === z) { e.preventDefault(); a.focus(); } } }
       e.stopPropagation();
     });
     this.buildCredits(); this.buildType(); this.buildLook();
@@ -119,8 +128,9 @@ export class ProducerDesk {
 
   // ---------------------------------------------------------------- açma / kapama
   // cut: başlangıç kurgusu; shared: paylaşılan bağlantıdan geldi (ilk değişikliğe dek saklanmaz)
-  open(cut, { shared = false } = {}) {
-    this.cut = normalize(cut); this.shared = shared; this.back = document.activeElement; this.hist.clear();
+  // dock: fragman oynarken sağa yanaşık açılır (sahne solda oynar, değişiklikler canlı)
+  open(cut, { shared = false, dock = false } = {}) {
+    this.cut = normalize(cut); this.shared = shared; this.back = document.activeElement; this.hist.clear(); this.setDock(dock);
     this.chapters = this.h.cinema.chapterInfo();
     loadFonts([this.cut.hFont, this.cut.tFont]).then(() => this.isOpen && this.fill());
     this.buildChapters(); this.fill();
@@ -138,18 +148,44 @@ export class ProducerDesk {
   hide() { this.root.hidden = true; document.body.classList.remove('pd-open'); }
   close() {
     if (this.root.hidden) return;
-    this.hide();
+    this.hide(); this.setDock(false);
     if (this.back && this.back.focus && document.contains(this.back)) this.back.focus();
   }
-  play() { const c = this.cut; this.close(); this.h.onPlay(c); }
+  play() { const c = this.cut; if (!this.h.standalone) this.close(); this.h.onPlay(c); if (this.h.standalone) this.say('Fragman LS19 penceresinde oynatılıyor.'); }
+  // yanaşık kip: modal değil (arka plan, odak tuzağı yok), sağda dar sütun; host sahneyi daraltır
+  setDock(on) {
+    on = !!on && !this.h.standalone; if (on === this.docked) return;
+    this.docked = on; this.root.classList.toggle('docked', on); this.root.setAttribute('aria-modal', String(!on && !this.h.standalone));
+    document.body.classList.toggle('pd-docked', on); this.live.hidden = !on && !this.h.standalone;
+    if (this.playLabel) this.playLabel.textContent = translateText(on ? 'Baştan oynat' : 'Fragmanı oynat');
+    if (this.h.onDock) this.h.onDock(on);
+  }
+  // başka yerden gelen kurgu (ayrı pencere ya da sayfa içi masa): kaydedilmiş sayılır, geçmişe yazılmaz, yayınlanmaz
+  load(cut) { this.cut = normalize(cut); this.shared = false; if (this.isOpen || this.h.standalone) this.fill(); }
+  // oynayan bölüm: zaman şeridinde ve bölüm satırında işaretli (canlı ve ayrı pencerede)
+  setNowPlaying(k, on = true) {
+    this.now = on ? k : null;
+    for (const li of this.root.querySelectorAll('.pd-ch')) li.classList.toggle('now', li.dataset.k === this.now);
+    if (this.strip) for (const b of this.strip.children) b.classList.toggle('now', b.dataset.k === this.now);
+  }
+  // bilgi bandı (bağlantı durumu): text, düğmeler [[ad, işlev]]; boş metin gizler
+  setBanner(text, buttons = [], kind = 'info') {
+    const b = this.banner; b.replaceChildren(); b.hidden = !text; b.dataset.kind = kind; if (!text) return;
+    b.append(el('span', null, translateText(text)));
+    for (const [name, fn] of buttons) { const x = el('button', 'pd-link', name); x.type = 'button'; x.onclick = fn; b.append(' ', x); }
+  }
   // bu bölümden oynat: önceki bölümler bu oynatma için kapanır (kurgu değişmez)
   playFrom(k) {
     const c = structuredClone(this.cut), ks = this.chapters.map((q) => q.k), i = ks.indexOf(k);
     ks.forEach((q, j) => { if (j < i) c.ch[q].on = false; }); c.ch[k].on = true;
-    this.close(); this.h.onPlay(normalize(c));
+    if (!this.h.standalone && !this.docked) this.close(); this.h.onPlay(normalize(c));
   }
   // bölümü canlı önizle (kapalı bölüm de önizlenir): masa gizlenir, Esc ya da "Masaya dön" geri getirir
-  preview(k) { this.lastPreview = k; const c = structuredClone(this.cut); c.ch[k].on = true; this.hide(); this.h.onPreview(normalize(c), k); }
+  preview(k) {
+    this.lastPreview = k; const c = structuredClone(this.cut); c.ch[k].on = true;
+    if (this.h.standalone) this.say('Önizleme LS19 penceresinde: Esc ile kapanır.'); else this.hide();
+    this.h.onPreview(normalize(c), k);
+  }
   setTab(k) {
     this.tab = k;
     for (const [n, b] of Object.entries(this.tabBtns)) { const on = n === k; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; b.classList.toggle('on', on); this.panes[n].hidden = !on; }
@@ -175,13 +211,14 @@ export class ProducerDesk {
   // tüm kurguyu değiştir (hazır kurgu, sıfırlama): tek geri alınabilir adım
   replace(cut, msg) { const prev = JSON.stringify(this.cut); this.hist.record(prev, null); this.commit(normalize(cut)); this.say(msg, true); }
   commit(cut) {
-    this.cut = cut; saveCut(this.cut);
+    this.cut = cut; saveCut(this.cut); if (this.h.onChange) this.h.onChange(this.cut);
     if (this.shared) { this.shared = false; this.say('Kurgu bu tarayıcıya kaydedildi.'); }
     this.fill(); this.flashSaved();
   }
   flashSaved() { const s = this.saved; s.classList.remove('in'); void s.offsetWidth; s.classList.add('in'); clearTimeout(this.savedT); this.savedT = setTimeout(() => s.classList.remove('in'), 1600); }
-  undo() { const s = this.hist.undo(JSON.stringify(this.cut)); if (s == null) return; this.cut = normalize(JSON.parse(s)); saveCut(this.cut); this.fill(); this.say('Geri alındı.'); }
-  redo() { const s = this.hist.redo(JSON.stringify(this.cut)); if (s == null) return; this.cut = normalize(JSON.parse(s)); saveCut(this.cut); this.fill(); this.say('Yinelendi.'); }
+  undo() { const s = this.hist.undo(JSON.stringify(this.cut)); if (s == null) return; this.restore(s); this.say('Geri alındı.'); }
+  redo() { const s = this.hist.redo(JSON.stringify(this.cut)); if (s == null) return; this.restore(s); this.say('Yinelendi.'); }
+  restore(s) { this.cut = normalize(JSON.parse(s)); saveCut(this.cut); if (this.h.onChange) this.h.onChange(this.cut); this.fill(); this.flashSaved(); }
   reset() { if (isDefault(this.cut)) { this.say('Zaten yönetmenin kurgusundasın.'); return; } this.replace({}, 'Yönetmenin kurgusuna dönüldü.'); }
   async share() {
     const u = new URL(location.href); u.searchParams.delete('seek'); u.searchParams.set('cine', '1');
@@ -314,6 +351,7 @@ export class ProducerDesk {
       const nm = translateText(info.name); b.title = on ? `${nm} · ≈ ${mmss(sec)}` : `${nm} · ${translateText('kapalı')}`; b.setAttribute('aria-label', b.title);
       if (on) b.append(el('span', null, nm));
       b.classList.toggle('changed', chapterChanged(this.cut, info.k));
+      b.dataset.k = info.k; b.classList.toggle('now', info.k === this.now);
       b.onclick = () => this.focusChapter(info.k);
       this.strip.append(b);
     }
@@ -383,7 +421,7 @@ export class ProducerDesk {
     this.rows[k] = { li, toggle, focus: nb };
     if (this.open_.has(k)) toggle(true);
     const sync = () => {
-      const c = ch(), changed = chapterChanged(this.cut, k); cb.checked = c.on; li.classList.toggle('off', !c.on); cam.value = c.cam;
+      const c = ch(), changed = chapterChanged(this.cut, k); cb.checked = c.on; li.classList.toggle('off', !c.on); li.classList.toggle('now', k === this.now); cam.value = c.cam;
       nm.lastChild.textContent = c.on ? (c.title || info.title || '') : translateText('Fragmanda yok: süresi hızla geçilir');
       chg.hidden = !changed; rs.disabled = !changed;
       camDesc.textContent = `${translateText(CAM_LABEL[c.cam].replace('…', ''))}: ${translateText(CAM_TIP[c.cam])}`;

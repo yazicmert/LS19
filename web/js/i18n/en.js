@@ -2703,7 +2703,21 @@ const dict = {
   "Bölümlere yazdığın notlar sesli okunur": "The notes you write for chapters are read aloud",
   "Motor uğultusu, ayrılma, temas ışığı, tıklar": "Engine rumble, separation, contact light, ticks",
   "değişiklik": "changes",
-  "Ekrandaki bilgiler": "On-screen info"
+  "Ekrandaki bilgiler": "On-screen info",
+  "Tarayıcı açılır pencereyi engelledi: bu site için açılır pencerelere izin ver.": "The browser blocked the pop-up: allow pop-ups for this site.",
+  "Önizlemeyi kapat": "Close preview",
+  "Canlı": "Live",
+  "Değişiklikler oynayan fragmana anında yansır": "Changes show up instantly in the playing trailer",
+  "Ayrı pencerede aç: LS19 öbür pencerede oynarken düzenle, değişiklikler anında yansır": "Open in a separate window: edit while LS19 plays in the other window; changes show up instantly",
+  "Pencereyi kapat": "Close window",
+  "Fragman LS19 penceresinde oynatılıyor.": "The trailer is playing in the LS19 window.",
+  "Baştan oynat": "Play from the start",
+  "Önizleme LS19 penceresinde: Esc ile kapanır.": "The preview is in the LS19 window: Esc closes it.",
+  "LS19 penceresi bulunamadı: düzenlemelerin bu tarayıcıya kaydediliyor; oynatmak ve önizlemek için LS19 açık olmalı.": "No LS19 window found: your edits are saved in this browser; LS19 must be open to play and preview.",
+  "LS19’u aç": "Open LS19",
+  "Bu tarayıcı pencereler arası bağlantıyı desteklemiyor: düzenlemeler kaydedilir, LS19 sekmesini yenileyince geçerli olur.": "This browser doesn't support linking windows: edits are saved and take effect when you reload the LS19 tab.",
+  "LS19 penceresine bağlı: değişiklikler anında yansır.": "Connected to the LS19 window: changes show up instantly.",
+  "LS19 penceresine yeniden bağlandı.": "Reconnected to the LS19 window."
 };
 
 // Çıkarıcının bilerek almadığı ama ekranda görünen metinler: boşluksuz küçük harfli sözcükler (kimliklerle karışmasın diye
@@ -2813,6 +2827,7 @@ export const manual = {
 
 // Kaynakta Türkçe gibi görünen ama çevrilmeyecek metinler (ad, kısaltma, bağlantı): çıkarıcı bulur, sözlüğe girmez.
 export const same = [
+ "yapimci.html",
  "ĞŞİçö",
  "JPL DE440 · IAU/IERS · GRAIL (GRGM)",
  "AIza…",

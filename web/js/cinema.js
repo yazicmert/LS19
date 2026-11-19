@@ -367,6 +367,48 @@ export class Cinema {
     const ch = s.chapter, pos = s.cardPos || this.cut.cardPos; if (pos === 'none') return null;
     return this.ui.card({ kind: 'chapter', idx: s.chIdx, total: this.chTotal, title: ch.title, sub: typeof ch.sub === 'function' ? ch.sub(c) : ch.sub, hold: hold ? hold * this.cut.hold : 0, user: ch.user, userSub: ch.userSub, pos: pos === 'bl' ? '' : pos });
   }
+  // fragman oynarken yapımcının değişikliği (Yapımcı masası, yanaşık ya da ayrı pencere): görünüm, yazı, renk, ses hemen; çekim listesi yeniden kurulur
+  // (bölüm, kamera, uzunluk, metin, geçiş gelecek çekimlere; o anki çekimin kamerası ve kartı da hemen). Fizik ve geçmiş çekimler değişmez.
+  liveCut(cut) {
+    if (!this.on) return;
+    const K = normalize(cut), W = this.h.world;
+    this.cut = K; this.opts.scale = ((this.opts0 && this.opts0.scale) || 1) * K.tempo;
+    if (W.post && W.post.setLook) W.post.setLook(filmLook(K));
+    loadFonts([K.hFont, K.tFont]);
+    this.ui.look(K); this.ui.bug(K.over || translateText('Ay görevi'), K.title || 'LS19');
+    if (this.audio && this.audio.setMix) this.audio.setMix({ mood: K.mood, sfx: K.sfx });
+    if (!this.shots || !this.P0 || this.state === 'ended') return;
+    const P = this.planMap(), fresh = applyCut(buildShots(this.P0, { landing: this.h.landing && this.h.landing(), ascent: !!this.asc }), K);
+    let n = this.asc ? 1 : 0; for (const s of fresh) if (s.chapter) s.chIdx = ++n; this.chTotal = n;
+    const cur = this.shot, started = cur && this.i >= 0;
+    if (started) {
+      const j = fresh.findIndex((s) => s.id === cur.id);
+      if (j >= 0) {                                                                  // çekim kurguda: kamerası, kartı, bayrakları, uzunluğu hemen
+        const f = fresh[j], oldDur = this.durOf(cur);
+        for (const key of ['rig', 'rigs', 'shake', 'lines', 'osc', 'beacon', 'syn', 'tags', 'cardPos', 'chapter', 'card', 'narr', 'userCam', 'chIdx', 'dur']) cur[key] = f[key];
+        if (!f.rigs) delete cur.rigs;
+        cur.durEff = Math.max(cur.dur, Math.max(0, cur.tEnd - cur.tStart) / ((cur.wmax || 20000) * 0.85));
+        const nd = this.durOf(cur); if (oldDur > 0) this.shotT *= nd / oldDur;    // τ korunur: kamera sıçramaz
+        W.cine.lines = !!cur.lines; W.cine.syn = !!cur.syn; W.cine.osc = !!cur.osc; W.cine.beacon = !!cur.beacon; this.qInit = false;
+        fresh[j] = cur; this.shots = fresh; this.i = j;
+      } else {                                                                       // bölümü kapatıldı: bu çekim biter, sonra kurgudaki ilk sonraki çekim (yakalama ile)
+        const nx = fresh.findIndex((s) => tStart0(s, P) >= cur.tStart); const at = nx < 0 ? fresh.length : nx;
+        if (fresh[at]) fresh[at].afterCut = true;
+        fresh.splice(at, 0, cur); this.shots = fresh; this.i = at;
+      }
+    } else { this.shots = fresh; }
+    this.ui.ticks(this.tickMarks()); if (started) this.ui.progress(this.progressAt(this.i, clamp(this.shotT / Math.max(0.1, this.durOf(cur)), 0, 1)));
+    if (this.state === 'preview' && started) this.previewCards(cur);                // önizleme: kart ve alt yazı yeni ayarlarla
+  }
+  // önizlemede kartlar ve anlatıcı notu
+  previewCards(s) {
+    const x = this.h.latest(), ui = this.ui; ui.cards.textContent = '';
+    if (s.chapter) this.chapterCard(s, this.ctxText(x), 0);
+    if (s.card && s.cardPos !== 'none') ui.card({ kind: s.card.kind, title: s.card.title, sub: s.card.sub, hold: 0, user: s.card.user, userSub: s.card.userSub });
+    if (s.closing) this.closingCard(x);
+    if (s.narr) ui.cue(s.narr, 600000, true); else ui.cue('', 0);
+    ui.tags(s.tags && this.cut.tags ? this.tagsFor(x) : []);
+  }
   // anlatıcı notu (yapımcının yazdığı): olay alt yazısı yerinde okunacak kadar kalır; isteğe bağlı konuşma sentezi (görev kontrol hattı tonları olmadan)
   narrate(text, key) {
     if (!text || !this.on) return;
@@ -415,13 +457,15 @@ export class Cinema {
     if (ui) { ui.leave(); ui.previewBar(null); }
     W.setCinematic(false);
     this.h.onStop && this.h.onStop();
-    if (this.opts.fromDesk && this.h.openDesk) setTimeout(() => this.h.openDesk({ back: true }), 0);   // önizleme Yapımcı masasından açıldıysa masaya dön
+    if (this.h.onShot) this.h.onShot({ on: false, grp: null, preview: false });
+    if (this.opts.fromDesk === true && this.h.openDesk) setTimeout(() => this.h.openDesk({ back: true }), 0);   // ayrı pencereden ('pop') açılan önizleme masayı burada açmaz   // önizleme Yapımcı masasından açıldıysa masaya dön
   }
 
   // kalite rozeti (4K: iç çözünürlük 3840 × 2160; HD: ekran çözünürlüğü); kademe düşünce kısa bilgi kartı
   onLevel(l) { if (!this.cu) return; this.cu.quality(l === 'ultra' ? '4K' : 'HD'); if (l !== 'ultra') this.cu.cue(translateText(l === 'high' ? 'Yüksek: 4K yerine ekran çözünürlüğü' : l === 'medium' ? 'Orta: çizgi parlama ve MSAA kapalı' : 'Düşük: son işlem kapalı'), 2600); }   // küçük alt yazı: başlık ve bölüm kartlarının yerini almaz
 
   key(e) {
+    if (e.target && e.target.closest && e.target.closest('#cineDesk')) return;      // yanaşık Yapımcı masası: tuşlar masanın (yazı, Esc)
     const k = e.key.toLowerCase();
     if (k === 'escape') { e.preventDefault(); e.stopPropagation(); this.stop(); return; }
     if (this.state === 'preview') { if (!(e.target && e.target.closest && e.target.closest('.cine-pv'))) e.stopPropagation(); return; }     // önizleme: yalnız Esc ve önizleme çubuğu
@@ -452,6 +496,7 @@ export class Cinema {
     W.cam.auto = false; W.cam.mode = 'CINE'; W.cine.rig = (xx, info, ww) => this.pose(xx, info, ww);
     W.cine.lines = !!s.lines; W.cine.syn = !!s.syn; W.cine.osc = !!s.osc; W.cine.beacon = !!s.beacon;
     const ui = this.ui; ui.root.classList.toggle('nostrip', !!s.noStrip);
+    if (this.h.onShot) this.h.onShot({ on: true, grp: s.grp || null, preview: this.state === 'preview' || !!this.opts.preview });
     ui.progress(this.progressAt(i, tau0));
   }
   startShot(i) {
@@ -492,12 +537,7 @@ export class Cinema {
     this.h.play(false); this.paused = true; this.state = 'preview';
     this.beginShot(i, tau); ui.slate(null); ui.fade(0, this.opts.fromDesk ? 300 : 0);
     if (s.flashIn && !this.reduced) ui.flash();
-    const x = this.h.latest(); ui.cards.textContent = '';
-    if (s.chapter) this.chapterCard(s, this.ctxText(x), 0);
-    if (s.card && s.cardPos !== 'none') ui.card({ kind: s.card.kind, title: s.card.title, sub: s.card.sub, hold: 0, user: s.card.user, userSub: s.card.userSub });
-    if (s.closing) this.closingCard(x);
-    if (s.narr) ui.cue(s.narr, 600000, true);
-    ui.tags(s.tags && this.cut.tags ? this.tagsFor(x) : []);
+    const x = this.h.latest(); this.previewCards(s);
     this.lastStrip = 0; this.strip(x); ui.progress(this.progressAt(i, tau));
     // önizleme çubuğu: çekim içinde konum (kamera hareketi; benzetim o anda durur), bölümün öteki çekimleri, masaya dön
     if (this.opts.fromDesk) {
@@ -505,7 +545,7 @@ export class Cinema {
       ui.previewBar({ name, tau, shots: sib.length, cur: sib.findIndex((o) => o.k === i),
         onTau: (v) => { this.shotT = v * this.durOf(s); ui.progress(this.progressAt(i, v)); },
         onShot: (n) => { const o = sib[n]; if (o && o.k !== i) this.preview(o.q.id, 0.5); },
-        onBack: () => this.stop() });
+        onBack: () => this.stop(), back: this.opts.fromDesk === true ? 'Masaya dön' : 'Önizlemeyi kapat' });
     }
     return true;
   }

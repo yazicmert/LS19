@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Yapımcı masası, ayrı pencere: LS19 sekmesiyle BroadcastChannel üzerinden konuşur (js/yapimci.js, js/producersync.js). Ağır sahne, efemeris ve fizik burada yüklenmez. -->
+<title>LS19 · Yapımcı masası</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#05070b">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script>
+(function () {
+  var L = ['tr', 'en'], l = null;
+  try { var q = new URLSearchParams(location.search).get('lang'); if (L.indexOf(q) >= 0) l = q; } catch (e) { /* yok */ }
+  if (!l) try { var s = localStorage.getItem('ls19.lang'); if (L.indexOf(s) >= 0) l = s; } catch (e) { /* yok */ }
+  if (!l) { var n = (navigator.languages && navigator.languages[0]) || navigator.language || 'tr'; l = /^tr\b/i.test(n) ? 'tr' : 'en'; }
+  window.LS19_LANG = l; document.documentElement.lang = l;
+  if (l === 'en') { document.title = 'LS19 · Producer’s desk'; document.documentElement.classList.add('i18n-wait'); setTimeout(function () { document.documentElement.classList.remove('i18n-wait'); }, 6000); }
+})();
+</script>
+<style>html.i18n-wait body { visibility: hidden; } body { background: #07080d; }</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/producer.css">
+<link rel="modulepreload" href="js/yapimci.js">
+<link rel="modulepreload" href="js/producerui.js">
+<link rel="modulepreload" href="js/producer.js">
+<link rel="modulepreload" href="js/producersync.js">
+<link rel="modulepreload" href="js/i18n.js">
+<link rel="modulepreload" href="js/icons.js">
+</head>
+<body class="pd-window">
+<noscript>Yapımcı masası JavaScript gerektirir.</noscript>
+<script type="module" src="js/yapimci.js"></script>
+</body>
+</html>

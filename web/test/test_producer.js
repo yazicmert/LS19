@@ -167,9 +167,9 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     ['--cine-hf', '--cine-tf', '--cine-k', '--cine-tk', '--cine-hw', '--cine-ls', '--cine-tt', '--cine-shade', '--cine-ink-2'].every((v) => ui.includes(`'${v}'`)) && /r\.dataset\.cue = /.test(ui) && /r\.dataset\.bug = /.test(ui) && /pos-' \+ c\.pos/.test(ui) && /previewBar\(o\)/.test(ui));
   check('cinema.js: geniş kamera düzeneği (cisme yakın / sistem), kart konumu ve "kart yok", kart süresi ölçeği, parlama geçişi, yazı tipi yükleme, önizleme masadan (Esc masaya döner, benzetim eski anına sarılır), atlanan sürenin olayları süzülür',
     /RIG\.wideBody = /.test(cin) && /mode: 'SYSTEM'/.test(cin) && /if \(pos === 'none'\) return null;/.test(cin) && /hold \* this\.cut\.hold/.test(cin) && /s\.flashIn && !this\.reduced/.test(cin) && /await loadFonts\(/.test(cin)
-    && /this\.opts\.fromDesk && this\.h\.openDesk/.test(cin) && /this\.opts\.preview && this\.saved\.t != null/.test(cin) && /e\.t < this\.evFloor/.test(cin));
+    && /this\.opts\.fromDesk === true && this\.h\.openDesk/.test(cin) && /this\.opts\.preview && this\.saved\.t != null/.test(cin) && /e\.t < this\.evFloor/.test(cin));
   check('producerui.js ve app.js: bölüm önizlemesi, özel kamera paneli ve kroki, kart konum seçicisi, sahne maketi; masa önizlemeden olduğu gibi döner',
-    /preview\(k\)/.test(desk) && /cameraPanel\(/.test(desk) && /spotPicker\(/.test(desk) && /pd-frame/.test(desk) && /onPreview: \(cut, k\) =>/.test(app) && /if \(o\.back\) desk\.reopen\(\)/.test(app));
+    /preview\(k\)/.test(desk) && /cameraPanel\(/.test(desk) && /spotPicker\(/.test(desk) && /pd-frame/.test(desk) && /onPreview: \(cut, k\) =>/.test(app) && /if \(o\.back\) \{ desk\.reopen\(\); return; \}/.test(app));
 }
 // ---------------------------------------------------------------- 8) kullanım kolaylığı: geri al / yinele, değişiklik sayımı
 {
@@ -190,6 +190,36 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   check('masa: hızlı başlangıç (bir kez, ? ile yeniden), geri al/yinele düğmeleri ve Ctrl+Z/Ctrl+Y (yazı alanında tarayıcınınki), aç/kapa anahtarı ayrı (bölüm adı ayrıntıyı açar), zaman şeridi, bu bölümden oynat, bölümü sıfırla, kaydedildi göstergesi, sürgüde varsayılana dönüş',
     /INTRO_KEY = 'ls19\.deskIntro'/.test(desk) && /this\.undo\(\)/.test(desk) && /this\.redo\(\)/.test(desk) && /k === 'z' && !e\.shiftKey/.test(desk) && /role', 'switch'/.test(desk) && /nb\.onclick = \(\) => toggle\(det\.hidden\)/.test(desk)
     && /buildStrip\(\)/.test(desk) && /playFrom\(k\)/.test(desk) && /DEFAULT_CH/.test(desk) && /flashSaved\(\)/.test(desk) && /ondblclick/.test(desk) && /estimate\(cut, parts = false\)/.test(cin) && /Esc: vazgeç/.test(cin));
+}
+// ---------------------------------------------------------------- 9) ayrı pencere eşitlemesi (producersync.js; Node'un BroadcastChannel'ı ile gerçek ileti alışverişi)
+{
+  const S = await import('../js/producersync.js');
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const got = { cut: [], play: [], preview: [], stop: 0 }, popGot = { info: [], cut: [], est: 0, state: [] };
+  const main = new S.MainLink({ chapters: () => [{ k: 'tli', name: 'TLI', title: 'T', sub: '', live: false }], cut: () => P.normalize({ title: 'ANA' }), estimate: (c) => ({ total: c.tempo * 100, parts: { tli: 50 } }),
+    onCut: (c) => got.cut.push(c), onPlay: (c) => got.play.push(c), onPreview: (c, k) => got.preview.push(k), onStop: () => got.stop++ });
+  const other = new S.MainLink({ chapters: () => [], cut: () => P.normalize({ title: 'BAŞKA' }), estimate: () => null, onCut: () => got.cut.push('YANLIŞ'), onPlay: () => {}, onPreview: () => {}, onStop: () => {} });
+  const pop = new S.PopLink(main.id, { onInfo: (i) => popGot.info.push(i), onCut: (c) => popGot.cut.push(c), onEst: () => popGot.est++, onState: (st) => popGot.state.push(st), onLost: () => { popGot.lost = true; }, onBack: () => {} });
+  await wait(80);
+  check('ayrı pencere: selama yalnız bağlandığı LS19 sekmesi yanıt verir (bölümler ve kurgu gelir)', popGot.info.length === 1 && popGot.info[0].cut.title === 'ANA' && pop.chapters[0].k === 'tli' && main.connected);
+  pop.send('cut', { cut: { title: 'YENİ', hFont: 'cinzel', zararlı: '<script>' } }); pop.send('play', { cut: { tempo: 0.5 } }); pop.send('preview', { cut: {}, k: 'llo' }); pop.send('stop');
+  pop.send('preview', { cut: {}, k: 5 });
+  await wait(80);
+  check('ayrı pencere → LS19: kurgu (süzülmüş), oynat, önizle, durdur; başka LS19 sekmesi etkilenmez; geçersiz önizleme yok sayılır',
+    got.cut.length === 1 && got.cut[0].title === 'YENİ' && got.cut[0].hFont === 'cinzel' && !('zararlı' in got.cut[0]) && got.play[0].tempo === 0.5 && got.preview.join() === 'llo' && got.stop === 1);
+  const c1 = P.normalize({ tempo: 1.5 }); pop.estimate(c1, true); pop.estimate(c1, true); await wait(80);
+  check('tahmini süre: istek LS19\'da hesaplanır, aynı kurgu için bir kez istenir, yanıt masaya döner', popGot.est === 1 && pop.estimate(c1, true).total === 150 && pop.estimate(c1, false) === 150);
+  main.sendCut(P.normalize({ title: 'SAYFA İÇİ' })); main.setState({ on: true, grp: 'pdi' }); await wait(80);
+  check('LS19 → ayrı pencere: sayfa içi masanın düzenlemesi ve oynayan bölüm', popGot.cut.length === 1 && popGot.cut[0].title === 'SAYFA İÇİ' && popGot.state.at(-1).grp === 'pdi' && popGot.state.at(-1).on === true);
+  main.close(); other.close(); pop.last = Date.now() - 6000; pop.tick(); pop.close();
+  check('bağlantı kopması: 5,5 s yanıt yoksa ayrı pencere bilir', popGot.lost === true);
+  const cin = rd('../js/cinema.js'), app = rd('../js/app.js'), css = rd('../css/producer.css'), html = rd('../yapimci.html'), pj = rd('../js/yapimci.js'), desk = rd('../js/producerui.js');
+  check('canlı uygulama: cinema.liveCut görünümü, yazıyı, rengi, sesi hemen; çekim listesini yeniden kurar (o anki çekimin kamerası ve kartı hemen, τ korunur; kapatılan bölümün çekimi biter, sonraki yakalanır)',
+    /liveCut\(cut\) \{/.test(cin) && /this\.ui\.look\(K\)/.test(cin) && /setLook\(filmLook\(K\)\)/.test(cin) && /setMix\(\{ mood: K\.mood, sfx: K\.sfx \}\)/.test(cin) && /this\.shotT \*= nd \/ oldDur/.test(cin) && /fresh\[at\]\.afterCut = true/.test(cin) && /e\.target\.closest\('#cineDesk'\)/.test(cin));
+  check('yanaşık masa: fragman oynarken geniş ekranda sağa yanaşır (sahne daralır, kip modal değil), dar ekranda fragman durur; değişiklik canlı uygulanır ve ayrı pencereye gider',
+    /dockable = \(\) => matchMedia\('\(min-width: 1100px\) and \(hover: hover\)'\)/.test(app) && /dock: live/.test(app) && /cinema\.liveCut\(cut\)/.test(app) && /link\.sendCut\(cut\)/.test(app) && /body\.pd-docked #app \{ right: var\(--pd-dock\); \}/.test(css) && /aria-modal', String\(!on/.test(desk));
+  check('ayrı pencere sayfası: yapimci.html yalnız masayı yükler (sahne yok), LS19 yoksa masa yine açılır ve bant söyler; açılır pencere engellenirse masa söyler',
+    /js\/yapimci\.js/.test(html) && !/js\/app\.js/.test(html) && /new PopLink\(mainId/.test(pj) && /lostBanner\(\)/.test(pj) && /window\.open\(u\.href, 'ls19-yapimci'/.test(app) && /açılır pencereyi engelledi/.test(app));
 }
 console.log(fail ? `\n${fail} HATA` : '\nTAMAM');
 process.exit(fail ? 1 : 0);

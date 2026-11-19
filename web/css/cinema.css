@@ -73,6 +73,7 @@ body.cine-on #view { cursor: none; }
 .cine.nostrip .cine-strip { opacity: 0; transition-delay: 0s; }
 .cs-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .cs-phase { flex: 1; }
+.cs-phase .cs-v { overflow: hidden; text-overflow: ellipsis; }                      /* uzun aşama adı (dar sahne: yanaşık masa) komşu değerin üstüne binmez */
 .cs-warp { margin-left: auto; text-align: right; }
 .cs-k { font: 500 10px var(--cine-tf, var(--mono)); letter-spacing: 0.24em; text-transform: uppercase; color: var(--cine-ink-2); text-shadow: 0 1px 10px rgba(0, 0, 0, 0.85); }
 .cs-v { font: 500 clamp(13px, 1.5vw, 20px) var(--cine-tf, var(--mono)); letter-spacing: 0.06em; font-variant-numeric: tabular-nums; white-space: nowrap; text-shadow: 0 1px 14px rgba(0, 0, 0, 0.85); }

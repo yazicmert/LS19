@@ -117,6 +117,16 @@ export class CineAudio {
     if (this.ctx) { this.master.gain.setTargetAtTime(on ? 0 : 0.8, this.ctx.currentTime, 0.15); if (!on && this.ctx.state === 'suspended') this.ctx.resume(); }
     if (on) { try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) { /* yok */ } }
   }
+  // yapımcının canlı değişikliği (Yapımcı masası, fragman oynarken): müzik ruhu ve efekt kanalı
+  setMix({ mood = this.mood, sfx = this.sfx } = {}) {
+    const c = this.ctx; this.sfx = sfx !== false;
+    if (c) this.fx.gain.setTargetAtTime(this.sfx ? 1 : 0, c.currentTime, 0.15);
+    if (mood === this.mood) return;
+    const was = this.mood; this.mood = mood; if (!c) return;
+    if (mood === 'off') { this.music.gain.setTargetAtTime(0, c.currentTime, 0.6); clearInterval(this.bellTimer); this.bellTimer = 0; return; }
+    if (was === 'off') { this.music.gain.setTargetAtTime(0.3, c.currentTime, 1.2); if (!this.bellTimer) this.bellTimer = setInterval(() => this.bell(), 2300); }
+    const k = Math.max(0, this.chord); this.chord = -1; this.chapter(k);              // akor yeni ruhla
+  }
   // her denetim adımı: gaz, zaman hızı, atmosfer (kalkış)
   update(thr, warp, air) {
     const c = this.ctx; if (!c) return;

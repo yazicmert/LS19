@@ -115,6 +115,7 @@ export class CineUI {
     const box = this.f.pvShots; box.replaceChildren();
     if (o.shots > 1) for (let n = 0; n < o.shots; n++) { const btn = el('button', n === o.cur ? 'on' : '', String(n + 1)); btn.type = 'button'; btn.setAttribute('aria-pressed', String(n === o.cur)); btn.title = `Çekim ${n + 1}`; btn.onclick = () => o.onShot(n); box.appendChild(btn); }
     this.f.pvBack.onclick = () => o.onBack();
+    if (o.back) this.f.pvBack.lastChild.textContent = o.back;
     requestAnimationFrame(() => this.f.pvBack.focus());
   }
   // sahne atlama levhası (yapımcı bir bölümü çıkardı: aradaki görev süresi kararma altında hızla geçilir): üst satır başlık, alt satır görev süresi; null: kapanır
@@ -157,6 +158,7 @@ export class CineUI {
   // user: yapımcının anlatıcı notu (sayfa çevirmeni dokunmaz)
   cue(text, ms = 3200, user = false) {
     const c = this.f.cue; if (!c) return;
+    if (!text) { clearTimeout(this.cueT); c.classList.remove('in'); return; }
     if (user) c.setAttribute('translate', 'no'); else c.removeAttribute('translate');
     c.textContent = text; c.classList.remove('in'); void c.offsetWidth; c.classList.add('in');
     clearTimeout(this.cueT); this.cueT = setTimeout(() => c.classList.remove('in'), ms);
