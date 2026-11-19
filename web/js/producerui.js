@@ -122,7 +122,7 @@ export class ProducerDesk {
       const typing = e.target && (e.target.tagName === 'TEXTAREA' || (e.target.tagName === 'INPUT' && e.target.type === 'text'));
       if ((e.ctrlKey || e.metaKey) && !e.altKey && !typing) {
         const k = e.key.toLowerCase();
-        if (k === 'z' && !e.shiftKey) { e.preventDefault(); this.undo(); } else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); this.redo(); }
+        if (k === 'z' && !e.shiftKey) { e.preventDefault(); this.undo(true); } else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); this.redo(true); }
       }
       if (e.key === 'Tab' && !this.docked && !host.standalone) { const f = [...root.querySelectorAll('button, input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter((n) => !n.disabled && n.offsetParent !== null); if (f.length) { const a = f[0], z = f[f.length - 1]; if (e.shiftKey && document.activeElement === a) { e.preventDefault(); z.focus(); } else if (!e.shiftKey && document.activeElement === z) { e.preventDefault(); a.focus(); } } }
       e.stopPropagation();
@@ -134,7 +134,9 @@ export class ProducerDesk {
   // ---------------------------------------------------------------- açma / kapama
   // cut: başlangıç kurgusu; shared: paylaşılan bağlantıdan geldi (ilk değişikliğe dek saklanmaz)
   // dock: fragman oynarken sağa yanaşık açılır (sahne solda oynar, değişiklikler canlı)
-  open(cut, { shared = false, dock = false } = {}) {
+  // instant: klavye kısayoluyla açıldı (Y) — kısayol anında açar, giriş animasyonu yok
+  open(cut, { shared = false, dock = false, instant = false } = {}) {
+    this.root.classList.toggle('instant', !!instant);
     this.cut = normalize(cut); this.shared = shared; this.back = document.activeElement; this.hist.clear(); this.setDock(dock);
     this.chapters = this.h.cinema.chapterInfo();
     loadFonts([this.cut.hFont, this.cut.tFont]).then(() => this.isOpen && this.fill());
@@ -196,12 +198,13 @@ export class ProducerDesk {
     for (const [n, b] of Object.entries(this.tabBtns)) { const on = n === k; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; b.classList.toggle('on', on); this.panes[n].hidden = !on; }
   }
   // durum satırı; undo: yanında "Geri al" düğmesi
-  say(text, undo = false) {
+  say(text, undo = false, instant = false) {
     this.status.replaceChildren(); clearTimeout(this.toastT);
-    if (!text) { this.toast.classList.remove('in'); return; }
+    if (!text) { this.toast.classList.remove('in', 'instant'); return; }
+    this.toast.classList.toggle('instant', instant);
     this.status.append(document.createTextNode(translateText(text)));
     if (undo && this.hist.canUndo) { const b = el('button', 'pd-link', 'Geri al'); b.type = 'button'; b.onclick = () => this.undo(); this.status.append(' ', b); }
-    this.toast.classList.add('in'); this.toastT = setTimeout(() => this.toast.classList.remove('in'), undo ? 7000 : 4500);
+    this.toast.classList.add('in'); this.toastT = setTimeout(() => this.toast.classList.remove('in', 'instant'), undo ? 7000 : 4500);   // çıkış her zaman yumuşak sönme
   }
   setIntro(on) {
     this.introOn = on; try { localStorage.setItem(INTRO_KEY, on ? '0' : '1'); } catch (e) { /* özel pencere */ }
@@ -223,8 +226,9 @@ export class ProducerDesk {
     this.fill(); this.flashSaved();
   }
   flashSaved() { const s = this.saved; s.classList.remove('in'); void s.offsetWidth; s.classList.add('in'); clearTimeout(this.savedT); this.savedT = setTimeout(() => s.classList.remove('in'), 1600); }
-  undo() { const s = this.hist.undo(JSON.stringify(this.cut)); if (s == null) return; this.restore(s); this.say('Geri alındı.'); }
-  redo() { const s = this.hist.redo(JSON.stringify(this.cut)); if (s == null) return; this.restore(s); this.say('Yinelendi.'); }
+  // key: Ctrl+Z / Ctrl+Y — sık tekrarlanan klavye işlemi: bildirim kaymadan, anında görünür
+  undo(key = false) { const s = this.hist.undo(JSON.stringify(this.cut)); if (s == null) return; this.restore(s); this.say('Geri alındı.', false, key); }
+  redo(key = false) { const s = this.hist.redo(JSON.stringify(this.cut)); if (s == null) return; this.restore(s); this.say('Yinelendi.', false, key); }
   restore(s) { this.cut = normalize(JSON.parse(s)); saveCut(this.cut); if (this.h.onChange) this.h.onChange(this.cut); this.fill(); this.flashSaved(); }
   reset() { if (isDefault(this.cut)) { this.say('Zaten yönetmenin kurgusundasın.'); return; } this.replace({}, 'Yönetmenin kurgusuna dönüldü.'); }
   async share() {

@@ -625,7 +625,7 @@ button.xs { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .toast.out { transform: none; }
-  .step.open .sb { animation: rd-fade .18s ease both; }
+  .step.open .sb { transition-property: opacity; }
   .ays .tab.new .sn { animation: none; }
   #skyPanel.open, #labPanel.open { transition: none; }
   .tm-pop:not([hidden]) { animation-name: rd-fade; }
@@ -779,8 +779,9 @@ body.launch-cine :is(.tilestatus, .tilemode) { display: none; }          /* kalk
 .step.locked .st, .step.locked .ss { opacity: .55; }
 .step.open .ss { color: var(--text-secondary); }
 .sb { display: none; padding: 2px 12px 12px; }
-.step.open .sb { display: block; animation: stepIn .18s var(--ease) both; }
-@keyframes stepIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+/* açılış transition + @starting-style: hızlı aç-kapada kaldığı yerden sürer (keyframe baştan başlardı) */
+.step.open .sb { display: block; opacity: 1; transform: none; transition: opacity .18s var(--ease-out), transform .18s var(--ease-out); }
+@starting-style { .step.open .sb { opacity: 0; transform: translateY(-4px); } }
 .stepsub { margin: 2px 0 6px; font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); }
 .dfhist { margin-top: 12px; }
 .tbl td.bad { color: var(--bad); font-weight: 650; }

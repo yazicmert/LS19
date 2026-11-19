@@ -118,8 +118,8 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const cin = rd('../js/cinema.js'), app = rd('../js/app.js'), html = rd('../index.html'), css = rd('../css/cinema.css');
   check('cinema.js: kurgu uygulanır (applyCut), afterCut durum güdümlü çekimi de yakalar, ileri besleme süre ölçeğini bir kez sayar, sesler kurguya bağlı',
     /applyCut\(buildShots\(/.test(cin) && /\(s\.afterCut && gap > 60\)/.test(cin) && /ff = dT \/ dur;/.test(cin) && !/1 \/ this\.opts\.scale/.test(cin) && /new CineAudio\(\{ mood: this\.cut\.mood, sfx: this\.cut\.sfx \}\)/.test(cin) && /this\.cut\.ch\.asc\.on/.test(cin) && /\|\| !this\.cut\.cues\) return;/.test(cin));
-  check('app.js: masa (ProducerDesk), film düğmesi masayı açar, C doğrudan oynatır, Y masa, paylaşılan kurgu #kurgu= ile (decodeCut)',
-    /new ProducerDesk\(/.test(app) && /\$\('#btnCine'\)\.onclick = \(\) => \{ if \(cinema\.on\) cinema\.stop\(\); else openDesk\(\); \}/.test(app) && /k === 'c'\) \{ pushLayer\('cine'\); playCine\(\); \}/.test(app) && /k === 'y'\) openDesk\(\)/.test(app) && /location\.hash\.slice\(1\)\)\.get\('kurgu'\)/.test(app) && /decodeCut\(hk\)/.test(app));
+  check('app.js: masa (ProducerDesk), film düğmesi masayı açar, C doğrudan oynatır, Y masa (klavyeyle: animasyonsuz), paylaşılan kurgu #kurgu= ile (decodeCut)',
+    /new ProducerDesk\(/.test(app) && /\$\('#btnCine'\)\.onclick = \(\) => \{ if \(cinema\.on\) cinema\.stop\(\); else openDesk\(\); \}/.test(app) && /k === 'c'\) \{ pushLayer\('cine'\); playCine\(\); \}/.test(app) && /k === 'y'\) openDesk\(\{ key: true \}\)/.test(app) && /location\.hash\.slice\(1\)\)\.get\('kurgu'\)/.test(app) && /decodeCut\(hk\)/.test(app));
   check('index.html: producer.css bağlı; cinema.css: kadraj seçenekleri (1,85:1, tam ekran), grafik gizleme, sahne atlama levhası',
     /css\/producer\.css/.test(html) && /\.cine\[data-ar="185"\]/.test(css) && /\.cine\[data-ar="full"\] > \* \{ --bar: 0px; \}/.test(css) && /\.cine\.hide-strip \.cine-strip/.test(css) && /\.cine-slate \{/.test(css) && !/rgba\(255, 179, 92/.test(css));
 }
@@ -218,6 +218,10 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     /liveCut\(cut\) \{/.test(cin) && /this\.ui\.look\(K\)/.test(cin) && /setLook\(filmLook\(K\)\)/.test(cin) && /setMix\(\{ mood: K\.mood, sfx: K\.sfx \}\)/.test(cin) && /this\.shotT \*= nd \/ oldDur/.test(cin) && /fresh\[at\]\.afterCut = true/.test(cin) && /e\.target\.closest\('#cineDesk'\)/.test(cin));
   check('yanaşık masa: fragman oynarken geniş ekranda sağa yanaşır (sahne daralır, kip modal değil), dar ekranda fragman durur; değişiklik canlı uygulanır ve ayrı pencereye gider',
     /dockable = \(\) => matchMedia\('\(min-width: 1100px\) and \(hover: hover\)'\)/.test(app) && /dock: live/.test(app) && /cinema\.liveCut\(cut\)/.test(app) && /link\.sendCut\(cut\)/.test(app) && /body\.pd-docked #app \{ right: var\(--pd-dock\); \}/.test(css) && /aria-modal', String\(!on/.test(desk));
+  check('klavye kısayolları animasyonsuz: Y ile açılan masa (instant) ve Ctrl+Z/Y bildirimi kaymaz; tıklamayla açılışta giriş kalır',
+    /\.pdesk\.instant \.pd-box, \.pdesk\.instant\.docked \.pd-box \{ animation: none; \}/.test(css) && /\.pd-toast\.instant \{ transition: none; \}/.test(css)
+    && /this\.root\.classList\.toggle\('instant', !!instant\)/.test(desk) && /this\.undo\(true\)/.test(desk) && /this\.say\('Geri alındı\.', false, key\)/.test(desk)
+    && /instant: !!o\.key/.test(app) && /\.xp-bar i \{[^}]*transition: transform \.25s linear/.test(css));
   check('ayrı pencere sayfası: yapimci.html yalnız masayı yükler (sahne yok), LS19 yoksa masa yine açılır ve bant söyler; açılır pencere engellenirse masa söyler',
     /js\/yapimci\.js/.test(html) && !/js\/app\.js/.test(html) && /new PopLink\(mainId/.test(pj) && /lostBanner\(\)/.test(pj) && /window\.open\(u\.href, 'ls19-yapimci'/.test(app) && /açılır pencereyi engelledi/.test(app));
 }

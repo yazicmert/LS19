@@ -137,5 +137,6 @@ check(/label: 'Laboratuvarda dene'/.test(app), 'asteroit kartı: "Laboratuvarda 
 const iconNames = new Set([...icons.matchAll(/^\s{2}(\w+): '/gm)].map((m) => m[1]));
 const used = [...new Set([...html.matchAll(/data-icon="(\w+)"/g)].map((m) => m[1]))];
 check(used.every((u) => iconNames.has(u)), `index.html'deki tüm simgeler tanımlı (${used.length}); yeni: flask, shield`);
-check(/prefers-reduced-motion/.test(css) && /@keyframes stepIn/.test(css), 'adım geçişi animasyonu, azaltılmış hareket kuralıyla kapanır');
+check(/prefers-reduced-motion/.test(css) && /@starting-style \{ \.step\.open \.sb \{ opacity: 0; transform: translateY\(-4px\)/.test(css) && /\.step\.open \.sb \{ transition-property: opacity; \}/.test(css),
+  'adım geçişi: transition + @starting-style (kesintisiz); azaltılmış harekette yalnız solma');
 console.log(ok ? 'TAMAM' : 'HATA'); process.exit(ok ? 0 : 1);

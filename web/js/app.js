@@ -116,7 +116,7 @@ function openDesk(o = {}) {
   if (desk.isOpen && desk.docked) { desk.close(); return; }                       // Y: yanaşık masayı kapat/aç
   const live = cinema.on && cinema.state !== 'preview' && dockable();
   if (cinema.on && !live) cinema.stop();
-  desk.open(sharedCut || loadCut(), { shared: !!sharedCut, dock: live });
+  desk.open(sharedCut || loadCut(), { shared: !!sharedCut, dock: live, instant: !!o.key });
 }
 // Ayrı pencerede editör (yapimci.html): bu sekmeyle BroadcastChannel üzerinden konuşur (producersync.js)
 const link = new MainLink({ chapters: () => cinema.chapterInfo(), cut: () => sharedCut || loadCut(), estimate: (cut) => cinema.estimate(cut, true),
@@ -786,7 +786,7 @@ window.addEventListener('keydown', (e) => {
   else if (k === 'p') send({ cmd: 'perturb', dv: 2.0 });
   else if (k === 'k') { setWorkspace('lab', true, 'ay'); ui.setTab('kontrol'); $('#labPanel').classList.add('open'); }
   else if (k === 'c') { pushLayer('cine'); playCine(); }
-  else if (k === 'y') openDesk();
+  else if (k === 'y') openDesk({ key: true });
   else if (/^[1-8]$/.test(k)) setCam(['AUTO', 'VEHICLE', 'EARTH', 'MOON', 'SYSTEM', 'SITE', 'EMB', 'SOLAR'][+k - 1]);
   else if (!autoPilot) {
     const modes = { w: 'PRO', s: 'RETRO', a: 'NML', d: 'ANML', q: 'RADOUT', e: 'RADIN', r: 'SRFRETRO', h: 'HOLD' };
@@ -838,21 +838,32 @@ for (const id of ['#hud', '#skyHud']) {
 // paneller alttan açılan sayfa: tutamaçla sürükle (yukarı tam ekran, aşağı kapanır), tutamağa dokunmak yarım ↔ tam
 function sheetGrip(panel) {
   const g = document.createElement('div'); g.className = 'sheet-grip'; g.setAttribute('aria-hidden', 'true'); panel.prepend(g);
-  let y0 = 0, h0 = 0, moved = false;
-  g.addEventListener('pointerdown', (e) => { kbd = null; g.setPointerCapture(e.pointerId);          // kullanıcı yüksekliği kendisi seçiyor: klavye dönüşü iptal
-    y0 = e.clientY; h0 = panel.getBoundingClientRect().height; moved = false; document.body.classList.add('sheet-drag'); });
+  // Sürükleme: yükseklik doğrudan öğeye yazılır (kalıtılan --sheet-h her harekette tüm alt öğelerin stilini yeniden hesaplatırdı),
+  // kare başına bir kez (rAF). Bırakınca hız da sayılır: hızlı bir fiske (> 0,11 px/ms) mesafeden bağımsız bir sonraki duruşa götürür.
+  let y0 = 0, h0 = 0, moved = false, raf = 0, nextH = 0, samples = [];
+  const paint = () => { raf = 0; panel.style.height = nextH + 'px'; };
+  g.addEventListener('pointerdown', (e) => { if (document.body.classList.contains('sheet-drag')) return;    // ikinci parmak sürüklemeyi devralmaz
+    kbd = null; g.setPointerCapture(e.pointerId);          // kullanıcı yüksekliği kendisi seçiyor: klavye dönüşü iptal
+    y0 = e.clientY; h0 = panel.getBoundingClientRect().height; moved = false; samples = [{ y: e.clientY, t: e.timeStamp }]; document.body.classList.add('sheet-drag'); });
   g.addEventListener('pointermove', (e) => {
     if (!document.body.classList.contains('sheet-drag')) return;
     if (Math.abs(e.clientY - y0) > 6) moved = true;
-    panel.style.setProperty('--sheet-h', Math.max(60, h0 + (y0 - e.clientY)) + 'px');
+    samples.push({ y: e.clientY, t: e.timeStamp }); if (samples.length > 5) samples.shift();
+    nextH = Math.max(60, h0 + (y0 - e.clientY)); if (!raf) raf = requestAnimationFrame(paint);
   });
-  const end = () => {
+  const end = (e) => {
     if (!document.body.classList.contains('sheet-drag')) return;
-    document.body.classList.remove('sheet-drag');
+    if (raf) { cancelAnimationFrame(raf); paint(); }
     const h = panel.getBoundingClientRect().height, vh = innerHeight, full = parseFloat(getComputedStyle(panel).maxHeight) || vh, half = 0.52 * vh;
+    const a = samples[0], b = samples[samples.length - 1];
+    const v = b && a && b.t > a.t && !(e && e.timeStamp - b.t > 100) ? (b.y - a.y) / (b.t - a.t) : 0;   // + aşağı, px/ms; durup bırakınca 0
+    // Geçiş yeniden açılır ve satır içi yükseklik kaldırılır: panel şu anki yüksekliğinden hedefe çekmece eğrisiyle oturur.
+    document.body.classList.remove('sheet-drag'); panel.style.removeProperty('height');
+    const to = (x) => { if (x === 'full') panel.style.setProperty('--sheet-h', full + 'px'); else if (x === 'half') panel.style.removeProperty('--sheet-h'); else { panel.classList.remove('open'); panel.style.removeProperty('--sheet-h'); } };
     if (!moved) { panel.style.setProperty('--sheet-h', h0 < (half + full) / 2 - 10 ? full + 'px' : '52dvh'); return; }
-    if (h < 0.28 * vh) { panel.classList.remove('open'); panel.style.removeProperty('--sheet-h'); return; }
-    if (h > (half + full) / 2) panel.style.setProperty('--sheet-h', full + 'px'); else panel.style.removeProperty('--sheet-h');
+    if (Math.abs(v) > 0.11) { to(v < 0 ? 'full' : h0 > (half + full) / 2 && h > 0.28 * vh ? 'half' : 'close'); return; }
+    if (h < 0.28 * vh) { to('close'); return; }
+    to(h > (half + full) / 2 ? 'full' : 'half');
   };
   g.addEventListener('pointerup', end); g.addEventListener('pointercancel', end);
   // Klavye açılınca yarım sayfa daralır: yazı alanına girilince sayfa tam yüksekliğe çıkar, klavye kapanınca önceki yüksekliğine döner.

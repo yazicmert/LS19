@@ -4,7 +4,7 @@ body.pd-open { overflow: hidden; }
 .pdesk { position: fixed; inset: 0; z-index: 62; display: grid; place-items: center; padding: 16px; background: rgba(3, 5, 10, .66); }
 .pdesk[hidden] { display: none; }
 .pd-box { width: min(880px, 100%); max-height: min(92dvh, 860px); display: flex; flex-direction: column; background: var(--surface-1); border: 1px solid var(--line-2); border-radius: 16px; overflow: hidden;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, .5); animation: pd-in .22s var(--ease) both; }
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .5); animation: pd-in .22s var(--ease-out) both; }
 @keyframes pd-in { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: none; } }
 .pd-head, .pd-tabs, .pd-foot { flex-shrink: 0; }
 .pd-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 18px 8px; }
@@ -239,7 +239,7 @@ body.pd-open { overflow: hidden; }
 :root { --pd-dock: min(460px, 38vw); }
 body.pd-docked #app { right: var(--pd-dock); }
 .pdesk.docked { inset: 0 0 0 auto; width: var(--pd-dock); padding: 0; background: none; place-items: stretch; }
-.pdesk.docked .pd-box { width: 100%; height: 100%; max-height: none; border-radius: 0; border-width: 0 0 0 1px; box-shadow: none; animation: pd-dock .25s var(--ease) both; }
+.pdesk.docked .pd-box { width: 100%; height: 100%; max-height: none; border-radius: 0; border-width: 0 0 0 1px; box-shadow: none; animation: pd-dock .25s var(--ease-drawer) both; }
 @keyframes pd-dock { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
 .pdesk.docked .pd-lead { display: none; }
 .pdesk.docked .pd-steps, .pdesk.docked .pd-grid, .pdesk.docked .pd-sgrid, .pdesk.docked .pd-camera, .pdesk.docked .pd-camgrid { grid-template-columns: 1fr; }
@@ -333,7 +333,7 @@ body.pd-docked #app { right: var(--pd-dock); }
 /* sürerken: altta ince çubuk, sahne üstte görünür */
 .xpanel.running { inset: auto 0 0 0; padding: 0; background: none; place-items: stretch; }
 .xpanel.running .xp-box { width: 100%; max-height: none; border-radius: 0; border-width: 1px 0 0; box-shadow: 0 -10px 30px rgba(0, 0, 0, .4); }
-.xpanel:not(.running) .xp-box { animation: pd-in .22s var(--ease) both; }
+.xpanel:not(.running) .xp-box { animation: pd-in .22s var(--ease-out) both; }
 .xpanel.running .xp-box { animation: none; }
 @media (prefers-reduced-motion: reduce) { .xpanel:not(.running) .xp-box { animation-name: pd-fade; } }
 .xp-prog { display: flex; align-items: center; gap: 14px; padding: 12px 18px 8px; }
@@ -341,7 +341,7 @@ body.pd-docked #app { right: var(--pd-dock); }
 .xp-ptext b { font-size: 14px; font-variant-numeric: tabular-nums; }
 .xp-pline { font: 500 12px var(--mono); color: var(--text-secondary); overflow-wrap: anywhere; }
 .xp-bar { height: 4px; margin: 0 18px 14px; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
-.xp-bar i { display: block; height: 100%; background: var(--accent-2); transform: scaleX(0); transform-origin: left center; transition: transform .3s var(--ease); }
+.xp-bar i { display: block; height: 100%; background: var(--accent-2); transform: scaleX(0); transform-origin: left center; transition: transform .25s linear; }
 /* dışa aktarım sürerken sahne (küçültülmüş) siyah zeminde */
 body.exporting { background: #000; }
 body.exporting #toasts, body.exporting #cineDesk { display: none !important; }
@@ -368,7 +368,7 @@ body.exporting #toasts, body.exporting #cineDesk { display: none !important; }
 /* bildirim: alt çubuğun üstünde, kısa süre (Geri al bağlantısıyla) */
 .pd-box { position: relative; }
 .pd-toast { position: absolute; left: 50%; bottom: 78px; z-index: 3; max-width: min(560px, calc(100% - 32px)); padding: 9px 14px; border-radius: 10px; font-size: 12.5px; line-height: 1.4; color: var(--text-primary);
-  background: rgba(22, 26, 36, .96); border: 1px solid var(--line-2); box-shadow: 0 12px 32px rgba(0, 0, 0, .45); opacity: 0; transform: translate(-50%, 8px); pointer-events: none; transition: opacity .2s var(--ease), transform .2s var(--ease); }
+  background: rgba(22, 26, 36, .96); border: 1px solid var(--line-2); box-shadow: 0 12px 32px rgba(0, 0, 0, .45); opacity: 0; transform: translate(-50%, 8px); pointer-events: none; transition: opacity 400ms ease, transform 400ms ease; }
 .pd-toast.in { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
 .pd-toast .pd-link { margin-left: 4px; font-weight: 600; }
 .pd-statusbox { flex: 1 1 auto; }
@@ -413,3 +413,7 @@ body.exporting #toasts, body.exporting #cineDesk { display: none !important; }
   .pd-chbtn { flex: 1 1 calc(100% - 64px); min-width: 0; }
   .pd-cam { margin-left: 56px; }
 }
+
+/* klavyeyle tetiklenen hareket yok (Y ile masa, Ctrl+Z/Y bildirimi): kısayol anında sonuç verir. Dosya sonunda: yanaşık/azaltılmış kurallarını ezer. */
+.pdesk.instant .pd-box, .pdesk.instant.docked .pd-box { animation: none; }
+.pd-toast.instant { transition: none; }
