@@ -4,7 +4,7 @@ import { GRUPLAR } from '../../tools/varliklar.mjs';
 const rd = (f) => fs.readFileSync(new URL(f, import.meta.url), 'utf8');
 let fail = 0; const check = (name, ok, extra = '') => { console.log((ok ? 'TAMAM ' : 'HATA  ') + name + (extra ? ' — ' + extra : '')); if (!ok) fail++; };
 const b = JSON.parse(rd('../../varliklar.json')), pk = b.paketler, gi = rd('../../.gitignore');
-check('bildirim: beş paket, adlar içerik özetli (<grup>-<12 hane>.tar), cekirdek siteye gitmez',
+check('bildirim: her grup için bir paket, adlar içerik özetli (<grup>-<12 hane>.tar), cekirdek siteye gitmez',
   GRUPLAR.every((g) => pk[g.ad] && new RegExp(`^${g.ad}-[0-9a-f]{12}\\.tar$`).test(pk[g.ad].ad) && pk[g.ad].site === g.site) && pk.cekirdek.site === false);
 const all = Object.values(pk).flatMap((p) => Object.entries(p.dosyalar));
 check('her dosya web/ altında, 64 haneli SHA-256 özetiyle; yol kaçışı yok', all.length > 400 && all.every(([p, h]) => p.startsWith('web/') && !p.split('/').includes('..') && /^[0-9a-f]{64}$/.test(h)), `${all.length} dosya`);

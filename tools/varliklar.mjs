@@ -30,6 +30,8 @@ export const GRUPLAR = [
   { ad: 'efemeris', site: true, kok: 'web/data/eph', desen: /\.bin$/ },
   { ad: 'uydu', site: true, kok: 'web/models/sats', desen: /\.glb\.gz$/ },
   { ad: 'asteroit', site: true, kok: 'web/models/ast', desen: /\.(glb|bin\.gz)$/ },
+  // haftalık yenilenen veri (gecmis.yml): her hafta yeni paket, depoya yalnız bildirimin birkaç satırı girer
+  { ad: 'veri', site: true, kok: 'web/data', desen: /^(gecmis|neo_epok|f107)\.json$/, derin: false },
   { ad: 'cekirdek', site: false, kok: 'web/data', desen: /^(de440s\.bsp|moon_pa_de440_200625\.bpc)$/, derin: false },
 ];
 

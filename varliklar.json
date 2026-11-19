@@ -529,6 +529,16 @@
     "web/models/ast/yorp.glb": "fa284f72480e27149436fea8dbd4d9c97a8a89e358c67773cb7d32952d483d83"
    }
   },
+  "veri": {
+   "ad": "veri-2634fded561a.tar",
+   "site": true,
+   "bayt": 3372293,
+   "dosyalar": {
+    "web/data/f107.json": "90823ffde27c057579a18bd3e41b312079df94e620da27662d0022528e3afce0",
+    "web/data/gecmis.json": "6f4eca3a792a300c42a346852d0f90c8b6e542901f690b125647ea22be57a337",
+    "web/data/neo_epok.json": "4bea6af0899d155e1b075b354ec184d026312de1af7cf4d52ab9f166f791579e"
+   }
+  },
   "cekirdek": {
    "ad": "cekirdek-6bda0eb5bc80.tar",
    "site": false,
