@@ -25,9 +25,12 @@ export class ExportPanel {
     this.opt = { res: ['2160', '1440', '1080'].includes(String(saved.res)) ? String(saved.res) : '2160', fps: o.EX.FPS.includes(saved.fps) ? saved.fps : 30, quality: ['std', 'high', 'max'].includes(saved.quality) ? saved.quality : 'high', audio: saved.audio !== false };
     const root = this.root = el('div', 'xpanel'); root.hidden = true; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-labelledby', 'xpTitle');
     const box = this.box = el('div', 'xp-box'); root.append(box);
+    // ekran okuyucu: kare kare değişen ilerleme metni sessiz; yalnız evre değişimleri ve sonuç duyurulur
+    this.sr = el('div', 'sr-only'); this.sr.setAttribute('role', 'status'); this.sr.setAttribute('aria-live', 'polite'); root.append(this.sr);
     document.body.append(root);
     root.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Escape' && !this.running) this.close(); });
   }
+  say(t) { this.sr.textContent = t ? translateText(t) : ''; }   // sanal saat rAF/setTimeout'u tutabilir: doğrudan yaz
   save() { try { localStorage.setItem(KEY, JSON.stringify(this.opt)); } catch (e) { /* özel pencere */ } }
   open(cut) { this.cut = cut; this.root.hidden = false; this.root.classList.remove('running'); this.viewOptions(); }
   close() { if (this.running) return; this.root.hidden = true; if (this.url) { URL.revokeObjectURL(this.url); this.url = null; } }
@@ -121,6 +124,7 @@ export class ExportPanel {
   }
   progress(p) {
     const P = this.p; if (!P) return;
+    if (p.phase !== P.phase) { P.phase = p.phase; this.say(p.phase === 'prepare' ? 'Hazırlanıyor…' : p.phase === 'audio' ? 'Müzik ve efektler üretiliyor…' : p.phase === 'finish' ? 'Dosya yazılıyor…' : 'Kaydediliyor'); }
     if (p.phase === 'prepare') { P.title.textContent = translateText('Hazırlanıyor: kodlayıcı, yazı tipleri, sahne…'); return; }
     if (p.phase === 'audio') { P.title.textContent = translateText('Müzik ve efektler üretiliyor…'); P.fill.style.transform = 'scaleX(1)'; return; }
     if (p.phase === 'finish') { P.title.textContent = translateText('Dosya yazılıyor…'); return; }
@@ -131,6 +135,7 @@ export class ExportPanel {
   }
   viewDone(r, handle, name, took) {
     const b = this.box; b.replaceChildren();
+    this.say('Video hazır');
     b.append(this.head('Video hazır', `${name} · ${mb(r.bytes)} · ${mmss(r.seconds)} · ${r.codec}`));
     const body = el('div', 'xp-body');
     body.append(el('p', 'pd-note', `${translateText('Dışa aktarım')} ${mmss(took)} ${translateText('sürdü.')}${r.overlay ? '' : ' ' + translateText('Yazılar bu tarayıcıda videoya giremedi.')}`));
@@ -144,7 +149,7 @@ export class ExportPanel {
     b.append(body, foot); close.focus();
   }
   viewMessage(title, text) {
-    const b = this.box; b.replaceChildren(); b.append(this.head(title, text || ''));
+    const b = this.box; b.replaceChildren(); b.append(this.head(title, text || '')); this.say(title);
     const foot = el('footer', 'xp-foot'), again = el('button', null, 'Seçeneklere dön'), close = el('button', 'primary', 'Kapat');
     again.type = close.type = 'button'; again.onclick = () => this.viewOptions(); close.onclick = () => this.close();
     foot.append(again, close); b.append(foot); close.focus();
