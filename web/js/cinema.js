@@ -353,13 +353,14 @@ export class Cinema {
   }
   // kurgunun tahmini süresi (s): kalkış açılışı (uçuş zamanına göre) + çekimler (süre, zaman hızı sınırı, tempo). Kapatılan bölümlerin kararma altındaki
   // geçişi ve hesap duraklamaları sayılmaz (≈). Plan yoksa null.
-  estimate(cut) {
+  // parts: true ise { total, parts: { bölüm → s } } (Yapımcı masasının zaman şeridi)
+  estimate(cut, parts = false) {
     if (!(this.h.ui.plan || []).length) return null;
     const K = normalize(cut), D = this.h.ui.design, rk = D && D.STAGES && D.STAGES[0] ? rocketOf(D.STAGES[0].rocket) : null, RA = rk && rk.ascent, asc = !!(RA && K.ch.asc.on && this.h.ascent);
-    const P = this.planMap(), shots = applyCut(buildShots(P, { landing: this.h.landing && this.h.landing(), ascent: asc }), K);
-    let sum = asc ? ascentDuration(RA.events || [], RA.tIns) : 0;
-    for (const s of shots) { const T = s.T(P), span = Math.max(0, T[T.length - 1][1] - T[0][1]); sum += Math.max(s.dur, span / ((s.wmax || 20000) * 0.85)) * K.tempo; }
-    return sum;
+    const P = this.planMap(), shots = applyCut(buildShots(P, { landing: this.h.landing && this.h.landing(), ascent: asc }), K), by = {};
+    let sum = asc ? ascentDuration(RA.events || [], RA.tIns) : 0; if (asc) by.asc = sum;
+    for (const s of shots) { const T = s.T(P), span = Math.max(0, T[T.length - 1][1] - T[0][1]), d = Math.max(s.dur, span / ((s.wmax || 20000) * 0.85)) * K.tempo; sum += d; if (s.grp) by[s.grp] = (by[s.grp] || 0) + d; }
+    return parts ? { total: sum, parts: by } : sum;
   }
   // bölüm kartı: yapımcının konumu (bölümün kendi seçimi ya da genel), süre ölçeği; 'none' kart göstermez (bölüm çizelgede kalır)
   chapterCard(s, c, hold) {
@@ -483,7 +484,11 @@ export class Cinema {
     if (this.opts.fromDesk) { ui.fade(1, 0); ui.slate(translateText('Önizleme hazırlanıyor'), name); }
     this.h.send({ cmd: 'seek', t: tSim });
     const t0 = performance.now();
-    while (performance.now() - t0 < 40000) { await new Promise((r) => setTimeout(r, 200)); if (!this.on) return false; const x = this.h.latest(); if (x && Math.abs(x.t - tSim) < 3) break; }
+    const tA = (this.h.latest() || {}).t ?? tSim;
+    while (performance.now() - t0 < 40000) {
+      await new Promise((r) => setTimeout(r, 200)); if (!this.on) return false; const x = this.h.latest(); if (x && Math.abs(x.t - tSim) < 3) break;
+      if (this.opts.fromDesk && x) { const t0m = Math.min(tA, P.INS ?? tA), pct = Math.round(clamp((x.t - t0m) / ((tSim - t0m) || 1), 0, 0.99) * 100); ui.slate(translateText('Önizleme hazırlanıyor'), `${name} · %${pct} · ${translateText('Esc: vazgeç')}`); }    // benzetim o ana hesaplanıyor
+    }
     this.h.play(false); this.paused = true; this.state = 'preview';
     this.beginShot(i, tau); ui.slate(null); ui.fade(0, this.opts.fromDesk ? 300 : 0);
     if (s.flashIn && !this.reduced) ui.flash();

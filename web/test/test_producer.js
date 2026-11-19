@@ -103,8 +103,10 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const ui = rd('../js/cinemaui.js'), desk = rd('../js/producerui.js');
   check('cinemaui.js: kart başlığı, alt yazısı, üst satırı ve jenerik kaçışlanır; anlatıcı notu textContent',
     /\$\{esc\(c\.title\)\}/.test(ui) && /\$\{esc\(c\.sub\)\}/.test(ui) && /\$\{esc\(c\.over\)\}/.test(ui) && /\$\{esc\(k\)\}/.test(ui) && /\$\{esc\(v\)\}/.test(ui) && /c\.textContent = text/.test(ui));
-  const inner = [...desk.matchAll(/innerHTML = ([^;]+);/g)].map((m) => m[1]);
-  check('producerui.js: innerHTML yalnız sabit simge işaretlemesi (kullanıcı metni textContent/value ile)', inner.length > 0 && inner.every((v) => /^'[^'$]*'$/.test(v.trim())), inner.join(' | '));
+  const inner = [...desk.matchAll(/innerHTML = ([^;]+);/g)].map((m) => m[1]).filter((v) => v.trim() !== 'html');       // iconBtn yardımcısı: html yalnız aşağıdaki sabit çağrılardan
+  const iconCalls = [...desk.matchAll(/iconBtn\(([^,]+), ([^,]+),/g)].map((m) => m[2]);
+  check('producerui.js: innerHTML yalnız sabit simge işaretlemesi (kullanıcı metni textContent/value ile); simge düğmesi yardımcısına yalnız sabit işaretleme geçer',
+    inner.length > 0 && inner.every((v) => /^'[^'$]*'$/.test(v.trim())) && iconCalls.length > 0 && iconCalls.every((v) => /^'<i data-icon="[a-z]+"><\/i>'$/.test(v.trim())) && (desk.match(/innerHTML = html/g) || []).length === 1, [...inner, ...iconCalls].join(' | '));
   const post = rd('../js/post.js'), m = /vignette: \{ value: ([\d.]+) \}, grain: \{ value: ([\d.]+) \}, chroma: \{ value: ([\d.]+) \}/.exec(post);
   check('film dokusu: "normal" post.js\'in özgün değerleri; artan sırada (yok < hafif < normal < yoğun); kademe değişince yeniden uygulanır',
     !!m && P.FILM_LOOK.normal.vignette === +m[1] && P.FILM_LOOK.normal.grain === +m[2] && P.FILM_LOOK.normal.chroma === +m[3]
@@ -168,6 +170,26 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     && /this\.opts\.fromDesk && this\.h\.openDesk/.test(cin) && /this\.opts\.preview && this\.saved\.t != null/.test(cin) && /e\.t < this\.evFloor/.test(cin));
   check('producerui.js ve app.js: bölüm önizlemesi, özel kamera paneli ve kroki, kart konum seçicisi, sahne maketi; masa önizlemeden olduğu gibi döner',
     /preview\(k\)/.test(desk) && /cameraPanel\(/.test(desk) && /spotPicker\(/.test(desk) && /pd-frame/.test(desk) && /onPreview: \(cut, k\) =>/.test(app) && /if \(o\.back\) desk\.reopen\(\)/.test(app));
+}
+// ---------------------------------------------------------------- 8) kullanım kolaylığı: geri al / yinele, değişiklik sayımı
+{
+  const H = new P.History(3);
+  H.record('a', null, 0); H.record('b', 'title', 100); H.record('b2', 'title', 600); H.record('c', 'title', 3000); H.record('d', null, 3100);
+  check('geçmiş: aynı alanın 1,5 s içindeki düzenlemeleri tek adım; sınır (en eski düşer); geri al → yinele birebir; yeni değişiklik yineleme listesini siler',
+    H.past.join() === 'b,c,d' && H.undo('e') === 'd' && H.undo('d') === 'c' && H.redo('c') === 'd' && H.canRedo && (H.record('x', null, 9000), !H.canRedo) && H.past.length === 3 && new P.History().undo('z') === null);
+  const H2 = new P.History(); H2.record('s0', 'cAz', 0); H2.undo('s1'); H2.record('s2', 'cAz', 10);
+  const H3 = new P.History(); H3.record('a', 'title', 0, Infinity); H3.record('b', 'title', 9e9, Infinity); H3.seal(); H3.record('c', 'title', 9e9 + 1, Infinity);
+  check('geçmiş: geri aldıktan sonra aynı alanın düzenlemesi yeni adım başlatır; masada süre sınırsız birleşir, alandan çıkınca (seal) yeni adım', H2.past.length === 1 && H2.past[0] === 's2' && H3.past.join() === 'a,c');
+  const cut = P.normalize({ title: 'X', tempo: 1.5, grade: 'bw', hFont: 'cinzel', cardPos: 'c', ch: { tli: { title: 'T' }, llo: { on: false }, pdi: { cAz: 10 }, sep: { cam: 'custom', cAz: 10 } } });
+  const n = P.changedCounts(cut);
+  check('değişiklik sayımı: bölümler (yalnız özel kamera seçiliyken kamera değerleri sayılır), isimler, yazılar, görüntü ve ses; varsayılanda hepsi 0',
+    n.ch === 3 && n.credits === 1 && n.type === 2 && n.look === 2 && !P.chapterChanged(cut, 'pdi') && P.chapterChanged(cut, 'sep') && Object.values(P.changedCounts({})).every((v) => v === 0), JSON.stringify(n));
+  const all = new Set([...P.TAB_FIELDS.credits, ...P.TAB_FIELDS.type, ...P.TAB_FIELDS.look]);
+  check('her genel ayar bir sekmeye düşer (rozet sayımı eksiksiz)', Object.keys(P.DEFAULT_CUT).filter((k) => !['v', 'ch'].includes(k)).every((k) => all.has(k)) && all.size === P.TAB_FIELDS.credits.length + P.TAB_FIELDS.type.length + P.TAB_FIELDS.look.length);
+  const desk = rd('../js/producerui.js'), cin = rd('../js/cinema.js');
+  check('masa: hızlı başlangıç (bir kez, ? ile yeniden), geri al/yinele düğmeleri ve Ctrl+Z/Ctrl+Y (yazı alanında tarayıcınınki), aç/kapa anahtarı ayrı (bölüm adı ayrıntıyı açar), zaman şeridi, bu bölümden oynat, bölümü sıfırla, kaydedildi göstergesi, sürgüde varsayılana dönüş',
+    /INTRO_KEY = 'ls19\.deskIntro'/.test(desk) && /this\.undo\(\)/.test(desk) && /this\.redo\(\)/.test(desk) && /k === 'z' && !e\.shiftKey/.test(desk) && /role', 'switch'/.test(desk) && /nb\.onclick = \(\) => toggle\(det\.hidden\)/.test(desk)
+    && /buildStrip\(\)/.test(desk) && /playFrom\(k\)/.test(desk) && /DEFAULT_CH/.test(desk) && /flashSaved\(\)/.test(desk) && /ondblclick/.test(desk) && /estimate\(cut, parts = false\)/.test(cin) && /Esc: vazgeç/.test(cin));
 }
 console.log(fail ? `\n${fail} HATA` : '\nTAMAM');
 process.exit(fail ? 1 : 0);

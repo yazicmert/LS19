@@ -156,6 +156,42 @@ export function diff(cut) {
 }
 export const isDefault = (cut) => Object.keys(diff(cut)).length === 0;
 
+// masa sekmelerine düşen genel ayarlar (sekme rozetinde "kaç ayar değişti")
+export const TAB_FIELDS = {
+  credits: ['title', 'over', 'producer'],
+  type: ['hFont', 'tFont', 'hSize', 'tSize', 'hWeight', 'track', 'upper', 'ink', 'shade', 'cardPos', 'titlePos', 'closePos', 'cuePos', 'bugPos', 'chNum', 'hold'],
+  look: ['tempo', 'aspect', 'film', 'grade', 'accent', 'strip', 'timeline', 'cues', 'tags', 'mood', 'voice', 'narrate', 'sfx'],
+};
+export const DEFAULT_CH = Object.freeze({ ...CH0 });
+// bölüm varsayılandan farklı mı (özel kamera değerleri yalnız özel kamera seçiliyken sayılır)
+export function chapterChanged(cut, k) {
+  const c = normalize(cut).ch[k]; if (!c) return false;
+  return Object.keys(CH0).some((f) => (f in CAM0 && c.cam !== 'custom' ? false : c[f] !== CH0[f]));
+}
+// sekme başına değişiklik sayısı: bölümler (değişen bölüm sayısı), isimler, yazılar, görüntü ve ses (değişen ayar sayısı)
+export function changedCounts(cut) {
+  const c = normalize(cut), D = DEFAULT_CUT, n = (keys) => keys.filter((k) => c[k] !== D[k]).length;
+  return { ch: GROUPS.filter((g) => chapterChanged(c, g.k)).length, credits: n(TAB_FIELDS.credits), type: n(TAB_FIELDS.type), look: n(TAB_FIELDS.look) };
+}
+
+// geri al / yinele geçmişi: durumlar dize (JSON); aynı alanın art arda düzenlemeleri (yazı yazma, sürgü sürükleme) ms içinde tek adım sayılır;
+// seal() birleştirmeyi bitirir (alandan çıkınca, sürgü bırakılınca): masa ms = ∞ ile kullanır, adımı alan değişimi ya da seal ayırır
+export class History {
+  constructor(limit = 80) { this.limit = limit; this.clear(); }
+  clear() { this.past = []; this.future = []; this.lastKey = null; this.lastAt = -1e15; }
+  get canUndo() { return this.past.length > 0; }
+  get canRedo() { return this.future.length > 0; }
+  // değişiklikten ÖNCEKİ durumu kaydet; key: birleştirme anahtarı (null: her zaman ayrı adım)
+  record(prev, key = null, now = Date.now(), ms = 1500) {
+    if (key && key === this.lastKey && now - this.lastAt < ms) { this.lastAt = now; return false; }
+    this.past.push(prev); if (this.past.length > this.limit) this.past.shift();
+    this.future = []; this.lastKey = key; this.lastAt = now; return true;
+  }
+  seal() { this.lastKey = null; }
+  undo(cur) { if (!this.past.length) return null; this.future.push(cur); this.lastKey = null; return this.past.pop(); }
+  redo(cur) { if (!this.future.length) return null; this.past.push(cur); this.lastKey = null; return this.future.pop(); }
+}
+
 // UTF-8 ↔ base64url (tarayıcı ve Node 16+: btoa/atob, TextEncoder)
 function b64u(str) { const b = new TextEncoder().encode(str); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
 function unb64u(s) { const t = s.replace(/-/g, '+').replace(/_/g, '/'), bin = atob(t + '==='.slice((t.length + 3) % 4)); return new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(bin, (ch) => ch.charCodeAt(0))); }
