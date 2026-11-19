@@ -1,6 +1,6 @@
 # 005 — Phone bottom sheet uses the drawer curve
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: 9bb3264
 - **Severity**: LOW
 - **Category**: Easing & duration

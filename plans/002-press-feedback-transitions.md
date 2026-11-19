@@ -1,6 +1,6 @@
 # 002 — Make press feedback animate on cards and tabs that override `transition`
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: 9bb3264
 - **Severity**: MEDIUM
 - **Category**: Physicality & origin / Interruptibility
