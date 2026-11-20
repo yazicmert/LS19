@@ -290,6 +290,14 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const tok = { type: 'blob.generate-client-token', payload: { pathname: 'arsiv/0123456789abcdef/model.stl', clientPayload: JSON.stringify({ surum: A.SART_SURUM, onay: 1 }), multipart: false } };
   delete process.env.LS19_ARSIV; delete process.env.BLOB_READ_WRITE_TOKEN;
   const g0 = await (await API.GET()).json(), p0 = await post(tok, 'https://ls19web.vercel.app');
+  const ptok = { type: 'blob.generate-presigned-url', payload: tok.payload };
+  process.env.LS19_ARSIV = '1'; process.env.BLOB_STORE_ID = 'store_deneme';
+  const go = await (await API.GET()).json(), pp0 = await post(ptok, 'https://evil.example');
+  delete process.env.LS19_ARSIV; const pp1 = await post(ptok, 'https://ls19web.vercel.app');
+  delete process.env.BLOB_STORE_ID;
+  check('api/arsiv OIDC kipi (yalnız BLOB_STORE_ID): açık sayılır, kip oidc; imzalı adres isteği de köken ve bayrak denetiminden geçer; okuma-yazma anahtarı varsa o kip seçilir',
+    go.acik === true && go.kip === 'oidc' && go.denetim.anahtar === 'oidc' && pp0.status === 403 && pp1.status === 503 && g0.kip === null
+    && API.kip({ BLOB_STORE_ID: 's', BLOB_READ_WRITE_TOKEN: 't' }) === 'anahtar' && API.kip({ BLOB_STORE_ID: 's' }) === 'oidc' && API.kip({}) === null, JSON.stringify({ go, pp0: pp0.status, pp1: pp1.status }));
   const env1 = { X_BLOB_READ_WRITE_TOKEN: 'v', LS19_ARSIV: ' "1" ' };
   check('api/arsiv denetimi: kapalıyken neden söylenir (değer değil); ön ekli Blob anahtarı ve tırnaklı/boşluklu bayrak tanınır',
     g0.denetim && g0.denetim.LS19_ARSIV === false && g0.denetim.anahtar === 'yok' && API.anahtarAdi(env1) === 'X_BLOB_READ_WRITE_TOKEN' && API.bayrak(env1) && API.bayrak({ LS19_ARSIV: 'true' }) && !API.bayrak({ LS19_ARSIV: '0' })

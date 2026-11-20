@@ -46,10 +46,10 @@ export async function uydumUretildi(t = Date.now(), kurgu = null) { const r = aw
 
 // ---------------------------------------------------------------- arşiv (api/arsiv.js) ve paylaşım
 const ARSIV_UC = ['', 'api', 'arsiv'].join('/');                               // api/arsiv.js
-let arsivAcik = null;
+let arsivAcik = null, arsivKip = null;
 export async function arsivDurumu() {
   if (arsivAcik !== null) return arsivAcik;
-  try { const r = await fetch(ARSIV_UC, { cache: 'no-store' }); arsivAcik = r.ok ? !!(await r.json()).acik : false; } catch (e) { arsivAcik = false; }
+  try { const r = await fetch(ARSIV_UC, { cache: 'no-store' }); const j = r.ok ? await r.json() : {}; arsivAcik = !!j.acik; arsivKip = j.kip || null; } catch (e) { arsivAcik = false; }
   return arsivAcik;
 }
 let arsivSuruyor = null;
@@ -63,7 +63,7 @@ async function arsivle(kurgu) {
   if (r.arsiv) return r.arsiv;
   if (r.onay.surum !== SART_SURUM) throw new Error('sart-eski');
   if (!(await arsivDurumu())) throw new Error('arsiv-kapali');
-  const { upload } = await import('../lib/vercel-blob-client.esm.js');
+  const B = await import('../lib/vercel-blob-client.esm.js'), upload = arsivKip === 'oidc' ? B.uploadPresigned : B.upload;      // oidc: sunucu imzalı adres üretir (api/arsiv.js)
   const id = r.ozet.slice(0, 16), kok = ['arsiv', id, ''].join('/'), opt = { access: 'public', handleUploadUrl: ARSIV_UC, clientPayload: JSON.stringify({ surum: r.onay.surum, onay: r.onay.t }) };
   const m = await upload(kok + 'model.' + r.bicim, r.dosya, { ...opt, contentType: BICIMLER[r.bicim].tur, multipart: r.bayt > 8e6 });
   const kayit = { id, ad: r.ad, boy: r.boy, renk: r.renk, bicim: r.bicim, dosyaAdi: r.dosyaAdi, bayt: r.bayt, ucgen: r.ucgen, ozet: r.ozet, onay: r.onay, uretim: r.uretim || [], kurgu: kurgu || r.kurgu || null, model: m.url, t: Date.now() };
