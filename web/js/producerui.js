@@ -13,6 +13,7 @@ import { OPT, MAX, RANGE, ACCENTS, INKS, FONTS, WEIGHTS, TRACKS, PRESETS, DEFAUL
   History, changedCounts, chapterChanged } from './producer.js';
 import { applyIcons } from './icons.js';
 import { hasChannel } from './producersync.js';
+import { destekGerekli, destekSoruldu, destekAc, destekReddet, DESTEK_METIN } from './destek.js';
 import { translateText, LOC } from './i18n.js';
 
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -288,6 +289,12 @@ export class ProducerDesk {
     const link = u.toString();
     try { await navigator.clipboard.writeText(link); this.say('Bağlantı kopyalandı: açan kişi fragmanı senin kurgunla izler.'); }
     catch (e) { window.prompt(translateText('Bağlantıyı kopyala'), link); }
+    this.askSupport();
+  }
+  // özel kurgu paylaşıldı: bantta bir kez, engellemeden destek sorulur (destek.js)
+  askSupport() {
+    if (!destekGerekli(this.cut)) return; destekSoruldu();
+    this.setBanner(DESTEK_METIN, [['Kahve ısmarla', () => { destekAc(); this.setBanner(''); this.say('Teşekkürler! Destek sayfası yeni sekmede açıldı.'); }], ['Şimdi değil', () => { destekReddet(); this.setBanner(''); }]], 'destek');
   }
 
   // ---------------------------------------------------------------- denetimler

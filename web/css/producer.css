@@ -582,6 +582,16 @@ body.pd-docked #app { right: var(--pd-dock); }
 .xp-foot button, .xp-dl { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; }
 .xp-dl { padding: 8px 16px; border-radius: 8px; text-decoration: none; font-weight: 600; color: #fff; background: var(--accent-fill); }
 .xp-foot svg, .xp-dl svg { width: 16px; height: 16px; }
+/* destek kartı (js/destek.js): özel kurgu dışa aktarılınca bir kez; indirmeyi engellemez, sakin ton */
+.destek { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 14px; padding: 12px 14px; border-radius: 10px; background: rgba(255, 179, 92, .08); border: 1px solid rgba(255, 179, 92, .22); }
+.destek p { flex: 1 1 260px; margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-primary); }
+.destek-b { display: flex; align-items: center; gap: 6px; }
+.destek-git { display: inline-flex; align-items: center; min-height: 34px; padding: 6px 14px; border-radius: 8px; font-weight: 600; font-size: 13px; text-decoration: none; color: #ffc37e; border: 1px solid rgba(255, 179, 92, .5); }
+.destek-git:hover { color: #ffd9a0; background: rgba(255, 179, 92, .12); }
+.destek-git:focus-visible, .destek-x:focus-visible { outline: 2px solid #ffd9a0; outline-offset: 2px; }
+.destek-x { min-height: 34px; padding: 6px 10px; background: none; border: 0; font-size: 13px; color: var(--text-secondary); cursor: pointer; }
+.destek-x:hover { color: var(--text-primary); }
+.pd-banner[data-kind="destek"] { background: rgba(255, 179, 92, .10); }
 /* sürerken: altta ince çubuk, sahne üstte görünür */
 .xpanel.running { inset: auto 0 0 0; padding: 0; background: none; place-items: stretch; }
 .xpanel.running .xp-box { width: 100%; max-height: none; border-radius: 0; border-width: 1px 0 0; box-shadow: 0 -10px 30px rgba(0, 0, 0, .4); }

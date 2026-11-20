@@ -233,5 +233,19 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   check('ayrı pencere sayfası: yapimci.html yalnız masayı yükler (sahne yok), LS19 yoksa masa yine açılır ve bant söyler; açılır pencere engellenirse masa söyler',
     /js\/yapimci\.js/.test(html) && !/js\/app\.js/.test(html) && /new PopLink\(mainId/.test(pj) && /lostBanner\(\)/.test(pj) && /window\.open\(u\.href, 'ls19-yapimci'/.test(app) && /açılır pencereyi engelledi/.test(app));
 }
+{
+  // 8) destek kartı: yalnız geçerli Buy Me a Coffee adresi, özel kurgu, oturumda bir kez; "Şimdi değil" 30 gün, destek 180 gün susar; hiçbir şeyi engellemez
+  const D = await import('../js/destek.js');
+  const url = 'https://buymeacoffee.com/ls19', ozel = P.normalize({ title: 'Benim kurgum' }), now = 1e12, gun = 864e5;
+  const g = (cut, o = {}) => D.destekGerekli(cut, { url, now, kayit: {}, oturum: false, ...o });
+  check('destek: geçerli adres + özel kurgu → sorulur; varsayılan kurgu, boş/yabancı adres, aynı oturum → sorulmaz',
+    g(ozel) && !g(P.normalize({})) && !g(ozel, { url: '' }) && !g(ozel, { url: 'https://evil.example/ls19' }) && !g(ozel, { url: 'http://buymeacoffee.com/ls19' }) && !g(ozel, { oturum: true }));
+  check('destek: "Şimdi değil" 30 gün, "Kahve ısmarla" 180 gün sorulmaz; süre dolunca yeniden sorulur',
+    !g(ozel, { kayit: { k: 'red', t: now - 29 * gun } }) && g(ozel, { kayit: { k: 'red', t: now - 31 * gun } }) && !g(ozel, { kayit: { k: 'destek', t: now - 179 * gun } }) && g(ozel, { kayit: { k: 'destek', t: now - 181 * gun } }));
+  const dsrc = fs.readFileSync(new URL('../js/destek.js', import.meta.url), 'utf8'), xsrc = fs.readFileSync(new URL('../js/exportui.js', import.meta.url), 'utf8'), usrc = fs.readFileSync(new URL('../js/producerui.js', import.meta.url), 'utf8');
+  check('destek bağlantısı yeni sekmede, opener/referrer olmadan; innerHTML yok; dışa aktarım ve paylaşım bitince (öncesinde değil) gösterilir',
+    /a\.rel = 'noopener noreferrer'/.test(dsrc) && /'noopener,noreferrer'/.test(dsrc) && !/innerHTML/.test(dsrc)
+    && /foot\.append\(close\); \}\n    const destek = destekKarti\(this\.cut\)/.test(xsrc) && /writeText[\s\S]{0,200}\n    this\.askSupport\(\);\n  \}/.test(usrc));
+}
 console.log(fail ? `\n${fail} HATA` : '\nTAMAM');
 process.exit(fail ? 1 : 0);

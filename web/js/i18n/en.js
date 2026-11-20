@@ -2446,6 +2446,11 @@ const dict = {
   "Kendi sitesi": "Official site",
   "Ansiklopedi şu an yanıt vermiyor.": "The encyclopedia is not responding right now.",
   "Uzay aracı": "Spacecraft",
+  // Destek kartı (destek.js)
+  "LS19’u beğendiysen bir kahve ısmarlayarak geliştirilmesine destek olabilirsin.": "If you enjoy LS19, you can support its development by buying a coffee.",
+  "Kahve ısmarla": "Buy a coffee",
+  "Şimdi değil": "Not now",
+  "Teşekkürler! Destek sayfası yeni sekmede açıldı.": "Thank you! The support page opened in a new tab.",
   // Yapımcı masası (producer.js, producerui.js) ve fragman kurgusu
   "Yapımcı masası: fragmanın kurgusunu kur, sonra oynat": "Producer's desk: build the trailer's cut, then play it",
   "Sinematik gösterim: Yapımcı masasında fragmanın kurgusunu kur ve oynat (Y); C doğrudan oynatır": "Cinematic view: build the trailer's cut at the producer's desk and play it (Y); C plays it directly",
