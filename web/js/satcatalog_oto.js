@@ -42,14 +42,6 @@ export const OTO = /*VERI*/{
    "kaynak": "Quick Scatterometer (QuikSCAT)",
    "nasa3d": "11ebb4e"
   },
-  "radarsat1": {
-   "title": "Radarsat",
-   "size": 15,
-   "src": "nasa3d",
-   "oto": true,
-   "kaynak": "Radar Satellite-1 (RADARSAT-1)",
-   "nasa3d": "11ebb4e"
-  },
   "sacc": {
    "title": "SAC-C",
    "size": 8,
@@ -88,7 +80,6 @@ export const OTO = /*VERI*/{
   "22076": "topexposeidon",
   "22284": "tselina2",
   "22565": "tselina2",
-  "23710": "radarsat1",
   "24883": "seastar",
   "25789": "quikscat",
   "26033": "acrimsat",
