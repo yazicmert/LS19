@@ -4,7 +4,7 @@
 import { isDefault } from './producer.js';
 import { translateText } from './i18n.js';
 
-export const DESTEK_URL = '';                                                   // ör. 'https://buymeacoffee.com/<kullanıcı>'
+export const DESTEK_URL = 'https://buymeacoffee.com/yazicmert';
 export const destekGecerli = (u) => /^https:\/\/(www\.)?buymeacoffee\.com\/[A-Za-z0-9_-]+\/?$/.test(u || '');
 export const DESTEK_ARA = { red: 30, destek: 180 };                            // gün
 const KEY = 'ls19.support', GUN = 864e5;
