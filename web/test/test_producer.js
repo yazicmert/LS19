@@ -289,6 +289,10 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const tok = { type: 'blob.generate-client-token', payload: { pathname: 'arsiv/0123456789abcdef/model.stl', clientPayload: JSON.stringify({ surum: A.SART_SURUM, onay: 1 }), multipart: false } };
   delete process.env.LS19_ARSIV; delete process.env.BLOB_READ_WRITE_TOKEN;
   const g0 = await (await API.GET()).json(), p0 = await post(tok, 'https://ls19web.vercel.app');
+  const env1 = { X_BLOB_READ_WRITE_TOKEN: 'v', LS19_ARSIV: ' "1" ' };
+  check('api/arsiv denetimi: kapalıyken neden söylenir (değer değil); ön ekli Blob anahtarı ve tırnaklı/boşluklu bayrak tanınır',
+    g0.denetim && g0.denetim.LS19_ARSIV === false && g0.denetim.anahtar === 'yok' && API.anahtarAdi(env1) === 'X_BLOB_READ_WRITE_TOKEN' && API.bayrak(env1) && API.bayrak({ LS19_ARSIV: 'true' }) && !API.bayrak({ LS19_ARSIV: '0' })
+    && API.anahtarAdi({ BLOB_READ_WRITE_TOKEN: 'a', X_BLOB_READ_WRITE_TOKEN: 'b' }) === 'BLOB_READ_WRITE_TOKEN' && !JSON.stringify(g0).includes('vercel_blob_rw'));
   process.env.LS19_ARSIV = '1'; process.env.BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_deneme_0000';
   const p1 = await post(tok, 'https://evil.example'), g1 = await (await API.GET()).json();
   const kr = (y, c) => { try { return API.kurallar(y, c); } catch (e) { return e.message; } }, cp = JSON.stringify({ surum: A.SART_SURUM, onay: 1 });

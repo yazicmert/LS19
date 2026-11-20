@@ -8,10 +8,18 @@
 import { handleUpload } from '@vercel/blob/client';
 import { SART_SURUM, SINIR, BICIMLER, ARSIV_YOL } from '../web/js/usersart.js';
 
-const acik = () => !!process.env.BLOB_READ_WRITE_TOKEN && process.env.LS19_ARSIV === '1';
+// Blob anahtarı: BLOB_READ_WRITE_TOKEN ya da depo bağlanırken ön ek seçildiyse <ÖNEK>_BLOB_READ_WRITE_TOKEN
+export const anahtarAdi = (env = process.env) => (env.BLOB_READ_WRITE_TOKEN ? 'BLOB_READ_WRITE_TOKEN' : Object.keys(env).sort().find((k) => /^[A-Z0-9_]+_BLOB_READ_WRITE_TOKEN$/.test(k) && env[k]) || null);
+// LS19_ARSIV: 1 / true / evet (boşluk ve tırnak yok sayılır)
+export const bayrak = (env = process.env) => /^(1|true|evet)$/i.test(String(env.LS19_ARSIV || '').trim().replace(/^["']|["']$/g, ''));
+const acik = () => !!anahtarAdi() && bayrak();
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
 
-export function GET() { return json({ acik: acik(), surum: SART_SURUM }); }
+// denetim: arşiv neden kapalı (değer değil, yalnız var/yok): bayrak, anahtar (var | oidc: yalnız BLOB_STORE_ID, okuma-yazma anahtarı yok | yok), dağıtım ortamı
+export function GET() {
+  const k = anahtarAdi();
+  return json({ acik: acik(), surum: SART_SURUM, denetim: { LS19_ARSIV: bayrak(), anahtar: k ? 'var' : process.env.BLOB_STORE_ID ? 'oidc' : 'yok', ortam: process.env.VERCEL_ENV || 'yerel' } });
+}
 
 // yol ve istemci yükü → yükleme anahtarının kuralları (yoksa hata fırlatır); dışa açık: test/test_api.js
 export function kurallar(pathname, clientPayload) {
@@ -37,7 +45,7 @@ export async function POST(request) {
   }
   try {
     const r = await handleUpload({
-      body, request,
+      body, request, token: process.env[anahtarAdi()],
       onBeforeGenerateToken: async (pathname, clientPayload) => kurallar(pathname, clientPayload),
     });
     return json(r);
