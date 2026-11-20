@@ -23,6 +23,14 @@ export const destekSoruldu = () => { gosterildi = true; };
 export const destekReddet = () => yaz('red');
 export function destekAc() { yaz('destek'); window.open(DESTEK_URL, '_blank', 'noopener,noreferrer'); }
 
+// her zaman görünen sakin bağlantı (dışa aktarım ayarları): engellemez, kart sıklığından bağımsız; tıklanınca kart 180 gün sorulmaz. Adres geçersizse null
+export function destekBaglantisi() {
+  if (!destekGecerli(DESTEK_URL)) return null;
+  const a = document.createElement('a'); a.className = 'xp-destek'; a.href = DESTEK_URL; a.target = '_blank'; a.rel = 'noopener noreferrer';
+  a.textContent = translateText('Kahve ısmarla'); a.title = translateText('LS19’u Buy Me a Coffee’den destekle');
+  a.onclick = () => yaz('destek');
+  return a;
+}
 export const DESTEK_METIN = 'LS19’u beğendiysen bir kahve ısmarlayarak geliştirilmesine destek olabilirsin.';
 
 // dışa aktarım "Video hazır" ekranı için kart; gerekmiyorsa null

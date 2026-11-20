@@ -243,6 +243,7 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   check('destek: "Şimdi değil" 30 gün, "Kahve ısmarla" 180 gün sorulmaz; süre dolunca yeniden sorulur',
     !g(ozel, { kayit: { k: 'red', t: now - 29 * gun } }) && g(ozel, { kayit: { k: 'red', t: now - 31 * gun } }) && !g(ozel, { kayit: { k: 'destek', t: now - 179 * gun } }) && g(ozel, { kayit: { k: 'destek', t: now - 181 * gun } }));
   const dsrc = fs.readFileSync(new URL('../js/destek.js', import.meta.url), 'utf8'), xsrc = fs.readFileSync(new URL('../js/exportui.js', import.meta.url), 'utf8'), usrc = fs.readFileSync(new URL('../js/producerui.js', import.meta.url), 'utf8');
+  check('dışa aktarım ayarlarında her zaman sakin destek bağlantısı (solda, yeni sekmede)', /foot\.append\(\.\.\.\(destek \? \[destek\] : \[\]\), cancel, go\)/.test(xsrc) && /a\.className = 'xp-destek'/.test(dsrc) && /\.xp-foot \.xp-destek \{ margin-right: auto;/.test(fs.readFileSync(new URL('../css/producer.css', import.meta.url), 'utf8')));
   check('destek bağlantısı yeni sekmede, opener/referrer olmadan; innerHTML yok; dışa aktarım ve paylaşım bitince (öncesinde değil) gösterilir',
     /a\.rel = 'noopener noreferrer'/.test(dsrc) && /'noopener,noreferrer'/.test(dsrc) && !/innerHTML/.test(dsrc)
     && /foot\.append\(close\); \}\n[^\n]*\n    const destek = destekKarti\(this\.cut\)/.test(xsrc) && /writeText[\s\S]{0,500}\n    this\.askSupport\(\);\n  \}/.test(usrc));

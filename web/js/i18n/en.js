@@ -2513,6 +2513,7 @@ const dict = {
   // Destek kartı (destek.js)
   "LS19’u beğendiysen bir kahve ısmarlayarak geliştirilmesine destek olabilirsin.": "If you enjoy LS19, you can support its development by buying a coffee.",
   "Kahve ısmarla": "Buy a coffee",
+  "LS19’u Buy Me a Coffee’den destekle": "Support LS19 on Buy Me a Coffee",
   "Şimdi değil": "Not now",
   "Teşekkürler! Destek sayfası yeni sekmede açıldı.": "Thank you! The support page opened in a new tab.",
   // Yapımcı masası (producer.js, producerui.js) ve fragman kurgusu
