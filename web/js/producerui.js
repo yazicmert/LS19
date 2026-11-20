@@ -9,7 +9,7 @@
 // sürgülerde varsayılana dönüş, "Kaydedildi" göstergesi; sıfırlama ve hazır kurgu seçimi uyarı satırından geri alınır.
 // Her değişiklik tarayıcıda saklanır (producer.js saveCut); "Bağlantıyı kopyala" kurguyu adresin # kısmına kodlar (sunucuya gitmez).
 // Kurgu mantığı ve süzgeç producer.js'tedir; bu dosya yalnız DOM kurar. Kullanıcı metni yalnız textContent/value ile yazılır (innerHTML'e girmez).
-import { OPT, MAX, RANGE, ACCENTS, INKS, FONTS, WEIGHTS, TRACKS, PRESETS, DEFAULT_CUT, DEFAULT_CH, normalize, applyPreset, presetOf, saveCut, encodeCut, isDefault, loadFonts, camMove,
+import { OPT, MAX, RANGE, ACCENTS, INKS, FONTS, WEIGHTS, TRACKS, PRESETS, DEFAULT_CUT, DEFAULT_CH, LEN_K, normalize, applyPreset, presetOf, saveCut, encodeCut, isDefault, loadFonts, camMove,
   History, changedCounts, chapterChanged } from './producer.js';
 import { applyIcons } from './icons.js';
 import { hasChannel } from './producersync.js';
@@ -26,6 +26,9 @@ const mmss = (s) => { const r = Math.round(s); return `${Math.floor(r / 60)}:${S
 const INTRO_KEY = 'ls19.deskIntro';
 // Editör telefonda ve dokunmatik tablette kapalı: zaman çizelgesi, Denetçi ve monitör geniş ekran ve fare ister. Orada masa yerine kısa bir pencere
 // fragmanı izletir ve kurguyu taşıyan bağlantıyı bilgisayara gönderir (bilgisayarda masa aynı kurguyla açılır).
+const FX_MIME = 'application/x-ls19-fx';                                   // Efektler panelinden kliplere sürükle-bırak
+// monitörde sürüklenebilen öğelerin bırakma noktaları (yüzde: sol, üst)
+const BUG_SPOT = { tl: [12, 16], tr: [88, 16] }, CUE_SPOT = { bl: [20, 76], bc: [50, 80], br: [80, 76], tc: [50, 20] };
 export const EDITOR_KAPALI_MQ = '(max-width: 760px), (hover: none) and (pointer: coarse)';
 export const editorKapali = () => typeof matchMedia === 'function' && matchMedia(EDITOR_KAPALI_MQ).matches;
 
@@ -96,7 +99,7 @@ export class ProducerDesk {
     this.panes = {}; this.tabBtns = {}; this.badges = {};
     const body = this.body = el('div', 'pd-body');
     this.banner = el('div', 'pd-banner'); this.banner.setAttribute('role', 'status'); this.banner.hidden = true;
-    for (const [k, name, short] of [['ch', 'Klip'], ['credits', 'İsimler'], ['type', 'Yazılar'], ['look', 'Görüntü ve ses', 'Görüntü']]) {
+    for (const [k, name, short] of [['ch', 'Klip'], ['credits', 'İsimler'], ['type', 'Yazılar'], ['look', 'Görüntü ve ses', 'Görüntü'], ['fx', 'Efektler']]) {
       const b = el('button'); b.type = 'button'; b.setAttribute('role', 'tab'); b.id = `pdTab-${k}`; b.setAttribute('aria-controls', `pdPane-${k}`);
       const bd = this.badges[k] = el('span', 'pd-badge'); bd.hidden = true; b.append(el('span', short ? 'pd-long' : null, name), ...(short ? [el('span', 'pd-short', short)] : []), bd);   // dar ekranda kısa ad
       b.onclick = () => this.setTab(k);
@@ -140,7 +143,7 @@ export class ProducerDesk {
       if (e.key === 'Tab' && !this.docked && !host.standalone) { const f = [...root.querySelectorAll('button, input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter((n) => !n.disabled && n.offsetParent !== null); if (f.length) { const a = f[0], z = f[f.length - 1]; if (e.shiftKey && document.activeElement === a) { e.preventDefault(); z.focus(); } else if (!e.shiftKey && document.activeElement === z) { e.preventDefault(); a.focus(); } } }
       e.stopPropagation();
     });
-    this.buildCredits(); this.buildType(); this.buildLook();
+    this.menus = []; this.buildCredits(); this.buildType(); this.buildLook(); this.buildFx();
   }
   get isOpen() { return !this.root.hidden; }
 
@@ -381,12 +384,22 @@ export class ProducerDesk {
     this.helpBtn.setAttribute('aria-pressed', String(this.introOn));
     head.append(el('span', 'pd-k', 'Zaman çizelgesi'), this.est);
     const grid = el('div', 'pd-tlgrid');
-    const lab = (t, tip) => { const x = el('span', 'pd-trk', t); x.title = tip; x.setAttribute('aria-hidden', 'true'); return x; };
+    const lab = (t, tip) => { const x = el('span', 'pd-trk pd-trk-' + t.toLowerCase(), t); x.title = tip; x.setAttribute('aria-hidden', 'true'); return x; };
     this.ruler = el('div', 'pd-ruler'); this.ruler.setAttribute('aria-hidden', 'true');
     this.strip = el('div', 'pd-strip'); this.strip.setAttribute('role', 'list'); this.strip.setAttribute('aria-label', 'Bölümler: sırası ve süreleri');
     this.audio = el('div', 'pd-audio'); this.audio.setAttribute('aria-hidden', 'true');
-    grid.append(el('span'), this.ruler, lab('V1', 'Görüntü: bölümler'), this.strip, lab('A1', 'Ses: müzik'), this.audio);
+    this.phl = el('div', 'pd-phlayer'); this.ph = el('i', 'pd-ph'); this.phl.append(this.ph); this.phl.setAttribute('aria-hidden', 'true');
+    grid.append(el('span', 'pd-trk0'), this.ruler, lab('V1', 'Görüntü: bölümler'), this.strip, lab('A1', 'Ses: müzik'), this.audio, this.phl);
     w.append(head, intro, grid);
+    // cetvelde sürükle: oynatma çizgisi klipler arasında gezer, altındaki klip seçilir, monitör o anı gösterir
+    this.ruler.title = translateText('Sürükle: oynatma çizgisi');
+    this.ruler.onpointerdown = (e) => {
+      if (e.button !== 0) return; e.preventDefault(); this.ruler.setPointerCapture(e.pointerId);
+      const go = (ev) => { const r = this.strip.getBoundingClientRect(); this.scrubTo((ev.clientX - r.left) / r.width); };
+      go(e); this.ruler.onpointermove = go;
+      this.ruler.onpointerup = this.ruler.onpointercancel = () => { this.ruler.onpointermove = null; };
+    };
+    this.audio.oncontextmenu = (e) => { e.preventDefault(); this.audioMenu(e.clientX, e.clientY, this.audio); };
   }
   // zaman çizelgesini kurgudan kur (fill çağırır): klipler tahmini süreleriyle orantılı; kapalı klip ince ve taralı
   buildStrip() {
@@ -396,6 +409,7 @@ export class ProducerDesk {
     const OFF = Math.max(total, 1) * 0.02;
     const segs = this.chapters.map((info) => { const on = this.cut.ch[info.k].on, sec = parts[info.k] || 0; return { info, on, sec, w: on ? Math.max(sec, total * 0.035, 1) : OFF }; });
     const W = segs.reduce((a, q) => a + q.w, 0) || 1;
+    const odak = this.strip.contains(document.activeElement) ? document.activeElement.closest('.pd-clip')?.dataset.k : null;   // yeniden kurulunca odak aynı klipte kalsın
     this.strip.replaceChildren();
     for (const [i, q] of segs.entries()) {
       const { info, on, sec } = q, c = this.cut.ch[info.k], nm = translateText(info.name);
@@ -409,9 +423,25 @@ export class ProducerDesk {
       }
       b.classList.toggle('changed', chapterChanged(this.cut, info.k)); b.classList.toggle('now', info.k === this.now);
       b.classList.toggle('sel', info.k === this.sel); b.setAttribute('aria-current', String(info.k === this.sel));
+      if (on && c.trans !== 'auto') { const t = el('i', 'pd-trmk pd-tr-' + c.trans); t.title = `${translateText('Bölüme giriş')}: ${translateText(TRANS_LABEL[c.trans])}`; b.append(t); }
+      if (on && info.k !== 'asc') {                                              // sağ kenar: sürükleyerek kısa / normal / uzun
+        const h = el('i', 'pd-trim'); h.title = translateText('Sürükle: uzunluk (kısa / normal / uzun)'); h.onpointerdown = (e) => this.trim(e, info.k, b, q); b.append(h);
+      }
       b.onclick = () => this.selectClip(info.k);
-      b.onkeydown = (e) => {                                                   // ←/→ klipler arasında, Home/End uçlara
-        const d = { ArrowRight: 1, ArrowLeft: -1, Home: -99, End: 99 }[e.key]; if (!d) return; e.preventDefault();
+      b.ondblclick = () => { if (info.k !== 'asc' && this.h.onPreview) this.preview(info.k); };
+      b.oncontextmenu = (e) => { e.preventDefault(); this.selectClip(info.k); this.clipMenu(info.k, e.clientX, e.clientY, b); };
+      // Efektler panelinden sürükle-bırak (geçiş, kamera açısı, uzunluk)
+      b.ondragover = (e) => { if (!e.dataTransfer.types.includes(FX_MIME)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; b.classList.add('drop'); };
+      b.ondragleave = () => b.classList.remove('drop');
+      b.ondrop = (e) => { b.classList.remove('drop'); const d = e.dataTransfer.getData(FX_MIME); if (!d) return; e.preventDefault(); this.selectClip(info.k); this.applyFx(info.k, JSON.parse(d)); };
+      b.onkeydown = (e) => {                                                   // ←/→ klipler arasında, Home/End uçlara; Del, Ctrl+C/V, +/−, menü tuşu
+        const k = info.k, mod = e.ctrlKey || e.metaKey;
+        if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) { e.preventDefault(); const r = b.getBoundingClientRect(); this.clipMenu(k, r.left + 12, r.bottom - 4, b); return; }
+        if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); this.toggleClip(k); return; }
+        if (mod && !e.altKey && e.key.toLowerCase() === 'c') { e.preventDefault(); e.stopPropagation(); this.copyClip(k); return; }
+        if (mod && !e.altKey && e.key.toLowerCase() === 'v') { e.preventDefault(); e.stopPropagation(); this.pasteClip(k); return; }
+        if (!mod && (e.key === '+' || e.key === '=' || e.key === '-')) { e.preventDefault(); this.stepLen(k, e.key === '-' ? -1 : 1); return; }
+        const d = { ArrowRight: 1, ArrowLeft: -1, Home: -99, End: 99 }[e.key]; if (!d || mod) return; e.preventDefault();
         const n = segs[Math.max(0, Math.min(segs.length - 1, i + d))].info.k; this.selectClip(n); this.strip.querySelector(`[data-k="${n}"]`).focus();
       };
       this.strip.append(b);
@@ -424,6 +454,9 @@ export class ProducerDesk {
       return 100;
     };
     for (let t = 0; t <= total; t += step) { const m = el('span', null, mmss(t)); m.style.left = `${pos(t)}%`; this.ruler.append(m); }
+    this.tl = { segs, W, total, pos };                                         // oynatma çizgisi ve cetvelde sürükleme için
+    this.placeHead();
+    if (odak) { const n = this.strip.querySelector(`[data-k="${odak}"]`); if (n) n.focus({ preventScroll: true }); }
     // A1: müzik izi tek parça
     this.audio.replaceChildren(el('span', null, this.cut.mood === 'off' ? translateText('Müzik yok') : `♪ ${translateText(MOOD_LABEL[this.cut.mood])}`));
     this.audio.classList.toggle('off', this.cut.mood === 'off');
@@ -433,8 +466,224 @@ export class ProducerDesk {
     this.sel = k;
     for (const p of this.panes.ch.children) p.hidden = p.dataset.k !== k;
     if (this.strip) for (const b of this.strip.children) { const on = b.dataset.k === k; b.classList.toggle('sel', on); b.setAttribute('aria-current', String(on)); }
-    if (show) this.setTab('ch');
+    if (show && this.tab !== 'fx') this.setTab('ch');
+    this.placeHead();
     if (this.syncMon) this.syncMon();
+  }
+  // ---------------------------------------------------------------- klip işlemleri (menü, kısayol, sürükle-bırak ortak)
+  // aç/kapa: en az bir klip açık kalır; geri alınabilir
+  toggleClip(k, on = !this.cut.ch[k].on) {
+    const info = this.chapters.find((q) => q.k === k), others = this.chapters.filter((c) => c.k !== k && this.cut.ch[c.k].on).length;
+    if (!on && !others) { this.say('En az bir bölüm kalmalı.'); return false; }
+    this.update((c) => { c.ch[k].on = on; });
+    this.say(`${translateText(info.name)} ${translateText(on ? 'fragmana eklendi.' : 'kapatıldı.')}`, true);
+    return true;
+  }
+  setClip(k, f, msg) { this.update((c) => f(c.ch[k])); if (msg) this.say(msg, true); }
+  // klip ayarlarını kopyala / yapıştır: kamera (özel kamera değerleri dahil), uzunluk, geçiş, başlığın yeri; yazılar ve aç/kapa taşınmaz
+  copyClip(k) {
+    const { title, sub, narr, on, ...rest } = this.cut.ch[k]; void title; void sub; void narr; void on;
+    this.clipBoard = { from: k, v: structuredClone(rest) };
+    this.say('Klip ayarları kopyalandı: kamera, uzunluk, geçiş, başlığın yeri.');
+  }
+  pasteClip(k) {                                                                 // k yoksa bütün kliplere
+    if (!this.clipBoard) { this.say('Önce bir klibin ayarlarını kopyala (Ctrl+C).'); return; }
+    const hedef = k ? [k] : this.chapters.map((q) => q.k).filter((q) => q !== 'asc');
+    this.update((c) => { for (const t of hedef) Object.assign(c.ch[t], structuredClone(this.clipBoard.v)); });
+    this.say(k ? `${translateText(this.chapters.find((q) => q.k === k).name)}: ${translateText('ayarlar yapıştırıldı.')}` : translateText('Ayarlar bütün kliplere yapıştırıldı.'), true);
+  }
+  stepLen(k, d) {
+    if (k === 'asc') return;
+    const o = ['short', 'normal', 'long'], i = o.indexOf(this.cut.ch[k].len), n = o[Math.max(0, Math.min(2, i + d))];
+    if (n !== this.cut.ch[k].len) this.setClip(k, (c) => { c.len = n; }, `${translateText(this.chapters.find((q) => q.k === k).name)}: ${translateText(LEN_LABEL[n])}`);
+  }
+  // Efektler panelinden gelen değer: { t: 'trans' | 'cam' | 'len', v }
+  applyFx(k, fx) {
+    const nm = translateText(this.chapters.find((q) => q.k === k).name);
+    if (k === 'asc' && fx.t !== 'trans') { this.say('Kalkışta kamera ve uzunluk uçuşa bağlı: değiştirilemez.'); return; }
+    if (fx.t === 'trans' && OPT.trans.includes(fx.v)) this.setClip(k, (c) => { c.trans = fx.v; }, `${nm}: ${translateText(TRANS_LABEL[fx.v])}`);
+    else if (fx.t === 'cam' && OPT.cam.includes(fx.v)) this.setClip(k, (c) => { c.cam = fx.v; }, `${nm}: ${translateText(CAM_LABEL[fx.v])}`);
+    else if (fx.t === 'len' && OPT.len.includes(fx.v)) this.setClip(k, (c) => { c.len = fx.v; }, `${nm}: ${translateText(LEN_LABEL[fx.v])}`);
+  }
+  // klibin sağ kenarını sürükle: genişlik kısa (×0,6) / normal / uzun (×1,6) basamaklarına oturur; Esc vazgeçer
+  trim(e, k, b, q) {
+    if (e.button !== 0) return; e.preventDefault(); e.stopPropagation();
+    const h = e.currentTarget, w0 = b.getBoundingClientRect().width, cur = this.cut.ch[k].len, k0 = LEN_K[cur], x0 = e.clientX, steps = ['short', 'normal', 'long'];
+    let pick = cur; h.setPointerCapture(e.pointerId); b.classList.add('trimming'); this.selectClip(k);
+    const move = (ev) => {
+      const want = Math.max(0.2, (w0 + ev.clientX - x0) / w0) * k0;
+      pick = steps.reduce((a, z) => (Math.abs(LEN_K[z] - want) < Math.abs(LEN_K[a] - want) ? z : a), cur);
+      b.style.flexGrow = String(q.w / k0 * LEN_K[pick]); b.dataset.trim = translateText(LEN_LABEL[pick]);
+    };
+    const end = (ok) => {
+      h.onpointermove = h.onpointerup = h.onpointercancel = null; window.removeEventListener('keydown', esc, true);
+      b.classList.remove('trimming'); delete b.dataset.trim; b.style.flexGrow = String(q.w);
+      if (ok && pick !== cur) this.setClip(k, (c) => { c.len = pick; }, `${translateText(this.chapters.find((z) => z.k === k).name)}: ${translateText(LEN_LABEL[pick])}`);
+    };
+    const esc = (ev) => { if (ev.key === 'Escape') { ev.stopPropagation(); ev.preventDefault(); end(false); } };
+    h.onpointermove = move; h.onpointerup = () => end(true); h.onpointercancel = () => end(false); window.addEventListener('keydown', esc, true);
+  }
+  // cetvelde sürükleme: oran (0–1) → klip ve fragman zamanı
+  scrubTo(fr) {
+    const T = this.tl; if (!T) return;
+    let acc = 0, t = 0; const x = Math.max(0, Math.min(1, fr)) * T.W;
+    for (const s of T.segs) {
+      if (x <= acc + s.w) { if (this.sel !== s.info.k) this.selectClip(s.info.k); this.scrubT = s.on ? t + (s.sec * (x - acc) / s.w) : t; this.placeHead(); if (this.syncMon) this.syncMon(); return; }
+      acc += s.w; if (s.on) t += s.sec;
+    }
+  }
+  // oynatma çizgisi: seçili klibin başı ya da cetvelde sürüklenen an
+  placeHead() {
+    const T = this.tl; if (!T || !this.ph) return;
+    let t = 0; for (const s of T.segs) { if (s.info.k === this.sel) break; if (s.on) t += s.sec; }
+    const seg = T.segs.find((s) => s.info.k === this.sel), within = this.scrubT != null && seg && this.scrubT >= t && this.scrubT <= t + seg.sec;
+    if (!within) this.scrubT = null;
+    let acc = 0; for (const s of T.segs) { if (s.info.k === this.sel) break; acc += s.w; }
+    const x = within && seg.on && seg.sec ? acc + (this.scrubT - t) / seg.sec * seg.w : acc;
+    this.ph.style.left = `${x / T.W * 100}%`; this.headT = within ? this.scrubT : t;
+  }
+
+  // ---------------------------------------------------------------- sağ tık menüsü (role=menu): ok tuşları, alt menü (→ / ←), Enter, Esc; dışarı tıklayınca kapanır
+  menu(x, y, items, back = document.activeElement) {
+    this.closeMenus();
+    const ac = this.menuAbort = new AbortController();
+    const open = (list, px, py, level, flipX = null) => {
+      const m = el('div', 'pd-menu'); m.setAttribute('role', 'menu'); m.dataset.level = level; const btns = [];
+      for (const it of list) {
+        if (it.sep) { const sp = el('div', 'pd-msep'); sp.setAttribute('role', 'separator'); m.append(sp); continue; }
+        if (it.head) { m.append(el('div', 'pd-mhead', it.head)); continue; }
+        const b = el('button', 'pd-mi'); b.type = 'button'; b.tabIndex = -1;
+        b.setAttribute('role', it.checked == null ? 'menuitem' : it.radio ? 'menuitemradio' : 'menuitemcheckbox');
+        if (it.checked != null) b.setAttribute('aria-checked', String(!!it.checked));
+        b.append(el('span', 'pd-mck'), el('span', 'pd-ml', it.label));
+        if (it.kbd) b.append(el('kbd', null, it.kbd));
+        if (it.sub) { b.setAttribute('aria-haspopup', 'menu'); b.setAttribute('aria-expanded', 'false'); b.append(el('span', 'pd-marr')); }
+        b.disabled = !!it.disabled;
+        const openSub = () => {
+          if (b.getAttribute('aria-expanded') === 'true') return this.menus.find((z) => z.opener === b);
+          this.closeMenus(level + 1); for (const o of btns) if (o.getAttribute('aria-haspopup')) o.setAttribute('aria-expanded', 'false');
+          const r = b.getBoundingClientRect(), sm = open(it.sub, r.right - 2, r.top - 5, level + 1, r.left + 2); sm.opener = b; b.setAttribute('aria-expanded', 'true'); return sm;
+        };
+        b.onclick = () => {
+          if (it.sub) { const sm = openSub(); const f = sm && sm.querySelector('.pd-mi:not(:disabled)'); if (f) f.focus(); return; }
+          this.closeMenus(); if (back && back.focus && document.contains(back)) back.focus(); if (it.act) it.act();
+        };
+        b.onpointerenter = () => { if (b.disabled) return; b.focus({ preventScroll: true }); if (it.sub) openSub(); else { this.closeMenus(level + 1); for (const o of btns) o.setAttribute('aria-expanded', 'false'); } };
+        btns.push(b); m.append(b);
+      }
+      m.onkeydown = (e) => {
+        e.stopPropagation();                                                     // masanın Esc / Ctrl+Z / Tab işleyicisine gitmesin
+        const en = btns.filter((z) => !z.disabled), j = en.indexOf(document.activeElement), a = document.activeElement;
+        const back1 = () => { const op = m.opener; this.closeMenus(level); if (op) { op.setAttribute('aria-expanded', 'false'); op.focus(); } };
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const d = e.key === 'ArrowDown' ? 1 : -1; (en[(j + d + en.length) % en.length] || en[0]).focus(); }
+        else if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); (e.key === 'Home' ? en[0] : en[en.length - 1]).focus(); }
+        else if (e.key === 'ArrowRight' && a && a.getAttribute('aria-haspopup')) { e.preventDefault(); a.click(); }
+        else if (e.key === 'ArrowLeft' && level > 0) { e.preventDefault(); back1(); }
+        else if (e.key === 'Escape') { e.preventDefault(); if (level > 0) back1(); else { this.closeMenus(); if (back && back.focus) back.focus(); } }
+        else if (e.key === 'Tab') { e.preventDefault(); this.closeMenus(); if (back && back.focus) back.focus(); }
+      };
+      this.root.append(m); this.menus.push(m);
+      // ekrana sığdır; açılma köşesi transform-origin olur (menü tıklanan noktadan büyür)
+      const r = m.getBoundingClientRect(), W = innerWidth, H = innerHeight; let left = px, top = py, ox = 'left', oy = 'top';
+      if (left + r.width > W - 8) { left = flipX != null ? flipX - r.width : W - 8 - r.width; ox = 'right'; }
+      if (top + r.height > H - 8) { top = Math.max(8, (level ? H - 8 : py) - r.height); oy = 'bottom'; }
+      m.style.left = `${Math.max(8, left)}px`; m.style.top = `${Math.max(8, top)}px`; m.style.transformOrigin = `${ox} ${oy}`;
+      return m;
+    };
+    const m0 = open(items, x, y, 0), f = m0.querySelector('.pd-mi:not(:disabled)'); if (f) f.focus({ preventScroll: true });
+    const out = (e) => { if (!e.target.closest || !e.target.closest('.pd-menu')) this.closeMenus(); };
+    document.addEventListener('pointerdown', out, { capture: true, signal: ac.signal });
+    window.addEventListener('blur', () => this.closeMenus(), { signal: ac.signal });
+    window.addEventListener('resize', () => this.closeMenus(), { signal: ac.signal });
+    this.body.addEventListener('scroll', () => this.closeMenus(), { signal: ac.signal });
+  }
+  closeMenus(from = 0) {
+    this.menus = this.menus.filter((m) => { if (+m.dataset.level >= from) { m.remove(); return false; } return true; });
+    if (!this.menus.length && this.menuAbort) { this.menuAbort.abort(); this.menuAbort = null; }
+  }
+  // klibin menüsü
+  clipMenu(k, x, y, back) {
+    const info = this.chapters.find((q) => q.k === k), c = this.cut.ch[k], asc = k === 'asc';
+    const radio = (map, order, cur, f) => order.map((v) => ({ label: map[v], checked: cur === v, radio: true, act: () => f(v) }));
+    const nm = translateText(info.name), set = (f, lab) => this.setClip(k, f, `${nm}: ${translateText(lab)}`);
+    this.menu(x, y, [
+      { head: info.name },
+      { label: 'Önizle', disabled: asc || !this.h.onPreview, act: () => this.preview(k) },
+      { label: 'Buradan oynat', act: () => this.playFrom(k) },
+      { sep: true },
+      { label: 'Fragmanda', checked: c.on, kbd: 'Del', act: () => this.toggleClip(k) },
+      { label: 'Uzunluk', disabled: asc, sub: radio(LEN_LABEL, ORDER.len, c.len, (v) => set((z) => { z.len = v; }, LEN_LABEL[v])) },
+      { label: 'Bölüme giriş', sub: radio(TRANS_LABEL, OPT.trans, c.trans, (v) => set((z) => { z.trans = v; }, TRANS_LABEL[v])) },
+      { label: 'Kamera', disabled: asc, sub: radio(CAM_LABEL, OPT.cam, c.cam, (v) => set((z) => { z.cam = v; }, CAM_LABEL[v])) },
+      { label: 'Başlığın yeri', disabled: k === 'outro', sub: radio(POS_LABEL, OPT.pos, c.pos, (v) => set((z) => { z.pos = v; }, POS_LABEL[v])) },
+      { sep: true },
+      { label: 'Ayarları kopyala', kbd: 'Ctrl+C', act: () => this.copyClip(k) },
+      { label: 'Ayarları yapıştır', kbd: 'Ctrl+V', disabled: !this.clipBoard, act: () => this.pasteClip(k) },
+      { label: 'Bütün kliplere yapıştır', disabled: !this.clipBoard, act: () => this.pasteClip(null) },
+      { sep: true },
+      { label: 'Bölümü sıfırla', disabled: !chapterChanged(this.cut, k), act: () => { this.update((z) => { z.ch[k] = { ...DEFAULT_CH }; }); this.say(`${nm} ${translateText('yönetmenin haline döndü.')}`, true); } },
+    ], back);
+  }
+  // monitörün menüsü: yazıların yerleri ve ekran oranı
+  monitorMenu(x, y, back) {
+    const c = this.cut, k = this.sel, upd = (key, v, lab) => { this.update((z) => { z[key] = v; }, key); this.say(translateText(lab), true); };
+    const radio = (map, order, cur, f) => order.map((v) => ({ label: map[v], checked: cur === v, radio: true, act: () => f(v) }));
+    this.menu(x, y, [
+      { label: 'Bu bölümün başlığı', disabled: k === 'outro', sub: radio(POS_LABEL, OPT.pos, c.ch[k].pos, (v) => this.setClip(k, (z) => { z.pos = v; }, translateText(POS_LABEL[v]))) },
+      { label: 'Bütün bölüm başlıkları', sub: radio(POS_LABEL, OPT.cardPos, c.cardPos, (v) => upd('cardPos', v, POS_LABEL[v])) },
+      { label: 'Alt yazılar ve anlatıcı', sub: radio(CUEPOS_LABEL, ORDER.cuePos, c.cuePos, (v) => upd('cuePos', v, CUEPOS_LABEL[v])) },
+      { label: 'Köşe logosu', sub: radio(BUGPOS_LABEL, ORDER.bugPos, c.bugPos, (v) => upd('bugPos', v, BUGPOS_LABEL[v])) },
+      { sep: true },
+      { label: 'Ekran oranı', sub: radio(AR_LABEL, ORDER.aspect, c.aspect, (v) => upd('aspect', v, AR_LABEL[v])) },
+    ], back);
+  }
+  // müzik izinin menüsü
+  audioMenu(x, y, back) {
+    const c = this.cut, upd = (key, v, lab) => { this.update((z) => { z[key] = v; }, key); this.say(translateText(lab), true); };
+    this.menu(x, y, [
+      { head: 'Ses' },
+      ...ORDER.mood.map((v) => ({ label: MOOD_LABEL[v], checked: c.mood === v, radio: true, act: () => upd('mood', v, MOOD_LABEL[v]) })),
+      { sep: true },
+      { label: 'Görev kontrol anonsları', checked: c.voice, act: () => upd('voice', !c.voice, 'Görev kontrol anonsları') },
+      { label: 'Anlatıcı notlarını seslendir', checked: c.narrate, act: () => upd('narrate', !c.narrate, 'Anlatıcı notlarını seslendir') },
+    ], back);
+  }
+  // monitörde sürükle-bırak: başlık kartı (bu bölümün yeri), köşe logosu, alt yazı; bırakınca en yakın yere oturur, Esc vazgeçer
+  monDrag(e, node, scr, spots, apply) {
+    if (e.button !== 0) return; e.preventDefault();
+    const r0 = scr.getBoundingClientRect(), x0 = e.clientX, y0 = e.clientY, marks = el('div', 'pf-drops');
+    for (const [key, [l, t]] of Object.entries(spots)) { const d = el('i'); d.dataset.k = key; d.style.left = `${l}%`; d.style.top = `${t}%`; marks.append(d); }
+    scr.append(marks); node.setPointerCapture(e.pointerId); node.classList.add('dragging');
+    let best = null;
+    const near = (ev) => { const px = (ev.clientX - r0.left) / r0.width * 100, py = (ev.clientY - r0.top) / r0.height * 100; let bk = null, bd = 1e9; for (const [key, [l, t]] of Object.entries(spots)) { const d = Math.hypot(l - px, (t - py) * 0.56); if (d < bd) { bd = d; bk = key; } } return bk; };
+    node.onpointermove = (ev) => { node.style.translate = `${ev.clientX - x0}px ${ev.clientY - y0}px`; best = near(ev); for (const d of marks.children) d.classList.toggle('on', d.dataset.k === best); };
+    const esc = (ev) => { if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); end(false); } };
+    const end = (ok) => {
+      node.onpointermove = node.onpointerup = node.onpointercancel = null; window.removeEventListener('keydown', esc, true);
+      node.style.translate = ''; node.classList.remove('dragging'); marks.remove();
+      if (ok && best) apply(best);
+    };
+    node.onpointerup = () => end(true); node.onpointercancel = () => end(false); window.addEventListener('keydown', esc, true);
+  }
+  // Efektler: geçişler, kamera açıları ve uzunluk; zaman çizelgesindeki klibe sürüklenir ya da tıklayınca seçili klibe uygulanır
+  buildFx() {
+    const pane = this.panes.fx;
+    pane.append(el('p', 'pd-note', 'Bir efekti zaman çizelgesindeki klibin üstüne sürükle. Tıklarsan seçili klibe uygulanır.'));
+    const grp = (title, t, order, labels, tips = {}) => {
+      const g = el('fieldset', 'pd-group pd-fxg'); g.append(el('legend', null, title));
+      for (const v of order) {
+        const b = el('button', 'pd-fx'); b.type = 'button'; b.draggable = true; b.dataset.t = t; b.dataset.v = v;
+        b.append(el('i', `pd-fxi pd-fxi-${t}`), el('span', null, labels[v])); if (tips[v]) b.title = translateText(tips[v]);
+        b.ondragstart = (e) => { e.dataTransfer.setData(FX_MIME, JSON.stringify({ t, v })); e.dataTransfer.effectAllowed = 'copy'; this.strip.classList.add('dropping'); };
+        b.ondragend = () => this.strip.classList.remove('dropping');
+        b.onclick = () => this.applyFx(this.sel, { t, v });
+        g.append(b);
+      }
+      return g;
+    };
+    pane.append(grp('Bölüme giriş', 'trans', OPT.trans, TRANS_LABEL, { auto: 'Yönetmenin geçişi', fade: 'Siyaha kararıp açılır', cut: 'Doğrudan kesme', flash: 'Beyaz parlamayla açılır' }),
+      grp('Kamera', 'cam', OPT.cam.filter((v) => v !== 'custom'), CAM_LABEL, CAM_TIP), grp('Uzunluk', 'len', ORDER.len, LEN_LABEL));
+    pane.append(el('p', 'pd-note', 'Kısayollar: Del klibi çıkarır ya da ekler · Ctrl+C / Ctrl+V klip ayarlarını kopyalar · + / − uzunluk · çift tık önizler · sağ tık menü.'));
   }
   focusChapter(k) { this.selectClip(k); const h = this.panes.ch.querySelector(`.pd-ci[data-k="${k}"] .pd-cititle`); if (h) h.focus(); }
   // Program monitörü: seçili klibin başlık kartı, seçilen yazı tipi, renk, yer ve ekran oranıyla (yazılar sekmesindeki ayarlar burada canlı görünür)
@@ -451,6 +700,16 @@ export class ProducerDesk {
     for (const t of ['T+0g 02:41:08', 'TLI', '312 km', '10,84 km/s']) strip.append(el('span', null, t));
     scr.append(el('i', 'pf-scrim'), el('i', 'pf-bar top'), el('i', 'pf-bar bottom'), bug, card, cue, strip, offNote);
     fr.append(scr);
+    // monitörde doğrudan düzenleme: sağ tık menüsü; başlık kartını, köşe logosunu ve alt yazıyı tutup bırak
+    scr.oncontextmenu = (e) => { e.preventDefault(); this.monitorMenu(e.clientX, e.clientY, scr); };
+    const updG = (key, v, lab) => { this.update((z) => { z[key] = v; }, key); this.say(translateText(lab), true); };
+    card.title = bug.title = cue.title = translateText('Sürükle: yerini değiştir');
+    card.onpointerdown = (e) => {
+      if (this.sel === 'outro') { this.say('Kapanış yazısının yeri Yazılar sekmesinde.'); return; }
+      this.monDrag(e, card, scr, SPOT, (v) => this.setClip(this.sel, (z) => { z.pos = v; }, `${translateText(this.chapters.find((q) => q.k === this.sel).name)}: ${translateText(POS_LABEL[v])}`));
+    };
+    bug.onpointerdown = (e) => this.monDrag(e, bug, scr, BUG_SPOT, (v) => updG('bugPos', v, `${translateText('Köşe logosu')}: ${translateText(BUGPOS_LABEL[v])}`));
+    cue.onpointerdown = (e) => this.monDrag(e, cue, scr, CUE_SPOT, (v) => updG('cuePos', v, `${translateText('Alt yazılar ve anlatıcı')}: ${translateText(CUEPOS_LABEL[v])}`));
     // taşıma düğmeleri: önceki / sonraki klip, önizle (gerçek sahnede), bu bölümden oynat
     const tr = el('div', 'pd-transport');
     const nav = (d) => { const ks = this.chapters.map((c) => c.k), i = ks.indexOf(this.sel); this.selectClip(ks[Math.max(0, Math.min(ks.length - 1, i + d))]); };
@@ -479,7 +738,8 @@ export class ProducerDesk {
       // zaman kodu: klibin fragmandaki başlangıcı / toplam
       const E = this.h.cinema.estimate(c, true), parts = (E && E.parts) || {}; let t0 = 0;
       for (const q of this.chapters) { if (q.k === k) break; if (c.ch[q.k].on) t0 += parts[q.k] || 0; }
-      tc.textContent = E ? `${mmss(t0)} / ${mmss(E.total || 0)}` : '';
+      const tNow = this.scrubT != null && this.scrubT >= t0 && this.scrubT <= t0 + (parts[k] || 0) ? this.scrubT : t0;
+      tc.textContent = E ? `${mmss(tNow)} / ${mmss(E.total || 0)}` : '';
     };
     this.syncs.push(this.syncMon);
     return mon;
@@ -495,11 +755,7 @@ export class ProducerDesk {
     const sw = el('label', 'pd-onsw'), cb = el('input', 'pd-switch'); cb.type = 'checkbox'; cb.setAttribute('role', 'switch');
     cb.setAttribute('aria-label', `${translateText(info.name)}: ${translateText('fragmanda')}`); sw.title = translateText('Kapatırsan bu bölümün süresi ekran karartılıp hızla geçilir');
     sw.append(cb, el('span', null, 'Fragmanda'));
-    cb.onchange = () => {
-      const on = cb.checked, others = this.chapters.filter((c) => c.k !== k && this.cut.ch[c.k].on).length;
-      if (!on && !others) { cb.checked = true; this.say('En az bir bölüm kalmalı.'); return; }
-      set((c) => { c.on = on; }); if (!on) this.say(`${translateText(info.name)} ${translateText('kapatıldı.')}`, true);
-    };
+    cb.onchange = () => { if (!this.toggleClip(k, cb.checked)) cb.checked = true; };
     head.append(ttl, sw);
     const offNote = el('p', 'pd-note', 'Fragmanda yok: süresi hızla geçilir');
     // 1) ekrandaki yazılar

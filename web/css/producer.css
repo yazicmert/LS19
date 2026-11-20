@@ -116,6 +116,58 @@ body.pd-open { overflow: hidden; }
 .pd-audio { display: flex; align-items: center; min-width: 0; padding: 0 8px; border-radius: 5px; font-size: 10.5px; color: rgba(255, 255, 255, .8); overflow: hidden; white-space: nowrap;
   background: linear-gradient(180deg, rgba(52, 211, 153, .28), rgba(16, 120, 90, .18)); border: 1px solid rgba(52, 211, 153, .4); }
 .pd-audio.off { background: transparent; border-style: dashed; border-color: var(--line-2); color: var(--text-muted); }
+/* zaman çizelgesi etkileşimleri: kısaltma tutamacı, geçiş işareti, oynatma çizgisi, sürükle-bırak hedefi */
+.pd-strip { position: relative; }
+.pd-trim { position: absolute; top: 0; right: 0; bottom: 0; width: 8px; cursor: ew-resize; touch-action: none; }
+.pd-trim::after { content: ""; position: absolute; top: 30%; bottom: 30%; right: 2px; width: 2px; border-radius: 1px; background: rgba(255, 255, 255, .35); opacity: 0; transition: opacity .15s var(--ease); }
+.pd-clip.sel .pd-trim::after, .pd-clip.trimming .pd-trim::after { opacity: 1; }
+.pd-clip.trimming { z-index: 2; border-color: var(--accent-2); }
+.pd-clip.trimming::after { content: attr(data-trim); position: absolute; top: 4px; right: 12px; padding: 1px 6px; border-radius: 4px; font: 600 10px var(--font); color: #001018; background: var(--accent-2); }
+.pd-trmk { position: absolute; top: 0; bottom: 0; left: 0; width: 7px; pointer-events: auto; }
+.pd-tr-fade { background: linear-gradient(90deg, rgba(0, 0, 0, .85), transparent); }
+.pd-tr-flash { background: linear-gradient(90deg, rgba(255, 255, 255, .8), transparent); }
+.pd-tr-cut { width: 2px; background: var(--accent-2); }
+.pd-strip.dropping .pd-clip:not(.off) { outline: 1px dashed rgba(94, 231, 255, .45); outline-offset: -3px; }
+.pd-clip.drop { border-color: var(--accent-2); background: rgba(94, 231, 255, .3); }
+.pd-ruler { cursor: ew-resize; touch-action: none; }
+.pd-trk0 { grid-area: 1 / 1; } .pd-trk-v1 { grid-area: 2 / 1; } .pd-trk-a1 { grid-area: 3 / 1; }
+.pd-ruler { grid-area: 1 / 2; } .pd-strip { grid-area: 2 / 2; } .pd-audio { grid-area: 3 / 2; }
+.pd-phlayer { grid-area: 1 / 2 / 4 / 3; position: relative; pointer-events: none; }
+.pd-ph { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #ff5d5d; box-shadow: 0 0 6px rgba(255, 93, 93, .5); transition: left .12s var(--ease-out); }
+.pd-ph::before { content: ""; position: absolute; top: 0; left: -5px; border: 6px solid transparent; border-top: 8px solid #ff5d5d; }
+/* sağ tık menüsü */
+.pd-menu { position: fixed; z-index: 80; min-width: 210px; max-width: 300px; padding: 5px; border-radius: 10px; background: rgba(20, 24, 34, .98); border: 1px solid var(--line-2);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, .55); animation: pd-menu .13s var(--ease-out) both; }
+@keyframes pd-menu { from { opacity: 0; transform: scale(.97); } }
+.pd-mhead { padding: 5px 9px 4px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+.pd-msep { height: 1px; margin: 4px 6px; background: var(--line); }
+.pd-mi { width: 100%; display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 4px 9px 4px 6px; border: 0; border-radius: 6px; background: transparent; color: var(--text-primary); font-size: 13px; text-align: left; }
+.pd-mi:focus-visible, .pd-mi:focus { outline: none; background: var(--accent-fill); color: #fff; }
+.pd-mi:disabled { opacity: .4; }
+.pd-mi:active:not(:disabled) { transform: none; }
+.pd-mck { flex: none; width: 14px; text-align: center; font-size: 12px; }
+.pd-mi[aria-checked="true"] .pd-mck::before { content: "✓"; }
+.pd-mi[role="menuitemradio"][aria-checked="true"] .pd-mck::before { content: "●"; font-size: 9px; }
+.pd-ml { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pd-mi kbd { font: 500 10.5px var(--mono); color: var(--text-muted); }
+.pd-mi:focus kbd { color: rgba(255, 255, 255, .75); }
+.pd-marr { width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-top: 1.5px solid currentColor; transform: rotate(45deg); margin-right: 3px; opacity: .7; }
+/* monitörde tut-bırak */
+.pf-card, .pf-bug, .pf-cue { cursor: grab; touch-action: none; }
+.pf-card.dragging, .pf-bug.dragging, .pf-cue.dragging { cursor: grabbing; z-index: 5; outline: 1px dashed var(--accent-2); outline-offset: 4px; }
+.pf-drops { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+.pf-drops i { position: absolute; width: 18%; height: 14%; transform: translate(-50%, -50%); border: 1.5px dashed rgba(94, 231, 255, .55); border-radius: 6px; transition: background-color .12s var(--ease); }
+.pf-drops i.on { background: rgba(94, 231, 255, .22); border-style: solid; border-color: var(--accent-2); }
+/* Efektler paneli: sürüklenebilir parçalar */
+.pd-fxg { gap: 8px; }
+.pd-fx { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 5px 11px 5px 8px; border-radius: 8px; cursor: grab; font-size: 12.5px; }
+.pd-fx:active { cursor: grabbing; }
+.pd-fxi { width: 16px; height: 12px; border-radius: 3px; flex: none; }
+.pd-fxi-trans { background: linear-gradient(90deg, #000, rgba(96, 150, 255, .7)); }
+.pd-fxi-cam { background: rgba(94, 231, 255, .5); border-radius: 50%; width: 12px; }
+.pd-fxi-len { background: linear-gradient(90deg, rgba(96, 150, 255, .7) 60%, transparent 60%); border: 1px solid rgba(96, 150, 255, .7); }
+@media (prefers-reduced-motion: reduce) { .pd-menu { animation-name: pd-fade; } .pd-ph { transition: none; } }
+
 /* alt çubuk: sıfırla solda sade */
 .pd-foot .pd-reset { background: transparent; border-color: transparent; color: var(--text-secondary); }
 
@@ -287,6 +339,7 @@ body.pd-docked #app { right: var(--pd-dock); }
 .pdesk.docked .pd-headbtns { margin-left: auto; }
 
 /* telefon ve dokunmatik tablet: editör kapalı, yerine "bilgisayarda düzenle" penceresi (producerui.js openMobil) */
+.pdesk:not(.docked) .pd-toast { left: 26%; }             /* bildirim monitörün üstünde: sekmeleri ve zaman çizelgesini örtmez */
 .pd-mobil { display: none; }
 .pdesk.mobil { place-items: center; padding: 20px calc(16px + var(--sr, 0px)) calc(20px + var(--sb, 0px)) calc(16px + var(--sl, 0px)); }
 .pdesk.mobil .pd-box { display: none; }
