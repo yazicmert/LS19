@@ -487,8 +487,12 @@ export class Cinema {
     Object.assign(W.cam, this.saved.cam);
     this.h.send({ cmd: 'autoWarp', on: this.saved.autoWarp }); this.h.send({ cmd: 'warp', value: this.saved.warp });
     const chk = document.querySelector('#chkAutoWarp'); if (chk) chk.checked = this.saved.autoWarp;
-    if (this.opts.preview && this.saved.t != null) this.h.send({ cmd: 'seek', t: this.saved.t });     // önizleme benzetimi o ana sardı: önceki ana dön
-    this.h.play(this.saved.running);
+    if (this.opts.preview) {                                                          // bölüm önizlemesi benzetimi o ana sardı: önceki ana ve oynama durumuna dön
+      if (this.saved.t != null) this.h.send({ cmd: 'seek', t: this.saved.t });
+      this.h.play(this.saved.running);
+    } else {                                                                          // fragman görevin girişidir: çıkınca (Esc, Çık, bitiş, dışa aktarım) görev
+      this.h.send({ cmd: 'restart' }); this.h.play(false);                            // kaldığı yerden sürmez; baştan kurulur ve duraklatılmış bekler
+    }
     if (ui) { ui.leave(); ui.previewBar(null); }
     W.setCinematic(false);
     this.h.onStop && this.h.onStop();
