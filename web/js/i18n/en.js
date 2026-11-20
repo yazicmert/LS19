@@ -2777,7 +2777,6 @@ const dict = {
   "Görüntü: bölümler": "Video: chapters",
   "Ses: müzik": "Audio: music",
   "fragmanda yok": "not in the trailer",
-  "Bu bölümde senin yazın var": "This chapter has your text",
   "Program monitörü": "Program monitor",
   "Önceki klip": "Previous clip",
   "Sonraki klip": "Next clip",

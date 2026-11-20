@@ -77,10 +77,9 @@ export class ProducerDesk {
     root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-labelledby', 'pdTitle');
     const box = el('div', 'pd-box'); root.append(box);
     const head = el('header', 'pd-head'), ht = el('div', 'pd-brand'), h2 = el('h2', null, 'Yapımcı masası'); h2.id = 'pdTitle';
-    const logo = el('span', 'pd-logo'); logo.innerHTML = '<i data-icon="clapper"></i>'; logo.setAttribute('aria-hidden', 'true'); ht.append(logo);
     ht.append(h2);
     // şablon (hazır kurgu): başlıkta tek seçici; kurgu elle değişince "Özel kurgu" görünür
-    const tplL = el('label', 'pd-tpl'), tpl = this.tpl = el('select'); tplL.append(el('span', null, 'Şablon'), tpl);
+    const tplL = el('label', 'pd-tpl'), tpl = this.tpl = el('select'); tplL.append(el('span', 'pd-sr', 'Şablon'), tpl); tpl.title = translateText('Şablon');
     for (const [k, p] of Object.entries(PRESETS)) { const o = el('option', null, p.name); o.value = k; o.title = PRESET_TIP[k] || ''; tpl.append(o); }
     const oc = el('option', null, 'Özel kurgu'); oc.value = 'custom'; oc.disabled = true; tpl.append(oc);
     tpl.onchange = () => { const k = tpl.value; if (!PRESETS[k] || presetOf(this.cut) === k) return; this.replace(applyPreset(this.cut, k), `${translateText(PRESETS[k].name)} ${translateText('seçildi; yazdıkların korundu.')}`); loadFonts([this.cut.hFont, this.cut.tFont]).then(() => this.fill()); };
@@ -311,7 +310,7 @@ export class ProducerDesk {
     const n = el('small', 'pd-count'); n.setAttribute('aria-hidden', 'true');
     i.oninput = () => { set(i.value); n.textContent = `${[...i.value].length}/${max}`; };
     i.onblur = () => { if (i.value !== get()) i.value = get(); this.hist.seal(); };   // süzülmüş biçim (boşluklar) ayrılınca görünür; yazma adımı biter
-    w.append(l, i, n); if (hint) { const h = el('small', 'pd-hint', hint); h.id = id + 'h'; i.setAttribute('aria-describedby', h.id); w.append(h); }
+    w.append(l, i, n); if (hint) { const h = el('small', 'pd-hint', hint); h.id = id + 'h'; i.setAttribute('aria-describedby', h.id); i.title = translateText(hint); w.append(h); }
     w.sync = () => { if (document.activeElement !== i) i.value = get(); n.textContent = `${[...i.value].length}/${max}`; };
     return w;
   }
@@ -336,7 +335,7 @@ export class ProducerDesk {
     const s = el('select'); s.id = id;
     for (const v of order) { const o = el('option', null, labels[v]); o.value = v; if (tips && tips[v]) o.title = tips[v]; s.append(o); }
     s.onchange = () => set(s.value);
-    w.append(l, s); if (hint) w.append(el('small', 'pd-hint', hint)); w.sel = s; w.sync = () => { s.value = get(); };
+    w.append(l, s); if (hint) { const h = el('small', 'pd-hint', hint); h.id = id + 'h'; s.setAttribute('aria-describedby', h.id); s.title = translateText(hint); w.append(h); } w.sel = s; w.sync = () => { s.value = get(); };
     return w;
   }
   check(label, get, set, tip = '') {
@@ -385,7 +384,7 @@ export class ProducerDesk {
     const ok = el('button', 'pd-introok', 'Anladım'); ok.type = 'button'; ok.onclick = () => { this.setIntro(false); this.playBtn.focus(); };
     intro.append(ok);
     this.helpBtn.setAttribute('aria-pressed', String(this.introOn));
-    head.append(el('span', 'pd-k', 'Zaman çizelgesi'), this.est);
+    head.append(el('h3', 'pd-ptitle', 'Zaman çizelgesi'), this.est);
     const grid = el('div', 'pd-tlgrid');
     const lab = (t, tip) => { const x = el('span', 'pd-trk pd-trk-' + t.toLowerCase(), t); x.title = tip; x.setAttribute('aria-hidden', 'true'); return x; };
     this.ruler = el('div', 'pd-ruler'); this.ruler.setAttribute('aria-hidden', 'true');
@@ -422,7 +421,6 @@ export class ProducerDesk {
       if (on) {
         const t = el('span', 'pd-clipt'); t.append(el('b', null, nm), el('small', null, mmss(sec)));
         b.append(t);
-        if (c.title || c.sub || c.narr) { const m = el('i', 'pd-clipm'); m.title = translateText('Bu bölümde senin yazın var'); b.append(m); }
       }
       b.classList.toggle('changed', chapterChanged(this.cut, info.k)); b.classList.toggle('now', info.k === this.now);
       b.classList.toggle('sel', info.k === this.sel); b.setAttribute('aria-current', String(info.k === this.sel));
@@ -461,7 +459,8 @@ export class ProducerDesk {
     this.placeHead();
     if (odak) { const n = this.strip.querySelector(`[data-k="${odak}"]`); if (n) n.focus({ preventScroll: true }); }
     // A1: müzik izi tek parça
-    this.audio.replaceChildren(el('span', null, this.cut.mood === 'off' ? translateText('Müzik yok') : `♪ ${translateText(MOOD_LABEL[this.cut.mood])}`));
+    const at = el('span', null); if (this.cut.mood === 'off') at.innerHTML = '<i data-icon="mute"></i>'; else at.innerHTML = '<i data-icon="volume"></i>'; at.append(el('b', null, this.cut.mood === 'off' ? 'Müzik yok' : MOOD_LABEL[this.cut.mood])); applyIcons(at);
+    this.audio.replaceChildren(at);
     this.audio.classList.toggle('off', this.cut.mood === 'off');
   }
   // klip seç: Denetçi'de o klibin paneli, zaman çizelgesinde işaret, monitörde başlık kartı
@@ -558,7 +557,8 @@ export class ProducerDesk {
         const b = el('button', 'pd-mi'); b.type = 'button'; b.tabIndex = -1;
         b.setAttribute('role', it.checked == null ? 'menuitem' : it.radio ? 'menuitemradio' : 'menuitemcheckbox');
         if (it.checked != null) b.setAttribute('aria-checked', String(!!it.checked));
-        b.append(el('span', 'pd-mck'), el('span', 'pd-ml', it.label));
+        const mk = el('span', 'pd-mck'); if (it.checked && !it.radio) { mk.innerHTML = '<i data-icon="check"></i>'; applyIcons(mk); }
+        b.append(mk, el('span', 'pd-ml', it.label));
         if (it.kbd) b.append(el('kbd', null, it.kbd));
         if (it.sub) { b.setAttribute('aria-haspopup', 'menu'); b.setAttribute('aria-expanded', 'false'); b.append(el('span', 'pd-marr')); }
         b.disabled = !!it.disabled;
@@ -693,7 +693,7 @@ export class ProducerDesk {
   buildMonitor() {
     const mon = el('section', 'pd-mon'); mon.setAttribute('aria-label', 'Program monitörü');
     const top = el('div', 'pd-montop'), monName = el('b'), tc = el('span', 'pd-tc');
-    top.append(el('span', 'pd-k', 'Program'), monName, tc);
+    top.append(monName, tc); monName.classList.add('pd-ptitle');
     const fr = el('figure', 'pd-frame'); fr.setAttribute('aria-label', 'Sahne maketi');
     const scr = el('div', 'pf-screen'); scr.translate = false;
     const bug = el('div', 'pf-bug'), bugB = el('b'), bugS = el('span'), bugT = el('span', 'pf-bugt'); bugT.append(bugB, bugS); bug.append(el('i'), bugT);
