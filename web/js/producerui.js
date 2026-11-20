@@ -24,6 +24,10 @@ const nextId = (p) => `${p}${++uid}`;
 const nf = (v, d = 0) => v.toLocaleString(LOC, { minimumFractionDigits: d, maximumFractionDigits: d });
 const mmss = (s) => { const r = Math.round(s); return `${Math.floor(r / 60)}:${String(r % 60).padStart(2, '0')}`; };
 const INTRO_KEY = 'ls19.deskIntro';
+// Editör telefonda ve dokunmatik tablette kapalı: zaman çizelgesi, Denetçi ve monitör geniş ekran ve fare ister. Orada masa yerine kısa bir pencere
+// fragmanı izletir ve kurguyu taşıyan bağlantıyı bilgisayara gönderir (bilgisayarda masa aynı kurguyla açılır).
+export const EDITOR_KAPALI_MQ = '(max-width: 760px), (hover: none) and (pointer: coarse)';
+export const editorKapali = () => typeof matchMedia === 'function' && matchMedia(EDITOR_KAPALI_MQ).matches;
 
 const CAM_LABEL = { auto: 'Yönetmenin seçimi', close: 'Yakın plan', orbit: 'Dönen kamera', ots: 'Omuz üstü', engine: 'Motor yakın planı', wide: 'Geniş: Dünya ya da Ay', top: 'Tepeden', custom: 'Özel kamera…' };
 const CAM_TIP = { auto: 'Bu bölüm için hazırlanmış çekimler (motor yakın planı, geniş açı, yer kamerası…)', close: 'Araç çevresinde yakın, ağır dönüş', orbit: 'Araç çevresinde yarım turdan fazla dönen kamera', ots: 'Dünya ya da Ay arkada: araç ön planda, cisim fonda',
@@ -68,7 +72,12 @@ export class ProducerDesk {
     root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-labelledby', 'pdTitle');
     const box = el('div', 'pd-box'); root.append(box);
     const head = el('header', 'pd-head'), ht = el('div'), h2 = el('h2', null, 'Yapımcı masası'); h2.id = 'pdTitle';
-    ht.append(h2, el('p', 'pd-lead', 'Fragmanın ipleri sende. Her değişiklik kendiliğinden kaydedilir ve geri alınabilir; görev fiziği ve olayların sırası gerçek kalır.'));
+    ht.append(h2);
+    // şablon (hazır kurgu): başlıkta tek seçici; kurgu elle değişince "Özel kurgu" görünür
+    const tplL = el('label', 'pd-tpl'), tpl = this.tpl = el('select'); tplL.append(el('span', null, 'Şablon'), tpl);
+    for (const [k, p] of Object.entries(PRESETS)) { const o = el('option', null, p.name); o.value = k; o.title = PRESET_TIP[k] || ''; tpl.append(o); }
+    const oc = el('option', null, 'Özel kurgu'); oc.value = 'custom'; oc.disabled = true; tpl.append(oc);
+    tpl.onchange = () => { const k = tpl.value; if (!PRESETS[k] || presetOf(this.cut) === k) return; this.replace(applyPreset(this.cut, k), `${translateText(PRESETS[k].name)} ${translateText('seçildi; yazdıkların korundu.')}`); loadFonts([this.cut.hFont, this.cut.tFont]).then(() => this.fill()); };
     this.live = el('span', 'pd-live', 'Canlı'); this.live.title = 'Değişiklikler oynayan fragmana anında yansır'; this.live.hidden = true;
     h2.append(' ', this.live);
     this.undoBtn = iconBtn('pd-iconbtn', '<i data-icon="undo"></i>', translateText('Geri al (Ctrl+Z)')); this.undoBtn.onclick = () => this.undo();
@@ -76,18 +85,18 @@ export class ProducerDesk {
     const pop = this.popBtn = iconBtn('pd-iconbtn pd-popbtn', '<i data-icon="external"></i>', translateText('Ayrı pencerede aç: LS19 öbür pencerede oynarken düzenle, değişiklikler anında yansır'));
     pop.onclick = () => host.onPopOut && host.onPopOut(); pop.hidden = !!host.standalone || !host.onPopOut || !hasChannel();
     const help = this.helpBtn = iconBtn('pd-iconbtn', '<i data-icon="help"></i>', translateText('Hızlı başlangıç ve ipuçları')); help.setAttribute('aria-pressed', 'false');
-    help.onclick = () => { this.setIntro(!this.introOn); this.setTab('ch'); if (this.introOn) this.intro.scrollIntoView({ block: 'nearest' }); };
+    help.onclick = () => { this.setIntro(!this.introOn); if (this.introOn && this.intro) this.intro.scrollIntoView({ block: 'nearest' }); };
     const close = el('button', 'pd-close', '×'); close.type = 'button'; close.setAttribute('aria-label', 'Kapat'); close.onclick = () => this.close();
     if (host.standalone) { close.setAttribute('aria-label', translateText('Pencereyi kapat')); close.onclick = () => window.close(); }
     const sep = el('i', 'pd-hsep'); sep.setAttribute('aria-hidden', 'true');
     const hb = el('div', 'pd-headbtns'); hb.append(this.undoBtn, this.redoBtn, sep, pop, help, close);
-    head.append(ht, hb);
+    head.append(ht, tplL, hb);
     // sekmeler (ok tuşlarıyla gezilir); rozet: o sekmede kaç şey değişti
     const tabs = el('div', 'pd-tabs'); tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Yapımcı masası bölümleri');
     this.panes = {}; this.tabBtns = {}; this.badges = {};
     const body = this.body = el('div', 'pd-body');
     this.banner = el('div', 'pd-banner'); this.banner.setAttribute('role', 'status'); this.banner.hidden = true;
-    for (const [k, name, short] of [['ch', 'Bölümler'], ['credits', 'İsimler'], ['type', 'Yazılar'], ['look', 'Görüntü ve ses', 'Görüntü']]) {
+    for (const [k, name, short] of [['ch', 'Klip'], ['credits', 'İsimler'], ['type', 'Yazılar'], ['look', 'Görüntü ve ses', 'Görüntü']]) {
       const b = el('button'); b.type = 'button'; b.setAttribute('role', 'tab'); b.id = `pdTab-${k}`; b.setAttribute('aria-controls', `pdPane-${k}`);
       const bd = this.badges[k] = el('span', 'pd-badge'); bd.hidden = true; b.append(el('span', short ? 'pd-long' : null, name), ...(short ? [el('span', 'pd-short', short)] : []), bd);   // dar ekranda kısa ad
       b.onclick = () => this.setTab(k);
@@ -113,7 +122,11 @@ export class ProducerDesk {
     this.playBtn = play;
     this.playLabel = play.querySelector('span');
     foot.append(st, reset, share, xp, play);
-    box.append(head, tabs, this.banner, body, this.toast, foot);
+    // video düzenleyici düzeni: üstte Program monitörü (solda) ve Denetçi (sağda: Klip / İsimler / Yazılar / Görüntü ve ses), altta zaman çizelgesi
+    const insp = el('div', 'pd-insp'); insp.append(tabs, this.banner, body);
+    const work = el('div', 'pd-work'); work.append(this.buildMonitor(), insp);
+    this.tlw = el('section', 'pd-tlw'); this.tlw.setAttribute('aria-label', 'Zaman çizelgesi');
+    box.append(head, work, this.tlw, this.toast, foot);
     document.body.append(root); applyIcons(root);
     root.addEventListener('click', (e) => { if (e.target === root && !this.docked && !host.standalone) this.close(); });
     // klavye: masa açıkken uygulama kısayolları (C, Boşluk, M…) çalışmaz; Esc kapatır; Ctrl+Z / Ctrl+Y (yazı alanında tarayıcının kendi geri alması); odak masada kalır
@@ -137,6 +150,8 @@ export class ProducerDesk {
   // instant: klavye kısayoluyla açıldı (Y) — kısayol anında açar, giriş animasyonu yok
   open(cut, { shared = false, dock = false, instant = false } = {}) {
     this.root.classList.toggle('instant', !!instant);
+    if (editorKapali()) { this.openMobil(cut, shared); return; }
+    this.root.classList.remove('mobil');
     this.cut = normalize(cut); this.shared = shared; this.back = document.activeElement; this.hist.clear(); this.setDock(dock);
     this.chapters = this.h.cinema.chapterInfo();
     loadFonts([this.cut.hFont, this.cut.tFont]).then(() => this.isOpen && this.fill());
@@ -145,14 +160,44 @@ export class ProducerDesk {
     this.say(shared ? 'Paylaşılan kurgu yüklendi: değiştirirsen bu tarayıcıya kaydedilir.' : '');
     this.setTab(this.tab); this.playBtn.focus();
   }
-  show() { this.root.hidden = false; document.body.classList.add('pd-open'); }
+  show() { this.root.hidden = false; document.body.classList.add('pd-open'); if (!this.root.classList.contains('mobil')) this.root.setAttribute('aria-labelledby', 'pdTitle'); }
   // önizlemeden dönüş: masa olduğu gibi (açık bölümler, kaydırma, geçmiş) yeniden görünür
   reopen() {
     if (!this.chapters) { this.open(this.cut); return; }
     const y = this.body.scrollTop; this.show(); this.fill(); this.body.scrollTop = y;
-    const b = this.lastPreview && this.root.querySelector(`.pd-ch[data-k="${this.lastPreview}"] .pd-pv`); (b || this.playBtn).focus();
+    if (this.lastPreview) this.selectClip(this.lastPreview, false);
+    const b = this.lastPreview && this.strip && this.strip.querySelector(`[data-k="${this.lastPreview}"]`); (b || this.playBtn).focus();
   }
-  hide() { this.root.hidden = true; document.body.classList.remove('pd-open'); }
+  hide() { this.root.hidden = true; document.body.classList.remove('pd-open'); this.root.classList.remove('mobil'); }
+  // telefonda: masa yerine "bilgisayarda düzenle" penceresi (fragmanı izle, bağlantıyı bilgisayara gönder)
+  openMobil(cut, shared = false) {
+    this.cut = normalize(cut); this.shared = shared; this.back = document.activeElement; this.setDock(false);
+    if (!this.mobil) {
+      const m = this.mobil = el('section', 'pd-mobil'); m.setAttribute('role', 'document');
+      const ic = el('span', 'pd-mobic'); ic.innerHTML = '<i data-icon="clapper"></i>';
+      const h = el('h2', null, 'Yapımcı masası bilgisayarda'); h.id = 'pdMobTitle';
+      const p = el('p', null, 'Fragmanın kurgusu (zaman çizelgesi, kamera açıları, yazılar) geniş ekran ve fare ister. Bağlantıyı bilgisayarına gönder: masa aynı kurguyla açılır.');
+      this.mobSt = el('p', 'pd-mobst'); this.mobSt.setAttribute('role', 'status');
+      const send = el('button'); send.type = 'button'; send.innerHTML = '<i data-icon="link"></i><span>Bilgisayara gönder</span>'; send.onclick = () => this.sendToDesktop();
+      const watch = el('button', 'primary'); watch.type = 'button'; watch.innerHTML = '<i data-icon="play"></i><span>Fragmanı izle</span>'; watch.onclick = () => this.play();
+      this.mobWatch = watch;
+      const x = el('button', 'pd-close', '×'); x.type = 'button'; x.setAttribute('aria-label', 'Kapat'); x.onclick = () => this.close();
+      const acts = el('div', 'pd-mobacts'); acts.append(send, watch);
+      m.append(x, ic, h, p, acts, this.mobSt); applyIcons(m); this.root.append(m);
+    }
+    this.mobSt.textContent = '';
+    this.root.classList.add('mobil'); this.root.setAttribute('aria-labelledby', 'pdMobTitle'); this.show(); this.mobWatch.focus();
+  }
+  async sendToDesktop() {
+    const u = new URL(location.href); u.searchParams.delete('seek'); u.searchParams.delete('cine');      // cine yok: bilgisayarda masa açılır (fragman hemen oynamaz)
+    u.hash = isDefault(this.cut) ? '' : new URLSearchParams({ kurgu: encodeCut(this.cut) }).toString();
+    const link = u.toString();
+    if (navigator.share) {
+      try { await navigator.share({ title: 'LS19 · ' + translateText('Yapımcı masası'), text: translateText('Fragman kurgum: bilgisayarda aç, Yapımcı masasında düzenle.'), url: link }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    try { await navigator.clipboard.writeText(link); this.mobSt.textContent = translateText('Bağlantı kopyalandı: bilgisayarında aç.'); }
+    catch (e) { window.prompt(translateText('Bilgisayara gönder'), link); }
+  }
   close() {
     if (this.root.hidden) return;
     this.hide(); this.setDock(false);
@@ -172,8 +217,9 @@ export class ProducerDesk {
   // oynayan bölüm: zaman şeridinde ve bölüm satırında işaretli (canlı ve ayrı pencerede)
   setNowPlaying(k, on = true) {
     this.now = on ? k : null;
-    for (const li of this.root.querySelectorAll('.pd-ch')) li.classList.toggle('now', li.dataset.k === this.now);
+    for (const s of this.root.querySelectorAll('.pd-ci')) s.classList.toggle('now', s.dataset.k === this.now);
     if (this.strip) for (const b of this.strip.children) b.classList.toggle('now', b.dataset.k === this.now);
+    if (this.syncMon) this.syncMon();
   }
   // bilgi bandı (bağlantı durumu): text, düğmeler [[ad, işlev]]; boş metin gizler
   setBanner(text, buttons = [], kind = 'info') {
@@ -314,91 +360,148 @@ export class ProducerDesk {
   }
 
   // ---------------------------------------------------------------- Bölümler
+  // Klip denetçisi (her bölüm için bir panel; yalnız seçili görünür) ve zaman çizelgesi. Bölüm listesi yok: gezinme zaman çizelgesindendir.
   buildChapters() {
-    const pane = this.panes.ch; pane.replaceChildren(); this.syncs = this.syncs.filter((f) => !f.ch); this.rows = {};
-    // hızlı başlangıç: üç adım (ilk açılışta; "?" ile yeniden)
-    const intro = this.intro = el('section', 'pd-intro'); intro.setAttribute('aria-label', 'Hızlı başlangıç'); intro.hidden = !this.introOn;
-    const steps = el('ol', 'pd-steps');
-    const step = (n, title, text, btn) => { const li = el('li'); li.append(el('b', 'pd-stepn', String(n)), el('span', 'pd-stept', title), el('small', null, text)); if (btn) li.append(btn); steps.append(li); };
-    const b1 = el('button', 'pd-link', 'Hazır kurgulara git'); b1.type = 'button'; b1.onclick = () => { const p = pane.querySelector('.pd-presets button'); if (p) { p.scrollIntoView({ block: 'nearest' }); p.focus(); } };
-    const b2 = el('button', 'pd-link', 'İsim yaz'); b2.type = 'button'; b2.onclick = () => { this.setTab('credits'); const i = this.panes.credits.querySelector('input'); if (i) i.focus(); };
-    const b3 = el('button', 'pd-link', 'Fragmanı oynat'); b3.type = 'button'; b3.onclick = () => this.play();
-    step(1, 'Bir hazır kurgu seç', 'Başlangıç noktası: sonra istediğin kadar değiştir.', b1);
-    step(2, 'Fragmanına isim ver', 'Başlık kartında ve kapanışta senin adın görünür.', b2);
-    step(3, 'Bölümleri düzenle', 'Bir bölümün adına dokun: yazılar, kamera ve süre açılır. Göz düğmesi o bölümü önizler.', null);
-    step(4, 'Oynat ve paylaş', 'Beğenmezsen geri al (Ctrl+Z); “Bağlantıyı kopyala” ile paylaş.', b3);
-    const ok = el('button', 'pd-introok', 'Anladım'); ok.type = 'button'; ok.onclick = () => { this.setIntro(false); this.playBtn.focus(); };
-    const ih = el('div', 'pd-introhead'); ih.append(el('b', null, 'Hızlı başlangıç'), ok);
-    intro.append(ih, steps);
-    this.helpBtn.setAttribute('aria-pressed', String(this.introOn));
-    // hazır kurgular
-    const pre = el('div', 'pd-presets'); pre.setAttribute('role', 'group'); pre.setAttribute('aria-label', 'Hazır kurgular');
-    pre.append(el('span', 'pd-k', 'Hazır kurgu'));
-    this.presetBtns = Object.entries(PRESETS).map(([k, p]) => {
-      const b = el('button', null, p.name); b.type = 'button'; b.dataset.k = k; b.title = PRESET_TIP[k] || '';
-      b.onclick = () => { if (presetOf(this.cut) === k) return; this.replace(applyPreset(this.cut, k), `${translateText(p.name)} ${translateText('seçildi; yazdıkların korundu.')}`); loadFonts([this.cut.hFont, this.cut.tFont]).then(() => this.fill()); };
-      pre.append(b); return b;
-    });
-    // zaman şeridi: bölümler tahmini süreleriyle orantılı; kapalı bölümler ince ve taralı; tıklayınca bölüme gider
-    const tl = el('div', 'pd-timeline'), tlHead = el('div', 'pd-tlhead');
-    this.est = el('span', 'pd-est'); this.est.setAttribute('aria-live', 'polite');
-    tlHead.append(el('span', 'pd-k', 'Fragmanın akışı'), this.est);
-    this.strip = el('div', 'pd-strip'); this.strip.setAttribute('role', 'list'); this.strip.setAttribute('aria-label', 'Bölümlerin sırası ve süreleri');
-    tl.append(tlHead, this.strip);
-    const note = el('p', 'pd-note', 'Sıra gerçek görev akışıdır. Kapattığın bölümün süresi ekran karartılıp hızla geçilir.');
-    const list = el('ol', 'pd-list');
-    for (const info of this.chapters) list.append(this.chapterRow(info));
-    pane.append(intro, pre, tl, note, list);
+    const pane = this.panes.ch; pane.replaceChildren(); this.syncs = this.syncs.filter((f) => !f.ch);
+    if (!this.sel || !this.chapters.some((c) => c.k === this.sel)) this.sel = (this.chapters.find((c) => this.cut.ch[c.k].on) || this.chapters[0]).k;
+    for (const info of this.chapters) pane.append(this.chapterInspector(info));
+    this.buildTimeline();
+    this.selectClip(this.sel, false);
   }
-  // zaman şeridini kur (fill çağırır)
+  // zaman çizelgesi iskeleti: başlık (ipucu, tahmini süre), cetvel, V1 görüntü izi (bölümler), A1 müzik izi
+  buildTimeline() {
+    const w = this.tlw; w.replaceChildren();
+    const head = el('div', 'pd-tlhead');
+    this.est = el('span', 'pd-est'); this.est.setAttribute('aria-live', 'polite');
+    // ipucu (ilk açılışta bir kez; "?" ile yeniden): eski dört adımlı kartın yerine tek satır
+    const intro = this.intro = el('p', 'pd-intro'); intro.hidden = !this.introOn;
+    intro.append(el('span', null, 'Bir klibe dokun: ayarları Denetçi\'de açılır. Anahtar klibi fragmandan çıkarır, göz önizler; her değişiklik kaydedilir, Ctrl+Z geri alır.'));
+    const ok = el('button', 'pd-introok', 'Anladım'); ok.type = 'button'; ok.onclick = () => { this.setIntro(false); this.playBtn.focus(); };
+    intro.append(ok);
+    this.helpBtn.setAttribute('aria-pressed', String(this.introOn));
+    head.append(el('span', 'pd-k', 'Zaman çizelgesi'), this.est);
+    const grid = el('div', 'pd-tlgrid');
+    const lab = (t, tip) => { const x = el('span', 'pd-trk', t); x.title = tip; x.setAttribute('aria-hidden', 'true'); return x; };
+    this.ruler = el('div', 'pd-ruler'); this.ruler.setAttribute('aria-hidden', 'true');
+    this.strip = el('div', 'pd-strip'); this.strip.setAttribute('role', 'list'); this.strip.setAttribute('aria-label', 'Bölümler: sırası ve süreleri');
+    this.audio = el('div', 'pd-audio'); this.audio.setAttribute('aria-hidden', 'true');
+    grid.append(el('span'), this.ruler, lab('V1', 'Görüntü: bölümler'), this.strip, lab('A1', 'Ses: müzik'), this.audio);
+    w.append(head, intro, grid);
+  }
+  // zaman çizelgesini kurgudan kur (fill çağırır): klipler tahmini süreleriyle orantılı; kapalı klip ince ve taralı
   buildStrip() {
     if (!this.strip) return;
     const E = this.h.cinema.estimate(this.cut, true), parts = (E && E.parts) || {}, total = (E && E.total) || 0;
     this.est.textContent = E ? `${translateText('Tahmini süre')} ≈ ${mmss(Math.round(total / 5) * 5)}` : '';
+    const OFF = Math.max(total, 1) * 0.02;
+    const segs = this.chapters.map((info) => { const on = this.cut.ch[info.k].on, sec = parts[info.k] || 0; return { info, on, sec, w: on ? Math.max(sec, total * 0.035, 1) : OFF }; });
+    const W = segs.reduce((a, q) => a + q.w, 0) || 1;
     this.strip.replaceChildren();
-    const summary = matchMedia('(max-width: 760px)').matches; this.strip.toggleAttribute('aria-hidden', summary);     // telefonda yalnız özet: dokunulmaz, odaklanılmaz
-    for (const info of this.chapters) {
-      const on = this.cut.ch[info.k].on, sec = parts[info.k] || 0, b = el('button', 'pd-tl-' + (on ? 'on' : 'off')); b.type = 'button'; b.setAttribute('role', 'listitem');
-      b.style.flexGrow = on ? String(Math.max(sec, total * 0.035)) : '0';
-      const nm = translateText(info.name); b.title = on ? `${nm} · ≈ ${mmss(sec)}` : `${nm} · ${translateText('kapalı')}`; b.setAttribute('aria-label', b.title);
-      if (on) b.append(el('span', null, nm));
-      b.classList.toggle('changed', chapterChanged(this.cut, info.k));
-      b.dataset.k = info.k; b.classList.toggle('now', info.k === this.now); if (summary) b.tabIndex = -1;
-      b.onclick = () => this.focusChapter(info.k);
+    for (const [i, q] of segs.entries()) {
+      const { info, on, sec } = q, c = this.cut.ch[info.k], nm = translateText(info.name);
+      const b = el('button', 'pd-clip' + (on ? '' : ' off')); b.type = 'button'; b.setAttribute('role', 'listitem'); b.dataset.k = info.k;
+      b.style.flexGrow = String(q.w);
+      b.title = on ? `${nm} · ≈ ${mmss(sec)}` : `${nm} · ${translateText('fragmanda yok')}`; b.setAttribute('aria-label', b.title);
+      if (on) {
+        const t = el('span', 'pd-clipt'); t.append(el('b', null, nm), el('small', null, mmss(sec)));
+        b.append(t);
+        if (c.title || c.sub || c.narr) { const m = el('i', 'pd-clipm'); m.title = translateText('Bu bölümde senin yazın var'); b.append(m); }
+      }
+      b.classList.toggle('changed', chapterChanged(this.cut, info.k)); b.classList.toggle('now', info.k === this.now);
+      b.classList.toggle('sel', info.k === this.sel); b.setAttribute('aria-current', String(info.k === this.sel));
+      b.onclick = () => this.selectClip(info.k);
+      b.onkeydown = (e) => {                                                   // ←/→ klipler arasında, Home/End uçlara
+        const d = { ArrowRight: 1, ArrowLeft: -1, Home: -99, End: 99 }[e.key]; if (!d) return; e.preventDefault();
+        const n = segs[Math.max(0, Math.min(segs.length - 1, i + d))].info.k; this.selectClip(n); this.strip.querySelector(`[data-k="${n}"]`).focus();
+      };
       this.strip.append(b);
     }
+    // cetvel: fragman süresi (yalnız açık klipler zaman kaplar), 30 s'de bir (uzun fragmanda 60 s)
+    this.ruler.replaceChildren();
+    const step = total > 240 ? 60 : 30, pos = (t) => {                       // fragman saniyesi → yüzde
+      let accW = 0, accT = 0;
+      for (const q of segs) { if (q.on && t <= accT + q.sec) return (accW + (q.sec ? (t - accT) / q.sec : 0) * q.w) / W * 100; accW += q.w; if (q.on) accT += q.sec; }
+      return 100;
+    };
+    for (let t = 0; t <= total; t += step) { const m = el('span', null, mmss(t)); m.style.left = `${pos(t)}%`; this.ruler.append(m); }
+    // A1: müzik izi tek parça
+    this.audio.replaceChildren(el('span', null, this.cut.mood === 'off' ? translateText('Müzik yok') : `♪ ${translateText(MOOD_LABEL[this.cut.mood])}`));
+    this.audio.classList.toggle('off', this.cut.mood === 'off');
   }
-  focusChapter(k) { const r = this.rows[k]; if (!r) return; r.toggle(true); r.li.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); r.focus.focus({ preventScroll: true }); }
-  chapterRow(info) {
-    const k = info.k, li = el('li', 'pd-ch'), asc = k === 'asc'; li.dataset.k = k;
+  // klip seç: Denetçi'de o klibin paneli, zaman çizelgesinde işaret, monitörde başlık kartı
+  selectClip(k, show = true) {
+    this.sel = k;
+    for (const p of this.panes.ch.children) p.hidden = p.dataset.k !== k;
+    if (this.strip) for (const b of this.strip.children) { const on = b.dataset.k === k; b.classList.toggle('sel', on); b.setAttribute('aria-current', String(on)); }
+    if (show) this.setTab('ch');
+    if (this.syncMon) this.syncMon();
+  }
+  focusChapter(k) { this.selectClip(k); const h = this.panes.ch.querySelector(`.pd-ci[data-k="${k}"] .pd-cititle`); if (h) h.focus(); }
+  // Program monitörü: seçili klibin başlık kartı, seçilen yazı tipi, renk, yer ve ekran oranıyla (yazılar sekmesindeki ayarlar burada canlı görünür)
+  buildMonitor() {
+    const mon = el('section', 'pd-mon'); mon.setAttribute('aria-label', 'Program monitörü');
+    const top = el('div', 'pd-montop'), monName = el('b'), tc = el('span', 'pd-tc');
+    top.append(el('span', 'pd-k', 'Program'), monName, tc);
+    const fr = el('figure', 'pd-frame'); fr.setAttribute('aria-label', 'Sahne maketi');
+    const scr = el('div', 'pf-screen'); scr.translate = false;
+    const bug = el('div', 'pf-bug'), bugB = el('b'), bugS = el('span'), bugT = el('span', 'pf-bugt'); bugT.append(bugB, bugS); bug.append(el('i'), bugT);
+    const card = el('div', 'pf-card'), idx = el('span', 'pf-idx'), h = el('b', 'pf-h'), sub = el('span', 'pf-sub');
+    card.append(idx, h, el('i', 'pf-rule'), sub);
+    const cue = el('div', 'pf-cue'), strip = el('div', 'pf-strip'), offNote = el('div', 'pf-off', 'Fragmanda yok: süresi hızla geçilir');
+    for (const t of ['T+0g 02:41:08', 'TLI', '312 km', '10,84 km/s']) strip.append(el('span', null, t));
+    scr.append(el('i', 'pf-scrim'), el('i', 'pf-bar top'), el('i', 'pf-bar bottom'), bug, card, cue, strip, offNote);
+    fr.append(scr);
+    // taşıma düğmeleri: önceki / sonraki klip, önizle (gerçek sahnede), bu bölümden oynat
+    const tr = el('div', 'pd-transport');
+    const nav = (d) => { const ks = this.chapters.map((c) => c.k), i = ks.indexOf(this.sel); this.selectClip(ks[Math.max(0, Math.min(ks.length - 1, i + d))]); };
+    const prev = iconBtn('pd-iconbtn', '<i data-icon="back"></i>', translateText('Önceki klip')); prev.onclick = () => nav(-1);
+    const next = iconBtn('pd-iconbtn', '<i data-icon="fwd"></i>', translateText('Sonraki klip')); next.onclick = () => nav(1);
+    const pv = el('button'); pv.type = 'button'; pv.innerHTML = '<i data-icon="eye"></i><span>Önizle</span>'; applyIcons(pv); pv.onclick = () => this.preview(this.sel);
+    pv.title = translateText('Bölümü sahnede canlı önizle (kamera, kart, yazı)');
+    const pf = el('button'); pf.type = 'button'; pf.innerHTML = '<i data-icon="play"></i><span>Buradan oynat</span>'; applyIcons(pf); pf.onclick = () => this.playFrom(this.sel);
+    pf.title = translateText('Önceki bölümler bu oynatmada atlanır (kurgun değişmez)');
+    tr.append(prev, pv, pf, next);
+    mon.append(top, fr, tr);
+    this.syncMon = () => {
+      if (!this.chapters) return;
+      const c = this.cut, k = this.sel, info = this.chapters.find((q) => q.k === k); if (!info) return;
+      const ch = c.ch[k], ons = this.chapters.filter((q) => c.ch[q.k].on), n = ons.findIndex((q) => q.k === k);
+      this.typeVars(scr);
+      scr.dataset.ar = c.aspect; scr.dataset.cue = c.cuePos; scr.dataset.bug = c.bugPos; scr.dataset.shade = c.shade;
+      const pos = ch.pos !== 'auto' ? ch.pos : c.cardPos;
+      card.className = 'pf-card pos-' + (pos === 'none' ? c.cardPos : pos); card.hidden = pos === 'none';
+      idx.hidden = !c.chNum || n < 0; idx.textContent = `${String(n + 1).padStart(2, '0')} / ${String(ons.length).padStart(2, '0')}`;
+      bugB.textContent = c.title || 'LS19'; bugS.textContent = c.over || translateText('Ay görevi');
+      h.textContent = ch.title || translateText(info.title || info.name); sub.textContent = ch.sub || (info.live ? translateText('Canlı veriden (ör. irtifa, hız)') : translateText(info.sub || ''));
+      cue.textContent = ch.narr || ''; cue.hidden = !ch.narr;
+      scr.classList.toggle('off', !ch.on);
+      monName.textContent = translateText(info.name); pv.disabled = k === 'asc' || !this.h.onPreview;
+      // zaman kodu: klibin fragmandaki başlangıcı / toplam
+      const E = this.h.cinema.estimate(c, true), parts = (E && E.parts) || {}; let t0 = 0;
+      for (const q of this.chapters) { if (q.k === k) break; if (c.ch[q.k].on) t0 += parts[q.k] || 0; }
+      tc.textContent = E ? `${mmss(t0)} / ${mmss(E.total || 0)}` : '';
+    };
+    this.syncs.push(this.syncMon);
+    return mon;
+  }
+  // bir klibin Denetçi paneli: başlık ve aç/kapa, ekrandaki yazılar, kamera, zamanlama, eylemler
+  chapterInspector(info) {
+    const k = info.k, sec = el('section', 'pd-ci'), asc = k === 'asc'; sec.dataset.k = k; sec.hidden = true;
     const ch = () => this.cut.ch[k], set = (f, key = null) => this.update((c) => f(c.ch[k]), key && `${k}.${key}`);
-    const row = el('div', 'pd-row');
-    // aç/kapa anahtarı (yalnız bu: adına dokunmak bölümü kapatmaz, ayrıntıyı açar)
-    const cb = el('input', 'pd-switch'); cb.type = 'checkbox'; cb.setAttribute('role', 'switch'); cb.setAttribute('aria-label', `${translateText(info.name)}: ${translateText('fragmanda')}`);
-    cb.title = 'Bölüm fragmanda (kapatırsan süresi hızla geçilir)';
+    const head = el('div', 'pd-cihead'), ttl = el('h3', 'pd-cititle'); ttl.tabIndex = -1;
+    const chg = el('span', 'pd-chg', 'değişti'); chg.hidden = true;
+    ttl.append(el('span', null, info.name), chg, el('span', 'pd-nowchip', 'oynuyor'));      // oynayan bölüm (canlı ve ayrı pencerede)
+    // aç/kapa anahtarı: klip fragmanda mı (kapatılınca süresi karartılıp hızla geçilir)
+    const sw = el('label', 'pd-onsw'), cb = el('input', 'pd-switch'); cb.type = 'checkbox'; cb.setAttribute('role', 'switch');
+    cb.setAttribute('aria-label', `${translateText(info.name)}: ${translateText('fragmanda')}`); sw.title = translateText('Kapatırsan bu bölümün süresi ekran karartılıp hızla geçilir');
+    sw.append(cb, el('span', null, 'Fragmanda'));
     cb.onchange = () => {
       const on = cb.checked, others = this.chapters.filter((c) => c.k !== k && this.cut.ch[c.k].on).length;
       if (!on && !others) { cb.checked = true; this.say('En az bir bölüm kalmalı.'); return; }
       set((c) => { c.on = on; }); if (!on) this.say(`${translateText(info.name)} ${translateText('kapatıldı.')}`, true);
     };
-    const did = nextId('pdd');
-    const nb = el('button', 'pd-chbtn'); nb.type = 'button'; nb.setAttribute('aria-expanded', 'false'); nb.setAttribute('aria-controls', did);
-    nb.innerHTML = '<i data-icon="chev"></i>'; applyIcons(nb);
-    const nm = el('span', 'pd-chname'), chg = el('span', 'pd-chg', 'değişti'); chg.hidden = true;
-    const nmTop = el('span', 'pd-chtop'); nmTop.append(el('b', null, info.name), chg, el('span', 'pd-nowchip', 'oynuyor'));      // oynayan bölüm (canlı ve ayrı pencerede)
-    nm.append(nmTop, el('small', 'pd-chtitle', ''));
-    nb.append(el('span', 'pd-n'), nm);
-    const camL = el('label', 'pd-sr', 'Kamera'), cam = el('select', 'pd-cam'); cam.id = nextId('pdc'); camL.htmlFor = cam.id;
-    for (const v of OPT.cam) { const o = el('option', null, CAM_LABEL[v]); o.value = v; o.title = CAM_TIP[v]; cam.append(o); }
-    if (asc) { cam.disabled = true; cam.title = translateText('Kalkışta yayın kameraları gerçek görünürlükle çalışır (rampa, yer izleme, takip uçağı, araç üstü)'); }
-    const pv = iconBtn('pd-pv', '<i data-icon="eye"></i>', `${translateText('Önizle')}: ${translateText(info.name)}`);
-    pv.title = translateText(asc ? 'Kalkış açılışı önizlenemez: fragmanda izle' : 'Bölümü canlı önizle (kamera, kart, yazı)');
-    pv.onclick = () => this.preview(k); pv.disabled = asc || !this.h.onPreview;
-    row.append(cb, nb, camL, cam, pv);
-    const det = el('div', 'pd-detail'); det.id = did; det.hidden = true;
-    const toggle = (on) => { det.hidden = !on; nb.setAttribute('aria-expanded', String(on)); li.classList.toggle('open', on); if (on) this.open_.add(k); else this.open_.delete(k); };
-    nb.onclick = () => toggle(det.hidden);
-    cam.onchange = () => { set((c) => { c.cam = cam.value; }); if (cam.value === 'custom' && det.hidden) toggle(true); };
+    head.append(ttl, sw);
+    const offNote = el('p', 'pd-note', 'Fragmanda yok: süresi hızla geçilir');
     // 1) ekrandaki yazılar
     const fT = this.field(k === 'outro' ? 'Kapanış başlığı' : 'Başlık', MAX.chTitle, info.title, () => ch().title, (v) => set((c) => { c.title = v; }, 'title'), false, translateText('Boş bırakırsan yönetmenin başlığı kalır.'));
     const fS = this.field(k === 'outro' ? 'Kapanış sözü' : 'Alt yazı', MAX.chSub, info.live ? translateText('Canlı veriden (ör. irtifa, hız)') : info.sub, () => ch().sub, (v) => set((c) => { c.sub = v; }, 'sub'), false, info.live ? translateText('Boşsa o anki irtifa ya da hız yazar.') : '');
@@ -406,12 +509,16 @@ export class ProducerDesk {
     fN.classList.add('pd-wide');
     const sText = el('section', 'pd-sec'); sText.append(el('h4', null, 'Ekrandaki yazılar'));
     const tGrid = el('div', 'pd-sgrid'); tGrid.append(fT, fS, fN); sText.append(tGrid);
-    // 2) kamera
+    // 2) kamera: açı seçimi (eskiden her satırdaydı) ve özel kamera paneli
     const sCam = el('section', 'pd-sec'); sCam.append(el('h4', null, 'Kamera'));
+    const camF = el('div', 'pd-field'), camL = el('label', null, 'Açı'), cam = el('select', 'pd-cam'); cam.id = nextId('pdc'); camL.htmlFor = cam.id;
+    for (const v of OPT.cam) { const o = el('option', null, CAM_LABEL[v]); o.value = v; o.title = CAM_TIP[v]; cam.append(o); }
+    camF.append(camL, cam);
+    cam.onchange = () => set((c) => { c.cam = cam.value; });
     const camDesc = el('p', 'pd-camdesc');
     const camBox = this.cameraPanel(ch, set);
-    sCam.append(camDesc, camBox);
-    if (asc) sCam.hidden = true;
+    sCam.append(camF, camDesc, camBox);
+    if (asc) sCam.hidden = true;                                                 // kalkışta yayın kameraları gerçek görünürlükle çalışır
     // 3) zamanlama ve geçiş
     const len = this.labeled('Uzunluk', this.seg('Uzunluk', ORDER.len, LEN_LABEL, () => ch().len, (v) => set((c) => { c.len = v; })));
     const trans = this.labeled('Bölüme giriş', this.seg('Bölüme giriş', OPT.trans, TRANS_LABEL, () => ch().trans, (v) => set((c) => { c.trans = v; }), { auto: 'Yönetmenin geçişi', fade: 'Siyaha kararıp açılır', cut: 'Doğrudan kesme', flash: 'Beyaz parlamayla açılır' }));
@@ -420,27 +527,19 @@ export class ProducerDesk {
     const sTime = el('section', 'pd-sec'); sTime.append(el('h4', null, 'Zamanlama'));
     const opts = el('div', 'pd-opts'); opts.append(len, trans, pos); sTime.append(opts);
     if (asc) { len.hidden = true; trans.hidden = true; }                           // kalkış açılışı uçuş zamanına bağlı (çekim değil)
-    // eylemler
     const acts = el('div', 'pd-acts');
-    const pf = el('button'); pf.type = 'button'; pf.innerHTML = '<i data-icon="play"></i><span>Bu bölümden oynat</span>'; applyIcons(pf); pf.onclick = () => this.playFrom(k);
-    pf.title = 'Önceki bölümler bu oynatmada atlanır (kurgun değişmez)';
-    const pv2 = el('button'); pv2.type = 'button'; pv2.innerHTML = '<i data-icon="eye"></i><span>Önizle</span>'; applyIcons(pv2); pv2.onclick = () => this.preview(k); pv2.disabled = asc || !this.h.onPreview;
     const rs = el('button', 'pd-reset'); rs.type = 'button'; rs.innerHTML = '<i data-icon="restart"></i><span>Bölümü sıfırla</span>'; applyIcons(rs);
     rs.onclick = () => { this.update((c) => { c.ch[k] = { ...DEFAULT_CH }; }); this.say(`${translateText(info.name)} ${translateText('yönetmenin haline döndü.')}`, true); };
-    acts.append(pf, pv2, rs);
-    det.append(sText, sCam, sTime, acts);
-    li.append(row, det);
-    this.rows[k] = { li, toggle, focus: nb };
-    if (this.open_.has(k)) toggle(true);
+    acts.append(rs);
+    sec.append(head, offNote, sText, sCam, sTime, acts);
     const sync = () => {
-      const c = ch(), changed = chapterChanged(this.cut, k); cb.checked = c.on; li.classList.toggle('off', !c.on); li.classList.toggle('now', k === this.now); cam.value = c.cam;
-      nm.lastChild.textContent = c.on ? (c.title || info.title || '') : translateText('Fragmanda yok: süresi hızla geçilir');
-      chg.hidden = !changed; rs.disabled = !changed;
-      camDesc.textContent = `${translateText(CAM_LABEL[c.cam].replace('…', ''))}: ${translateText(CAM_TIP[c.cam])}`;
+      const c = ch(), changed = chapterChanged(this.cut, k); cb.checked = c.on; sec.classList.toggle('off', !c.on); sec.classList.toggle('now', k === this.now); cam.value = c.cam;
+      offNote.hidden = c.on; chg.hidden = !changed; rs.disabled = !changed;
+      camDesc.textContent = translateText(CAM_TIP[c.cam]);
       [fT, fS, fN, len, trans, pos].forEach((f) => f.sync()); camBox.hidden = c.cam !== 'custom'; if (!camBox.hidden) camBox.sync();
     };
     sync.ch = true; this.syncs.push(sync);
-    return li;
+    return sec;
   }
   // özel kamera: yatay açı, yükseklik, uzaklık (logaritmik), görüş açısı, kaydırma, titreşim, hareket; üstten ve yandan kroki
   cameraPanel(ch, set) {
@@ -533,30 +632,9 @@ export class ProducerDesk {
     const bp = this.labeled('Köşe logosu', this.seg('Köşe logosu', ORDER.bugPos, BUGPOS_LABEL, () => C().bugPos, upd('bugPos')));
     const num = this.check('Bölüm numarası (01 / 09)', () => C().chNum, upd('chNum'));
     const hold = this.slider('Başlıkların ekranda kalma süresi', RANGE.hold, () => C().hold, upd('hold'), (v) => `×${nf(v, 1)}`, { ends: ['kısa', 'uzun'], def: D.hold });
-    // canlı sahne maketi: ekran oranı, köşe logosu, bölüm başlığı (TLI bölümünün metniyle), alt yazı, bilgi şeridi — seçilen yazı tipi, renk ve yerlerle
-    const fr = el('figure', 'pd-frame'); fr.setAttribute('aria-label', 'Sahne maketi');
-    const scr = el('div', 'pf-screen'); scr.translate = false;
-    const bug = el('div', 'pf-bug'), bugB = el('b'), bugS = el('span'), bugT = el('span', 'pf-bugt'); bugT.append(bugB, bugS); bug.append(el('i'), bugT);
-    const card = el('div', 'pf-card'), idx = el('span', 'pf-idx', '04 / 09'), h = el('b', 'pf-h'), sub = el('span', 'pf-sub');
-    card.append(idx, h, el('i', 'pf-rule'), sub);
-    const cue = el('div', 'pf-cue'), strip = el('div', 'pf-strip');
-    for (const t of ['T+0g 02:41:08', 'TLI', '312 km', '10,84 km/s']) strip.append(el('span', null, t));
-    scr.append(el('i', 'pf-scrim'), el('i', 'pf-bar top'), el('i', 'pf-bar bottom'), bug, card, cue, strip);
-    fr.append(scr, el('figcaption', null, 'Canlı maket: değiştirdikçe burada güncellenir.'));
-    // geniş masada maket solda sabit, ayarlar sağda; dar masada maket üstte yapışkan (küçük): ayarları değiştirirken görünür kalır
-    const mk = el('div', 'pd-maket'); mk.append(fr);
-    const col = el('div', 'pd-typecol');
-    col.append(this.group('Yazı tipi ve görünüş', '', hf, tf, hs, ts, hw, tr, ink, sh, up), this.group('Yazıların yeri', '', spots, tp, cp, qp, bp, hold, num));
-    pane.classList.add('pd-typepane'); pane.append(mk, col);
+    // sahne maketi artık Program monitöründe (buildMonitor): ayarlar seçili klibin başlık kartında canlı görünür
+    pane.append(this.group('Yazı tipi ve görünüş', '', hf, tf, hs, ts, hw, tr, ink, sh, up), this.group('Yazıların yeri', '', spots, tp, cp, qp, bp, hold, num));
     for (const f of [hf, tf, hs, ts, hw, tr, up, ink, sh, spots, tp, cp, qp, bp, num, hold]) S.push(f.sync);
-    S.push(() => {
-      const c = this.cut, tli = c.ch.tli; this.typeVars(scr);
-      scr.dataset.ar = c.aspect; scr.dataset.cue = c.cuePos; scr.dataset.bug = c.bugPos; scr.dataset.shade = c.shade;
-      card.className = 'pf-card pos-' + (tli.pos !== 'auto' && tli.pos !== 'none' ? tli.pos : c.cardPos); idx.hidden = !c.chNum;
-      bugB.textContent = c.title || 'LS19'; bugS.textContent = c.over || translateText('Ay görevi');
-      h.textContent = tli.title || translateText("AY'A TRANSFER YAKIŞI"); sub.textContent = tli.sub || translateText("TLI · 7,79 km/s'den hızlanıyor");
-      cue.textContent = tli.narr || translateText('Alt yazılar burada: olaylar ve anlatıcı notların');
-    });
   }
 
   // ---------------------------------------------------------------- Görüntü ve ses
@@ -580,10 +658,8 @@ export class ProducerDesk {
   // ---------------------------------------------------------------- görünümü kurgudan tazele
   fill() {
     for (const f of this.syncs) f();
-    const p = presetOf(this.cut);
-    for (const b of this.presetBtns || []) { const on = b.dataset.k === p; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
-    // sıra numaraları (açık bölümler), zaman şeridi, sekme rozetleri, geri al / yinele
-    let n = 0; for (const li of this.panes.ch.querySelectorAll('.pd-ch')) { const on = this.cut.ch[li.dataset.k].on; li.querySelector('.pd-n').textContent = on ? String(++n).padStart(2, '0') : '—'; }
+    this.tpl.value = presetOf(this.cut) || 'custom';
+    // zaman çizelgesi, sekme rozetleri, geri al / yinele
     this.buildStrip();
     const cnt = changedCounts(this.cut);
     for (const [k, b] of Object.entries(this.badges)) { const v = cnt[k] || 0; b.hidden = !v; b.textContent = String(v); b.title = `${v} ${translateText('değişiklik')}`; }

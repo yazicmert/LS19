@@ -187,8 +187,9 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const all = new Set([...P.TAB_FIELDS.credits, ...P.TAB_FIELDS.type, ...P.TAB_FIELDS.look]);
   check('her genel ayar bir sekmeye düşer (rozet sayımı eksiksiz)', Object.keys(P.DEFAULT_CUT).filter((k) => !['v', 'ch'].includes(k)).every((k) => all.has(k)) && all.size === P.TAB_FIELDS.credits.length + P.TAB_FIELDS.type.length + P.TAB_FIELDS.look.length);
   const desk = rd('../js/producerui.js'), cin = rd('../js/cinema.js');
-  check('masa: hızlı başlangıç (bir kez, ? ile yeniden), geri al/yinele düğmeleri ve Ctrl+Z/Ctrl+Y (yazı alanında tarayıcınınki), aç/kapa anahtarı ayrı (bölüm adı ayrıntıyı açar), zaman şeridi, bu bölümden oynat, bölümü sıfırla, kaydedildi göstergesi, sürgüde varsayılana dönüş',
-    /INTRO_KEY = 'ls19\.deskIntro'/.test(desk) && /this\.undo\(\)/.test(desk) && /this\.redo\(\)/.test(desk) && /k === 'z' && !e\.shiftKey/.test(desk) && /role', 'switch'/.test(desk) && /nb\.onclick = \(\) => toggle\(det\.hidden\)/.test(desk)
+  check('masa (video düzenleyici düzeni): ipucu (bir kez, ? ile yeniden), geri al/yinele ve Ctrl+Z/Ctrl+Y, şablon seçici; zaman çizelgesi (V1 bölüm klipleri, cetvel, A1 müzik; ←/→ ile gezinme) klip seçer, Denetçi o klibin yazılarını, kamerasını, zamanlamasını ve aç/kapa anahtarını gösterir; Program monitörü seçili klibin kartı; buradan oynat, bölümü sıfırla, kaydedildi, sürgüde varsayılana dönüş',
+    /INTRO_KEY = 'ls19\.deskIntro'/.test(desk) && /this\.undo\(\)/.test(desk) && /this\.redo\(\)/.test(desk) && /k === 'z' && !e\.shiftKey/.test(desk) && /role', 'switch'/.test(desk) && /b\.onclick = \(\) => this\.selectClip\(info\.k\)/.test(desk) && /ArrowRight: 1, ArrowLeft: -1/.test(desk)
+    && /chapterInspector\(info\)/.test(desk) && /buildMonitor\(\)/.test(desk) && /this\.syncMon = \(\) =>/.test(desk) && /'pd-ruler'/.test(desk) && /'pd-audio'/.test(desk) && /this\.tpl\.value = presetOf\(this\.cut\) \|\| 'custom'/.test(desk)
     && /buildStrip\(\)/.test(desk) && /playFrom\(k\)/.test(desk) && /DEFAULT_CH/.test(desk) && /flashSaved\(\)/.test(desk) && /ondblclick/.test(desk) && /estimate\(cut, parts = false\)/.test(cin) && /Esc: vazgeç/.test(cin));
 }
 // ---------------------------------------------------------------- 9) ayrı pencere eşitlemesi (producersync.js; Node'un BroadcastChannel'ı ile gerçek ileti alışverişi)
@@ -218,6 +219,9 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     /liveCut\(cut\) \{/.test(cin) && /this\.ui\.look\(K\)/.test(cin) && /setLook\(filmLook\(K\)\)/.test(cin) && /setMix\(\{ mood: K\.mood, sfx: K\.sfx \}\)/.test(cin) && /this\.shotT \*= nd \/ oldDur/.test(cin) && /fresh\[at\]\.afterCut = true/.test(cin) && /e\.target\.closest\('#cineDesk'\)/.test(cin));
   check('yanaşık masa: fragman oynarken geniş ekranda sağa yanaşır (sahne daralır, kip modal değil), dar ekranda fragman durur; değişiklik canlı uygulanır ve ayrı pencereye gider',
     /dockable = \(\) => matchMedia\('\(min-width: 1100px\) and \(hover: hover\)'\)/.test(app) && /dock: live/.test(app) && /cinema\.liveCut\(cut\)/.test(app) && /link\.sendCut\(cut\)/.test(app) && /body\.pd-docked #app \{ right: var\(--pd-dock\); \}/.test(css) && /aria-modal', String\(!on/.test(desk));
+  check('telefonda ve dokunmatik tablette editör kapalı: masa yerine "bilgisayarda düzenle" penceresi (fragmanı izle, kurguyu taşıyan bağlantıyı bilgisayara gönder; bağlantıda cine yok: bilgisayarda masa açılır)',
+    /EDITOR_KAPALI_MQ = '\(max-width: 760px\), \(hover: none\) and \(pointer: coarse\)'/.test(desk) && /if \(editorKapali\(\)\) \{ this\.openMobil\(cut, shared\); return; \}/.test(desk)
+    && /u\.searchParams\.delete\('cine'\)/.test(desk) && /navigator\.share/.test(desk) && /\.pdesk\.mobil \.pd-box \{ display: none; \}/.test(css));
   check('klavye kısayolları animasyonsuz: Y ile açılan masa (instant) ve Ctrl+Z/Y bildirimi kaymaz; tıklamayla açılışta giriş kalır',
     /\.pdesk\.instant \.pd-box, \.pdesk\.instant\.docked \.pd-box \{ animation: none; \}/.test(css) && /\.pd-toast\.instant \{ transition: none; \}/.test(css)
     && /this\.root\.classList\.toggle\('instant', !!instant\)/.test(desk) && /this\.undo\(true\)/.test(desk) && /this\.say\('Geri alındı\.', false, key\)/.test(desk)
