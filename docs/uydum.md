@@ -34,9 +34,14 @@ Yapımcı masasının **Uydum** sekmesi, kullanıcının kendi uydusunun 3B mode
 
 ### Arşivi açmak (bir kez)
 
-1. Vercel › proje (ls19web) › **Storage** › **Create** › **Blob**: depoyu projeye bağla. `BLOB_READ_WRITE_TOKEN` kendiliğinden eklenir.
+1. Vercel › proje (ls19web) › **Storage** › **Create** › **Blob**: erişimi **Public** seçerek oluştur ve depoyu projeye bağla. `BLOB_READ_WRITE_TOKEN` kendiliğinden eklenir. Private depo olmaz: paylaşım bağlantısı modeli herkese açık adresten indirir. Erişim sonradan değiştirilemez; yanlış seçildiyse depo silinip yeniden oluşturulur.
 2. Vercel › proje › **Settings** › **Environment Variables**: `LS19_ARSIV` = `1` (Production).
-3. Yeniden dağıt. `https://ls19web.vercel.app/api/arsiv` adresi `{"acik":true}` döndürmeli.
+3. Yeniden dağıt: Deployments › son Production dağıtımı › **Redeploy**. Ortam değişkenleri yalnız bağlandıktan sonraki dağıtıma girer.
+4. `https://ls19web.vercel.app/api/arsiv` adresi `"acik":true` döndürmeli. Döndürmüyorsa `denetim` alanı nedeni söyler:
+   - `LS19_ARSIV: false`: değişken yok, Production'a eklenmemiş ya da değeri 1 değil.
+   - `anahtar: "yok"`: depo bu dağıtımda bağlı değil; yeniden dağıt.
+   - `anahtar: "oidc"`: depo okuma-yazma anahtarı vermeden (yalnız `BLOB_STORE_ID`) bağlanmış; bu kip henüz desteklenmiyor.
+   - `ortam`: yanıtın hangi dağıtımdan geldiği (production / preview).
 
 Yerel sunucuda (`web/sunucu.py`) arşiv yoktur: `/api/arsiv` her zaman kapalıdır.
 

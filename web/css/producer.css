@@ -592,6 +592,10 @@ body.pd-docked #app { right: var(--pd-dock); }
 .destek-x { min-height: 34px; padding: 6px 10px; background: none; border: 0; font-size: 13px; color: var(--text-secondary); cursor: pointer; }
 .destek-x:hover { color: var(--text-primary); }
 .pd-banner[data-kind="destek"] { background: rgba(255, 179, 92, .10); }
+.xp-foot .xp-destek { margin-right: auto; align-self: center; display: inline-flex; align-items: center; min-height: 38px; padding: 0 4px; font-size: 13px; font-weight: 500; color: #ffc37e; text-decoration: none; }
+.xp-foot .xp-destek::before { content: '☕'; margin-right: 6px; }
+.xp-foot .xp-destek:hover { color: #ffd9a0; text-decoration: underline; text-underline-offset: 3px; }
+.xp-foot .xp-destek:focus-visible { outline: 2px solid #ffd9a0; outline-offset: 2px; border-radius: 4px; }
 /* sürerken: altta ince çubuk, sahne üstte görünür */
 .xpanel.running { inset: auto 0 0 0; padding: 0; background: none; place-items: stretch; }
 .xpanel.running .xp-box { width: 100%; max-height: none; border-radius: 0; border-width: 1px 0 0; box-shadow: 0 -10px 30px rgba(0, 0, 0, .4); }

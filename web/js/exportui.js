@@ -3,7 +3,7 @@
 // Seçimler tarayıcıda hatırlanır ('ls19.export'). Metinler textContent ile yazılır.
 import { applyIcons } from './icons.js';
 import { translateText, LOC } from './i18n.js';
-import { destekKarti } from './destek.js';
+import { destekKarti, destekBaglantisi } from './destek.js';
 import { uydum, uydumUretildi, uydumArsivle, uydumPaylasilan } from './usersat.js';
 import { normalize, encodeCut } from './producer.js';
 
@@ -66,7 +66,8 @@ export class ExportPanel {
     const foot = el('footer', 'xp-foot');
     const cancel = el('button', null, 'Vazgeç'); cancel.type = 'button'; cancel.onclick = () => this.close();
     const go = this.goBtn = el('button', 'primary'); go.type = 'button'; go.innerHTML = '<i data-icon="download"></i><span>Dışa aktarmayı başlat</span>'; applyIcons(go); go.onclick = () => this.start();
-    foot.append(cancel, go);
+    const destek = destekBaglantisi();                                                // Buy Me a Coffee: solda, sakin (destek.js)
+    foot.append(...(destek ? [destek] : []), cancel, go);
     b.append(body, foot);
     this.refresh();
     go.focus();
