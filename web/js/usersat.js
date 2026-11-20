@@ -6,8 +6,8 @@
 //   · Biçimler ve şart metni usersart.js'te (sunucuyla ortak).
 //   · Model çözme ve sahne: usermodel.js (three.js'e bağlı; yalnız gerekince yüklenir). Bu dosya three.js içe aktarmaz.
 
-export { SART_SURUM, SART_METNI, SINIR, BICIMLER, bicimOf, KALDIRMA } from './usersart.js';
-import { SART_SURUM, SART_METNI, SINIR, BICIMLER, bicimOf, arsivAdresi } from './usersart.js';
+export { SART_SURUM, SART_METNI, SINIR, BICIMLER, bicimOf, zipMi, catiaMi, KALDIRMA } from './usersart.js';
+import { SART_SURUM, SART_METNI, SINIR, BICIMLER, bicimOf, zipMi, catiaMi, arsivAdresi } from './usersart.js';
 export const RENKLER = ['#c9ccd2', '#d8b25a', '#e8e4da', '#3b4a63', '#8f2f2f'];
 
 // ---------------------------------------------------------------- saklama (IndexedDB) ve pencereler arası duyuru
@@ -101,17 +101,62 @@ export function ayarSuz(o) {
 // yeni model: şart onayı zorunlu; dosya okunur, çözülür (bozuksa ya da sınır aşılırsa hata), sonra saklanır
 export async function uydumYukle(dosya, { ad, boy, renk, onay } = {}) {
   if (!onay) throw new Error('sart');
-  const bicim = bicimOf(dosya && dosya.name); if (!bicim) throw new Error('bicim');
-  if (dosya.size > SINIR.bayt) throw new Error('boyut');
-  const buf = await dosya.arrayBuffer();
+  let adi = String((dosya && dosya.name) || ''), buf;
+  if (catiaMi(adi)) throw new Error('catia');                                    // CATIA'nın kapalı biçimi: STEP'e dışa aktarılmalı
+  if (zipMi(adi)) {                                                              // zip: içindeki en uygun CAD/3B dosyası (STEP > IGES > GLB > STL > OBJ)
+    if (dosya.size > SINIR.zip) throw new Error('boyut');
+    const z = await zipAc(await dosya.arrayBuffer()); adi = z.ad; buf = z.buf;
+  } else {
+    if (!bicimOf(adi)) throw new Error('bicim');
+    if (dosya.size > SINIR.bayt) throw new Error('boyut');
+    buf = await dosya.arrayBuffer();
+  }
+  const bicim = bicimOf(adi); if (!bicim) throw new Error('bicim');
+  if (buf.byteLength > SINIR.bayt) throw new Error('boyut');
   const M = await import('./usermodel.js');                                    // three.js yalnız gerekince (ayrı pencere hafif açılır)
   const g = await M.modelCoz(buf, bicim), ucgen = M.ucgenSay(g), boyanir = !!g.userData.boyanir; M.modelBirak(g);
   if (!ucgen) throw new Error('bos');
   if (ucgen > SINIR.ucgen) throw new Error('ucgen');
   const ozet = hex(await crypto.subtle.digest('SHA-256', buf));
-  const a = ayarSuz({ ad: ad || dosya.name.replace(/\.[^.]+$/, ''), boy, renk });
-  return yaz({ ...a, dosya: new Blob([buf]), dosyaAdi: String(dosya.name).slice(0, 120), bicim, bayt: dosya.size, ucgen, ozet,
+  const a = ayarSuz({ ad: ad || adi.replace(/\.[^.]+$/, ''), boy, renk });
+  return yaz({ ...a, dosya: new Blob([buf]), dosyaAdi: adi.slice(0, 120), bicim, bayt: buf.byteLength, ucgen, ozet,
     boyanir, onay: { surum: SART_SURUM, t: Date.now(), metin: await sartOzeti() }, uretim: [] });
+}
+
+// ---------------------------------------------------------------- zip (CAD programlarının paylaştığı klasör): yalnız okunur, hiçbir şey çalıştırılmaz
+// Merkezi dizinden girdiler okunur; __MACOSX ve ._ dosyaları atlanır; en uygun biçimin en büyük dosyası açılır (saklanmış ya da deflate).
+// Açılan boyut sınırı akış sırasında da denetlenir (zip bombası); şifreli ya da ZIP64 desteklenmez. Desteklenen dosya yoksa: CATIA dosyaları → 'catia', yoksa 'zip-bos'.
+export async function zipAc(buf) {
+  const v = new DataView(buf), u8 = new Uint8Array(buf), n0 = buf.byteLength;
+  let e = -1; for (let i = n0 - 22; i >= Math.max(0, n0 - 65557); i--) if (v.getUint32(i, true) === 0x06054b50) { e = i; break; }
+  if (e < 0) throw new Error('zip');
+  const say = v.getUint16(e + 10, true); let p = v.getUint32(e + 16, true);
+  if (p === 0xffffffff || p >= n0) throw new Error('zip');
+  const girdi = [], td = new TextDecoder();
+  for (let k = 0; k < say; k++) {
+    if (p + 46 > n0 || v.getUint32(p, true) !== 0x02014b50) throw new Error('zip');
+    const nl = v.getUint16(p + 28, true), xl = v.getUint16(p + 30, true), cl = v.getUint16(p + 32, true);
+    girdi.push({ ad: td.decode(u8.subarray(p + 46, p + 46 + nl)), bayrak: v.getUint16(p + 8, true), yontem: v.getUint16(p + 10, true), csz: v.getUint32(p + 20, true), usz: v.getUint32(p + 24, true), off: v.getUint32(p + 42, true) });
+    p += 46 + nl + xl + cl;
+  }
+  const temiz = girdi.filter((g) => !g.ad.endsWith('/') && !/(^|\/)__MACOSX\//.test(g.ad) && !/(^|\/)\._/.test(g.ad));
+  const sira = Object.keys(BICIMLER);
+  const aday = temiz.filter((g) => bicimOf(g.ad)).sort((a, b) => sira.indexOf(bicimOf(a.ad)) - sira.indexOf(bicimOf(b.ad)) || b.usz - a.usz)[0];
+  if (!aday) throw new Error(temiz.some((g) => catiaMi(g.ad)) ? 'catia' : 'zip-bos');
+  if (aday.bayrak & 1 || aday.csz === 0xffffffff || aday.usz === 0xffffffff) throw new Error('zip');
+  if (aday.usz > SINIR.bayt) throw new Error('boyut');
+  const L = aday.off; if (L + 30 > n0 || v.getUint32(L, true) !== 0x04034b50) throw new Error('zip');
+  const bas = L + 30 + v.getUint16(L + 26, true) + v.getUint16(L + 28, true), ham = u8.subarray(bas, bas + aday.csz);
+  if (ham.length !== aday.csz) throw new Error('zip');
+  let cikti;
+  if (aday.yontem === 0) cikti = ham.slice();
+  else if (aday.yontem === 8) {
+    const r = new Blob([ham]).stream().pipeThrough(new DecompressionStream('deflate-raw')).getReader(), parca = []; let top = 0;
+    for (;;) { const { done, value } = await r.read(); if (done) break; top += value.length; if (top > SINIR.bayt) { r.cancel(); throw new Error('boyut'); } parca.push(value); }
+    cikti = new Uint8Array(top); let o = 0; for (const c of parca) { cikti.set(c, o); o += c.length; }
+  } else throw new Error('zip');
+  if (cikti.length !== aday.usz) throw new Error('zip');
+  return { ad: aday.ad.split('/').pop(), buf: cikti.buffer };
 }
 
 // ---------------------------------------------------------------- göreli hareket (Clohessy–Wiltshire), LVLH: x radyal dış, y yörünge yönü, z yörünge normali

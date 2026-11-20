@@ -29,3 +29,5 @@ tools/basis/
 
 # Model otomasyonu ara dosyaları (tools/model)
 .model-ara/
+# STEP/IGES dönüştürücüsü (npm ci → tools/occt_kopyala.mjs)
+web/lib/occt/
