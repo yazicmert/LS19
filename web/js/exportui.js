@@ -3,6 +3,9 @@
 // Seçimler tarayıcıda hatırlanır ('ls19.export'). Metinler textContent ile yazılır.
 import { applyIcons } from './icons.js';
 import { translateText, LOC } from './i18n.js';
+import { destekKarti } from './destek.js';
+import { uydum, uydumUretildi, uydumArsivle, uydumPaylasilan } from './usersat.js';
+import { normalize, encodeCut } from './producer.js';
 
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const KEY = 'ls19.export';
@@ -146,6 +149,8 @@ export class ExportPanel {
       const a = el('a', 'primary xp-dl'); a.href = this.url; a.download = name; a.innerHTML = '<i data-icon="download"></i><span>Videoyu indir</span>'; applyIcons(a);
       foot.append(close, a); setTimeout(() => a.click(), 50); body.append(el('p', 'pd-hint', 'İndirme başlamadıysa “Videoyu indir”e dokun.'));
     } else { body.append(el('p', null, `${translateText('Kaydedildi')}: ${handle ? handle.name : name}`)); foot.append(close); }
+    if (uydum() && !uydumPaylasilan() && this.cut && normalize(this.cut).ch.uydu.on) uydumUretildi(Date.now(), encodeCut(this.cut)).then(() => uydumArsivle()).catch(() => {});   // kullanıcının uydusuyla fragman üretildi: arşive (kapalıysa bekler; usersat.js)
+    const destek = destekKarti(this.cut); if (destek) body.append(destek);                 // özel kurguda bir kez, engellemeden (destek.js)
     b.append(body, foot); close.focus();
   }
   viewMessage(title, text) {

@@ -56,10 +56,10 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const full = { INS: 0, TLI: 6000, SEP: 6600, LOI: 300000, SEP2: 330000, PDI: 340000, INDI: 340700 };
   const sets = [full, { INS: 0, TLI: 6000 }, { INS: 0, TLI: 6000, SEP: 6600 }, { INS: 0, TLI: 6000, SEP: 6600, LOI: 300000 }, { ...full, SEP2: undefined }, { INS: 0, TLI: 6000, SEP: 6600, LOI: 300000, PDI: 340000, INDI: 340700 }];
   let ok = true, why = '';
-  for (const S of sets) for (const ascent of [false, true]) { const Q = Object.fromEntries(Object.entries(S).filter(([, v]) => v != null)); for (const s of C.buildShots(Q, { ascent })) if (!P.GROUP_OF[s.id]) { ok = false; why += ` ${s.id}`; } }
+  for (const S of sets) for (const ascent of [false, true]) for (const userSat of [null, { ad: 'Deneme' }]) { const Q = Object.fromEntries(Object.entries(S).filter(([, v]) => v != null)); for (const s of C.buildShots(Q, { ascent, userSat })) if (!P.GROUP_OF[s.id]) { ok = false; why += ` ${s.id}`; } }
   const ids = P.GROUPS.flatMap((g) => g.ids);
-  check('her çekim bir bölüme bağlı (altı olay kümesi × kalkışlı/kalkışsız); kimlikler tekil; kalkış ayrı bölüm', ok && new Set(ids).size === ids.length && P.GROUPS[0].k === 'asc' && P.GROUPS[0].ids.length === 0, why.trim());
-  const shots = C.buildShots(full, {}), chap = P.GROUPS.filter((g) => g.ids.some((id) => { const s = shots.find((q) => q.id === id); return s && (s.chapter || s.card || s.closing); }));
+  check('her çekim bir bölüme bağlı (altı olay kümesi × kalkışlı/kalkışsız × kullanıcı uydulu/uydusuz); kimlikler tekil; kalkış ayrı bölüm', ok && new Set(ids).size === ids.length && P.GROUPS[0].k === 'asc' && P.GROUPS[0].ids.length === 0, why.trim());
+  const shots = C.buildShots(full, { userSat: { ad: 'Deneme' } }), chap = P.GROUPS.filter((g) => g.ids.some((id) => { const s = shots.find((q) => q.id === id); return s && (s.chapter || s.card || s.closing); }));
   check('her görüntülü bölümün (kalkış dışı) kartlı ya da kapanış çekimi var', chap.length === P.GROUPS.length - 1, chap.map((g) => g.k).join());
 }
 
@@ -119,7 +119,7 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   check('cinema.js: kurgu uygulanır (applyCut), afterCut durum güdümlü çekimi de yakalar, ileri besleme süre ölçeğini bir kez sayar, sesler kurguya bağlı',
     /applyCut\(buildShots\(/.test(cin) && /\(s\.afterCut && gap > 60\)/.test(cin) && /ff = dT \/ dur;/.test(cin) && !/1 \/ this\.opts\.scale/.test(cin) && /new CineAudio\(\{ mood: this\.cut\.mood, sfx: this\.cut\.sfx \}\)/.test(cin) && /this\.cut\.ch\.asc\.on/.test(cin) && /\|\| !this\.cut\.cues\) return;/.test(cin));
   check('app.js: masa (ProducerDesk), film düğmesi masayı açar, C doğrudan oynatır, Y masa (klavyeyle: animasyonsuz), paylaşılan kurgu #kurgu= ile (decodeCut)',
-    /new ProducerDesk\(/.test(app) && /\$\('#btnCine'\)\.onclick = \(\) => \{ if \(cinema\.on\) cinema\.stop\(\); else openDesk\(\); \}/.test(app) && /k === 'c'\) \{ pushLayer\('cine'\); playCine\(\); \}/.test(app) && /k === 'y'\) openDesk\(\{ key: true \}\)/.test(app) && /location\.hash\.slice\(1\)\)\.get\('kurgu'\)/.test(app) && /decodeCut\(hk\)/.test(app));
+    /new ProducerDesk\(/.test(app) && /\$\('#btnCine'\)\.onclick = \(\) => \{ if \(cinema\.on\) cinema\.stop\(\); else openDesk\(\); \}/.test(app) && /k === 'c'\) \{ pushLayer\('cine'\); playCine\(\); \}/.test(app) && /k === 'y'\) openDesk\(\{ key: true \}\)/.test(app) && /new URLSearchParams\(location\.hash\.slice\(1\)\), hk = hp\.get\('kurgu'\)/.test(app) && /uydumPaylasilanAyarla\(paylasimCoz\(hp\.get\('uydu'\)\)\)/.test(app) && /decodeCut\(hk\)/.test(app));
   check('index.html: producer.css bağlı; cinema.css: kadraj seçenekleri (1,85:1, tam ekran), grafik gizleme, sahne atlama levhası',
     /css\/producer\.css/.test(html) && /\.cine\[data-ar="185"\]/.test(css) && /\.cine\[data-ar="full"\] > \* \{ --bar: 0px; \}/.test(css) && /\.cine\.hide-strip \.cine-strip/.test(css) && /\.cine-slate \{/.test(css) && !/rgba\(255, 179, 92/.test(css));
 }
@@ -187,8 +187,9 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const all = new Set([...P.TAB_FIELDS.credits, ...P.TAB_FIELDS.type, ...P.TAB_FIELDS.look]);
   check('her genel ayar bir sekmeye düşer (rozet sayımı eksiksiz)', Object.keys(P.DEFAULT_CUT).filter((k) => !['v', 'ch'].includes(k)).every((k) => all.has(k)) && all.size === P.TAB_FIELDS.credits.length + P.TAB_FIELDS.type.length + P.TAB_FIELDS.look.length);
   const desk = rd('../js/producerui.js'), cin = rd('../js/cinema.js');
-  check('masa: hızlı başlangıç (bir kez, ? ile yeniden), geri al/yinele düğmeleri ve Ctrl+Z/Ctrl+Y (yazı alanında tarayıcınınki), aç/kapa anahtarı ayrı (bölüm adı ayrıntıyı açar), zaman şeridi, bu bölümden oynat, bölümü sıfırla, kaydedildi göstergesi, sürgüde varsayılana dönüş',
-    /INTRO_KEY = 'ls19\.deskIntro'/.test(desk) && /this\.undo\(\)/.test(desk) && /this\.redo\(\)/.test(desk) && /k === 'z' && !e\.shiftKey/.test(desk) && /role', 'switch'/.test(desk) && /nb\.onclick = \(\) => toggle\(det\.hidden\)/.test(desk)
+  check('masa (video düzenleyici düzeni): ipucu (bir kez, ? ile yeniden), geri al/yinele ve Ctrl+Z/Ctrl+Y, şablon seçici; zaman çizelgesi (V1 bölüm klipleri, cetvel, A1 müzik; ←/→ ile gezinme) klip seçer, Denetçi o klibin yazılarını, kamerasını, zamanlamasını ve aç/kapa anahtarını gösterir; Program monitörü seçili klibin kartı; buradan oynat, bölümü sıfırla, kaydedildi, sürgüde varsayılana dönüş',
+    /INTRO_KEY = 'ls19\.deskIntro'/.test(desk) && /this\.undo\(\)/.test(desk) && /this\.redo\(\)/.test(desk) && /k === 'z' && !e\.shiftKey/.test(desk) && /role', 'switch'/.test(desk) && /b\.onclick = \(\) => this\.selectClip\(info\.k\)/.test(desk) && /ArrowRight: 1, ArrowLeft: -1/.test(desk)
+    && /chapterInspector\(info\)/.test(desk) && /buildMonitor\(\)/.test(desk) && /this\.syncMon = \(\) =>/.test(desk) && /'pd-ruler'/.test(desk) && /'pd-audio'/.test(desk) && /this\.tpl\.value = presetOf\(this\.cut\) \|\| 'custom'/.test(desk)
     && /buildStrip\(\)/.test(desk) && /playFrom\(k\)/.test(desk) && /DEFAULT_CH/.test(desk) && /flashSaved\(\)/.test(desk) && /ondblclick/.test(desk) && /estimate\(cut, parts = false\)/.test(cin) && /Esc: vazgeç/.test(cin));
 }
 // ---------------------------------------------------------------- 9) ayrı pencere eşitlemesi (producersync.js; Node'un BroadcastChannel'ı ile gerçek ileti alışverişi)
@@ -218,12 +219,92 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     /liveCut\(cut\) \{/.test(cin) && /this\.ui\.look\(K\)/.test(cin) && /setLook\(filmLook\(K\)\)/.test(cin) && /setMix\(\{ mood: K\.mood, sfx: K\.sfx \}\)/.test(cin) && /this\.shotT \*= nd \/ oldDur/.test(cin) && /fresh\[at\]\.afterCut = true/.test(cin) && /e\.target\.closest\('#cineDesk'\)/.test(cin));
   check('yanaşık masa: fragman oynarken geniş ekranda sağa yanaşır (sahne daralır, kip modal değil), dar ekranda fragman durur; değişiklik canlı uygulanır ve ayrı pencereye gider',
     /dockable = \(\) => matchMedia\('\(min-width: 1100px\) and \(hover: hover\)'\)/.test(app) && /dock: live/.test(app) && /cinema\.liveCut\(cut\)/.test(app) && /link\.sendCut\(cut\)/.test(app) && /body\.pd-docked #app \{ right: var\(--pd-dock\); \}/.test(css) && /aria-modal', String\(!on/.test(desk));
+  check('düzenleyici etkileşimleri: sağ tık menüsü (role=menu, alt menü, ok tuşları, Esc masayı kapatmaz; klip, monitör ve müzik izi; Shift+F10 / menü tuşu), klip kenarını sürükle (kısa/normal/uzun), Efektler panelinden kliplere sürükle-bırak (tıklayınca seçili klibe), monitörde başlık/logo/alt yazıyı tut-bırak, cetvelde oynatma çizgisi; Del, Ctrl+C/V, +/−; yeniden kurulumda odak klipte kalır',
+    /role', 'menu'/.test(desk) && /aria-haspopup', 'menu'/.test(desk) && /e\.stopPropagation\(\);\s+\/\/ masanın Esc/.test(desk) && /clipMenu\(k, x, y, back\)/.test(desk) && /monitorMenu\(x, y, back\)/.test(desk) && /audioMenu\(x, y, back\)/.test(desk)
+    && /e\.key === 'ContextMenu' \|\| \(e\.shiftKey && e\.key === 'F10'\)/.test(desk) && /trim\(e, k, b, q\)/.test(desk) && /LEN_K\[pick\]/.test(desk) && /FX_MIME = 'application\/x-ls19-fx'/.test(desk) && /b\.ondrop = /.test(desk)
+    && /monDrag\(e, card, scr, SPOT/.test(desk) && /scrubTo\(/.test(desk) && /e\.key === 'Delete' \|\| e\.key === 'Backspace'/.test(desk) && /copyClip\(k\)/.test(desk) && /pasteClip\(k\)/.test(desk) && /odak = this\.strip\.contains\(document\.activeElement\)/.test(desk));
+  check('telefonda ve dokunmatik tablette editör kapalı: masa yerine "bilgisayarda düzenle" penceresi (fragmanı izle, kurguyu taşıyan bağlantıyı bilgisayara gönder; bağlantıda cine yok: bilgisayarda masa açılır)',
+    /EDITOR_KAPALI_MQ = '\(max-width: 760px\), \(hover: none\) and \(pointer: coarse\)'/.test(desk) && /if \(editorKapali\(\)\) \{ this\.openMobil\(cut, shared\); return; \}/.test(desk)
+    && /u\.searchParams\.delete\('cine'\)/.test(desk) && /navigator\.share/.test(desk) && /\.pdesk\.mobil \.pd-box \{ display: none; \}/.test(css));
   check('klavye kısayolları animasyonsuz: Y ile açılan masa (instant) ve Ctrl+Z/Y bildirimi kaymaz; tıklamayla açılışta giriş kalır',
     /\.pdesk\.instant \.pd-box, \.pdesk\.instant\.docked \.pd-box \{ animation: none; \}/.test(css) && /\.pd-toast\.instant \{ transition: none; \}/.test(css)
     && /this\.root\.classList\.toggle\('instant', !!instant\)/.test(desk) && /this\.undo\(true\)/.test(desk) && /this\.say\('Geri alındı\.', false, key\)/.test(desk)
     && /instant: !!o\.key/.test(app) && /\.xp-bar i \{[^}]*transition: transform \.25s linear/.test(css));
   check('ayrı pencere sayfası: yapimci.html yalnız masayı yükler (sahne yok), LS19 yoksa masa yine açılır ve bant söyler; açılır pencere engellenirse masa söyler',
     /js\/yapimci\.js/.test(html) && !/js\/app\.js/.test(html) && /new PopLink\(mainId/.test(pj) && /lostBanner\(\)/.test(pj) && /window\.open\(u\.href, 'ls19-yapimci'/.test(app) && /açılır pencereyi engelledi/.test(app));
+}
+{
+  // 8) destek kartı: yalnız geçerli Buy Me a Coffee adresi, özel kurgu, oturumda bir kez; "Şimdi değil" 30 gün, destek 180 gün susar; hiçbir şeyi engellemez
+  const D = await import('../js/destek.js');
+  const url = 'https://buymeacoffee.com/ls19', ozel = P.normalize({ title: 'Benim kurgum' }), now = 1e12, gun = 864e5;
+  const g = (cut, o = {}) => D.destekGerekli(cut, { url, now, kayit: {}, oturum: false, ...o });
+  check('destek: geçerli adres + özel kurgu → sorulur; varsayılan kurgu, boş/yabancı adres, aynı oturum → sorulmaz',
+    g(ozel) && !g(P.normalize({})) && !g(ozel, { url: '' }) && !g(ozel, { url: 'https://evil.example/ls19' }) && !g(ozel, { url: 'http://buymeacoffee.com/ls19' }) && !g(ozel, { oturum: true }));
+  check('destek: "Şimdi değil" 30 gün, "Kahve ısmarla" 180 gün sorulmaz; süre dolunca yeniden sorulur',
+    !g(ozel, { kayit: { k: 'red', t: now - 29 * gun } }) && g(ozel, { kayit: { k: 'red', t: now - 31 * gun } }) && !g(ozel, { kayit: { k: 'destek', t: now - 179 * gun } }) && g(ozel, { kayit: { k: 'destek', t: now - 181 * gun } }));
+  const dsrc = fs.readFileSync(new URL('../js/destek.js', import.meta.url), 'utf8'), xsrc = fs.readFileSync(new URL('../js/exportui.js', import.meta.url), 'utf8'), usrc = fs.readFileSync(new URL('../js/producerui.js', import.meta.url), 'utf8');
+  check('destek bağlantısı yeni sekmede, opener/referrer olmadan; innerHTML yok; dışa aktarım ve paylaşım bitince (öncesinde değil) gösterilir',
+    /a\.rel = 'noopener noreferrer'/.test(dsrc) && /'noopener,noreferrer'/.test(dsrc) && !/innerHTML/.test(dsrc)
+    && /foot\.append\(close\); \}\n[^\n]*\n    const destek = destekKarti\(this\.cut\)/.test(xsrc) && /writeText[\s\S]{0,500}\n    this\.askSupport\(\);\n  \}/.test(usrc));
+}
+{
+  // 9) kendi uydum (usersat.js, usermodel.js, usersatui.js): şart, süzgeç, göreli hareket, çekim ve kamera, güvenlik
+  const U = await import('../js/usersat.js');
+  const near = (a, b, e = 1e-9) => Math.abs(a - b) <= e;
+  check('kullanım şartı: sürüm ve maddeler; arşiv ve paylaşım izni, herkese açık adres, kaldırma yolu ve hak beyanı metinde; onaysız yükleme reddedilir',
+    U.SART_SURUM.length > 0 && U.SART_METNI.length >= 5 && U.SART_METNI.some((t) => /arşiv/.test(t) && /izin/.test(t) && /paylaşım bağlantısı/.test(t) && /kurgusu/.test(t)) && U.SART_METNI.some((t) => /hak/.test(t) && /beyan/.test(t))
+    && U.SART_METNI.some((t) => /herkese açık/.test(t)) && U.SART_METNI.some((t) => t.includes(U.KALDIRMA) && /kaldırılmasını/.test(t)) && /^github\.com\/yazicmert\/LS19\/issues$/.test(U.KALDIRMA)
+    && await U.uydumYukle({ name: 'a.stl', size: 10, arrayBuffer: async () => new ArrayBuffer(10) }, { onay: false }).then(() => false, (e) => e.message === 'sart'));
+  check('biçim ve ayar süzgeci: yalnız CAD/3B: glb/stl/obj (glTF metni, görsel ve başka uzantı yok); ad denetim karakterinden arınır ve kısalır; boy 0,1–120 m; renk listeden',
+    U.bicimOf('Uydu.GLB') === 'glb' && U.bicimOf('x.stl') === 'stl' && U.bicimOf('x.obj') === 'obj' && U.bicimOf('x.gltf') === null && U.bicimOf('x.step') === null && U.bicimOf('') === null
+    && U.bicimOf('cizim.png') === null && U.bicimOf('a.jpg') === null && U.bicimOf('a.svg') === null && U.bicimOf('a.constructor') === null && JSON.stringify(Object.keys(U.BICIMLER).sort()) === '["glb","obj","stl"]'
+    && U.ayarSuz({ ad: 'a\u202Eb\u0000  c', boy: 500, renk: 'red' }).ad === 'ab c' && U.ayarSuz({ boy: 500 }).boy === 120 && U.ayarSuz({ boy: 0 }).boy === 0.1 && U.ayarSuz({ ad: '' }).ad === 'Uydum'
+    && U.ayarSuz({ ad: 'x'.repeat(90) }).ad.length === U.SINIR.ad && U.ayarSuz({ renk: 'red' }).renk === U.RENKLER[0]);
+  // CW: başlangıç koşulu, dik bileşen salınımı ve sayısal tümlevle uyum (Hill denklemleri, RK4)
+  const n = Math.sqrt(398600.4418 / 6778 ** 3), r0 = [0.001, -0.002, 0.004], v0 = [0.0002, -0.0001, 0.00035];
+  const hill = (s) => { const [x, , z, u, v, w] = s; return [u, v, w, 3 * n * n * x + 2 * n * v, -2 * n * u, -n * n * z]; };
+  let st = [...r0, ...v0]; const h = 0.5; for (let i = 0; i < 1200; i++) { const k1 = hill(st), k2 = hill(st.map((q, j) => q + h / 2 * k1[j])), k3 = hill(st.map((q, j) => q + h / 2 * k2[j])), k4 = hill(st.map((q, j) => q + h * k3[j])); st = st.map((q, j) => q + h / 6 * (k1[j] + 2 * k2[j] + 2 * k3[j] + k4[j])); }
+  const q600 = U.cw(n, 600, r0, v0), q0 = U.cw(n, 0, r0, v0), L = U.lvlh([6778, 0, 0], [0, 7.67, 0]);
+  check('göreli hareket (Clohessy–Wiltshire): t=0 başlangıç konumu; 600 s sonra Hill denklemlerinin sayısal çözümüyle aynı (< 1 mm); LVLH sağ elli dik çerçeve',
+    q0.every((v, i) => near(v, r0[i])) && q600.every((v, i) => near(v, st[i], 1e-6)) && near(L.R[0], 1) && near(L.S[1], 1) && near(L.W[2], 1), `${q600} | ${st.slice(0, 3)}`);
+  const P0 = { INS: 0, TLI: 6000, SEP: 6600 }, sh = C.buildShots(P0, { userSat: { ad: 'Türksat 6a' } }), ids = sh.map((s) => s.id), sd = sh.find((s) => s.id === 'sat-deploy'), pw = sh.find((s) => s.id === 'park-wide');
+  const plain = C.buildShots(P0, {}), cutSh = P.applyCut(sh, P.normalize({ ch: { uydu: { cam: 'wide' } } })).find((s) => s.id === 'sat-deploy');
+  check('uydu çekimi: yalnız kullanıcı uydusu varken, açılıştan hemen sonra; ayrılma çekim içinde; park çekimi ondan sonra başlar; kart adı büyük harf (Türkçe); kamera uyduya bağlı (kurgu kamerası uygulanmaz)',
+    !plain.some((s) => s.id === 'sat-deploy') && ids.indexOf('sat-deploy') === ids.indexOf('open') + 1 && sd.T()[0][1] === C.SAT_T.t0 && sd.T()[0][1] < C.SAT_T.ayr && C.SAT_T.ayr < sd.T()[2][1]
+    && pw.T()[0][1] === C.SAT_T.son && sd.chapter.title === 'TÜRKSAT 6A' && sd.rig.type === 'sat' && cutSh.rig.type === 'sat' && P.GROUP_OF['sat-deploy'] === 'uydu' && P.GROUPS.find((g) => g.k === 'uydu').fixedCam);
+  // arşiv yolu, paylaşım bağlantısı ve sunucu ucu (api/arsiv.js)
+  const A = await import('../js/usersart.js'), yolUz = A.ARSIV_YOL.source.match(/model\\\.\(([^)]*)\)/)[1].split('|').sort();
+  const ok = 'https://ab12cd.public.blob.vercel-storage.com/arsiv/0123456789abcdef/model-Xy9Q.stl';
+  check('arşiv adresi: uzantılar BICIMLER ile aynı; yalnız https Vercel Blob deposu ve arşiv yolu (başka alan, http, yol dışı, meta.json, kaçış yok)',
+    JSON.stringify(yolUz) === JSON.stringify(Object.keys(U.BICIMLER).sort()) && A.arsivAdresi(ok) && !A.arsivAdresi(ok.replace('https', 'http')) && !A.arsivAdresi('https://evil.example/arsiv/0123456789abcdef/model.stl')
+    && !A.arsivAdresi('https://ab12cd.public.blob.vercel-storage.com.evil.example/arsiv/0123456789abcdef/model.stl') && !A.arsivAdresi('https://ab12cd.public.blob.vercel-storage.com/arsiv/0123456789abcdef/meta.json')
+    && !A.arsivAdresi('https://ab12cd.public.blob.vercel-storage.com/arsiv/../x/model.stl') && !A.arsivAdresi('javascript:alert(1)') && A.ARSIV_YOL.test('arsiv/0123456789abcdef/meta.json') && !A.ARSIV_YOL.test('arsiv/0123456789abcdef/../../x.stl'));
+  const prm = U.paylasimParam({ ad: 'Anadolu‮-1', boy: 7, renk: U.RENKLER[1], bicim: 'stl' }, { model: ok }), geri = U.paylasimCoz(prm);
+  check('paylaşım bağlantısı: uydu gidiş-dönüş (ad süzülür); yabancı adres, bilinmeyen biçim, bozuk ya da çok uzun değer → yok',
+    geri && geri.url === ok && geri.ad === 'Anadolu-1' && geri.boy === 7 && geri.renk === U.RENKLER[1] && geri.bicim === 'stl' && geri.boyanir
+    && U.paylasimCoz(U.paylasimParam({ ad: 'a', boy: 1, renk: '', bicim: 'stl' }, { model: 'https://evil.example/arsiv/0123456789abcdef/model.stl' })) === null
+    && U.paylasimCoz(U.paylasimParam({ ad: 'a', boy: 1, renk: '', bicim: 'exe' }, { model: ok })) === null && U.paylasimCoz('%%%') === null && U.paylasimCoz('x'.repeat(2000)) === null && U.paylasimCoz(null) === null);
+  const API = await import('../../api/arsiv.js'), env0 = { ...process.env };
+  const post = (body, origin) => API.POST(new Request('https://ls19web.vercel.app/api/arsiv', { method: 'POST', headers: { 'content-type': 'application/json', ...(origin ? { origin } : {}) }, body: JSON.stringify(body) }));
+  const tok = { type: 'blob.generate-client-token', payload: { pathname: 'arsiv/0123456789abcdef/model.stl', clientPayload: JSON.stringify({ surum: A.SART_SURUM, onay: 1 }), multipart: false } };
+  delete process.env.LS19_ARSIV; delete process.env.BLOB_READ_WRITE_TOKEN;
+  const g0 = await (await API.GET()).json(), p0 = await post(tok, 'https://ls19web.vercel.app');
+  process.env.LS19_ARSIV = '1'; process.env.BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_deneme_0000';
+  const p1 = await post(tok, 'https://evil.example'), g1 = await (await API.GET()).json();
+  const kr = (y, c) => { try { return API.kurallar(y, c); } catch (e) { return e.message; } }, cp = JSON.stringify({ surum: A.SART_SURUM, onay: 1 });
+  const km = kr('arsiv/0123456789abcdef/model.stl', cp), kk = kr('arsiv/0123456789abcdef/meta.json', cp);
+  for (const k of ['LS19_ARSIV', 'BLOB_READ_WRITE_TOKEN']) if (env0[k] === undefined) delete process.env[k]; else process.env[k] = env0[k];
+  check('api/arsiv: açılmadan kapalı (GET acik:false, anahtar isteği 503); açıkken başka kökene 403; kurallar: yol, güncel şart sürümü, biçime göre içerik türü ve boyut, rastgele sonek',
+    g0.acik === false && p0.status === 503 && g1.acik === true && p1.status === 403 && km.maximumSizeInBytes === U.SINIR.bayt && km.allowedContentTypes.includes('model/stl') && km.addRandomSuffix === true
+    && kk.maximumSizeInBytes === U.SINIR.kayit && JSON.stringify(kk.allowedContentTypes) === '["application/json"]' && kr('arsiv/0123456789abcdef/../../x.stl', cp) === 'yol' && kr('baska/0123456789abcdef/model.stl', cp) === 'yol'
+    && kr('arsiv/0123456789abcdef/model.stl', JSON.stringify({ surum: 'eski', onay: 1 })) === 'onay' && kr('arsiv/0123456789abcdef/model.stl', 'bozuk') === 'onay', JSON.stringify({ g0, p0: p0.status, p1: p1.status, km, kk }));
+  const usrc = fs.readFileSync(new URL('../js/usersat.js', import.meta.url), 'utf8'), uisrc = fs.readFileSync(new URL('../js/usersatui.js', import.meta.url), 'utf8'), msrc = fs.readFileSync(new URL('../js/usermodel.js', import.meta.url), 'utf8');
+  const csrc = fs.readFileSync(new URL('../js/cinema.js', import.meta.url), 'utf8'), ssrc = fs.readFileSync(new URL('../js/scene.js', import.meta.url), 'utf8'), yh = fs.readFileSync(new URL('../yapimci.html', import.meta.url), 'utf8');
+  check('Uydum güvenliği: innerHTML yok; şart onaylanmadan dosya düğmesi kapalı; usersat.js three.js içe aktarmaz (ayrı pencere hafif), three yalnız usermodel.js\'te; ayrı pencerede importmap var; paylaşılan model boyut sınırıyla indirilir; paylaşımda önce arşiv',
+    !/innerHTML/.test(uisrc) && !/innerHTML/.test(usrc) && /buf\.byteLength > SINIR\.bayt/.test(msrc) && /uydumArsivle\(encodeCut\(this\.cut\)\)/.test(fs.readFileSync(new URL('../js/producerui.js', import.meta.url), 'utf8')) && /pick\.disabled = !on/.test(uisrc) && /if \(!onay\) throw new Error\('sart'\)/.test(usrc) && !/from 'three'/.test(usrc) && /from 'three'/.test(msrc) && /"three": "\.\/lib\/three\.module\.js"/.test(yh));
+  check('sahne: uydu konumu kameranın karesiyle aynı hesaptan (bir kare gecikme yok); scene.js cine.place çağırır; fragman bitince uydu kaldırılır; dışa aktarımda üretim zamanı yazılır',
+    /satAt\(x, info, W\)/.test(csrc) && /this\.uydu\.konum\(x, info, W\.attQ/.test(csrc) && /this\.cine\.place\(x, info, rel, this\.attQ\)/.test(ssrc) && /this\.dropSat\(\);/.test(csrc)
+    && /uydumUretildi\(Date\.now\(\), encodeCut\(this\.cut\)\)\.then\(\(\) => uydumArsivle\(\)\)/.test(fs.readFileSync(new URL('../js/exportui.js', import.meta.url), 'utf8')));
 }
 console.log(fail ? `\n${fail} HATA` : '\nTAMAM');
 process.exit(fail ? 1 : 0);

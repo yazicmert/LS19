@@ -584,6 +584,7 @@ export class World {
     const { eye, rel, sd } = this.placeFrame(pose, sun, rm, Mitrf, Mme);          // kamera, Güneş, Dünya, Ay, yüzey (skyview ile ortak)
     // araç
     rel(vehPos, this.vehicle.position); this.vehicle.quaternion.copy(this.attQ);
+    if (this.cine.on && this.cine.place) this.cine.place(x, info, rel, this.attQ);          // fragmana eklenen nesneler (cinema.js: kullanıcının uydusu)
     // aktif kademeye göre araç: yığın (üstten alta) iniş aracı / Ay yörünge kademesi (iki kademeli iniş aracı, ayrılana dek) / TLI kademesi (ayrılana dek);
     // her kademenin kendi motoru yanar, ayrılan kademe araçtan kalkar ve aşağıdaki enkaz olarak çizilir
     const nSt = this.nStages, last = nSt - 1, k = x.k, thr = x.thr || 0;

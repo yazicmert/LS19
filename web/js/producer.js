@@ -12,6 +12,7 @@
 export const GROUPS = [
   { k: 'asc', name: 'Kalkış', ids: [], body: 'E', title: 'KALKIŞ' },
   { k: 'open', name: 'Açılış', ids: ['open'], body: 'E' },
+  { k: 'uydu', name: 'Uydum', ids: ['sat-deploy'], body: 'E', fixedCam: true, title: 'UYDUM' },          // yalnız kullanıcı kendi uydusunu eklediyse (usersat.js); kamera uyduya bağlı
   { k: 'park', name: 'Park yörüngesi', ids: ['park-wide', 'park-close'], body: 'E' },
   { k: 'tli', name: "Ay'a transfer yakışı", ids: ['tli-ignite', 'tli-burn'], body: 'E' },
   { k: 'sep', name: 'Kademe ayrılması', ids: ['sep'], body: 'E' },
@@ -262,7 +263,7 @@ export function applyCut(shots, cut) {
     const s = { ...s0, grp: k || null };
     if (cut0) { s.afterCut = true; cut0 = false; }
     s.dur = s0.dur * LEN_K[ch.len];
-    const rig = g ? camRig(ch.cam, (g.bodyOf && g.bodyOf[s.id]) || g.body, ch) : null;
+    const rig = g && !g.fixedCam ? camRig(ch.cam, (g.bodyOf && g.bodyOf[s.id]) || g.body, ch) : null;
     if (rig) {
       s.rig = rig; delete s.rigs; s.userCam = ch.cam; if (ch.cam === 'custom') s.shake = ch.cShake;
       // geniş kamerada yörünge izi, anlık elips ve araç ışıltısı; yakın kameralarda yok (iz çizgileri aracın içinden geçmesin), cisim etiketleri yalnız geniş çekimde
