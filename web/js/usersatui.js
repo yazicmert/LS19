@@ -8,8 +8,14 @@ const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls)
 const mb = (b) => (b < 1e6 ? `${Math.max(1, Math.round(b / 1e3)).toLocaleString(LOC)} KB` : `${(b / 1e6).toLocaleString(LOC, { maximumFractionDigits: 1 })} MB`);
 const HATA = {
   sart: 'Önce kullanım şartını onayla.',
-  bicim: 'Bu dosya türü desteklenmiyor. CAD programından STL ya da OBJ olarak dışa aktar (glTF ise tek dosya .glb).',
-  boyut: 'Dosya 40 MB’tan büyük. Modeli sadeleştirip yeniden dışa aktar.',
+  bicim: 'Bu dosya türü desteklenmiyor. CAD programından STEP (.stp) ya da STL olarak dışa aktar; birden çok dosyayı zip’leyebilirsin.',
+  boyut: 'Dosya 40 MB’tan büyük (zip 120 MB). Modeli sadeleştirip yeniden dışa aktar.',
+  catia: 'Bunlar CATIA’nın kendi dosyaları (.CATPart / .CATProduct): şekiller kapalı bir biçimde, açık araçlarla okunamıyor. CATIA’da montajı aç, File › Save As › STEP (.stp) ile kaydedip o dosyayı (ya da zip’ini) yükle.',
+  'zip-bos': 'Zip’te desteklenen bir CAD dosyası yok (STEP, IGES, GLB, STL, OBJ).',
+  zip: 'Zip açılamadı (şifreli, bozuk ya da çok büyük olabilir). Dosyayı zip’lemeden yüklemeyi dene.',
+  cad: 'CAD dosyası okunamadı: geçerli bir STEP ya da IGES değil gibi. CAD programından yeniden dışa aktarmayı dene.',
+  'cad-sure': 'CAD dosyası 3 dakikada üçgenlere çevrilemedi: montaj çok büyük. Gereksiz parçaları (vida, kablo) çıkarıp yeniden dışa aktar.',
+  occt: 'CAD dönüştürücüsü yüklenemedi. Sayfayı yenileyip yeniden dene.',
   ucgen: 'Model 1,5 milyon üçgenden fazla. CAD programında daha kaba bir ağla (mesh) dışa aktar.',
   bos: 'Dosyada çizilebilir bir yüzey bulunamadı.',
 };
@@ -32,13 +38,13 @@ export class SatPane {
     const lab = el('label', 'pd-check us-ok'), cb = el('input'); cb.type = 'checkbox';
     lab.append(cb, el('span', null, 'Şartları okudum. Yüklediğim modelin haklarının bende olduğunu ve bu modelle fragman üretilir ya da paylaşılırsa LS19 arşivinde saklanıp gösterilmesine izin verdiğimi beyan ederim.'));
     g.append(lab);
-    const drop = el('div', 'us-drop'), inp = el('input'); inp.type = 'file'; inp.accept = Object.keys(BICIMLER).map((e) => '.' + e).join(','); inp.hidden = true;
+    const drop = el('div', 'us-drop'), inp = el('input'); inp.type = 'file'; inp.accept = '.step,.stp,.iges,.igs,.glb,.stl,.obj,.zip'; inp.hidden = true;
     const pick = el('button', 'us-pick', 'Dosya seç'); pick.type = 'button';
     const fmts = Object.values(BICIMLER).map((v) => translateText(v.ad)).join(', ');
-    drop.append(el('b', null, 'Modelini buraya bırak'), el('span', null, `${fmts} · ${translateText('en çok')} 40 MB`), pick, inp,
-      el('small', 'pd-hint', 'CAD programından (SolidWorks, Fusion 360, FreeCAD, Blender…) STL ya da OBJ olarak dışa aktarabilirsin. Boyutu sonra metre olarak ayarlarsın.'));
+    drop.append(el('b', null, 'Modelini buraya bırak'), el('span', null, `${fmts}, ZIP · ${translateText('en çok')} 40 MB`), pick, inp,
+      el('small', 'pd-hint', 'En iyisi STEP: CATIA, SolidWorks, Fusion 360 ya da FreeCAD’de File › Save As › STEP (.stp). Montajın tamamı ve renkleri gelir. Birden çok dosya varsa zip’le. Boyutu sonra metre olarak ayarlarsın.'));
     const err = el('p', 'us-err'); err.setAttribute('role', 'alert'); err.hidden = true;
-    const busy = el('p', 'pd-note us-busy', 'Model okunuyor…'); busy.hidden = true;
+    const busy = el('p', 'pd-note us-busy', 'Model okunuyor… (STEP montajları üçgenlere çevrilirken bir dakika sürebilir)'); busy.hidden = true;
     const durum = () => { const on = cb.checked; pick.disabled = !on; drop.classList.toggle('kapali', !on); drop.title = on ? '' : translateText('Önce kullanım şartını onayla.'); };
     cb.onchange = durum; durum();
     const al = async (f) => {

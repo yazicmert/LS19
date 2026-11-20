@@ -5,11 +5,14 @@ Yapımcı masasının **Uydum** sekmesi, kullanıcının kendi uydusunun 3B mode
 ## Akış
 
 1. **Kullanım şartı:** onay kutusu işaretlenmeden dosya düğmesi ve bırakma alanı kapalıdır. Onay (sürüm, zaman, metnin SHA-256 özeti) modelle birlikte saklanır.
-2. **Dosya:** CAD çıktısı (STL, OBJ) ya da GLB (glTF ikili); en çok 40 MB ve 1,5 milyon üçgen. Görsel (PNG, JPEG) kabul edilmez.
-   - CAD programlarından (SolidWorks, Fusion 360, FreeCAD…) STL ya da OBJ olarak dışa aktarılır.
+2. **Dosya:** STEP (`.step`, `.stp`), IGES (`.iges`, `.igs`), STL, OBJ ya da GLB; en çok 40 MB ve 1,5 milyon üçgen. Birden çok dosya zip'lenebilir (en çok 120 MB). Görsel (PNG, JPEG) kabul edilmez.
+   - **Önerilen biçim STEP:** CATIA, SolidWorks, Fusion 360, FreeCAD gibi programlarda File › Save As › STEP. Montajın tamamı tek dosyada gelir; parça ve yüz renkleri korunur.
+   - **STEP/IGES nasıl açılır:** dosya ayrı bir iş parçacığında (`web/js/stepworker.js`) occt-import-js (OpenCascade, WebAssembly) ile üçgenlenir. İnceltme sınır kutusuna göre yapılır; süre sınırı 3 dakika. Dönüştürücü (7,6 MB) yalnız bir STEP/IGES açılınca indirilir.
+   - **Zip:** merkezi dizin okunur; `__MACOSX` ve `._` dosyaları atlanır. En uygun biçimin en büyük dosyası açılır (sıra: STEP › IGES › GLB › STL › OBJ). Açılan boyut akış sırasında da sınırlanır (zip bombası). Şifreli ve ZIP64 zip'ler desteklenmez.
+   - **CATIA'nın kendi dosyaları** (`.CATPart`, `.CATProduct`, ya da yalnız bunları içeren bir zip): kapalı biçim olduğu için okunamaz. Kullanıcıya CATIA'da STEP'e nasıl aktaracağı söylenir.
    - Model birimi önemli değildir: model, girilen gerçek boya (en uzun kenar, 0,1–120 m) ölçeklenir.
    - STL'de yüz normalleri geometriden yeniden hesaplanır, çünkü CAD çıktılarında çoğu zaman sıfır ya da yanlıştır.
-   - Renksiz STL ve OBJ çift yüzlü, mat bir malzemeyle çizilir; renk listeden seçilir.
+   - Renksiz modeller (STL, OBJ, renksiz STEP) çift yüzlü, mat bir malzemeyle çizilir; renk listeden seçilir.
 3. **Ayarlar:** ad (bölüm kartında büyük harfle), boy, renk, "Fragmanda göster", modeli değiştir, kaldır. Sekmede modelin dönen bir önizlemesi vardır.
 
 ## Fragmanda
@@ -58,5 +61,7 @@ Yerel sunucuda (`web/sunucu.py`) arşiv yoktur: `/api/arsiv` her zaman kapalıd�
 | `web/js/usermodel.js` | GLB/STL/OBJ çözme, ölçekleme, boyama, sahnedeki uydu (three.js) |
 | `web/js/usersatui.js` | masanın Uydum sekmesi |
 | `web/lib/addons/loaders/STLLoader.js`, `OBJLoader.js` | three.js r170 yükleyicileri (MIT) |
+| `web/js/stepworker.js` | STEP/IGES → üçgen ağ (iş parçacığı) |
+| `web/lib/occt/` | occt-import-js 0.0.23 (LGPL-2.1): git'e girmez; `npm ci` sonrası `tools/occt_kopyala.mjs` kopyalar (Vercel derlemesi dahil). Docker imajında STEP için önce yerelde `npm ci` çalıştırılmalı. |
 
 Testler: `web/test/test_producer.js` (9. bölüm).

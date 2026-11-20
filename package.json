@@ -11,7 +11,8 @@
     "lint": "eslint",
     "test": "node tools/testler.mjs",
     "test:seq": "cd web && for t in test/test_*.js; do echo \"== $t\"; out=$(node \"$t\" 2>&1) || { echo \"$out\" | grep -v '^TAMAM' | tail -30; exit 1; }; done && echo 'Tüm testler geçti'",
-    "test:quick": "cd web && node test/test_deflect.js && node test/test_api.js"
+    "test:quick": "cd web && node test/test_deflect.js && node test/test_api.js",
+    "postinstall": "node tools/occt_kopyala.mjs"
   },
   "devDependencies": {
     "esbuild": "0.25.12",
@@ -20,6 +21,7 @@
     "globals": "^15.15.0"
   },
   "dependencies": {
-    "@vercel/blob": "2.8.2"
+    "@vercel/blob": "2.8.2",
+    "occt-import-js": "0.0.23"
   }
 }

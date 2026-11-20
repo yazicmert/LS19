@@ -2,7 +2,7 @@
 //   Sahnede: ayrılmadan önce aracın yanına bağlı; ayrılınca aracın yörünge çerçevesinde (LVLH) Clohessy–Wiltshire göreli hareketi (ortak bozucular birbirini götürür).
 import * as THREE from 'three';
 import { cw, lvlh, uydumKayit, uydumPaylasilan } from './usersat.js';
-import { SINIR } from './usersart.js';
+import { SINIR, BICIMLER } from './usersart.js';
 
 const KM = 0.001, MU_E = 398600.435507;
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -10,6 +10,7 @@ const unt = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] /
 
 // ---------------------------------------------------------------- model çözme ve sahneye hazırlama
 export async function modelCoz(buf, bicim) {
+  if (BICIMLER[bicim] && BICIMLER[bicim].cad) return cadCoz(buf, bicim);
   if (bicim === 'glb') {
     const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
     const { MeshoptDecoder } = await import('three/addons/libs/meshopt_decoder.module.js');
@@ -31,6 +32,40 @@ export async function modelCoz(buf, bicim) {
     g.userData.boyanir = true; return g;
   }
   throw new Error('bicim');
+}
+// STEP / IGES: ayrı iş parçacığında üçgenlenir (stepworker.js, occt-import-js). Montaj renkleri korunur: parça rengi ya da yüz rengi (BREP yüz aralıkları → malzeme grupları).
+// Hiç renk yoksa boyanır (renk listesinden). En çok 3 dakika; dönüştürücü yüklenemezse 'occt'.
+export function cadCoz(buf, bicim, sure = 180e3) {
+  return new Promise((res, rej) => {
+    let w; try { w = new Worker(new URL('./stepworker.js', import.meta.url)); } catch (e) { rej(new Error('occt')); return; }
+    const t = setTimeout(() => { w.terminate(); rej(new Error('cad-sure')); }, sure);
+    w.onerror = () => { clearTimeout(t); w.terminate(); rej(new Error('occt')); };
+    w.onmessage = (ev) => {
+      clearTimeout(t); w.terminate(); const r = ev.data;
+      if (!r || !r.ok) { rej(new Error((r && r.hata) || 'cad')); return; }
+      const g = new THREE.Group(); let renkli = false;
+      const mat = (c) => new THREE.MeshStandardMaterial({ color: c ? new THREE.Color().setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace) : 0xc9ccd2, metalness: 0.2, roughness: 0.55, side: THREE.DoubleSide });
+      for (const m of r.meshes) {
+        if (!m.indis.length) continue;
+        const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(m.konum, 3)); geo.setIndex(new THREE.BufferAttribute(m.indis, 1));
+        if (m.normal && m.normal.length === m.konum.length) geo.setAttribute('normal', new THREE.BufferAttribute(m.normal, 3)); else geo.computeVertexNormals();
+        let malzeme = mat(m.renk);
+        if (m.yuzler.length) {                                                    // yüz renkleri: üçgen aralıkları ayrı malzeme grupları
+          const mats = [malzeme], ix = new Map(); let son = 0;
+          const ekle = (a, b, k) => { if (b > a) geo.addGroup(a * 3, (b - a) * 3, k); };
+          for (const f of [...m.yuzler].sort((a, b) => a.ilk - b.ilk)) {
+            const key = f.renk.join(','); if (!ix.has(key)) { ix.set(key, mats.length); mats.push(mat(f.renk)); }
+            ekle(son, f.ilk, 0); ekle(f.ilk, f.son + 1, ix.get(key)); son = f.son + 1;
+          }
+          ekle(son, m.indis.length / 3, 0); malzeme = mats; renkli = true;
+        }
+        if (m.renk) renkli = true;
+        const mesh = new THREE.Mesh(geo, malzeme); mesh.name = m.ad; g.add(mesh);
+      }
+      g.userData.boyanir = !renkli; res(g);
+    };
+    const kopya = buf.slice(0); w.postMessage({ bicim, buf: kopya }, [kopya]);          // kopya aktarılır: çağıranın tamponu (özet, saklama) bozulmasın
+  });
 }
 export function ucgenSay(g) {
   let n = 0;

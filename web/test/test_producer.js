@@ -256,9 +256,10 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     U.SART_SURUM.length > 0 && U.SART_METNI.length >= 5 && U.SART_METNI.some((t) => /arşiv/.test(t) && /izin/.test(t) && /paylaşım bağlantısı/.test(t) && /kurgusu/.test(t)) && U.SART_METNI.some((t) => /hak/.test(t) && /beyan/.test(t))
     && U.SART_METNI.some((t) => /herkese açık/.test(t)) && U.SART_METNI.some((t) => t.includes(U.KALDIRMA) && /kaldırılmasını/.test(t)) && /^github\.com\/yazicmert\/LS19\/issues$/.test(U.KALDIRMA)
     && await U.uydumYukle({ name: 'a.stl', size: 10, arrayBuffer: async () => new ArrayBuffer(10) }, { onay: false }).then(() => false, (e) => e.message === 'sart'));
-  check('biçim ve ayar süzgeci: yalnız CAD/3B: glb/stl/obj (glTF metni, görsel ve başka uzantı yok); ad denetim karakterinden arınır ve kısalır; boy 0,1–120 m; renk listeden',
-    U.bicimOf('Uydu.GLB') === 'glb' && U.bicimOf('x.stl') === 'stl' && U.bicimOf('x.obj') === 'obj' && U.bicimOf('x.gltf') === null && U.bicimOf('x.step') === null && U.bicimOf('') === null
-    && U.bicimOf('cizim.png') === null && U.bicimOf('a.jpg') === null && U.bicimOf('a.svg') === null && U.bicimOf('a.constructor') === null && JSON.stringify(Object.keys(U.BICIMLER).sort()) === '["glb","obj","stl"]'
+  check('biçim ve ayar süzgeci: yalnız CAD/3B: step(stp)/iges(igs)/glb/stl/obj (glTF metni, görsel, CATIA ve başka uzantı yok); ad denetim karakterinden arınır ve kısalır; boy 0,1–120 m; renk listeden',
+    U.bicimOf('Uydu.GLB') === 'glb' && U.bicimOf('x.stl') === 'stl' && U.bicimOf('x.obj') === 'obj' && U.bicimOf('x.gltf') === null && U.bicimOf('x.CATProduct') === null && U.bicimOf('') === null
+    && U.bicimOf('cizim.png') === null && U.bicimOf('a.jpg') === null && U.bicimOf('a.svg') === null && U.bicimOf('a.constructor') === null && JSON.stringify(Object.keys(U.BICIMLER).sort()) === '["glb","iges","obj","step","stl"]'
+    && U.bicimOf('L4.STP') === 'step' && U.bicimOf('a.step') === 'step' && U.bicimOf('a.IGS') === 'iges' && U.bicimOf('a.iges') === 'iges' && U.bicimOf('a.CATPart') === null && U.BICIMLER.step.cad && !U.BICIMLER.stl.cad
     && U.ayarSuz({ ad: 'a\u202Eb\u0000  c', boy: 500, renk: 'red' }).ad === 'ab c' && U.ayarSuz({ boy: 500 }).boy === 120 && U.ayarSuz({ boy: 0 }).boy === 0.1 && U.ayarSuz({ ad: '' }).ad === 'Uydum'
     && U.ayarSuz({ ad: 'x'.repeat(90) }).ad.length === U.SINIR.ad && U.ayarSuz({ renk: 'red' }).renk === U.RENKLER[0]);
   // CW: başlangıç koşulu, dik bileşen salınımı ve sayısal tümlevle uyum (Hill denklemleri, RK4)
@@ -273,6 +274,34 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   check('uydu çekimi: yalnız kullanıcı uydusu varken, açılıştan hemen sonra; ayrılma çekim içinde; park çekimi ondan sonra başlar; kart adı büyük harf (Türkçe); kamera uyduya bağlı (kurgu kamerası uygulanmaz)',
     !plain.some((s) => s.id === 'sat-deploy') && ids.indexOf('sat-deploy') === ids.indexOf('open') + 1 && sd.T()[0][1] === C.SAT_T.t0 && sd.T()[0][1] < C.SAT_T.ayr && C.SAT_T.ayr < sd.T()[2][1]
     && pw.T()[0][1] === C.SAT_T.son && sd.chapter.title === 'TÜRKSAT 6A' && sd.rig.type === 'sat' && cutSh.rig.type === 'sat' && P.GROUP_OF['sat-deploy'] === 'uydu' && P.GROUPS.find((g) => g.k === 'uydu').fixedCam);
+  // zip ve CATIA: en uygun CAD dosyası seçilir (STEP > IGES > GLB > STL > OBJ, aynı türde en büyük), __MACOSX/._ atlanır; yalnız CATIA → 'catia'
+  const zlib = await import('node:zlib');
+  const zipYap = (dosyalar) => {                                              // [ad, Buffer, deflate?] → zip (yerel başlık + merkezi dizin + son)
+    const yer = [], mer = []; let off = 0;
+    for (const [ad, veri, sik] of dosyalar) {
+      const n = Buffer.from(ad), c = sik ? zlib.deflateRawSync(veri) : veri, h = Buffer.alloc(30);
+      h.writeUInt32LE(0x04034b50, 0); h.writeUInt16LE(20, 4); h.writeUInt16LE(0x800, 6); h.writeUInt16LE(sik ? 8 : 0, 8); h.writeUInt32LE(c.length, 18); h.writeUInt32LE(veri.length, 22); h.writeUInt16LE(n.length, 26);
+      const m = Buffer.alloc(46); m.writeUInt32LE(0x02014b50, 0); m.writeUInt16LE(20, 4); m.writeUInt16LE(20, 6); m.writeUInt16LE(0x800, 8); m.writeUInt16LE(sik ? 8 : 0, 10); m.writeUInt32LE(c.length, 20); m.writeUInt32LE(veri.length, 24); m.writeUInt16LE(n.length, 28); m.writeUInt32LE(off, 42);
+      yer.push(h, n, c); mer.push(m, n); off += 30 + n.length + c.length;
+    }
+    const md = Buffer.concat(mer), e = Buffer.alloc(22); e.writeUInt32LE(0x06054b50, 0); e.writeUInt16LE(dosyalar.length, 8); e.writeUInt16LE(dosyalar.length, 10); e.writeUInt32LE(md.length, 12); e.writeUInt32LE(off, 16);
+    const b = Buffer.concat([...yer, md, e]); return b.buffer.slice(b.byteOffset, b.byteOffset + b.length);
+  };
+  const stepV = Buffer.from('ISO-10303-21;' + 'x'.repeat(5000)), stlV = Buffer.alloc(9000, 1);
+  const z1 = await U.zipAc(zipYap([['L4/parca.stl', stlV, true], ['L4/montaj.STP', stepV, true], ['__MACOSX/L4/._montaj.STP', Buffer.from('x'), false], ['L4/._gizli.stp', Buffer.from('xx'), false]]));
+  const z2 = await U.zipAc(zipYap([['a.obj', Buffer.from('v 0 0 0'), false]]));
+  const hata = (f) => f.then(() => 'yok', (e) => e.message);
+  const zc = await hata(U.zipAc(zipYap([['L4/Frame.CATPart', Buffer.from('x'), false], ['L4/L4 spacecraft.CATProduct', Buffer.from('y'), true], ['L4/render.jpg', Buffer.from('z'), false]])));
+  const zb = await hata(U.zipAc(zipYap([['notlar.txt', Buffer.from('x'), false]]))), zk = await hata(U.zipAc(new ArrayBuffer(40)));
+  const zs = await hata(U.zipAc(zipYap([['dev.stl', Buffer.alloc(U.SINIR.bayt + 10), true]])));
+  const yc = await hata(U.uydumYukle({ name: 'L4 spacecraft.CATProduct', size: 10, arrayBuffer: async () => new ArrayBuffer(10) }, { onay: true }));
+  check('zip: STEP önce (macOS ekleri atlanır), sıkıştırılmış ve saklanmış girdiler açılır; yalnız CATIA → catia, desteklenen yok → zip-bos, bozuk → zip, sınır aşımı → boyut; doğrudan .CATProduct → catia',
+    z1.ad === 'montaj.STP' && Buffer.from(z1.buf).equals(stepV) && z2.ad === 'a.obj' && zc === 'catia' && zb === 'zip-bos' && zk === 'zip' && zs === 'boyut' && yc === 'catia' && U.catiaMi('Frame.CATPart') && U.zipMi('a.ZIP'), JSON.stringify({ z1: z1.ad, zc, zb, zk, zs, yc }));
+  const pkgK = JSON.parse(fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8')), gi = fs.readFileSync(new URL('../../.gitignore', import.meta.url), 'utf8');
+  const wsrc = fs.readFileSync(new URL('../js/stepworker.js', import.meta.url), 'utf8'), msrc0 = fs.readFileSync(new URL('../js/usermodel.js', import.meta.url), 'utf8');
+  check('STEP/IGES dönüştürücüsü: occt-import-js sabit sürüm, npm ci sonrası kopyalanır (git\'e girmez); ayrı iş parçacığında; çağıranın tamponu kopyayla aktarılır; süre sınırı',
+    /^\d+\.\d+\.\d+$/.test(pkgK.dependencies['occt-import-js']) && /occt_kopyala\.mjs/.test(pkgK.scripts.postinstall) && /^web\/lib\/occt\/$/m.test(gi)
+    && /importScripts\(KOK \+ 'occt-import-js\.js'\)/.test(wsrc) && /new Worker\(new URL\('\.\/stepworker\.js', import\.meta\.url\)\)/.test(msrc0) && /const kopya = buf\.slice\(0\)/.test(msrc0) && /cad-sure/.test(msrc0));
   // arşiv yolu, paylaşım bağlantısı ve sunucu ucu (api/arsiv.js)
   const A = await import('../js/usersart.js'), yolUz = A.ARSIV_YOL.source.match(/model\\\.\(([^)]*)\)/)[1].split('|').sort();
   const ok = 'https://ab12cd.public.blob.vercel-storage.com/arsiv/0123456789abcdef/model-Xy9Q.stl';
