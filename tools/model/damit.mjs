@@ -34,7 +34,8 @@ if (process.argv.includes('--indir')) {
   if (ids.length < 1000) throw new Error(`DAMIT asteroit tablosu beklenenden az eşleşti (${ids.length})`);
   dokum = path.join(ARA, 'damit'); fs.rmSync(dokum, { recursive: true, force: true }); fs.mkdirSync(dokum, { recursive: true });
   const desen = path.join(ARA, 'damit-desen.txt');
-  fs.writeFileSync(desen, ids.flatMap((i) => [`*/files/asteroid_${i}/model_*/shape.txt`, `*/files/asteroid_${i}/model_*/spin.txt`]).join('\n') + '\n');
+  // iki genel desen: her dosyayı binlerce desenle karşılaştırmak tar'ı yarım saat uğraştırıyordu; LS19 dışındaki asteroitler aşağıda süzülür
+  fs.writeFileSync(desen, '*/files/asteroid_*/model_*/shape.txt\n*/files/asteroid_*/model_*/spin.txt\n');
   // 2) tam döküm (~4 GB) diske, kesilirse kaldığı yerden (HTTP Range); 'latest' yönlendirmeden akıttığı için somut dosya adı dışa aktarım sayfasından
   const ad = (await getText('https://damit.cuni.cz/projects/damit/exports')).match(/exports\/complete\/(damit-\d{8}T\d{6}Z\.tar\.gz)/)?.[1];
   if (!ad) throw new Error('DAMIT dışa aktarım sayfasında döküm adı bulunamadı');
@@ -135,9 +136,11 @@ function eskiKayit(des) {                                             // mevcut 
   return [des, Buffer.from(eskiParca.get(m[0]).subarray(m[1], m[1] + m[2] * 6 + m[3] * 6)), m.slice(2)];
 }
 const kayitlar = [], korunan = []; let atlanan = 0;
-if (TABLOSUZ) for (const des of Object.keys(eski)) if (liste.has(des) && !nasa.has(des)) { kayitlar.push(eskiKayit(des)); korunan.push(des); }
+// Mevcut kayıtlar hiç düşmez: güncel dökümde şekli olmayan asteroidin (DAMIT dökümleri her asteroidin dosyasını içermiyor) kaydı korunur.
+// Tablosuz kipte dökümde olanlar da korunur (seçim tablosu yok); tablolu kipte dökümde olanlar tabloyla yeniden seçilip üretilir.
+for (const des of Object.keys(eski)) if (liste.has(des) && !nasa.has(des) && (TABLOSUZ || !best.has(des))) { kayitlar.push(eskiKayit(des)); korunan.push(des); }
 for (const des of [...best.keys()].sort((a, b) => a.length - b.length || (a < b ? -1 : a > b ? 1 : 0))) {
-  if (TABLOSUZ && eski[des]) continue;
+  if (korunan.includes(des)) continue;
   const [, m, p] = best.get(des);
   try {
     const s = oku(p); let { v, f } = s;
@@ -175,6 +178,6 @@ for (let si = 0; si < kayitlar.length; si += SHARD) {
 fs.writeFileSync(path.join(OUT, 'damit/damit.json'), JSON.stringify({ q: Q, shard: SHARD, ref: REF, m: index }));
 
 const yeni = Object.keys(index).filter((d) => !eski[d]), giden = Object.keys(eski).filter((d) => !index[d]);
-rapor('DAMIT asteroit şekilleri (CC BY 4.0)', `${TABLOSUZ ? `- **Tablosuz kip:** DAMIT'in model tablosu dışa aktarımı alınamadı; mevcut ${korunan.length} model olduğu gibi korundu, yeni asteroitlerde en yeni model seçildi, dönme durumu spin.txt'den, dışbükeylik geometriden.\n` : ''}- Model: **${kayitlar.length}** (önce ${Object.keys(eski).length}); yeni **${yeni.length}**, çıkan ${giden.length}, atlanan ${atlanan}
+rapor('DAMIT asteroit şekilleri (CC BY 4.0)', `${TABLOSUZ ? `- **Tablosuz kip:** DAMIT'in model tablosu dışa aktarımı alınamadı; mevcut ${korunan.length} model olduğu gibi korundu, yeni asteroitlerde en yeni model seçildi, dönme durumu spin.txt'den, dışbükeylik geometriden.\n` : ''}${!TABLOSUZ && korunan.length ? `- Güncel dökümde şekli olmayan ${korunan.length} asteroidin mevcut kaydı korundu.\n` : ''}- Model: **${kayitlar.length}** (önce ${Object.keys(eski).length}); yeni **${yeni.length}**, çıkan ${giden.length}, atlanan ${atlanan}
 - Parça: ${Math.ceil(kayitlar.length / SHARD)} dosya, ${(toplam / 1048576).toFixed(1)} MB (gzip); ortalama ${Math.round(kayitlar.reduce((a, r) => a + r[2][1], 0) / kayitlar.length)} üçgen
 ${yeni.length ? `- Yeni örnekler: ${yeni.slice(0, 12).join(', ')}${yeni.length > 12 ? ' …' : ''}` : ''}${giden.length ? `\n- Çıkanlar: ${giden.slice(0, 12).join(', ')}${giden.length > 12 ? ' …' : ''}` : ''}`);
