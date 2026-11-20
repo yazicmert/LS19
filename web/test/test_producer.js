@@ -167,7 +167,7 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     ['--cine-hf', '--cine-tf', '--cine-k', '--cine-tk', '--cine-hw', '--cine-ls', '--cine-tt', '--cine-shade', '--cine-ink-2'].every((v) => ui.includes(`'${v}'`)) && /r\.dataset\.cue = /.test(ui) && /r\.dataset\.bug = /.test(ui) && /pos-' \+ c\.pos/.test(ui) && /previewBar\(o\)/.test(ui));
   check('cinema.js: geniş kamera düzeneği (cisme yakın / sistem), kart konumu ve "kart yok", kart süresi ölçeği, parlama geçişi, yazı tipi yükleme, önizleme masadan (Esc masaya döner, benzetim eski anına sarılır), atlanan sürenin olayları süzülür',
     /RIG\.wideBody = /.test(cin) && /mode: 'SYSTEM'/.test(cin) && /if \(pos === 'none'\) return null;/.test(cin) && /hold \* this\.cut\.hold/.test(cin) && /s\.flashIn && !this\.reduced/.test(cin) && /await loadFonts\(/.test(cin)
-    && /this\.opts\.fromDesk === true && this\.h\.openDesk/.test(cin) && /this\.opts\.preview && this\.saved\.t != null/.test(cin) && /e\.t < this\.evFloor/.test(cin));
+    && /this\.opts\.fromDesk === true && this\.h\.openDesk/.test(cin) && /if \(this\.opts\.preview\) \{[^}]*if \(this\.saved\.t != null\) this\.h\.send\(\{ cmd: 'seek', t: this\.saved\.t \}\);\s+this\.h\.play\(this\.saved\.running\);/.test(cin) && /e\.t < this\.evFloor/.test(cin));
   check('producerui.js ve app.js: bölüm önizlemesi, özel kamera paneli ve kroki, kart konum seçicisi, sahne maketi; masa önizlemeden olduğu gibi döner',
     /preview\(k\)/.test(desk) && /cameraPanel\(/.test(desk) && /spotPicker\(/.test(desk) && /pd-frame/.test(desk) && /onPreview: \(cut, k\) =>/.test(app) && /if \(o\.back\) \{ desk\.reopen\(\); return; \}/.test(app));
 }
@@ -347,6 +347,12 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   check('sahne: uydu konumu kameranın karesiyle aynı hesaptan (bir kare gecikme yok); scene.js cine.place çağırır; fragman bitince uydu kaldırılır; dışa aktarımda üretim zamanı yazılır',
     /satAt\(x, info, W\)/.test(csrc) && /this\.uydu\.konum\(x, info, W\.attQ/.test(csrc) && /this\.cine\.place\(x, info, rel, this\.attQ\)/.test(ssrc) && /this\.dropSat\(\);/.test(csrc)
     && /uydumUretildi\(Date\.now\(\), encodeCut\(this\.cut\)\)\.then\(\(\) => uydumArsivle\(\)\)/.test(fs.readFileSync(new URL('../js/exportui.js', import.meta.url), 'utf8')));
+}
+{
+  // 10) fragman görevin girişidir: çıkınca görev kaldığı yerden sürmez, baştan kurulur ve duraklatılmış bekler (bölüm önizlemesi önceki ana döner)
+  const cin = fs.readFileSync(new URL('../js/cinema.js', import.meta.url), 'utf8'), wk = fs.readFileSync(new URL('../js/worker.js', import.meta.url), 'utf8');
+  check('fragmandan çıkış (Esc, Çık, bitiş, dışa aktarım): görev baştan ve duraklatılmış; önizlemeden çıkış önceki an ve oynama durumu',
+    /\} else \{[^\n]*\n\s+this\.h\.send\(\{ cmd: 'restart' \}\); this\.h\.play\(false\);/.test(cin) && /case 'restart': if \(!M\) break; newMission\(\); paused = true;/.test(wk));
 }
 console.log(fail ? `\n${fail} HATA` : '\nTAMAM');
 process.exit(fail ? 1 : 0);
