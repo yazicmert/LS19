@@ -1,0 +1,10 @@
+{
+ "_aciklama": "NASA 3D Resources klasörü → NORAD numaraları (otomatik eşleşmeyenler için elle) ya da null (hiç ekleme). tools/model/uydu.mjs okur.",
+ "Radar Satellite-1 (RADARSAT-1)": [
+  23710
+ ],
+ "Hammer": null,
+ "International Space Station (ISS) (A)": null,
+ "International Space Station (ISS) (D) (IGOAL)": null,
+ "Clementine": null
+}
