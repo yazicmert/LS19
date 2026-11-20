@@ -26,6 +26,8 @@ const mmss = (s) => { const r = Math.round(s); return `${Math.floor(r / 60)}:${S
 const INTRO_KEY = 'ls19.deskIntro';
 // Editör telefonda ve dokunmatik tablette kapalı: zaman çizelgesi, Denetçi ve monitör geniş ekran ve fare ister. Orada masa yerine kısa bir pencere
 // fragmanı izletir ve kurguyu taşıyan bağlantıyı bilgisayara gönderir (bilgisayarda masa aynı kurguyla açılır).
+// zaman çizelgesinde kliplerin rengi görev evresine göre: Dünya çevresi, transfer, Ay çevresi, iniş, kapanış
+const EVRE = { asc: 'dunya', open: 'dunya', park: 'dunya', tli: 'transfer', sep: 'transfer', coast: 'transfer', loi: 'ay', llo: 'ay', sep2: 'ay', pdi: 'inis', land: 'inis', outro: 'kapanis' };
 const FX_MIME = 'application/x-ls19-fx';                                   // Efektler panelinden kliplere sürükle-bırak
 // monitörde sürüklenebilen öğelerin bırakma noktaları (yüzde: sol, üst)
 const BUG_SPOT = { tl: [12, 16], tr: [88, 16] }, CUE_SPOT = { bl: [20, 76], bc: [50, 80], br: [80, 76], tc: [50, 20] };
@@ -74,7 +76,8 @@ export class ProducerDesk {
     const root = this.root = el('div', 'pdesk' + (host.standalone ? ' standalone' : '')); root.id = 'cineDesk'; root.hidden = true; this.docked = false;
     root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-labelledby', 'pdTitle');
     const box = el('div', 'pd-box'); root.append(box);
-    const head = el('header', 'pd-head'), ht = el('div'), h2 = el('h2', null, 'Yapımcı masası'); h2.id = 'pdTitle';
+    const head = el('header', 'pd-head'), ht = el('div', 'pd-brand'), h2 = el('h2', null, 'Yapımcı masası'); h2.id = 'pdTitle';
+    const logo = el('span', 'pd-logo'); logo.innerHTML = '<i data-icon="clapper"></i>'; logo.setAttribute('aria-hidden', 'true'); ht.append(logo);
     ht.append(h2);
     // şablon (hazır kurgu): başlıkta tek seçici; kurgu elle değişince "Özel kurgu" görünür
     const tplL = el('label', 'pd-tpl'), tpl = this.tpl = el('select'); tplL.append(el('span', null, 'Şablon'), tpl);
@@ -108,8 +111,6 @@ export class ProducerDesk {
       const pane = el('section', 'pd-pane'); pane.id = `pdPane-${k}`; pane.setAttribute('role', 'tabpanel'); pane.setAttribute('aria-labelledby', b.id); pane.tabIndex = -1;
       body.append(pane); this.panes[k] = pane;
     }
-    // alt çubuk: durum, kaydedildi, sıfırla, bağlantı, oynat (geri al / yinele başlıkta)
-    const foot = el('footer', 'pd-foot');
     // durum: alt çubuğun üstünde kısa süre görünen bildirim (alt çubuğu büyütmez); "Kaydedildi" alt çubukta küçük işaret
     this.toast = el('div', 'pd-toast'); this.toast.setAttribute('role', 'status'); this.toast.setAttribute('aria-live', 'polite');
     this.status = el('span', 'pd-status'); this.toast.append(this.status);
@@ -119,17 +120,19 @@ export class ProducerDesk {
     const reset = el('button', 'pd-reset'); reset.type = 'button'; reset.innerHTML = '<i data-icon="restart"></i><span>Hepsini sıfırla</span>'; reset.title = 'Yönetmenin kurgusuna dön (geri alınabilir)'; reset.onclick = () => this.reset();
     reset.setAttribute('aria-label', translateText('Hepsini sıfırla'));
     const share = el('button'); share.type = 'button'; share.innerHTML = '<i data-icon="link"></i><span>Bağlantıyı kopyala</span>'; share.title = 'Kurgunu paylaş: bağlantıyı açan fragmanı senin kurgunla izler'; share.onclick = () => this.share(); share.setAttribute('aria-label', translateText('Bağlantıyı kopyala'));
-    const xp = el('button'); xp.type = 'button'; xp.innerHTML = '<i data-icon="download"></i><span>Video olarak kaydet</span>'; xp.title = 'Fragmanı 4K (ya da 1440p, 1080p) MP4 video olarak dışa aktar'; xp.setAttribute('aria-label', translateText('Video olarak kaydet'));
+    reset.classList.add('pd-iconbtn'); share.classList.add('pd-iconbtn');                       // üst çubukta yalnız simge (ad: aria-label ve ipucu)
+    const xp = el('button', 'pd-export'); xp.type = 'button'; xp.innerHTML = '<i data-icon="download"></i><span>Dışa aktar</span>'; xp.title = 'Fragmanı 4K (ya da 1440p, 1080p) MP4 video olarak dışa aktar'; xp.setAttribute('aria-label', translateText('Video olarak kaydet'));
     xp.onclick = () => this.h.onExport && this.h.onExport(this.cut); xp.hidden = !this.h.onExport;
     const play = el('button', 'primary'); play.type = 'button'; play.innerHTML = '<i data-icon="play"></i><span>Fragmanı oynat</span>'; play.onclick = () => this.play();
     this.playBtn = play;
     this.playLabel = play.querySelector('span');
-    foot.append(st, reset, share, xp, play);
+    // alt çubuk yok: eylemler üst çubukta (video düzenleyicideki gibi oynat ve dışa aktar sağ üstte)
+    const acts = el('div', 'pd-headacts'); acts.append(st, reset, share, xp, play); head.insertBefore(acts, hb);
     // video düzenleyici düzeni: üstte Program monitörü (solda) ve Denetçi (sağda: Klip / İsimler / Yazılar / Görüntü ve ses), altta zaman çizelgesi
     const insp = el('div', 'pd-insp'); insp.append(tabs, this.banner, body);
     const work = el('div', 'pd-work'); work.append(this.buildMonitor(), insp);
     this.tlw = el('section', 'pd-tlw'); this.tlw.setAttribute('aria-label', 'Zaman çizelgesi');
-    box.append(head, work, this.tlw, this.toast, foot);
+    box.append(head, work, this.tlw, this.toast);
     document.body.append(root); applyIcons(root);
     root.addEventListener('click', (e) => { if (e.target === root && !this.docked && !host.standalone) this.close(); });
     // klavye: masa açıkken uygulama kısayolları (C, Boşluk, M…) çalışmaz; Esc kapatır; Ctrl+Z / Ctrl+Y (yazı alanında tarayıcının kendi geri alması); odak masada kalır
@@ -413,7 +416,7 @@ export class ProducerDesk {
     this.strip.replaceChildren();
     for (const [i, q] of segs.entries()) {
       const { info, on, sec } = q, c = this.cut.ch[info.k], nm = translateText(info.name);
-      const b = el('button', 'pd-clip' + (on ? '' : ' off')); b.type = 'button'; b.setAttribute('role', 'listitem'); b.dataset.k = info.k;
+      const b = el('button', 'pd-clip' + (on ? '' : ' off')); b.type = 'button'; b.setAttribute('role', 'listitem'); b.dataset.k = info.k; b.dataset.evre = EVRE[info.k] || 'ay';
       b.style.flexGrow = String(q.w);
       b.title = on ? `${nm} · ≈ ${mmss(sec)}` : `${nm} · ${translateText('fragmanda yok')}`; b.setAttribute('aria-label', b.title);
       if (on) {
@@ -715,11 +718,9 @@ export class ProducerDesk {
     const nav = (d) => { const ks = this.chapters.map((c) => c.k), i = ks.indexOf(this.sel); this.selectClip(ks[Math.max(0, Math.min(ks.length - 1, i + d))]); };
     const prev = iconBtn('pd-iconbtn', '<i data-icon="back"></i>', translateText('Önceki klip')); prev.onclick = () => nav(-1);
     const next = iconBtn('pd-iconbtn', '<i data-icon="fwd"></i>', translateText('Sonraki klip')); next.onclick = () => nav(1);
-    const pv = el('button'); pv.type = 'button'; pv.innerHTML = '<i data-icon="eye"></i><span>Önizle</span>'; applyIcons(pv); pv.onclick = () => this.preview(this.sel);
-    pv.title = translateText('Bölümü sahnede canlı önizle (kamera, kart, yazı)');
-    const pf = el('button'); pf.type = 'button'; pf.innerHTML = '<i data-icon="play"></i><span>Buradan oynat</span>'; applyIcons(pf); pf.onclick = () => this.playFrom(this.sel);
-    pf.title = translateText('Önceki bölümler bu oynatmada atlanır (kurgun değişmez)');
-    tr.append(prev, pv, pf, next);
+    const pv = iconBtn('pd-iconbtn', '<i data-icon="eye"></i>', translateText('Bölümü sahnede canlı önizle (kamera, kart, yazı)')); pv.onclick = () => this.preview(this.sel);
+    const pf = iconBtn('pd-tplay', '<i data-icon="play"></i>', `${translateText('Buradan oynat')}: ${translateText('Önceki bölümler bu oynatmada atlanır (kurgun değişmez)')}`); pf.onclick = () => this.playFrom(this.sel);
+    tr.append(prev, pf, next, pv);
     mon.append(top, fr, tr);
     this.syncMon = () => {
       if (!this.chapters) return;

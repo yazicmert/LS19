@@ -2745,6 +2745,7 @@ const dict = {
   "Fragmanı 4K (ya da 1440p, 1080p) MP4 video olarak dışa aktar": "Export the trailer as a 4K (or 1440p, 1080p) MP4 video",
   "Video dışa aktarımı LS19 penceresinde açıldı.": "Video export opened in the LS19 window.",
   "Şablon": "Template",
+  "Dışa aktar": "Export",
   "Efektler": "Effects",
   "Sürükle: oynatma çizgisi": "Drag: playhead",
   "Sürükle: uzunluk (kısa / normal / uzun)": "Drag: length (short / normal / long)",
