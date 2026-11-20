@@ -56,10 +56,10 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const full = { INS: 0, TLI: 6000, SEP: 6600, LOI: 300000, SEP2: 330000, PDI: 340000, INDI: 340700 };
   const sets = [full, { INS: 0, TLI: 6000 }, { INS: 0, TLI: 6000, SEP: 6600 }, { INS: 0, TLI: 6000, SEP: 6600, LOI: 300000 }, { ...full, SEP2: undefined }, { INS: 0, TLI: 6000, SEP: 6600, LOI: 300000, PDI: 340000, INDI: 340700 }];
   let ok = true, why = '';
-  for (const S of sets) for (const ascent of [false, true]) { const Q = Object.fromEntries(Object.entries(S).filter(([, v]) => v != null)); for (const s of C.buildShots(Q, { ascent })) if (!P.GROUP_OF[s.id]) { ok = false; why += ` ${s.id}`; } }
+  for (const S of sets) for (const ascent of [false, true]) for (const userSat of [null, { ad: 'Deneme' }]) { const Q = Object.fromEntries(Object.entries(S).filter(([, v]) => v != null)); for (const s of C.buildShots(Q, { ascent, userSat })) if (!P.GROUP_OF[s.id]) { ok = false; why += ` ${s.id}`; } }
   const ids = P.GROUPS.flatMap((g) => g.ids);
-  check('her çekim bir bölüme bağlı (altı olay kümesi × kalkışlı/kalkışsız); kimlikler tekil; kalkış ayrı bölüm', ok && new Set(ids).size === ids.length && P.GROUPS[0].k === 'asc' && P.GROUPS[0].ids.length === 0, why.trim());
-  const shots = C.buildShots(full, {}), chap = P.GROUPS.filter((g) => g.ids.some((id) => { const s = shots.find((q) => q.id === id); return s && (s.chapter || s.card || s.closing); }));
+  check('her çekim bir bölüme bağlı (altı olay kümesi × kalkışlı/kalkışsız × kullanıcı uydulu/uydusuz); kimlikler tekil; kalkış ayrı bölüm', ok && new Set(ids).size === ids.length && P.GROUPS[0].k === 'asc' && P.GROUPS[0].ids.length === 0, why.trim());
+  const shots = C.buildShots(full, { userSat: { ad: 'Deneme' } }), chap = P.GROUPS.filter((g) => g.ids.some((id) => { const s = shots.find((q) => q.id === id); return s && (s.chapter || s.card || s.closing); }));
   check('her görüntülü bölümün (kalkış dışı) kartlı ya da kapanış çekimi var', chap.length === P.GROUPS.length - 1, chap.map((g) => g.k).join());
 }
 
@@ -245,7 +245,38 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const dsrc = fs.readFileSync(new URL('../js/destek.js', import.meta.url), 'utf8'), xsrc = fs.readFileSync(new URL('../js/exportui.js', import.meta.url), 'utf8'), usrc = fs.readFileSync(new URL('../js/producerui.js', import.meta.url), 'utf8');
   check('destek bağlantısı yeni sekmede, opener/referrer olmadan; innerHTML yok; dışa aktarım ve paylaşım bitince (öncesinde değil) gösterilir',
     /a\.rel = 'noopener noreferrer'/.test(dsrc) && /'noopener,noreferrer'/.test(dsrc) && !/innerHTML/.test(dsrc)
-    && /foot\.append\(close\); \}\n    const destek = destekKarti\(this\.cut\)/.test(xsrc) && /writeText[\s\S]{0,200}\n    this\.askSupport\(\);\n  \}/.test(usrc));
+    && /foot\.append\(close\); \}\n[^\n]*\n    const destek = destekKarti\(this\.cut\)/.test(xsrc) && /writeText[\s\S]{0,200}\n    this\.askSupport\(\);\n  \}/.test(usrc));
+}
+{
+  // 9) kendi uydum (usersat.js, usermodel.js, usersatui.js): şart, süzgeç, göreli hareket, çekim ve kamera, güvenlik
+  const U = await import('../js/usersat.js');
+  const near = (a, b, e = 1e-9) => Math.abs(a - b) <= e;
+  check('kullanım şartı: sürüm ve maddeler; arşiv izni ve hak beyanı metinde; onaysız yükleme reddedilir',
+    U.SART_SURUM.length > 0 && U.SART_METNI.length >= 4 && U.SART_METNI.some((t) => /arşiv/.test(t) && /izin/.test(t)) && U.SART_METNI.some((t) => /hak/.test(t) && /beyan/.test(t))
+    && await U.uydumYukle({ name: 'a.stl', size: 10, arrayBuffer: async () => new ArrayBuffer(10) }, { onay: false }).then(() => false, (e) => e.message === 'sart'));
+  check('biçim ve ayar süzgeci: glb/stl/obj (glTF metni ve başka uzantı yok); ad denetim karakterinden arınır ve kısalır; boy 0,1–120 m; renk listeden',
+    U.bicimOf('Uydu.GLB') === 'glb' && U.bicimOf('x.stl') === 'stl' && U.bicimOf('x.obj') === 'obj' && U.bicimOf('x.gltf') === null && U.bicimOf('x.step') === null && U.bicimOf('') === null
+    && U.ayarSuz({ ad: 'a\u202Eb\u0000  c', boy: 500, renk: 'red' }).ad === 'ab c' && U.ayarSuz({ boy: 500 }).boy === 120 && U.ayarSuz({ boy: 0 }).boy === 0.1 && U.ayarSuz({ ad: '' }).ad === 'Uydum'
+    && U.ayarSuz({ ad: 'x'.repeat(90) }).ad.length === U.SINIR.ad && U.ayarSuz({ renk: 'red' }).renk === U.RENKLER[0]);
+  // CW: başlangıç koşulu, dik bileşen salınımı ve sayısal tümlevle uyum (Hill denklemleri, RK4)
+  const n = Math.sqrt(398600.4418 / 6778 ** 3), r0 = [0.001, -0.002, 0.004], v0 = [0.0002, -0.0001, 0.00035];
+  const hill = (s) => { const [x, , z, u, v, w] = s; return [u, v, w, 3 * n * n * x + 2 * n * v, -2 * n * u, -n * n * z]; };
+  let st = [...r0, ...v0]; const h = 0.5; for (let i = 0; i < 1200; i++) { const k1 = hill(st), k2 = hill(st.map((q, j) => q + h / 2 * k1[j])), k3 = hill(st.map((q, j) => q + h / 2 * k2[j])), k4 = hill(st.map((q, j) => q + h * k3[j])); st = st.map((q, j) => q + h / 6 * (k1[j] + 2 * k2[j] + 2 * k3[j] + k4[j])); }
+  const q600 = U.cw(n, 600, r0, v0), q0 = U.cw(n, 0, r0, v0), L = U.lvlh([6778, 0, 0], [0, 7.67, 0]);
+  check('göreli hareket (Clohessy–Wiltshire): t=0 başlangıç konumu; 600 s sonra Hill denklemlerinin sayısal çözümüyle aynı (< 1 mm); LVLH sağ elli dik çerçeve',
+    q0.every((v, i) => near(v, r0[i])) && q600.every((v, i) => near(v, st[i], 1e-6)) && near(L.R[0], 1) && near(L.S[1], 1) && near(L.W[2], 1), `${q600} | ${st.slice(0, 3)}`);
+  const P0 = { INS: 0, TLI: 6000, SEP: 6600 }, sh = C.buildShots(P0, { userSat: { ad: 'Türksat 6a' } }), ids = sh.map((s) => s.id), sd = sh.find((s) => s.id === 'sat-deploy'), pw = sh.find((s) => s.id === 'park-wide');
+  const plain = C.buildShots(P0, {}), cutSh = P.applyCut(sh, P.normalize({ ch: { uydu: { cam: 'wide' } } })).find((s) => s.id === 'sat-deploy');
+  check('uydu çekimi: yalnız kullanıcı uydusu varken, açılıştan hemen sonra; ayrılma çekim içinde; park çekimi ondan sonra başlar; kart adı büyük harf (Türkçe); kamera uyduya bağlı (kurgu kamerası uygulanmaz)',
+    !plain.some((s) => s.id === 'sat-deploy') && ids.indexOf('sat-deploy') === ids.indexOf('open') + 1 && sd.T()[0][1] === C.SAT_T.t0 && sd.T()[0][1] < C.SAT_T.ayr && C.SAT_T.ayr < sd.T()[2][1]
+    && pw.T()[0][1] === C.SAT_T.son && sd.chapter.title === 'TÜRKSAT 6A' && sd.rig.type === 'sat' && cutSh.rig.type === 'sat' && P.GROUP_OF['sat-deploy'] === 'uydu' && P.GROUPS.find((g) => g.k === 'uydu').fixedCam);
+  const usrc = fs.readFileSync(new URL('../js/usersat.js', import.meta.url), 'utf8'), uisrc = fs.readFileSync(new URL('../js/usersatui.js', import.meta.url), 'utf8'), msrc = fs.readFileSync(new URL('../js/usermodel.js', import.meta.url), 'utf8');
+  const csrc = fs.readFileSync(new URL('../js/cinema.js', import.meta.url), 'utf8'), ssrc = fs.readFileSync(new URL('../js/scene.js', import.meta.url), 'utf8'), yh = fs.readFileSync(new URL('../yapimci.html', import.meta.url), 'utf8');
+  check('Uydum güvenliği: innerHTML yok; şart onaylanmadan dosya düğmesi kapalı; usersat.js three.js içe aktarmaz (ayrı pencere hafif), three yalnız usermodel.js\'te; ayrı pencerede importmap var',
+    !/innerHTML/.test(uisrc) && !/innerHTML/.test(usrc) && /pick\.disabled = !on/.test(uisrc) && /if \(!onay\) throw new Error\('sart'\)/.test(usrc) && !/from 'three'/.test(usrc) && /from 'three'/.test(msrc) && /"three": "\.\/lib\/three\.module\.js"/.test(yh));
+  check('sahne: uydu konumu kameranın karesiyle aynı hesaptan (bir kare gecikme yok); scene.js cine.place çağırır; fragman bitince uydu kaldırılır; dışa aktarımda üretim zamanı yazılır',
+    /satAt\(x, info, W\)/.test(csrc) && /this\.uydu\.konum\(x, info, W\.attQ/.test(csrc) && /this\.cine\.place\(x, info, rel, this\.attQ\)/.test(ssrc) && /this\.dropSat\(\);/.test(csrc)
+    && /uydumUretildi\(\)/.test(fs.readFileSync(new URL('../js/exportui.js', import.meta.url), 'utf8')));
 }
 console.log(fail ? `\n${fail} HATA` : '\nTAMAM');
 process.exit(fail ? 1 : 0);

@@ -662,3 +662,29 @@ body.exporting #toasts, body.exporting #cineDesk { display: none !important; }
 /* klavyeyle tetiklenen hareket yok (Y ile masa, Ctrl+Z/Y bildirimi): kısayol anında sonuç verir. Dosya sonunda: yanaşık/azaltılmış kurallarını ezer. */
 .pdesk.instant .pd-box, .pdesk.instant.docked .pd-box { animation: none; }
 .pd-toast.instant { transition: none; }
+
+/* ---- Uydum sekmesi (js/usersatui.js): kullanım şartı, dosya bırakma, dönen önizleme ---- */
+.pdesk .us-terms { margin: 0; padding: 0 0 0 18px; display: grid; gap: 6px; font-size: 12.5px; line-height: 1.5; color: var(--st-muted); max-height: 210px; overflow: auto; }
+.pdesk .us-terms li::marker { color: var(--st-dim); }
+.pdesk .us-version { color: var(--st-dim); }
+.pdesk .us-ok { align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 8px; background: var(--st-panel); border: 1px solid var(--st-line-2); line-height: 1.45; }
+.pdesk .us-ok input { margin-top: 2px; flex: none; }
+.pdesk .us-drop { display: grid; justify-items: center; gap: 6px; margin: 12px 0 4px; padding: 22px 16px; text-align: center; border: 1px dashed var(--st-line-2); border-radius: 10px; background: var(--st-input); color: var(--st-muted); font-size: 12.5px; transition: border-color .15s, background-color .15s, opacity .15s; }
+.pdesk .us-drop b { color: var(--st-text); font-size: 13.5px; font-weight: 600; }
+.pdesk .us-drop .pd-hint { max-width: 46ch; }
+.pdesk .us-drop.ust { border-color: var(--st-amber); background: rgba(255, 179, 92, .07); }
+.pdesk .us-drop.kapali { opacity: .55; }
+.pdesk .us-pick { margin-top: 4px; min-height: 32px; padding: 6px 16px; }
+.pdesk .us-err { margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; font-size: 12.5px; line-height: 1.45; background: rgba(240, 96, 96, .12); color: #ffd0d0; }
+.pdesk .us-err[hidden], .pdesk .us-busy[hidden] { display: none; }
+.pdesk .us-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; margin: 4px 0 12px; border: 1px solid var(--st-line-2); border-radius: 10px; overflow: hidden; background: var(--st-input); }
+.pdesk .us-view { display: block; width: 100%; height: 190px; background: radial-gradient(ellipse at 50% 40%, #1a1e27, #07080b 72%); }
+.pdesk .us-info { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 14px; padding: 10px 12px; border-top: 1px solid var(--st-line); }
+.pdesk .us-row { display: grid; gap: 1px; min-width: 0; font-size: 11px; color: var(--st-dim); }
+.pdesk .us-row b { font: 500 12px var(--mono); color: var(--st-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdesk .us-sw { display: flex; gap: 8px; }
+.pdesk .us-c { width: 26px; height: 26px; min-height: 0; padding: 0; border-radius: 50%; background: var(--c); border: 1px solid rgba(255, 255, 255, .25); cursor: pointer; }
+.pdesk .us-c[aria-checked="true"] { outline: 2px solid var(--st-sel); outline-offset: 2px; }
+.pdesk .us-rm { color: #ffb4b4; }
+.pdesk .us-legal { font-size: 11.5px; line-height: 1.5; }
+@media (prefers-reduced-motion: reduce) { .pdesk .us-drop { transition: none; } }

@@ -4,12 +4,21 @@
 import { ProducerDesk } from './producerui.js';
 import { PopLink, hasChannel } from './producersync.js';
 import { GROUPS, loadCut } from './producer.js';
+import { uydum } from './usersat.js';
 
 const mainId = new URLSearchParams(location.search).get('ana');
 // LS19 bağlanmadan önce (ya da hiç bağlanmazsa) bölüm listesi: bütün bölümler, yönetmenin başlıkları olmadan
 const fallbackChapters = () => GROUPS.map((g) => ({ k: g.k, name: g.name, title: g.title || '', sub: '', live: true }));
 let link = null, opened = false;
-const proxy = { chapterInfo: () => (link && link.chapters) || fallbackChapters(), estimate: (cut, parts) => (link ? link.estimate(cut, parts) : null) };
+// kullanıcının uydusu bu pencerede eklenip kaldırılabilir: LS19 sekmesinin listesi gecikebilir, "Uydum" bölümü buradaki kayda göre eklenir ya da çıkarılır
+const satFix = (list) => {
+  const m = uydum(), has = list.some((c) => c.k === 'uydu'), title = m ? m.ad.toLocaleUpperCase(document.documentElement.lang === 'en' ? 'en' : 'tr') : '';
+  if (!m) return has ? list.filter((c) => c.k !== 'uydu') : list;
+  if (has) return list.map((c) => (c.k === 'uydu' ? { ...c, title } : c));
+  const i = list.findIndex((c) => c.k === 'open'), e = { k: 'uydu', name: 'Uydum', title, sub: '', live: true };
+  return [...list.slice(0, i + 1), e, ...list.slice(i + 1)];
+};
+const proxy = { chapterInfo: () => satFix((link && link.chapters) || fallbackChapters()), estimate: (cut, parts) => (link ? link.estimate(cut, parts) : null) };
 const send = (t, o) => { if (link) link.send(t, o); };
 const openLS19 = () => { const u = new URL('./', location.href); u.searchParams.set('mode', 'lab'); u.searchParams.set('exp', 'ay'); window.open(u.href, '_blank'); };
 const lostBanner = () => desk.setBanner('LS19 penceresi bulunamadı: düzenlemelerin bu tarayıcıya kaydediliyor; oynatmak ve önizlemek için LS19 açık olmalı.', [['LS19’u aç', openLS19]], 'warn');

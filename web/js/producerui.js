@@ -14,6 +14,8 @@ import { OPT, MAX, RANGE, ACCENTS, INKS, FONTS, WEIGHTS, TRACKS, PRESETS, DEFAUL
 import { applyIcons } from './icons.js';
 import { hasChannel } from './producersync.js';
 import { destekGerekli, destekSoruldu, destekAc, destekReddet, DESTEK_METIN } from './destek.js';
+import { uydumDinle, hazirla as uydumHazirla } from './usersat.js';
+import { SatPane } from './usersatui.js';
 import { translateText, LOC } from './i18n.js';
 
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -102,7 +104,7 @@ export class ProducerDesk {
     this.panes = {}; this.tabBtns = {}; this.badges = {};
     const body = this.body = el('div', 'pd-body');
     this.banner = el('div', 'pd-banner'); this.banner.setAttribute('role', 'status'); this.banner.hidden = true;
-    for (const [k, name, short] of [['ch', 'Klip'], ['credits', 'İsimler'], ['type', 'Yazılar'], ['look', 'Görüntü ve ses', 'Görüntü'], ['fx', 'Efektler']]) {
+    for (const [k, name, short] of [['ch', 'Klip'], ['credits', 'İsimler'], ['type', 'Yazılar'], ['look', 'Görüntü ve ses', 'Görüntü'], ['fx', 'Efektler'], ['sat', 'Uydum']]) {
       const b = el('button'); b.type = 'button'; b.setAttribute('role', 'tab'); b.id = `pdTab-${k}`; b.setAttribute('aria-controls', `pdPane-${k}`);
       const bd = this.badges[k] = el('span', 'pd-badge'); bd.hidden = true; b.append(el('span', short ? 'pd-long' : null, name), ...(short ? [el('span', 'pd-short', short)] : []), bd);   // dar ekranda kısa ad
       b.onclick = () => this.setTab(k);
@@ -147,6 +149,10 @@ export class ProducerDesk {
       e.stopPropagation();
     });
     this.menus = []; this.buildCredits(); this.buildType(); this.buildLook(); this.buildFx();
+    // Uydum sekmesi (usersatui.js): model değişince (yeni, kaldırıldı ya da başka pencerede) sekme yeniden kurulur; ad/boy/renk değişince yalnız bölümler tazelenir
+    this.satPane = new SatPane(this, this.panes.sat); this.satKey = '';
+    uydumDinle((m) => { const key = m ? `${m.ozet}:${m.onay && m.onay.t}` : ''; if (key !== this.satKey) { this.satKey = key; this.satPane.yeni = false; this.satPane.build(); } if (this.isOpen) this.refreshChapters(); });
+    uydumHazirla();
   }
   get isOpen() { return !this.root.hidden; }
 
@@ -166,6 +172,8 @@ export class ProducerDesk {
     this.say(shared ? 'Paylaşılan kurgu yüklendi: değiştirirsen bu tarayıcıya kaydedilir.' : '');
     this.setTab(this.tab); this.playBtn.focus();
   }
+  // bölüm listesi yeniden (kullanıcının uydusu eklendi, kaldırıldı ya da adı değişti)
+  refreshChapters() { this.chapters = this.h.cinema.chapterInfo(); this.buildChapters(); this.fill(); }
   show() { this.root.hidden = false; document.body.classList.add('pd-open'); if (!this.root.classList.contains('mobil')) this.root.setAttribute('aria-labelledby', 'pdTitle'); }
   // önizlemeden dönüş: masa olduğu gibi (açık bölümler, kaydırma, geçmiş) yeniden görünür
   reopen() {
@@ -510,6 +518,7 @@ export class ProducerDesk {
   applyFx(k, fx) {
     const nm = translateText(this.chapters.find((q) => q.k === k).name);
     if (k === 'asc' && fx.t !== 'trans') { this.say('Kalkışta kamera ve uzunluk uçuşa bağlı: değiştirilemez.'); return; }
+    if (k === 'uydu' && fx.t === 'cam') { this.say('Bu bölümün kamerası uyduna bağlı: değiştirilemez.'); return; }
     if (fx.t === 'trans' && OPT.trans.includes(fx.v)) this.setClip(k, (c) => { c.trans = fx.v; }, `${nm}: ${translateText(TRANS_LABEL[fx.v])}`);
     else if (fx.t === 'cam' && OPT.cam.includes(fx.v)) this.setClip(k, (c) => { c.cam = fx.v; }, `${nm}: ${translateText(CAM_LABEL[fx.v])}`);
     else if (fx.t === 'len' && OPT.len.includes(fx.v)) this.setClip(k, (c) => { c.len = fx.v; }, `${nm}: ${translateText(LEN_LABEL[fx.v])}`);
@@ -624,7 +633,7 @@ export class ProducerDesk {
       { label: 'Fragmanda', checked: c.on, kbd: 'Del', act: () => this.toggleClip(k) },
       { label: 'Uzunluk', disabled: asc, sub: radio(LEN_LABEL, ORDER.len, c.len, (v) => set((z) => { z.len = v; }, LEN_LABEL[v])) },
       { label: 'Bölüme giriş', sub: radio(TRANS_LABEL, OPT.trans, c.trans, (v) => set((z) => { z.trans = v; }, TRANS_LABEL[v])) },
-      { label: 'Kamera', disabled: asc, sub: radio(CAM_LABEL, OPT.cam, c.cam, (v) => set((z) => { z.cam = v; }, CAM_LABEL[v])) },
+      { label: 'Kamera', disabled: asc || k === 'uydu', sub: radio(CAM_LABEL, OPT.cam, c.cam, (v) => set((z) => { z.cam = v; }, CAM_LABEL[v])) },
       { label: 'Başlığın yeri', disabled: k === 'outro', sub: radio(POS_LABEL, OPT.pos, c.pos, (v) => set((z) => { z.pos = v; }, POS_LABEL[v])) },
       { sep: true },
       { label: 'Ayarları kopyala', kbd: 'Ctrl+C', act: () => this.copyClip(k) },
@@ -783,6 +792,8 @@ export class ProducerDesk {
     const camBox = this.cameraPanel(ch, set);
     sCam.append(camF, camDesc, camBox);
     if (asc) sCam.hidden = true;                                                 // kalkışta yayın kameraları gerçek görünürlükle çalışır
+    if (k === 'uydu') { sCam.replaceChildren(el('h4', null, 'Kamera'), el('p', 'pd-note', 'Kamera uyduna bağlı: ayrılırken etrafında döner, araç arkada görünür.'));
+      const go = el('button', 'pd-link', 'Modeli, adı ve boyu Uydum sekmesinde'); go.type = 'button'; go.onclick = () => this.setTab('sat'); sCam.append(go); }
     // 3) zamanlama ve geçiş
     const len = this.labeled('Uzunluk', this.seg('Uzunluk', ORDER.len, LEN_LABEL, () => ch().len, (v) => set((c) => { c.len = v; })));
     const trans = this.labeled('Bölüme giriş', this.seg('Bölüme giriş', OPT.trans, TRANS_LABEL, () => ch().trans, (v) => set((c) => { c.trans = v; }), { auto: 'Yönetmenin geçişi', fade: 'Siyaha kararıp açılır', cut: 'Doğrudan kesme', flash: 'Beyaz parlamayla açılır' }));
@@ -922,6 +933,7 @@ export class ProducerDesk {
   // ---------------------------------------------------------------- görünümü kurgudan tazele
   fill() {
     for (const f of this.syncs) f();
+    if (this.satPane) this.satPane.sync();
     this.tpl.value = presetOf(this.cut) || 'custom';
     // zaman çizelgesi, sekme rozetleri, geri al / yinele
     this.buildStrip();

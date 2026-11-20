@@ -15,6 +15,8 @@ import { rocketOf } from './rockets.js';
 import { CineAudio } from './cineaudio.js';
 import { LOC, translateText, isEn, t as tr } from './i18n.js';
 import { normalize, loadCut, applyCut, filmLook, loadFonts, GROUPS, GROUP_OF } from './producer.js';
+import { uydum } from './usersat.js';
+import { uydumSahneKur } from './usermodel.js';
 
 const { add, sub, scale, dot, cross, norm, unit } = E;
 const KM = 0.001;
@@ -113,6 +115,17 @@ const RIG = {
   },
 };
 
+// kullanıcının uydusu (usersat.js): uydunun yörünge çerçevesinde (LVLH) küresel; uzaklık uydu boyunun k katı (en az min km), yukarısı radyal (Dünya altta)
+RIG.sat = (c, p, e) => {
+  const S = c.sat; if (!S) return RIG.lvlh(c, { az: [2.35, 3.05], el: [0.24, 0.13], dist: [0.075, 0.048], fov: [34, 30], look: 'mid' }, e);
+  const a = (k) => (Array.isArray(p[k]) ? lerp(p[k][0], p[k][1], e) : p[k]);
+  // aydınlık taraf: temel yön, yörünge normali (araç uydunun arkasında) ile Güneş yönünün ortası; az/el bu yönün çevresinde süzülür
+  const { R, S: Sv, W } = S.cer, sun = unit(sub(E.sunPos(c.x.t), S.pos)), b = unit(add(W, scale(sun, 1.1)));
+  const az0 = Math.atan2(dot(b, W), dot(b, Sv)), el0 = Math.asin(clamp(dot(b, R), -1, 1)) * 0.5;
+  const az = az0 + a('az'), el = clamp(el0 + a('el'), -0.5, 0.7), d = Math.max(a('min'), S.boy * KM * a('k'));
+  const dir = add(add(scale(Sv, Math.cos(el) * Math.cos(az)), scale(W, Math.cos(el) * Math.sin(az))), scale(R, Math.sin(el)));
+  return { eye: add(S.pos, scale(dir, d)), target: S.pos, up: R, fov: a('fov') };
+};
 // yapımcının "geniş" kamerası (producer.js camRig): araç cisme yakınken Dünya ya da Ay bütünüyle (Güneş'in aydınlattığı yüz kameraya dönük, uzaklık aracınkine göre:
 // araç kadrajda kalır), yolculukta (iki cisimden de uzak) Dünya–Ay sistemi yukarıdan; yavaş süzülme
 RIG.wideBody = (c, p, e) => {
@@ -202,6 +215,8 @@ export function cueOf(e) {
 
 // ---------------------------------------------------------------- çekim listesi (plan olaylarından); P: anahtar → benzetim zamanı (s); durum x: worker durumu
 const isBurn = (x) => (x.thr || 0) > 0.01;
+// kullanıcının uydusu: çekim başı, ayrılma, çekim sonu (yörüngeye girişten sonra, s)
+export const SAT_T = { t0: 180, ayr: 215, son: 600 };
 export function buildShots(P, opts = {}) {
   const S = [], has = (k) => P[k] != null, tliBurn = opts.tliBurn || 275, loiBurn = opts.loiBurn || 170;
   const add_ = (s) => { S.push(s); return s; };
@@ -213,9 +228,17 @@ export function buildShots(P, opts = {}) {
     : { card: { kind: 'open', at: 0.9, hold: 4.4, title: 'LS19', sub: "Dünya'dan Ay'a · gerçek efemeris · N-cisim fiziği" } };
   add_({ id: 'open', dur: 6.5, wmax: 80, T: () => [[0, P.INS], [1, P.INS + 180]], ...openCard,
     rig: { type: 'wide', cam: (c, e) => limbCam(c.x, lerp(26000, 19500, e), lerp(1.12, 1.0, e)), tilt: (c, e, cam) => Math.asin(Math.min(0.99, E.R_E / cam.dist)) + 0.11, fov: 42 }, beacon: true, noStrip: true, dip: false });
+  // 0b kullanıcının uydusu (opts.userSat = { ad }; usersat.js): araca bağlı görünür, SAT_T.ayr'da ayrılıp yörüngede süzülür; kamera uyduya bakar (araç arkada)
+  const us = opts.userSat;
+  if (us) {
+    const u0 = P.INS + SAT_T.t0;
+    add_({ id: 'sat-deploy', dur: 9, wmax: 120, T: () => [[0, u0], [0.3, P.INS + SAT_T.ayr + 25], [1, P.INS + SAT_T.son]],
+      chapter: { short: 'Uydum', title: String(us.ad || 'Uydum').toLocaleUpperCase(LOC), sub: (c) => `Yörüngeye bırakılıyor · ${fmt(c.alt, 0)} km`, at: 1.0, hold: 3.8 },
+      rig: { type: 'sat', az: [-0.4, 0.35], el: [0.22, 0.08], k: [6.5, 3.2], min: [0.016, 0.009], fov: [36, 30] }, dip: true });
+  }
   // 1 park yörüngesi: geniş zaman atlaması, sonra araca yaklaşma
   if (has('TLI')) {
-    add_({ id: 'park-wide', dur: 5.5, wmax: 5000, T: () => [[0, P.INS + 180], [1, Math.max(P.INS + 400, t('TLI', -420))]], chapter: { short: 'Park', title: 'PARK YÖRÜNGESİ', sub: (c) => `Dünya çevresinde ${fmt(c.alt, 0)} km irtifada`, at: 0.2, hold: 3.6 },
+    add_({ id: 'park-wide', dur: 5.5, wmax: 5000, T: () => [[0, P.INS + (us ? SAT_T.son : 180)], [1, Math.max(P.INS + (us ? SAT_T.son + 220 : 400), t('TLI', -420))]], chapter: { short: 'Park', title: 'PARK YÖRÜNGESİ', sub: (c) => `Dünya çevresinde ${fmt(c.alt, 0)} km irtifada`, at: 0.2, hold: 3.6 },
       rig: { type: 'wide', cam: (c, e) => lightCam(c.x, lerp(17500, 13800, e), 0.85, 0.35, lerp(-0.35, 0.45, e), lerp(0.2, 0.05, e)), fov: 42 }, lines: true, osc: true, beacon: true, dip: true });
     add_({ id: 'park-close', dur: 5.5, wmax: 400, T: () => [[0, t('TLI', -420)], [0.62, t('TLI', -70)], [1, t('TLI', -7)]], rig: { type: 'lvlh', az: [2.35, 3.05], el: [0.24, 0.13], dist: [0.075, 0.048], fov: [34, 30], look: 'mid' }, dip: true });
     // 2 TLI: ateşleme (motor yakın planı) → yakış. Yakış süresi tasarıma bağlı: zaman hızı yakış durumundan (itki, geçen süre) gelir, çekim yakış bitince kapanır
@@ -310,6 +333,10 @@ export class Cinema {
     await W.setCinematic(true, { onLevel: (l) => this.onLevel(l), level: this.opts.quality });
     if (!this.on) { await W.setCinematic(false); return false; }                 // yüklenirken iptal
     if (W.post && W.post.setLook) W.post.setLook(filmLook(this.cut));                // film dokusu ve renk düzeni
+    // kullanıcının uydusu (bölüm açıksa): model IndexedDB'den çözülür, sahneye eklenir; scene.js her karede cine.place ile yerleştirir
+    this.uydu = uydum() && this.cut.ch.uydu.on && W.scene ? await uydumSahneKur(W.scene) : null;
+    if (!this.on) { this.dropSat(); await W.setCinematic(false); return false; }
+    W.cine.place = this.uydu ? (x, info, rel, q) => { if (this.uydu && this.P0) this.uydu.yerlestir(x, info, rel, q, this.P0.INS + SAT_T.ayr, this.P0.TLI ?? Infinity); } : null;
     await loadFonts([this.cut.hFont, this.cut.tFont]);                               // seçilen yazı tipleri (en çok 1,5 s beklenir)
     if (!this.on) { await W.setCinematic(false); return false; }
     const ui = this.ui; ui.root.classList.remove('ended'); ui.look(this.cut); ui.bug(this.cut.over || translateText('Ay görevi'), this.cut.title || 'LS19');
@@ -330,7 +357,7 @@ export class Cinema {
     this.asc = !this.opts.preview && this.opts.ascent !== false && this.cut.ch.asc.on && RA && this.h.ascent && this.h.ascent()
       ? { events: RA.events || [], tIns: RA.tIns, dur: ascentDuration(RA.events || [], RA.tIns), rocket: rk.name, site: ((D.LAUNCH && D.LAUNCH.site) || rk.pad || '').replace(/\s*\([^()]*\)\s*$/, '') } : null;          // rampa adı (koordinatsız)
     this.P0 = this.planMap();                                                         // çekim eğrileri bu nesneyi kapanışta tutar (temas anı sonradan buraya yazılır)
-    this.shots = applyCut(buildShots(this.P0, { landing: this.h.landing && this.h.landing(), ascent: !!this.asc }), this.cut);
+    this.shots = applyCut(buildShots(this.P0, { landing: this.h.landing && this.h.landing(), ascent: !!this.asc, userSat: this.satOpt(this.cut) }), this.cut);
     this.i = -1; this.shot = null; this.paused = false; this.pending = null; this.lastStep = performance.now(); this.cues = []; this.cueNext = 0;
     let n = this.asc ? 1 : 0;                                                       // kalkış bölümü 01
     for (const s of this.shots) if (s.chapter) s.chIdx = ++n;
@@ -342,10 +369,17 @@ export class Cinema {
     this.timer = setInterval(() => { const now = performance.now(), dt = Math.min(0.25, (now - this.lastStep) / 1000); this.lastStep = now; this.tick(dt); }, 30);
     return true;
   }
+  // fragmanda kullanıcının uydusu: yüklendiyse ve bölümü açıksa { ad }
+  satOpt(K) { return this.uydu && K.ch.uydu.on ? { ad: this.uydu.ad } : null; }
+  satAt(x, info, W) {                                                             // kamera için uydunun bu karedeki konumu (scene.js yerleştirmesiyle aynı hesap)
+    const k = this.uydu && this.P0 && this.uydu.konum(x, info, W.attQ, this.P0.INS + SAT_T.ayr, this.P0.TLI ?? Infinity);
+    return k ? { pos: k.p, cer: k.cer, boy: this.uydu.boy } : null;
+  }
+  dropSat() { const W = this.h.world; if (W && W.cine) W.cine.place = null; if (this.uydu) { this.uydu.kaldir(); this.uydu = null; } }
   // Yapımcı masası için bu görevdeki bölümler (plan olaylarına göre; plan yoksa hepsi): { k, name, title, sub, live (alt yazı canlı veriden) }
   chapterInfo() {
     const D = this.h.ui.design, rk = D && D.STAGES && D.STAGES[0] ? rocketOf(D.STAGES[0].rocket) : null, hasAsc = !!(rk && rk.ascent && this.h.ascent);
-    const P = this.planMap(), planned = (this.h.ui.plan || []).length > 0, shots = planned ? buildShots(P, { landing: this.h.landing && this.h.landing(), ascent: hasAsc }) : [];
+    const P = this.planMap(), planned = (this.h.ui.plan || []).length > 0, shots = planned ? buildShots(P, { landing: this.h.landing && this.h.landing(), ascent: hasAsc, userSat: uydum() }) : [];
     return GROUPS.filter((g) => (g.k === 'asc' ? hasAsc || !planned : !planned || shots.some((s) => GROUP_OF[s.id] === g.k))).map((g) => {
       const s = shots.find((q) => GROUP_OF[q.id] === g.k && (q.chapter || q.card)), c = s && (s.chapter || s.card);
       const title = g.k === 'asc' ? g.title : g.k === 'outro' ? 'İNİŞ BAŞARILI' : c ? c.title : '', sub = g.k === 'asc' ? null : g.k === 'outro' ? 'LS19 · Look Star 19' : c ? c.sub : null;
@@ -358,7 +392,7 @@ export class Cinema {
   estimate(cut, parts = false) {
     if (!(this.h.ui.plan || []).length) return null;
     const K = normalize(cut), D = this.h.ui.design, rk = D && D.STAGES && D.STAGES[0] ? rocketOf(D.STAGES[0].rocket) : null, RA = rk && rk.ascent, asc = !!(RA && K.ch.asc.on && this.h.ascent);
-    const P = this.planMap(), shots = applyCut(buildShots(P, { landing: this.h.landing && this.h.landing(), ascent: asc }), K), by = {};
+    const P = this.planMap(), shots = applyCut(buildShots(P, { landing: this.h.landing && this.h.landing(), ascent: asc, userSat: uydum() && K.ch.uydu.on ? uydum() : null }), K), by = {};
     let sum = asc ? ascentDuration(RA.events || [], RA.tIns) : 0; if (asc) by.asc = sum;
     for (const s of shots) { const T = s.T(P), span = Math.max(0, T[T.length - 1][1] - T[0][1]), d = Math.max(s.dur, span / ((s.wmax || 20000) * 0.85)) * K.tempo; sum += d; if (s.grp) by[s.grp] = (by[s.grp] || 0) + d; }
     return parts ? { total: sum, parts: by } : sum;
@@ -379,7 +413,7 @@ export class Cinema {
     this.ui.look(K); this.ui.bug(K.over || translateText('Ay görevi'), K.title || 'LS19');
     if (this.audio && this.audio.setMix) this.audio.setMix({ mood: K.mood, sfx: K.sfx });
     if (!this.shots || !this.P0 || this.state === 'ended') return;
-    const P = this.planMap(), fresh = applyCut(buildShots(this.P0, { landing: this.h.landing && this.h.landing(), ascent: !!this.asc }), K);
+    const P = this.planMap(), fresh = applyCut(buildShots(this.P0, { landing: this.h.landing && this.h.landing(), ascent: !!this.asc, userSat: this.satOpt(K) }), K);
     let n = this.asc ? 1 : 0; for (const s of fresh) if (s.chapter) s.chIdx = ++n; this.chTotal = n;
     const cur = this.shot, started = cur && this.i >= 0;
     if (started) {
@@ -449,7 +483,7 @@ export class Cinema {
     if (this.audio) { this.audio.stop(); this.audio = null; }
     const W = this.h.world, ui = this.cu;
     window.removeEventListener('keydown', this.keyHandler, true); window.removeEventListener('pointermove', this.moveHandler);
-    W.cine.rig = null; W.cine.syn = false; W.cine.lines = false; W.cine.osc = false; W.cine.beacon = false;
+    W.cine.rig = null; W.cine.syn = false; W.cine.lines = false; W.cine.osc = false; W.cine.beacon = false; this.dropSat();
     Object.assign(W.cam, this.saved.cam);
     this.h.send({ cmd: 'autoWarp', on: this.saved.autoWarp }); this.h.send({ cmd: 'warp', value: this.saved.warp });
     const chk = document.querySelector('#chkAutoWarp'); if (chk) chk.checked = this.saved.autoWarp;
@@ -632,7 +666,7 @@ export class Cinema {
     const nowP = performance.now(), dtf = Math.min(0.1, (nowP - this.lastPose) / 1000 || 0.016); this.lastPose = nowP;
     if (W.attQ) { if (!this.qInit) { this.q.copy(W.attQ); this.qInit = true; } else this.q.slerp(W.attQ, 1 - Math.exp(-dtf / 0.35)); }
     const up = unit(sub(info.vehPos, info.central === 'M' ? info.rm : [0, 0, 0]));
-    const c = { W, x, info, q: this.q, f: { up }, alt: this.alt(x, info), rE: norm(x.r) };
+    const c = { W, x, info, q: this.q, f: { up }, alt: this.alt(x, info), rE: norm(x.r), sat: this.satAt(x, info, W) };
     let r = s.rig; if (s.rigs) { r = s.rigs[s.rigs.length - 1].rig; for (const q of s.rigs) { if (tau <= q.to) { r = q.rig; break; } } }
     let k = e; if (s.rigs) { let lo = 0; for (const q of s.rigs) { if (tau <= q.to) { k = smooth((tau - lo) / Math.max(1e-6, q.to - lo)); break; } lo = q.to; } }
     const pose = RIG[r.type](c, r, k);
