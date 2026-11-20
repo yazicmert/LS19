@@ -1,7 +1,8 @@
 // Kendi uydum (usersat.js): modeli çözme (GLB/STL/OBJ), ölçekleme, boyama ve fragman sahnesindeki uydu. three.js'e bağlıdır; ayrı pencerede yalnız önizleme için yüklenir.
 //   Sahnede: ayrılmadan önce aracın yanına bağlı; ayrılınca aracın yörünge çerçevesinde (LVLH) Clohessy–Wiltshire göreli hareketi (ortak bozucular birbirini götürür).
 import * as THREE from 'three';
-import { cw, lvlh, uydumKayit } from './usersat.js';
+import { cw, lvlh, uydumKayit, uydumPaylasilan } from './usersat.js';
+import { SINIR } from './usersart.js';
 
 const KM = 0.001, MU_E = 398600.435507;
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -84,7 +85,17 @@ export class UydumSahne {
   kaldir() { this.scene.remove(this.obj); modelBirak(this.obj); this.obj = null; }
 }
 // kayıttan sahne nesnesi (fragman başlarken); model çözülemezse null
+// paylaşım bağlantısıyla gelen uydu (usersat.js uydumPaylasilan) önceliklidir: model arşivdeki adresten indirilir
 export async function uydumSahneKur(scene) {
-  const r = await uydumKayit(); if (!r || !r.dosya) return null;
-  try { const g = await modelCoz(await r.dosya.arrayBuffer(), r.bicim); return new UydumSahne(scene, r, g); } catch (e) { console.warn('uydum:', e); return null; }
+  const p = uydumPaylasilan();
+  try {
+    if (p) {
+      const res = await fetch(p.url); if (!res.ok) throw new Error('HTTP ' + res.status);
+      const n = Number(res.headers.get('content-length') || 0); if (n > SINIR.bayt) throw new Error('boyut');
+      const buf = await res.arrayBuffer(); if (buf.byteLength > SINIR.bayt) throw new Error('boyut');
+      return new UydumSahne(scene, p, await modelCoz(buf, p.bicim));
+    }
+    const r = await uydumKayit(); if (!r || !r.dosya) return null;
+    return new UydumSahne(scene, r, await modelCoz(await r.dosya.arrayBuffer(), r.bicim));
+  } catch (e) { console.warn('uydum:', e); return null; }
 }

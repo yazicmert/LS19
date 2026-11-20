@@ -119,7 +119,7 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   check('cinema.js: kurgu uygulanır (applyCut), afterCut durum güdümlü çekimi de yakalar, ileri besleme süre ölçeğini bir kez sayar, sesler kurguya bağlı',
     /applyCut\(buildShots\(/.test(cin) && /\(s\.afterCut && gap > 60\)/.test(cin) && /ff = dT \/ dur;/.test(cin) && !/1 \/ this\.opts\.scale/.test(cin) && /new CineAudio\(\{ mood: this\.cut\.mood, sfx: this\.cut\.sfx \}\)/.test(cin) && /this\.cut\.ch\.asc\.on/.test(cin) && /\|\| !this\.cut\.cues\) return;/.test(cin));
   check('app.js: masa (ProducerDesk), film düğmesi masayı açar, C doğrudan oynatır, Y masa (klavyeyle: animasyonsuz), paylaşılan kurgu #kurgu= ile (decodeCut)',
-    /new ProducerDesk\(/.test(app) && /\$\('#btnCine'\)\.onclick = \(\) => \{ if \(cinema\.on\) cinema\.stop\(\); else openDesk\(\); \}/.test(app) && /k === 'c'\) \{ pushLayer\('cine'\); playCine\(\); \}/.test(app) && /k === 'y'\) openDesk\(\{ key: true \}\)/.test(app) && /location\.hash\.slice\(1\)\)\.get\('kurgu'\)/.test(app) && /decodeCut\(hk\)/.test(app));
+    /new ProducerDesk\(/.test(app) && /\$\('#btnCine'\)\.onclick = \(\) => \{ if \(cinema\.on\) cinema\.stop\(\); else openDesk\(\); \}/.test(app) && /k === 'c'\) \{ pushLayer\('cine'\); playCine\(\); \}/.test(app) && /k === 'y'\) openDesk\(\{ key: true \}\)/.test(app) && /new URLSearchParams\(location\.hash\.slice\(1\)\), hk = hp\.get\('kurgu'\)/.test(app) && /uydumPaylasilanAyarla\(paylasimCoz\(hp\.get\('uydu'\)\)\)/.test(app) && /decodeCut\(hk\)/.test(app));
   check('index.html: producer.css bağlı; cinema.css: kadraj seçenekleri (1,85:1, tam ekran), grafik gizleme, sahne atlama levhası',
     /css\/producer\.css/.test(html) && /\.cine\[data-ar="185"\]/.test(css) && /\.cine\[data-ar="full"\] > \* \{ --bar: 0px; \}/.test(css) && /\.cine\.hide-strip \.cine-strip/.test(css) && /\.cine-slate \{/.test(css) && !/rgba\(255, 179, 92/.test(css));
 }
@@ -245,17 +245,19 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const dsrc = fs.readFileSync(new URL('../js/destek.js', import.meta.url), 'utf8'), xsrc = fs.readFileSync(new URL('../js/exportui.js', import.meta.url), 'utf8'), usrc = fs.readFileSync(new URL('../js/producerui.js', import.meta.url), 'utf8');
   check('destek bağlantısı yeni sekmede, opener/referrer olmadan; innerHTML yok; dışa aktarım ve paylaşım bitince (öncesinde değil) gösterilir',
     /a\.rel = 'noopener noreferrer'/.test(dsrc) && /'noopener,noreferrer'/.test(dsrc) && !/innerHTML/.test(dsrc)
-    && /foot\.append\(close\); \}\n[^\n]*\n    const destek = destekKarti\(this\.cut\)/.test(xsrc) && /writeText[\s\S]{0,200}\n    this\.askSupport\(\);\n  \}/.test(usrc));
+    && /foot\.append\(close\); \}\n[^\n]*\n    const destek = destekKarti\(this\.cut\)/.test(xsrc) && /writeText[\s\S]{0,500}\n    this\.askSupport\(\);\n  \}/.test(usrc));
 }
 {
   // 9) kendi uydum (usersat.js, usermodel.js, usersatui.js): şart, süzgeç, göreli hareket, çekim ve kamera, güvenlik
   const U = await import('../js/usersat.js');
   const near = (a, b, e = 1e-9) => Math.abs(a - b) <= e;
-  check('kullanım şartı: sürüm ve maddeler; arşiv izni ve hak beyanı metinde; onaysız yükleme reddedilir',
-    U.SART_SURUM.length > 0 && U.SART_METNI.length >= 4 && U.SART_METNI.some((t) => /arşiv/.test(t) && /izin/.test(t)) && U.SART_METNI.some((t) => /hak/.test(t) && /beyan/.test(t))
+  check('kullanım şartı: sürüm ve maddeler; arşiv ve paylaşım izni, herkese açık adres, kaldırma yolu ve hak beyanı metinde; onaysız yükleme reddedilir',
+    U.SART_SURUM.length > 0 && U.SART_METNI.length >= 5 && U.SART_METNI.some((t) => /arşiv/.test(t) && /izin/.test(t) && /paylaşım bağlantısı/.test(t) && /kurgusu/.test(t)) && U.SART_METNI.some((t) => /hak/.test(t) && /beyan/.test(t))
+    && U.SART_METNI.some((t) => /herkese açık/.test(t)) && U.SART_METNI.some((t) => t.includes(U.KALDIRMA) && /kaldırılmasını/.test(t)) && /^github\.com\/yazicmert\/LS19\/issues$/.test(U.KALDIRMA)
     && await U.uydumYukle({ name: 'a.stl', size: 10, arrayBuffer: async () => new ArrayBuffer(10) }, { onay: false }).then(() => false, (e) => e.message === 'sart'));
-  check('biçim ve ayar süzgeci: glb/stl/obj (glTF metni ve başka uzantı yok); ad denetim karakterinden arınır ve kısalır; boy 0,1–120 m; renk listeden',
+  check('biçim ve ayar süzgeci: yalnız CAD/3B: glb/stl/obj (glTF metni, görsel ve başka uzantı yok); ad denetim karakterinden arınır ve kısalır; boy 0,1–120 m; renk listeden',
     U.bicimOf('Uydu.GLB') === 'glb' && U.bicimOf('x.stl') === 'stl' && U.bicimOf('x.obj') === 'obj' && U.bicimOf('x.gltf') === null && U.bicimOf('x.step') === null && U.bicimOf('') === null
+    && U.bicimOf('cizim.png') === null && U.bicimOf('a.jpg') === null && U.bicimOf('a.svg') === null && U.bicimOf('a.constructor') === null && JSON.stringify(Object.keys(U.BICIMLER).sort()) === '["glb","obj","stl"]'
     && U.ayarSuz({ ad: 'a\u202Eb\u0000  c', boy: 500, renk: 'red' }).ad === 'ab c' && U.ayarSuz({ boy: 500 }).boy === 120 && U.ayarSuz({ boy: 0 }).boy === 0.1 && U.ayarSuz({ ad: '' }).ad === 'Uydum'
     && U.ayarSuz({ ad: 'x'.repeat(90) }).ad.length === U.SINIR.ad && U.ayarSuz({ renk: 'red' }).renk === U.RENKLER[0]);
   // CW: başlangıç koşulu, dik bileşen salınımı ve sayısal tümlevle uyum (Hill denklemleri, RK4)
@@ -270,13 +272,39 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   check('uydu çekimi: yalnız kullanıcı uydusu varken, açılıştan hemen sonra; ayrılma çekim içinde; park çekimi ondan sonra başlar; kart adı büyük harf (Türkçe); kamera uyduya bağlı (kurgu kamerası uygulanmaz)',
     !plain.some((s) => s.id === 'sat-deploy') && ids.indexOf('sat-deploy') === ids.indexOf('open') + 1 && sd.T()[0][1] === C.SAT_T.t0 && sd.T()[0][1] < C.SAT_T.ayr && C.SAT_T.ayr < sd.T()[2][1]
     && pw.T()[0][1] === C.SAT_T.son && sd.chapter.title === 'TÜRKSAT 6A' && sd.rig.type === 'sat' && cutSh.rig.type === 'sat' && P.GROUP_OF['sat-deploy'] === 'uydu' && P.GROUPS.find((g) => g.k === 'uydu').fixedCam);
+  // arşiv yolu, paylaşım bağlantısı ve sunucu ucu (api/arsiv.js)
+  const A = await import('../js/usersart.js'), yolUz = A.ARSIV_YOL.source.match(/model\\\.\(([^)]*)\)/)[1].split('|').sort();
+  const ok = 'https://ab12cd.public.blob.vercel-storage.com/arsiv/0123456789abcdef/model-Xy9Q.stl';
+  check('arşiv adresi: uzantılar BICIMLER ile aynı; yalnız https Vercel Blob deposu ve arşiv yolu (başka alan, http, yol dışı, meta.json, kaçış yok)',
+    JSON.stringify(yolUz) === JSON.stringify(Object.keys(U.BICIMLER).sort()) && A.arsivAdresi(ok) && !A.arsivAdresi(ok.replace('https', 'http')) && !A.arsivAdresi('https://evil.example/arsiv/0123456789abcdef/model.stl')
+    && !A.arsivAdresi('https://ab12cd.public.blob.vercel-storage.com.evil.example/arsiv/0123456789abcdef/model.stl') && !A.arsivAdresi('https://ab12cd.public.blob.vercel-storage.com/arsiv/0123456789abcdef/meta.json')
+    && !A.arsivAdresi('https://ab12cd.public.blob.vercel-storage.com/arsiv/../x/model.stl') && !A.arsivAdresi('javascript:alert(1)') && A.ARSIV_YOL.test('arsiv/0123456789abcdef/meta.json') && !A.ARSIV_YOL.test('arsiv/0123456789abcdef/../../x.stl'));
+  const prm = U.paylasimParam({ ad: 'Anadolu‮-1', boy: 7, renk: U.RENKLER[1], bicim: 'stl' }, { model: ok }), geri = U.paylasimCoz(prm);
+  check('paylaşım bağlantısı: uydu gidiş-dönüş (ad süzülür); yabancı adres, bilinmeyen biçim, bozuk ya da çok uzun değer → yok',
+    geri && geri.url === ok && geri.ad === 'Anadolu-1' && geri.boy === 7 && geri.renk === U.RENKLER[1] && geri.bicim === 'stl' && geri.boyanir
+    && U.paylasimCoz(U.paylasimParam({ ad: 'a', boy: 1, renk: '', bicim: 'stl' }, { model: 'https://evil.example/arsiv/0123456789abcdef/model.stl' })) === null
+    && U.paylasimCoz(U.paylasimParam({ ad: 'a', boy: 1, renk: '', bicim: 'exe' }, { model: ok })) === null && U.paylasimCoz('%%%') === null && U.paylasimCoz('x'.repeat(2000)) === null && U.paylasimCoz(null) === null);
+  const API = await import('../../api/arsiv.js'), env0 = { ...process.env };
+  const post = (body, origin) => API.POST(new Request('https://ls19web.vercel.app/api/arsiv', { method: 'POST', headers: { 'content-type': 'application/json', ...(origin ? { origin } : {}) }, body: JSON.stringify(body) }));
+  const tok = { type: 'blob.generate-client-token', payload: { pathname: 'arsiv/0123456789abcdef/model.stl', clientPayload: JSON.stringify({ surum: A.SART_SURUM, onay: 1 }), multipart: false } };
+  delete process.env.LS19_ARSIV; delete process.env.BLOB_READ_WRITE_TOKEN;
+  const g0 = await (await API.GET()).json(), p0 = await post(tok, 'https://ls19web.vercel.app');
+  process.env.LS19_ARSIV = '1'; process.env.BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_deneme_0000';
+  const p1 = await post(tok, 'https://evil.example'), g1 = await (await API.GET()).json();
+  const kr = (y, c) => { try { return API.kurallar(y, c); } catch (e) { return e.message; } }, cp = JSON.stringify({ surum: A.SART_SURUM, onay: 1 });
+  const km = kr('arsiv/0123456789abcdef/model.stl', cp), kk = kr('arsiv/0123456789abcdef/meta.json', cp);
+  for (const k of ['LS19_ARSIV', 'BLOB_READ_WRITE_TOKEN']) if (env0[k] === undefined) delete process.env[k]; else process.env[k] = env0[k];
+  check('api/arsiv: açılmadan kapalı (GET acik:false, anahtar isteği 503); açıkken başka kökene 403; kurallar: yol, güncel şart sürümü, biçime göre içerik türü ve boyut, rastgele sonek',
+    g0.acik === false && p0.status === 503 && g1.acik === true && p1.status === 403 && km.maximumSizeInBytes === U.SINIR.bayt && km.allowedContentTypes.includes('model/stl') && km.addRandomSuffix === true
+    && kk.maximumSizeInBytes === U.SINIR.kayit && JSON.stringify(kk.allowedContentTypes) === '["application/json"]' && kr('arsiv/0123456789abcdef/../../x.stl', cp) === 'yol' && kr('baska/0123456789abcdef/model.stl', cp) === 'yol'
+    && kr('arsiv/0123456789abcdef/model.stl', JSON.stringify({ surum: 'eski', onay: 1 })) === 'onay' && kr('arsiv/0123456789abcdef/model.stl', 'bozuk') === 'onay', JSON.stringify({ g0, p0: p0.status, p1: p1.status, km, kk }));
   const usrc = fs.readFileSync(new URL('../js/usersat.js', import.meta.url), 'utf8'), uisrc = fs.readFileSync(new URL('../js/usersatui.js', import.meta.url), 'utf8'), msrc = fs.readFileSync(new URL('../js/usermodel.js', import.meta.url), 'utf8');
   const csrc = fs.readFileSync(new URL('../js/cinema.js', import.meta.url), 'utf8'), ssrc = fs.readFileSync(new URL('../js/scene.js', import.meta.url), 'utf8'), yh = fs.readFileSync(new URL('../yapimci.html', import.meta.url), 'utf8');
-  check('Uydum güvenliği: innerHTML yok; şart onaylanmadan dosya düğmesi kapalı; usersat.js three.js içe aktarmaz (ayrı pencere hafif), three yalnız usermodel.js\'te; ayrı pencerede importmap var',
-    !/innerHTML/.test(uisrc) && !/innerHTML/.test(usrc) && /pick\.disabled = !on/.test(uisrc) && /if \(!onay\) throw new Error\('sart'\)/.test(usrc) && !/from 'three'/.test(usrc) && /from 'three'/.test(msrc) && /"three": "\.\/lib\/three\.module\.js"/.test(yh));
+  check('Uydum güvenliği: innerHTML yok; şart onaylanmadan dosya düğmesi kapalı; usersat.js three.js içe aktarmaz (ayrı pencere hafif), three yalnız usermodel.js\'te; ayrı pencerede importmap var; paylaşılan model boyut sınırıyla indirilir; paylaşımda önce arşiv',
+    !/innerHTML/.test(uisrc) && !/innerHTML/.test(usrc) && /buf\.byteLength > SINIR\.bayt/.test(msrc) && /uydumArsivle\(encodeCut\(this\.cut\)\)/.test(fs.readFileSync(new URL('../js/producerui.js', import.meta.url), 'utf8')) && /pick\.disabled = !on/.test(uisrc) && /if \(!onay\) throw new Error\('sart'\)/.test(usrc) && !/from 'three'/.test(usrc) && /from 'three'/.test(msrc) && /"three": "\.\/lib\/three\.module\.js"/.test(yh));
   check('sahne: uydu konumu kameranın karesiyle aynı hesaptan (bir kare gecikme yok); scene.js cine.place çağırır; fragman bitince uydu kaldırılır; dışa aktarımda üretim zamanı yazılır',
     /satAt\(x, info, W\)/.test(csrc) && /this\.uydu\.konum\(x, info, W\.attQ/.test(csrc) && /this\.cine\.place\(x, info, rel, this\.attQ\)/.test(ssrc) && /this\.dropSat\(\);/.test(csrc)
-    && /uydumUretildi\(\)/.test(fs.readFileSync(new URL('../js/exportui.js', import.meta.url), 'utf8')));
+    && /uydumUretildi\(Date\.now\(\), encodeCut\(this\.cut\)\)\.then\(\(\) => uydumArsivle\(\)\)/.test(fs.readFileSync(new URL('../js/exportui.js', import.meta.url), 'utf8')));
 }
 console.log(fail ? `\n${fail} HATA` : '\nTAMAM');
 process.exit(fail ? 1 : 0);

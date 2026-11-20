@@ -15,7 +15,7 @@ import { rocketOf } from './rockets.js';
 import { CineAudio } from './cineaudio.js';
 import { LOC, translateText, isEn, t as tr } from './i18n.js';
 import { normalize, loadCut, applyCut, filmLook, loadFonts, GROUPS, GROUP_OF } from './producer.js';
-import { uydum } from './usersat.js';
+import { uydumEtkin as uydum } from './usersat.js';
 import { uydumSahneKur } from './usermodel.js';
 
 const { add, sub, scale, dot, cross, norm, unit } = E;

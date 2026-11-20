@@ -620,6 +620,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def do_POST(self):
+        # arşive yükleme yerelde yok: tarayıcı modeli kendinde saklar, bulutta yeniden dener
+        if urllib.parse.urlparse(self.path).path == '/api/arsiv':
+            return self.send_json(503, {'error': 'arsiv-kapali'})
+        return self.send_json(404, {'hata': 'yok'})
+
     def do_GET(self):
         u = urllib.parse.urlparse(self.path)
         q = {k: v[0] for k, v in urllib.parse.parse_qs(u.query).items()}
@@ -671,6 +677,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return self.send_json(200, horizons(cmd, start, stop, step))
             if u.path == '/api/surum':
                 return self.send_json(200, versions())
+            if u.path == '/api/arsiv':                                  # "Kendi uydum" arşivi yalnız bulutta (api/arsiv.js, Vercel Blob)
+                return self.send_json(200, {'acik': False})
             if u.path == '/api/yapilandirma':
                 key = os.environ.get('LS19_GOOGLE_3D_KEY', '').strip()
                 return self.send_json(200, {'g3dKey': key} if key else {})

@@ -5,7 +5,7 @@ Yapımcı masasının **Uydum** sekmesi, kullanıcının kendi uydusunun 3B mode
 ## Akış
 
 1. **Kullanım şartı:** onay kutusu işaretlenmeden dosya düğmesi ve bırakma alanı kapalıdır. Onay (sürüm, zaman, metnin SHA-256 özeti) modelle birlikte saklanır.
-2. **Dosya:** GLB (glTF ikili), STL ya da OBJ; en çok 40 MB ve 1,5 milyon üçgen.
+2. **Dosya:** CAD çıktısı (STL, OBJ) ya da GLB (glTF ikili); en çok 40 MB ve 1,5 milyon üçgen. Görsel (PNG, JPEG) kabul edilmez.
    - CAD programlarından (SolidWorks, Fusion 360, FreeCAD…) STL ya da OBJ olarak dışa aktarılır.
    - Model birimi önemli değildir: model, girilen gerçek boya (en uzun kenar, 0,1–120 m) ölçeklenir.
    - STL'de yüz normalleri geometriden yeniden hesaplanır, çünkü CAD çıktılarında çoğu zaman sıfır ya da yanlıştır.
@@ -20,20 +20,36 @@ Yapımcı masasının **Uydum** sekmesi, kullanıcının kendi uydusunun 3B mode
 - **Kamera** (`RIG.sat`): uydunun yörünge çerçevesinde döner. Temel yön, yörünge normali ile Güneş yönünün ortasıdır, yani uydu aydınlık taraftan görülür. Uzaklık uydu boyuna göre ayarlanır. Bu bölümde kurgu kamerası seçilemez.
 - **Konum hesabı:** kamera ve sahne, konumu aynı karenin araç durumundan hesaplar. Böylece hızlandırılmış zamanda bir kare gecikme olmaz.
 
-## Saklama ve arşiv
+## Saklama, arşiv ve paylaşım
 
-- **Saklama:** model ve onay yalnız kullanıcının tarayıcısında, IndexedDB'de (`ls19-uydum`) durur. Paylaşım bağlantısına girmez; bağlantıyı açan kişi uyduyu görmez.
-- **Pencereler arası:** ayrı pencerede açılan masa ile LS19 sekmesi değişiklikleri BroadcastChannel ile duyurur.
-- **Arşiv kaydı:** video dışa aktarıldığında kayda üretim zamanı (`uretim`) eklenir. Kullanım şartı, fragman üretilen modellerin LS19 arşivinde saklanma iznini şimdiden alır.
-- **Arşive gönderim:** henüz yok. Sunucu ve depolama gerektirdiği için LS19 web sitesiyle gelecek. O zaman `uretim` kaydı olan modeller, onay kaydıyla birlikte gönderilecek.
+- **Saklama:** model ve onay kullanıcının tarayıcısında, IndexedDB'de (`ls19-uydum`) durur. Ayrı pencerede açılan masa ile LS19 sekmesi değişiklikleri BroadcastChannel ile duyurur.
+- **Arşive yükleme:** iki durumda olur: fragman üretildiğinde (video dışa aktarımı) ya da uydulu bir paylaşım bağlantısı oluşturulduğunda. Kullanım şartı bu ikisini kapsar.
+  - Tarayıcı model dosyasını ve bir `meta.json` kaydını (ad, boy, renk, biçim, onay, kurgu) `arsiv/<model özeti>/` altına Vercel Blob'a doğrudan yükler (40 MB'a dek).
+  - `api/arsiv.js` yalnız kısa ömürlü yükleme anahtarı verir. Kurallar: yol kalıbı, güncel şart sürümü, biçime göre içerik türü ve boyut, rastgele sonek (üzerine yazılamaz), aynı köken.
+- **Arşiv kapalıyken:** kayıt tarayıcıda bekler ve sonraki açılışta yeniden denenir. Uydum sekmesi durumu gösterir: arşivde (arşiv kimliğiyle), bekliyor ya da henüz gerekmedi.
+- **Paylaşım:** bağlantı `#…&uydu=<base64url JSON>` taşır: model adresi, ad, boy, renk, biçim. Bağlantıyı açan tarayıcı modeli bu adresten indirir.
+  - Adres yalnız `https://<depo>.public.blob.vercel-storage.com/arsiv/<16 onaltılık>/model….<uzantı>` olabilir; boyut sınırı 40 MB.
+  - Arşiv kapalıysa bağlantı uydusuz gider ve masa bunu söyler.
+- **Arşivden kaldırma:** kullanıcı `github.com/yazicmert/LS19/issues` adresinde arşiv kimliğini yazar. Dosyalar Vercel panelinde, Storage › Blob › `arsiv/<kimlik>/` altında silinir.
 
-> Kullanım şartı metni (`web/js/usersat.js`, `SART_METNI`) bir taslaktır. Yayına almadan önce bir hukukçuya okutulması önerilir. Arşivden kaldırma için bir iletişim yolu da eklenmeli. Metin değişirse `SART_SURUM` artırılır.
+### Arşivi açmak (bir kez)
+
+1. Vercel › proje (ls19web) › **Storage** › **Create** › **Blob**: depoyu projeye bağla. `BLOB_READ_WRITE_TOKEN` kendiliğinden eklenir.
+2. Vercel › proje › **Settings** › **Environment Variables**: `LS19_ARSIV` = `1` (Production).
+3. Yeniden dağıt. `https://ls19web.vercel.app/api/arsiv` adresi `{"acik":true}` döndürmeli.
+
+Yerel sunucuda (`web/sunucu.py`) arşiv yoktur: `/api/arsiv` her zaman kapalıdır.
+
+> Kullanım şartı metni (`web/js/usersart.js`, `SART_METNI`) bir taslaktır. Yayına almadan önce bir hukukçuya okutulması önerilir. Metin değişirse `SART_SURUM` artırılır. Arşiv yalnız güncel sürümle onaylanmış modelleri kabul eder; eski onaylı modellerde şartın yeniden onaylanması gerekir.
 
 ## Dosyalar
 
 | Dosya | İş |
 | --- | --- |
-| `web/js/usersat.js` | şart metni ve sürümü, IndexedDB kaydı, süzgeç, Clohessy–Wiltshire ve LVLH (three.js içe aktarmaz) |
+| `web/js/usersart.js` | şart metni ve sürümü, biçimler, arşiv yolu ve adres denetimi (tarayıcı ve sunucu ortak) |
+| `web/js/usersat.js` | IndexedDB kaydı, süzgeç, arşive yükleme, paylaşım bağlantısı, Clohessy–Wiltshire ve LVLH (three.js içe aktarmaz) |
+| `api/arsiv.js` | arşiv ucu: yükleme anahtarı ve kurallar (Vercel Blob, `@vercel/blob`) |
+| `web/lib/vercel-blob-client.esm.js` | tarayıcı yükleme istemcisi (`tools/blob_paketle.mjs` üretir) |
 | `web/js/usermodel.js` | GLB/STL/OBJ çözme, ölçekleme, boyama, sahnedeki uydu (three.js) |
 | `web/js/usersatui.js` | masanın Uydum sekmesi |
 | `web/lib/addons/loaders/STLLoader.js`, `OBJLoader.js` | three.js r170 yükleyicileri (MIT) |

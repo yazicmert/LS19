@@ -40,6 +40,7 @@ import { ImpactUI } from './impactui.js';
 import { Cinema } from './cinema.js';
 import { ProducerDesk } from './producerui.js';
 import { loadCut, decodeCut } from './producer.js';
+import { paylasimCoz, uydumPaylasilanAyarla } from './usersat.js';
 import { MainLink } from './producersync.js';
 import { PixelGovernor, floorRatio } from './perfgov.js';
 import { $ } from './uiutil.js';
@@ -824,7 +825,8 @@ function applyUrlParams() {
   if (tab) ui.setTab(tab);
   if (q.get('skycam')) setSkyCam(q.get('skycam').toUpperCase());
   // paylaşılan kurgu: #kurgu=… (adresin # kısmı sunucuya gitmez); ?cine= ile açılışta oynar, yoksa Yapımcı masası açılır
-  const hk = new URLSearchParams(location.hash.slice(1)).get('kurgu'); sharedCut = hk ? decodeCut(hk) : null;
+  const hp = new URLSearchParams(location.hash.slice(1)), hk = hp.get('kurgu'); sharedCut = hk ? decodeCut(hk) : null;
+  uydumPaylasilanAyarla(paylasimCoz(hp.get('uydu')));                             // bağlantıdaki kullanıcı uydusu (arşiv adresi; usersat.js)
   if (q.get('cine') && !q.get('seek')) setTimeout(() => playCine({ scale: Math.max(0.2, parseFloat(q.get('cine')) || 1) }), 800);       // ?cine=1: açılışta sinematik gösterim (sayı: süre ölçeği)
   else if (sharedCut) setTimeout(() => openDesk(), 800);
 }

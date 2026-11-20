@@ -14,7 +14,7 @@ import { OPT, MAX, RANGE, ACCENTS, INKS, FONTS, WEIGHTS, TRACKS, PRESETS, DEFAUL
 import { applyIcons } from './icons.js';
 import { hasChannel } from './producersync.js';
 import { destekGerekli, destekSoruldu, destekAc, destekReddet, DESTEK_METIN } from './destek.js';
-import { uydumDinle, hazirla as uydumHazirla } from './usersat.js';
+import { uydumDinle, hazirla as uydumHazirla, uydum, uydumArsivle, paylasimParam } from './usersat.js';
 import { SatPane } from './usersatui.js';
 import { translateText, LOC } from './i18n.js';
 
@@ -151,7 +151,7 @@ export class ProducerDesk {
     this.menus = []; this.buildCredits(); this.buildType(); this.buildLook(); this.buildFx();
     // Uydum sekmesi (usersatui.js): model değişince (yeni, kaldırıldı ya da başka pencerede) sekme yeniden kurulur; ad/boy/renk değişince yalnız bölümler tazelenir
     this.satPane = new SatPane(this, this.panes.sat); this.satKey = '';
-    uydumDinle((m) => { const key = m ? `${m.ozet}:${m.onay && m.onay.t}` : ''; if (key !== this.satKey) { this.satKey = key; this.satPane.yeni = false; this.satPane.build(); } if (this.isOpen) this.refreshChapters(); });
+    uydumDinle((m) => { const key = m ? `${m.ozet}:${m.onay && m.onay.t}:${m.arsiv ? m.arsiv.id : ''}` : ''; if (key !== this.satKey) { this.satKey = key; this.satPane.yeni = false; this.satPane.build(); } if (this.isOpen) this.refreshChapters(); });
     uydumHazirla();
   }
   get isOpen() { return !this.root.hidden; }
@@ -293,10 +293,18 @@ export class ProducerDesk {
   reset() { if (isDefault(this.cut)) { this.say('Zaten yönetmenin kurgusundasın.'); return; } this.replace({}, 'Yönetmenin kurgusuna dönüldü.'); }
   async share() {
     const u = new URL(location.href); u.searchParams.delete('seek'); u.searchParams.set('cine', '1');
-    u.hash = isDefault(this.cut) ? '' : new URLSearchParams({ kurgu: encodeCut(this.cut) }).toString();
+    const h = new URLSearchParams(); if (!isDefault(this.cut)) h.set('kurgu', encodeCut(this.cut));
+    // kendi uydun fragmandaysa önce arşive yüklenir (kullanım şartı bunu kapsar); bağlantı arşivdeki model adresini taşır. Arşiv kapalıysa bağlantı uydusuz.
+    const m = uydum(); let uyari = null;
+    if (m && this.cut.ch.uydu.on) {
+      this.say('Uydun paylaşım için LS19 arşivine yükleniyor…');
+      try { const a = await uydumArsivle(encodeCut(this.cut)); if (a) h.set('uydu', paylasimParam(uydum(), a)); }
+      catch (e) { uyari = 'LS19 arşivi şu an kapalı: bağlantıyı açan kişi fragmanı uydun olmadan izler.'; }
+    }
+    u.hash = h.toString();
     const link = u.toString();
-    try { await navigator.clipboard.writeText(link); this.say('Bağlantı kopyalandı: açan kişi fragmanı senin kurgunla izler.'); }
-    catch (e) { window.prompt(translateText('Bağlantıyı kopyala'), link); }
+    try { await navigator.clipboard.writeText(link); this.say(uyari || (h.has('uydu') ? 'Bağlantı kopyalandı: açan kişi fragmanı senin kurgun ve uydunla izler.' : 'Bağlantı kopyalandı: açan kişi fragmanı senin kurgunla izler.')); }
+    catch (e) { window.prompt(translateText('Bağlantıyı kopyala'), link); if (uyari) this.say(uyari); }
     this.askSupport();
   }
   // özel kurgu paylaşıldı: bantta bir kez, engellemeden destek sorulur (destek.js)

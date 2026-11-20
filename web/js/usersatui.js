@@ -1,14 +1,14 @@
 // Yapımcı masası, "Uydum" sekmesi: kullanıcı kendi uydusunun 3B modelini ya da CAD çıktısını (GLB, STL, OBJ) ekler.
 // Yüklemeden önce kullanım şartı onaylanmalı (dosya düğmesi ve bırakma alanı o zamana dek kapalı). Model eklenince: dönen önizleme, ad, boy, renk, fragmanda aç/kapa, değiştir, kaldır.
 // Kullanıcı metni yalnız textContent/value ile yazılır. Önizleme three.js'i yalnız bu sekme açılınca yükler (usermodel.js).
-import { SART_METNI, SART_SURUM, SINIR, RENKLER, BICIMLER, uydum, uydumYukle, uydumGuncelle, uydumSil } from './usersat.js';
+import { SART_METNI, SART_SURUM, SINIR, RENKLER, BICIMLER, KALDIRMA, uydum, uydumYukle, uydumGuncelle, uydumSil, uydumArsivle, arsivDurumu } from './usersat.js';
 import { translateText, LOC } from './i18n.js';
 
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = translateText(String(text)); return e; };
 const mb = (b) => (b < 1e6 ? `${Math.max(1, Math.round(b / 1e3)).toLocaleString(LOC)} KB` : `${(b / 1e6).toLocaleString(LOC, { maximumFractionDigits: 1 })} MB`);
 const HATA = {
   sart: 'Önce kullanım şartını onayla.',
-  bicim: 'Bu dosya türü desteklenmiyor. GLB, STL ya da OBJ yükle (glTF ise tek dosya .glb olarak dışa aktar).',
+  bicim: 'Bu dosya türü desteklenmiyor. CAD programından STL ya da OBJ olarak dışa aktar (glTF ise tek dosya .glb).',
   boyut: 'Dosya 40 MB’tan büyük. Modeli sadeleştirip yeniden dışa aktar.',
   ucgen: 'Model 1,5 milyon üçgenden fazla. CAD programında daha kaba bir ağla (mesh) dışa aktar.',
   bos: 'Dosyada çizilebilir bir yüzey bulunamadı.',
@@ -30,11 +30,11 @@ export class SatPane {
     const p = this.p, g = el('fieldset', 'pd-group us-sart'); g.append(el('legend', null, 'Kullanım şartı'));
     const ol = el('ol', 'us-terms'); for (const t of SART_METNI) ol.append(el('li', null, t)); g.append(ol, el('small', 'pd-hint us-version', `${translateText('Sürüm')} ${SART_SURUM}`));
     const lab = el('label', 'pd-check us-ok'), cb = el('input'); cb.type = 'checkbox';
-    lab.append(cb, el('span', null, 'Şartları okudum. Yüklediğim modelin haklarının bende olduğunu ve bu modelle fragman üretilirse LS19 arşivinde saklanmasına izin verdiğimi beyan ederim.'));
+    lab.append(cb, el('span', null, 'Şartları okudum. Yüklediğim modelin haklarının bende olduğunu ve bu modelle fragman üretilir ya da paylaşılırsa LS19 arşivinde saklanıp gösterilmesine izin verdiğimi beyan ederim.'));
     g.append(lab);
-    const drop = el('div', 'us-drop'), inp = el('input'); inp.type = 'file'; inp.accept = '.glb,.stl,.obj'; inp.hidden = true;
+    const drop = el('div', 'us-drop'), inp = el('input'); inp.type = 'file'; inp.accept = Object.keys(BICIMLER).map((e) => '.' + e).join(','); inp.hidden = true;
     const pick = el('button', 'us-pick', 'Dosya seç'); pick.type = 'button';
-    const fmts = Object.values(BICIMLER).map((v) => translateText(v)).join(', ');
+    const fmts = Object.values(BICIMLER).map((v) => translateText(v.ad)).join(', ');
     drop.append(el('b', null, 'Modelini buraya bırak'), el('span', null, `${fmts} · ${translateText('en çok')} 40 MB`), pick, inp,
       el('small', 'pd-hint', 'CAD programından (SolidWorks, Fusion 360, FreeCAD, Blender…) STL ya da OBJ olarak dışa aktarabilirsin. Boyutu sonra metre olarak ayarlarsın.'));
     const err = el('p', 'us-err'); err.setAttribute('role', 'alert'); err.hidden = true;
@@ -68,7 +68,7 @@ export class SatPane {
     const p = this.p, card = el('div', 'us-card'), cv = el('canvas', 'us-view'); cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', `${m.ad}: ${translateText('3B önizleme')}`);
     const info = el('div', 'us-info');
     const row = (k, v) => { const r = el('div', 'us-row'); r.append(el('span', null, k), Object.assign(document.createElement('b'), { textContent: v })); return r; };
-    info.append(row('Dosya', m.dosyaAdi), row('Biçim', translateText(BICIMLER[m.bicim] || m.bicim)), row('Boyut', mb(m.bayt)), row('Üçgen', m.ucgen.toLocaleString(LOC)));
+    info.append(row('Dosya', m.dosyaAdi), row('Biçim', translateText(BICIMLER[m.bicim] ? BICIMLER[m.bicim].ad : m.bicim)), row('Boyut', mb(m.bayt)), row('Üçgen', m.ucgen.toLocaleString(LOC)));
     card.append(cv, info); p.append(card);
     // ad
     const fAd = el('div', 'pd-field'), lAd = el('label', null, 'Uydunun adı'), iAd = el('input'); iAd.type = 'text'; iAd.id = 'usAd'; lAd.htmlFor = iAd.id; iAd.maxLength = SINIR.ad; iAd.value = m.ad; iAd.autocomplete = 'off';
@@ -107,9 +107,22 @@ export class SatPane {
     };
     acts.append(ch, rm); p.append(acts);
     const tarih = new Date(m.onay.t).toLocaleDateString(LOC, { day: 'numeric', month: 'long', year: 'numeric' });
-    p.append(el('p', 'pd-note us-legal', `${translateText('Kullanım şartını onayladın')}: ${tarih} (${translateText('sürüm')} ${m.onay.surum}). ${translateText('Model şimdilik yalnız bu tarayıcıda saklanıyor; paylaşım bağlantısına girmez. LS19 arşivine gönderim web sitesiyle başlayacak.')}`));
-    if (m.uretim.length) p.append(el('p', 'pd-note', `${translateText('Bu modelle üretilen fragman')}: ${m.uretim.length}`));
+    p.append(el('p', 'pd-note us-legal', `${translateText('Kullanım şartını onayladın')}: ${tarih} (${translateText('sürüm')} ${m.onay.surum}).`));
+    this.arsivSatiri(m);
     this.startView(cv, m);
+  }
+  // arşiv durumu: arşivde (kimlik, kaldırma yolu) · bekliyor (arşiv kapalı ya da ağ yok) · henüz gerekmedi
+  async arsivSatiri(m) {
+    const n = el('p', 'pd-note us-archive'); this.p.append(n);
+    const kaldir = `${translateText('Arşivden kaldırmak için')}: ${KALDIRMA}`;
+    if (m.arsiv) { n.textContent = `${translateText('LS19 arşivinde')} · ${translateText('Arşiv kimliği')}: ${m.arsiv.id}. ${kaldir}`; return; }
+    if (m.uretim.length) {
+      const acik = await arsivDurumu();
+      n.textContent = `${translateText('Bu modelle üretilen fragman')}: ${m.uretim.length}. ${translateText(acik ? 'Arşive yükleniyor…' : 'LS19 arşivi şu an kapalı: model bu tarayıcıda bekliyor, arşiv açılınca yüklenecek.')}`;
+      if (acik) uydumArsivle().catch(() => { n.textContent = translateText('Arşive yüklenemedi; sonraki açılışta yeniden denenecek.'); });
+      return;
+    }
+    n.textContent = translateText('Bu modelle fragman ürettiğinde ya da uydulu bir bağlantı paylaştığında LS19 arşivine yüklenir.');
   }
   sync() { if (this.onSw) this.onSw.checked = this.d.cut.ch.uydu.on; }
   // ---- dönen önizleme (yalnız sekme görünürken çizer)

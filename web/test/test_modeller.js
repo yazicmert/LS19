@@ -12,5 +12,5 @@ check('eslesme.json geçerli: klasör → NORAD listesi ya da null', Object.entr
 const wf = rd('../../.github/workflows/modeller.yml');
 check('iş akışı: aylık + elle; DAMIT ve uydu; testler; PR (main\'e doğrudan yazmaz)', /cron: '23 4 2 \* \*'/.test(wf) && /workflow_dispatch/.test(wf) && /damit\.mjs --indir/.test(wf) && /uydu\.mjs/.test(wf) && /npm test/.test(wf) && /pr\.mjs/.test(wf) && !/git push[^\n]*main/.test(wf + rd('../../tools/model/pr.mjs')));
 const pkg = JSON.parse(rd('../../tools/model/package.json'));
-check('araç bağımlılıkları ayrı ve sabit sürümlü (siteye girmez)', Object.values(pkg.dependencies).every((v) => /^\d+\.\d+\.\d+$/.test(v)) && fs.existsSync(new URL('../../tools/model/package-lock.json', import.meta.url)) && !JSON.parse(rd('../../package.json')).dependencies);
+check('araç bağımlılıkları ayrı ve sabit sürümlü (siteye girmez; kök package.json\'da araç paketi yok)', Object.values(pkg.dependencies).every((v) => /^\d+\.\d+\.\d+$/.test(v)) && fs.existsSync(new URL('../../tools/model/package-lock.json', import.meta.url)) && !Object.keys(JSON.parse(rd('../../package.json')).dependencies || {}).some((k) => k in pkg.dependencies));      // kökte yalnız sitenin/sunucunun kendi bağımlılıkları (ör. api/arsiv.js için @vercel/blob)
 console.log(fail ? `\n${fail} HATA` : '\nTAMAM'); process.exit(fail ? 1 : 0);
