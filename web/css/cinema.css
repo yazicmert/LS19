@@ -244,6 +244,22 @@ body.cine-on #view { cursor: none; }
 .cine.hide-strip .cine-strip, .cine.hide-strip .cine-scrim { opacity: 0; transition-delay: 0s; }
 .cine.hide-timeline .cine-timeline { opacity: 0; transition-delay: 0s; }
 /* yapımcı bir bölümü çıkardığında aradaki görev süresi kararma altında geçilir: levha kararmanın üstünde, görev saati akar */
+/* soğuk giriş ve son kart (js/cinemaui.js intro, end): siyah örtünün üstünde, ortada */
+.cine-intro, .cine-end { position: absolute; left: 24px; right: 24px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; align-items: center; text-align: center; opacity: 0; transition: opacity 0.9s var(--cine-out); }
+.cine-intro.in, .cine-end.in { opacity: 1; }
+.cine-intro b { font: 600 clamp(12px, 1.3cqw, 17px) var(--cine-tf, var(--mono)); letter-spacing: 0.5em; padding-left: 0.5em; text-transform: uppercase; color: var(--cine-ink); }
+.ci-rule { display: block; width: min(220px, 40cqw); height: 1px; margin: 18px 0 16px; background: linear-gradient(90deg, transparent, var(--cine-accent), transparent); transform: scaleX(0); transition: transform 0.9s var(--cine-out) 0.5s; }
+.cine-intro.in .ci-rule { transform: none; }
+.cine-intro span[data-f="introD"] { white-space: pre-line; font: 400 clamp(11px, 1.1cqw, 14px) / 1.8 var(--cine-tf, var(--mono)); letter-spacing: 0.18em; color: var(--cine-ink-2); opacity: 0; transition: opacity 0.9s var(--cine-out) 0.8s; }
+.cine-intro.in span[data-f="introD"] { opacity: 1; }
+.cine-end .cine-emblem { width: clamp(46px, 5cqw, 72px); height: auto; margin-bottom: 18px; opacity: 0.95; }
+.ce-t { font: 600 calc(clamp(34px, 6cqw, 92px) * var(--cine-k, 1)) var(--cine-hf, var(--font)); letter-spacing: 0.4em; padding-left: 0.4em; color: var(--cine-ink); }
+.ce-s { margin-top: 14px; font: 500 clamp(13px, 1.5cqw, 20px) var(--cine-tf, var(--mono)); letter-spacing: 0.16em; color: var(--cine-accent); opacity: 0; transition: opacity 0.9s var(--cine-out) 0.7s; }
+.ce-u { margin-top: 10px; font: 400 clamp(11px, 1.1cqw, 15px) var(--cine-tf, var(--mono)); letter-spacing: 0.2em; color: var(--cine-ink-2); opacity: 0; transition: opacity 0.9s var(--cine-out) 1.2s; }
+.ce-u:empty { display: none; }
+.cine-end.in .ce-s, .cine-end.in .ce-u { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .ci-rule { transition: none; transform: none; } }
+
 .cine-slate { position: absolute; left: 24px; right: 24px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; opacity: 0; transition: opacity 0.5s var(--cine-out); }
 .cine-slate.in { opacity: 1; }
 .cine-slate b { font: 600 clamp(11px, 1.2cqw, 15px) var(--cine-tf, var(--mono)); letter-spacing: 0.42em; padding-left: 0.42em; text-transform: uppercase; color: var(--cine-accent); }

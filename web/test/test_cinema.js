@@ -254,5 +254,13 @@ check('Apollo iki kademe: dokuz bölüm, anma süre 110–150 s, açılış INS\
   check("Dünya–Ay görünümü: Ay'ın geçmiş konumları dönen çerçevede şimdiki Dünya→Ay eksenine düşer (iz Ay'da biter), eksenler dik, gidiş-dönüş birebir; fragmanın yolculuk çekimi bu çerçevede",
     worst < 1e-6 && rt < 1e-9 && orth < 1e-12 && /syn: true/.test(cin) && /c\.mode === 'SYSTEM' \? unit\(rm\)/.test(rig) && /cine\.syn/.test(sceneSrc()), `eksen sapması ${worst.toExponential(1)} rad`);
 }
+{
+  // soğuk giriş ve son kart
+  const cj = fs.readFileSync(new URL('../js/cinema.js', import.meta.url), 'utf8'), cu = fs.readFileSync(new URL('../js/cinemaui.js', import.meta.url), 'utf8'), xj = fs.readFileSync(new URL('../js/exporter.js', import.meta.url), 'utf8');
+  check('soğuk giriş: görev kurulunca siyah üstünde "… sunar" + tarih, sonra kalkış ya da ilk çekim; son kart: kararma, amblem, davet, adres; dışa aktarım girişten kaydeder ve son kartı tutar; metinler textContent',
+    /this\.wall = 0; this\.playIntro\(\);/.test(cj) && /this\.state = 'intro'; this\.h\.play\(false\); ui\.fade\(1, 0\);/.test(cj) && /\|\| this\.state === 'intro'\) return;/.test(cj)
+    && /ui\.end\(translateText\('Kendi Ay görevini tasarla'\), url\)/.test(cj) && /introO\.textContent = over/.test(cu) && /endS\.textContent = sub/.test(cu)
+    && /st === 'intro' \|\| st === 'ascent' \|\| st === 'run'/.test(xj) && /tail = kf \+ Math\.round\(fps \* 6\)/.test(xj) && /this\.stopAscent\(\); this\.dropSat\(\);/.test(cj));
+}
 console.log(fail ? `\n${fail} HATA` : '\nTAMAM');
 process.exit(fail ? 1 : 0);

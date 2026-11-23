@@ -537,7 +537,7 @@ export class Cinema {
   }
   toggleMute() { if (!this.audio) return; this.audio.setMuted(!this.audio.muted); this.ui.setMuted(this.audio.muted); }
   skip() { if (this.state === 'ascent') { this.stopAscent(); return; } if (this.shot && !this.shot.closing) this.endShot(true); }
-  async restart() { const o = this.opts0 || {}; this.stopAscent(); if (this.audio) { this.audio.stop(); this.audio = null; } this.ui.leave(true); this.on = false; this.state = 'idle'; clearInterval(this.timer); this.timer = 0; window.removeEventListener('keydown', this.keyHandler, true); window.removeEventListener('pointermove', this.moveHandler); this.h.world.cine.rig = null; await this.h.world.setCinematic(false); await this.start(o); }
+  async restart() { const o = this.opts0 || {}; this.stopAscent(); this.dropSat(); if (this.audio) { this.audio.stop(); this.audio = null; } this.ui.leave(true); this.on = false; this.state = 'idle'; clearInterval(this.timer); this.timer = 0; window.removeEventListener('keydown', this.keyHandler, true); window.removeEventListener('pointermove', this.moveHandler); this.h.world.cine.rig = null; await this.h.world.setCinematic(false); await this.start(o); }
 
   // ----- çekim yaşam döngüsü
   // çekimi kur (zaman eğrisi, kamera, bayraklar); atlama mantığı startShot'ta
@@ -608,8 +608,25 @@ export class Cinema {
     if (!s) { this.finish(); return; }
     if (s.dip && !this.pending) { this.ui.fade(1, 280); this.pending = { i: nxt, at: this.wall + 0.3 }; } else this.startShot(nxt);
   }
+  // soğuk giriş: görev kuruldu, sahne siyah; "LS19 sunar" (ya da yapımcı), tarih ve roket; sonra kalkış açılışı ya da ilk çekim (başlık görüntünün üstünde gelir)
+  playIntro() {
+    const K = this.cut, ui = this.ui, ms = 3400;
+    this.state = 'intro'; this.h.play(false); ui.fade(1, 0);
+    ui.intro(K.producer ? tr('{0} sunar', K.producer) : translateText('LS19 sunar'), this.titleLines());
+    ui.after(ms - 650, () => ui.intro(null));
+    ui.after(ms, () => {
+      if (!this.on || this.state !== 'intro') return;
+      this.wall = 0;
+      if (this.asc) this.startAscent();
+      else { this.h.send({ cmd: 'warp', value: 1 }); this.h.play(true); this.startShot(0); }
+    });
+  }
   finish() {
     this.state = 'ended'; this.ui.fade(0, 0);
+    // son kart: kapanış kartından sonra görüntü kararır; amblem, LS19, davet ve adres (dışa aktarılan video da bununla biter)
+    const ui = this.ui, url = /^(localhost|127\.|\[?::1)/.test(location.hostname) ? '' : location.host;
+    ui.after(600, () => { if (this.on && this.state === 'ended') ui.fade(1, 1400); });
+    ui.after(2100, () => { if (this.on && this.state === 'ended') ui.end(translateText('Kendi Ay görevini tasarla'), url); });
     const hint = this.ui.f.hint; hint.innerHTML = '<kbd>R</kbd> yeniden izle · <kbd>Y</kbd> kurguyu düzenle · <kbd>Esc</kbd> çık'; hint.classList.add('show');
     this.ui.root.classList.add('ended');
   }
@@ -658,8 +675,8 @@ export class Cinema {
     const K = this.cut, ka = K.ch.asc;
     // başlık kartı: yapımcı varsa "… sunar" üst satırı (üst satır o zaman alt yazının başına geçer), fragman adı
     if (!a.card && el >= 0.5) {
-      a.card = true; const over = K.producer ? tr('{0} sunar', K.producer) : K.over || translateText('Ay görevi');
-      ui.card({ kind: 'title', over, userOver: !!(K.producer || K.over), title: K.title || 'LS19', user: !!K.title, sub: [K.producer && K.over, this.titleLines()].filter(Boolean).join('\n'), hold: 4.6 * K.hold });
+      a.card = true;                                                                 // "… sunar" ve tarih soğuk girişte (playIntro): burada görev adı ve roket
+      ui.card({ kind: 'title', over: K.over || translateText('Ay görevi'), userOver: !!K.over, title: K.title || 'LS19', user: !!K.title, sub: [a.rocket, a.site].filter(Boolean).join(' · '), hold: 4.6 * K.hold });
     }
     if (!a.chap && real >= 2.5) {
       a.chap = true; if (this.audio) this.audio.chapter(1);
@@ -731,7 +748,7 @@ export class Cinema {
     this.reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.dt = dt;
     const ui = this.ui;
-    if (this.state === 'boot' || this.state === 'preview' || this.state === 'asc-boot') return;
+    if (this.state === 'boot' || this.state === 'preview' || this.state === 'asc-boot' || this.state === 'intro') return;
     if (this.state === 'ascent') { this.tickAscent(dt); return; }
     if (this.state === 'post-asc') {                                                // kalkış bitti: görev girişe sarılınca (t ≈ INS) çekimler başlar
       const P = this.planMap();
@@ -751,9 +768,7 @@ export class Cinema {
       // yeni görev kuruldu ve ilk durum geldi mi (t ≈ INS)
       const P = this.planMap();
       if (performance.now() - this.restartAt > 250 && Math.abs(x.t - P.INS) < 400) {
-        this.wall = 0;
-        if (this.asc) { this.h.play(false); this.startAscent(); }
-        else { this.h.send({ cmd: 'warp', value: 1 }); this.h.play(true); this.startShot(0); }
+        this.wall = 0; this.playIntro();
       }
       return;
     }

@@ -2522,6 +2522,8 @@ const dict = {
   "Dikey": "Portrait",
   "16:9 · YouTube, sunum": "16:9 · YouTube, presentations",
   "Dikey video 1080 × 1920 olarak kaydedilir: sinema bantları kalkar, yazılar telefon ekranına göre yerleşir.": "Portrait video is saved at 1080 × 1920: the cinema bars are removed and the text is laid out for a phone screen.",
+  "LS19 sunar": "LS19 presents",
+  "Kendi Ay görevini tasarla": "Design your own Moon mission",
   // Destek kartı (destek.js)
   "LS19’u beğendiysen bir kahve ısmarlayarak geliştirilmesine destek olabilirsin.": "If you enjoy LS19, you can support its development by buying a coffee.",
   "Kahve ısmarla": "Buy a coffee",

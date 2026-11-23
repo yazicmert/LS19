@@ -247,7 +247,7 @@ export class Exporter {
         await Promise.race([stepP, to]);
         clock.advance(dt * 1000);                                                    // yönetmen (30 ms denetim), kart zamanlayıcıları, çizim döngüsü (sahne çizilir)
         const st = H.cinema.state;
-        if (!capturing && (st === 'ascent' || st === 'run')) { capturing = true; recorder.t0 = clock.now; }
+        if (!capturing && (st === 'intro' || st === 'ascent' || st === 'run')) { capturing = true; recorder.t0 = clock.now; }      // soğuk girişten itibaren
         if (!capturing) continue;
         if (W.tilesBusy) { for (let i = 0; i < 60 && W.tilesBusy; i++) await realWait(100); W.render(); }   // Ay yüzeyi parçaları yüklenirken bekle (kare eksik çizilmesin)
         cx.drawImage(W.renderer.domElement, 0, 0, R.w, R.h);                         // çizimden hemen sonra (aynı görevde): tampon geçerli
@@ -255,7 +255,7 @@ export class Exporter {
         const vf = new VideoFrame(comp, { timestamp: Math.round(kf * 1e6 / fps), duration: Math.round(1e6 / fps) });
         venc.encode(vf, { keyFrame: kf % (fps * 2) === 0 }); vf.close(); kf++;
         while (venc.encodeQueueSize > 3 && !fail) await new Promise((r) => { venc.addEventListener('dequeue', r, { once: true }); RT.st(r, 2000); });
-        if (st === 'ended' && tail == null) tail = kf + Math.round(fps * 3.5);       // kapanış kartı ve jenerik görünsün
+        if (st === 'ended' && tail == null) tail = kf + Math.round(fps * 6);         // kararma ve son kart (cinema.js finish) görünsün
         if ((tail != null && kf >= tail) || kf >= maxFrames) break;
         if (kf % 3 === 0) {
           const s = H.cinema.shot, el = (Date.now() - started) / 1000, est = H.cinema.estimate ? H.cinema.estimate(cut) : null;
