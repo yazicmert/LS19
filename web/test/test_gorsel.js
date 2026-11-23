@@ -1,10 +1,11 @@
 // Dünya ve Ay görsellerinin doğrulaması (Node 20+): cd web && node test/test_gorsel.js
 //  1) atmosfer: fiziksel tek saçılma (Rayleigh + Mie), Dünya gölgesi, önçarpımlı karışım, kamera içerideyken arka yüz; gölgelendiricinin sayısal eşi
 //     (aynı katsayılar) gökyüzü maviliğini, ufkun kızıllığını ve gece tarafının karanlığını verir
+//  2) Ay kabartma gölgesi: LOLA yükseklik alanında Güneş yönünde yürüyüş, eğrilik, yalnız alçak Güneş, yakında söner; yükseklik çözümü VS_BODY ile aynı
 import { register } from 'node:module';
 import { sceneSrc } from './scenesrc.js';
 register('./importmap_loader.mjs', import.meta.url);
-const { FS_ATM } = await import('../js/bodyshaders.js');
+const { FS_ATM, FS_MOON, VS_BODY } = await import('../js/bodyshaders.js');
 
 let fail = 0;
 const check = (name, ok, detail = '') => { console.log(`${ok ? 'TAMAM' : 'HATA '} ${name}${detail ? ' — ' + detail : ''}`); if (!ok) fail++; };
@@ -45,6 +46,19 @@ const scene = sceneSrc();
   const cam = [0, -20000, 0], toC = (x) => { const d = [x - cam[0], -cam[1], 0]; const n = Math.hypot(...d); return d.map((v) => v / n); };
   const sunSide = [0, -1, 0], centre = sky(cam, toC(0), sunSide), limb = sky(cam, toC(Rp + 20), sunSide);
   check('uzaydan: kenar (teğet bakış) disk merkezinden en az 1,5 kat parlak', limb[2] > 1.5 * centre[2], `merkez ${centre[2].toExponential(2)}, kenar ${limb[2].toExponential(2)}`);
+}
+
+// ---------------------------------------------------------------- 2) Ay kabartma gölgesi
+{
+  const dec = (src, name) => (src.match(new RegExp(`float ${name}\\(vec4 c\\) \\{ return ([^}]*) \\}`)) || [])[1];
+  check('Ay kabartma gölgesi: Güneş yönünde 12 adım (2,2 km × 1,45ⁿ ≈ 140 km), eğrilik payı s²/2R, yalnız alçak Güneş (< 30°), yakında söner; doğrudan ışığı çarpar',
+    /float reliefShadow\(vec3 N, vec3 T, vec3 B, vec3 L\)/.test(FS_MOON) && /k < 12/.test(FS_MOON) && /s = 2\.2/.test(FS_MOON) && /s \*= 1\.45/.test(FS_MOON)
+    && /s \* s \/ \(2\.0 \* radius\)/.test(FS_MOON) && /sEl > 0\.5\) return 1\.0/.test(FS_MOON) && /float near = smoothstep\(0\.06, 0\.2, length\(fwidth\(vUv \* hSize\)\)\)/.test(FS_MOON)
+    && /float mu0 = max\(dot\(Np, L\), 0\.0\) \* reliefShadow\(N, T, B, L\)/.test(FS_MOON));
+  check('yükseklik çözümü gölgelendiricilerde aynı (R·256+G, −10…+11 km)', dec(VS_BODY, 'decH') && dec(VS_BODY, 'decH') === dec(FS_MOON, 'decHf'));
+  // geometri: en uzun adım ≥ 100 km (alçak Güneş'te 4 km'lik sırt 2°'de ~115 km gölge düşürür)
+  let s = 2.2, top = 0; for (let k = 0; k < 12; k++) { top = s; s *= 1.45; }
+  check('yürüyüş erimi: son adım ≥ 100 km', top >= 100, `${top.toFixed(0)} km`);
 }
 
 console.log(fail ? `\n${fail} HATA` : '\nTAMAM');

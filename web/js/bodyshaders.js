@@ -133,9 +133,32 @@ export const FS_MOON = /* glsl */`
 #include <logdepthbuf_pars_fragment>
 uniform sampler2D colorMap, normalMap, tileMap; uniform vec3 sunDir, earthDir; uniform float sunI, holeCos, albScale, useTile, lodDelta, tileAlpha, latCut, tilePull; uniform vec3 siteDir;
 uniform sampler2D parentMap; uniform vec4 pXf; uniform float pHas, tileFade;          // parça geçişi (tiles.js)
+uniform sampler2D heightMap; uniform vec2 hSize; uniform float radius, useHeight;       // LOLA yükseklik alanı (VS_BODY ile aynı): kabartma gölgesi
 varying vec2 vUvT;
 varying vec3 vN; varying vec3 vE; varying vec3 vPos; varying vec2 vUv; varying vec3 vLocal;
 ${GLSL_NOISE}
+float decHf(vec4 c) { return (c.r * 255.0 * 256.0 + c.g * 255.0) / 65535.0 * 21.0 - 10.0; }
+float hAtF(vec2 uv) {                                                                      // VS_BODY hAt ile aynı: elle çift doğrusal (16 bit R·256+G kodlu, nearest doku)
+  vec2 p = uv * hSize - 0.5; ivec2 i0 = ivec2(floor(p)); vec2 f = fract(p);
+  int W = int(hSize.x), H = int(hSize.y);
+  int x0 = i0.x < 0 ? i0.x + W : (i0.x >= W ? i0.x - W : i0.x); int x1 = x0 + 1 >= W ? 0 : x0 + 1;
+  int ya = clamp(i0.y, 0, H - 1), yb = clamp(i0.y + 1, 0, H - 1);
+  return mix(mix(decHf(texelFetch(heightMap, ivec2(x0, ya), 0)), decHf(texelFetch(heightMap, ivec2(x1, ya), 0)), f.x),
+             mix(decHf(texelFetch(heightMap, ivec2(x0, yb), 0)), decHf(texelFetch(heightMap, ivec2(x1, yb), 0)), f.x), f.y);
+}
+// kabartma gölgesi: yüzeyde Güneş'in yönünde (teğet düzlemde) 12 adım (≈2–140 km, artan), Ay'ın eğriliği dahil; yolda Güneş'in yükselişinden dik bir sırt varsa gölge.
+// Yalnız alçak Güneş'te (gece–gündüz sınırı, yükseliş < ~30°): uzun gölgeler orada; yüksek Güneş'te gölgeler kısa ve normal haritası yeter. Yumuşak kenar (yarı gölge)
+float reliefShadow(vec3 N, vec3 T, vec3 B, vec3 L) {
+  float sEl = dot(N, L); if (useHeight < 0.5 || sEl <= 0.0 || sEl > 0.5) return 1.0;
+  vec3 Lt = L - N * sEl; float lt = length(Lt); if (lt < 1e-5) return 1.0; Lt /= lt;
+  float east = dot(Lt, T), north = dot(Lt, B), clat = max(sqrt(max(1.0 - vLocal.z * vLocal.z, 0.0)), 0.03);
+  float tanEl = sEl / sqrt(max(1.0 - sEl * sEl, 1e-6)), h0 = hAtF(vUv), mx = -1e9, s = 2.2;
+  vec2 kUv = vec2(east / (2.0 * PI * radius * clat), north / (PI * radius));
+  for (int k = 0; k < 12; k++) { float hk = hAtF(vUv + kUv * s); mx = max(mx, (hk - h0 - s * s / (2.0 * radius)) / s); s *= 1.45; }
+  float pen = 0.015 + 0.25 * tanEl;                                                       // yarı gölge: alçak Güneş'te dar
+  float near = smoothstep(0.06, 0.2, length(fwidth(vUv * hSize)));                         // çok yakında (bir hücre ekranda > ~15 px) kaba gölge söner: ince arazi kendi kabartmasıyla
+  return 1.0 - smoothstep(tanEl - pen, tanEl + pen, mx) * smoothstep(0.5, 0.42, sEl) * near;
+}
 void main() {
   if (dot(normalize(vLocal), siteDir) > holeCos) discard;
   #include <logdepthbuf_fragment>
@@ -147,7 +170,7 @@ void main() {
   vec3 nm = texture2D(normalMap, vUv).xyz * 2.0 - 1.0;
   vec3 Np = normalize(T * nm.x + B * nm.y + N * max(nm.z, 0.2));
   vec3 L = normalize(sunDir), V = normalize(-vPos);
-  float mu0 = max(dot(Np, L), 0.0), mu = max(dot(N, V), 0.05);
+  float mu0 = max(dot(Np, L), 0.0) * reliefShadow(N, T, B, L), mu = max(dot(N, V), 0.05);
   float I = mix(mu0, 2.0 * mu0 / (mu0 + mu + 1e-4), 0.45);
   vec3 alb = texture2D(colorMap, vUv).rgb * albScale;
   // yüksek çözünürlüklü WAC parçası: taban rengi korunur, parçanın taban çözünürlüğünün altındaki yerel kontrastı (krater, ışın, gölge) eklenir
