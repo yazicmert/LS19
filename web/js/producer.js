@@ -207,6 +207,9 @@ export function decodeCut(s) {
 export const PRESETS = {
   director: { name: 'Yönetmenin kurgusu', set: {} },
   short: { name: 'Kısa kurgu', set: { tempo: 0.7, mood: 'gerilim', ch: { asc: { on: false }, park: { on: false }, sep: { on: false }, llo: { on: false }, sep2: { on: false }, coast: { len: 'short' }, pdi: { len: 'short' } } } },
+  // sosyal medya (Reels, TikTok, Shorts): ~1 dk, tam kadraj (dikey dışa aktarıma uygun), yalnız doruk anları: transfer yakışı, Ay'a varış, iniş, temas
+  reels: { name: 'Sosyal medya (dikey, ~1 dk)', set: { tempo: 0.6, aspect: 'full', mood: 'gerilim', hSize: 1.15, timeline: false, hold: 0.8,
+    ch: { asc: { on: false }, park: { on: false }, sep: { on: false }, llo: { on: false }, sep2: { on: false }, uydu: { len: 'short' }, tli: { len: 'short', trans: 'flash' }, coast: { len: 'short' }, loi: { len: 'short' }, pdi: { len: 'short' }, outro: { len: 'short' } } } },
   doc: { name: 'Belgesel', set: { tempo: 1.4, film: 'light', mood: 'umut', hFont: 'grotesk', tFont: 'grotesk', upper: false, track: 'tight', cardPos: 'tl', cuePos: 'bc', hold: 1.4, ch: { coast: { len: 'long' }, llo: { len: 'long' }, pdi: { len: 'long' } } } },
   epic: { name: 'Destansı', set: { tempo: 1.15, aspect: '239', film: 'strong', grade: 'teal', mood: 'gerilim', hFont: 'cinzel', hSize: 1.2, track: 'wide', cardPos: 'c', titlePos: 'c', closePos: 'c', ink: 'gold', accent: 'amber',
     ch: { tli: { cam: 'engine', trans: 'flash' }, sep: { trans: 'flash' }, coast: { cam: 'wide' }, loi: { cam: 'ots' }, llo: { cam: 'orbit' }, land: { trans: 'cut' } } } },

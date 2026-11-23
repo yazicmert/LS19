@@ -25,7 +25,7 @@ export class ExportPanel {
   constructor(o) {
     this.o = o; this.cut = null; this.url = null;
     let saved = {}; try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { saved = {}; }
-    this.opt = { res: ['2160', '1440', '1080'].includes(String(saved.res)) ? String(saved.res) : '2160', fps: o.EX.FPS.includes(saved.fps) ? saved.fps : 30, quality: ['std', 'high', 'max'].includes(saved.quality) ? saved.quality : 'high', audio: saved.audio !== false };
+    this.opt = { bicim: saved.bicim === 'dikey' ? 'dikey' : 'yatay', res: ['2160', '1440', '1080'].includes(String(saved.res)) ? String(saved.res) : '2160', fps: o.EX.FPS.includes(saved.fps) ? saved.fps : 30, quality: ['std', 'high', 'max'].includes(saved.quality) ? saved.quality : 'high', audio: saved.audio !== false };
     const root = this.root = el('div', 'xpanel'); root.hidden = true; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-labelledby', 'xpTitle');
     const box = this.box = el('div', 'xp-box'); root.append(box);
     // ekran okuyucu: kare kare değişen ilerleme metni sessiz; yalnız evre değişimleri ve sonuç duyurulur
@@ -33,6 +33,8 @@ export class ExportPanel {
     document.body.append(root);
     root.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Escape' && !this.running) this.close(); });
   }
+  // etkin çözünürlük: dikeyde 1080 × 1920 (exporter.js RES.dikey), yatayda seçilen
+  res() { return this.opt.bicim === 'dikey' ? 'dikey' : this.opt.res; }
   say(t) { this.sr.textContent = t ? translateText(t) : ''; }   // sanal saat rAF/setTimeout'u tutabilir: doğrudan yaz
   save() { try { localStorage.setItem(KEY, JSON.stringify(this.opt)); } catch (e) { /* özel pencere */ } }
   open(cut) { this.cut = cut; this.root.hidden = false; this.root.classList.remove('running'); this.viewOptions(); }
@@ -55,7 +57,9 @@ export class ExportPanel {
     b.append(this.head('Fragmanı video olarak kaydet', 'Her kare tam çözünürlükte, kare kare çizilir: video akıcı olur, bilgisayarın hızı yalnız bekleme süresini değiştirir.'));
     const body = el('div', 'xp-body'), O = this.opt, ch = () => { this.save(); this.refresh(); };
     body.append(
-      this.seg('Çözünürlük', [['2160', '4K', '3840 × 2160'], ['1440', '1440p', '2560 × 1440'], ['1080', '1080p', '1920 × 1080']], () => O.res, (v) => { O.res = v; ch(); }),
+      this.seg('Biçim', [['yatay', 'Yatay', '16:9 · YouTube, sunum'], ['dikey', 'Dikey', '9:16 · Reels, TikTok, Shorts']], () => O.bicim, (v) => { if (O.bicim === v) return; O.bicim = v; this.save(); this.viewOptions(); }),
+      ...(O.bicim === 'dikey' ? [el('p', 'pd-note xp-vertical', 'Dikey video 1080 × 1920 olarak kaydedilir: sinema bantları kalkar, yazılar telefon ekranına göre yerleşir.')]
+        : [this.seg('Çözünürlük', [['2160', '4K', '3840 × 2160'], ['1440', '1440p', '2560 × 1440'], ['1080', '1080p', '1920 × 1080']], () => O.res, (v) => { O.res = v; ch(); })]),
       this.seg('Kare hızı', this.o.EX.FPS.map((f) => [f, `${f}`, f === 24 ? translateText('sinema') : f === 60 ? translateText('çok akıcı') : translateText('standart')]), () => O.fps, (v) => { O.fps = v; ch(); }),
       this.seg('Kalite', [['std', 'Standart', 'küçük dosya'], ['high', 'Yüksek', 'önerilen'], ['max', 'En yüksek', 'büyük dosya']], () => O.quality, (v) => { O.quality = v; ch(); }));
     const au = el('label', 'pd-check'), ai = el('input'); ai.type = 'checkbox'; ai.checked = O.audio; ai.onchange = () => { O.audio = ai.checked; ch(); };
@@ -73,11 +77,11 @@ export class ExportPanel {
     go.focus();
   }
   async refresh() {
-    const O = this.opt, EX = this.o.EX, R = EX.RES[O.res], sec = this.o.estimate(this.cut), vbps = EX.videoBitrate(O.res, O.fps, O.quality);
+    const O = this.opt, EX = this.o.EX, R = EX.RES[this.res()], sec = this.o.estimate(this.cut), vbps = EX.videoBitrate(this.res(), O.fps, O.quality);
     const bytes = sec ? EX.estimateBytes(sec, vbps, O.audio ? EX.AUDIO_BPS : 0) : null;
-    this.info.replaceChildren(el('span', null, `${R.name} · ${O.fps} ${translateText('kare/s')}`), el('span', null, sec ? `${translateText('Video')} ≈ ${mmss(sec)}` : ''), el('span', null, bytes ? `${translateText('Dosya')} ≈ ${mb(bytes)}` : ''), el('span', 'xp-codec', translateText('Denetleniyor…')));
+    this.info.replaceChildren(el('span', null, `${this.res() === 'dikey' ? `${translateText('Dikey')} 1080 × 1920` : R.name} · ${O.fps} ${translateText('kare/s')}`), el('span', null, sec ? `${translateText('Video')} ≈ ${mmss(sec)}` : ''), el('span', null, bytes ? `${translateText('Dosya')} ≈ ${mb(bytes)}` : ''), el('span', 'xp-codec', translateText('Denetleniyor…')));
     this.goBtn.disabled = true; const token = this.tok = {};
-    const p = await this.o.exporter.probe(O.res, O.fps, O.quality, O.audio).catch(() => null);
+    const p = await this.o.exporter.probe(this.res(), O.fps, O.quality, O.audio).catch(() => null);
     if (token !== this.tok) return;
     const w = []; let ok = !!p;
     if (!this.o.planned()) { ok = false; w.push('Görev henüz tasarlanmadı: önce görevin hazır olmasını bekle.'); }
@@ -97,7 +101,7 @@ export class ExportPanel {
 
   // ---------------------------------------------------------------- dışa aktarım
   async start() {
-    const O = this.opt, EX = this.o.EX, name = EX.fileName(this.cut, O.res, O.fps);
+    const O = this.opt, EX = this.o.EX, name = EX.fileName(this.cut, this.res(), O.fps);
     let handle = null;
     if (typeof window.showSaveFilePicker === 'function') {
       try { handle = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'MP4', accept: { 'video/mp4': ['.mp4'] } }] }); }
@@ -106,7 +110,7 @@ export class ExportPanel {
     this.running = true; this.root.classList.add('running'); this.viewProgress();
     const t0 = Date.now();
     try {
-      const r = await this.o.exporter.run({ cut: this.cut, res: O.res, fps: O.fps, quality: O.quality, audio: O.audio, handle, onProgress: (p) => this.progress(p) });
+      const r = await this.o.exporter.run({ cut: this.cut, res: this.res(), fps: O.fps, quality: O.quality, audio: O.audio, handle, onProgress: (p) => this.progress(p) });
       this.running = false; this.root.classList.remove('running'); this.viewDone(r, handle, name, (Date.now() - t0) / 1000);
     } catch (e) {
       this.running = false; this.root.classList.remove('running');

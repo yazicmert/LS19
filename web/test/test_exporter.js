@@ -51,7 +51,10 @@ const rd = (f) => fs.readFileSync(new URL(f, import.meta.url), 'utf8');
     [X.avcCodec(3840, 2160, 30), X.avcCodec(3840, 2160, 60), X.avcCodec(1920, 1080, 30)].join());
   const v = X.videoBitrate('2160', 30, 'high');
   check('bit hızı: 4K yüksek 30 kare/s 45 Mbit/s; 60 kare/s ×1,6; standart ×0,7; dosya boyu süre × hız / 8', v === 45e6 && X.videoBitrate('2160', 60, 'high') === 72e6 && X.videoBitrate('2160', 30, 'std') === 31.5e6 && X.estimateBytes(100, 8e6, 0) === Math.round(100e6 * 1.01));
-  check('çözünürlükler 16:9, CSS yerleşimi 1920 × 1080 (4K\'da piksel oranı 2)', Object.values(X.RES).every((r) => r.w * 9 === r.h * 16) && X.RES[2160].w / X.CSS_W === 2 && X.FPS.join() === '24,30,60');
+  check('çözünürlükler yerleşimiyle aynı oranda: yatay 16:9 (CSS 1920 × 1080, 4K\'da piksel oranı 2), dikey 9:16 (1080 × 1920, piksel oranı 1)',
+    Object.values(X.RES).every((r) => r.w * r.ch === r.h * r.cw && (r.w * 9 === r.h * 16 || r.w * 16 === r.h * 9)) && X.RES[2160].w / X.CSS_W === 2 && X.RES[2160].cw === X.CSS_W
+    && X.RES.dikey.w === 1080 && X.RES.dikey.h === 1920 && X.RES.dikey.cw === 1080 && X.dikeyMi('dikey') && !X.dikeyMi('2160') && X.FPS.join() === '24,30,60'
+    && X.avcCodec(1080, 1920, 30) === X.avcCodec(1920, 1080, 30) && X.fileName({}, 'dikey', 30).includes('1080x1920'));
   check('dosya adı: Türkçe harfler sadeleşir, güvenli karakterler, çözünürlük ve kare hızı', X.fileName({ title: 'Ayşe’nin Ay’ı: İLK/1' }, '2160', 30) === 'LS19-Aysenin-Ayi-ILK1-4K-30fps.mp4' && X.fileName({}, '1080', 60) === 'LS19-fragman-1080p-60fps.mp4', X.fileName({ title: 'Ayşe’nin Ay’ı: İLK/1' }, '2160', 30));
 }
 

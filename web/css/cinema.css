@@ -115,8 +115,15 @@ body.cine-on #view { cursor: none; }
 .cine-flash.go { animation: cine-flash 0.55s var(--cine-out) both; }
 @keyframes cine-flash { from { opacity: 0.8; } to { opacity: 0; } }
 
-/* dar ya da dikey ekran (telefon): veri şeridi 2×2 ızgara, kartlar tam genişlik, kapanış kartı üstte */
-@media (max-width: 700px), (max-aspect-ratio: 1/1) {
+/* zaman çizelgesi (bölüm işaretleri) için yer: şerit, kart ve alt yazı biraz yukarıda. Dar/kısa/dikey kap sorgularından ÖNCE durmalı (onlar bunu ezer) */
+.cine-strip { bottom: calc(var(--bar) + clamp(40px, 6.4cqh, 66px)); }
+.cine-timeline { bottom: calc(var(--bar) + 12px); }
+.cine-card { bottom: calc(var(--bar) + clamp(104px, 15.5cqh, 170px)); }
+.cine-cue { bottom: calc(var(--bar) + clamp(104px, 15.5cqh, 170px)); }
+
+/* dar ya da dikey kadraj (telefon, dikey dışa aktarım): veri şeridi 2×2 ızgara, kartlar tam genişlik, kapanış kartı üstte.
+   Kap sorgusu (.cine container-type: size): pencere değil fragman alanının boyu belirler — dikey video yatay pencerede de dikey yerleşimle çizilir */
+@container (max-width: 700px) or (max-aspect-ratio: 1/1) {
   .cine-strip { left: 24px; right: 24px; bottom: calc(var(--bar) + 24px); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; align-items: end; }
   .cs-phase { display: none; }
   .cs-warp { margin-left: 0; text-align: left; }
@@ -137,8 +144,20 @@ body.cine-on #view { cursor: none; }
   .cine-cue { right: 24px; left: 24px; max-width: none; top: calc(var(--bar) + 58px); bottom: auto; font-size: calc(10px * var(--cine-tk, 1)); letter-spacing: 0.16em; }
 }
 
+/* 9:16 dikey (Reels, TikTok, Shorts ve dikey telefon): uygulamanın üst ve alt arayüzü kadrajın kenarlarını kapatır — işaret, alt yazı ve kapanış kartı biraz aşağıda,
+   veri şeridi ve bölüm kartı biraz yukarıda durur (güvenli alan) */
+@container (max-aspect-ratio: 10/16) {
+  .cine-bug { top: calc(var(--bar) + 6cqh); }
+  .cine-cue { top: calc(var(--bar) + 6cqh + 58px); }
+  .cine-card.close { top: calc(var(--bar) + 6cqh + 36px); }
+  .cine-strip { bottom: calc(var(--bar) + 8cqh); }
+  .cine-timeline { bottom: calc(var(--bar) + 8cqh - 15px); }
+  .cine-card { bottom: calc(var(--bar) + 8cqh + 150px); }
+  .cine-card.open { bottom: auto; }
+}
+
 /* kısa ekran (yatay telefon): başlıklar yüksekliğe göre ölçeklenir, kartlar sıkılaşır */
-@media (max-height: 520px) {
+@container (max-height: 520px) {
   .cine-card { bottom: calc(var(--bar) + 76px); }
   .cc-h { font-size: calc(min(clamp(22px, 3.4cqw, 52px), 7cqh) * var(--cine-k, 1)); }
   .cc-rule { margin: 10px 0 8px; }
@@ -184,10 +203,6 @@ body.cine-on #view { cursor: none; }
   color: rgba(243, 239, 230, 0.5); text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9); }
 .ct-ticks i.done b { color: rgba(243, 239, 230, 0.78); } .ct-ticks i.cur b { color: var(--cine-accent); }
 .ct-ticks i:first-child b { left: 0; transform: none; } .ct-ticks i:last-child b { left: auto; right: 0; transform: none; }
-.cine-strip { bottom: calc(var(--bar) + clamp(40px, 6.4cqh, 66px)); }
-.cine-timeline { bottom: calc(var(--bar) + 12px); }
-.cine-card { bottom: calc(var(--bar) + clamp(104px, 15.5cqh, 170px)); }
-.cine-cue { bottom: calc(var(--bar) + clamp(104px, 15.5cqh, 170px)); }
 
 /* cisim etiketleri (geniş çekim): nokta + kılavuz çizgi + ad + uzaklık */
 .cine-tags { position: absolute; inset: 0; }
@@ -215,7 +230,7 @@ body.cine-on #view { cursor: none; }
 .cc-credits span { display: block; font: 500 9px var(--cine-tf, var(--mono)); letter-spacing: 0.22em; text-transform: uppercase; color: var(--cine-accent); }
 .cc-credits p { margin: 3px 0 0; font: 400 10px / 1.45 var(--cine-tf, var(--mono)); letter-spacing: 0.03em; color: var(--cine-ink-2); }
 
-@media (max-width: 900px), (max-aspect-ratio: 1/1) { .ct-ticks i b { display: none; } .ct-ticks i.cur b { display: block; } .cc-credits { grid-template-columns: 1fr; } .cine-tag span { display: none; } }
+@container (max-width: 900px) or (max-aspect-ratio: 1/1) { .ct-ticks i b { display: none; } .ct-ticks i.cur b { display: block; } .cc-credits { grid-template-columns: 1fr; } .cine-tag span { display: none; } }
 @media (prefers-reduced-motion: reduce) { .cine-card.title .cine-emblem, .cc-credits { transform: none; } }
 .ct-ticks i.tight b { display: none; } .ct-ticks i.tight.cur b { display: block; }
 .ct-ticks i.cur ~ i:not(.tight) b { opacity: 0.85; }
@@ -252,7 +267,7 @@ body.cine-on #view { cursor: none; }
 .cine[data-bug="off"] .cine-bug { display: none; }
 .cine[data-bug="tr"] .cine-bug { left: auto; right: clamp(24px, 6cqw, 96px); top: calc(var(--bar) + clamp(56px, 8cqh, 76px)); flex-direction: row-reverse; text-align: right; }
 .cine[data-bug="tr"] .cb-t { align-items: flex-end; }
-@media (min-width: 701px) and (min-aspect-ratio: 1/1) {
+@container (min-width: 701px) and (min-aspect-ratio: 1/1) {
   .cine[data-cue="bl"] .cine-cue { right: auto; left: clamp(24px, 6cqw, 96px); bottom: calc(var(--bar) + clamp(230px, 34cqh, 340px)); text-align: left; padding-right: 0; padding-left: 12px; border-right: 0; border-left: 2px solid var(--cine-accent); transform: translateX(-10px); }
   .cine[data-cue="bc"] .cine-cue, .cine[data-cue="tc"] .cine-cue { left: 0; right: 0; margin: 0 auto; max-width: min(760px, 80cqw); text-align: center; padding: 0; border-right: 0; transform: translateY(6px); }
   .cine[data-cue="bc"] .cine-cue { bottom: calc(var(--bar) + clamp(76px, 11cqh, 110px)); }
@@ -285,7 +300,7 @@ body.cine-on .cine-pv:not([hidden]) ~ * { cursor: default; }
 .cine-edit[hidden] { display: none; }
 @media (hover: none) { .cine-edit { opacity: 0.8; } }
 @media (hover: hover) and (pointer: fine) { .cine-edit:hover, .cine-mute:hover { background: rgba(255, 255, 255, 0.16); } }
-@media (max-width: 700px), (max-aspect-ratio: 1/1) { .cine-edit { right: 180px; } .cine-edit span { display: none; } }
+@container (max-width: 700px) or (max-aspect-ratio: 1/1) { .cine-edit { right: 180px; } .cine-edit span { display: none; } }
 
 /* dokunmatik: klavye kısayolları (Esc, Boşluk, →, M) işe yaramaz ve logonun altındaki satırla çakışıyordu; ekranda Ses ve Çık düğmeleri var */
 @media (pointer: coarse) { .cine-hint { display: none; } }
