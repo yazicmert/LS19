@@ -628,6 +628,7 @@ worker.onmessage = (e) => {
   }
   if (d.type === 'ready' || d.type === 'restarted') {
     ui.reset(d.plan, d.t0, S.DESIGN.LAUNCH.t_launch);
+    if (d.type === 'ready' || !d.seek) world.setRealClouds(E.utcMsFromT(S.DESIGN.LAUNCH.t_launch)).catch(() => {});      // görev gününün gerçek bulutları (bulutlar.js; aynı gün yeniden inmez)
     if (d.type === 'restarted') cinema.onRestarted();
     world.resetTrail(); world.resetDynamic && world.resetDynamic();
     if (d.type === 'ready') revealAt = performance.now() + 1500; else $('#loading').style.display = 'none';      // yeni görev: örtü ilk gerçek kare bitince kalkar (frame › reveal)

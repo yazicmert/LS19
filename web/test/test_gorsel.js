@@ -1,11 +1,14 @@
 // Dünya ve Ay görsellerinin doğrulaması (Node 20+): cd web && node test/test_gorsel.js
 //  1) atmosfer: fiziksel tek saçılma (Rayleigh + Mie), Dünya gölgesi, önçarpımlı karışım, kamera içerideyken arka yüz; gölgelendiricinin sayısal eşi
 //     (aynı katsayılar) gökyüzü maviliğini, ufkun kızıllığını ve gece tarafının karanlığını verir
+//  3) görev gününün bulutları (NASA GIBS VIIRS): gün seçimi, parça adresi, mozaik boyu, zemine göre bulut çözümü, bulut gölgesi, sahne ve uygulama bağlantısı
 //  2) Ay kabartma gölgesi: LOLA yükseklik alanında Güneş yönünde yürüyüş, eğrilik, yalnız alçak Güneş, yakında söner; yükseklik çözümü VS_BODY ile aynı
 import { register } from 'node:module';
 import { sceneSrc } from './scenesrc.js';
 register('./importmap_loader.mjs', import.meta.url);
-const { FS_ATM, FS_MOON, VS_BODY } = await import('../js/bodyshaders.js');
+const { FS_ATM, FS_MOON, VS_BODY, FS_EARTH } = await import('../js/bodyshaders.js');
+const BL = await import('../js/bulutlar.js');
+import fs from 'fs';
 
 let fail = 0;
 const check = (name, ok, detail = '') => { console.log(`${ok ? 'TAMAM' : 'HATA '} ${name}${detail ? ' — ' + detail : ''}`); if (!ok) fail++; };
@@ -59,6 +62,24 @@ const scene = sceneSrc();
   // geometri: en uzun adım ≥ 100 km (alçak Güneş'te 4 km'lik sırt 2°'de ~115 km gölge düşürür)
   let s = 2.2, top = 0; for (let k = 0; k < 12; k++) { top = s; s *= 1.45; }
   check('yürüyüş erimi: son adım ≥ 100 km', top >= 100, `${top.toFixed(0)} km`);
+}
+
+// ---------------------------------------------------------------- 3) gerçek bulutlar
+{
+  const G = 864e5, now = Date.UTC(2026, 10, 23, 15), gun = (y, m, d) => Date.UTC(y, m - 1, d, 9);
+  check('bulut günü: geçmiş kalkış o gün; bugün ve gelecek dün (günlük mozaik ertesi gün tamamlanır); tarih yoksa dün',
+    BL.bulutGunu(gun(2026, 10, 13), now) === '2026-10-13' && BL.bulutGunu(gun(2026, 11, 23), now) === '2026-11-22' && BL.bulutGunu(gun(2027, 3, 1), now) === '2026-11-22' && BL.bulutGunu(NaN, now) === '2026-11-22' && G > 0);
+  check('GIBS parça adresi ve mozaik boyu: VIIRS NOAA-20, 250m matrisi, z/satır/sütun; seviye 3 = 10 × 5 parça = 5120 × 2560, seviye 2 = 2560 × 1280',
+    BL.parcaAdresi('2026-10-13', 3, 4, 2) === 'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/VIIRS_NOAA20_CorrectedReflectance_TrueColor/default/2026-10-13/250m/3/2/4.jpg'
+    && BL.SEVIYE[3].cols * 512 === BL.SEVIYE[3].w && BL.SEVIYE[3].rows * 512 === BL.SEVIYE[3].h && BL.SEVIYE[2].w === 2560 && BL.SEVIYE[2].h === 1280);
+  check('Dünya gölgelendiricisi: bulut = zemin (sRGB) ile beyaz arasındaki karışımın α\'sı; veri boşluğu ve kar/buz durağan dokudan; bulut gölgesi 6 km/tan(yükseliş), en çok 60 km; eski kenar pusu yok',
+    /vec3 a3 = \(rc - gr\) \/ \(1\.001 - gr\); float al = min\(a3\.r, min\(a3\.g, a3\.b\)\)/.test(FS_EARTH) && /pow\(max\(texture2D\(dayMap, uv\)\.rgb, vec3\(0\.0\)\), vec3\(1\.0 \/ 2\.2\)\)/.test(FS_EARTH)
+    && /step\(0\.03, max\(rc\.r/.test(FS_EARTH) && /dkm = min\(6\.0 \* sqrt/.test(FS_EARTH) && /, 60\.0\)/.test(FS_EARTH) && /\(1\.0 - 0\.5 \* cShade\)/.test(FS_EARTH)
+    && !/vec3\(0\.32, 0\.55, 1\.0\) \* max\(ndl \+ 0\.15/.test(FS_EARTH));
+  const app = fs.readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
+  check('sahne ve uygulama: setRealClouds (aynı gün yeniden inmez, eski doku bırakılır, düşük bellekte seviye 2, ?bulut=0 kapatır); görev kurulunca kalkış günüyle çağrılır',
+    /async setRealClouds\(ms\)/.test(scene) && /if \(gun === this\.realGun\) return true;/.test(scene) && /this\.lowMem \? 2 : 3/.test(scene) && /bulut=0/.test(scene) && /old\.dispose\(\)/.test(scene)
+    && /realMap: \{ value: flat\(\[0, 0, 0, 255\]\) \}, useReal: \{ value: 0 \}/.test(scene) && /world\.setRealClouds\(E\.utcMsFromT\(S\.DESIGN\.LAUNCH\.t_launch\)\)/.test(app));
 }
 
 console.log(fail ? `\n${fail} HATA` : '\nTAMAM');

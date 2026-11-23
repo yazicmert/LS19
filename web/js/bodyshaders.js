@@ -36,9 +36,21 @@ export const FS_EARTH = /* glsl */`
 #include <logdepthbuf_pars_fragment>
 uniform sampler2D dayMap, nightMap, cloudMap, specMap, normalMap, tileMap; uniform vec3 sunDir; uniform float sunI; uniform float obsMode; uniform float useTile, tileKind;
 uniform sampler2D parentMap; uniform vec4 pXf; uniform float pHas, tileFade;          // parça geçişi (tiles.js): ata parça (ya da taban doku) → yeni parça
+uniform sampler2D realMap; uniform float useReal;                                       // görev gününün gerçek renk mozaiği (bulutlar.js; 0: durağan bulut dokusu)
 varying vec2 vUvT;
 varying vec3 vN; varying vec3 vE; varying vec3 vPos; varying vec2 vUv; varying vec3 vLocal;
 ${GLSL_NOISE}
+// bulut örtüsü (saydamlık 0…1) bir uv'de. Durağan doku kontrast eğrisiyle. Gerçek mozaikte piksel = karışım(bulutsuz zemin, beyaz, α) çözülür: zemin Blue Marble
+// gündüz dokusu (sRGB'ye çevrilip mozaikle aynı uzayda), α = kanallarda en küçük (gerçek − zemin) / (1 − zemin). Çöl, kara ve kar kendi renginde kaldığından bulut sayılmaz.
+// Veri boşluğu (siyah şerit) ve kar/buz (zemin beyaza yakın: çözüm kararsız) durağan dokudan
+float cloudAt(vec2 uv) {
+  float cs = smoothstep(0.08, 0.9, texture2D(cloudMap, uv).r);
+  if (useReal < 0.5) return cs;
+  vec3 rc = texture2D(realMap, uv).rgb, gr = pow(max(texture2D(dayMap, uv).rgb, vec3(0.0)), vec3(1.0 / 2.2));
+  vec3 a3 = (rc - gr) / (1.001 - gr); float al = min(a3.r, min(a3.g, a3.b));
+  float m = pow(clamp((al - 0.08) / 0.8, 0.0, 1.0), 1.2), ice = smoothstep(0.7, 0.85, dot(gr, vec3(0.333)));
+  return mix(cs, mix(m, cs, ice), step(0.03, max(rc.r, max(rc.g, rc.b))));
+}
 void main() {
   // kaplama parçaları: 1 = JPEG (saf siyah = kapsam yok, ör. okyanus), 2 = PNG (saydam = veri yok): alttaki Blue Marble görünür
   if (useTile > 0.5 && tileKind > 0.5) { vec4 tq = texture2D(tileMap, vUvT); if ((tileKind < 1.5 && tq.r + tq.g + tq.b < 0.012) || (tileKind > 1.5 && tq.a < 0.5)) discard; }
@@ -53,7 +65,15 @@ void main() {
   float magE = smoothstep(0.9, 0.08, useTile > 0.5 ? length(fwidth(vUvT * 512.0)) : length(fwidth(vUv * vec2(8192.0, 4096.0)))), dnE = 0.0, landE = 1.0 - smoothstep(0.1, 0.5, spec);
   if (magE > 0.001) { dnE = (fbm(vLocal * 600.0) - 0.5) * 0.5 + (fbm(vLocal * 2600.0) - 0.5) * 0.35 + (fbm(vLocal * 11000.0) - 0.5) * 0.15; ndlp *= 1.0 + dnE * 0.7 * magE * landE; }
   float magC = smoothstep(0.9, 0.08, length(fwidth(vUv * vec2(8192.0, 4096.0))));        // bulut dokusu kendi çözünürlüğünü aştıkça seyrelir: yer ayrıntısı bulanık lekelerin altında kalmasın
-  float cloud = texture2D(cloudMap, vUv).r + dnE * 0.4 * magE; cloud = smoothstep(0.08, 0.9, cloud) * (1.0 - 0.6 * magC);
+  float cloud = clamp(cloudAt(vUv) + dnE * 0.3 * magE, 0.0, 1.0) * (1.0 - 0.6 * magC);
+  // bulut gölgesi: bulutlar ~6 km'de; zemin, Güneş yönünde (teğet düzlemde) 6 km / tan(yükseliş) ötedeki bulutun gölgesinde (alçak Güneş'te uzun, en çok 60 km)
+  float cShade = 0.0;
+  if (ndl > 0.0 && magC < 0.95) {
+    vec3 Lt = L - N * ndl; float lt = length(Lt);
+    if (lt > 1e-4) { Lt /= lt; float clat = max(sqrt(max(1.0 - vLocal.z * vLocal.z, 0.0)), 0.03), dkm = min(6.0 * sqrt(max(1.0 - ndl * ndl, 0.0)) / max(ndl, 0.1), 60.0);
+      vec2 o = vec2(dot(Lt, T) / (2.0 * PI * 6371.0 * clat), dot(Lt, B) / (PI * 6371.0)) * dkm;
+      cShade = cloudAt(vUv + o) * (1.0 - 0.6 * magC); }
+  }
   vec3 day = useTile > 0.5 ? texture2D(tileMap, vUvT).rgb : texture2D(dayMap, vUv).rgb;
   if (useTile > 0.5 && tileFade < 0.999) {                                                // yumuşak geçiş: yerinde önceden çizilen kaba görüntüden
     vec4 pq = texture2D(parentMap, vUvT * pXf.xy + pXf.zw); vec3 pc = pHas > 0.5 ? pq.rgb : texture2D(dayMap, vUv).rgb;
@@ -63,14 +83,13 @@ void main() {
   day *= 1.0 + dnE * 0.5 * magE * landE;
   float tw = smoothstep(-0.12, 0.2, ndl);
   vec3 sunCol = mix(vec3(1.0, 0.55, 0.3), vec3(1.0), smoothstep(0.0, 0.35, ndl));
-  vec3 col = day * ndlp * sunCol * tw;
+  vec3 col = day * ndlp * sunCol * tw * (1.0 - 0.5 * cShade);
   float nh = max(dot(N, H), 0.0), glint = spec * (pow(nh, 400.0) * 1.15 + pow(nh, 40.0) * 0.1);                // okyanus Güneş parıltısı: küçük, parlak çekirdek ve ince hâle (geniş, patlak bir leke değil)
   col += glint * sunCol * step(0.0, ndl) * (1.0 - cloud);
   col = mix(col, vec3(0.85) * max(ndl, 0.0) * sunCol * tw, cloud * 0.9);
   vec3 night = texture2D(nightMap, vUv).rgb;
   col += night * vec3(1.0, 0.78, 0.5) * (1.0 - smoothstep(-0.12, 0.05, ndl)) * (1.0 - cloud * 0.85) * 0.9 / sunI;
-  float mu = max(dot(N, V), 0.0);
-  col = mix(col, vec3(0.32, 0.55, 1.0) * max(ndl + 0.15, 0.0) * 0.7, pow(1.0 - mu, 3.0) * 0.45);
+  // kenar pusu: fiziksel atmosfer kabuğunda (FS_ATM)
   // yerdeki gözlemci: yakın zemin doku çözünürlüğünün altında; sade, aydınlanmaya göre koyulaşan zemin (şehir ışığı pikseli büyümesin)
   if (obsMode > 0.5) { float nearG = 1.0 - smoothstep(60.0, 500.0, length(vPos));
     vec3 g = vec3(0.018, 0.02, 0.024) + day * 0.35 * max(ndl, 0.0) * sunCol + vec3(0.25, 0.32, 0.45) * 0.05 * smoothstep(-0.2, 0.1, ndl);

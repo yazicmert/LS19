@@ -215,7 +215,8 @@ export class World {
       normalMap: { value: A.enorm || flat([128, 128, 255, 255]) }, sunDir: { value: new THREE.Vector3(1, 0, 0) }, sunI: { value: EARTH_I },
       heightMap: { value: flat([0, 0, 0, 255]) }, hSize: { value: new THREE.Vector2(1, 1) }, radius: { value: E.R_E }, useHeight: { value: 0 }, obsMode: { value: 0 },
       tileMap: { value: flat([0, 0, 0, 255]) }, useTile: { value: 0 }, tileKind: { value: 0 },
-      parentMap: { value: flat([0, 0, 0, 255]) }, pXf: { value: new THREE.Vector4(1, 1, 0, 0) }, pHas: { value: 0 }, tileFade: { value: 1 } };      // parça geçişi (her parça kendi kopyasını alır: tiles.js)
+      parentMap: { value: flat([0, 0, 0, 255]) }, pXf: { value: new THREE.Vector4(1, 1, 0, 0) }, pHas: { value: 0 }, tileFade: { value: 1 },      // parça geçişi (her parça kendi kopyasını alır: tiles.js)
+      realMap: { value: flat([0, 0, 0, 255]) }, useReal: { value: 0 } };            // görev gününün gerçek bulutları (setRealClouds; parçalar aynı nesneyi paylaşır)
     this.earthGeo = EARTH_SEG.map(([a, b]) => sphereGeometry(E.R_E, a, b)); this.earthLod = 0;          // ayrıntı düzeyleri (earthLodUpdate); ikisi de atılmaz
     this.earth = new THREE.Mesh(this.earthGeo[0], new THREE.ShaderMaterial({ uniforms: eu, vertexShader: VS_BODY, fragmentShader: FS_EARTH }));
     S.add(this.earth);                                    // görüş dışındaki cisim köşe işlemeye girmez (frustum culling): her biri ~1 milyon üçgen
@@ -568,6 +569,22 @@ export class World {
     if (this.terrainReady) this.placeTerrain(rm, Mme, eye, rel);
     return { eye, rel, sd };
   }
+  // görev gününün gerçek bulutları (bulutlar.js, NASA GIBS VIIRS): ms = kalkış anı (UTC). Aynı gün yeniden indirilmez; inmezse durağan bulut dokusu kalır.
+  // Düşük bellekte 2560 × 1280, değilse 5120 × 2560. ?bulut=0 kapatır.
+  async setRealClouds(ms) {
+    if (/[?&]bulut=0\b/.test(location.search)) return false;
+    const B = await import('./bulutlar.js'), gun = B.bulutGunu(ms);
+    if (gun === this.realGun) return true;
+    this.realGun = gun; if (this.realAbort) this.realAbort.abort(); const ac = this.realAbort = new AbortController();
+    let cv = null; try { cv = await B.bulutMozaigi(gun, this.lowMem ? 2 : 3, { signal: ac.signal }); } catch (e) { return false; }
+    if (ac.signal.aborted || this.realGun !== gun) return false;
+    if (!cv) { this.realGun = null; return false; }
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.NoColorSpace; t.wrapS = THREE.RepeatWrapping; t.anisotropy = 4; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter;
+    const eu = this.earthU, old = eu.realMap.value; eu.realMap.value = t; eu.useReal.value = 1;
+    if (old && old.isCanvasTexture) old.dispose();
+    return true;
+  }
+
   // ---------------------------------------------------------------- kare güncelle
   update(x, extra) {
     if (!this.ready || !x) return;
