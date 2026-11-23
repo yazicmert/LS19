@@ -339,7 +339,7 @@ export class Cinema {
     W.cine.place = this.uydu ? (x, info, rel, q) => { if (this.uydu && this.P0) this.uydu.yerlestir(x, info, rel, q, this.P0.INS + SAT_T.ayr, this.P0.TLI ?? Infinity); } : null;
     await loadFonts([this.cut.hFont, this.cut.tFont]);                               // seçilen yazı tipleri (en çok 1,5 s beklenir)
     if (!this.on) { await W.setCinematic(false); return false; }
-    const ui = this.ui; ui.root.classList.remove('ended'); ui.look(this.cut); ui.bug(this.cut.over || translateText('Ay görevi'), this.cut.title || 'LS19');
+    const ui = this.ui; ui.root.classList.remove('ended', 'closing'); ui.look(this.cut); ui.bug(this.cut.over || translateText('Ay görevi'), this.cut.title || 'LS19');
     ui.enter(); ui.fade(1, 0); ui.quality(W.cine.level === 'ultra' ? '4K' : 'HD');
     if (this.audio) this.audio.stop();
     this.audio = this.opts.export ? this.opts.export.recorder : new CineAudio({ mood: this.cut.mood, sfx: this.cut.sfx }); if (!this.opts.preview) this.audio.start();   // dışa aktarımda ses kaydedilir (exporter.js), çalınmaz

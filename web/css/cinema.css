@@ -52,7 +52,7 @@ body.cine-on #view { cursor: none; }
 
 /* açılış kartı ortada; kapanış kartı solda (özne sağda kalır) */
 .cine-card.open { left: 0; right: 0; bottom: auto; top: 38%; max-width: none; margin: 0 auto; text-align: center; transform: translateY(-50%); }
-.cine-card.close { max-width: min(560px, 48cqw); bottom: calc(var(--bar) + clamp(70px, 11cqh, 120px)); }
+.cine-card.close { max-width: min(640px, 56cqw); bottom: calc(var(--bar) + clamp(70px, 11cqh, 120px)); max-height: calc(100cqh - 2 * var(--bar) - clamp(84px, 14cqh, 150px)); }
 .cine-card.open .cc-h { font-size: calc(clamp(44px, 10cqw, 150px) * var(--cine-k, 1)); letter-spacing: calc(0.4em * var(--cine-ls, 1)); padding-left: calc(0.4em * var(--cine-ls, 1)); }
 .cine-card.close .cc-h { font-size: calc(clamp(28px, 4.6cqw, 70px) * var(--cine-k, 1)); letter-spacing: calc(0.26em * var(--cine-ls, 1)); }
 .cine-card.open .cc-rule { margin-left: auto; margin-right: auto; transform-origin: center; width: min(300px, 50%); background: linear-gradient(90deg, transparent, var(--cine-accent), transparent); }
@@ -167,6 +167,7 @@ body.cine-on #view { cursor: none; }
 .cine-bug { position: absolute; top: calc(var(--bar) + clamp(12px, 2.4cqh, 26px)); left: clamp(24px, 6cqw, 96px); display: flex; align-items: center; gap: 10px; color: var(--cine-ink);
   opacity: 0; transition: opacity 0.8s var(--cine-out) 0.9s; text-shadow: 0 1px 10px rgba(0, 0, 0, 0.8); }
 .cine.on .cine-bug { opacity: 0.92; }
+.cine.on.closing .cine-bug { opacity: 0; transition-delay: 0s; transition-duration: 0.5s; }                                  /* kapanış kartı kadrajın sahibi (cinemaui.js card) */
 .cine-bug .cine-emblem { width: clamp(26px, 2.6cqw, 38px); height: auto; filter: drop-shadow(0 1px 6px rgba(0, 0, 0, 0.7)); }
 .cb-t { display: flex; flex-direction: column; gap: 2px; line-height: 1; }
 .cb-t b { font: 600 clamp(11px, 1.05cqw, 14px) var(--cine-hf, var(--font)); letter-spacing: 0.34em; }

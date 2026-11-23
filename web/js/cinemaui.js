@@ -74,6 +74,7 @@ export class CineUI {
     const no = (on) => (on ? ' translate="no"' : '');
     d.innerHTML = `${k === 'title' ? EMBLEM : ''}${idx}${c.over ? `<span class="cc-over"${no(c.userOver)}>${esc(c.over)}</span>` : ''}<h2 class="cc-h"${no(c.user)}>${esc(c.title)}</h2><span class="cc-rule"></span>${c.sub ? `<p class="cc-s"${no(c.userSub)}>${esc(c.sub)}</p>` : ''}${c.extra || ''}`;
     this.cards.appendChild(d);
+    this.root.classList.toggle('closing', k === 'close');                          // kapanış kartı kadrajın sahibi: köşe işareti çekilir (uzun kart üstüne binmesin)
     requestAnimationFrame(() => requestAnimationFrame(() => d.classList.add('in')));
     if (c.hold) this.after(c.hold * 1000, () => this.dismiss(d));
     return d;
