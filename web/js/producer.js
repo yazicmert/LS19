@@ -16,7 +16,7 @@ export const GROUPS = [
   { k: 'park', name: 'Park yörüngesi', ids: ['park-wide', 'park-close'], body: 'E' },
   { k: 'tli', name: "Ay'a transfer yakışı", ids: ['tli-ignite', 'tli-burn'], body: 'E' },
   { k: 'sep', name: 'Kademe ayrılması', ids: ['sep'], body: 'E' },
-  { k: 'coast', name: "Ay'a yolculuk", ids: ['coast-a', 'coast-b', 'coast-c'], body: 'E', bodyOf: { 'coast-c': 'M' } },
+  { k: 'coast', name: "Ay'a yolculuk", ids: ['coast-a', 'coast-b', 'coast-b2', 'coast-c'], body: 'E', bodyOf: { 'coast-b2': 'M', 'coast-c': 'M' } },
   { k: 'loi', name: 'Ay yörüngesine giriş', ids: ['loi-approach', 'loi-burn'], body: 'M' },
   { k: 'llo', name: 'Ay yörüngesi', ids: ['llo'], body: 'M' },
   { k: 'sep2', name: 'İniş kademesi ayrılır', ids: ['sep2'], body: 'M' },

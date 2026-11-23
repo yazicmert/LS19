@@ -142,8 +142,9 @@ check('Apollo iki kademe: dokuz bölüm, anma süre 110–150 s, açılış INS\
     preMono && pre(1000) === 40 && Math.abs(pre(66) - 30) < 1e-9 && pre(0) === 1.5 && pdi.wf({}, { burnT: 1 }) === 1.2 && pdi.wf({ local: { p: [0, 0, 5] } }, { burnT: 5 }) > 20,
     `×${pre(66).toFixed(0)} @66 s, ×${pre(11).toFixed(1)} @11 s, ×${pre(2).toFixed(1)} @2 s`);
   const apr = apollo2.S.find((s) => s.id === 'approach'), lowAlt = (km) => apr.until({ local: { p: [0, 0, km] } });
-  check('temas çekimi: sabit yer kamerası (iniş noktasına bakar, araç kadraja iner); yaklaşma çekimi aracı kadraja alacak irtifada (≤ 40 m) biter',
-    td.rig.type === 'ground' && td.rig.fixed === true && Array.isArray(td.rig.aimUp) && lowAlt(0.03) === true && lowAlt(0.05) === false, `yaklaşma 30 m'de ${lowAlt(0.03) ? 'biter' : 'bitmez'}, 50 m'de ${lowAlt(0.05) ? 'biter' : 'bitmez'}`);
+  const dist0 = Math.hypot(td.rig.x[0], td.rig.y[0]);
+  check('temas çekimi: alçak (≤ 1,5 m) ve yakın (≤ 70 m) yer kamerası inen aracı izler (iniş noktasına sabit değil), dar kadraj (≤ 12 m); yaklaşma çekimi aracı kadraja alacak irtifada (≤ 40 m) biter',
+    td.rig.type === 'ground' && !td.rig.fixed && dist0 <= 70 && Math.max(...td.rig.h) <= 1.5 && Math.max(...td.rig.frame) <= 12 && Array.isArray(td.rig.aimUp) && lowAlt(0.03) === true && lowAlt(0.05) === false, `yaklaşma 30 m'de ${lowAlt(0.03) ? 'biter' : 'bitmez'}, 50 m'de ${lowAlt(0.05) ? 'biter' : 'bitmez'}`);
 }
 
 // ---------------------------------------------------------------- 4) efektler (fx.js)

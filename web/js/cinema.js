@@ -115,6 +115,18 @@ const RIG = {
   },
 };
 
+// aydınlık takip: kamera aracın Güneş'in aydınlattığı tarafında, hedef cismin (Ay/Dünya) ters yönünden bakar — araç ön planda aydınlık, cisim arkada.
+// sun: Güneş yönünün ağırlığı (cismin ters yönü 1); az: kamera yönünü cisim ekseni çevresinde döndürür (rad); aim: bakışı cisme doğru kaydırır (uzaklığın katı)
+RIG.sunChase = (c, p, e) => {
+  const a = (k) => (Array.isArray(p[k]) ? lerp(p[k][0], p[k][1], e) : p[k]);
+  const veh = c.info.vehPos, cen = p.body === 'M' ? c.info.rm : [0, 0, 0], bU = unit(sub(cen, veh)), sU = unit(sub(E.sunPos(c.x.t), veh));
+  let dir = unit(add(scale(sU, a('sun')), scale(bU, -1)));
+  const az = a('az'), cz = Math.cos(az), sz = Math.sin(az), kd = dot(bU, dir);      // Rodrigues: cisim ekseni çevresinde döndür
+  dir = unit(add(add(scale(dir, cz), scale(cross(bU, dir), sz)), scale(bU, kd * (1 - cz))));
+  const z = p.look === 'mid' ? stackZ(c.W, c.x).mid : 0, tgt0 = add(veh, bodyOff(c.q, z)), d = a('dist') * KM;
+  let up = sub([0, 0, 1], scale(dir, dir[2])); up = norm(up) < 1e-6 ? [0, 1, 0] : unit(up);
+  return { eye: add(tgt0, scale(dir, d)), target: add(tgt0, scale(bU, a('aim') * d)), up, fov: a('fov') };
+};
 // kullanıcının uydusu (usersat.js): uydunun yörünge çerçevesinde (LVLH) küresel; uzaklık uydu boyunun k katı (en az min km), yukarısı radyal (Dünya altta)
 RIG.sat = (c, p, e) => {
   const S = c.sat; if (!S) return RIG.lvlh(c, { az: [2.35, 3.05], el: [0.24, 0.13], dist: [0.075, 0.048], fov: [34, 30], look: 'mid' }, e);
@@ -259,8 +271,11 @@ export function buildShots(P, opts = {}) {
     // 4 Ay'a yolculuk
     const tc0 = t('SEP', 400), tcEnd = (has('LOI') ? P.LOI : P.SEP + 300000) - 1200, span = Math.max(4000, tcEnd - tc0), a = Math.min(span * 0.18, 90000), b = Math.min(span * 0.12, 40000);
     add_({ id: 'coast-a', dur: 4.5, wmax: 30000, T: () => [[0, tc0], [1, tc0 + a]], chapter: { short: 'Yolculuk', title: "AY'A YOLCULUK", sub: (c) => `Dünya'dan ${fmt(c.rE, 0)} km uzakta`, at: 0.3, hold: 3.4 },
-      rig: { type: 'ots', body: 'E', dist: [58, 88], side: [30, 42], lift: [10, 15], aim: 0.05, fov: [34, 38], look: 'mid' }, dip: true });
-    add_({ id: 'coast-b', dur: 8.5, wmax: 40000, T: () => [[0, tc0 + a], [1, tcEnd - b]], rig: { type: 'wide', cam: { mode: 'SYSTEM', az: [-1.75, -1.4], el: [0.95, 0.7], dist: [700000, 560000] }, fov: 40, yaw: -0.17 }, lines: true, syn: true, tags: true, beacon: true, dip: true });   // Ay'la dönen çerçeve, yörünge düzlemine yukarıdan: Dünya solda, Ay sağda, gidiş yolu S biçiminde
+      rig: { type: 'ots', body: 'E', dist: [30, 44], side: [13, 19], lift: [5, 8], aim: 0.04, fov: [40, 44], look: 'mid' }, dip: true });      // yakın takip: araç ön planda büyük, Dünya arkada küçülür
+    // ortada: önce Dünya–Ay sistemi yukarıdan (gidiş yolu), sonra aracın arkasından hedefe — Ay önde büyür (yakın plan; iz çizgisi aracın içinden geçmesin diye yok)
+    const tcM = tc0 + a + (tcEnd - b - tc0 - a) * 0.5;
+    add_({ id: 'coast-b', dur: 5, wmax: 40000, T: () => [[0, tc0 + a], [1, tcM]], rig: { type: 'wide', cam: { mode: 'SYSTEM', az: [-1.75, -1.55], el: [0.8, 0.62], dist: [620000, 540000] }, fov: 40, yaw: -0.17 }, lines: true, syn: true, tags: true, beacon: true, dip: true });   // Ay'la dönen çerçeve, yörünge düzlemine yukarıdan: Dünya solda, Ay sağda, gidiş yolu S biçiminde
+    add_({ id: 'coast-b2', dur: 5.5, wmax: 40000, T: () => [[0, tcM], [1, tcEnd - b]], rig: { type: 'sunChase', body: 'M', sun: 1.1, az: [-0.25, 0.2], dist: [36, 27], aim: 0.12, fov: [42, 38], look: 'mid' }, dip: true });
     add_({ id: 'coast-c', dur: 4.5, wmax: 20000, T: () => [[0, tcEnd - b], [1, tcEnd]], rig: { type: 'wide', cam: (c, e) => ({ mode: 'MOON', az: lerp(0.9, 1.5, e), el: 0.32, dist: lerp(90000, 9000, smooth(e)) }), fov: 40 }, lines: true, beacon: true, dip: false });
   }
   // 5 LOI
@@ -295,7 +310,7 @@ export function buildShots(P, opts = {}) {
     add_({ id: 'touchdown', dur: 14, wmin: 0.3, wmax: 20, T: () => [[0, P.INDI - 30], [1, P.INDI + 10]], wf: landWarp,
       until: (x, c) => (x.phase === 'INDI' || x.done) && c.sinceLand > 4.5, minT: 4, shake: 0.25,
       chapter: { short: 'Temas', title: 'TEMAS', sub: (c) => c.touch, at: 'land', hold: 3.8 },
-      rig: { type: 'ground', fixed: true, x: [-40, -34], y: [118, 108], h: [1.7, 1.6], frame: [23, 11], fovMin: 10, fovMax: 46, aimUp: [7.5, 3.2] } });
+      rig: { type: 'ground', x: [-22, -19], y: [60, 54], h: [1.3, 1.15], frame: [10, 7], fovMin: 6, fovMax: 46, aimUp: [-0.8, -1.3] } });      // alçak, yakın yer kamerası inen aracı izler: temasta araç kadrajın ortasında ve büyük
     // kapanış: yüzey evresi (temastan +7 s motor emniyeti, +18 s duruş raporu, +45 s tank tahliyesi, +89 s kalış kararı; alt yazılar) — ~×7
     add_({ id: 'outro', dur: 17, wmin: 1, wmax: 9, T: () => [[0, P.INDI + 5], [0.2, P.INDI + 10], [1, P.INDI + 96]], closing: true,
       rig: { type: 'lvlh', az: [-2.5, -1.7], el: [0.1, 0.3], dist: [0.03, 0.075], fov: [34, 30], look: -1.2, yaw: [0.2, 0.26] } });
