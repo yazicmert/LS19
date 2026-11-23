@@ -262,5 +262,15 @@ check('Apollo iki kademe: dokuz bölüm, anma süre 110–150 s, açılış INS\
     && /ui\.end\(translateText\('Kendi Ay görevini tasarla'\), url\)/.test(cj) && /introO\.textContent = over/.test(cu) && /endS\.textContent = sub/.test(cu)
     && /st === 'intro' \|\| st === 'ascent' \|\| st === 'run'/.test(xj) && /tail = kf \+ Math\.round\(fps \* 6\)/.test(xj) && /this\.stopAscent\(\); this\.dropSat\(\);/.test(cj));
 }
+{
+  // ses: gerilim katmanı, darbe, temas ve final; kayıt (dışa aktarım) aynı olayları yazar
+  const A = await import('../js/cineaudio.js'), C2 = await import('../js/cinema.js'), cj = fs.readFileSync(new URL('../js/cinema.js', import.meta.url), 'utf8');
+  const r = new A.AudioRecorder({}); r.intensity(0.7); r.hit(0.9); r.land(); r.finale();
+  const G = C2.GERILIM;
+  check('ses: kayıt intensity/hit/land/finale yazar (dışa aktarımda üretilir); gerilim yolculukta düşük, yakış ve inişte yüksek, temas en yüksek, kapanışta yok; fragman olayları bağlı',
+    JSON.stringify(r.log.map((e) => e.m)) === '["intensity","hit","land","finale"]' && ['intensity', 'hit', 'land', 'finale'].every((m) => typeof A.CineAudio.prototype[m] === 'function')
+    && G.coast < 0.3 && G.tli >= 0.7 && G.pdi > G.tli && G.land === 1 && G.outro === 0
+    && /this\.audio\.intensity\(GERILIM\[s\.grp\]/.test(cj) && /if \(yanar && !this\.wasBurn && this\.audio && this\.audio\.hit\)/.test(cj) && /if \(!this\.landed\) \{ this\.landed = true;/.test(cj) && /this\.audio\.finale\(\)/.test(cj));
+}
 console.log(fail ? `\n${fail} HATA` : '\nTAMAM');
 process.exit(fail ? 1 : 0);
