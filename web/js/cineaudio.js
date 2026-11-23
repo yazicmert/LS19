@@ -47,6 +47,10 @@ export class AudioRecorder {
   chapter(i) { this.rec('chapter', [i]); }
   thump() { this.rec('thump'); }
   beep() { this.rec('beep'); }
+  intensity(v) { this.rec('intensity', [v]); }
+  hit(p = 1) { this.rec('hit', [p]); }
+  land() { this.rec('land'); }
+  finale() { this.rec('finale'); }
   tick(last = false) { this.rec('tick', [last]); }
   say(key, text, o = {}) { if (this.spoken.has(key)) return; this.spoken.add(key); this.rec('say', [key, text, o]); }
   setMix(o) { if (o.mood) this.mood = o.mood; if (o.sfx != null) this.sfx = o.sfx; this.rec('setMix', [o]); }
@@ -107,6 +111,19 @@ export class CineAudio {
     // çanlar: akorun seslerinden seyrek, yumuşak notalar (sinüs, 2,6 s sönüm) yankıya; müziğe hareket verir
     this.bellOut = c.createGain(); this.bellOut.gain.value = 0.5; this.bellOut.connect(rev); const bd = c.createGain(); bd.gain.value = 0.25; this.bellOut.connect(bd); bd.connect(this.master);
     this.bellN = 0; if (musicOn && !this.offline) this.bellTimer = setInterval(() => this.bell(), 2300);
+    // gerilim katmanı (nabız): alçak sinüs vuruşu + ince gürültü; zarf düşen testere LFO'dan (saldırı anlık, üstel sönüm) — zamanlayıcı yok, çevrimdışı üretimde de aynı.
+    // Yoğunluk (intensity) bölüme göre: kazanç ve tempo; müzik kapalıyken sessiz
+    this.perc = c.createGain(); this.perc.gain.value = 0; this.perc.connect(this.master); const pw = c.createGain(); pw.gain.value = 0.18; this.perc.connect(pw); pw.connect(rev);
+    const env = (rate) => {                                                        // [0,1] zarf: 1'den 0'a düşen testere → u⁴
+      const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = rate; const inv = c.createGain(); inv.gain.value = -0.5; o.connect(inv);
+      const dc = c.createConstantSource(); dc.offset.value = 0.5; const sh = c.createWaveShaper(); const cv = new Float32Array(257);
+      for (let i = 0; i < 257; i++) { const x = i / 128 - 1, u = Math.max(0, x); cv[i] = u ** 4; } sh.curve = cv; inv.connect(sh); dc.connect(sh); o.start(); dc.start(); return { o, out: sh };
+    };
+    this.pulseEnv = env(1.05);
+    const kick = c.createOscillator(); kick.type = 'sine'; kick.frequency.value = 49; const kickG = c.createGain(); kickG.gain.value = 0; this.pulseEnv.out.connect(kickG.gain); kick.connect(kickG); kickG.connect(this.perc); kick.start();
+    const hiEnv = this.hiEnv = env(2.1), hiSrc = c.createBufferSource(); hiSrc.buffer = this.noiseBuffer(2); hiSrc.loop = true;
+    const hiBp = c.createBiquadFilter(); hiBp.type = 'highpass'; hiBp.frequency.value = 2600; const hiG = c.createGain(); hiG.gain.value = 0; hiEnv.out.connect(hiG.gain);
+    this.hi = c.createGain(); this.hi.gain.value = 0; hiSrc.connect(hiBp); hiBp.connect(hiG); hiG.connect(this.hi); this.hi.connect(this.perc); hiSrc.start(); this.intens = 0;
     // motor: döngülü kahverengi gürültü → alçak geçiren → kazanç; çatırtı: aynı gürültü → yüksek geçiren → kazanç (rastgele genlik)
     const noise = this.noiseBuffer(4);
     const src = c.createBufferSource(); src.buffer = noise; src.loop = true;
@@ -169,8 +186,8 @@ export class CineAudio {
     if (c) this.fx.gain.setTargetAtTime(this.sfx ? 1 : 0, c.currentTime, 0.15);
     if (mood === this.mood) return;
     const was = this.mood; this.mood = mood; if (!c) return;
-    if (mood === 'off') { this.music.gain.setTargetAtTime(0, c.currentTime, 0.6); clearInterval(this.bellTimer); this.bellTimer = 0; return; }
-    if (was === 'off') { this.music.gain.setTargetAtTime(0.3, c.currentTime, 1.2); if (!this.bellTimer) this.bellTimer = setInterval(() => this.bell(), 2300); }
+    if (mood === 'off') { this.music.gain.setTargetAtTime(0, c.currentTime, 0.6); clearInterval(this.bellTimer); this.bellTimer = 0; if (this.perc) this.perc.gain.setTargetAtTime(0, c.currentTime, 0.6); return; }
+    if (was === 'off') { this.music.gain.setTargetAtTime(0.3, c.currentTime, 1.2); if (!this.bellTimer) this.bellTimer = setInterval(() => this.bell(), 2300); this.intensity(this.intens || 0); }
     const k = Math.max(0, this.chord); this.chord = -1; this.chapter(k);              // akor yeni ruhla
   }
   // her denetim adımı: gaz, zaman hızı, atmosfer (kalkış)
@@ -202,6 +219,44 @@ export class CineAudio {
   beep() {
     const c = this.ctx; if (!c) return; const t = c.currentTime;
     for (const d of [0, 0.22]) { const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.value = 1180; g.gain.setValueAtTime(0, t + d); g.gain.linearRampToValueAtTime(0.16, t + d + 0.01); g.gain.setValueAtTime(0.16, t + d + 0.12); g.gain.linearRampToValueAtTime(0, t + d + 0.14); o.connect(g); g.connect(this.fx); o.start(t + d); o.stop(t + d + 0.16); }
+  }
+  // gerilim düzeyi 0…1 (cinema.js bölüm başlarken): nabız kazancı ve temposu, ince vuruş yalnız yüksek düzeyde; müzik kapalıyken nabız yok
+  intensity(v) {
+    const c = this.ctx; if (!c || !this.perc) return; const I = Math.max(0, Math.min(1, +v || 0)), t = c.currentTime; this.intens = I;
+    const on = this.mood !== 'off' ? 1 : 0;
+    this.perc.gain.setTargetAtTime(on * 0.55 * I ** 1.6, t, 1.2);
+    this.hi.gain.setTargetAtTime(on * 0.05 * Math.max(0, I - 0.45) / 0.55, t, 1.2);
+    this.pulseEnv.o.frequency.setTargetAtTime(0.95 + 0.55 * I, t, 2); this.hiEnv.o.frequency.setTargetAtTime(2 * (0.95 + 0.55 * I), t, 2);
+  }
+  // darbe (motor ateşleme): derin vuruş + gürültü patlaması, yankılı
+  hit(p = 1) {
+    const c = this.ctx; if (!c) return; const t = c.currentTime, k = Math.max(0.2, Math.min(1.2, p));
+    const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(70, t); o.frequency.exponentialRampToValueAtTime(30, t + 1.1);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.95 * k, t + 0.015); g.gain.exponentialRampToValueAtTime(0.001, t + 1.6); o.connect(g); g.connect(this.fx); o.start(t); o.stop(t + 1.7);
+    const n = c.createBufferSource(), ng = c.createGain(), lp = c.createBiquadFilter(); n.buffer = this.src.buffer; lp.type = 'lowpass'; lp.frequency.setValueAtTime(2400, t); lp.frequency.exponentialRampToValueAtTime(180, t + 0.9);
+    ng.gain.setValueAtTime(0.6 * k, t); ng.gain.exponentialRampToValueAtTime(0.001, t + 1.0); n.connect(lp); lp.connect(ng); ng.connect(this.fx); n.start(t, Math.random() * 2); n.stop(t + 1.1);
+  }
+  // temas: nabız susar (sessizlik anı), sonra müzik açılır: parlak akor, süzgeç açılır, çan
+  land() {
+    const c = this.ctx; if (!c) return; const t = c.currentTime;
+    if (this.perc) { this.perc.gain.cancelScheduledValues(t); this.perc.gain.setTargetAtTime(0, t, 0.08); this.intens = 0; }
+    if (this.mood === 'off') return;
+    this.music.gain.setTargetAtTime(0.12, t, 0.2);
+    const f = this.musicLp.frequency; f.cancelScheduledValues(t); f.setValueAtTime(f.value, t); f.setValueAtTime(f.value, t + 1.1); f.linearRampToValueAtTime(1900, t + 3.4); f.linearRampToValueAtTime(900, t + 9);
+    this.music.gain.setTargetAtTime(0.5, t + 1.1, 0.7); this.music.gain.setTargetAtTime(0.32, t + 6, 2);
+    const fs = chordFreqs(7, this.mood); this.voices.forEach((v, k) => { v.o1.frequency.setTargetAtTime(fs[k], t + 1.1, 0.3); v.o2.frequency.setTargetAtTime(fs[k] * 2, t + 1.1, 0.3); }); this.chord = 7;
+    for (const [d, m] of [[1.15, 4], [1.6, 4], [2.1, 8]]) { const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.value = fs[d === 2.1 ? 2 : 0] * m; g.gain.setValueAtTime(0, t + d); g.gain.linearRampToValueAtTime(0.07, t + d + 0.03); g.gain.exponentialRampToValueAtTime(0.0008, t + d + 2.8); o.connect(g); g.connect(this.bellOut); o.start(t + d); o.stop(t + d + 2.9); }
+  }
+  // son kart: kapanış akoru kabarır, üç çan yükselir, müzik yavaşça söner
+  finale() {
+    const c = this.ctx; if (!c) return; const t = c.currentTime;
+    if (this.perc) this.perc.gain.setTargetAtTime(0, t, 0.3);
+    if (this.mood === 'off') return;
+    const fs = chordFreqs(0, this.mood);
+    this.voices.forEach((v, k) => { v.o1.frequency.setTargetAtTime(fs[k], t, 0.6); v.o2.frequency.setTargetAtTime(fs[k] * 2, t, 0.6); }); this.chord = 0;
+    const f = this.musicLp.frequency; f.cancelScheduledValues(t); f.setValueAtTime(f.value, t); f.linearRampToValueAtTime(1500, t + 1.5); f.linearRampToValueAtTime(500, t + 8);
+    this.music.gain.setTargetAtTime(0.45, t, 0.5); this.music.gain.setTargetAtTime(0, t + 3.5, 1.8);
+    [0, 2, 3].forEach((i, n) => { const d = 0.2 + n * 0.55, o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.value = fs[i] * 4; g.gain.setValueAtTime(0, t + d); g.gain.linearRampToValueAtTime(0.08, t + d + 0.03); g.gain.exponentialRampToValueAtTime(0.0008, t + d + 3.2); o.connect(g); g.connect(this.bellOut); o.start(t + d); o.stop(t + d + 3.3); });
   }
   // konuşma sesi: gösterim boyunca TEK ses. Ses listesi tarayıcıda geç yüklenir; ilk sözce listesiz (dilin varsayılan sesiyle), sonrakiler listeden seçilen başka bir
   // sesle söylenirse geri sayımda bir kadın bir erkek sesi duyulur. Ses bir kez seçilir ve değişmez: liste hazırsa dilin varsayılanı (yoksa ilk eşleşen),

@@ -142,8 +142,9 @@ check('Apollo iki kademe: dokuz bölüm, anma süre 110–150 s, açılış INS\
     preMono && pre(1000) === 40 && Math.abs(pre(66) - 30) < 1e-9 && pre(0) === 1.5 && pdi.wf({}, { burnT: 1 }) === 1.2 && pdi.wf({ local: { p: [0, 0, 5] } }, { burnT: 5 }) > 20,
     `×${pre(66).toFixed(0)} @66 s, ×${pre(11).toFixed(1)} @11 s, ×${pre(2).toFixed(1)} @2 s`);
   const apr = apollo2.S.find((s) => s.id === 'approach'), lowAlt = (km) => apr.until({ local: { p: [0, 0, km] } });
-  check('temas çekimi: sabit yer kamerası (iniş noktasına bakar, araç kadraja iner); yaklaşma çekimi aracı kadraja alacak irtifada (≤ 40 m) biter',
-    td.rig.type === 'ground' && td.rig.fixed === true && Array.isArray(td.rig.aimUp) && lowAlt(0.03) === true && lowAlt(0.05) === false, `yaklaşma 30 m'de ${lowAlt(0.03) ? 'biter' : 'bitmez'}, 50 m'de ${lowAlt(0.05) ? 'biter' : 'bitmez'}`);
+  const dist0 = Math.hypot(td.rig.x[0], td.rig.y[0]);
+  check('temas çekimi: alçak (≤ 1,5 m) ve yakın (≤ 70 m) yer kamerası inen aracı izler (iniş noktasına sabit değil), dar kadraj (≤ 12 m); yaklaşma çekimi aracı kadraja alacak irtifada (≤ 40 m) biter',
+    td.rig.type === 'ground' && !td.rig.fixed && dist0 <= 70 && Math.max(...td.rig.h) <= 1.5 && Math.max(...td.rig.frame) <= 12 && Array.isArray(td.rig.aimUp) && lowAlt(0.03) === true && lowAlt(0.05) === false, `yaklaşma 30 m'de ${lowAlt(0.03) ? 'biter' : 'bitmez'}, 50 m'de ${lowAlt(0.05) ? 'biter' : 'bitmez'}`);
 }
 
 // ---------------------------------------------------------------- 4) efektler (fx.js)
@@ -186,8 +187,9 @@ check('Apollo iki kademe: dokuz bölüm, anma süre 110–150 s, açılış INS\
   const rm = /@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*)\}\s*$/.exec(css);
   check('cinema.css: prefers-reduced-motion bloğu var ve açılış kaydırmasını/silmesini söndürür (letterbox geçişi, clip-path, ayrılma parlaması)', !!rm && /\.cine-bar \{ transition: none/.test(rm[1]) && /clip-path: none/.test(rm[1]) && /cine-flash\.go \{ animation: none/.test(rm[1]));
   check('cinema.css: eğriler tanımlı (--cine-out güçlü ease-out, --cine-io ease-in-out) ve yalnız onlar kullanılır', /--cine-out: cubic-bezier\(0\.23, 1, 0\.32, 1\)/.test(css) && /--cine-io: cubic-bezier\(0\.77, 0, 0\.175, 1\)/.test(css) && !/ease-in[^-o]/.test(css.replace(/ease-in-out/g, '')));
-  check('cinema.css: dar/dikey ve kısa ekran (telefon) düzenleri var; letterbox çubuğu dikey ekranda en çok %15; alt karartma yalnız opacity ile belirir',
-    /@media \(max-width: 700px\), \(max-aspect-ratio: 1\/1\)/.test(css) && /@media \(max-height: 520px\)/.test(css) && /\.cine > \* \{ --bar: clamp\(0px, calc\(\(100cqh - 100cqw \/ 2\.39\) \/ 2\), 15cqh\); \}/.test(css) && /container-type: size/.test(css) && !/\dv[wh]\b/.test(css)
+  check('cinema.css: dar/dikey ve kısa kadraj düzenleri kap sorgusuyla (pencere değil fragman alanı: dikey dışa aktarımda da), 9:16 güvenli alan, genel konum kuralları sorgulardan önce; letterbox çubuğu dikey ekranda en çok %15; alt karartma yalnız opacity ile belirir',
+    /@container \(max-width: 700px\) or \(max-aspect-ratio: 1\/1\)/.test(css) && /@container \(max-height: 520px\)/.test(css) && /@container \(max-aspect-ratio: 10\/16\)/.test(css) && /container-type: size/.test(css)
+    && css.indexOf('.cine-cue { bottom: calc(var(--bar) + clamp(104px') < css.indexOf('@container (max-width: 700px)') && /\.cine > \* \{ --bar: clamp\(0px, calc\(\(100cqh - 100cqw \/ 2\.39\) \/ 2\), 15cqh\); \}/.test(css) && /container-type: size/.test(css) && !/\dv[wh]\b/.test(css)
     && /\.cine-scrim \{[^}]*transition: opacity/.test(css) && !/\.cine-scrim \{[^}]*transform/.test(css));
   // cinemaui.js sınıfları CSS'te tanımlı
   const cls = new Set([...ui.matchAll(/class="([^"]+)"/g)].flatMap((m) => m[1].split(/\s+/)).filter((c) => /^(cine|cs-|ct-|cc-)/.test(c)));
@@ -251,6 +253,24 @@ check('Apollo iki kademe: dokuz bölüm, anma süre 110–150 s, açılış INS\
   const cin = fs.readFileSync(new URL('../js/cinema.js', import.meta.url), 'utf8'), rig = fs.readFileSync(new URL('../js/camerarig.js', import.meta.url), 'utf8');
   check("Dünya–Ay görünümü: Ay'ın geçmiş konumları dönen çerçevede şimdiki Dünya→Ay eksenine düşer (iz Ay'da biter), eksenler dik, gidiş-dönüş birebir; fragmanın yolculuk çekimi bu çerçevede",
     worst < 1e-6 && rt < 1e-9 && orth < 1e-12 && /syn: true/.test(cin) && /c\.mode === 'SYSTEM' \? unit\(rm\)/.test(rig) && /cine\.syn/.test(sceneSrc()), `eksen sapması ${worst.toExponential(1)} rad`);
+}
+{
+  // soğuk giriş ve son kart
+  const cj = fs.readFileSync(new URL('../js/cinema.js', import.meta.url), 'utf8'), cu = fs.readFileSync(new URL('../js/cinemaui.js', import.meta.url), 'utf8'), xj = fs.readFileSync(new URL('../js/exporter.js', import.meta.url), 'utf8');
+  check('soğuk giriş: görev kurulunca siyah üstünde "… sunar" + tarih, sonra kalkış ya da ilk çekim; son kart: kararma, amblem, davet, adres; dışa aktarım girişten kaydeder ve son kartı tutar; metinler textContent',
+    /this\.wall = 0; this\.playIntro\(\);/.test(cj) && /this\.state = 'intro'; this\.h\.play\(false\); ui\.fade\(1, 0\);/.test(cj) && /\|\| this\.state === 'intro'\) return;/.test(cj)
+    && /ui\.end\(translateText\('Kendi Ay görevini tasarla'\), url\)/.test(cj) && /introO\.textContent = over/.test(cu) && /endS\.textContent = sub/.test(cu)
+    && /st === 'intro' \|\| st === 'ascent' \|\| st === 'run'/.test(xj) && /tail = kf \+ Math\.round\(fps \* 6\)/.test(xj) && /this\.stopAscent\(\); this\.dropSat\(\);/.test(cj));
+}
+{
+  // ses: gerilim katmanı, darbe, temas ve final; kayıt (dışa aktarım) aynı olayları yazar
+  const A = await import('../js/cineaudio.js'), C2 = await import('../js/cinema.js'), cj = fs.readFileSync(new URL('../js/cinema.js', import.meta.url), 'utf8');
+  const r = new A.AudioRecorder({}); r.intensity(0.7); r.hit(0.9); r.land(); r.finale();
+  const G = C2.GERILIM;
+  check('ses: kayıt intensity/hit/land/finale yazar (dışa aktarımda üretilir); gerilim yolculukta düşük, yakış ve inişte yüksek, temas en yüksek, kapanışta yok; fragman olayları bağlı',
+    JSON.stringify(r.log.map((e) => e.m)) === '["intensity","hit","land","finale"]' && ['intensity', 'hit', 'land', 'finale'].every((m) => typeof A.CineAudio.prototype[m] === 'function')
+    && G.coast < 0.3 && G.tli >= 0.7 && G.pdi > G.tli && G.land === 1 && G.outro === 0
+    && /this\.audio\.intensity\(GERILIM\[s\.grp\]/.test(cj) && /if \(yanar && !this\.wasBurn && this\.audio && this\.audio\.hit\)/.test(cj) && /if \(!this\.landed\) \{ this\.landed = true;/.test(cj) && /this\.audio\.finale\(\)/.test(cj));
 }
 console.log(fail ? `\n${fail} HATA` : '\nTAMAM');
 process.exit(fail ? 1 : 0);

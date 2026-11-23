@@ -19,11 +19,14 @@ const RT = typeof window !== 'undefined' ? { st: window.setTimeout.bind(window),
 const realWait = (ms) => new Promise((r) => RT.st(r, ms));
 
 export const CSS_W = 1920, CSS_H = 1080;                                           // yazı katmanının yerleşim boyu (CSS px)
+// cw × ch: yazı katmanının yerleşim boyu (CSS px); dikey (9:16, Reels/TikTok): 1080 × 1920 — bindirmeler kap sorgusuyla dikey yerleşime geçer (css/cinema.css)
 export const RES = {
-  2160: { w: 3840, h: 2160, name: '4K', mbps: 45, level: 'ultra' },
-  1440: { w: 2560, h: 1440, name: '1440p', mbps: 24, level: 'high' },
-  1080: { w: 1920, h: 1080, name: '1080p', mbps: 12, level: 'high' },
+  2160: { w: 3840, h: 2160, name: '4K', mbps: 45, level: 'ultra', cw: CSS_W, ch: CSS_H },
+  1440: { w: 2560, h: 1440, name: '1440p', mbps: 24, level: 'high', cw: CSS_W, ch: CSS_H },
+  1080: { w: 1920, h: 1080, name: '1080p', mbps: 12, level: 'high', cw: CSS_W, ch: CSS_H },
+  dikey: { w: 1080, h: 1920, name: '1080x1920', mbps: 12, level: 'high', cw: 1080, ch: 1920 },
 };
+export const dikeyMi = (res) => { const R = RES[res]; return !!R && R.ch > R.cw; };
 export const FPS = [24, 30, 60];
 export const QUALITY = { std: 0.7, high: 1, max: 1.5 };
 export const AUDIO_BPS = 192000;
@@ -114,7 +117,7 @@ export async function embedFonts(families, fetchFn = globalThis.fetch) {
 // yazı katmanını (sinematik DOM) kareye dök: hesaplanmış stiller satır içi, sözde öğeler kural olarak, SVG içindeki değişkenler çözülmüş
 const SKIP = ['.cine-exit', '.cine-mute', '.cine-edit', '.cine-hint', '.cine-pv'];
 export class OverlayCapture {
-  constructor(root, outW, outH, fontCss) { this.root = root; this.outW = outW; this.outH = outH; this.fontCss = fontCss; this.last = ''; this.img = null; this.anims = new Map(); }
+  constructor(root, outW, outH, fontCss, cw = CSS_W, ch = CSS_H) { this.root = root; this.outW = outW; this.outH = outH; this.cw = cw; this.ch = ch; this.fontCss = fontCss; this.last = ''; this.img = null; this.anims = new Map(); }
   // CSS geçişleri ve animasyonları sanal saate göre (ms)
   sync(now) {
     if (!document.getAnimations) return;
@@ -150,14 +153,14 @@ export class OverlayCapture {
       }
     }
     for (const c of drop) c.remove();
-    clone.style.left = '0px'; clone.style.top = '0px'; clone.style.right = 'auto'; clone.style.bottom = 'auto'; clone.style.width = CSS_W + 'px'; clone.style.height = CSS_H + 'px'; clone.style.transform = 'none';
+    clone.style.left = '0px'; clone.style.top = '0px'; clone.style.right = 'auto'; clone.style.bottom = 'auto'; clone.style.width = this.cw + 'px'; clone.style.height = this.ch + 'px'; clone.style.transform = 'none';
     return { html: new XMLSerializer().serializeToString(clone), css };
   }
   async image() {
     if (!this.root.classList.contains('live')) return null;
     const { html, css } = this.serialize();
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${this.outW}" height="${this.outH}" viewBox="0 0 ${CSS_W} ${CSS_H}"><foreignObject x="0" y="0" width="${CSS_W}" height="${CSS_H}">`
-      + `<div xmlns="http://www.w3.org/1999/xhtml" style="position:relative;width:${CSS_W}px;height:${CSS_H}px;overflow:hidden"><style>${this.fontCss}${css}</style>${html}</div></foreignObject></svg>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${this.outW}" height="${this.outH}" viewBox="0 0 ${this.cw} ${this.ch}"><foreignObject x="0" y="0" width="${this.cw}" height="${this.ch}">`
+      + `<div xmlns="http://www.w3.org/1999/xhtml" style="position:relative;width:${this.cw}px;height:${this.ch}px;overflow:hidden"><style>${this.fontCss}${css}</style>${html}</div></foreignObject></svg>`;
     if (svg === this.last && this.img) return this.img;                           // değişmeyen katman: önceki resim
     const img = new Image(); img.decoding = 'sync'; img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
     try { await img.decode(); } catch (e) { return this.img; }
@@ -184,14 +187,15 @@ export class Exporter {
     const R = RES[res], gl = this.h.world.renderer.getContext();
     const maxPx = Math.min(gl.getParameter(gl.MAX_RENDERBUFFER_SIZE) || 4096, (gl.getParameter(gl.MAX_VIEWPORT_DIMS) || [4096])[0], gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096);
     const v = await pickVideoConfig(R.w, R.h, fps, videoBitrate(res, fps, quality)), a = audio ? await pickAudioConfig() : null;
-    return { video: v, audio: a, gpuOk: R.w <= maxPx, maxPx, overlay: await overlaySupported(), webcodecs: typeof VideoEncoder === 'function', disk: typeof window.showSaveFilePicker === 'function' };
+    return { video: v, audio: a, gpuOk: Math.max(R.w, R.h) <= maxPx, maxPx, overlay: await overlaySupported(), webcodecs: typeof VideoEncoder === 'function', disk: typeof window.showSaveFilePicker === 'function' };
   }
 
   // o: { cut, res, fps, quality, audio, handle (FileSystemFileHandle | null), maxSec, onProgress(p) } → { blob | null, bytes, frames, seconds, codec }
   async run(o) {
     if (this.busy) throw new ExportError('busy'); this.busy = true; this.cancelled = false;
     // o.size: [w, h] (yalnız deneme: küçük çıktı, 16:9)
-    const H = this.h, W = H.world, cut = normalize(o.cut), R = o.size ? { w: o.size[0], h: o.size[1], name: 'deneme', level: 'high' } : RES[o.res] || RES[2160], fps = o.fps || 30, pr = R.w / CSS_W;
+    const H = this.h, W = H.world, R = o.size ? { w: o.size[0], h: o.size[1], name: 'deneme', level: 'high', cw: CSS_W, ch: CSS_H } : RES[o.res] || RES[2160], fps = o.fps || 30, pr = R.w / R.cw;
+    const cut = normalize(R.ch > R.cw ? { ...normalize(o.cut), aspect: 'full' } : o.cut);          // dikeyde sinema bandı yok: kadrajın tamamı resim
     const vbps = o.size ? 4e6 : videoBitrate(o.res, fps, o.quality), prog = o.onProgress || (() => {});
     let clock = null, restore = null, venc = null, fail = null, sink = null, writable = null, overlay = null;
     try {
@@ -199,7 +203,7 @@ export class Exporter {
       const vcfg = await pickVideoConfig(R.w, R.h, fps, vbps); if (!vcfg) throw new ExportError('codec');
       const acfg = o.audio ? await pickAudioConfig() : null;
       const gl = W.renderer.getContext(), maxPx = Math.min(gl.getParameter(gl.MAX_RENDERBUFFER_SIZE) || 4096, (gl.getParameter(gl.MAX_VIEWPORT_DIMS) || [4096])[0]);
-      if (R.w > maxPx) throw new ExportError('gpu');
+      if (Math.max(R.w, R.h) > maxPx) throw new ExportError('gpu');
       const ovOk = await overlaySupported();
       await loadFonts([cut.hFont, cut.tFont]);
       const fams = ['Exo:wght@400;500;600;700', 'Roboto+Mono:wght@400;500', ...new Set([FONTS[cut.hFont].g, FONTS[cut.tFont].g].filter(Boolean))];
@@ -212,12 +216,12 @@ export class Exporter {
       venc = new VideoEncoder({ output: (chunk, meta) => { try { muxer.addVideoChunk(chunk, meta); } catch (e) { fail = e; } }, error: (e) => { fail = e; } });
       venc.configure(vcfg.config);
 
-      // sahne: yerleşim 1920 × 1080 CSS px, ekranda sığacak kadar küçültülmüş; çizim tam çıktı boyunda
+      // sahne: yerleşim R.cw × R.ch CSS px (yatay 1920 × 1080, dikey 1080 × 1920), ekranda sığacak kadar küçültülmüş; çizim tam çıktı boyunda
       if (H.cinema.on) H.cinema.stop();
       const app = H.appEl, prevStyle = app.getAttribute('style');
-      const k = Math.min(innerWidth / CSS_W, innerHeight / CSS_H);
+      const k = Math.min(innerWidth / R.cw, innerHeight / R.ch);
       document.body.classList.add('exporting');
-      app.style.cssText = (prevStyle || '') + `;position:fixed;left:0;top:0;right:auto;bottom:auto;width:${CSS_W}px;height:${CSS_H}px;transform-origin:0 0;transform:translate(${Math.round((innerWidth - CSS_W * k) / 2)}px,${Math.round((innerHeight - CSS_H * k) / 2)}px) scale(${k});`;
+      app.style.cssText = (prevStyle || '') + `;position:fixed;left:0;top:0;right:auto;bottom:auto;width:${R.cw}px;height:${R.ch}px;transform-origin:0 0;transform:translate(${Math.round((innerWidth - R.cw * k) / 2)}px,${Math.round((innerHeight - R.ch * k) / 2)}px) scale(${k});`;
       W.cine.prOverride = pr;
       restore = () => { if (prevStyle == null) app.removeAttribute('style'); else app.setAttribute('style', prevStyle); document.body.classList.remove('exporting'); W.cine.prOverride = 0; H.resize(); };
       H.resize();
@@ -232,7 +236,7 @@ export class Exporter {
       if (W.renderer.domElement.width !== R.w || W.renderer.domElement.height !== R.h) throw new ExportError('size', `${W.renderer.domElement.width}×${W.renderer.domElement.height}`);
 
       const comp = document.createElement('canvas'); comp.width = R.w; comp.height = R.h; const cx = comp.getContext('2d', { alpha: false });
-      overlay = ovOk ? new OverlayCapture(H.cinema.ui.root, R.w, R.h, fontCss) : null;
+      overlay = ovOk ? new OverlayCapture(H.cinema.ui.root, R.w, R.h, fontCss, R.cw, R.ch) : null;
       const dt = 1 / fps, maxFrames = Math.round((o.maxSec || 900) * fps);
       let n = 0, kf = 0, capturing = false, tail = null;
       const started = Date.now();
@@ -243,7 +247,7 @@ export class Exporter {
         await Promise.race([stepP, to]);
         clock.advance(dt * 1000);                                                    // yönetmen (30 ms denetim), kart zamanlayıcıları, çizim döngüsü (sahne çizilir)
         const st = H.cinema.state;
-        if (!capturing && (st === 'ascent' || st === 'run')) { capturing = true; recorder.t0 = clock.now; }
+        if (!capturing && (st === 'intro' || st === 'ascent' || st === 'run')) { capturing = true; recorder.t0 = clock.now; }      // soğuk girişten itibaren
         if (!capturing) continue;
         if (W.tilesBusy) { for (let i = 0; i < 60 && W.tilesBusy; i++) await realWait(100); W.render(); }   // Ay yüzeyi parçaları yüklenirken bekle (kare eksik çizilmesin)
         cx.drawImage(W.renderer.domElement, 0, 0, R.w, R.h);                         // çizimden hemen sonra (aynı görevde): tampon geçerli
@@ -251,7 +255,7 @@ export class Exporter {
         const vf = new VideoFrame(comp, { timestamp: Math.round(kf * 1e6 / fps), duration: Math.round(1e6 / fps) });
         venc.encode(vf, { keyFrame: kf % (fps * 2) === 0 }); vf.close(); kf++;
         while (venc.encodeQueueSize > 3 && !fail) await new Promise((r) => { venc.addEventListener('dequeue', r, { once: true }); RT.st(r, 2000); });
-        if (st === 'ended' && tail == null) tail = kf + Math.round(fps * 3.5);       // kapanış kartı ve jenerik görünsün
+        if (st === 'ended' && tail == null) tail = kf + Math.round(fps * 6);         // kararma ve son kart (cinema.js finish) görünsün
         if ((tail != null && kf >= tail) || kf >= maxFrames) break;
         if (kf % 3 === 0) {
           const s = H.cinema.shot, el = (Date.now() - started) / 1000, est = H.cinema.estimate ? H.cinema.estimate(cut) : null;

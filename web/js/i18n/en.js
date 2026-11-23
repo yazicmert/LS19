@@ -2517,6 +2517,13 @@ const dict = {
   "CAD dönüştürücüsü yüklenemedi. Sayfayı yenileyip yeniden dene.": "The CAD converter couldn't load. Reload the page and try again.",
   "En iyisi STEP: CATIA, SolidWorks, Fusion 360 ya da FreeCAD’de File › Save As › STEP (.stp). Montajın tamamı ve renkleri gelir. Birden çok dosya varsa zip’le. Boyutu sonra metre olarak ayarlarsın.": "STEP works best: in CATIA, SolidWorks, Fusion 360 or FreeCAD use File › Save As › STEP (.stp). The whole assembly and its colours come through. If there are several files, zip them. You set the size in metres afterwards.",
   "Model okunuyor… (STEP montajları üçgenlere çevrilirken bir dakika sürebilir)": "Reading the model… (triangulating a STEP assembly can take a minute)",
+  "Sosyal medya (dikey, ~1 dk)": "Social media (portrait, ~1 min)",
+  "Yatay": "Landscape",
+  "Dikey": "Portrait",
+  "16:9 · YouTube, sunum": "16:9 · YouTube, presentations",
+  "Dikey video 1080 × 1920 olarak kaydedilir: sinema bantları kalkar, yazılar telefon ekranına göre yerleşir.": "Portrait video is saved at 1080 × 1920: the cinema bars are removed and the text is laid out for a phone screen.",
+  "LS19 sunar": "LS19 presents",
+  "Kendi Ay görevini tasarla": "Design your own Moon mission",
   // Destek kartı (destek.js)
   "LS19’u beğendiysen bir kahve ısmarlayarak geliştirilmesine destek olabilirsin.": "If you enjoy LS19, you can support its development by buying a coffee.",
   "Kahve ısmarla": "Buy a coffee",

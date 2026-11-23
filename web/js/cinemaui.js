@@ -42,7 +42,9 @@ export class CineUI {
       <div class="cine-fade"></div>
       <div class="cine-pv" data-f="pv" hidden role="group" aria-label="Önizleme"><b>Önizleme</b><span class="pv-name" data-f="pvName"></span><span class="pv-shots" data-f="pvShots"></span>
         <label class="pv-tau">Çekimde konum <input type="range" min="0" max="1" step="0.01" data-f="pvTau"></label><button type="button" class="pv-back" data-f="pvBack"><i data-icon="back"></i><span>Masaya dön</span></button></div>
-      <div class="cine-slate" data-f="slate" aria-live="polite"><b data-f="slateT"></b><span data-f="slateS"></span></div>`;
+      <div class="cine-slate" data-f="slate" aria-live="polite"><b data-f="slateT"></b><span data-f="slateS"></span></div>
+      <div class="cine-intro" data-f="intro" aria-live="polite"><b data-f="introO"></b><span class="ci-rule"></span><span data-f="introD"></span></div>
+      <div class="cine-end" data-f="end" aria-live="polite">${EMBLEM}<b class="ce-t">LS19</b><span class="ce-s" data-f="endS"></span><span class="ce-u" data-f="endU"></span></div>`;
     parent.appendChild(root); applyIcons(root);
     this.f = {}; root.querySelectorAll('[data-f]').forEach((n) => { this.f[n.dataset.f] = n; });
     this.cards = root.querySelector('.cine-cards'); this.flashEl = root.querySelector('.cine-flash'); this.fadeEl = root.querySelector('.cine-fade'); this.exitBtn = root.querySelector('.cine-exit'); this.muteBtn = root.querySelector('.cine-mute'); this.editBtn = root.querySelector('.cine-edit');
@@ -61,7 +63,7 @@ export class CineUI {
     this.clearTimers();
     this.root.classList.remove('on'); document.body.classList.remove('cine-on');
     this.cards.textContent = ''; this.numbers = []; this.tags([]); this.credit(''); clearTimeout(this.cueT); if (this.f.cue) this.f.cue.classList.remove('in');
-    this.fade(0, 0); this.slate(null); this.cache = {};
+    this.fade(0, 0); this.slate(null); this.intro(null); this.end(null); this.cache = {};
     if (instant) this.root.classList.remove('live'); else this.after(700, () => this.root.classList.remove('live'));
   }
 
@@ -74,6 +76,7 @@ export class CineUI {
     const no = (on) => (on ? ' translate="no"' : '');
     d.innerHTML = `${k === 'title' ? EMBLEM : ''}${idx}${c.over ? `<span class="cc-over"${no(c.userOver)}>${esc(c.over)}</span>` : ''}<h2 class="cc-h"${no(c.user)}>${esc(c.title)}</h2><span class="cc-rule"></span>${c.sub ? `<p class="cc-s"${no(c.userSub)}>${esc(c.sub)}</p>` : ''}${c.extra || ''}`;
     this.cards.appendChild(d);
+    this.root.classList.toggle('closing', k === 'close');                          // kapanış kartı kadrajın sahibi: köşe işareti çekilir (uzun kart üstüne binmesin)
     requestAnimationFrame(() => requestAnimationFrame(() => d.classList.add('in')));
     if (c.hold) this.after(c.hold * 1000, () => this.dismiss(d));
     return d;
@@ -119,6 +122,20 @@ export class CineUI {
     requestAnimationFrame(() => this.f.pvBack.focus());
   }
   // sahne atlama levhası (yapımcı bir bölümü çıkardı: aradaki görev süresi kararma altında hızla geçilir): üst satır başlık, alt satır görev süresi; null: kapanır
+  // soğuk giriş (siyah üstünde): üst satır "… sunar", altında tarih ve roket; metinler textContent ile
+  intro(over, lines = '') {
+    const n = this.f.intro; if (!n) return;
+    if (!over) { n.classList.remove('in'); return; }
+    this.f.introO.textContent = over; this.f.introD.textContent = lines;
+    requestAnimationFrame(() => n.classList.add('in'));
+  }
+  // son kart (siyah üstünde): amblem, LS19, davet ve adres
+  end(sub, url = '') {
+    const n = this.f.end; if (!n) return;
+    if (!sub) { n.classList.remove('in'); return; }
+    this.f.endS.textContent = sub; this.f.endU.textContent = url;
+    requestAnimationFrame(() => n.classList.add('in'));
+  }
   slate(title, sub = '') {
     const n = this.f.slate; if (!n) return;
     if (!title) { n.classList.remove('in'); return; }

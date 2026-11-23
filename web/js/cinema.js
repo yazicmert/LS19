@@ -115,6 +115,18 @@ const RIG = {
   },
 };
 
+// aydınlık takip: kamera aracın Güneş'in aydınlattığı tarafında, hedef cismin (Ay/Dünya) ters yönünden bakar — araç ön planda aydınlık, cisim arkada.
+// sun: Güneş yönünün ağırlığı (cismin ters yönü 1); az: kamera yönünü cisim ekseni çevresinde döndürür (rad); aim: bakışı cisme doğru kaydırır (uzaklığın katı)
+RIG.sunChase = (c, p, e) => {
+  const a = (k) => (Array.isArray(p[k]) ? lerp(p[k][0], p[k][1], e) : p[k]);
+  const veh = c.info.vehPos, cen = p.body === 'M' ? c.info.rm : [0, 0, 0], bU = unit(sub(cen, veh)), sU = unit(sub(E.sunPos(c.x.t), veh));
+  let dir = unit(add(scale(sU, a('sun')), scale(bU, -1)));
+  const az = a('az'), cz = Math.cos(az), sz = Math.sin(az), kd = dot(bU, dir);      // Rodrigues: cisim ekseni çevresinde döndür
+  dir = unit(add(add(scale(dir, cz), scale(cross(bU, dir), sz)), scale(bU, kd * (1 - cz))));
+  const z = p.look === 'mid' ? stackZ(c.W, c.x).mid : 0, tgt0 = add(veh, bodyOff(c.q, z)), d = a('dist') * KM;
+  let up = sub([0, 0, 1], scale(dir, dir[2])); up = norm(up) < 1e-6 ? [0, 1, 0] : unit(up);
+  return { eye: add(tgt0, scale(dir, d)), target: add(tgt0, scale(bU, a('aim') * d)), up, fov: a('fov') };
+};
 // kullanıcının uydusu (usersat.js): uydunun yörünge çerçevesinde (LVLH) küresel; uzaklık uydu boyunun k katı (en az min km), yukarısı radyal (Dünya altta)
 RIG.sat = (c, p, e) => {
   const S = c.sat; if (!S) return RIG.lvlh(c, { az: [2.35, 3.05], el: [0.24, 0.13], dist: [0.075, 0.048], fov: [34, 30], look: 'mid' }, e);
@@ -259,8 +271,11 @@ export function buildShots(P, opts = {}) {
     // 4 Ay'a yolculuk
     const tc0 = t('SEP', 400), tcEnd = (has('LOI') ? P.LOI : P.SEP + 300000) - 1200, span = Math.max(4000, tcEnd - tc0), a = Math.min(span * 0.18, 90000), b = Math.min(span * 0.12, 40000);
     add_({ id: 'coast-a', dur: 4.5, wmax: 30000, T: () => [[0, tc0], [1, tc0 + a]], chapter: { short: 'Yolculuk', title: "AY'A YOLCULUK", sub: (c) => `Dünya'dan ${fmt(c.rE, 0)} km uzakta`, at: 0.3, hold: 3.4 },
-      rig: { type: 'ots', body: 'E', dist: [58, 88], side: [30, 42], lift: [10, 15], aim: 0.05, fov: [34, 38], look: 'mid' }, dip: true });
-    add_({ id: 'coast-b', dur: 8.5, wmax: 40000, T: () => [[0, tc0 + a], [1, tcEnd - b]], rig: { type: 'wide', cam: { mode: 'SYSTEM', az: [-1.75, -1.4], el: [0.95, 0.7], dist: [700000, 560000] }, fov: 40, yaw: -0.17 }, lines: true, syn: true, tags: true, beacon: true, dip: true });   // Ay'la dönen çerçeve, yörünge düzlemine yukarıdan: Dünya solda, Ay sağda, gidiş yolu S biçiminde
+      rig: { type: 'ots', body: 'E', dist: [30, 44], side: [13, 19], lift: [5, 8], aim: 0.04, fov: [40, 44], look: 'mid' }, dip: true });      // yakın takip: araç ön planda büyük, Dünya arkada küçülür
+    // ortada: önce Dünya–Ay sistemi yukarıdan (gidiş yolu), sonra aracın arkasından hedefe — Ay önde büyür (yakın plan; iz çizgisi aracın içinden geçmesin diye yok)
+    const tcM = tc0 + a + (tcEnd - b - tc0 - a) * 0.5;
+    add_({ id: 'coast-b', dur: 5, wmax: 40000, T: () => [[0, tc0 + a], [1, tcM]], rig: { type: 'wide', cam: { mode: 'SYSTEM', az: [-1.75, -1.55], el: [0.8, 0.62], dist: [620000, 540000] }, fov: 40, yaw: -0.17 }, lines: true, syn: true, tags: true, beacon: true, dip: true });   // Ay'la dönen çerçeve, yörünge düzlemine yukarıdan: Dünya solda, Ay sağda, gidiş yolu S biçiminde
+    add_({ id: 'coast-b2', dur: 5.5, wmax: 40000, T: () => [[0, tcM], [1, tcEnd - b]], rig: { type: 'sunChase', body: 'M', sun: 1.1, az: [-0.25, 0.2], dist: [36, 27], aim: 0.12, fov: [42, 38], look: 'mid' }, dip: true });
     add_({ id: 'coast-c', dur: 4.5, wmax: 20000, T: () => [[0, tcEnd - b], [1, tcEnd]], rig: { type: 'wide', cam: (c, e) => ({ mode: 'MOON', az: lerp(0.9, 1.5, e), el: 0.32, dist: lerp(90000, 9000, smooth(e)) }), fov: 40 }, lines: true, beacon: true, dip: false });
   }
   // 5 LOI
@@ -295,7 +310,7 @@ export function buildShots(P, opts = {}) {
     add_({ id: 'touchdown', dur: 14, wmin: 0.3, wmax: 20, T: () => [[0, P.INDI - 30], [1, P.INDI + 10]], wf: landWarp,
       until: (x, c) => (x.phase === 'INDI' || x.done) && c.sinceLand > 4.5, minT: 4, shake: 0.25,
       chapter: { short: 'Temas', title: 'TEMAS', sub: (c) => c.touch, at: 'land', hold: 3.8 },
-      rig: { type: 'ground', fixed: true, x: [-40, -34], y: [118, 108], h: [1.7, 1.6], frame: [23, 11], fovMin: 10, fovMax: 46, aimUp: [7.5, 3.2] } });
+      rig: { type: 'ground', x: [-22, -19], y: [60, 54], h: [1.3, 1.15], frame: [10, 7], fovMin: 6, fovMax: 46, aimUp: [-0.8, -1.3] } });      // alçak, yakın yer kamerası inen aracı izler: temasta araç kadrajın ortasında ve büyük
     // kapanış: yüzey evresi (temastan +7 s motor emniyeti, +18 s duruş raporu, +45 s tank tahliyesi, +89 s kalış kararı; alt yazılar) — ~×7
     add_({ id: 'outro', dur: 17, wmin: 1, wmax: 9, T: () => [[0, P.INDI + 5], [0.2, P.INDI + 10], [1, P.INDI + 96]], closing: true,
       rig: { type: 'lvlh', az: [-2.5, -1.7], el: [0.1, 0.3], dist: [0.03, 0.075], fov: [34, 30], look: -1.2, yaw: [0.2, 0.26] } });
@@ -305,6 +320,8 @@ export function buildShots(P, opts = {}) {
 
 const tStart0 = (s, P) => s.T(P)[0][1];
 // görev kontrol anonsları (konuşma sentezi): olay anahtarı → kısa söz (alt yazı gösterilirken söylenir)
+// müzikteki gerilim (nabız) düzeyi, bölüme göre (cineaudio.js intensity): yolculukta sakin, yakışlarda ve inişte yüksek; kapanışta yok
+export const GERILIM = { open: 0.15, uydu: 0.25, park: 0.2, tli: 0.8, sep: 0.5, coast: 0.18, loi: 0.7, llo: 0.32, sep2: 0.5, pdi: 0.88, land: 1, outro: 0 };
 export const SAY = { CONTACT: 'Temas ışığı', ENGINE_STOP: 'Motor durduruldu', LOS: "Ay'ın arkasındayız, sinyal kaybı", AOS: 'Sinyal alındı', LOI_END: 'Ay yörüngesindeyiz', STAY_T1: 'Yüzeyde kalış kararı: kal' };
 const COUNT = isEn ? ['one', 'two', 'three', 'four', 'five'] : ['bir', 'iki', 'üç', 'dört', 'beş'];
 // ---------------------------------------------------------------- yönetmen
@@ -323,7 +340,7 @@ export class Cinema {
 
   async start(opts = {}) {
     if (this.on || !this.h.latest() || !this.h.ui.plan || !this.h.ui.plan.length) return false;
-    this.on = true; this.state = 'boot'; this.opts0 = opts; this.simLand = null;
+    this.on = true; this.state = 'boot'; this.opts0 = opts; this.simLand = null; this.landed = false; this.wasBurn = false;
     // yapımcı kurgusu: verilmediyse tarayıcıda saklanan (yoksa yönetmenin kurgusu); tempo süre ölçeğiyle çarpılır (?cine=0.5 ile birlikte)
     this.cut = normalize(opts.cut || loadCut()); this.evFloor = null;
     this.opts = { ...opts, scale: (opts.scale || 1) * this.cut.tempo };
@@ -339,7 +356,7 @@ export class Cinema {
     W.cine.place = this.uydu ? (x, info, rel, q) => { if (this.uydu && this.P0) this.uydu.yerlestir(x, info, rel, q, this.P0.INS + SAT_T.ayr, this.P0.TLI ?? Infinity); } : null;
     await loadFonts([this.cut.hFont, this.cut.tFont]);                               // seçilen yazı tipleri (en çok 1,5 s beklenir)
     if (!this.on) { await W.setCinematic(false); return false; }
-    const ui = this.ui; ui.root.classList.remove('ended'); ui.look(this.cut); ui.bug(this.cut.over || translateText('Ay görevi'), this.cut.title || 'LS19');
+    const ui = this.ui; ui.root.classList.remove('ended', 'closing'); ui.look(this.cut); ui.bug(this.cut.over || translateText('Ay görevi'), this.cut.title || 'LS19');
     ui.enter(); ui.fade(1, 0); ui.quality(W.cine.level === 'ultra' ? '4K' : 'HD');
     if (this.audio) this.audio.stop();
     this.audio = this.opts.export ? this.opts.export.recorder : new CineAudio({ mood: this.cut.mood, sfx: this.cut.sfx }); if (!this.opts.preview) this.audio.start();   // dışa aktarımda ses kaydedilir (exporter.js), çalınmaz
@@ -522,12 +539,13 @@ export class Cinema {
   }
   toggleMute() { if (!this.audio) return; this.audio.setMuted(!this.audio.muted); this.ui.setMuted(this.audio.muted); }
   skip() { if (this.state === 'ascent') { this.stopAscent(); return; } if (this.shot && !this.shot.closing) this.endShot(true); }
-  async restart() { const o = this.opts0 || {}; this.stopAscent(); if (this.audio) { this.audio.stop(); this.audio = null; } this.ui.leave(true); this.on = false; this.state = 'idle'; clearInterval(this.timer); this.timer = 0; window.removeEventListener('keydown', this.keyHandler, true); window.removeEventListener('pointermove', this.moveHandler); this.h.world.cine.rig = null; await this.h.world.setCinematic(false); await this.start(o); }
+  async restart() { const o = this.opts0 || {}; this.stopAscent(); this.dropSat(); if (this.audio) { this.audio.stop(); this.audio = null; } this.ui.leave(true); this.on = false; this.state = 'idle'; clearInterval(this.timer); this.timer = 0; window.removeEventListener('keydown', this.keyHandler, true); window.removeEventListener('pointermove', this.moveHandler); this.h.world.cine.rig = null; await this.h.world.setCinematic(false); await this.start(o); }
 
   // ----- çekim yaşam döngüsü
   // çekimi kur (zaman eğrisi, kamera, bayraklar); atlama mantığı startShot'ta
   beginShot(i, tau0 = 0) {
     const P = this.planMap(), W = this.h.world, s = this.shots[i], x = this.h.latest();
+    if (this.audio && this.audio.intensity) this.audio.intensity(GERILIM[s.grp] ?? 0.3);
     this.i = i; this.shot = s; this.shotT = tau0 * this.durOf(s); this.cardDone = false; this.cardAt = null; this.narrDone = false; this.landT = null; this.burnStart = null; this.sepSeen = (x.debris || []).length; this.qInit = false;
     const T = s.T(P); s.keys = T; s.f = pchip(T.map((k) => k[0]), T.map((k) => k[1])); s.tEnd = T[T.length - 1][1]; s.tStart = T[0][1];
     // süre: istenen zaman hızı sınırını aşmasın (aşıyorsa uzar)
@@ -593,8 +611,25 @@ export class Cinema {
     if (!s) { this.finish(); return; }
     if (s.dip && !this.pending) { this.ui.fade(1, 280); this.pending = { i: nxt, at: this.wall + 0.3 }; } else this.startShot(nxt);
   }
+  // soğuk giriş: görev kuruldu, sahne siyah; "LS19 sunar" (ya da yapımcı), tarih ve roket; sonra kalkış açılışı ya da ilk çekim (başlık görüntünün üstünde gelir)
+  playIntro() {
+    const K = this.cut, ui = this.ui, ms = 3400;
+    this.state = 'intro'; this.h.play(false); ui.fade(1, 0); if (this.audio && this.audio.intensity) this.audio.intensity(0.06);
+    ui.intro(K.producer ? tr('{0} sunar', K.producer) : translateText('LS19 sunar'), this.titleLines());
+    ui.after(ms - 650, () => ui.intro(null));
+    ui.after(ms, () => {
+      if (!this.on || this.state !== 'intro') return;
+      this.wall = 0;
+      if (this.asc) this.startAscent();
+      else { this.h.send({ cmd: 'warp', value: 1 }); this.h.play(true); this.startShot(0); }
+    });
+  }
   finish() {
     this.state = 'ended'; this.ui.fade(0, 0);
+    // son kart: kapanış kartından sonra görüntü kararır; amblem, LS19, davet ve adres (dışa aktarılan video da bununla biter)
+    const ui = this.ui, url = /^(localhost|127\.|\[?::1)/.test(location.hostname) ? '' : location.host;
+    ui.after(600, () => { if (this.on && this.state === 'ended') ui.fade(1, 1400); });
+    ui.after(2100, () => { if (this.on && this.state === 'ended') { ui.end(translateText('Kendi Ay görevini tasarla'), url); if (this.audio && this.audio.finale) this.audio.finale(); } });
     const hint = this.ui.f.hint; hint.innerHTML = '<kbd>R</kbd> yeniden izle · <kbd>Y</kbd> kurguyu düzenle · <kbd>Esc</kbd> çık'; hint.classList.add('show');
     this.ui.root.classList.add('ended');
   }
@@ -613,7 +648,7 @@ export class Cinema {
     if (!this.on) { if (ok) await A.stop(); return; }
     if (!ok) { this.asc = null; ui.ticks(this.tickMarks()); this.h.send({ cmd: 'warp', value: 1 }); this.h.play(true); this.wall = 0; this.startShot(0); return; }
     a.wall0 = this.wall; a.card = false; a.chap = false; a.narr = false; this.cueNext = 0; a.warp = 1; a.real = ASC.FROM; a.prev = ASC.FROM;
-    if (this.audio) this.audio.chapter(0);
+    if (this.audio) { this.audio.chapter(0); if (this.audio.intensity) this.audio.intensity(0.55); }
     this.state = 'ascent'; ui.root.classList.remove('nostrip'); ui.fade(0, 900);
   }
   stopAscent() { const A = this.h.ascent && this.h.ascent(); if (A && A.active) A.stop(); }
@@ -643,8 +678,8 @@ export class Cinema {
     const K = this.cut, ka = K.ch.asc;
     // başlık kartı: yapımcı varsa "… sunar" üst satırı (üst satır o zaman alt yazının başına geçer), fragman adı
     if (!a.card && el >= 0.5) {
-      a.card = true; const over = K.producer ? tr('{0} sunar', K.producer) : K.over || translateText('Ay görevi');
-      ui.card({ kind: 'title', over, userOver: !!(K.producer || K.over), title: K.title || 'LS19', user: !!K.title, sub: [K.producer && K.over, this.titleLines()].filter(Boolean).join('\n'), hold: 4.6 * K.hold });
+      a.card = true;                                                                 // "… sunar" ve tarih soğuk girişte (playIntro): burada görev adı ve roket
+      ui.card({ kind: 'title', over: K.over || translateText('Ay görevi'), userOver: !!K.over, title: K.title || 'LS19', user: !!K.title, sub: [a.rocket, a.site].filter(Boolean).join(' · '), hold: 4.6 * K.hold });
     }
     if (!a.chap && real >= 2.5) {
       a.chap = true; if (this.audio) this.audio.chapter(1);
@@ -716,7 +751,7 @@ export class Cinema {
     this.reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.dt = dt;
     const ui = this.ui;
-    if (this.state === 'boot' || this.state === 'preview' || this.state === 'asc-boot') return;
+    if (this.state === 'boot' || this.state === 'preview' || this.state === 'asc-boot' || this.state === 'intro') return;
     if (this.state === 'ascent') { this.tickAscent(dt); return; }
     if (this.state === 'post-asc') {                                                // kalkış bitti: görev girişe sarılınca (t ≈ INS) çekimler başlar
       const P = this.planMap();
@@ -736,9 +771,7 @@ export class Cinema {
       // yeni görev kuruldu ve ilk durum geldi mi (t ≈ INS)
       const P = this.planMap();
       if (performance.now() - this.restartAt > 250 && Math.abs(x.t - P.INS) < 400) {
-        this.wall = 0;
-        if (this.asc) { this.h.play(false); this.startAscent(); }
-        else { this.h.send({ cmd: 'warp', value: 1 }); this.h.play(true); this.startShot(0); }
+        this.wall = 0; this.playIntro();
       }
       return;
     }
@@ -759,7 +792,7 @@ export class Cinema {
     // yaklaşma sınırlayıcı: zaman hedefli çekimlerde kalan benzetim süresi / 0.45 s'den hızlı gidilmez (worker→ana iş parçacığı gecikmesi yüzünden hedef aşılmasın)
     if (!s.wf && !s.until) w = Math.min(w, Math.max(s.wmin ?? 1, (s.tEnd - x.t) / 0.45));
     w = clamp(w, s.wmin ?? 1, Math.min(s.wmax || 20000, wBurn));
-    if (x.phase === 'INDI' || x.done) { if (this.landT == null) this.landT = this.shotT; if (this.simLand == null) { this.simLand = x.result && x.result.tContact != null ? x.result.tContact : x.t; if (this.P0) this.P0.INDI = this.simLand; } } else this.landT = null;
+    if (x.phase === 'INDI' || x.done) { if (this.landT == null) this.landT = this.shotT; if (!this.landed) { this.landed = true; if (this.audio && this.audio.land) this.audio.land(); } if (this.simLand == null) { this.simLand = x.result && x.result.tContact != null ? x.result.tContact : x.t; if (this.P0) this.P0.INDI = this.simLand; } } else this.landT = null;
     if (this.paused) w = 1;
     // artışta yumuşak, azalışta anında (olayı geçmesin)
     this.warpCmd = w > this.warpCmd ? this.warpCmd + (w - this.warpCmd) * (1 - Math.exp(-dt / 0.35)) : w;
@@ -767,6 +800,7 @@ export class Cinema {
     // olaylar: ayrılma parlaması
     const nd = (x.debris || []).length; if (nd > this.sepSeen) { if (s.flashOnSep && !this.reduced) ui.flash(); if (this.audio) this.audio.thump(); this.sepSeen = nd; }
     if (this.audio) this.audio.update(this.paused || !isBurn(x) ? 0 : x.thr, this.warpCmd, false);
+    const yanar = isBurn(x) && !this.paused; if (yanar && !this.wasBurn && this.audio && this.audio.hit) this.audio.hit(0.9); this.wasBurn = yanar;      // ateşleme: darbe (çekim değişse de bir kez)
     // kartlar
     const atT = s.chapter && (s.chapter.at === 'land' ? (this.landT != null ? this.shotT - this.landT >= 0.2 : false) : this.shotT >= s.chapter.at);
     if (!this.cardDone && s.chapter && atT) {
