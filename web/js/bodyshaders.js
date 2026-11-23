@@ -80,28 +80,50 @@ void main() {
   #include <colorspace_fragment>
 }`;
 
+// Atmosfer: tek saçılmalı ışın yürütme (Rayleigh + Mie, üstel yoğunluk). Kabuk küresi (R⊕ + 80 km) çizilir; her piksel kameradan görüş ışınını atmosferde
+// (yüzeye çarpıyorsa yüzeye dek) 16 adımda yürür, her adımda Güneş'e doğru 4 adımla ışık geçirgenliği; Dünya'nın gölgesindeki noktalar ışık almaz (gece).
+// Çıkış önçarpımlı: renk = saçılan ışık, alfa = 1 − ortalama geçirgenlik (yüzey kenarda puslanır; karışım ONE, ONE_MINUS_SRC_ALPHA).
+// Birimler km: β_R = (5,8; 13,5; 33,1)×10⁻³ /km, β_M = 21×10⁻³ /km (sönüm ×1,1), ölçek yükseklikleri 8 km ve 1,2 km, Mie g = 0,76.
 export const VS_ATM = /* glsl */`
 #include <common>
 #include <logdepthbuf_pars_vertex>
-varying vec3 vN; varying vec3 vPos;
+varying vec3 vPos; varying vec3 vCen;
 void main() {
-  vec4 wp = modelMatrix * vec4(position, 1.0); vPos = wp.xyz; vN = normalize(mat3(modelMatrix) * normalize(position));
+  vec4 wp = modelMatrix * vec4(position, 1.0); vPos = wp.xyz; vCen = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
   gl_Position = projectionMatrix * viewMatrix * wp;
   #include <logdepthbuf_vertex>
 }`;
 export const FS_ATM = /* glsl */`
 #include <common>
 #include <logdepthbuf_pars_fragment>
-uniform vec3 sunDir; uniform float sunI;
-varying vec3 vN; varying vec3 vPos;
+uniform vec3 sunDir; uniform float sunI, Rp, Ra, atmK;
+varying vec3 vPos; varying vec3 vCen;
+const vec3 BR = vec3(5.8e-3, 13.5e-3, 33.1e-3); const float BM = 21e-3, HR = 8.0, HM = 1.2;
+// küre kesişimi (o + t d, |d| = 1): [giriş, çıkış]; kesişmezse giriş > çıkış. En yakın nokta üzerinden (büyük sayılarda kararlı)
+vec2 sph(vec3 o, vec3 d, float r) { vec3 oc = o - vCen; float b = dot(oc, d); vec3 q = oc - b * d; float h = r * r - dot(q, q); if (h < 0.0) return vec2(1e9, -1e9); h = sqrt(h); return vec2(-b - h, -b + h); }
 void main() {
   #include <logdepthbuf_fragment>
-  vec3 N = normalize(vN), V = normalize(-vPos), L = normalize(sunDir);
-  float mu = abs(dot(N, V)); float rim = pow(1.0 - mu, 3.2);
-  float ndl = dot(N, L);
-  vec3 c = mix(vec3(1.0, 0.42, 0.12), vec3(0.28, 0.55, 1.0), smoothstep(-0.05, 0.35, ndl));
-  float a = rim * smoothstep(-0.35, 0.25, ndl) * 1.3;
-  gl_FragColor = vec4(c * a * sunI * 0.6, 1.0);
+  vec3 o = cameraPosition, d = normalize(vPos - cameraPosition), L = normalize(sunDir);
+  vec2 ta = sph(o, d, Ra); float t0 = max(ta.x, 0.0), t1 = ta.y;
+  vec2 tp = sph(o, d, Rp); if (tp.x < tp.y && tp.y > 0.0) t1 = min(t1, max(tp.x, 0.0));
+  if (t1 <= t0) discard;
+  float mu = dot(d, L), g = 0.76, g2 = g * g;
+  float pR = 3.0 / (16.0 * PI) * (1.0 + mu * mu);
+  float pM = 3.0 / (8.0 * PI) * ((1.0 - g2) * (1.0 + mu * mu)) / ((2.0 + g2) * pow(1.0 + g2 - 2.0 * g * mu, 1.5));
+  const int N = 16; float ds = (t1 - t0) / float(N);
+  vec3 sR = vec3(0.0), sM = vec3(0.0); float oR = 0.0, oM = 0.0;
+  for (int i = 0; i < N; i++) {
+    vec3 p = o + d * (t0 + (float(i) + 0.5) * ds); float h = max(length(p - vCen) - Rp, 0.0);
+    float hr = exp(-h / HR) * ds, hm = exp(-h / HM) * ds; oR += hr; oM += hm;
+    vec2 tpl = sph(p, L, Rp); if (tpl.x < tpl.y && tpl.y > 0.0) continue;         // Dünya'nın gölgesi: Güneş görünmez
+    float dl = sph(p, L, Ra).y / 4.0, lR = 0.0, lM = 0.0;
+    for (int j = 0; j < 4; j++) { float hl = max(length(p + L * ((float(j) + 0.5) * dl) - vCen) - Rp, 0.0); lR += exp(-hl / HR) * dl; lM += exp(-hl / HM) * dl; }
+    vec3 att = exp(-(BR * (oR + lR) + BM * 1.1 * (oM + lM)));
+    sR += att * hr; sM += att * hm;
+  }
+  vec3 col = (sR * BR * pR + sM * BM * pM) * sunI * atmK;
+  vec3 T = exp(-(BR * oR + BM * 1.1 * oM));
+  gl_FragColor = vec4(col, 1.0 - (T.r + T.g + T.b) / 3.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
 }`;

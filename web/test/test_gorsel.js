@@ -1,0 +1,51 @@
+// Dünya ve Ay görsellerinin doğrulaması (Node 20+): cd web && node test/test_gorsel.js
+//  1) atmosfer: fiziksel tek saçılma (Rayleigh + Mie), Dünya gölgesi, önçarpımlı karışım, kamera içerideyken arka yüz; gölgelendiricinin sayısal eşi
+//     (aynı katsayılar) gökyüzü maviliğini, ufkun kızıllığını ve gece tarafının karanlığını verir
+import { register } from 'node:module';
+import { sceneSrc } from './scenesrc.js';
+register('./importmap_loader.mjs', import.meta.url);
+const { FS_ATM } = await import('../js/bodyshaders.js');
+
+let fail = 0;
+const check = (name, ok, detail = '') => { console.log(`${ok ? 'TAMAM' : 'HATA '} ${name}${detail ? ' — ' + detail : ''}`); if (!ok) fail++; };
+const scene = sceneSrc();
+
+// ---------------------------------------------------------------- 1) atmosfer
+{
+  check('atmosfer gölgelendiricisi: Rayleigh/Mie katsayıları ve ölçek yükseklikleri, 16×4 ışın yürütme, Dünya gölgesi, önçarpımlı çıkış',
+    /BR = vec3\(5\.8e-3, 13\.5e-3, 33\.1e-3\)/.test(FS_ATM) && /BM = 21e-3, HR = 8\.0, HM = 1\.2/.test(FS_ATM) && /const int N = 16/.test(FS_ATM) && /j < 4/.test(FS_ATM)
+    && /Dünya'nın gölgesi/.test(FS_ATM) && /gl_FragColor = vec4\(col, 1\.0 - \(T\.r \+ T\.g \+ T\.b\) \/ 3\.0\)/.test(FS_ATM));
+  check('sahne: önçarpımlı karışım (ONE, ONE_MINUS_SRC_ALPHA), içeriden arka yüz, pozlama sabiti',
+    /blendSrc: THREE\.OneFactor, blendDst: THREE\.OneMinusSrcAlphaFactor/.test(scene) && /this\.atm\.material\.side = this\.earth\.position\.length\(\) < E\.R_E \* 1\.0125 \? THREE\.BackSide : THREE\.FrontSide/.test(scene)
+    && /const ATM_K = [\d.]+;/.test(scene));
+  // sayısal eş: düz yer, gözlemci yerde; Güneş tepede ve ufukta. Gökyüzü tepeye bakınca mavi baskın, ufukta Güneş batarken kırmızı/turuncu payı artar
+  const BR = [5.8e-3, 13.5e-3, 33.1e-3], BM = 21e-3, HR = 8, HM = 1.2, Rp = 6371, Ra = Rp * 1.0125;
+  const sph = (o, d, r) => { const b = o[0] * d[0] + o[1] * d[1] + o[2] * d[2], q = [o[0] - b * d[0], o[1] - b * d[1], o[2] - b * d[2]], h = r * r - (q[0] ** 2 + q[1] ** 2 + q[2] ** 2); if (h < 0) return [1e9, -1e9]; const s = Math.sqrt(h); return [-b - s, -b + s]; };
+  const sky = (o, d, L) => {
+    const ta = sph(o, d, Ra); let t0 = Math.max(ta[0], 0), t1 = ta[1]; const tp = sph(o, d, Rp); if (tp[0] < tp[1] && tp[1] > 0) t1 = Math.min(t1, Math.max(tp[0], 0));
+    if (t1 <= t0) return [0, 0, 0];
+    const mu = d[0] * L[0] + d[1] * L[1] + d[2] * L[2], g = 0.76, g2 = g * g, pR = 3 / (16 * Math.PI) * (1 + mu * mu), pM = 3 / (8 * Math.PI) * ((1 - g2) * (1 + mu * mu)) / ((2 + g2) * (1 + g2 - 2 * g * mu) ** 1.5);
+    const N = 16, ds = (t1 - t0) / N; const sR = [0, 0, 0], sM = [0, 0, 0]; let oR = 0, oM = 0;
+    for (let i = 0; i < N; i++) {
+      const t = t0 + (i + 0.5) * ds, p = [o[0] + d[0] * t, o[1] + d[1] * t, o[2] + d[2] * t], h = Math.max(Math.hypot(...p) - Rp, 0);
+      const hr = Math.exp(-h / HR) * ds, hm = Math.exp(-h / HM) * ds; oR += hr; oM += hm;
+      const tpl = sph(p, L, Rp); if (tpl[0] < tpl[1] && tpl[1] > 0) continue;
+      const dl = sph(p, L, Ra)[1] / 4; let lR = 0, lM = 0;
+      for (let j = 0; j < 4; j++) { const s = (j + 0.5) * dl, hl = Math.max(Math.hypot(p[0] + L[0] * s, p[1] + L[1] * s, p[2] + L[2] * s) - Rp, 0); lR += Math.exp(-hl / HR) * dl; lM += Math.exp(-hl / HM) * dl; }
+      for (let c = 0; c < 3; c++) { const a = Math.exp(-(BR[c] * (oR + lR) + BM * 1.1 * (oM + lM))); sR[c] += a * hr; sM[c] += a * hm; }
+    }
+    return [0, 1, 2].map((c) => sR[c] * BR[c] * pR + sM[c] * BM * pM);
+  };
+  const o = [0, 0, Rp + 0.01], up = [0, 0, 1], low = (az) => [Math.cos(az), 0, Math.sin(0.03)], sunHigh = [0, 0, 1], sunSet = [1, 0, 0.02], sunNight = [0, 0, -1];
+  const noon = sky(o, up, sunHigh), dusk = sky(o, low(0), sunSet), night = sky(o, up, sunNight);
+  const rb = (c) => c[0] / c[2];
+  check('sayısal eş: öğlen gökyüzü mavi (B > G > R), gün batımında ufuk kızıl (R/B öğlenin 3 katından fazla), gece karanlık',
+    noon[2] > noon[1] && noon[1] > noon[0] && rb(dusk) > 3 * rb(noon) && night.every((v) => v === 0), `öğlen R/B ${rb(noon).toFixed(2)}, gün batımı R/B ${rb(dusk).toFixed(2)}`);
+  // uzaydan: disk merkezinde pus azdır, kenarda (teğet bakış) çok daha fazla saçılma
+  const cam = [0, -20000, 0], toC = (x) => { const d = [x - cam[0], -cam[1], 0]; const n = Math.hypot(...d); return d.map((v) => v / n); };
+  const sunSide = [0, -1, 0], centre = sky(cam, toC(0), sunSide), limb = sky(cam, toC(Rp + 20), sunSide);
+  check('uzaydan: kenar (teğet bakış) disk merkezinden en az 1,5 kat parlak', limb[2] > 1.5 * centre[2], `merkez ${centre[2].toExponential(2)}, kenar ${limb[2].toExponential(2)}`);
+}
+
+console.log(fail ? `\n${fail} HATA` : '\nTAMAM');
+process.exit(fail ? 1 : 0);

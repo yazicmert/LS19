@@ -29,6 +29,7 @@ import { TEX, UPGRADE } from './texplan.js';
 
 
 const { add, sub, scale, dot, cross, norm, unit } = E;
+const ATM_K = 5.5;                        // atmosfer saçılmasının pozlaması (FS_ATM; diğer cisimlerle aynı tonlamada dengeli)
 const EARTH_I = 1.15;                    // Dünya (bulutlar ve okyanus yansıması parlak olduğundan düşük)
 const KM = 0.001;                        // m -> km
 // Dünya küresinin ayrıntı düzeyi (LOD). Dünya küresi yer değiştirmesizdir (useHeight 0): köşeler yalnız şekli taşır, iki ağ arasındaki fark yalnız kiriş hatasıdır.
@@ -218,8 +219,11 @@ export class World {
     this.earthGeo = EARTH_SEG.map(([a, b]) => sphereGeometry(E.R_E, a, b)); this.earthLod = 0;          // ayrıntı düzeyleri (earthLodUpdate); ikisi de atılmaz
     this.earth = new THREE.Mesh(this.earthGeo[0], new THREE.ShaderMaterial({ uniforms: eu, vertexShader: VS_BODY, fragmentShader: FS_EARTH }));
     S.add(this.earth);                                    // görüş dışındaki cisim köşe işlemeye girmez (frustum culling): her biri ~1 milyon üçgen
+    // atmosfer (bodyshaders.js FS_ATM): tek saçılmalı ışın yürütme; önçarpımlı karışım (saçılan ışık + yüzeyi puslayan geçirgenlik). Kamera atmosferin içindeyken
+    // kabuğun arka yüzü çizilir (earthLodUpdate yanında, her kare)
     this.atm = new THREE.Mesh(sphereGeometry(E.R_E * 1.0125, 256, 128), new THREE.ShaderMaterial({
-      uniforms: { sunDir: eu.sunDir, sunI: eu.sunI }, vertexShader: VS_ATM, fragmentShader: FS_ATM, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+      uniforms: { sunDir: eu.sunDir, sunI: eu.sunI, Rp: { value: E.R_E }, Ra: { value: E.R_E * 1.0125 }, atmK: { value: ATM_K } }, vertexShader: VS_ATM, fragmentShader: FS_ATM, transparent: true,
+      blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor, depthWrite: false }));
     S.add(this.atm);
     // Ay (LOLA ile yer değiştirmiş)
     const sd = VIEW.site.me;
@@ -554,6 +558,7 @@ export class World {
     // Dünya ve Ay
     rel([0, 0, 0], this.earth.position); this.earth.quaternion.copy(m3ToQuat(E.mT(Mitrf)));
     this.atm.position.copy(this.earth.position); this.earthLodUpdate();
+    this.atm.material.side = this.earth.position.length() < E.R_E * 1.0125 ? THREE.BackSide : THREE.FrontSide;      // atmosferin içinden (kalkış): arka yüz
     if (this.earthLod === 0) this.bodyBand(this.earth, 1024, 512, E.R_E - 0.07, E.R_E);                 // ince ağ: yalnız ufkun berisindeki satırlar
     rel(rm, this.moon.position); this.moon.quaternion.copy(m3ToQuat(E.mT(Mme)));
     this.moonLodUpdate();
