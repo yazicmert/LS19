@@ -2,12 +2,14 @@
 //  1) atmosfer: fiziksel tek saçılma (Rayleigh + Mie), Dünya gölgesi, önçarpımlı karışım, kamera içerideyken arka yüz; gölgelendiricinin sayısal eşi
 //     (aynı katsayılar) gökyüzü maviliğini, ufkun kızıllığını ve gece tarafının karanlığını verir
 //  3) görev gününün bulutları (NASA GIBS VIIRS): gün seçimi, parça adresi, mozaik boyu, zemine göre bulut çözümü, bulut gölgesi, sahne ve uygulama bağlantısı
+//  4) mevsimsel Dünya: dönem seçimi, oran hesabı (algılayıcı farkı, alt ortanca, renk korunan sınır, tropik tavanı, geçerlilik), gölgelendirici ve sahne
 //  2) Ay kabartma gölgesi: LOLA yükseklik alanında Güneş yönünde yürüyüş, eğrilik, yalnız alçak Güneş, yakında söner; yükseklik çözümü VS_BODY ile aynı
 import { register } from 'node:module';
 import { sceneSrc } from './scenesrc.js';
 register('./importmap_loader.mjs', import.meta.url);
 const { FS_ATM, FS_MOON, VS_BODY, FS_EARTH } = await import('../js/bodyshaders.js');
 const BL = await import('../js/bulutlar.js');
+const MV = await import('../js/mevsim.js');
 import fs from 'fs';
 
 let fail = 0;
@@ -73,13 +75,58 @@ const scene = sceneSrc();
     BL.parcaAdresi('2026-10-13', 3, 4, 2) === 'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/VIIRS_NOAA20_CorrectedReflectance_TrueColor/default/2026-10-13/250m/3/2/4.jpg'
     && BL.SEVIYE[3].cols * 512 === BL.SEVIYE[3].w && BL.SEVIYE[3].rows * 512 === BL.SEVIYE[3].h && BL.SEVIYE[2].w === 2560 && BL.SEVIYE[2].h === 1280);
   check('Dünya gölgelendiricisi: bulut = zemin (sRGB) ile beyaz arasındaki karışımın α\'sı; veri boşluğu ve kar/buz durağan dokudan; bulut gölgesi 6 km/tan(yükseliş), en çok 60 km; eski kenar pusu yok',
-    /vec3 a3 = \(rc - gr\) \/ \(1\.001 - gr\); float al = min\(a3\.r, min\(a3\.g, a3\.b\)\)/.test(FS_EARTH) && /pow\(max\(texture2D\(dayMap, uv\)\.rgb, vec3\(0\.0\)\), vec3\(1\.0 \/ 2\.2\)\)/.test(FS_EARTH)
+    /vec3 a3 = \(rc - gr\) \/ \(1\.001 - gr\); float al = min\(a3\.r, min\(a3\.g, a3\.b\)\)/.test(FS_EARTH) && /seasonal\(uv, texture2D\(dayMap, uv\)\.rgb, [^;]*\), 0\.0, 1\.0\), vec3\(1\.0 \/ 2\.2\)\)/.test(FS_EARTH)
     && /step\(0\.03, max\(rc\.r/.test(FS_EARTH) && /dkm = min\(6\.0 \* sqrt/.test(FS_EARTH) && /, 60\.0\)/.test(FS_EARTH) && /\(1\.0 - 0\.5 \* cShade\)/.test(FS_EARTH)
     && !/vec3\(0\.32, 0\.55, 1\.0\) \* max\(ndl \+ 0\.15/.test(FS_EARTH));
   const app = fs.readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
   check('sahne ve uygulama: setRealClouds (aynı gün yeniden inmez, eski doku bırakılır, düşük bellekte seviye 2, ?bulut=0 kapatır); görev kurulunca kalkış günüyle çağrılır',
     /async setRealClouds\(ms\)/.test(scene) && /if \(gun === this\.realGun\) return true;/.test(scene) && /this\.lowMem \? 2 : 3/.test(scene) && /bulut=0/.test(scene) && /old\.dispose\(\)/.test(scene)
-    && /realMap: \{ value: flat\(\[0, 0, 0, 255\]\) \}, useReal: \{ value: 0 \}/.test(scene) && /world\.setRealClouds\(E\.utcMsFromT\(S\.DESIGN\.LAUNCH\.t_launch\)\)/.test(app));
+    && /realMap: \{ value: flat\(\[0, 0, 0, 255\]\) \}, useReal: \{ value: 0 \},/.test(scene) && /const ms = E\.utcMsFromT\(S\.DESIGN\.LAUNCH\.t_launch\); world\.setRealClouds\(ms\)/.test(app));
+}
+
+// ---------------------------------------------------------------- 4) mevsimsel Dünya
+{
+  const now = Date.UTC(2026, 10, 23, 15), g = (y, m, d) => Date.UTC(y, m - 1, d, 9), D = (t) => MV.mevsimDonemleri(t, now).join(' ');
+  check('mevsim dönemleri: kalkışı içeren 8 günlük dönem ve önceki 3 (yıl başında 1 Ocak, önceki yılın 27 Aralık kısa dönemi); 45 güne dek gelecek güncel dönem, ötesi geçen yılın aynı mevsimi; 2018 öncesi son yılın aynı mevsimi',
+    D(g(2026, 10, 13)) === '2026-10-08 2026-09-30 2026-09-22 2026-09-14' && D(g(2026, 1, 3)) === '2026-01-01 2025-12-27 2025-12-19 2025-12-11'
+    && D(g(2026, 12, 1)) === '2026-11-01 2026-10-24 2026-10-16 2026-10-08' && D(g(2027, 6, 1)) === '2026-05-25 2026-05-17 2026-05-09 2026-05-01'
+    && D(g(1969, 7, 16)) === '2026-07-12 2026-07-04 2026-06-26 2026-06-18' && D(NaN) === D(g(2026, 11, 7)));
+  check('mevsim parça adresi: VIIRS NOAA-20 8 günlük yüzey yansıması (M5-M4-M3), 500m matrisi seviye 1 (3 × 2 parça → 1280 × 640)',
+    MV.mevsimAdresi('2026-10-08', 2, 1) === 'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/VIIRS_NOAA20_L3_SurfaceReflectance_BandsM5-M4-M3_8Day/default/2026-10-08/500m/1/1/2.jpg'
+    && MV.MW === 1280 && MV.MH === 640 && MV.KODLA === 12);
+  // küçük yapay dünya: W × H, satır 0 = kuzey; taban orta tonlu kara (A = 0) ya da su (A = 255)
+  const W = 48, H = 24, N = W * H, lat = (y) => 90 - (y + 0.5) / H * 180;
+  const img = (f) => { const a = new Uint8Array(N * 4); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const v = f(x, y), o = (y * W + x) * 4; a[o] = v[0]; a[o + 1] = v[1]; a[o + 2] = v[2]; a[o + 3] = v[3] ?? 255; } return a; };
+  const taban = img(() => [110, 120, 90, 0]), dec = (v) => (v / 255 - 0.5) * MV.KODLA, at = (r, x, y) => r.data.subarray((y * W + x) * 4, (y * W + x) * 4 + 4);
+  const r0 = MV.mevsimOrani([taban, taban], taban, W, H);
+  check('aynı dönem = taban: oran 1 (128), geçerlilik tam, kalibre 0', r0.kalibre.every((k) => k === 0) && [...at(r0, 10, 12)].join() === '128,128,128,255');
+  const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }, enc = (l) => Math.round(255 * (l <= 0.0031308 ? l * 12.92 : 1.055 * l ** (1 / 2.4) - 0.055));
+  const iki = img(() => [enc(2 * lin(110)), enc(2 * lin(120)), enc(2 * lin(90))]);
+  const r1 = MV.mevsimOrani([iki], taban, W, H);
+  check('algılayıcı farkı (her yer 2 kat parlak) ortanca ile ayıklanır: kalibre ≈ +1, oran ≈ 1',
+    r1.kalibre.every((k) => Math.abs(k - 1) < 0.05) && [...at(r1, 5, 5)].slice(0, 3).every((v) => Math.abs(v - 128) <= 1));
+  // (30, 6) pikselinde üç dönem: bulut (beyaz), zemin, bulut gölgesi (yarı parlak). Alt ortanca = zemin
+  const bulut = img((x, y) => x === 30 && y === 6 ? [250, 250, 250] : [110, 120, 90]), golge = img((x, y) => x === 30 && y === 6 ? [60, 66, 50] : [110, 120, 90]);
+  const r2 = MV.mevsimOrani([bulut, taban, golge], taban, W, H);
+  check('bulut ve bulut gölgesi elenir: üç dönemde parlaklığa göre alt ortanca', [...at(r2, 30, 6)].slice(0, 3).every((v) => Math.abs(v - 128) <= 1));
+  // (6, 3) ~60° K: koyu orman taban, mozaikte kar → çok büyük oran; kanallar birlikte kaydırılır (renk dönmez); (20, 12) ekvator: beyaz leke ≤ 1,6 kat
+  const tb = img((x, y) => x === 6 && y === 3 ? [8, 30, 8, 0] : [110, 120, 90, 0]);
+  const kar = img((x, y) => (x === 6 && y === 3) || (x === 20 && y === 12) ? [245, 245, 245] : [110, 120, 90]);
+  const r3 = MV.mevsimOrani([kar], tb, W, H), k = at(r3, 6, 3), e = at(r3, 20, 12);
+  const raw = [0, 1, 2].map((c) => Math.log2((lin(245) + 0.005) / (lin([8, 30, 8][c]) + 0.005)));
+  const Le = 0.2126 * lin(110) * 2 ** dec(e[0]) + 0.7152 * lin(120) * 2 ** dec(e[1]) + 0.0722 * lin(90) * 2 ** dec(e[2]), L0 = 0.2126 * lin(110) + 0.7152 * lin(120) + 0.0722 * lin(90);
+  check('kar: aralık dışı oran üç kanal birlikte sınırlanır (kanal farkları korunur, en büyüğü sınırda); tropikte beyaz leke parlaklığı en çok 1,6 kat; enlemler ' + lat(3).toFixed(0) + '° ve ' + lat(12).toFixed(0) + '°',
+    Math.abs((dec(k[0]) - dec(k[1])) - (raw[0] - raw[1])) < 0.1 && Math.max(dec(k[0]), dec(k[1]), dec(k[2])) > MV.KODLA / 2 - 0.15 && Math.abs(Le / L0 - 1.6) < 0.08);
+  const bos = img((x, y) => y < 4 ? [0, 0, 0] : [110, 120, 90]);
+  const r4 = MV.mevsimOrani([bos], taban, W, H);
+  check('veri boşluğu (kutup gecesi): geçerlilik 0, oran 1; sınırdan içe doğru yumuşak geçiş (ilk satırlar kısmi)',
+    [...at(r4, 10, 2)].join() === '128,128,128,0' && at(r4, 10, 4)[3] > 0 && at(r4, 10, 4)[3] < 255 && at(r4, 10, 16)[3] === 255);
+  const app = fs.readFileSync(new URL('../js/app.js', import.meta.url), 'utf8'), wk = fs.readFileSync(new URL('../js/mevsimworker.js', import.meta.url), 'utf8');
+  check('gölgelendirici: gündüz = taban × 2^((oran − 0,5)·12·geçerlilik·kara); gerçek bulut zemini de mevsimli; sahne: taban gündüz dokusundan (ayrı indirme yok), oran iş parçacığında, ?mevsim=0 kapatır; görev kurulunca çağrılır',
+    /vec3 seasonal\(vec2 uv, vec3 c, float land\)/.test(FS_EARTH) && /exp2\(\(s\.rgb - 0\.5\) \* 12\.0 \* \(s\.a \* land\)\)/.test(FS_EARTH) && /day = seasonal\(vUv, day, landE\);/.test(FS_EARTH)
+    && /gr = pow\(clamp\(seasonal\(uv, texture2D\(dayMap, uv\)\.rgb/.test(FS_EARTH)
+    && /async setSeason\(ms\)/.test(scene) && /seasonBase\(W, H\)/.test(scene) && /readRenderTargetPixels/.test(scene) && /mevsim=0/.test(scene) && /mevsimworker\.js/.test(scene)
+    && /seasonMap: \{ value: flat\(\[128, 128, 128, 0\]\) \}, useSeason: \{ value: 0 \}/.test(scene) && /world\.setSeason\(ms\)/.test(app) && /mevsimOrani\(kareler, taban\)/.test(wk));
 }
 
 console.log(fail ? `\n${fail} HATA` : '\nTAMAM');

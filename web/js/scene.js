@@ -216,7 +216,8 @@ export class World {
       heightMap: { value: flat([0, 0, 0, 255]) }, hSize: { value: new THREE.Vector2(1, 1) }, radius: { value: E.R_E }, useHeight: { value: 0 }, obsMode: { value: 0 },
       tileMap: { value: flat([0, 0, 0, 255]) }, useTile: { value: 0 }, tileKind: { value: 0 },
       parentMap: { value: flat([0, 0, 0, 255]) }, pXf: { value: new THREE.Vector4(1, 1, 0, 0) }, pHas: { value: 0 }, tileFade: { value: 1 },      // parça geçişi (her parça kendi kopyasını alır: tiles.js)
-      realMap: { value: flat([0, 0, 0, 255]) }, useReal: { value: 0 } };            // görev gününün gerçek bulutları (setRealClouds; parçalar aynı nesneyi paylaşır)
+      realMap: { value: flat([0, 0, 0, 255]) }, useReal: { value: 0 },             // görev gününün gerçek bulutları (setRealClouds; parçalar aynı nesneyi paylaşır)
+      seasonMap: { value: flat([128, 128, 128, 0]) }, useSeason: { value: 0 } };    // görev döneminin kara rengi (setSeason)
     this.earthGeo = EARTH_SEG.map(([a, b]) => sphereGeometry(E.R_E, a, b)); this.earthLod = 0;          // ayrıntı düzeyleri (earthLodUpdate); ikisi de atılmaz
     this.earth = new THREE.Mesh(this.earthGeo[0], new THREE.ShaderMaterial({ uniforms: eu, vertexShader: VS_BODY, fragmentShader: FS_EARTH }));
     S.add(this.earth);                                    // görüş dışındaki cisim köşe işlemeye girmez (frustum culling): her biri ~1 milyon üçgen
@@ -571,6 +572,49 @@ export class World {
   }
   // görev gününün gerçek bulutları (bulutlar.js, NASA GIBS VIIRS): ms = kalkış anı (UTC). Aynı gün yeniden indirilmez; inmezse durağan bulut dokusu kalır.
   // Düşük bellekte 2560 × 1280, değilse 5120 × 2560. ?bulut=0 kapatır.
+  // mevsimsel Dünya (mevsim.js): görev tarihine göre 4 art arda 8 günlük VIIRS yüzey mozaiği → taban dokuya oran dokusu. Taban, sahnedeki gündüz dokusunun
+  // 1280 × 640'a indirgenmiş hâli (mip ortalaması; ayrı indirme yok). Oran iş parçacığında hesaplanır. ?mevsim=0 kapatır; ağ yoksa taban doku olduğu gibi kalır
+  async setSeason(ms) {
+    if (/[?&]mevsim=0\b/.test(location.search)) return false;
+    const M = await import('./mevsim.js'), gunler = M.mevsimDonemleri(ms), anahtar = gunler[0];
+    if (anahtar === this.seasonKey) return true;
+    this.seasonKey = anahtar; if (this.seasonAbort) this.seasonAbort.abort(); const ac = this.seasonAbort = new AbortController();
+    let kareler; try { kareler = (await Promise.all(gunler.map((g) => M.mevsimKaresi(g, { signal: ac.signal })))).filter(Boolean); } catch (e) { return false; }
+    if (ac.signal.aborted || this.seasonKey !== anahtar) return false;
+    const taban = kareler.length >= 2 ? this.seasonBase(M.MW, M.MH) : null;
+    if (!taban) { this.seasonKey = null; return false; }
+    let r = null;
+    try {
+      const w = new Worker(new URL('./mevsimworker.js', import.meta.url), { type: 'module' });
+      r = await new Promise((ok, no) => { w.onmessage = (e) => ok(e.data); w.onerror = no; w.postMessage({ kareler, taban }, [taban.buffer, ...kareler.map((k) => k.buffer)]); });
+      w.terminate();
+    } catch (e) { return false; }
+    if (ac.signal.aborted || this.seasonKey !== anahtar) return false;
+    const W = M.MW, H = M.MH, d = new Uint8Array(W * H * 4);              // DataTexture: satır 0 = v 0 = güney (oran kuzeyden başlar)
+    for (let y = 0; y < H; y++) d.set(r.data.subarray((H - 1 - y) * W * 4, (H - y) * W * 4), y * W * 4);
+    const t = new THREE.DataTexture(d, W, H, THREE.RGBAFormat); t.colorSpace = THREE.NoColorSpace; t.wrapS = THREE.RepeatWrapping;
+    t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true; t.needsUpdate = true;
+    const eu = this.earthU, old = eu.seasonMap.value; eu.seasonMap.value = t; eu.useSeason.value = 1;
+    if (old && old.isDataTexture && old.image.width > 1) old.dispose();
+    return true;
+  }
+  // taban: gündüz dokusu (sRGB) + özyansıma (A), W × H, satır 0 = kuzey. Doku henüz yoksa null
+  seasonBase(W, H) {
+    const eu = this.earthU, day = eu.dayMap.value;
+    if (!day || (day.isDataTexture && day.image.width <= 1)) return null;
+    const rt = new THREE.WebGLRenderTarget(W, H, { depthBuffer: false }), sc = new THREE.Scene(), cam = new THREE.Camera();
+    const mat = new THREE.ShaderMaterial({ uniforms: { dayMap: eu.dayMap, specMap: eu.specMap }, depthTest: false, depthWrite: false,
+      vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+      fragmentShader: `uniform sampler2D dayMap, specMap; varying vec2 vUv;
+        void main() { vec3 c = clamp(texture2D(dayMap, vUv).rgb, 0.0, 1.0);
+          gl_FragColor = vec4(mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)), texture2D(specMap, vUv).r); }` });
+    const q = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat); q.frustumCulled = false; sc.add(q);
+    const R = this.renderer, prev = R.getRenderTarget(), px = new Uint8Array(W * H * 4);
+    try { R.setRenderTarget(rt); R.render(sc, cam); R.readRenderTargetPixels(rt, 0, 0, W, H, px); } finally { R.setRenderTarget(prev); rt.dispose(); mat.dispose(); q.geometry.dispose(); }
+    const out = new Uint8Array(W * H * 4);                                  // okunan satır 0 = alt (güney) → kuzeyden başlat
+    for (let y = 0; y < H; y++) out.set(px.subarray((H - 1 - y) * W * 4, (H - y) * W * 4), y * W * 4);
+    return out;
+  }
   async setRealClouds(ms) {
     if (/[?&]bulut=0\b/.test(location.search)) return false;
     const B = await import('./bulutlar.js'), gun = B.bulutGunu(ms);

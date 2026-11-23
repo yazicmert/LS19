@@ -37,16 +37,22 @@ export const FS_EARTH = /* glsl */`
 uniform sampler2D dayMap, nightMap, cloudMap, specMap, normalMap, tileMap; uniform vec3 sunDir; uniform float sunI; uniform float obsMode; uniform float useTile, tileKind;
 uniform sampler2D parentMap; uniform vec4 pXf; uniform float pHas, tileFade;          // parça geçişi (tiles.js): ata parça (ya da taban doku) → yeni parça
 uniform sampler2D realMap; uniform float useReal;                                       // görev gününün gerçek renk mozaiği (bulutlar.js; 0: durağan bulut dokusu)
+uniform sampler2D seasonMap; uniform float useSeason;                                   // görev döneminin kara rengi (mevsim.js): log2 oranı, A = geçerlilik
 varying vec2 vUvT;
 varying vec3 vN; varying vec3 vE; varying vec3 vPos; varying vec2 vUv; varying vec3 vLocal;
 ${GLSL_NOISE}
 // bulut örtüsü (saydamlık 0…1) bir uv'de. Durağan doku kontrast eğrisiyle. Gerçek mozaikte piksel = karışım(bulutsuz zemin, beyaz, α) çözülür: zemin Blue Marble
 // gündüz dokusu (sRGB'ye çevrilip mozaikle aynı uzayda), α = kanallarda en küçük (gerçek − zemin) / (1 − zemin). Çöl, kara ve kar kendi renginde kaldığından bulut sayılmaz.
 // Veri boşluğu (siyah şerit) ve kar/buz (zemin beyaza yakın: çözüm kararsız) durağan dokudan
+// mevsim: taban dokuya görev döneminin düşük frekanslı oranı (≈ 31 km/px) uygulanır; ayrıntı tabandan, renk ve parlaklık (kar, yeşil, kuru) dönemden. Yalnız kara
+vec3 seasonal(vec2 uv, vec3 c, float land) {
+  if (useSeason < 0.5) return c;
+  vec4 s = texture2D(seasonMap, uv); return c * exp2((s.rgb - 0.5) * 12.0 * (s.a * land));
+}
 float cloudAt(vec2 uv) {
   float cs = smoothstep(0.08, 0.9, texture2D(cloudMap, uv).r);
   if (useReal < 0.5) return cs;
-  vec3 rc = texture2D(realMap, uv).rgb, gr = pow(max(texture2D(dayMap, uv).rgb, vec3(0.0)), vec3(1.0 / 2.2));
+  vec3 rc = texture2D(realMap, uv).rgb, gr = pow(clamp(seasonal(uv, texture2D(dayMap, uv).rgb, 1.0 - smoothstep(0.1, 0.5, texture2D(specMap, uv).r)), 0.0, 1.0), vec3(1.0 / 2.2));
   vec3 a3 = (rc - gr) / (1.001 - gr); float al = min(a3.r, min(a3.g, a3.b));
   float m = pow(clamp((al - 0.08) / 0.8, 0.0, 1.0), 1.2), ice = smoothstep(0.7, 0.85, dot(gr, vec3(0.333)));
   return mix(cs, mix(m, cs, ice), step(0.03, max(rc.r, max(rc.g, rc.b))));
@@ -80,6 +86,7 @@ void main() {
     bool pBad = tileKind > 0.5 && (pHas < 0.5 || (tileKind < 1.5 ? pq.r + pq.g + pq.b < 0.012 : pq.a < 0.5));   // kaplamanın atasında veri yok: saydamlıkla belirir
     day = mix(pBad ? day : pc, day, tileFade);
   }
+  day = seasonal(vUv, day, landE);
   day *= 1.0 + dnE * 0.5 * magE * landE;
   float tw = smoothstep(-0.12, 0.2, ndl);
   vec3 sunCol = mix(vec3(1.0, 0.55, 0.3), vec3(1.0), smoothstep(0.0, 0.35, ndl));
