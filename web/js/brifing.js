@@ -2,8 +2,9 @@
 // Akış: giriş kartı → 1 Nereye (iniş yeri) → 2 Ne zaman (tarih) → 3 Nasıl (profil) → 4 Neyle (roket, araç, güdüm) → 5 Brifing (tasarım ve özet).
 // Brifing açıkken araç, uçuş göstergeleri ve deney paneli gizlidir; arkadaki 3B sahne adıma göre değişir (Dünya–Ay sistemi, seçilen iniş yeri, Dünya).
 // Saf mantık brifingtext.js'te; tasarım, roket ve kalkış app.js'in kendi işlevleridir (host): fizik ve tasarım koduna dokunulmaz.
+import * as THREE from 'three';
 import * as E from './engine.js';
-import { BRIEF_STEPS, SITE_NOTES, PROFILE_NOTES, PROFILE_ORDER, datePresets, profileStats, rocketFit, designEta, recommend, briefSummary } from './brifingtext.js';
+import { BRIEF_STEPS, SITE_NOTES, PROFILE_NOTES, PROFILE_ORDER, datePresets, profileStats, rocketFit, designEta, recommend, briefSummary, profilePath, profileSvg, reasons, statsOf, livePath, DEFAULT_BRIEF_DATE } from './brifingtext.js';
 import { LUNAR_SITES, siteOf } from './moonsite.js';
 import { ROCKETS, ROCKET_IDS, tliCapacity } from './rockets.js';
 import { DV_NAMES } from './dvbudget.js';
@@ -23,9 +24,9 @@ const SCENES = {
   intro: { mode: 'EARTH', dist: 15500, sun: true, off: 0.75, spin: 0.025 },
   yer: { mode: 'MOON', dist: 6200, site: true },
   tarih: { mode: 'MOON', dist: 9000, site: true },
-  profil: { mode: 'SYSTEM', dist: 640000, el: 0.62, spin: 0.03, orbit: true, tags: true },
+  profil: { mode: 'SYSTEM', dist: 820000, el: 1.15, az: -Math.PI / 2, orbit: true, tags: true, path: true },        // üstten; Dünya ortada, Ay sağda
   roket: { mode: 'EARTH', dist: 21000, sun: true, off: 0.45, spin: 0.03 },
-  brifing: { mode: 'SYSTEM', dist: 600000, el: 0.5, spin: 0.025, orbit: true, tags: true },
+  brifing: { mode: 'SYSTEM', dist: 820000, el: 1.05, az: -Math.PI / 2, orbit: true, tags: true, path: true },
 };
 // brifingde gizlenen sahne çizgileri (araç izi, yörüngeler, eksenler, meridyenler, işaretler)
 const HIDE = ['trailLineE', 'trailLineM', 'osc', 'stageOsc', 'haloPath', 'moonPath', 'siteMarker', 'embEarth', 'embMoon', 'embMarker', 'earthAxis', 'moonAxis', 'earthMer', 'moonMer'];
@@ -62,7 +63,7 @@ export class Briefing {
   }
   close(how = null) {
     if (!this.active) return;
-    this.active = false; this.root.hidden = true; this.hidePins(); this.markSeen();
+    this.active = false; this.root.hidden = true; this.stopLive(); this.waitLive = false; this.hidePins(); this.markSeen(); this.viewOffset(this.h.world, true);
     document.body.classList.remove('briefing');
     const W = this.h.world;
     if (W.vehicle) W.vehicle.visible = true;
@@ -95,27 +96,32 @@ export class Briefing {
 
   // ---------------------------------------------------------------- adımlar
   go(i) {
+    const prevStep = this.step, prevBody = this.card.querySelector('.brief-body'), keepScroll = prevBody && prevStep === Math.max(0, Math.min(BRIEF_STEPS.length - 1, i)) ? prevBody.scrollTop : 0;
     this.step = Math.max(0, Math.min(BRIEF_STEPS.length - 1, i));
     this.root.classList.remove('is-intro');
     const S = BRIEF_STEPS[this.step];
     this.setScene(S.k);
     this.card.className = 'brief-card brief-step';
     const dots = BRIEF_STEPS.map((q, k) => `<li class="${k < this.step ? 'done' : k === this.step ? 'cur' : ''}"><span>${k + 1}</span><em>${esc(tr(q.t))}</em></li>`).join('');
-    this.card.innerHTML = `<ol class="brief-dots" aria-label="Adımlar">${dots}</ol>
+    this.card.classList.toggle('full', !!this.full);
+    this.card.innerHTML = `<button type="button" class="brief-grab" aria-expanded="${this.full ? 'true' : 'false'}" aria-label="Listeyi büyüt ya da sahneyi göster"><span></span></button><ol class="brief-dots" aria-label="Adımlar">${dots}</ol>
       <p class="brief-eye">${this.step + 1} / ${BRIEF_STEPS.length} · ${esc(tr(S.s))}</p>
       <h2 class="brief-h" tabindex="-1">${esc(tr(S.t))}</h2>
       <div class="brief-body"></div>
       <div class="brief-nav"><button type="button" class="ghost" data-act="back">${this.step === 0 ? 'Giriş' : 'Geri'}</button><button type="button" class="primary" data-act="next"></button></div>`;
-    const body = this.card.querySelector('.brief-body'), next = this.card.querySelector('[data-act="next"]');
+    const body = this.card.querySelector('.brief-body'), next = this.card.querySelector('[data-act="next"]'), grab = this.card.querySelector('.brief-grab');
+    grab.onclick = () => { this.full = !this.full; this.card.classList.toggle('full', this.full); grab.setAttribute('aria-expanded', String(this.full)); };      // telefon: tam ekran liste ↔ sahne
     this.card.querySelector('[data-act="back"]').onclick = () => (this.step === 0 ? this.intro(this.kind) : this.go(this.step - 1));
     next.textContent = this.step === 3 ? 'Görevi tasarla' : 'Devam';
     next.onclick = () => this.go(this.step + 1);
+    if (S.k === 'profil' || S.k === 'roket') this.ensureLive();
     if (S.k === 'yer') this.stepSite(body);
     else if (S.k === 'tarih') this.stepDate(body);
     else if (S.k === 'profil') this.stepProfile(body);
     else if (S.k === 'roket') this.stepRocket(body, next);
     else this.stepBrief(body);
-    this.focusTitle();
+    if (keepScroll) body.scrollTop = keepScroll;
+    if (prevStep !== this.step) this.focusTitle();                                   // aynı adım yeniden çizilince (canlı sonuç) odak yerinde kalır
   }
   focusTitle() { const h = this.card.querySelector('.brief-h'); if (h && h.focus) { if (!h.hasAttribute('tabindex')) h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); } }
 
@@ -127,14 +133,23 @@ export class Briefing {
     box.innerHTML = `<b>LS19 önerisi</b><p>${esc(tr(r.why))}</p>${same ? '<span class="brief-ok">Seçili</span>' : '<button type="button" class="chip">LS19 seçsin</button>'}`;
     const b = box.querySelector('button'); if (b) b.onclick = () => apply(r.v);
     body.appendChild(box);
+    this.why(body, step);
+  }
+  // seçimin gerekçesi, sayılarla (brifingtext.js reasons)
+  why(body, step) {
+    const R = reasons(step, this.sel, { defs: this.h.defs(), stats: (k) => this.stats(k), cap: tliCapacity, lat: (k) => siteOf(k).latDeg }); if (!R.length) return;
+    const fa = (x) => (x && typeof x === 'object' ? fmt(x.n, x.d) : tr(String(x)));
+    const box = el('div', 'brief-why', `<b>Bu seçim</b><ul>${R.map((q) => `<li>${esc(tr(q.t, ...q.a.map(fa)))}</li>`).join('')}</ul>`);
+    body.appendChild(box);
   }
   // seçenek listesi: items [{ v, t, s, meta, warn, disabled }]
   options(body, name, items, cur, onPick) {
     const list = el('div', 'brief-opts'); list.setAttribute('role', 'radiogroup'); list.setAttribute('aria-label', name);
     for (const it of items) {
       const b = el('button', 'brief-opt' + (it.v === cur ? ' on' : '') + (it.warn ? ' warn' : ''));
-      b.type = 'button'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(it.v === cur)); b.disabled = !!it.disabled;
-      b.innerHTML = `<span class="bo-t">${esc(tr(it.t))}</span>${it.meta ? `<span class="bo-m">${esc(it.meta)}</span>` : ''}<span class="bo-s">${esc(tr(it.s || ''))}</span>`;
+      b.type = 'button'; b.dataset.v = it.v; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(it.v === cur)); b.disabled = !!it.disabled;
+      b.innerHTML = `<span class="bo-t">${esc(tr(it.t))}</span>${it.meta ? `<span class="bo-m">${esc(it.meta)}</span>` : ''}${it.svg || ''}<span class="bo-s">${esc(tr(it.s || ''))}</span>`;
+      if (it.svg) b.classList.add('has-svg');
       b.onclick = () => onPick(it.v);
       list.appendChild(b);
     }
@@ -148,6 +163,7 @@ export class Briefing {
       const s = siteOf(k);
       return { v: k, t: `Apollo ${k.slice(1)} · ${SITE_NOTES[k].t}`, meta: `${fmt(Math.abs(s.latDeg), 1)}° ${ns(s.latDeg)} ${fmt(Math.abs(s.lonDeg), 1)}° ${ew(s.lonDeg)}`, s: SITE_NOTES[k].s };
     }), this.sel.site, pick);
+    body.appendChild(el('p', 'brief-note', 'Ay burada her yer görünsün diye tam aydınlatılmış gösterilir. Ay\'daki işarete dokunarak da seçebilirsin. Görev gününde iniş yerinde Güneş alçakta olur.'));
   }
   stepDate(body) {
     const today = todayStr(), pick = (v) => { this.sel.date = v; this.go(this.step); };
@@ -160,13 +176,55 @@ export class Briefing {
     body.appendChild(el('p', 'brief-note', 'LS19 seçtiğin günden sonraki ilk uygun pencereyi bulur: iniş yerinde Güneş alçakta (5°–20°) olmalı, uzun gölgeler araziyi gösterir. Pencere sonraki aya kayarsa brifingde gerçek tarih yazar.'));
   }
   stepProfile(body) {
-    const pick = (v) => { this.sel.profile = v; this.go(this.step); }, defs = this.h.defs();
+    const pick = (v) => { this.sel.profile = v; this.go(this.step); };
     this.rec(body, 'profil', this.sel.profile, pick);
+    const L = this.liveState;
     this.options(body, 'Yörünge profili', PROFILE_ORDER.map((k) => {
-      const st = profileStats(defs, k), N = PROFILE_NOTES[k];
-      return { v: k, t: N.t, s: N.s, meta: st ? `${fmt(st.days, 1)} gün · Δv ${fmt(st.dv, 0)} m/s` : '' };
+      const st = this.stats(k), N = PROFILE_NOTES[k], row = L && L.rows[k], real = row && row.path ? livePath(k, row.path) : null;
+      const G = profileSvg(k, 132, 64, real);
+      const svg = `<svg class="bo-svg${real ? ' real' : ''}" viewBox="0 0 132 64" aria-hidden="true"><circle cx="${G.E[0]}" cy="${G.E[1]}" r="3.2" class="e"/><circle cx="${G.M[0]}" cy="${G.M[1]}" r="2" class="m"/>${G.paths.map((q) => `<path d="${q.d}" class="${q.kind}"/>`).join('')}</svg>`;
+      const state = !row || row.st === 'ok' || st ? '' : row.st === 'busy' ? 'hesaplanıyor…' : row.st === 'err' ? 'bu pencerede yakınsamadı: tasarım sonraki pencereyi dener' : 'sırada';
+      const fuel = st && st.landNeed != null && row && row.st === 'ok' ? tr(' Yakıt: TLI {0}/{1} kg, iniş {2}/{3} kg (gereken/olan).', fmt(st.tliNeed, 0), fmt(st.tliHave, 0), fmt(st.landNeed, 0), fmt(st.landHave, 0)) : '';
+      return { v: k, t: N.t, s: tr(N.s) + fuel, svg, meta: st ? `${fmt(st.days, 1)} gün · Δv ${fmt(st.dv, 0)} m/s` : tr(state), warn: row && row.st === 'err' };
     }), this.sel.profile, pick);
-    body.appendChild(el('p', 'brief-note', 'Süre ve Δv: 13 Ekim 2026 penceresinde Apollo 11 yerine tasarlanmış görevler (fırlatmadan inişe). Başka yer ve tarihte biraz değişir.'));
+    body.appendChild(el('p', 'brief-note', 'LS19 her profili seçtiğin yer, tarih ve roketle gerçekten tasarlar (fırlatma penceresi, Ay\'a aktarma, iniş; roketin yakıtıyla): süre, Δv ve yakıt hesap bitince gelir, çizim gerçek yola döner. Halo profilleri 1–2 dakika sürer. Çizimler üstten, Ay\'la dönen çerçevede.'));
+  }
+  // ---------------------------------------------------------------- canlı tasarım (host.live → app.js briefDesign: önbellek ya da iş parçacığı)
+  liveKey() { const s = this.sel; return [s.site, s.date, s.rocket].join('|'); }
+  // profilin özeti: canlı tasarım; yoksa hazır tasarım (yalnız aynı yer, tarih ve genel kademe için geçerli)
+  stats(k) {
+    const row = this.liveState && this.liveState.rows[k];
+    if (row && row.D) return statsOf(row.D);
+    const s = this.sel, defs = this.h.defs();
+    return defs && s.site === 'A11' && s.date === (defs.date || DEFAULT_BRIEF_DATE) && s.rocket === 'GENEL' ? profileStats(defs, k) : null;
+  }
+  ensureLive() {
+    if (!this.h.live) return;
+    const key = this.liveKey(); if (this.liveState && this.liveState.key === key) return;
+    this.stopLive();
+    const L = this.liveState = { key, rows: Object.fromEntries(PROFILE_ORDER.map((k) => [k, { st: 'wait' }])), stopped: false }, sel0 = { ...this.sel };
+    const dead = () => L.stopped || this.liveState !== L;
+    (async () => {
+      for (;;) {
+        const k = L.rows[this.sel.profile] && L.rows[this.sel.profile].st === 'wait' ? this.sel.profile : PROFILE_ORDER.find((q) => L.rows[q].st === 'wait');      // seçili profil önce
+        if (!k || dead()) break;
+        const row = L.rows[k]; row.st = 'busy'; this.liveUpdate(k);
+        try {
+          const r = await this.h.live({ ...sel0, profile: k }, k, (m) => { row.msg = m; }, dead);
+          if (dead()) break;
+          if (r) { row.st = 'ok'; row.D = r.D; row.path = r.path; } else { row.st = 'err'; }
+        } catch (e) { if (dead()) break; row.st = 'err'; row.msg = String((e && e.message) || e); }
+        this.liveUpdate(k);
+      }
+    })();
+  }
+  stopLive() { if (this.liveState) { this.liveState.stopped = true; this.liveState = null; if (this.h.liveStop) this.h.liveStop(); } }
+  // bir profilin sonucu geldi: açık adım yeniden çizilir (kaydırma korunur); brifing seçili profili bekliyorsa tasarıma geçer
+  liveUpdate(k) {
+    if (!this.active) return;
+    const st = BRIEF_STEPS[this.step] && BRIEF_STEPS[this.step].k;
+    if (this.waitLive && k === this.sel.profile) { const row = this.liveState && this.liveState.rows[k]; if (row && row.st !== 'busy') { this.waitLive = false; this.startDesign(); } return; }
+    if (st === 'profil' || (st === 'roket' && k === this.sel.profile)) this.go(this.step);
   }
   stepRocket(body, next) {
     const pick = (v) => { this.sel.rocket = v; this.go(this.step); };
@@ -197,6 +255,13 @@ export class Briefing {
     body.innerHTML = `<p class="brief-lead">LS19 görevini hesaplıyor: fırlatma penceresi, park yörüngesi, Ay'a aktarma, Ay yörüngesi ve iniş.</p>
       <div class="brief-wait" role="status"><span class="brief-spin" aria-hidden="true"></span><span>${esc(tr('Tasarım süresi: {0}.', tr(designEta(this.sel).t)))}</span></div>`;
     this.card.querySelector('.brief-nav').hidden = true;
+    const row = this.liveState && this.liveState.key === this.liveKey() && this.liveState.rows[this.sel.profile];
+    if (row && row.st === 'busy') { this.waitLive = true; return; }                // seçili profil zaten hesaplanıyor: onu bekle (iki kez hesaplanmasın)
+    this.startDesign();
+  }
+  startDesign() {
+    const row = this.liveState && this.liveState.rows[this.sel.profile];
+    if (!(row && row.st === 'ok')) this.stopLive();                               // hazır değilse arka plan hesabı durur (işlemci tasarıma kalsın)
     this.h.design({ ...this.sel }).catch((e) => this.onFail(String((e && e.message) || e)));
   }
   key() { const s = this.sel; return [s.site, s.date, s.profile, s.rocket, s.vehicle, s.landing].join('|'); }
@@ -234,7 +299,7 @@ export class Briefing {
   // ---------------------------------------------------------------- 3B sahne
   setScene(k) {
     const sc = SCENES[k] || SCENES.intro, prev = this.cam;
-    this.cam = { ...sc, k, az: prev && prev.mode === sc.mode ? prev.az : 0.6, el: sc.el ?? 0.3 };
+    this.cam = { ...sc, k, az: sc.az ?? (prev && prev.mode === sc.mode ? prev.az : 0.6), el: sc.el ?? 0.3 };
     if (prev && prev.mode !== sc.mode) { this.fade.classList.add('on'); clearTimeout(this.fadeT); this.fadeT = setTimeout(() => this.fade.classList.remove('on'), 260); }
   }
   // app.js her karede (world.update'ten sonra): kamera, gizlenenler, işaretler
@@ -250,26 +315,72 @@ export class Briefing {
     let az = c.az, elv = c.el;
     c.t = (c.t || 0) + dt;
     if (c.site) {                                                                  // iniş yerine bakış: yer ile Güneş yönü arasından (yer görünür, yüz aydınlık kalsın)
-      const s = siteOf(this.sel.site || 'A11'), d = unit(s.icrf(x.t)), sun = unit(E.sub(E.sunPos(x.t), rm));
-      const v = unit([d[0] + 0.55 * sun[0], d[1] + 0.55 * sun[1], d[2] + 0.55 * sun[2]]);
+      // yer ortada, hafif kuzeyden; Ay "stüdyo ışığıyla" aydınlatılır (görev tarihinde yer gecede olabilir: Ekim 2026'da yakın yüz hilal evresinde karanlık).
+      // Işık yerin batısından ~35° yükseklikte: kabartma gölgeleri okunur. Yalnız bu adımlarda; world.update her karede gerçek Güneş'e döndürür
+      const s = siteOf(this.sel.site || 'A11'), d = unit(s.icrf(x.t)), nz = [0, 0, 1], east = unit(E.cross(nz, d)), north = E.cross(d, east);
+      const v = unit(E.add(d, E.scale(north, 0.25)));
       az = Math.atan2(v[1], v[0]); elv = Math.asin(Math.max(-1, Math.min(1, v[2])));
-      this.placePin('site', E.add(rm, E.scale(s.icrf(x.t), 1.0006)), `Apollo ${(this.sel.site || 'A11').slice(1)}`, rm); show.add('site');
+      if (W.moonU && W.moonU.sunDir) W.moonU.sunDir.value.set(...unit(E.add(E.add(E.scale(d, 0.75), E.scale(east, -0.62)), E.scale(north, 0.2))));
+      // altı iniş yeri Ay'da işaretli; Nereye adımında işarete dokununca seçilir
+      for (const k of Object.keys(SITE_NOTES)) {
+        const on = k === (this.sel.site || 'A11'), q = siteOf(k), pick = c.k === 'yer' && !on ? () => { this.sel.site = k; this.go(this.step); } : null;
+        if (!on && c.k !== 'yer') continue;
+        this.placePin('s:' + k, E.add(rm, E.scale(q.icrf(x.t), 1.0006)), `Apollo ${k.slice(1)}`, rm, { on, pick, left: k === 'A12' }); show.add('s:' + k);      // Apollo 12 ve 14 yakın: 12'nin adı solda
+      }
     } else if (c.sun) {                                                            // Dünya: Güneş tarafından, gece–gündüz sınırı kenarda; yavaşça döner
       const sv = unit(E.sunPos(x.t));
       az = Math.atan2(sv[1], sv[0]) + c.off + (c.spin || 0) * c.t; elv = Math.max(-0.6, Math.min(0.6, Math.asin(sv[2]))) + 0.18;
     } else c.az += (c.spin || 0) * dt;
     if (c.tags) { this.placePin('E', [0, 0, 0], 'Dünya'); this.placePin('M', rm, 'Ay'); show.add('E'); show.add('M'); }
     for (const k in this.pins) if (!show.has(k)) this.pins[k].hidden = true;
+    this.drawPath(c.path ? this.sel.profile : null, x, rm);
+    this.viewOffset(W);
     const cur = W.cam, k = 1 - Math.exp(-dt / 0.45), wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
     if (cur.mode !== c.mode) Object.assign(cur, { mode: c.mode, az, el: elv, dist: c.dist });
     else Object.assign(cur, { az: cur.az + wrap(az - cur.az) * k, el: cur.el + (elv - cur.el) * k, dist: Math.exp(Math.log(cur.dist) + (Math.log(c.dist) - Math.log(cur.dist)) * k) });
     cur.auto = false;
   }
-  hidePins() { for (const k in this.pins) this.pins[k].hidden = true; }
+  // görüntü kaydırma (THREE.PerspectiveCamera.setViewOffset): cisim kartın arkasında kalmasın. Masaüstünde sağa (kart solda), telefonda yukarı
+  // (sayfa altta; tam ekran listede kaydırma yok). Girişte başlık solda/altta: Dünya sağa/yukarı. İşaretler aynı izdüşümle (project) yerinde kalır
+  viewOffset(W, off = false) {
+    const cam = W.camera, cv = W.canvas; if (!cam || !cv) return;
+    const w = cv.clientWidth, h = cv.clientHeight, narrow = w <= 700, intro = this.root.classList.contains('is-intro');
+    let ox = 0, oy = 0;
+    if (!off) {
+      if (narrow) oy = intro ? Math.round(h * 0.2) : this.full ? 0 : Math.round(h * 0.21);
+      else ox = intro ? -Math.round(w * 0.16) : -Math.round(Math.min(260, ((this.card.offsetWidth || 432) + 14) / 2));
+    }
+    const k = [w, h, ox, oy].join(); if (k === this.vo) return; this.vo = k;
+    if (!ox && !oy) cam.clearViewOffset(); else cam.setViewOffset(w, h, ox, oy, w, h);
+    cam.updateProjectionMatrix();
+  }
+  hidePins() { for (const k in this.pins) this.pins[k].hidden = true; this.drawPath(null); }
+  // şematik profil yolu 3B sahnede (Dünya–Ay dönen çerçevesi → ICRF; brifingtext.js profilePath). Kayan başlangıç noktası: grup Dünya'nın sahnedeki yerinde
+  drawPath(key, x = null, rm = null) {
+    const W = this.h.world;
+    if (!key || !x) { if (this.path3d) { W.scene.remove(this.path3d.g); this.path3d.g.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); this.path3d = null; } return; }
+    const row = this.liveState && this.liveState.rows[key], real = row && row.path ? livePath(key, row.path) : null, pk = key + (real ? '*' : '');
+    if (!this.path3d || this.path3d.key !== pk || Math.abs(this.path3d.t - x.t) > 3600) {
+      this.drawPath(null);
+      const vm = E.moonVel(x.t), D = Math.hypot(...rm), xx = unit(rm), zz = unit(E.cross(rm, vm)), yy = E.cross(zz, xx);
+      const g = new THREE.Group(), COL = { park: 0x8591a3, raise: 0x8591a3, moon: 0xd9dee8, transfer: 0x5ee7ff, halo: 0xf5b93a };
+      for (const part of real || profilePath(key)) {
+        const pos = new Float32Array(part.pts.length * 3);
+        part.pts.forEach((q, i) => { for (let k = 0; k < 3; k++) pos[i * 3 + k] = (q[0] * xx[k] + q[1] * yy[k] + q[2] * zz[k]) * D; });
+        const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        const ln = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: COL[part.kind] || 0xffffff, transparent: true, opacity: part.kind === 'transfer' || part.kind === 'halo' ? 0.95 : 0.6, depthWrite: false, toneMapped: false }));
+        ln.frustumCulled = false; g.add(ln);
+      }
+      g.renderOrder = 3; W.scene.add(g); this.path3d = { key: pk, t: x.t, g };
+    }
+    const eye = W.eye; if (eye) this.path3d.g.position.set(-eye[0], -eye[1], -eye[2]);
+  }
   // ekran işareti: p (km, Dünya merkezli); cen verilirse p bir yüzey noktasıdır ve cismin arka yüzündeyse gizlenir
-  placePin(key, p, label, cen = null) {
+  placePin(key, p, label, cen = null, o = {}) {
     const W = this.h.world, eye = W.eye, cam = W.camera;
-    let n = this.pins[key]; if (!n) { n = this.pins[key] = el('div', 'brief-pin' + (cen ? '' : ' body'), '<i></i><b></b>'); this.root.insertBefore(n, this.card); }
+    let n = this.pins[key];
+    if (!n) { n = this.pins[key] = el(o.pick !== undefined ? 'button' : 'div', 'brief-pin' + (cen ? '' : ' body'), '<i></i><b></b>'); if (n.tagName === 'BUTTON') n.type = 'button'; this.root.insertBefore(n, this.card); }
+    n.classList.toggle('on', !!o.on); n.classList.toggle('pick', !!o.pick); n.classList.toggle('left', !!o.left); n.onclick = o.pick || null; if (n.tagName === 'BUTTON') { n.disabled = !o.pick; n.setAttribute('aria-pressed', String(!!o.on)); }
     if (!eye || !cam) { n.hidden = true; return; }
     const v = cam.position.clone().set(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]).project(cam);
     let facing = true;

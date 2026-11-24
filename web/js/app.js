@@ -14,6 +14,7 @@ import { ProfileCompare } from './profilecompare.js';
 import { attachCanvasInput } from './canvasinput.js';
 import { AscentPlayer } from './ascentplay.js';
 import { Briefing } from './brifing.js';
+import { DesignJob } from './designjob.js';
 import { briefKind } from './brifingtext.js';
 import { inclRange, minIncl, LEGACY_SITE, padAllowed, siteOf as padSite } from './pads.js';
 import { twoStageDesign, STAGES as MISSION_STAGES } from './mission.js';
@@ -611,8 +612,28 @@ ui.onRocket = (id) => {
 // görev brifingi (brifing.js): Ay görevinin girişi. Seçimler yapılandırmaya yazılır, görev bir kez tasarlanır; sonra rampadan (kalkış), yörüngeden ya da fragmanla başlar
 const missionReady = () => new Promise((r) => { const f = () => (S.latest && !S.designing ? r() : setTimeout(f, 200)); f(); });
 let ascentThenPlay = false;
+// brifing: seçilen yer, tarih, roket (ve rampası) ile bir profilin gerçek tasarımı: önbellek (hazır tasarımlar dahil) ya da iş parçacığı (designwork.js).
+// Sonuç ortak önbelleğe yazılır: brifingin sonundaki "Görevi tasarla" aynı seçimle anında biter. Yol (design.js missionPath) çizim içindir
+const briefJob = new DesignJob(), briefPaths = new Map();
+async function briefDesign(sel, key, onProg, stop) {
+  const ms = Date.parse(sel.date + 'T00:00:00Z'); if (!Number.isFinite(ms) || !S.K) return null;
+  const p = launch.padFor(sel.rocket), site = p !== undefined ? p : ui.site;
+  const cfg = { ...PROFILES[key].cfg, rocket: sel.rocket, site: site || undefined, moonSite: sel.site }, ck = cacheKey(ms, cfg), tFrom = tOfUtcMs(ms), tStart = tFrom - 86400;
+  const win = missionEtWindow(tStart, cfg);
+  let hit = cachedDesign(ms, cfg);
+  if (!hit) {
+    const D = await briefJob.run({ tFrom, tStart, cfg, win, path: true }, onProg, stop);
+    if (!D) return null;
+    hit = { tStart, design: D, nominal: null }; designCache.set(ck, hit); briefPaths.set(ck, briefJob.lastPath);
+  } else if (!briefPaths.has(ck) && !stop()) {
+    await briefJob.run({ tFrom, tStart: hit.tStart, cfg, win: missionEtWindow(hit.tStart, cfg), pathFor: hit.design }, () => {}, stop);
+    briefPaths.set(ck, briefJob.lastPath);
+  }
+  return { D: hit.design, path: briefPaths.get(ck) || null };
+}
 brief = new Briefing({ world, ui, root: $('#app'), latest: () => S.latest, defs: () => S.K && S.K.defs,
   preload: (id) => { const p = launch.padFor(id); ascent.preload(id, p !== undefined ? p : ui.site); },           // seçilen roket ve rampası: kalkış beklemeden açılsın
+  live: briefDesign, liveStop: () => briefJob.drop(),
   current: () => ({ site: $('#cfgMoonSite').value, date: $('#dateInput').value || DEFAULT_DATE, profile: ui.profileKeyOf(ui.getConfig()), rocket: ui.rocket, vehicle: vehicleMode, landing: landingMode }),
   design: async (sel) => {
     compare.cancel(); scanner.cancel();

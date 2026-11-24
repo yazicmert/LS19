@@ -6,11 +6,11 @@
 import { makeLive } from './live.js';
 import { EphStore } from './ephstore.js';
 import * as EO from './earth.js';
-import { designMission } from './design.js';
+import { designMission, missionPath } from './design.js';
 
 const get = (f) => fetch(new URL('../data/' + f, import.meta.url)).then((r) => { if (!r.ok) throw new Error(f + ' yüklenemedi'); return r; });          // abortwork.js ile aynı
 let env = null;
-onmessage = async ({ data: { tFrom, tStart, cfg, win } }) => {
+onmessage = async ({ data: { tFrom, tStart, cfg, win, path, pathFor } }) => {
   try {
     if (!env) {
       const [eph, eo] = await Promise.all([EphStore.open(new URL('../data/eph/v1/', import.meta.url).href),
@@ -19,6 +19,9 @@ onmessage = async ({ data: { tFrom, tStart, cfg, win } }) => {
     }
     await env.eph.ensure(...win);
     makeLive(env.eph.spk, env.eph.pck, env.eo, tStart);
-    postMessage({ type: 'done', design: designMission(tFrom, (msg) => postMessage({ type: 'progress', msg }), cfg) });
+    // pathFor: hazır (önbellekteki) tasarımın yalnız yolu; path: tasarımla birlikte gerçek yol (brifing çizimi, design.js missionPath)
+    const design = pathFor || designMission(tFrom, (msg) => postMessage({ type: 'progress', msg }), cfg);
+    let p = null; if ((path || pathFor) && design) { try { p = missionPath(design); } catch (e) { p = null; } }
+    postMessage({ type: 'done', design: pathFor ? null : design, path: p });
   } catch (e) { postMessage({ type: 'error', msg: String((e && e.message) || e) }); }
 };

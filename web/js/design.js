@@ -249,6 +249,29 @@ function flyTli(K, x, ref, tStop) {
   P.runUntil(ref.t_ign + dur, c); P.runUntil(tStop);
   return P;
 }
+// Görevin gerçek yolu (brifing çizimi): TLI yakışı ve Ay'a aktarma (tasarımın kuvvet modeli, flyTli ile aynı), halo profillerinde NRI'den sonra bir halo turu
+// (doğal hareket, istasyon tutmasız). Dönüş: [{ kind: 'transfer' | 'halo', pts: [[x, y, z]] }] Dünya–Ay dönen çerçevesinde (x Ay'a doğru, z yörünge normali),
+// birim Ay'ın o anki uzaklığı (brifingtext.js profilePath ile aynı). Canlı efemeris tasarımla aynı başlangıçtan kurulu olmalı (designwork.js).
+export function missionPath(D, n = 140) {
+  const T = D && D.TLI, A = D && D.ARRIVAL; if (!T || !A || !T.x) return null;
+  const K = ctx(normalizeConfig(D.cfg), D.STAGES);
+  const rot = (t, r) => { const rm = E.moonPos(t), vm = E.moonVel(t), d = norm(rm), x = scale(rm, 1 / d), z = unit(cross(rm, vm)), y = cross(z, x); return [dot(r, x) / d, dot(r, y) / d, dot(r, z) / d]; };
+  const [phi, dur, pitch, psi] = T.x;
+  const P = new E.Propagator(parkState(K, T.t_ign, T.phat, T.hhat, phi, psi), new E.Vehicle(K.STAGES), 1800.0, 1.0);
+  const c = (Pp) => { const r = Pp.s.r, v = Pp.s.v, vh = unit(v), nh = unit(cross(r, v)), rh = cross(nh, vh); return [1.0, add(scale(vh, Math.cos(pitch)), scale(rh, Math.sin(pitch)))]; };
+  const tr = [rot(P.s.t, P.s.geo()[0])];
+  for (let k = 1; k <= 8; k++) { P.runUntil(T.t_ign + dur * k / 8, c); tr.push(rot(P.s.t, P.s.geo()[0])); }
+  const t0 = P.s.t, t1 = A.t_P;
+  for (let k = 1; k <= n; k++) { const u = k / n, tk = t0 + (t1 - t0) * (1 - Math.cos(Math.PI * u)) / 2; P.runUntil(tk); tr.push(rot(P.s.t, P.s.geo()[0])); }      // varışta sık örnek (yol Ay çevresinde kıvrılır)
+  const e = tr[tr.length - 1]; if (Math.hypot(e[0] - 1, e[1], e[2]) > 0.25) return null;          // Ay'a ulaşmadı (ör. yükseltmeli profilin TLI'ı ayrı yoldan): çizilmez
+  const out = [{ kind: 'transfer', pts: tr }];
+  if (A.vHalo && D.HALO && D.HALO.T) {
+    const Q = new E.Propagator(new E.State(A.t_P, A.rP, A.vHalo, 'M'), E.dummyVehicle(), 60, 1.0, { nbody: true }), h = [];
+    for (let k = 0; k <= 160; k++) { Q.runUntil(A.t_P + D.HALO.T * k / 160); h.push(rot(Q.s.t, Q.s.geo()[0])); }
+    out.push({ kind: 'halo', pts: h });
+  }
+  return out;
+}
 function designAt(K, tP, x0, incT, log) {
   const sb = solveBack(K, tP, x0, incT);
   if (!sb) return null;
