@@ -50,6 +50,12 @@ const startOf = (el) => { const et = D.etFromJd(el.epoch), [r, v] = D.keplerHeli
   const pc = porkchop({ L, K, nT, kOf: (i, jj) => i + j0 + jj, earth: (i) => EARTH[i], ast: (k) => AST[k], S: (k) => S[k], cap: (c3) => c3Capacity('FH', c3), beta: 3.6, M, c3Max: 60 });
   const b = pc.best, finite = [...pc.shift].filter(Number.isFinite).length;
   console.log(`  örgü ${nL}×${nT} (${((performance.now() - t0) / 1000).toFixed(2)} s), çözüm ${finite}; en iyi: fırlatma ${new Date((D.jdFromEt(b.etL) - 2440587.5) * 864e5).toISOString().slice(0, 10)}, ${b.tofDays.toFixed(0)} gün, C3 ${b.C3.toFixed(1)}, U ${b.U.toFixed(2)} km/s, ${b.m.toFixed(0)} kg, Δv ${(b.dvMps * 1000).toFixed(3)} mm/s, kayma ${b.shift.toFixed(1)} km`);
+  // birden çok roket (brifing): Lambert örgüsü bir kez; her roketin en iyisi, tek roketle çözülen örgünün en iyisiyle aynı
+  const ids = ['FH', 'F9', 'SLS1'], pm = porkchop({ L, K, nT, kOf: (i, jj) => i + j0 + jj, earth: (i) => EARTH[i], ast: (k) => AST[k], S: (k) => S[k], cap: (c3) => c3Capacity('FH', c3), beta: 3.6, M, c3Max: 60, caps: ids.map((id) => [id, (c3) => c3Capacity(id, c3)]) });
+  const one = (id) => porkchop({ L, K, nT, kOf: (i, jj) => i + j0 + jj, earth: (i) => EARTH[i], ast: (k) => AST[k], S: (k) => S[k], cap: (c3) => c3Capacity(id, c3), beta: 3.6, M, c3Max: 60 }).best;
+  check(ids.every((id) => { const a = pm.bests[id], q = one(id); return (!a && !q) || (a && q && a.n === q.n && Math.abs(a.shift - q.shift) < 1e-9 * q.shift && Math.abs(a.m - q.m) < 1e-9); })
+    && pm.best.n === pc.best.n && pm.bests.FH.n === pc.best.n,
+  'birden çok roket: tek örgüden her roketin en iyi çözümü (tek tek çözülenle aynı hücre, kütle ve kayma)', ids.map((id) => `${id} ${pm.bests[id] ? pm.bests[id].shift.toFixed(1) + ' km' : '—'}`).join(' · '));
   let valid = 0; for (let i = 0; i < nL; i++) valid += Math.max(0, Math.min(nT, nK - i - j0));                // varışı yakın geçişten önce olan hücreler
   check(finite > 0.25 * valid && b && b.shift === Math.max(...[...pc.shift].filter(Number.isFinite)), `geçerli hücrelerin önemli bir kısmında çözüm var (${finite}/${valid}, C3 ≤ 60); en iyi hücre en büyük kaymayı verir`);
   const tr = transfer(EARTH[b.i][0], EARTH[b.i][1], AST[b.k][0], AST[b.k][1], b.etA - b.etL);

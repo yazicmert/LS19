@@ -168,3 +168,17 @@ button.brief-pin:focus-visible { outline: none; }
 .brief-tl span { grid-column: 1 / -1; font: 500 10.5px var(--mono); color: var(--accent-2); letter-spacing: .06em; }
 .brief-tl b { font-weight: 600; font-size: 13px; }
 .brief-tl em { font: 400 11.5px var(--mono); font-style: normal; color: var(--text-muted); text-align: right; align-self: end; }
+
+/* Laboratuvar brifingleri (ortak kabuk: js/brifkabuk.js): Asteroit saptırma (js/brifsaptirma.js) */
+.brief-search input { flex: 1; min-width: 0; max-width: 220px; font-family: var(--font); }
+.brief-found { margin-top: 6px; }
+.brief-found .brief-opt { padding: 8px 12px; }
+.brief-found .brief-note { margin: 4px 2px 0; }
+/* sonuç kararı: kurtarır / yetmez / bilgi (labtext.js verdictOf) */
+.brief-verdict { margin: 4px 0 0; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line-2); background: rgba(255, 255, 255, .03); }
+.brief-verdict b { display: block; font-size: 17px; font-weight: 600; }
+.brief-verdict p { margin: 4px 0 0; color: var(--text-secondary); font-size: 13px; line-height: 1.5; }
+.brief-verdict.good { border-color: color-mix(in srgb, var(--good) 55%, transparent); background: color-mix(in srgb, var(--good) 9%, transparent); }
+.brief-verdict.good b { color: var(--good); }
+.brief-verdict.bad { border-color: color-mix(in srgb, var(--bad) 55%, transparent); background: color-mix(in srgb, var(--bad) 9%, transparent); }
+.brief-verdict.bad b { color: var(--bad); }
