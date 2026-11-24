@@ -78,6 +78,9 @@ select { font: inherit; font-size: 13px; color: var(--text-primary); background:
 body[data-mode="sky"] [data-for]:not([data-for~="sky"]),
 body[data-mode="lab"][data-engine="mission"] [data-for]:not([data-for~="lab"]):not([data-for~="lab@mission"]),
 body[data-mode="lab"][data-engine="sky"] [data-for]:not([data-for~="lab"]):not([data-for~="lab@sky"]) { display: none !important; }
+/* Laboratuvar deney merkezi: arkadaki görev motoru hazırlanır ama görev göstergeleri, görev çubuğu ve yörüngedeki araç görünmez (deney seçilmeden görev başlamış gibi durmasın) */
+body[data-mode="lab"][data-exp="home"] #hud, body[data-mode="lab"][data-exp="home"] #controls, body[data-mode="lab"][data-exp="home"] #manual,
+body[data-mode="lab"][data-exp="home"] .lbl-stagetag, body[data-mode="lab"][data-exp="home"] .lbl-veh { display: none !important; }
 #modebar { position: absolute; top: calc(12px + var(--st)); left: 50%; transform: translateX(-50%); z-index: 3; display: flex; align-items: center; gap: 10px; padding: 5px 6px 5px 12px;
   background: var(--card); border: 1px solid var(--line); border-radius: 999px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 8px 30px rgba(0, 0, 0, .35); }
 #modebar .brand { display: inline-flex; align-items: center; gap: 7px; font-weight: 700; letter-spacing: .08em; font-size: 14px; }

@@ -82,7 +82,9 @@ Ay görevi artık hazır bir görevle park yörüngesinde açılmıyor. LS19 ön
   3. **Nasıl?** Altı profil. Süre ve Δv, hazır tasarımlardan gelir (`data/designs_default.json`). Sahnede Dünya–Ay sistemi ve Ay'ın yörüngesi görünür.
   4. **Neyle?** Roketler. Aracı Ay yoluna taşıyamayan roket seçilemez (`tliCapacity` iniş aracının kütlesinden küçükse). Araç ve iniş güdümü "Araç ve iniş güdümü" altında katlıdır. Tahmini tasarım süresi yazılır.
   5. **Brifing.** Görev burada bir kez tasarlanır (`startDesign`). Ardından özet gelir: iniş yeri, fırlatma ve iniş anı, süre, profil, roket, inişte Güneş, Δv bütçesi. Üç başlatma düğmesi vardır: **Rampadan fırlat** (kalkış canlandırması, sonra görev kendiliğinden sürer), **Yörüngeden başla** ve **Fragman olarak izle**. Tasarım başarısız olursa neden brifingde yazar ve seçimler değiştirilebilir.
-- **Kim görür** (`briefKind`):
+- **Ne zaman açılır** (`briefKind`): Laboratuvar'ın kendisi açılınca değil. Laboratuvar'da Ay görevinden başka deneyler de var, bu yüzden site deney merkezinde açılır. Merkezde görev göstergeleri, görev çubuğu ve yörüngedeki araç gizlidir. Brifing, merkezden **Ay görevi** seçilince açılır (sayfa başına bir kez).
+  - Sayfa doğrudan Ay görevinde açılırsa (kayıtlı son deney ya da `?exp=ay`), K kısayolu ya da Lagrange deneyinden "bu profille uç" geçişi brifingi açmaz.
+- **Kim görür:**
   - İlk kez gelen brifingle başlar.
   - Geri dönen, "Kaldığım yerden devam" ya da "Yeni görev tasarla" seçeneklerini görür (`localStorage` › `ls19.brifing`).
   - Bağlantıyla ya da ayarlı adresle gelen brifingi görmez: görev anahtarları (`date`, `profile`, `yer`, `roket`…), `tab`, `cine` ve `kurgu`. `?brifing=1` brifingi açar, `?brifing=0` kapatır.

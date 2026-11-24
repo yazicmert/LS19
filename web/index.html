@@ -226,7 +226,7 @@
 <link rel="modulepreload" href="js/payloadresolve.js">
 <link rel="modulepreload" href="js/worker.js">
 </head>
-<body data-mode="lab" data-engine="mission" data-exp="ay">
+<body data-mode="lab" data-engine="mission" data-exp="home">
 <div id="app">
   <canvas id="view"></canvas>
   <div id="labels"></div>
@@ -421,11 +421,11 @@
 
   <aside id="labPanel" class="panel" data-for="lab" aria-label="Laboratuvar paneli">
     <header class="labhead">
-      <button id="labBack" class="sm back" type="button" aria-label="Laboratuvara dön"><i data-icon="chev" class="chev-l"></i><span>Laboratuvar</span></button>
-      <div class="labtitles"><span id="labCrumb" class="k" hidden>LS19</span><h2 id="labTitle">Ay görevi</h2></div>
+      <button id="labBack" class="sm back" type="button" aria-label="Laboratuvara dön" hidden><i data-icon="chev" class="chev-l"></i><span>Laboratuvar</span></button>
+      <div class="labtitles"><span id="labCrumb" class="k">LS19</span><h2 id="labTitle">Laboratuvar</h2></div>
     </header>
 
-    <div id="lab-home" class="labpage" hidden>
+    <div id="lab-home" class="labpage">
       <p class="labsub">Gerçek veriyle "ya şöyle olsaydı?" denemeleri. Bir deney seçin; sonuçlar 3B görünümde de izlenir.</p>
       <ul class="labtree">
         <li><div class="grp">Görev tasarımı</div>
@@ -438,7 +438,7 @@
       </ul>
     </div>
 
-    <div id="lab-ay" class="labpage labtabs">
+    <div id="lab-ay" class="labpage labtabs" hidden>
       <nav class="tabs ays" role="tablist" aria-label="Ay görevi adımları">
         <button class="tab on" role="tab" aria-selected="true" data-tab="gorev"><span class="sn">1</span><span class="st">Görev</span><span class="ss" id="aySum-gorev"></span></button>
         <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="arac"><span class="sn">2</span><span class="st">Araç</span><span class="ss" id="aySum-arac"></span></button>

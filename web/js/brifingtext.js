@@ -86,12 +86,15 @@ export function recommend(step, sel = {}, today = DEFAULT_BRIEF_DATE) {
 }
 
 // kim brifingi görür: 'new' (ilk ziyaret), 'return' (geri dönen: "devam et" kartı), null (brifing yok).
-// Bağlantıyla ya da ayarlı adresle gelen (görev anahtarları, sekme, fragman) brifingi görmez: bağlantı görevi doğrudan kurar.
-export function briefKind({ search = '', visited = false, view = 'lab', exp = 'ay' } = {}) {
+// Brifing yalnız Ay görevine GİRİLİNCE açılır (entered: kullanıcı Laboratuvar merkezinden Ay görevini seçti): Laboratuvar'ın kendisi açılınca değil
+// (Laboratuvar'da başka deneyler de var; açılış deney merkezidir). Sayfa doğrudan Ay görevinde açılırsa (kayıtlı son deney, ?exp=ay) brifing kendiliğinden açılmaz:
+// paneldeki "LS19 ile adım adım tasarla" düğmesi açar. Bağlantıyla gelen (görev anahtarları, sekme, fragman) brifingi görmez: bağlantı görevi doğrudan kurar.
+// ?brifing=1 her zaman açar, ?brifing=0 hiç açmaz.
+export function briefKind({ search = '', visited = false, view = 'lab', exp = 'ay', entered = false } = {}) {
   const q = new URLSearchParams(search);
   if (q.get('brifing') === '0') return null;
   if (q.get('brifing') === '1') return visited ? 'return' : 'new';
-  if (view !== 'lab' || (exp && exp !== 'ay')) return null;
+  if (view !== 'lab' || exp !== 'ay' || !entered) return null;
   if (AY_LINK_KEYS.some((k) => q.has(k)) || q.has('tab') || q.has('cine') || q.has('kurgu')) return null;
   return visited ? 'return' : 'new';
 }
