@@ -64,6 +64,7 @@
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/cinema.css">
 <link rel="stylesheet" href="css/producer.css">
+<link rel="stylesheet" href="css/brifing.css">
 <script type="importmap">
 { "imports": { "three": "./lib/three.module.js", "three/addons/": "./lib/addons/",
   "motion": "./lib/motion.esm.js", "number-flow": "./lib/number-flow.esm.js", "torph": "./lib/torph.esm.js" } }
@@ -176,6 +177,8 @@
 <link rel="modulepreload" href="js/ascentplay.js">
 <link rel="modulepreload" href="js/ascent.js">
 <link rel="modulepreload" href="js/ascentsim.js">
+<link rel="modulepreload" href="js/brifing.js">
+<link rel="modulepreload" href="js/brifingtext.js">
 <link rel="modulepreload" href="js/asteroids.js">
 <link rel="modulepreload" href="js/deflect.js">
 <link rel="modulepreload" href="js/astui.js">
@@ -444,6 +447,7 @@
       </nav>
       <div id="tab-gorev" class="tabpage" role="tabpanel">
         <p class="stepsub">Görev profilini ve en erken fırlatma gününü seçin; Tasarla o tarihten sonraki ilk uygun pencere için en az Δv'li yolu kurar.</p>
+        <div class="daterow"><button id="btnBrief" class="sm" type="button">LS19 ile adım adım tasarla</button><span class="note">iniş yeri, tarih, profil, roket; sonra rampadan fırlat</span></div>
         <div class="frow ayprof"><label for="cfgProfile">Profil</label>
           <select id="cfgProfile">
             <option value="APOLLO">Apollo, hızlı (LLO 110 km, 2 tur)</option>

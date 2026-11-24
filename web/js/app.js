@@ -13,6 +13,8 @@ import { WindowScanner } from './windowscan.js';
 import { ProfileCompare } from './profilecompare.js';
 import { attachCanvasInput } from './canvasinput.js';
 import { AscentPlayer } from './ascentplay.js';
+import { Briefing } from './brifing.js';
+import { briefKind } from './brifingtext.js';
 import { inclRange, minIncl, LEGACY_SITE, padAllowed, siteOf as padSite } from './pads.js';
 import { twoStageDesign, STAGES as MISSION_STAGES } from './mission.js';
 import { SatLayer } from './satlayer.js';
@@ -51,6 +53,7 @@ import { Launches } from './launches.js';
 import { LaunchCal } from './launchcal.js';
 
 const DEFAULT_DATE = '2026-10-13';
+let brief = null;                                                                     // görev brifingi (brifing.js; aşağıda kurulur)
 let deflect = null, updater = null, impactui = null;
 // iki bağımsız MOTOR: "mission" (Ay görevi: fizik motoru, görev saati) ve "sky" (gerçek saat, uydular, asteroitler).
 // İki GÖRÜNÜM (arayüz alanı): sky (Canlı Gökyüzü) ve lab (Laboratuvar). Laboratuvar'da motoru açık deney seçer (labui.js EXPERIMENTS:
@@ -289,6 +292,7 @@ function syncWorkspace(push = true) {
   const exp = S.VIEW === 'lab' ? labui.page : null, m = engineFor(S.VIEW, exp, S.MODE);
   if (m !== S.MODE || !camStore[m]) switchEngine(m);
   const b = document.body; b.dataset.mode = S.VIEW; b.dataset.engine = S.MODE; b.dataset.exp = exp || '';
+  if (brief && brief.active && !(S.VIEW === 'lab' && exp === 'ay')) brief.close('away');            // brifing yalnız Ay görevinde
   document.querySelectorAll('[data-workspace]').forEach((x) => { const on = x.dataset.workspace === S.VIEW; x.classList.toggle('on', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); });
   if (S.VIEW === 'lab' && narrowScreen() && (exp === LAB_HOME || (EXPERIMENTS[exp] && EXPERIMENTS[exp].phoneOpen))) $('#labPanel').classList.add('open');     // telefonda deney paneli ana içerikse açılır
   try { localStorage.setItem('ls19.mode', S.VIEW); if (exp) localStorage.setItem('ls19.exp', exp); } catch (e) { /* özel pencere */ }
@@ -494,6 +498,7 @@ function designFailed(m) {
   $('#loadMsg').textContent = 'Tasarım başarısız: ' + m; $('#loadBack').hidden = false;
   $('#loadBack').textContent = goodDate && goodDate !== pendingDate ? goodDate + ' tarihine dön' : 'Varsayılan tarihe dön';
   ui.designMsg('Bu tarih için tasarım başarısız: ' + m);
+  if (brief && brief.waiting) { $('#loading').style.display = 'none'; brief.onFail(m); }          // brifing: hata brifingde gösterilir, seçimler değiştirilebilir
 }
 let latestSentInit = false, pendingDate = null, goodDate = null, urlApplied = false;
 ui.onDesign = startDesign;
@@ -549,7 +554,7 @@ ui.onRocketInfo = (id) => rocketSheet.open(id);
 // kalkış canlandırması (ascentplay.js): rampadan yörüngeye girişe; bitince görev girişten sürer
 let insState = null;
 const ascent = new AscentPlayer({ world, E, send, getDesign: () => S.DESIGN, getIns: () => insState, getState: () => S.latest,
-  onEnd: () => { send({ cmd: 'seek', t: ui.t0 }); dropLayer('asc'); } });
+  onEnd: () => { send({ cmd: 'seek', t: ui.t0 }); dropLayer('asc'); if (ascentThenPlay) { ascentThenPlay = false; setTimeout(() => setPlay(true), 300); } } });     // brifingden "Rampadan fırlat": kalkıştan sonra görev sürer
 initG3dPanel(world);                                                                // Google 3B karolar ayarları (kalkış çubuğu)
 $('#btnAscent').addEventListener('click', async () => {
   const btn = $('#btnAscent');
@@ -589,16 +594,43 @@ const launch = new LaunchUI({
 const scanner = new WindowScanner({ ui, launch, siteIncl, tOfUtcMs, missionEtWindow,
   dateStr: () => $('#dateInput').value || DEFAULT_DATE });
 ui.onSiteSync = (st) => { launch.setSite(st); const ir = siteIncl(st); $('#cfgEi').min = String(ir ? ir[0] : 0); };
-ui.onRocket = (id) => {
-  if (S.designing || id === ui.rocket) return;
+// roketi ve (gerekirse) roketin gerçek rampasını uygular; tasarlamaz (ui.onRocket ve brifing)
+function applyRocket(id) {
   ui.setRocket(id);
   try { localStorage.setItem('ls19.rocket', ui.rocket); } catch (e) { /* özel pencere */ }
   const p = launch.padFor(id);                                                  // gerçek roket yalnız kendi rampalarından: gerekirse ilkine geçilir (null = varsayılan LC-39B)
   if (p !== undefined) { const c = ui.getConfig(), lo0 = (siteIncl(ui.site) || [28.7])[0], ir = siteIncl(p); ui.site = p; if (ir && Math.abs(c.earth.inc - lo0) < 0.05) c.earth.inc = ir[0]; ui.setConfig({ ...c, site: p }); ui.setRocket(id, `Rampa ${p ? p.name : LEGACY_SITE.short} olarak değiştirildi (roketin gerçek rampası).`); }
   launch.syncRocket();
+}
+ui.onRocket = (id) => {
+  if (S.designing || id === ui.rocket) return;
+  applyRocket(id);
   compare.cancel(); scanner.cancel();
   startDesign($('#dateInput').value || pendingDate || DEFAULT_DATE);
 };
+// görev brifingi (brifing.js): Ay görevinin girişi. Seçimler yapılandırmaya yazılır, görev bir kez tasarlanır; sonra rampadan (kalkış), yörüngeden ya da fragmanla başlar
+const missionReady = () => new Promise((r) => { const f = () => (S.latest && !S.designing ? r() : setTimeout(f, 200)); f(); });
+let ascentThenPlay = false;
+brief = new Briefing({ world, ui, root: $('#app'), latest: () => S.latest, defs: () => S.K && S.K.defs,
+  preload: (id) => { const p = launch.padFor(id); ascent.preload(id, p !== undefined ? p : ui.site); },           // seçilen roket ve rampası: kalkış beklemeden açılsın
+  current: () => ({ site: $('#cfgMoonSite').value, date: $('#dateInput').value || DEFAULT_DATE, profile: ui.profileKeyOf(ui.getConfig()), rocket: ui.rocket, vehicle: vehicleMode, landing: landingMode }),
+  design: async (sel) => {
+    compare.cancel(); scanner.cancel();
+    if (sel.rocket !== ui.rocket) applyRocket(sel.rocket);
+    ui.setConfig({ ...PROFILES[sel.profile].cfg, moonSite: sel.site });
+    if (sel.vehicle && sel.vehicle !== vehicleMode) { vehicleMode = sel.vehicle; try { localStorage.setItem('ls19.vehicle', vehicleMode); } catch (e) { /* özel pencere */ } }
+    if (sel.landing) setLanding(sel.landing);
+    syncLanding();
+    try { localStorage.setItem('ls19.rocket', ui.rocket); } catch (e) { /* özel pencere */ }
+    await startDesign(sel.date);
+  },
+  launch: async (how) => {
+    await missionReady();
+    if (how === 'pad') { ascentThenPlay = true; $('#btnAscent').click(); }
+    else if (how === 'orbit') setPlay(true);
+    else if (how === 'cine') playCine();
+  } });
+$('#btnBrief').addEventListener('click', () => { if (!S.designing) { brief.open('new'); brief.go(0); } });
 document.querySelectorAll('[data-vehicle]').forEach((b) => b.addEventListener('click', () => setVehicle(b.dataset.vehicle)));
 document.querySelectorAll('[data-landing]').forEach((b) => b.addEventListener('click', () => setLanding(b.dataset.landing)));
 
@@ -625,6 +657,9 @@ worker.onmessage = (e) => {
     syncLanding();
     refreshNominal(d.nominal, ce);
     refreshCompare();
+    if (brief) brief.onReady(S.DESIGN);
+    // kalkışı önceden hazırla (roket, rampa, rampa çevresi): "Kalkış" ya da brifingin "Rampadan fırlat"ı beklemeden açılır. Veri tasarrufunda yapılmaz
+    if (!(navigator.connection && navigator.connection.saveData)) { const D0 = S.DESIGN; (window.requestIdleCallback || ((f) => setTimeout(f, 1500)))(() => { if (S.DESIGN === D0 && S.MODE === 'mission') ascent.preloadDesign(D0); }, { timeout: 4000 }); }
   }
   if (d.type === 'ready' || d.type === 'restarted') {
     ui.reset(d.plan, d.t0, S.DESIGN.LAUNCH.t_launch);
@@ -634,7 +669,7 @@ worker.onmessage = (e) => {
     if (d.type === 'ready') revealAt = performance.now() + 1500; else $('#loading').style.display = 'none';      // yeni görev: örtü ilk gerçek kare bitince kalkar (frame › reveal)
     if (d.seek) { if (!S.running) setPlay(true); }
     else { S.running = false; setBtn($('#btnPlay'), 'play', 'Başlat'); }
-    if (d.type === 'ready' && !urlApplied) { urlApplied = true; applyUrlParams(); initHistory(); if (new URLSearchParams(location.search).get('prefetch') === '1') initSky(); if (narrowScreen() && S.VIEW === 'lab') $('#labPanel').classList.add('open'); }      // telefon: ilk açılışta deney paneli açık (hangi deney, geri dönüş görünsün)
+    if (d.type === 'ready' && !urlApplied) { urlApplied = true; applyUrlParams(); { const bk = briefKind({ search: location.search, visited: Briefing.seen(), view: S.VIEW, exp: labui.page }); if (bk && brief) brief.open(bk); } initHistory(); if (new URLSearchParams(location.search).get('prefetch') === '1') initSky(); if (narrowScreen() && S.VIEW === 'lab') $('#labPanel').classList.add('open'); }      // telefon: ilk açılışta deney paneli açık (hangi deney, geri dönüş görünsün)
     if (d.type === 'ready') syncAyUrl();
     ayRefresh();
   } else if (d.type === 'state') {
@@ -679,6 +714,7 @@ function frame(now) {
     ui.hud(S.latest, now);
     if (now - lastAy > 500) ayRefresh();                          // Ay görevi adım özetleri: saniyede 2 kez yeter (değişmeyen metin yeniden yazılmaz)
   }
+  if (brief && brief.active && S.MODE === 'mission' && !ascent.active) brief.frame(dt);          // brifing: kamera, gizlenen araç ve göstergeler, iniş yeri işareti
   // görev motorunda ilk durum gelmeden, gökyüzü motorunda ilk skyFrame'den önce sahne konumlanmamıştır (Dünya ve Ay ince ağları ufuk bandı ve LOD olmadan, ~2,2 M üçgen): o kare çizilmez
   const placed = S.MODE === 'sky' ? skyPlaced : ascent.active || !!S.latest;           // gökyüzü: skyFrame en az bir kez çalıştı (efemeris kurulu)
   if (!S.designing && placed) world.render();                     // tasarım sırasında katman her şeyi örtüyor: işlemci tasarıma kalsın
@@ -775,6 +811,7 @@ attachCanvasInput(canvas, { world, ui, curT, focusOn, followSat, lookAtSat, setC
 window.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
   const k = e.key.toLowerCase();
+  if (brief && brief.active && k !== 'escape') return;                                        // brifing açıkken uçuş kısayolları yok
   if (k === 'escape') { if (e.defaultPrevented) return; if (!$('#pick').hidden) ui.hidePick(); else if (S.VIEW === 'lab' && labui.page !== LAB_HOME) labui.show(LAB_HOME); return; }       // Esc: önce bilgi kartı, sonra deneyden Laboratuvar ana sayfasına
   if (k === 'm') { setWorkspace(S.VIEW === 'sky' ? 'lab' : 'sky'); return; }                        // M: Canlı Gökyüzü ↔ Laboratuvar
   if (S.MODE === 'sky') {                                          // Canlı Gökyüzü: yalnız kamera (zaman hep gerçek; Boşluk/N/virgül/nokta saati değiştirmez)
@@ -901,7 +938,7 @@ document.addEventListener('click', (e) => {
 // telefonda sinematik gösterim "⋯" menüsünde
 $('#btnCineMenu').addEventListener('click', () => $('#btnCine').click());
 $('#btnSkyPanel').onclick = () => (S.VIEW === 'lab' ? $('#labPanel') : $('#skyPanel')).classList.toggle('open');
-window.LS19 = { world, ui, send, ascent, setCam, setPlay, cinema, desk, link, exportHost, openExport, focusOn, setWorkspace, setSkyCam, clock, followSat, lookAtSat, labui, openLab, aymc, ayabort, lagrange, compare, get mode() { return S.MODE; }, get view() { return S.VIEW; }, get skyT() { return skyT; }, get deflect() { return deflect; },
+window.LS19 = { get brief() { return brief; }, world, ui, send, ascent, setCam, setPlay, cinema, desk, link, exportHost, openExport, focusOn, setWorkspace, setSkyCam, clock, followSat, lookAtSat, labui, openLab, aymc, ayabort, lagrange, compare, get mode() { return S.MODE; }, get view() { return S.VIEW; }, get skyT() { return skyT; }, get deflect() { return deflect; },
   get sats() { return S.sats; }, get asts() { return S.asts; }, get astui() { return S.astui; }, get updater() { return updater; }, get tracker() { return S.tracker; }, get skyui() { return S.skyui; }, get launches() { return S.launches; } };
 window.ROCSIM = window.LS19;
 

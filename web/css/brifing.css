@@ -1,0 +1,123 @@
+/* Görev brifingi (js/brifing.js): Laboratuvar › Ay görevi'nin girişi. Açıkken araç, uçuş göstergeleri, deney paneli ve görev çubuğu gizli;
+   üst çubuk (LS19 · Canlı Gökyüzü · Laboratuvar) kalır. Masaüstünde solda bir sütun, telefonda alttan çıkan sayfa; arkada 3B sahne adıma göre değişir. */
+body.briefing #hud, body.briefing #controls, body.briefing #manual, body.briefing #labPanel, body.briefing #skyControls,
+body.briefing .tilestatus, body.briefing .tilemode, body.briefing #pick { display: none !important; }
+
+.brief { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+.brief[hidden] { display: none; }
+/* giriş: başlık sahnenin (Dünya) önünde okunur kalsın: soldan karanlık geçiş */
+.brief.is-intro::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(7, 8, 13, .92) 0%, rgba(7, 8, 13, .7) 34%, rgba(7, 8, 13, 0) 62%); }
+@media (max-width: 700px) { .brief.is-intro::before { background: linear-gradient(0deg, rgba(7, 8, 13, .95) 0%, rgba(7, 8, 13, .7) 42%, rgba(7, 8, 13, 0) 70%); } }
+.brief-fade { position: absolute; inset: 0; background: var(--bg); opacity: 0; transition: opacity .26s var(--ease-out); }
+.brief-fade.on { opacity: 1; transition-duration: .12s; }
+
+/* iniş yeri işareti (sahnedeki noktanın ekran konumu, her kare) */
+.brief-pin { position: absolute; left: 0; top: 0; pointer-events: none; }
+.brief-pin i { position: absolute; left: -7px; top: -7px; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--accent-2); box-shadow: 0 0 0 4px rgba(94, 231, 255, .18); }
+.brief-pin b { position: absolute; left: 14px; top: -24px; font: 600 12px var(--mono); letter-spacing: .08em; color: var(--text-primary); white-space: nowrap;
+  padding: 3px 8px; border-radius: 6px; background: rgba(7, 8, 13, .78); border: 1px solid var(--line-2); }
+
+.brief-pin.body i { left: -5px; top: -5px; width: 10px; height: 10px; border-color: var(--text-secondary); box-shadow: none; }
+.brief-pin.body b { top: -22px; left: 10px; font-size: 11px; color: var(--text-secondary); background: transparent; border: 0; padding: 0; text-shadow: 0 1px 8px #000; letter-spacing: .14em; text-transform: uppercase; }
+.brief-card { position: absolute; pointer-events: auto; color: var(--text-primary); }
+.brief-h:focus, .brief-h:focus-visible { outline: none !important; box-shadow: none !important; }
+.brief-eye { margin: 0 0 8px; font: 500 11px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--accent-2); }
+.brief-h { margin: 0; font-weight: 600; letter-spacing: -.01em; line-height: 1.08; outline: none; }
+.brief-lead { margin: 12px 0 0; color: var(--text-secondary); font-size: 15px; line-height: 1.55; max-width: 60ch; }
+.brief-note { margin: 12px 0 0; color: var(--text-muted); font-size: 12.5px; line-height: 1.5; }
+.brief-fine { margin: 18px 0 0; color: var(--text-muted); font-size: 12.5px; }
+.brief-card button.primary, .brief-card button.ghost { min-height: 44px; padding: 0 18px; border-radius: 10px; font: 600 14px var(--font); cursor: pointer;
+  transition: background-color .15s var(--ease-out), border-color .15s var(--ease-out), transform .12s var(--ease-out); }
+.brief-card button.primary { background: var(--accent-fill); color: #fff; border: 1px solid var(--accent-fill); }
+.brief-card button.primary:hover:not(:disabled) { background: var(--accent-fill-hover); }
+.brief-card button.ghost { background: rgba(255, 255, 255, .04); color: var(--text-primary); border: 1px solid var(--line-2); }
+.brief-card button.ghost:hover { border-color: var(--text-muted); }
+.brief-card button:active:not(:disabled) { transform: scale(.98); }
+.brief-card button:disabled { opacity: .45; cursor: not-allowed; }
+.brief-card button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* giriş: sol-ortada büyük başlık, kart yok (sahne arkada) */
+.brief-intro { left: calc(clamp(24px, 6vw, 96px) + var(--sl)); top: 50%; transform: translateY(-50%); width: min(620px, calc(100% - 48px)); }
+.brief-intro .brief-h { font-size: clamp(34px, 4.6vw, 60px); text-wrap: balance; text-shadow: 0 2px 24px rgba(0, 0, 0, .7); }
+.brief-intro .brief-lead { text-shadow: 0 1px 12px rgba(0, 0, 0, .9); }
+.brief-acts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+
+/* adımlar: solda sütun */
+.brief-step { left: calc(14px + var(--sl)); top: calc(72px + var(--st)); bottom: calc(14px + var(--sb)); width: 432px; display: flex; flex-direction: column;
+  padding: 18px 20px 16px; background: var(--card); border: 1px solid var(--line-2); border-radius: var(--radius); backdrop-filter: blur(10px); }
+.brief-step .brief-h { font-size: 30px; margin-bottom: 4px; }
+.brief-body { flex: 1; min-height: 0; overflow-y: auto; margin: 10px -6px 0; padding: 0 6px 6px; overscroll-behavior: contain; }
+.brief-nav { display: flex; justify-content: space-between; gap: 10px; padding-top: 12px; border-top: 1px solid var(--line); margin-top: 8px; }
+.brief-nav[hidden] { display: none; }
+.brief-nav .primary { flex: 1; }
+
+.brief-dots { display: flex; gap: 4px; list-style: none; margin: 0 0 14px; padding: 0; }
+.brief-dots li { flex: 1; display: flex; flex-direction: column; gap: 6px; font: 500 10.5px var(--mono); color: var(--text-muted); }
+.brief-dots li::before { content: ''; height: 3px; border-radius: 2px; background: var(--line-2); }
+.brief-dots li.done::before { background: var(--accent); }
+.brief-dots li.cur::before { background: var(--accent-2); }
+.brief-dots li.cur { color: var(--text-primary); }
+.brief-dots span { display: none; }
+.brief-dots em { font-style: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.brief-rec { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 12px; margin: 6px 0 12px; padding: 10px 12px; border-radius: 10px;
+  background: rgba(94, 231, 255, .06); border: 1px solid rgba(94, 231, 255, .22); }
+.brief-rec b { grid-column: 1; font: 600 10.5px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--accent-2); }
+.brief-rec p { grid-column: 1; margin: 0; font-size: 13px; line-height: 1.45; color: var(--text-secondary); }
+.brief-rec .chip, .brief-rec .brief-ok { grid-column: 2; grid-row: 1 / span 2; }
+.brief-rec .chip { min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid rgba(94, 231, 255, .45); background: transparent; color: var(--accent-2); font: 600 12.5px var(--font); cursor: pointer; white-space: nowrap; }
+.brief-rec .chip:hover { background: rgba(94, 231, 255, .1); }
+.brief-ok { font: 500 12px var(--mono); color: var(--good); white-space: nowrap; }
+
+.brief-opts { display: flex; flex-direction: column; gap: 6px; }
+.brief-opt { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; text-align: left; padding: 11px 12px; border-radius: 10px; cursor: pointer;
+  background: rgba(255, 255, 255, .025); border: 1px solid var(--line); color: var(--text-primary); font: inherit;
+  transition: border-color .15s var(--ease-out), background-color .15s var(--ease-out); }
+.brief-opt:hover:not(:disabled) { border-color: var(--line-2); background: rgba(255, 255, 255, .05); }
+.brief-opt.on { border-color: var(--accent); background: rgba(59, 130, 246, .12); box-shadow: inset 3px 0 0 var(--accent); }
+.brief-opt:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.brief-opt:disabled { cursor: not-allowed; opacity: .55; }
+.bo-t { font-weight: 600; font-size: 14px; }
+.bo-m { font: 400 11.5px var(--mono); color: var(--text-muted); text-align: right; align-self: center; font-variant-numeric: tabular-nums; }
+.bo-s { grid-column: 1 / -1; font-size: 12.5px; line-height: 1.45; color: var(--text-secondary); }
+.brief-opt.warn .bo-s { color: var(--warn); }
+
+.brief-date { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; padding: 8px 12px; border: 1px dashed var(--line-2); border-radius: 10px;
+  font-size: 13px; color: var(--text-secondary); }
+.brief-date input { background: var(--surface-2); color: var(--text-primary); border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 8px; font: 13px var(--mono); }
+
+.brief-adv { margin-top: 12px; border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; }
+.brief-adv summary { cursor: pointer; padding: 10px 0; font-size: 13px; color: var(--text-secondary); }
+.brief-adv[open] { padding-bottom: 12px; }
+.brief-lab { margin: 8px 0 6px; font: 500 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+.brief-seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.brief-seg button { min-height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line-2); background: transparent; color: var(--text-secondary); font: 500 13px var(--font); cursor: pointer; }
+.brief-seg button.on { border-color: var(--accent); color: var(--text-primary); background: rgba(59, 130, 246, .14); }
+
+.brief-wait { display: flex; align-items: center; gap: 12px; margin-top: 18px; color: var(--text-secondary); font-size: 13px; }
+.brief-spin { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line-2); border-top-color: var(--accent-2); animation: brief-spin .9s linear infinite; }
+@keyframes brief-spin { to { transform: rotate(360deg); } }
+.brief-err { margin: 12px 0 0; color: var(--bad); font-size: 14px; line-height: 1.5; }
+
+.brief-sum { margin: 14px 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+.brief-sum div { min-width: 0; border-top: 1px solid var(--line); padding-top: 6px; }
+.brief-sum dt { font: 500 10.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+.brief-sum dd { margin: 3px 0 0; font-size: 13.5px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.brief-dv { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.brief-dv td { padding: 4px 0; border-top: 1px solid var(--line); color: var(--text-secondary); }
+.brief-dv td + td { text-align: right; font-family: var(--mono); color: var(--text-primary); }
+.brief-go { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+.brief-go .primary { min-height: 48px; font-size: 15px; }
+.brief-go div { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.brief-go + .brief-nav { border-top: 0; margin-top: 0; padding-top: 8px; }
+.brief-go + .brief-nav .ghost { flex: 1; min-height: 38px; }
+
+/* telefon ve dar pencere: alttan çıkan sayfa; giriş metni de altta */
+@media (max-width: 700px) {
+  .brief-step { left: calc(8px + var(--sl)); right: calc(8px + var(--sr)); top: auto; bottom: calc(8px + var(--sb)); width: auto; max-height: min(64dvh, 620px); padding: 14px 14px 12px; }
+  .brief-step .brief-h { font-size: 24px; }
+  .brief-intro { left: calc(20px + var(--sl)); right: calc(20px + var(--sr)); width: auto; top: auto; bottom: calc(28px + var(--sb)); transform: none; }
+  .brief-acts { flex-direction: column; }
+  .brief-sum { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { .brief-fade, .brief-opt, .brief-card button { transition: none; } .brief-spin { animation-duration: 2.4s; } }

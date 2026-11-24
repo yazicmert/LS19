@@ -17,6 +17,9 @@ import { shake as camShake, SITES, siteEye } from './launchcam.js';
 import { setPlume, makeGlow } from './fx.js';
 import { add, sub, scale, dot, cross, norm, unit } from './vec3.js';
 
+// kalkış sahnesinin kimliği (ön yükleme eşleşmesi): roket türü, rampa düzeni ve konumu
+export const ascKey = (s) => [s.lv, s.pad, s.padKey, s.site ? s.site.lat.toFixed(5) + ',' + s.site.lon.toFixed(5) : '-'].join('|');
+
 const KM = 0.001;                        // m -> km
 // kalkış alevinin renkleri (sıcak çekirdek, soğuk dış, ışıma): gazyağı turuncu, katı yakıt beyaz-sarı, hidrolox soluk mavi, metan (BE-4) mavi-turuncu
 const PLUME_COL = {
@@ -37,14 +40,12 @@ export class AscentView {
     for (const c of veh.children) if (c.userData.ascHidden !== undefined) { c.visible = c.userData.ascHidden; delete c.userData.ascHidden; }
     this.renderer.localClippingEnabled = false;
     if (!spec) return;
-    this._lvCache = this._lvCache || {};
-    // yüklenemeyen model önbellekte kalmaz (sonraki denemede yeniden istenir)
-    const glb = (k, f) => this._lvCache[k] || (this._lvCache[k] = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(this.base + f).then((g) => g.scene).catch(() => { delete this._lvCache[k]; return null; }));
+    const glb = (k, f) => this._glb(k, f);
     // bütün beklemeler (model, gökyüzü gölgelendiricisi, Mobile Launcher) sahneye dokunmadan ÖNCE: yükleme sürerken ikinci bir çağrı gelirse (ör. yavaş ağda düğmeye
     // yeniden basılması) bu çağrı hiçbir şey eklemeden çıkar. Eskiden iki çağrı da roket ve dünya grubunu ekliyor, sıraya göre görünen roket gizli kalabiliyordu.
     // Saturn V modeli yüklenemezse roketsiz kalkış yerine ölçüden çizilen genel roket gösterilir.
     const template = (spec.lv === 'saturnv' ? await glb('saturnv', 'models/rockets/saturnv.glb') : null) || makeLaunchVehicle(spec.lv === 'saturnv' ? 'generic' : spec.lv);
-    const skyMat = await this.skyMaterial(), mlScene = spec.pad === 'ml' ? await glb('ml', 'models/rockets/ml.glb') : null;
+    const skyMat = await (this._skyMatP || (this._skyMatP = this.skyMaterial())), mlScene = spec.pad === 'ml' ? await glb('ml', 'models/rockets/ml.glb') : null;
     if (gen !== this._ascGen) return false;
     // kesme düzlemli kopya: keep = [alt, üst] (m; üst yoksa yalnız alt sınır), parça = yalnız o etiketli parça görünür
     const prep = (src, nPlanes) => {
@@ -87,8 +88,12 @@ export class AscentView {
     this.asc = { root: L.root, inner: L.inner, model: L.model, plane: L.planes[0], holder, flame, plumeLight, smoke, cut: 0, spec, template, prep, world, sky, pad, padProps, debris: new Map(), state: null, credit: '', len, radius };
     // yer: rampa çevresinin iç içe uydu görüntüsü ve kabartması (kaba seviyeler önce gelir; atıf yüklenen kaynağa göre)
     if (spec.site) {
-      const ground = this.asc.ground = new PadGround(THREE, pad, spec.site, { onProgress: (G) => { if (this.asc && this.asc.ground === G) this.asc.credit = G.credit(); } });
-      ground.load();
+      // ön yükleme (preloadAscent) aynı rampa içinse zemin ve binalar hazır: grubu rampaya taşı (indirme ve çözme yok)
+      const P = this._pre && this._pre.key === ascKey(spec) ? this._pre : null; this._pre = null;
+      if (P) pad.add(P.G);
+      const onGround = (G) => { if (this.asc && this.asc.ground === G) this.asc.credit = G.credit(); };
+      const ground = this.asc.ground = P ? P.ground : new PadGround(THREE, pad, spec.site, { onProgress: onGround });
+      if (P) { ground.onProgress = onGround; onGround(ground); } else ground.load();
       // açık veri 3B binalar (anahtarsız; herkese açık sitenin varsayılanı): OSM binaları OpenFreeMap karolarından; rampa çevresinde yeterince yapı varsa
       // prosedürel kuleler gizlenir (gerçek yapılar OSM'de), yoksa kalır. Google 3B karolar açıkken bu katman da gizlenir.
       const A = this.asc;
@@ -99,14 +104,18 @@ export class AscentView {
         const o = m.clone(true); o.position.set(x, -(x * x + z * z) / (2 * R_M), z); o.rotation.y = rotY; o.userData.xz = [x, z]; pad.add(o); A.ksc.push(o); A.kscDem = false;
       });
       const vab = vabPlacement(spec.site);
-      A.osm = new OsmBuildings(THREE, pad, spec.site, { onReady: (O) => {
+      const osmReady = (O) => {
         if (this.asc !== A) return;
         A.osmPad = O.nearPad() >= 3; A.creditT = 0;
         const park = (spec.pad === 'ml' || spec.padKey === 'LC-39B') && crawlerPark(O.tiles.flatMap(({ t, layers }) => namedLines(layers.transportation_name, t, spec.site)));
         if (park) put('crawler', CRAWLER.file, park.x, park.z, park.rotY);
-      } });
-      if (vab) { A.osm.exclude.push(vab.rect); put('vab', VAB.file, vab.x, vab.z, vab.rotY); }
-      A.osm.load();
+      };
+      if (P) { A.osm = P.osm; if (P.osmReady) osmReady(P.osm); else P.onOsm = osmReady; if (vab) put('vab', VAB.file, vab.x, vab.z, vab.rotY); }
+      else {
+        A.osm = new OsmBuildings(THREE, pad, spec.site, { onReady: osmReady });
+        if (vab) { A.osm.exclude.push(vab.rect); put('vab', VAB.file, vab.x, vab.z, vab.rotY); }
+        A.osm.load();
+      }
       if (g3dUsable()) this.setGoogle3D(true);                                          // isteğe bağlı: rampa çevresi Google 3B karolarıyla (google3d.js)
     }
     this.asc.clouds = new CloudLayers(THREE, pad);                                    // gerçek hava (setAscentWeather): veri gelene dek açık hava
@@ -132,6 +141,35 @@ export class AscentView {
   // kalkış gökyüzü: three.js resmî Sky eklentisi (Preetham analitik gün ışığı modeli: Rayleigh + Mie saçılması, Güneş konumuna göre renk, ufukta beyazlaşma).
   // Sahnenin logaritmik derinliğine uyarlanır (uzak düzleme itilmez: ufuk mesafesindeki kubbe yıldızları örter, Dünya'yı örtmez) ve irtifayla saydamlaşır (skyFade).
   // Eklenti yüklenemezse düz renkli kubbe.
+  // GLB önbelleği (roket, Mobile Launcher, VAB, Crawler); yüklenemeyen model önbellekte kalmaz (sonraki denemede yeniden istenir)
+  _glb(k, f) {
+    const C = this._lvCache || (this._lvCache = {});
+    return C[k] || (C[k] = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(this.base + f).then((g) => g.scene).catch(() => { delete this._lvCache[k]; return null; }));
+  }
+  // kalkış ön yüklemesi: setAscent'in beklediği her şey (roket ve rampa modelleri, gökyüzü gölgelendiricisi) ve rampa çevresi (uydu görüntüsü, kabartma,
+  // OSM binaları, VAB/Crawler) görünmez bir grupta önceden hazırlanır. setAscent aynı rampa için grubu sahneye taşır: kalkış beklemeden açılır.
+  // Başka rampa/roket istenince eski ön yükleme bırakılır. Döner: modeller hazır olunca çözülen söz
+  preloadAscent(spec) {
+    if (!spec) return Promise.resolve(false);
+    const key = ascKey(spec);
+    if (this._pre && this._pre.key === key) return this._pre.ready;
+    this.dropPreload();
+    const jobs = [this._skyMatP || (this._skyMatP = this.skyMaterial())];
+    if (spec.lv === 'saturnv') jobs.push(this._glb('saturnv', 'models/rockets/saturnv.glb'));
+    if (spec.pad === 'ml') jobs.push(this._glb('ml', 'models/rockets/ml.glb'));
+    const P = { key, G: new THREE.Group() };
+    if (spec.site) {
+      P.ground = new PadGround(THREE, P.G, spec.site, {}); P.ground.load();
+      const vab = vabPlacement(spec.site);
+      P.osm = new OsmBuildings(THREE, P.G, spec.site, { onReady: (O) => { P.osmReady = true; if (P.onOsm) P.onOsm(O); } });
+      if (vab) { P.osm.exclude.push(vab.rect); jobs.push(this._glb('vab', VAB.file)); }
+      if (spec.pad === 'ml' || spec.padKey === 'LC-39B') jobs.push(this._glb('crawler', CRAWLER.file));
+      P.osm.load();
+    }
+    P.ready = Promise.all(jobs).then(() => true, () => false);
+    this._pre = P; return P.ready;
+  }
+  dropPreload() { const P = this._pre; this._pre = null; if (!P) return; if (P.ground) P.ground.dispose(); if (P.osm) P.osm.dispose(); }
   async skyMaterial() {
     try {
       const { Sky } = await import('three/addons/objects/Sky.js'), S = Sky.SkyShader;
