@@ -31,13 +31,23 @@ export class ImpactUI {
   // ---------------------------------------------------------------- brifingin kullandığı arayüz
   satsReady() { const omm = this.sats.gp || this.sats.omm; return !!(this.res && omm && this.doneFor === omm && this.res.length >= omm.length); }
   // kontrolsüz olabilecek (≥ 10 yıllık, yörüngesi korunmayan) cisimler, yeniden giriş sırasıyla; ve sayılar (panelin varsayılan süzgeciyle aynı)
+  // Brifing bunu her karede ister (sahnede seçili uydunun adı; brifcarpma.js aim): 17.000 cisimlik süzgeç masaüstünde 6–10 ms sürdüğü için sonuç saklanır.
+  // Yeni hesap (res, groupOf yeni nesne) ya da 1 dk sonra yenilenir: süzgeç yalnız "şimdi"ye göre geçmişte kalanları ayıklar, dakikalar içinde değişmez.
   topSats(n = 6) {
     if (!this.satsReady()) return null;
-    const S = selectSats(this.res, { now: Date.now(), ctl: '10', groupOf: (id) => this.groupOf && this.groupOf.get(id) });
-    return { list: S.sel.slice(0, n), n1: S.n1, n5: S.n5, live: S.live.length };
+    const now = Date.now(), m = this.topSatMemo;
+    if (m && m.res === this.res && m.g === this.groupOf && m.n === n && now - m.t < 60e3) return m.v;
+    const S = selectSats(this.res, { now, ctl: '10', groupOf: (id) => this.groupOf && this.groupOf.get(id) });
+    const v = { list: S.sel.slice(0, n), n1: S.n1, n5: S.n5, live: S.live.length };
+    this.topSatMemo = { res: this.res, g: this.groupOf, n, t: now, v }; return v;
   }
-  // Sentry: çarpma olasılığı en yüksek olanlar
-  topAsts(n = 6) { const A = this.asts; if (!A.sentry || !A.sentry.size) return null; const rows = sentryRows(A.sentry); return { list: [...rows].sort((a, b) => b.ip - a.ip).slice(0, n), all: rows }; }
+  // Sentry: çarpma olasılığı en yüksek olanlar (liste yenilenince yeni Map gelir: asteroids.js; o zamana dek saklanır)
+  topAsts(n = 6) {
+    const A = this.asts; if (!A.sentry || !A.sentry.size) return null;
+    const m = this.topAstMemo; if (m && m.src === A.sentry && m.n === n) return m.v;
+    const rows = sentryRows(A.sentry), v = { list: [...rows].sort((a, b) => b.ip - a.ip).slice(0, n), all: rows };
+    this.topAstMemo = { src: A.sentry, n, v }; return v;
+  }
   // sekme açıldığında: geçmiş yörünge özeti (decayhist.js) inince hesap başlar; inemezse yalnız yaş süzgeci kullanılır
   open() {
     // bozunma iş parçacığı hemen kurulur: modülleri ve geçmiş verisi uydu kataloğu gelene dek hazır olsun (geç kurulunca yazılım çiziminde açılışı ~70 sn ölçüldü)
