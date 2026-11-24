@@ -11,6 +11,7 @@
 import * as E from './engine.js';
 import { fmt } from './format.js';
 import { t as tr } from './i18n.js';
+import { icon } from './icons.js';
 
 export const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; };
 export const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -18,6 +19,9 @@ export const unit = (a) => { const n = Math.hypot(a[0], a[1], a[2]) || 1; return
 // gerekçe argümanı: { n, d } sayı (yerel biçim) ya da metin (çevrilir)
 const fa = (x) => (x && typeof x === 'object' ? fmt(x.n, x.d) : tr(String(x)));
 
+// deneyler arası geçiş (app.js kurar): { items: [{ exp, t, icon }], go(exp) }. Brifing kartının tepesinde; brifing açıkken panel gizli olduğundan
+// başka deneye geçmenin yolu budur. exp 'home': Laboratuvar merkezi
+export const BRIEF_NAV = { items: [], go: null };
 export class BriefShell {
   // host: { world, latest(), root, onClose(how) }
   // o: { id, domId, label, seen (localStorage anahtarı), steps [{ k, t, s }], scenes { k: { mode, dist, el, az, spin … } }, hide [world anahtarları], hideVehicle }
@@ -63,17 +67,25 @@ export class BriefShell {
   onOpen() {}
   onClosing() {}
 
+  // deney seçici (BRIEF_NAV): bu brifingin deneyi seçili
+  navHtml() {
+    if (!BRIEF_NAV.items.length) return '';
+    return `<nav class="brief-labnav" aria-label="${esc(tr('Deneyler'))}">${BRIEF_NAV.items.map((b) => `<button type="button" data-exp="${b.exp}" class="${b.exp === this.id ? 'on' : ''}" aria-current="${b.exp === this.id ? 'page' : 'false'}" title="${esc(tr(b.t))}">${icon(b.icon)}<span>${esc(tr(b.t))}</span></button>`).join('')}</nav>`;
+  }
+  bindNav() { this.card.querySelectorAll('.brief-labnav [data-exp]').forEach((b) => (b.onclick = () => { if (b.dataset.exp !== this.id && BRIEF_NAV.go) BRIEF_NAV.go(b.dataset.exp); })); }
+
   // ---------------------------------------------------------------- giriş kartı: sol-ortada büyük başlık, sahne arkada
   intro(kind) {
     this.step = -1; this.setScene('intro'); this.root.classList.add('is-intro');
     const I = this.introCard(kind);
     this.card.className = 'brief-card brief-intro';
-    this.card.innerHTML = `<p class="brief-eye">${esc(tr(I.eye))}</p>
+    this.card.innerHTML = `${this.navHtml()}<p class="brief-eye">${esc(tr(I.eye))}</p>
       <h1 class="brief-h">${esc(tr(I.h))}</h1>
       <p class="brief-lead">${esc(tr(I.lead))}</p>
       <div class="brief-acts">${I.acts.map((a) => `<button type="button" class="${a.cls || 'ghost'}" data-act="${a.act}">${esc(tr(a.t))}</button>`).join('')}</div>
       ${I.fine ? `<p class="brief-fine">${esc(tr(I.fine))}</p>` : ''}`;
     this.card.querySelectorAll('[data-act]').forEach((b) => (b.onclick = () => (b.dataset.act === 'start' ? this.go(0) : this.onAct(b.dataset.act))));
+    this.bindNav();
     this.focusTitle();
   }
   onAct() {}
@@ -89,12 +101,13 @@ export class BriefShell {
     this.card.className = 'brief-card brief-step';
     const dots = this.steps.map((q, k) => `<li class="${k < this.step ? 'done' : k === this.step ? 'cur' : ''}"><span>${k + 1}</span><em>${esc(tr(q.t))}</em></li>`).join('');
     this.card.classList.toggle('full', !!this.full);
-    this.card.innerHTML = `<button type="button" class="brief-grab" aria-expanded="${this.full ? 'true' : 'false'}" aria-label="Listeyi büyüt ya da sahneyi göster"><span></span></button><ol class="brief-dots" aria-label="Adımlar">${dots}</ol>
+    this.card.innerHTML = `<button type="button" class="brief-grab" aria-expanded="${this.full ? 'true' : 'false'}" aria-label="Listeyi büyüt ya da sahneyi göster"><span></span></button>${this.navHtml()}<ol class="brief-dots" aria-label="Adımlar">${dots}</ol>
       <p class="brief-eye">${this.step + 1} / ${N} · ${esc(tr(S.s))}</p>
       <h2 class="brief-h" tabindex="-1">${esc(tr(S.t))}</h2>
       <div class="brief-body"></div>
       <div class="brief-nav"><button type="button" class="ghost" data-act="back">${this.step === 0 ? 'Giriş' : 'Geri'}</button><button type="button" class="primary" data-act="next"></button></div>`;
     const body = this.card.querySelector('.brief-body'), next = this.card.querySelector('[data-act="next"]'), grab = this.card.querySelector('.brief-grab');
+    this.bindNav();
     grab.onclick = () => { this.full = !this.full; this.card.classList.toggle('full', this.full); grab.setAttribute('aria-expanded', String(this.full)); };      // telefon: tam ekran liste ↔ sahne
     this.card.querySelector('[data-act="back"]').onclick = () => (this.step === 0 ? this.intro(this.kind) : this.go(this.step - 1));
     next.textContent = tr(this.nextLabel(S.k));

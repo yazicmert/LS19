@@ -14,6 +14,7 @@ import { ProfileCompare } from './profilecompare.js';
 import { attachCanvasInput } from './canvasinput.js';
 import { AscentPlayer } from './ascentplay.js';
 import { Briefing } from './brifing.js';
+import { BRIEF_NAV } from './brifkabuk.js';
 import { DeflectBrief } from './brifsaptirma.js';
 import { LagrangeBrief } from './briflagrange.js';
 import { ImpactBrief } from './brifcarpma.js';
@@ -62,6 +63,7 @@ let brief = null;                                                               
 // Laboratuvar brifingleri: deney → brifing (ortak kabuk: brifkabuk.js). Merkezden bir deney seçilince o deneyin brifingi açılır (sayfa başına bir kez)
 const briefs = {}, briefEntered = new Set();
 const briefOn = () => Object.values(briefs).find((b) => b.active) || null;
+const HUB_HIDE = ['vehicle', 'vehMarker', 'osc', 'stageOsc', 'trailLineE', 'trailLineM', 'haloPath'];
 // gökyüzü motorundaki deneylerin brifingi motor kurulunca (initSky) yapılır: deney merkezinden seçilince ilk kez gerekir
 const briefMakers = {
   saptirma: () => deflect && new DeflectBrief({ world, root: $('#app'), latest: () => ({ t: curT() }), dui: deflect, asts: S.asts, padOf: padOfRocket,
@@ -376,12 +378,17 @@ const labui = new LabUI({ initial: LAB_HOME });                                /
 labui.onShow = () => { if (S.VIEW === 'lab') syncWorkspace(!quietShow); };
 // Brifing, Laboratuvar merkezinden Ay görevi seçilince açılır (sayfa başına bir kez; ilk görev henüz hazır değilse hazır olunca: ready işleyicisi).
 // Laboratuvar'ın açılışı, kayıtlı son deney, geri/ileri, K kısayolu ve Lagrange'dan "bu profille uç" geçişi brifingi açmaz (brifingtext.js briefKind).
-$('#lab-home').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-exp]'), exp = b && b.dataset.exp;
+// Deneye giriş üç yerden aynı yoldan: merkezin listesi, panel başlığındaki deney sekmeleri (#labNav) ve brifing kartının tepesindeki seçici (BRIEF_NAV).
+// Deneye bu sayfada ilk kez giriliyorsa önce onun brifingi açılır.
+function enteredExp(exp) {
   if (!exp || !briefed().includes(exp) || briefEntered.has(exp)) return;
   briefEntered.add(exp);
   setTimeout(() => { const B = briefFor(exp), bk = B && urlApplied && briefKind({ visited: B.seen(), view: S.VIEW, exp: labui.page, entered: true, briefed: briefed() }); if (bk && !B.active) B.open(bk); }, 0);      // labui.show (ve gökyüzü motoru) kurulduktan sonra
-});
+}
+for (const id of ['#lab-home', '#labNav']) $(id).addEventListener('click', (e) => { const b = e.target.closest('[data-exp]'); if (b) enteredExp(b.dataset.exp); });      // labui.show panelin kendi işleyicisinde
+BRIEF_NAV.items = [{ exp: LAB_HOME, t: 'Laboratuvar', icon: 'flask' }, { exp: 'ay', t: 'Ay görevi', icon: 'rocket' }, { exp: 'saptirma', t: 'Saptırma', icon: 'shield' },
+  { exp: 'carpma', t: 'Çarpma riski', icon: 'target' }, { exp: 'lagrange', t: 'Lagrange', icon: 'orbit' }];
+BRIEF_NAV.go = (exp) => { labui.show(exp); enteredExp(exp); };                  // açık brifing, başka deneye geçilince kapanır (syncWorkspace)
 // geri/ileri: adresteki alanı ve deneyi kur (adres yazılmaz; kayıt zaten o adreste)
 // Ekranı kaplayan katmanlar (kalkış izleme, sinematik gösterim) geçmişte ayrı kayıt: telefonda geri önce katmanı kapatır, görünüm aynı kalır.
 // Kayıt kullanıcı tıklamasında, beklemeden önce eklenir (etkileşimsiz eklenen kaydı tarayıcı geri düğmesinde atlar); katman kendiliğinden bitince kaydı geri alınır.
@@ -767,7 +774,9 @@ function frame(now) {
     ui.hud(S.latest, now);
     if (now - lastAy > 500) ayRefresh();                          // Ay görevi adım özetleri: saniyede 2 kez yeter (değişmeyen metin yeniden yazılmaz)
   }
-  { const B = briefOn(); if (B && S.MODE === EXPERIMENTS[B.id].engine && !ascent.active) B.frame(dt); }          // brifing: kamera, gizlenenler, işaretler (deneyin motorundayken)
+  { const B = briefOn(); if (B && S.MODE === EXPERIMENTS[B.id].engine && !ascent.active) B.frame(dt); }
+  // Laboratuvar merkezi: görev motoru arkada çalışır ama aracın işareti, yörünge çizgileri ve izi görünmez (sahne her karede yeniden görünür yapar: burada kare sonunda)
+  if (S.VIEW === 'lab' && labui.page === LAB_HOME && S.MODE === 'mission') for (const k of HUB_HIDE) if (world[k]) world[k].visible = false;          // brifing: kamera, gizlenenler, işaretler (deneyin motorundayken)
   // görev motorunda ilk durum gelmeden, gökyüzü motorunda ilk skyFrame'den önce sahne konumlanmamıştır (Dünya ve Ay ince ağları ufuk bandı ve LOD olmadan, ~2,2 M üçgen): o kare çizilmez
   const placed = S.MODE === 'sky' ? skyPlaced : ascent.active || !!S.latest;           // gökyüzü: skyFrame en az bir kez çalıştı (efemeris kurulu)
   if (!S.designing && placed) world.render();                     // tasarım sırasında katman her şeyi örtüyor: işlemci tasarıma kalsın
