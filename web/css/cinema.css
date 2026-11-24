@@ -156,18 +156,20 @@ body.cine-on #view { cursor: none; }
   .cine-card.open { bottom: auto; }
 }
 
-/* kısa ekran (yatay telefon): başlıklar yüksekliğe göre ölçeklenir, kartlar sıkılaşır */
-@container (max-height: 520px) {
-  .cine-card { bottom: calc(var(--bar) + 76px); }
+/* kısa ekran (yatay telefon, alçak tarayıcı penceresi): başlıklar yüksekliğe göre ölçeklenir, kartlar sıkılaşır. 600 px: 960 × 540'ta kapanış kartının
+   künyesi zaman çizelgesine biniyordu */
+@container (max-height: 600px) {
+  .cine-card { bottom: calc(var(--bar) + 92px); }
   .cc-h { font-size: calc(min(clamp(22px, 3.4cqw, 52px), 7cqh) * var(--cine-k, 1)); }
   .cc-rule { margin: 10px 0 8px; }
   .cine-card.open .cc-h { font-size: calc(min(clamp(44px, 10cqw, 150px), 16cqh) * var(--cine-k, 1)); }
-  .cine-card.close { bottom: calc(var(--bar) + 44px); }
-  .cine-card.close .cc-h { font-size: calc(min(clamp(28px, 4.6cqw, 70px), 7.5cqh) * var(--cine-k, 1)); }
+  .cine-card.close { bottom: calc(var(--bar) + 62px); }
+  .cine-card.close .cc-h { font-size: calc(min(clamp(28px, 4.6cqw, 70px), 7cqh) * var(--cine-k, 1)); }
   .cc-stats { gap: 8px 28px; margin-top: 12px; }
   .cc-stat { padding-top: 6px; gap: 3px; }
-  .cine-strip { bottom: calc(var(--bar) + 16px); }
-  .cine-timeline { bottom: calc(var(--bar) + 6px); }
+  .cc-credits { margin-top: 10px; padding-top: 8px; gap: 5px 24px; }
+  .cine-strip { bottom: calc(var(--bar) + 40px); }                                  /* zaman çizelgesi etiketlerinin üstünde (16 px'te üst üste biniyordu) */
+  .cine-timeline { bottom: calc(var(--bar) + 8px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -194,6 +196,7 @@ body.cine-on #view { cursor: none; }
 .cb-q { font: 600 9px var(--mono); font-style: normal; letter-spacing: 0.16em; padding: 3px 6px 2px; border: 1px solid rgba(243, 239, 230, 0.45); border-radius: 3px; color: var(--cine-ink-2); }
 .cb-q:empty { display: none; }
 .cine-hint { top: calc(var(--bar) + clamp(52px, 7.5cqh, 76px)); }
+.cine.on.closing .cine-hint { left: auto; right: clamp(24px, 6cqw, 96px); text-align: right; }                              /* kapanış kartının başlığı solda: ipucu sağa geçer */
 
 /* olay çizelgesi: adlı düğümler; geçilenler dolu, şimdiki vurgulu */
 .ct-ticks i { top: -4px; width: 9px; height: 9px; margin-left: -4.5px; border-radius: 50%; background: #0b0d12; border: 1px solid rgba(243, 239, 230, 0.6); transition: background-color 0.4s var(--cine-out), transform 0.4s var(--cine-out); }
@@ -212,6 +215,9 @@ body.cine-on #view { cursor: none; }
 .cine-tag i::before { content: ""; position: absolute; left: -3px; top: -3px; width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--cine-accent); }
 .cine-tag b { display: block; font: 600 clamp(10px, 0.95cqw, 12px) var(--cine-tf, var(--mono)); letter-spacing: 0.26em; text-transform: uppercase; color: var(--cine-ink); }
 .cine-tag span { display: block; margin-top: 3px; font: 400 10px var(--cine-tf, var(--mono)); letter-spacing: 0.1em; color: var(--cine-ink-2); font-variant-numeric: tabular-nums; }
+.cine-tag.flip { padding: 0 26px 0 0; text-align: right; }                                                                /* sağ kenarda: noktanın soluna (cinemaui.js tags) */
+.cine-tag.flip i { left: auto; right: 0; transform-origin: right center; transform: rotate(52deg); }
+.cine-tag.flip i::before { left: auto; right: -3px; }
 
 /* başlık kartı: amblem + üst satır + görev adı + ayrıntı */
 .cine-card.title { left: 0; right: 0; bottom: auto; top: 46%; max-width: none; margin: 0 auto; text-align: center; transform: translateY(-50%); }

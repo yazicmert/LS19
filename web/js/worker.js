@@ -43,6 +43,7 @@ async function setupDate(d) {
 }
 
 let M = null, tDisp = 0, warp = 1, autoWarp = true, paused = true, maxWarp = 20000;
+let warpUntil = null;                                                                 // sinematik: bu benzetim zamanı geçilmez (cinema.js zaman hedefli çekimin bitişi)
 let manual = { throttle: 0, mode: 'PRO', hold: null };
 let lastReal = 0, status = '', timer = null, sentEvents = 0;
 let manualClock = false;                                           // dışa aktarım (exporter.js): saat elle, her 'step' bir kare (dt s), fizik hedefe tam varır
@@ -175,7 +176,8 @@ function tick(step = null) {
   const wEff = chooseWarp(x);
   let res = null;
   if (!paused && (!M.done || M.surf)) {                         // temastan sonra saat işlemeye devam eder: araç Ay yüzeyinde (M.surfaceAdvance), olay çizelgesi sürer
-    const tTarget = tDisp + dtReal * wEff;
+    let tTarget = tDisp + dtReal * wEff;
+    if (!autoWarp && warpUntil != null) tTarget = Math.min(tTarget, Math.max(tDisp, warpUntil));         // sinematik sınır: ana iş parçacığı geç kalsa da olay atlanmaz
     res = M.advance(tTarget, 12, manualCtrl, () => performance.now());
     // elle saat (dışa aktarım): ağır hesap (planlama) parça parça sürer; kare, fizik hedefe varınca biter (gerçek zaman yok, kare süresi değişmez)
     if (step) for (let k = 0; k < 100000 && M.P.s.t < tTarget - 1e-9 && (!M.done || M.surf); k++) { const t0 = M.P.s.t; res = M.advance(tTarget, 200, manualCtrl, () => performance.now()); if (res !== 'COMPUTE' && M.P.s.t <= t0) break; }
@@ -229,7 +231,7 @@ onmessage = (e) => {
       if (!manualClock) timer = setInterval(tick, TICK_MS);
       break;
     case 'step': if (manualClock) tick({ dt: Math.max(0, Math.min(1, +d.dt || 0)), n: d.n }); break;
-    case 'warp': warp = Math.max(0.05, Math.min(100000, d.value)); break;               // < 1: sinematik yavaş çekim (arayüz düğmeleri ≥ 1 gönderir)
+    case 'warp': warp = Math.max(0.05, Math.min(100000, d.value)); warpUntil = Number.isFinite(d.until) ? d.until : null; break;               // < 1: sinematik yavaş çekim (arayüz düğmeleri ≥ 1 gönderir)
     case 'autoWarp': autoWarp = d.on; break;
     case 'auto':
       if (d.on && manual.throttle > 0) endManualBurn();
