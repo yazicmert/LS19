@@ -3,8 +3,8 @@ import * as E from './engine.js';
 import { STAGES } from './mission.js';
 import { VIEW, LUNAR_SITES, DEFAULT_SITE, siteOf } from './moonsite.js';
 import { ControlPanel } from './controlpanel.js';
-import { sunElevationAtSite, PROFILES, normalizeConfig } from './design.js';
-import { ROCKETS, ROCKET_IDS, DEFAULT_ROCKET, rocketOf, tliCapacity, parkPropellant } from './rockets.js';
+import { sunElevationAtSite, PROFILES, normalizeConfig, validLander } from './design.js';
+import { ROCKETS, ROCKET_IDS, DEFAULT_ROCKET, rocketOf, tliCapacity, parkPropellant, isRocket, CUSTOM_ID, customSpec, setCustomRocket } from './rockets.js';
 import { ROCKET_INFO } from './rocketinfo.js';
 import { dvKeys, DV_NAMES, dvFromEvents } from './dvbudget.js';
 import { fmt, fmtDur } from './format.js';
@@ -99,7 +99,7 @@ export class UI {
       $('#' + id).addEventListener('change', () => { this.syncProfileSel(); this.syncCfgVis(); });
     document.querySelectorAll('.cfg input').forEach((el) => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') go($('#dateInput').value); }));
     // fırlatma aracı (roket): kartlar rockets.js'ten
-    this.rocket = DEFAULT_ROCKET; this.site = null;
+    this.rocket = DEFAULT_ROCKET; this.site = null; this.lander = null;          // lander: kullanıcının iniş aracı (design.js validLander) ya da null
     const rc = $('#rocketCards');
     if (rc) { for (const id of ROCKET_IDS) rc.append(rocketCard(id)); rc.addEventListener('click', (e) => {
       const inf = e.target.closest('[data-rocket-info]'); if (inf) { this.onRocketInfo && this.onRocketInfo(inf.dataset.rocketInfo); return; }
@@ -112,13 +112,15 @@ export class UI {
   // ------------------------------------------------------------------ görev yapılandırması
   getConfig() {
     const n = (id) => parseFloat($('#' + id).value);
-    return normalizeConfig({ rocket: this.rocket, site: this.site || undefined, moonSite: $('#cfgMoonSite').value, earth: { h: n('cfgEh'), inc: n('cfgEi'), revs: n('cfgEr'), raise: { n: n('cfgRn') || 0, ha: n('cfgRa') } },
+    return normalizeConfig({ rocket: this.rocket, ozel: this.rocket === CUSTOM_ID ? customSpec() : undefined, lander: this.lander || undefined, site: this.site || undefined, moonSite: $('#cfgMoonSite').value, earth: { h: n('cfgEh'), inc: n('cfgEi'), revs: n('cfgEr'), raise: { n: n('cfgRn') || 0, ha: n('cfgRa') } },
       moon: { type: $('#cfgMt').value, llo: { h: n('cfgLh'), revs: n('cfgLr') }, halo: { preset: $('#cfgHp').value, revs: n('cfgHr') } } });
   }
   setConfig(c) {
     const cfg = normalizeConfig(c), set = (id, v) => ($('#' + id).value = v);
     set('cfgEh', cfg.earth.h); set('cfgEi', cfg.earth.inc); set('cfgEr', cfg.earth.revs); set('cfgRn', cfg.earth.raise.n); set('cfgRa', cfg.earth.raise.ha); set('cfgMt', cfg.moon.type);
     set('cfgHp', cfg.moon.halo.preset); set('cfgHr', cfg.moon.halo.revs); set('cfgLh', cfg.moon.llo.h); set('cfgLr', cfg.moon.llo.revs);
+    if (c && c.ozel) setCustomRocket(c.ozel);                               // kullanıcının roketi (tanımı yapılandırmada)
+    if (c && 'lander' in c) this.lander = validLander(c.lander);            // kullanıcının iniş aracı (yoksa varsayılan araç)
     if (c && 'rocket' in c) this.setRocket(c.rocket);                     // profiller roketi taşımaz: seçili roket kalır
     if (c && 'moonSite' in c) { $('#cfgMoonSite').value = cfg.moonSite || DEFAULT_SITE; this.moonSiteInfo(); }     // profiller iniş yerini taşımaz: seçili yer kalır
     if (c && 'site' in c) { this.site = c.site || null; this.onSiteSync && this.onSiteSync(this.site); }   // rampa da (profiller taşımaz)
@@ -135,7 +137,7 @@ export class UI {
   }
   // roket seçimi (yalnız arayüz durumu; görevi app.js yeniden tasarlar). pay: iniş aracı kütlesi (kg; tasarım varsa ondan)
   setRocket(id, msg = '') {
-    this.rocket = ROCKETS[id] ? id : DEFAULT_ROCKET;
+    this.rocket = isRocket(id) ? id : DEFAULT_ROCKET;
     document.querySelectorAll('[data-rocket]').forEach((b) => b.classList.toggle('on', b.dataset.rocket === this.rocket));
     this.rocketInfo(msg);
   }

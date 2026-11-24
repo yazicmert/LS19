@@ -191,3 +191,53 @@ export function briefTimeline(D) {
 }
 // T+ süre metni: g sa dk (UNIT dile göre arayüzde; burada sayılar)
 export const tPlus = (s) => { const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60); return { d, h, m }; };
+
+// ---------------------------------------------------------------- Aşama 4: "Kendi aracımla" — roket ve iniş aracı sayılarla, LS19 yolu ve yeri hesaplar
+// Akış: 1 Aracın (üst kademe + iniş aracı) → 2 Nereye? (altı iniş yeri bu araçla gerçekten tasarlanır, yakıt payına göre sıralanır) → 3 Brifing.
+export const VEH_STEPS = [
+  { k: 'arac', t: 'Aracın', s: 'Roket ve iniş aracı' },
+  { k: 'ara', t: 'Nereye?', s: 'LS19 hesaplıyor' },
+  { k: 'brifing', t: 'Brifing', s: 'Görev özeti' },
+];
+export const VEH_SITES = ['A11', 'A12', 'A14', 'A15', 'A16', 'A17'];
+// varsayılan iniş aracı (mission.js STAGES[1] ile aynı kuru kütle, itki, Isp; tank: varsayılan yakıtın üstünde pay)
+export const DEFAULT_LANDER = { dry: 1300, tank: 4000, T: 16, isp: 320 };
+const G0 = 9.80665;
+// aracın kaba denetimi (tasarımdan önce, anında): iniş aracının dolu tankla Δv'si, Apollo profilinin gerektirdiği Δv (hazır tasarımdan: varsayılan aracın
+// gereken yakıtı roket denklemiyle Δv'ye çevrilir), dolu aracın kütlesi ve roketin Ay'a yük kapasitesi.
+//   ozel: { dry, tank, T, isp, P } (P: Ay'a yük kapasitesi, kg) · lander: { dry, tank, T, isp } · defs: hazır tasarımlar (Apollo hızlı)
+export function vehicleFacts(ozel, lander, defs) {
+  const st = profileStats(defs, 'APOLLO'), d0 = defs && defs.profiles && defs.profiles.APOLLO ? defs.profiles.APOLLO.design.STAGES[1] : { dry: 1300, isp: 320 };
+  const needDv = st && st.landNeed ? d0.isp * G0 * Math.log((d0.dry + st.landNeed) / d0.dry) : null;           // m/s (iniş yerine göre birkaç on m/s değişir)
+  const haveDv = lander.isp * G0 * Math.log((lander.dry + lander.tank) / lander.dry);
+  const wet = lander.dry + lander.tank, cap = ozel ? ozel.P : null;
+  // üst kademenin park yörüngesinde kalan yakıtla dolu aracı TLI'a çıkarabilmesi: yayımlanmış kapasite ≥ dolu araç (rockets.js tliCapacity'nin özü)
+  const twr = lander.T * 1000 / (wet * 1.62);                                   // Ay yüzeyinde itki/ağırlık (inişin sonu: tank neredeyse boş, burada dolu: en kötü)
+  return { needDv, haveDv, wet, cap, fits: cap == null || wet <= cap, dvOk: needDv == null || haveDv >= needDv * 1.02, twr, twrOk: twr >= 1.5 };
+}
+// bir yerin sonucu → en dar yakıt payı (oran; iniş ya da TLI). row: { st: 'wait'|'busy'|'ok'|'err', D?, err? }
+export function siteScore(row) {
+  if (!row || row.st !== 'ok' || !row.D) return -Infinity;
+  const S = row.D.STAGES || [], land = S[1] ? S[1].prop - (row.D.LANDER_NEED || 0) : 0, tli = S[0] ? S[0].prop - (row.D.TLI_NEED || 0) : 0;
+  return Math.min(land / Math.max(1, row.D.LANDER_NEED || 1), tli / Math.max(1, row.D.TLI_NEED || 1));       // büyük olan daha güvenli
+}
+// Sıralama: önce yakıt payı (%2'lik dilimlerle), sonra inişte Güneş'in ideal yüksekliğe (10°: uzun gölgeler araziyi gösterir) yakınlığı, sonra erken iniş.
+// Ay yörüngesinin düzlemi yere göre seçildiğinden LOI çoğu yerde aynıdır: yakıt payları eşit çıkar, fark tarihte ve ışıktadır.
+export const SUN_IDEAL = 10;
+const sunOf = (r) => (r.D && Number.isFinite(r.D.sunElAtLanding) ? r.D.sunElAtLanding : 90);
+export function rankSites(rows) {
+  const ok = Object.keys(rows).filter((k) => rows[k].st === 'ok'), b = (k) => Math.round(siteScore(rows[k]) * 50);
+  return ok.sort((x, y) => b(y) - b(x) || Math.abs(sunOf(rows[x]) - SUN_IDEAL) - Math.abs(sunOf(rows[y]) - SUN_IDEAL) || (rows[x].D.t_L || 0) - (rows[y].D.t_L || 0));
+}
+// yakıt payları yerden yere farklı mı (en dar paylar %2'den fazla ayrışıyor mu)
+export function marginsDiffer(rows) {
+  const v = Object.keys(rows).filter((k) => rows[k].st === 'ok').map((k) => siteScore(rows[k]));
+  return v.length > 1 && Math.max(...v) - Math.min(...v) > 0.02;
+}
+// hata iletisinden kısa neden: "iniş yakıtı eksik 450 kg" / "roket yetmez" / "yakınsamadı"
+export function siteErr(msg) {
+  const m = String(msg || ''), e = /eksik (\d+) kg/.exec(m);
+  if (/İniş aracının yakıtı/.test(m)) return { t: 'iniş yakıtı eksik {0} kg', a: [e ? e[1] : '?'] };
+  if (/gönderemez/.test(m)) return { t: 'roket aracı Ay yoluna çıkaramaz', a: [] };
+  return { t: 'bu pencerede yakınsamadı', a: [] };
+}

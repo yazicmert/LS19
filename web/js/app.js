@@ -20,7 +20,7 @@ import { ImpactBrief } from './brifcarpma.js';
 import { DesignJob } from './designjob.js';
 import { briefKind } from './brifingtext.js';
 import { inclRange, minIncl, LEGACY_SITE, padAllowed, siteOf as padSite, padShort } from './pads.js';
-import { rocketOf, ROCKET_IDS, tliCapacity } from './rockets.js';
+import { rocketOf, ROCKET_IDS, tliCapacity, CUSTOM_ID, customSpec, setCustomRocket } from './rockets.js';
 import { twoStageDesign, STAGES as MISSION_STAGES } from './mission.js';
 import { SatLayer } from './satlayer.js';
 import { AsteroidLayer } from './asteroids.js';
@@ -200,7 +200,7 @@ async function applyAyLink(L) {
     const p = launch.pads.get(L.pad);
     if (p && padAllowed(rocket, L.pad)) site = padSite(p);
   }
-  ui.setConfig({ ...base, rocket, site, moonSite: L.moonSite || DEFAULT_SITE });
+  ui.setConfig({ ...base, rocket, ...(L.ozel ? { ozel: L.ozel } : {}), lander: L.lander || null, site, moonSite: L.moonSite || DEFAULT_SITE });
   launch.syncRocket();
   if (L.vehicle) vehicleMode = L.vehicle;
   if (L.landing) landingMode = L.landing;
@@ -644,7 +644,7 @@ const briefJob = new DesignJob(), briefPaths = new Map();
 async function briefDesign(sel, key, onProg, stop) {
   const ms = Date.parse(sel.date + 'T00:00:00Z'); if (!Number.isFinite(ms) || !S.K) return null;
   const p = launch.padFor(sel.rocket), site = p !== undefined ? p : ui.site;
-  const cfg = { ...PROFILES[key].cfg, rocket: sel.rocket, site: site || undefined, moonSite: sel.site }, ck = cacheKey(ms, cfg), tFrom = tOfUtcMs(ms), tStart = tFrom - 86400;
+  const cfg = { ...PROFILES[key].cfg, rocket: sel.rocket, ...(sel.rocket === CUSTOM_ID ? { ozel: sel.ozel } : {}), lander: sel.lander || undefined, site: site || undefined, moonSite: sel.site }, ck = cacheKey(ms, cfg), tFrom = tOfUtcMs(ms), tStart = tFrom - 86400;
   const win = missionEtWindow(tStart, cfg);
   let hit = cachedDesign(ms, cfg);
   if (!hit) {
@@ -663,11 +663,13 @@ brief = new Briefing({ world, ui, root: $('#app'), latest: () => S.latest, defs:
   preload: (id) => { const p = launch.padFor(id); ascent.preload(id, p !== undefined ? p : ui.site); },           // seçilen roket ve rampası: kalkış beklemeden açılsın
   live: briefDesign, liveStop: () => briefJob.drop(),
   padOf: padOfRocket,                                                                          // roket adımı: rampa işareti
-  current: () => ({ site: $('#cfgMoonSite').value, date: $('#dateInput').value || DEFAULT_DATE, profile: ui.profileKeyOf(ui.getConfig()), rocket: ui.rocket, vehicle: vehicleMode, landing: landingMode }),
+  current: () => ({ site: $('#cfgMoonSite').value, date: $('#dateInput').value || DEFAULT_DATE, profile: ui.profileKeyOf(ui.getConfig()), rocket: ui.rocket, vehicle: vehicleMode, landing: landingMode,
+    ozel: customSpec(), lander: ui.lander }),
   design: async (sel) => {
     compare.cancel(); scanner.cancel();
+    if (sel.rocket === CUSTOM_ID) setCustomRocket(sel.ozel);                   // kullanıcının roketi önce kurulur (ui.setRocket isRocket'a bakar)
     if (sel.rocket !== ui.rocket) applyRocket(sel.rocket);
-    ui.setConfig({ ...PROFILES[sel.profile].cfg, moonSite: sel.site });
+    ui.setConfig({ ...PROFILES[sel.profile].cfg, moonSite: sel.site, lander: sel.lander || null });
     if (sel.vehicle && sel.vehicle !== vehicleMode) { vehicleMode = sel.vehicle; try { localStorage.setItem('ls19.vehicle', vehicleMode); } catch (e) { /* özel pencere */ } }
     if (sel.landing) setLanding(sel.landing);
     syncLanding();

@@ -131,7 +131,11 @@ export const AY_CFG_KEYS = {
   park: ['earth', 'h'], egim: ['earth', 'inc'], ptur: ['earth', 'revs'], ykn: ['earth', 'raise', 'n'], yap: ['earth', 'raise', 'ha'],
   bekle: ['moon', 'type'], llo: ['moon', 'llo', 'h'], lltur: ['moon', 'llo', 'revs'], halo: ['moon', 'halo', 'preset'], htur: ['moon', 'halo', 'revs'],
 };
-export const AY_LINK_KEYS = ['date', 'profile', 'yer', 'roket', 'rampa', 'arac', 'gudum', ...Object.keys(AY_CFG_KEYS)];
+export const AY_LINK_KEYS = ['date', 'profile', 'yer', 'roket', 'rampa', 'arac', 'gudum', 'ozel', 'inis', ...Object.keys(AY_CFG_KEYS)];
+// kullanıcının roketi (ozel=kuru,tank,itki,Isp,TLI yükü) ve iniş aracı (inis=kuru,tank,itki,Isp): virgüllü sayılar; doğrulama rockets.js/design.js'te
+const OZEL_KEYS = ['dry', 'tank', 'T', 'isp', 'P'], INIS_KEYS = ['dry', 'tank', 'T', 'isp'];
+const packNums = (o, keys) => keys.map((k) => String(o[k])).join(',');
+const unpackNums = (raw, keys) => { const a = String(raw || '').split(',').map(Number); return a.length === keys.length && a.every(Number.isFinite) ? Object.fromEntries(keys.map((k, i) => [k, a[i]])) : null; };
 const VEHICLES = ['two', 'one'], LANDINGS = ['opt', 'free', 'zem'], ISO_DAY = /^\d{4}-\d\d-\d\d$/;
 const numOf = (s) => (s != null && s !== '' && Number.isFinite(+s) ? +s : null);
 const getPath = (o, p) => p.reduce((a, k) => (a == null ? a : a[k]), o);
@@ -151,13 +155,15 @@ export function ayLinkFromState({ date, cfg, profileKey, vehicle, landing }) {
   }
   if (cfg && cfg.moonSite) o.yer = cfg.moonSite;
   if (cfg && cfg.rocket && cfg.rocket !== 'GENEL') o.roket = cfg.rocket;
+  if (cfg && cfg.rocket === 'OZEL' && cfg.ozel) o.ozel = packNums(cfg.ozel, OZEL_KEYS);
+  if (cfg && cfg.lander) o.inis = packNums(cfg.lander, INIS_KEYS);
   if (cfg && cfg.site && cfg.site.id > 0) o.rampa = String(cfg.site.id);
   if (VEHICLES.includes(vehicle)) o.arac = vehicle;
   if (LANDINGS.includes(landing)) o.gudum = landing;
   return o;
 }
 // q: URLSearchParams; profiles: design.js PROFILES; validSite: moonsite.js validSite → bağlantı durumu ya da null (Ay görevi anahtarı yoksa).
-//   { date?, profile?, custom? (kısmi yapılandırma: normalizeConfig tamamlar), moonSite?, rocket?, pad?, vehicle?, landing?, full }
+//   { date?, profile?, custom? (kısmi yapılandırma: normalizeConfig tamamlar), moonSite?, rocket?, ozel?, lander?, pad?, vehicle?, landing?, full }
 //   full: yeni biçim (araç ya da güdüm var): yazılmayan yer/roket/rampa varsayılandır. Eski ?profile= bağlantısında (full değil) yalnız profil uygulanır.
 // Bozuk ya da tanınmayan değerler atılır.
 export function ayStateFromLink(q, { profiles = {}, validSite = (x) => x } = {}) {
@@ -177,6 +183,8 @@ export function ayStateFromLink(q, { profiles = {}, validSite = (x) => x } = {})
   }
   const y = q.get('yer'); if (y && validSite(y) === y) L.moonSite = y;
   const r = q.get('roket'); if (r && r !== 'GENEL' && Object.hasOwn(ROCKETS, r)) L.rocket = r;
+  const oz = r === 'OZEL' ? unpackNums(q.get('ozel'), OZEL_KEYS) : null; if (oz) { L.rocket = 'OZEL'; L.ozel = oz; }
+  const ln = unpackNums(q.get('inis'), INIS_KEYS); if (ln) L.lander = ln;
   const p = q.get('rampa'); if (/^\d{1,6}$/.test(p || '') && +p > 0) L.pad = +p;
   const v = q.get('arac'); if (VEHICLES.includes(v)) L.vehicle = v;
   const g = q.get('gudum'); if (LANDINGS.includes(g)) L.landing = g;
