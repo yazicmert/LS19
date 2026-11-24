@@ -24,6 +24,12 @@ function quatZto(d) {
 
 const MINOR = new Set(['tw', 'm1', 'co', 'thr']);                  // zaman çizgisinde etiketsiz küçük noktalar (anons alt yazısı yeter)
 
+// kalkış sahnesinin tanımı (scene.js setAscent / preloadAscent): roket (rockets.js) ve rampa ({ lat, lon, name })
+const PROP = { saturnv: 'kerolox', f9: 'kerolox', fh: 'kerolox', generic: 'kerolox', sls: 'solid', vulcan: 'solid' };
+export function ascentSpec(rk, pad) {
+  const A = rk && rk.ascent; if (!A) return null;
+  return { lv: A.lv, prop: PROP[A.lv] || 'kerolox', pad: A.lv === 'sls' ? 'ml' : 'concrete', padKey: padKey(pad.name || rk.pad), site: { lat: pad.lat, lon: pad.lon } };
+}
 export class AscentPlayer {
   constructor({ world, E, send, getDesign, getIns, getState, onEnd }) {
     this.world = world; this.E = E; this.send = send; this.getDesign = getDesign; this.getIns = getIns; this.getState = getState; this.onEnd = onEnd;
@@ -106,6 +112,13 @@ export class AscentPlayer {
   }
   // opts.quiet: sinematik fragman kipi — kontrol çubuğu, yayın bandı ve panel gizleme yok (fragmanın kendi bindirmesi var), hızı fragman verir
   // (this.warp, userWarp), olay alt yazıları onCue(text, ms), görüntü atfı onCredit(text) ile iletilir; opts.from: başlangıç (kalkışa göre s, varsayılan −10)
+  // kalkışı önceden hazırla (roket kimliği, rampa: pads.js siteOf ya da null = varsayılan LC-39B); tasarlanmış görevden: preloadDesign
+  preload(rocketId, pad) { const p = pad || LEGACY_SITE; return this.world.preloadAscent ? this.world.preloadAscent(ascentSpec(rocketOf(rocketId), { lat: p.lat, lon: p.lon, name: p.name })) : null; }
+  preloadDesign(D) {
+    const L = D && D.LAUNCH; if (!L || this.active) return null;
+    const rk = rocketOf(D.STAGES && D.STAGES[0] ? D.STAGES[0].rocket : null);
+    return this.world.preloadAscent ? this.world.preloadAscent(ascentSpec(rk, { lat: L.lat ?? LEGACY_SITE.lat, lon: L.lon ?? LEGACY_SITE.lon, name: L.site })) : null;
+  }
   async start(opts = {}) {
     const D = this.getDesign(), ins = this.getIns(), base = this.getState();
     if (this.active || this.starting || !D || !ins || !base) return false;          // starting: model yüklenirken ikinci başlatma (çift tıklama) yok sayılır
@@ -129,7 +142,7 @@ export class AscentPlayer {
     // kalkıştaki alev: birinci kademenin yakıtı (Saturn V S-IC, Falcon: gazyağı; SLS, Vulcan: katı iticiler baskın)
     // rampa: SLS'te NASA Mobile Launcher, diğerlerinde beton platform; çevresi Sentinel-2 görüntüsü
     this.starting = true;
-    try { await this.world.setAscent({ lv: A.lv, prop: { saturnv: 'kerolox', f9: 'kerolox', fh: 'kerolox', generic: 'kerolox', sls: 'solid', vulcan: 'solid' }[A.lv] || 'kerolox', pad: A.lv === 'sls' ? 'ml' : 'concrete', padKey: padKey(L.site || rk.pad), site }); } finally { this.starting = false; }
+    try { await this.world.setAscent(ascentSpec(rk, { ...site, name: L.site })); } finally { this.starting = false; }
     this.debris = []; this.debId = 0; this.done = new Set(); this.prevCut = 0; this.hiddenNow = [];
     this.active = true; this.lastEv = null; this.qShown = false; this.buildTele();      // model yüklendikten sonra oynamaya başla
     if (!this.quiet) {

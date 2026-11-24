@@ -71,6 +71,36 @@ engineFor(view, exp, cur)   // 'sky' → 'sky'; Laboratuvar'da deneyin motoru; a
 | `js/astui.js` | Yalnız asteroit kataloğu ve bilgi kartı; saptırmaya geçişi `openLab` ile yapar |
 | `js/lagrange.js` / `js/lagrangeui.js` | Lagrange noktaları: saf CR3BP hesabı (beş nokta, Jacobi, kararlılık, deney, halo özeti, bağlantı) ve arayüz (dört adım, dönen çerçeve çizimi) |
 
+## 3a. Görev brifingi: önce tasarla, sonra fırlat
+
+Ay görevi artık hazır bir görevle park yörüngesinde açılmıyor. LS19 önce kullanıcıya görevi tasarlatıyor (`js/brifing.js`, saf mantık `js/brifingtext.js`).
+
+- **Giriş:** sahnede yalnız Dünya var; araç, uçuş göstergeleri, deney paneli ve görev çubuğu gizli, üst çubuk duruyor. İki düğme: **Tasarlamaya başla** ve **Hazır görevi izle** (fragman).
+- **Beş adım.** Her adımda LS19'un önerisi, gerekçesi ve bir **LS19 seçsin** düğmesi bulunur:
+  1. **Nereye?** Altı Apollo iniş yeri. Kamera Ay'da seçilen yere döner ve yeri işaretler.
+  2. **Ne zaman?** Hazır pencere (Ekim 2026), bugünden sonraki ilk pencere, Apollo 11 günü ya da başka bir gün.
+  3. **Nasıl?** Altı profil. Süre ve Δv, hazır tasarımlardan gelir (`data/designs_default.json`). Sahnede Dünya–Ay sistemi ve Ay'ın yörüngesi görünür.
+  4. **Neyle?** Roketler. Aracı Ay yoluna taşıyamayan roket seçilemez (`tliCapacity` iniş aracının kütlesinden küçükse). Araç ve iniş güdümü "Araç ve iniş güdümü" altında katlıdır. Tahmini tasarım süresi yazılır.
+  5. **Brifing.** Görev burada bir kez tasarlanır (`startDesign`). Ardından özet gelir: iniş yeri, fırlatma ve iniş anı, süre, profil, roket, inişte Güneş, Δv bütçesi. Üç başlatma düğmesi vardır: **Rampadan fırlat** (kalkış canlandırması, sonra görev kendiliğinden sürer), **Yörüngeden başla** ve **Fragman olarak izle**. Tasarım başarısız olursa neden brifingde yazar ve seçimler değiştirilebilir.
+- **Kim görür** (`briefKind`):
+  - İlk kez gelen brifingle başlar.
+  - Geri dönen, "Kaldığım yerden devam" ya da "Yeni görev tasarla" seçeneklerini görür (`localStorage` › `ls19.brifing`).
+  - Bağlantıyla ya da ayarlı adresle gelen brifingi görmez: görev anahtarları (`date`, `profile`, `yer`, `roket`…), `tab`, `cine` ve `kurgu`. `?brifing=1` brifingi açar, `?brifing=0` kapatır.
+  - Ay görevi panelinin Görev adımındaki **LS19 ile adım adım tasarla** düğmesi brifingi yeniden açar.
+- **Kısayollar:** Esc bir adım geri gider; brifing açıkken uçuş kısayolları kapalıdır. Canlı Gökyüzü'ne ya da başka bir deneye geçince brifing kapanır.
+
+### Kalkış ön yüklemesi (beklemesiz rampa görünümü)
+
+Kalkış canlandırması önceden şunları bekliyordu: roket modeli (Saturn V GLB; SLS için ayrıca Mobile Launcher GLB), gökyüzü gölgelendiricisi, ardından rampa çevresinin uydu görüntüsü, kabartması ve OSM binaları. Ölçüm (yazılım çizimi): Saturn V ile "Kalkış" düğmesinden roketin rampada görünmesine **7,4 sn**.
+
+Şimdi bunlar önceden, görünmez bir grupta hazırlanıyor (`ascentview.js` › `preloadAscent`):
+- brifingin roket adımında, seçilen roket ve rampası için;
+- her görev hazır olunca, boşta; veri tasarrufu açıksa yapılmaz.
+
+`setAscent` aynı rampa için hazır grubu sahneye taşır; indirme ve çözme yapılmaz. Kalkış tanımı tek yerde üretilir (`ascentplay.js` › `ascentSpec`), böylece ön yükleme ile kalkış birebir eşleşir. Ölçüm: **0,07 sn**. Başka bir roket ya da rampa seçilince eski ön yükleme bırakılır.
+
+Testler: `web/test/test_brifing.js`.
+
 ## 3. Ay görevi deneyi: dört adım
 
 Saptırma deneyiyle aynı dil: numaralı adımlar, her adımın tek satırlık özeti, adımlar arası "Devam" düğmeleri. Farkı: Ay görevinde her zaman kurulu bir görev vardır (açılışta hazır tasarım yüklenir), bu yüzden adımlar kilitli değildir; adım çubuğu panelin üstünde sekme gibi durur ve uçuş aletleri büyük olduğu için akordeon yerine sayfa kullanılır. Etkin adım düğmesi genişler ki özeti okunsun; ötekilerin tam özeti üzerine gelince görünür.
