@@ -46,9 +46,9 @@ check('stil ve modüller sayfada; panelde "LS19 ile adım adım tasarla" düğme
 check('brifing açıkken araç, uçuş göstergeleri, deney paneli, görev çubuğu ve yüzey uyarıları gizli; üst çubuk kalır',
   /body\.briefing #hud, body\.briefing #controls, body\.briefing #manual, body\.briefing #labPanel/.test(css) && !/body\.briefing #modebar/.test(css)
   && /W\.vehicle\.visible = false/.test(br) && /W\[k\]\.visible = this\.keepVisible\(k, c\)/.test(br) && /keepVisible\(k, c\) \{ return !!c\.orbit && k === 'embMoon'; \}/.test(br) && /hideVehicle: true/.test(br));
-check('Laboratuvar merkezinden Ay görevi seçilince açılır (sayfa başına bir kez; ilk görev hazır değilse hazır olunca); açılış deney merkezi; başka alana geçince kapanır; Esc bir adım geri, öteki kısayollar kapalı',
+check('Laboratuvar merkezinden (ya da deney seçiciden) girilince her seferinde açılır (görüldüyse kısa kart); paneldeki düğme yeniden açar; ilk görev hazır değilse hazır olunca; açılış deney merkezi; başka alana geçince kapanır; Esc bir adım geri, öteki kısayollar kapalı',
   /const B = briefFor\(labui\.page\), ent = briefEntered\.has\(labui\.page\), bk = B && briefKind\(\{ search: ent \? '' : location\.search, visited: B\.seen\(\), view: S\.VIEW, exp: labui\.page, entered: ent, briefed: briefed\(\) \}\); if \(bk\) B\.open\(bk\);/.test(app)
-  && /function enteredExp\(exp\) \{\s*if \(!exp \|\| !briefed\(\)\.includes\(exp\) \|\| briefEntered\.has\(exp\)\) return;/.test(app) && /for \(const id of \['#lab-home', '#labNav'\]\)/.test(app) && /BRIEF_NAV\.go = \(exp\) => \{ labui\.show\(exp\); enteredExp\(exp\); \}/.test(app)
+  && /function enteredExp\(exp\) \{\s*if \(!exp \|\| !briefed\(\)\.includes\(exp\)\) return;/.test(app) && /\$\('#labBriefBtn'\)\.addEventListener/.test(app) && /for \(const id of \['#lab-home', '#labNav'\]\)/.test(app) && /BRIEF_NAV\.go = \(exp\) => \{ labui\.show\(exp\); enteredExp\(exp\); \}/.test(app)
   && /briefs\.ay = brief;/.test(app)
   && /new LabUI\(\{ initial: LAB_HOME \}\)/.test(app)
   && /B\.close\('away'\)/.test(app) && /if \(briefOn\(\) && k !== 'escape'\) return;/.test(app) && /e\.key !== 'Escape'/.test(br) && /window\.addEventListener\('keydown', this\.onKey, true\)/.test(br));

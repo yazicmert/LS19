@@ -96,7 +96,7 @@ console.log('bağlantı');
   check(rr.kind === 'bad' && rr.prop == null && rr.miss == null, 'atmosfere giriş: temas ölçüleri boş');
   const csv = A.ayHistoryCsv([{ ...hr, link: 'https://x/?a=1,2' }]).split('\n');
   check(csv[0].split(',').length === 11 && csv[1].includes('"https://x/?a=1,2"') && /^[\x00-\x7f]+$/.test(csv[0]), 'CSV: 11 sütun, ASCII başlık, virgüllü alan tırnaklı');
-  check(/ayStateFromLink\(q, \{ profiles: PROFILES, validSite \}\)[\s\S]*await applyAyLink\(L\);\s*startDesign\(/.test(app) && /writeAyUrl\(u\);/.test(app) && /if \(d\.type === 'ready'\) syncAyUrl\(\)/.test(app), 'app.js: açılışta bağlantı tasarımdan önce uygulanır; adres görev hazır olunca yazılır, deneyden çıkınca silinir');
+  check(/ayStateFromLink\(q, \{ profiles: PROFILES, validSite \}\)[\s\S]*await applyAyLink\(L\);\s*designAuto = !L;[^\n]*\n\s*startDesign\(/.test(app) && /writeAyUrl\(u\);/.test(app) && /if \(d\.type === 'ready'\) syncAyUrl\(\)/.test(app), 'app.js: açılışta bağlantı tasarımdan önce uygulanır; adres görev hazır olunca yazılır, deneyden çıkınca silinir');
   check(/id="ayLink"/.test(ay) && /id="ayHist"[\s\S]*id="ayHistTbl"[\s\S]*id="ayHistCsv"[\s\S]*id="ayHistClear"/.test(ay), 'Sonuç adımı: Bağlantıyı kopyala ve Denemelerim');
 }
 console.log(ok ? 'TAMAM' : 'HATA'); process.exit(ok ? 0 : 1);

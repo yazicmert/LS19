@@ -64,6 +64,17 @@ let brief = null;                                                               
 const briefs = {}, briefEntered = new Set();
 const briefOn = () => Object.values(briefs).find((b) => b.active) || null;
 const HUB_HIDE = ['vehicle', 'vehMarker', 'osc', 'stageOsc', 'trailLineE', 'trailLineM', 'haloPath'];
+// Ay görevinin aracı ancak kullanıcı bir görev kurunca görünür: açılışta arkada hazırlanan varsayılan görev (hazır tasarım) aracı yörüngede göstermez.
+// Görünür olur: tasarım (Tasarla, roket/profil seçimi, brifing), Başlat, fragman, kalkış ya da Ay görevi bağlantısıyla gelmek
+let vehReady = false, designAuto = false;
+const vehHidden = () => S.VIEW === 'lab' && (labui.page === LAB_HOME || !vehReady) && !ascent.active && !cinema.on;
+function setVehReady() {
+  if (vehReady) return; vehReady = true;
+  if (world.vehicle && !briefOn() && labui.page !== LAB_HOME) world.vehicle.visible = true;
+  if (world.cam.vehWait) Object.assign(world.cam, { auto: true, key: '', vehWait: false });             // araç beklerken kurulan Dünya görünümü: otomatik kameraya dön
+  syncVehClass();
+}
+function syncVehClass() { document.body.classList.toggle('veh-off', S.VIEW === 'lab' && labui.page === 'ay' && !vehReady); }
 // gökyüzü motorundaki deneylerin brifingi motor kurulunca (initSky) yapılır: deney merkezinden seçilince ilk kez gerekir
 const briefMakers = {
   saptirma: () => deflect && new DeflectBrief({ world, root: $('#app'), latest: () => ({ t: curT() }), dui: deflect, asts: S.asts, padOf: padOfRocket,
@@ -167,7 +178,7 @@ function openPopOut() {
   if (desk.docked) desk.setDock(false);
   desk.close(); try { w.focus(); } catch (e) { /* yok */ }
 }
-const playCine = (opts = {}) => cinema.start({ ...opts, cut: sharedCut || undefined });
+const playCine = (opts = {}) => { setVehReady(); return cinema.start({ ...opts, cut: sharedCut || undefined }); };
 
 async function boot() {
   resize();
@@ -187,6 +198,7 @@ async function boot() {
   await kp;
   const q = new URLSearchParams(location.search), L = ayStateFromLink(q, { profiles: PROFILES, validSite });
   await applyAyLink(L);
+  designAuto = !L;                                                            // açılış tasarımı: araç gizli kalır (bağlantıyla gelindiyse görünür)
   startDesign((L && L.date) || DEFAULT_DATE);
 }
 // Ay görevi bağlantısı (aytext.js › ayStateFromLink) → yapılandırma, roket, rampa, araç ve güdüm (tasarlamaz: çağıran startDesign'ı çağırır).
@@ -313,7 +325,8 @@ function syncWorkspace(push = true) {
   if (m !== S.MODE || !camStore[m]) switchEngine(m);
   const b = document.body; b.dataset.mode = S.VIEW; b.dataset.engine = S.MODE; b.dataset.exp = exp || '';
   for (const B of Object.values(briefs)) if (B.active && !(S.VIEW === 'lab' && exp === B.id)) B.close('away');            // brifing yalnız kendi deneyinde
-  if (world.vehicle && !briefOn()) world.vehicle.visible = !(S.VIEW === 'lab' && exp === LAB_HOME);          // deney merkezinde yörüngedeki araç gizli (CSS göstergeleri de gizler)
+  if (world.vehicle && !briefOn()) world.vehicle.visible = !(S.VIEW === 'lab' && (exp === LAB_HOME || !vehReady));
+  syncVehClass();          // deney merkezinde yörüngedeki araç gizli (CSS göstergeleri de gizler)
   document.querySelectorAll('[data-workspace]').forEach((x) => { const on = x.dataset.workspace === S.VIEW; x.classList.toggle('on', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); });
   if (S.VIEW === 'lab' && narrowScreen() && (exp === LAB_HOME || (EXPERIMENTS[exp] && EXPERIMENTS[exp].phoneOpen))) $('#labPanel').classList.add('open');     // telefonda deney paneli ana içerikse açılır
   try { localStorage.setItem('ls19.mode', S.VIEW); if (exp) localStorage.setItem('ls19.exp', exp); } catch (e) { /* özel pencere */ }
@@ -379,13 +392,14 @@ labui.onShow = () => { if (S.VIEW === 'lab') syncWorkspace(!quietShow); };
 // Brifing, Laboratuvar merkezinden Ay görevi seçilince açılır (sayfa başına bir kez; ilk görev henüz hazır değilse hazır olunca: ready işleyicisi).
 // Laboratuvar'ın açılışı, kayıtlı son deney, geri/ileri, K kısayolu ve Lagrange'dan "bu profille uç" geçişi brifingi açmaz (brifingtext.js briefKind).
 // Deneye giriş üç yerden aynı yoldan: merkezin listesi, panel başlığındaki deney sekmeleri (#labNav) ve brifing kartının tepesindeki seçici (BRIEF_NAV).
-// Deneye bu sayfada ilk kez giriliyorsa önce onun brifingi açılır.
+// Her girişte önce deneyin brifingi açılır (görüldüyse kısa "kaldığım yerden devam" kartıyla); paneldeki brifing düğmesi (#labBriefBtn) de açar.
 function enteredExp(exp) {
-  if (!exp || !briefed().includes(exp) || briefEntered.has(exp)) return;
+  if (!exp || !briefed().includes(exp)) return;
   briefEntered.add(exp);
   setTimeout(() => { const B = briefFor(exp), bk = B && urlApplied && briefKind({ visited: B.seen(), view: S.VIEW, exp: labui.page, entered: true, briefed: briefed() }); if (bk && !B.active) B.open(bk); }, 0);      // labui.show (ve gökyüzü motoru) kurulduktan sonra
 }
-for (const id of ['#lab-home', '#labNav']) $(id).addEventListener('click', (e) => { const b = e.target.closest('[data-exp]'); if (b) enteredExp(b.dataset.exp); });      // labui.show panelin kendi işleyicisinde
+for (const id of ['#lab-home', '#labNav']) $(id).addEventListener('click', (e) => { const b = e.target.closest('[data-exp]'); if (b && b.dataset.exp !== labui.page) enteredExp(b.dataset.exp); });      // labui.show panelin kendi işleyicisinde
+$('#labBriefBtn').addEventListener('click', () => { const B = briefFor(labui.page); if (B && !B.active && !S.designing) B.open(B.seen() ? 'return' : 'new'); });
 BRIEF_NAV.items = [{ exp: LAB_HOME, t: 'Laboratuvar', icon: 'flask' }, { exp: 'ay', t: 'Ay görevi', icon: 'rocket' }, { exp: 'saptirma', t: 'Saptırma', icon: 'shield' },
   { exp: 'carpma', t: 'Çarpma riski', icon: 'target' }, { exp: 'lagrange', t: 'Lagrange', icon: 'orbit' }];
 BRIEF_NAV.go = (exp) => { labui.show(exp); enteredExp(exp); };                  // açık brifing, başka deneye geçilince kapanır (syncWorkspace)
@@ -484,6 +498,7 @@ let designSeq = 0;
 async function startDesign(dateStr) {
   const ms = Date.parse(dateStr + 'T00:00:00Z');
   if (!Number.isFinite(ms)) return;
+  if (designAuto) designAuto = false; else setVehReady();
   const id = ++designSeq;
   compare.cancel(); scanner.cancel();                               // yeni tasarım: süren profil karşılaştırması ve pencere taraması durur (iş parçacığı kapatılır; önbellekten anında biten tasarımı da kaçırmasın)
   S.START_MS = ms; pendingDate = dateStr; S.designing = true; S.latest = null;
@@ -776,10 +791,15 @@ function frame(now) {
   }
   { const B = briefOn(); if (B && S.MODE === EXPERIMENTS[B.id].engine && !ascent.active) B.frame(dt); }
   // Laboratuvar merkezi: görev motoru arkada çalışır ama aracın işareti, yörünge çizgileri ve izi görünmez (sahne her karede yeniden görünür yapar: burada kare sonunda)
-  if (S.VIEW === 'lab' && labui.page === LAB_HOME && S.MODE === 'mission') for (const k of HUB_HIDE) if (world[k]) world[k].visible = false;          // brifing: kamera, gizlenenler, işaretler (deneyin motorundayken)
+  if (S.MODE === 'mission' && vehHidden()) {                                     // Ay görevinde de: kullanıcı görev kurana dek araç yok
+    for (const k of HUB_HIDE) if (world[k]) world[k].visible = false;
+    // araca bakan kamera (otomatik ya da araç kipi) boş uzaya bakmasın: Dünya görünümü; görev kurulunca otomatik kameraya döner (setVehReady)
+    if (labui.page === 'ay' && !briefOn() && (world.cam.auto || world.cam.mode === 'VEHICLE')) Object.assign(world.cam, { mode: 'EARTH', dist: 26000, el: 0.35, az: world.cam.az || 0.6, auto: false, vehWait: true });
+  }          // brifing: kamera, gizlenenler, işaretler (deneyin motorundayken)
   // görev motorunda ilk durum gelmeden, gökyüzü motorunda ilk skyFrame'den önce sahne konumlanmamıştır (Dünya ve Ay ince ağları ufuk bandı ve LOD olmadan, ~2,2 M üçgen): o kare çizilmez
   const placed = S.MODE === 'sky' ? skyPlaced : ascent.active || !!S.latest;           // gökyüzü: skyFrame en az bir kez çalıştı (efemeris kurulu)
-  if (!S.designing && placed) world.render();                     // tasarım sırasında katman her şeyi örtüyor: işlemci tasarıma kalsın
+  if (!S.designing && placed) { world.render(); staleCleared = false; }
+  else if (S.MODE === 'sky' && !placed && !staleCleared) { world.renderer.clear(); staleCleared = true; }    // gökyüzü ilk kez kuruluyor (efemeris iniyor): görev motorunun son karesi asılı kalmasın                     // tasarım sırasında katman her şeyi örtüyor: işlemci tasarıma kalsın
   if (!primed && !S.designing && placed && S.MODE === 'mission') { primed = true; world.primeHidden(); }     // alevler vb. uçuş ortasında ilk kez görünecek nesneler: ilk çizim ilk görev karesinde (açılışta örtü altında; scene.js)
   if (revealAt && !S.designing && (placed || now > revealAt)) reveal(placed);
   if (perfHud) perfHud.frame(now, dtMs);
@@ -787,7 +807,7 @@ function frame(now) {
 }
 // Yükleme örtüsünü kaldır. İlk gerçek karenin GPU işi (gölgelendiricilerin ve dokuların ilk kullanımı) örtünün altında bitsin diye 1×1 okumayla beklenir:
 // yoksa örtü kalktıktan sonra ilk kareler sırada birikip sayfa saniyelerce donmuş görünüyordu (docs/performans.md §16). Durum 1,5 sn içinde gelmezse beklemeden kalkar.
-let revealAt = 0, primed = false;
+let revealAt = 0, primed = false, staleCleared = false;
 function reveal(drawn) {
   revealAt = 0;
   if (drawn) { try { const gl = world.renderer.getContext(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4)); } catch (e) { /* bağlam kaybı: beklemeden kaldır */ } }
@@ -818,6 +838,7 @@ requestAnimationFrame(frame);
 
 // ------------------------------------------------------------------ kontroller
 function setPlay(on) {
+  if (on) setVehReady();
   S.running = on; send({ cmd: 'pause', on: !on });
   setBtn($('#btnPlay'), on ? 'pause' : 'play', on ? 'Duraklat' : 'Devam');
 }

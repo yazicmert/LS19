@@ -87,7 +87,9 @@ Ay görevi artık hazır bir görevle park yörüngesinde açılmıyor. LS19 ön
   - panel başlığının altındaki deney sekmeleri (`#labNav`; merkezde gizli);
   - brifing kartının tepesindeki seçici (`brifkabuk.js` › `BRIEF_NAV`; brifing açıkken panel gizli olduğundan geçiş buradan).
 
-  Seçili deney adıyla geniş görünür, ötekiler simgeyle (adı üzerine gelince). Deneye sayfada ilk kez giriliyorsa önce onun brifingi açılır, sonraki girişlerde doğrudan panel gelir. Merkezde görev motorunun aracı, işareti, yörünge çizgileri ve izi her karede gizlenir (`HUB_HIDE`).
+  Seçili deney adıyla geniş görünür, ötekiler simgeyle (adı üzerine gelince). Merkezden ya da seçiciden her girişte önce deneyin brifingi açılır; görüldüyse kısa "kaldığım yerden devam" kartıyla. Panel sekmesinin sonundaki **?** düğmesi (`#labBriefBtn`) bulunulan deneyin brifingini yeniden açar.
+- **Araç ancak görev kurulunca görünür.** Açılışta arkada hazırlanan varsayılan görevin aracı (3B model, işaret, yörünge çizgisi, iz) ve uçuş göstergesi gizlidir (`HUB_HIDE`, `body.veh-off`); kamera Dünya'dadır. Araç şu durumlarda görünür (`setVehReady`): tasarım (Tasarla, roket ya da profil seçimi, brifing), Başlat, fragman, kalkış ya da Ay görevi bağlantısıyla gelmek. Merkezde araç her zaman gizlidir.
+- **Gökyüzü motoruna ilk geçiş.** Gökyüzü o günün efemerisini indirirken kare çizilmez. Önceden görev motorunun son karesi (aracın yakın planı) tuvalde asılı kalıyordu ve brifing onun üstünde açılıyordu; artık tuval o süre boyunca temizlenir (`staleCleared`).
 - **Ne zaman açılır** (`briefKind`): Laboratuvar'ın kendisi açılınca değil. Laboratuvar'da Ay görevinden başka deneyler de var, bu yüzden site deney merkezinde açılır. Merkezde görev göstergeleri, görev çubuğu ve yörüngedeki araç gizlidir. Brifing, merkezden **Ay görevi** seçilince açılır (sayfa başına bir kez).
   - Sayfa doğrudan Ay görevinde açılırsa (kayıtlı son deney ya da `?exp=ay`), K kısayolu ya da Lagrange deneyinden "bu profille uç" geçişi brifingi açmaz.
 - **Kim görür:**

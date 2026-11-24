@@ -48,6 +48,8 @@ const dict = {
   "Nereye ineceğini, ne zaman fırlatacağını, hangi yoldan ve hangi roketle gideceğini sen seç. LS19 her adımda önerisini ve gerekçesini söyler; gerçek fizikle görevi hesaplar, sonra rampadan fırlatırsın.": "You choose where to land, when to launch, which path to take and which rocket to fly. LS19 gives its recommendation and reasoning at every step, computes the mission with real physics, and then you launch from the pad.",
   "Yeni görev tasarla": "Design a new mission",
   "Tasarlamaya başla": "Start designing",
+  "LS19 brifingi: deneyi adım adım kur": "LS19 briefing: set up the experiment step by step",
+  "LS19 brifingi": "LS19 briefing",
   "Deneyler": "Experiments",
   "Saptırma": "Deflection",
   "Kuru kütle": "Dry mass",

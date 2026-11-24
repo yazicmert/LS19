@@ -127,7 +127,7 @@ function dims(file) {
   check('precompile: bindirme katmanlarının saydam geçiş malzemesi (warmMaterial) de derlenir, sonra sahneden çıkarılır; malzeme atılmaz (warmMats)', /warmMaterial\(\) \{[^]*m\.transparent = true/.test(tiles) && /\[this\.earthWeld, this\.earthHls, this\.moonTiles2\][^\n]*L\.warmMaterial\(\)/.test(sc) && /this\.warmMats = warm\.map/.test(sc) && /for \(const o of warm\) \{ this\.scene\.remove\(o\); o\.geometry\.dispose\(\); \}/.test(sc));
   {
     const app = fs.readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
-    check('app.js: görev motorunda ilk durum gelmeden sahne çizilmez (konumlanmamış ~2,2 M üçgen); yükleme örtüsü ilk gerçek kare GPU\'da bitince kalkar, durum gelmezse 1,5 sn sonra', /const placed = S\.MODE === 'sky' \? skyPlaced : ascent\.active \|\| !!S\.latest;/.test(app) && /function skyFrame\(ms, now, dt\) \{\s*skyPlaced = true;/.test(app) && /if \(!S\.designing && placed\) world\.render\(\);/.test(app)
+    check('app.js: görev motorunda ilk durum gelmeden sahne çizilmez (konumlanmamış ~2,2 M üçgen); yükleme örtüsü ilk gerçek kare GPU\'da bitince kalkar, durum gelmezse 1,5 sn sonra', /const placed = S\.MODE === 'sky' \? skyPlaced : ascent\.active \|\| !!S\.latest;/.test(app) && /function skyFrame\(ms, now, dt\) \{\s*skyPlaced = true;/.test(app) && /if \(!S\.designing && placed\) \{ world\.render\(\); staleCleared = false; \}/.test(app) && /else if \(S\.MODE === 'sky' && !placed && !staleCleared\) \{ world\.renderer\.clear\(\); staleCleared = true; \}/.test(app)
       && /revealAt = performance\.now\(\) \+ 1500/.test(app) && /function reveal\(drawn\)[^]*gl\.readPixels\(0, 0, 1, 1/.test(app) && !/world\.resetDynamic\(\);\n\s*\$\('#loading'\)\.style\.display = 'none';/.test(app));
   }
   {
