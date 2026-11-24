@@ -6,10 +6,14 @@
 
 const dict = {
   // ---------------------------------------------------------------- görev brifingi (brifing.js, brifingtext.js)
+  "yakınsamadı": "did not converge",
+  "Bu pencerede yakınsamadı: Görevi tasarla bir sonraki pencereyi dener.": "Did not converge in this window: Design the mission will try the next one.",
+  "Ay'a aktarma yakışı (TLI)": "Trans-lunar injection (TLI)",
+  "Halo yörüngesine giriş": "Halo orbit insertion",
+  "Halodan ayrılış": "Halo departure",
   "Listeyi büyüt ya da sahneyi göster": "Expand the list or show the scene",
   "Bu seçim": "This choice",
   "Ay burada her yer görünsün diye tam aydınlatılmış gösterilir. Ay'daki işarete dokunarak da seçebilirsin. Görev gününde iniş yerinde Güneş alçakta olur.": "The Moon is shown fully lit here so every site is visible. You can also pick by tapping a marker on the Moon. On mission day the Sun will be low at the landing site.",
-  "bu pencerede yakınsamadı: tasarım sonraki pencereyi dener": "did not converge in this window: the design will try the next one",
   "sırada": "queued",
   "Yakıt: TLI {0}/{1} kg, iniş {2}/{3} kg (gereken/olan).": "Propellant: TLI {0}/{1} kg, landing {2}/{3} kg (needed/on board).",
   "LS19 her profili seçtiğin yer, tarih ve roketle gerçekten tasarlar (fırlatma penceresi, Ay'a aktarma, iniş; roketin yakıtıyla): süre, Δv ve yakıt hesap bitince gelir, çizim gerçek yola döner. Halo profilleri 1–2 dakika sürer. Çizimler üstten, Ay'la dönen çerçevede.": "LS19 actually designs every profile with your site, date and rocket (launch window, transfer to the Moon, landing; with the rocket's propellant): duration, Δv and propellant appear when the computation finishes, and the drawing switches to the real path. Halo profiles take 1–2 minutes. Drawings are seen from above, in the frame rotating with the Moon.",

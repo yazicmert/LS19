@@ -4,12 +4,12 @@
 // Saf mantık brifingtext.js'te; tasarım, roket ve kalkış app.js'in kendi işlevleridir (host): fizik ve tasarım koduna dokunulmaz.
 import * as THREE from 'three';
 import * as E from './engine.js';
-import { BRIEF_STEPS, SITE_NOTES, PROFILE_NOTES, PROFILE_ORDER, datePresets, profileStats, rocketFit, designEta, recommend, briefSummary, profilePath, profileSvg, reasons, statsOf, livePath, DEFAULT_BRIEF_DATE } from './brifingtext.js';
+import { BRIEF_STEPS, SITE_NOTES, PROFILE_NOTES, PROFILE_ORDER, datePresets, profileStats, rocketFit, designEta, recommend, briefSummary, profilePath, profileSvg, reasons, statsOf, livePath, briefTimeline, tPlus, DEFAULT_BRIEF_DATE } from './brifingtext.js';
 import { LUNAR_SITES, siteOf } from './moonsite.js';
 import { ROCKETS, ROCKET_IDS, tliCapacity } from './rockets.js';
 import { DV_NAMES } from './dvbudget.js';
 import { fmt } from './format.js';
-import { ns, ew, t as tr } from './i18n.js';
+import { ns, ew, t as tr, UNIT } from './i18n.js';
 
 const SEEN = 'ls19.brifing';
 const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; };
@@ -25,7 +25,7 @@ const SCENES = {
   yer: { mode: 'MOON', dist: 6200, site: true },
   tarih: { mode: 'MOON', dist: 9000, site: true },
   profil: { mode: 'SYSTEM', dist: 820000, el: 1.15, az: -Math.PI / 2, orbit: true, tags: true, path: true },        // üstten; Dünya ortada, Ay sağda
-  roket: { mode: 'EARTH', dist: 21000, sun: true, off: 0.45, spin: 0.03 },
+  roket: { mode: 'EARTH', dist: 15000, pad: true },                                   // seçilen roketin fırlatma rampası ortada
   brifing: { mode: 'SYSTEM', dist: 820000, el: 1.05, az: -Math.PI / 2, orbit: true, tags: true, path: true },
 };
 // brifingde gizlenen sahne çizgileri (araç izi, yörüngeler, eksenler, meridyenler, işaretler)
@@ -183,9 +183,10 @@ export class Briefing {
       const st = this.stats(k), N = PROFILE_NOTES[k], row = L && L.rows[k], real = row && row.path ? livePath(k, row.path) : null;
       const G = profileSvg(k, 132, 64, real);
       const svg = `<svg class="bo-svg${real ? ' real' : ''}" viewBox="0 0 132 64" aria-hidden="true"><circle cx="${G.E[0]}" cy="${G.E[1]}" r="3.2" class="e"/><circle cx="${G.M[0]}" cy="${G.M[1]}" r="2" class="m"/>${G.paths.map((q) => `<path d="${q.d}" class="${q.kind}"/>`).join('')}</svg>`;
-      const state = !row || row.st === 'ok' || st ? '' : row.st === 'busy' ? 'hesaplanıyor…' : row.st === 'err' ? 'bu pencerede yakınsamadı: tasarım sonraki pencereyi dener' : 'sırada';
+      const state = !row || row.st === 'ok' || st ? '' : row.st === 'busy' ? 'hesaplanıyor…' : row.st === 'err' ? 'yakınsamadı' : 'sırada';
       const fuel = st && st.landNeed != null && row && row.st === 'ok' ? tr(' Yakıt: TLI {0}/{1} kg, iniş {2}/{3} kg (gereken/olan).', fmt(st.tliNeed, 0), fmt(st.tliHave, 0), fmt(st.landNeed, 0), fmt(st.landHave, 0)) : '';
-      return { v: k, t: N.t, s: tr(N.s) + fuel, svg, meta: st ? `${fmt(st.days, 1)} gün · Δv ${fmt(st.dv, 0)} m/s` : tr(state), warn: row && row.st === 'err' };
+      const errNote = row && row.st === 'err' && !st ? ' ' + tr('Bu pencerede yakınsamadı: Görevi tasarla bir sonraki pencereyi dener.') : '';
+      return { v: k, t: N.t, s: tr(N.s) + fuel + errNote, svg, meta: st ? `${fmt(st.days, 1)} gün · Δv ${fmt(st.dv, 0)} m/s` : tr(state), warn: row && row.st === 'err' };
     }), this.sel.profile, pick);
     body.appendChild(el('p', 'brief-note', 'LS19 her profili seçtiğin yer, tarih ve roketle gerçekten tasarlar (fırlatma penceresi, Ay\'a aktarma, iniş; roketin yakıtıyla): süre, Δv ve yakıt hesap bitince gelir, çizim gerçek yola döner. Halo profilleri 1–2 dakika sürer. Çizimler üstten, Ay\'la dönen çerçevede.'));
   }
@@ -200,13 +201,20 @@ export class Briefing {
   }
   ensureLive() {
     if (!this.h.live) return;
-    const key = this.liveKey(); if (this.liveState && this.liveState.key === key) return;
+    const key = this.liveKey();
+    if (this.liveState && this.liveState.key === key) { if (!this.liveState.running) this.runLive(this.liveState); return; }      // aynı seçim: durmuş döngü (adım değişti) yeniden
     this.stopLive();
-    const L = this.liveState = { key, rows: Object.fromEntries(PROFILE_ORDER.map((k) => [k, { st: 'wait' }])), stopped: false }, sel0 = { ...this.sel };
-    const dead = () => L.stopped || this.liveState !== L;
+    const L = this.liveState = { key, rows: Object.fromEntries(PROFILE_ORDER.map((k) => [k, { st: 'wait' }])), stopped: false, sel0: { ...this.sel } };
+    this.runLive(L);
+  }
+  runLive(L) {
+    const dead = () => L.stopped || this.liveState !== L, sel0 = L.sel0;
+    L.running = true;
     (async () => {
       for (;;) {
-        const k = L.rows[this.sel.profile] && L.rows[this.sel.profile].st === 'wait' ? this.sel.profile : PROFILE_ORDER.find((q) => L.rows[q].st === 'wait');      // seçili profil önce
+        // seçili profil önce; ötekiler yalnız profil adımındayken (roket ve brifing adımlarında yalnız seçili gerekir: işlemci boşuna meşgul olmasın)
+        const onProfile = BRIEF_STEPS[this.step] && BRIEF_STEPS[this.step].k === 'profil';
+        const k = L.rows[this.sel.profile] && L.rows[this.sel.profile].st === 'wait' ? this.sel.profile : onProfile ? PROFILE_ORDER.find((q) => L.rows[q].st === 'wait') : null;
         if (!k || dead()) break;
         const row = L.rows[k]; row.st = 'busy'; this.liveUpdate(k);
         try {
@@ -216,6 +224,7 @@ export class Briefing {
         } catch (e) { if (dead()) break; row.st = 'err'; row.msg = String((e && e.message) || e); }
         this.liveUpdate(k);
       }
+      L.running = false;
     })();
   }
   stopLive() { if (this.liveState) { this.liveState.stopped = true; this.liveState = null; if (this.h.liveStop) this.h.liveStop(); } }
@@ -286,6 +295,7 @@ export class Briefing {
     const dv = sm.dv.map(([k, v]) => `<tr><td>${esc(tr(DV_NAMES[k] || k))}</td><td>${fmt(v, 0)} m/s</td></tr>`).join('');
     body.innerHTML = `<p class="brief-lead">${esc(tr('Görev hazır. {0} yerine iniş, {1} gün sürecek.', s.name, fmt(sm.days, 1)))}</p>
       <dl class="brief-sum">${rows.map(([k, v]) => `<div><dt>${esc(tr(k))}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
+      <ol class="brief-tl" aria-label="${esc(tr('Görev çizelgesi'))}">${briefTimeline(D).map((r) => { const p = tPlus(r.dt); return `<li><span>T+${p.d}${UNIT.d} ${String(p.h).padStart(2, '0')}${UNIT.h} ${String(p.m).padStart(2, '0')}${UNIT.min}</span><b>${esc(tr(r.k))}</b><em>${esc(utc(r.t))}</em></li>`; }).join('')}</ol>
       <details class="brief-adv"><summary>${esc(tr('Δv bütçesi: toplam {0} m/s', fmt(sm.total, 0)))}</summary><table class="brief-dv">${dv}</table></details>`;
     // başlatma düğmeleri kaydırılan alanın dışında (telefonda da hep görünür)
     const nav = this.card.querySelector('.brief-nav'), go = el('div', 'brief-go', `<button type="button" class="primary" data-go="pad">Rampadan fırlat</button>
@@ -325,8 +335,15 @@ export class Briefing {
       for (const k of Object.keys(SITE_NOTES)) {
         const on = k === (this.sel.site || 'A11'), q = siteOf(k), pick = c.k === 'yer' && !on ? () => { this.sel.site = k; this.go(this.step); } : null;
         if (!on && c.k !== 'yer') continue;
-        this.placePin('s:' + k, E.add(rm, E.scale(q.icrf(x.t), 1.0006)), `Apollo ${k.slice(1)}`, rm, { on, pick, left: k === 'A12' }); show.add('s:' + k);      // Apollo 12 ve 14 yakın: 12'nin adı solda
+        this.placePin('s:' + k, E.add(rm, E.scale(q.icrf(x.t), 1.0006)), `Apollo ${k.slice(1)}`, rm, { on, pick, left: k === 'A12' || k === 'A15' }); show.add('s:' + k);      // komşu yerler (12 ↔ 14, 15 ↔ 17): batıdakinin adı solda
       }
+    } else if (c.pad && this.h.padOf) {                                           // rampa: Dünya üzerinde ortada, hafif güneyden; Dünya görünüm için aydınlatılır (rampa gecede olabilir)
+      const P = this.h.padOf(this.sel.rocket), la = P.lat * Math.PI / 180, lo = P.lon * Math.PI / 180;
+      const d = unit(E.mtv(E.earthIcrfToItrf(x.t), [Math.cos(la) * Math.cos(lo), Math.cos(la) * Math.sin(lo), Math.sin(la)]));
+      const east = unit(E.cross([0, 0, 1], d)), north = E.cross(d, east), v = unit(E.add(d, E.scale(north, -0.12)));
+      az = Math.atan2(v[1], v[0]); elv = Math.asin(Math.max(-1, Math.min(1, v[2])));
+      if (W.earthU && W.earthU.sunDir) W.earthU.sunDir.value.set(...unit(E.add(E.add(E.scale(d, 0.8), E.scale(east, 0.5)), E.scale(north, 0.3))));
+      this.placePin('pad', E.scale(d, E.R_E * 1.001), P.name, [0, 0, 0]); show.add('pad');
     } else if (c.sun) {                                                            // Dünya: Güneş tarafından, gece–gündüz sınırı kenarda; yavaşça döner
       const sv = unit(E.sunPos(x.t));
       az = Math.atan2(sv[1], sv[0]) + c.off + (c.spin || 0) * c.t; elv = Math.max(-0.6, Math.min(0.6, Math.asin(sv[2]))) + 0.18;
@@ -335,9 +352,11 @@ export class Briefing {
     for (const k in this.pins) if (!show.has(k)) this.pins[k].hidden = true;
     this.drawPath(c.path ? this.sel.profile : null, x, rm);
     this.viewOffset(W);
+    // dikey ekran (telefon): yatay görüş dar, cisim ve Dünya–Ay sistemi sığsın diye uzaklaşılır
+    const asp = W.camera ? W.camera.aspect : 1.6, dist = c.dist * (asp < 1 ? (c.mode === 'SYSTEM' ? Math.min(2.2, 0.95 / asp) : 1.75) : 1);
     const cur = W.cam, k = 1 - Math.exp(-dt / 0.45), wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
-    if (cur.mode !== c.mode) Object.assign(cur, { mode: c.mode, az, el: elv, dist: c.dist });
-    else Object.assign(cur, { az: cur.az + wrap(az - cur.az) * k, el: cur.el + (elv - cur.el) * k, dist: Math.exp(Math.log(cur.dist) + (Math.log(c.dist) - Math.log(cur.dist)) * k) });
+    if (cur.mode !== c.mode) Object.assign(cur, { mode: c.mode, az, el: elv, dist });
+    else Object.assign(cur, { az: cur.az + wrap(az - cur.az) * k, el: cur.el + (elv - cur.el) * k, dist: Math.exp(Math.log(cur.dist) + (Math.log(dist) - Math.log(cur.dist)) * k) });
     cur.auto = false;
   }
   // görüntü kaydırma (THREE.PerspectiveCamera.setViewOffset): cisim kartın arkasında kalmasın. Masaüstünde sağa (kart solda), telefonda yukarı
@@ -347,7 +366,8 @@ export class Briefing {
     const w = cv.clientWidth, h = cv.clientHeight, narrow = w <= 700, intro = this.root.classList.contains('is-intro');
     let ox = 0, oy = 0;
     if (!off) {
-      if (narrow) oy = intro ? Math.round(h * 0.2) : this.full ? 0 : Math.round(h * 0.21);
+      const sys = this.cam && this.cam.mode === 'SYSTEM', site = this.cam && this.cam.site;
+      if (narrow) { oy = intro ? Math.round(h * 0.2) : this.full ? 0 : Math.round(h * (site ? 0.27 : 0.21)); if (sys && !intro) ox = Math.round(w * 0.28); }      // telefonda Dünya–Ay: Dünya solda, Ay sağda sığar
       else ox = intro ? -Math.round(w * 0.16) : -Math.round(Math.min(260, ((this.card.offsetWidth || 432) + 14) / 2));
     }
     const k = [w, h, ox, oy].join(); if (k === this.vo) return; this.vo = k;

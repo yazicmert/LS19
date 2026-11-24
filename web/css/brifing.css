@@ -158,4 +158,13 @@ button.brief-pin:focus-visible { outline: none; }
   .brief-step.full { top: calc(64px + var(--st)); max-height: none; }
 }
 
-.brief-pin.left b { left: auto; right: 12px; }                                          /* komşu işaretle çakışmasın (Apollo 12 ↔ 14) */
+.brief-pin.left b, button.brief-pin.left:not(.on) b { left: auto; right: 12px; }                                          /* komşu işaretle çakışmasın (Apollo 12 ↔ 14) */
+
+/* brifing çizelgesi: görevin ana anları (T+, ad, UTC) */
+.brief-tl { list-style: none; margin: 14px 0 0; padding: 0 0 0 14px; border-left: 1px solid var(--line-2); }
+.brief-tl li { position: relative; display: grid; grid-template-columns: 1fr auto; gap: 0 10px; padding: 0 0 10px; }
+.brief-tl li::before { content: ''; position: absolute; left: -18px; top: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--surface-1); border: 1px solid var(--accent-2); }
+.brief-tl li:last-child::before { background: var(--accent-2); }
+.brief-tl span { grid-column: 1 / -1; font: 500 10.5px var(--mono); color: var(--accent-2); letter-spacing: .06em; }
+.brief-tl b { font-weight: 600; font-size: 13px; }
+.brief-tl em { font: 400 11.5px var(--mono); font-style: normal; color: var(--text-muted); text-align: right; align-self: end; }

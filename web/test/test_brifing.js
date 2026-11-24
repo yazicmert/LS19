@@ -13,9 +13,11 @@ const defs = JSON.parse(read('data/designs_default.json'));
 
 // ---------------------------------------------------------------- 1) saf yardımcılar
 check('beş adım: Nereye → Ne zaman → Nasıl → Neyle → Brifing', B.BRIEF_STEPS.map((s) => s.k).join() === 'yer,tarih,profil,roket,brifing');
-const K = (search, visited = false, view = 'lab', exp = 'ay') => B.briefKind({ search, visited, view, exp });
-check('kim görür: ilk ziyaret "new", geri dönen "return"; Canlı Gökyüzü ve öteki deneyler görmez',
-  K('') === 'new' && K('?lang=tr', true) === 'return' && K('', false, 'sky', null) === null && K('', false, 'lab', 'saptirma') === null);
+const K = (search, visited = false, view = 'lab', exp = 'ay', entered = true) => B.briefKind({ search, visited, view, exp, entered });
+check('kim görür: Ay görevine girilince ilk ziyaret "new", geri dönen "return"; Canlı Gökyüzü, deney merkezi ve öteki deneyler görmez',
+  K('') === 'new' && K('?lang=tr', true) === 'return' && K('', false, 'sky', null) === null && K('', false, 'lab', 'saptirma') === null && K('', false, 'lab', 'home') === null && K('', false, 'lab', null) === null);
+check('Laboratuvar açılınca kendiliğinden açılmaz: sayfa doğrudan Ay görevinde açılsa da (kayıtlı son deney, ?exp=ay) yalnız ?brifing=1 açar',
+  K('', false, 'lab', 'ay', false) === null && K('?mode=lab&exp=ay', false, 'lab', 'ay', false) === null && K('?brifing=1', false, 'lab', 'home', false) === 'new' && K('?brifing=1', true, 'lab', 'ay', false) === 'return');
 check('bağlantıyla gelen brifingi görmez: görev anahtarları (date, profile, yer, roket…), sekme, fragman; ?brifing=0 kapatır, ?brifing=1 açar',
   K('?date=2026-10-13') === null && K('?profile=NRHO') === null && K('?yer=A15&arac=two') === null && K('?tab=kontrol') === null && K('?cine=1') === null
   && K('?brifing=0') === null && K('?brifing=1&date=2026-10-13') === 'new' && K('?mode=lab&exp=ay') === 'new');
@@ -44,8 +46,10 @@ check('stil ve modüller sayfada; panelde "LS19 ile adım adım tasarla" düğme
 check('brifing açıkken araç, uçuş göstergeleri, deney paneli, görev çubuğu ve yüzey uyarıları gizli; üst çubuk kalır',
   /body\.briefing #hud, body\.briefing #controls, body\.briefing #manual, body\.briefing #labPanel/.test(css) && !/body\.briefing #modebar/.test(css)
   && /W\.vehicle\.visible = false/.test(br) && /W\[k\]\.visible = !!c\.orbit && k === 'embMoon'/.test(br));
-check('ilk görev hazır olunca açılır (yükleme örtüsü kalkmadan: araç görünmez); başka alana geçince kapanır; Esc bir adım geri, öteki kısayollar kapalı',
-  /const bk = briefKind\(\{ search: location\.search, visited: Briefing\.seen\(\), view: S\.VIEW, exp: labui\.page \}\); if \(bk && brief\) brief\.open\(bk\);/.test(app)
+check('Laboratuvar merkezinden Ay görevi seçilince açılır (sayfa başına bir kez; ilk görev hazır değilse hazır olunca); açılış deney merkezi; başka alana geçince kapanır; Esc bir adım geri, öteki kısayollar kapalı',
+  /const bk = briefKind\(\{ search: briefEntered \? '' : location\.search, visited: Briefing\.seen\(\), view: S\.VIEW, exp: labui\.page, entered: briefEntered \}\); if \(bk && brief\) brief\.open\(bk\);/.test(app)
+  && /\$\('#lab-home'\)\.addEventListener\('click', \(e\) => \{\s*if \(!e\.target\.closest\('\[data-exp="ay"\]'\) \|\| briefEntered\) return;/.test(app)
+  && /new LabUI\(\{ initial: LAB_HOME \}\)/.test(app)
   && /brief\.close\('away'\)/.test(app) && /if \(brief && brief\.active && k !== 'escape'\) return;/.test(app) && /e\.key !== 'Escape'/.test(br) && /window\.addEventListener\('keydown', this\.onKey, true\)/.test(br));
 check('tasarım yalnız sonda bir kez: seçimler yapılandırmaya yazılır (araç ve roket yeniden tasarım tetiklemeden), startDesign çağrılır; hazır olunca özet, hata brifingde',
   /applyRocket\(sel\.rocket\)/.test(app) && /ui\.setConfig\(\{ \.\.\.PROFILES\[sel\.profile\]\.cfg, moonSite: sel\.site \}\)/.test(app) && /await startDesign\(sel\.date\);/.test(app)
@@ -103,6 +107,22 @@ check('Ay\'da yer seçme: altı yer işaretli, Nereye adımında işarete dokunu
 check('görüntü kaydırma: cisim kartın arkasında kalmaz (masaüstü sağa, telefon yukarı); kapanınca kalkar; telefonda liste tam ekrana büyür',
   /cam\.setViewOffset\(w, h, ox, oy, w, h\)/.test(br) && /this\.viewOffset\(this\.h\.world, true\)/.test(br) && /\.brief-step\.full \{/.test(css) && /class="brief-grab"/.test(br));
 check('sahnede yol: hesap bitince gerçek yola döner (gerçek yoksa şematik), Dünya kayan başlangıç noktasında', /for \(const part of real \|\| profilePath\(key\)\)/.test(br) && /this\.path3d\.g\.position\.set\(-eye\[0\], -eye\[1\], -eye\[2\]\)/.test(br));
+}
+
+// ---------------------------------------------------------------- 5) video analizi düzeltmeleri
+{
+  const tl = B.briefTimeline(defs.profiles.APOLLO.design), tn = B.briefTimeline(defs.profiles.NRHO.design);
+  check('brifing çizelgesi: fırlatma → TLI → Ay yörüngesine giriş → iniş (sıralı, T+); halo profilinde halo girişi ve ayrılışı',
+    tl.map((r) => r.k).join() === "Fırlatma,Ay'a aktarma yakışı (TLI),Ay yörüngesine giriş (LOI),İniş" && tl[0].dt === 0 && tl.every((r, i) => !i || r.dt >= tl[i - 1].dt)
+    && tn.map((r) => r.k).includes('Halo yörüngesine giriş') && tn.map((r) => r.k).includes('Halodan ayrılış') && B.tPlus(4 * 86400 + 7 * 3600 + 4 * 60 + 30).d === 4 && B.tPlus(4 * 86400 + 7 * 3600 + 4 * 60).m === 4);
+  check('arka plan hesabı: ötekiler yalnız profil adımında; roket ve brifing adımlarında yalnız seçili profil; profil adımına dönünce döngü sürer',
+    /const k = L\.rows\[this\.sel\.profile\] && L\.rows\[this\.sel\.profile\]\.st === 'wait' \? this\.sel\.profile : onProfile \?/.test(br) && /if \(!this\.liveState\.running\) this\.runLive\(this\.liveState\)/.test(br) && /L\.running = false;/.test(br));
+  check('brifingde tasarım sırasında tam ekran yükleme örtüsü yok (brifing kendi göstergesini gösterir)', /if \(!\(brief && brief\.active\)\) \{ \$\('#loading'\)\.style\.display = 'grid';/.test(app));
+  check('roket adımı: Dünya seçilen roketin rampasına döner, rampa işaretli (ad: roket · rampa)', /c\.pad && this\.h\.padOf/.test(br) && /this\.placePin\('pad'/.test(br) && /padOf: \(id\) =>/.test(app));
+  check('kart: "yakınsamadı" kısa; açıklama kart metninde (başlık sıkışmaz)', /row\.st === 'err' \? 'yakınsamadı'/.test(br) && /Görevi tasarla bir sonraki pencereyi dener/.test(br));
+  check('işaret çakışması: Apollo 12 ve 15\'in adı solda (düğme işaretlerinde de)', /left: k === 'A12' \|\| k === 'A15'/.test(br) && /button\.brief-pin\.left:not\(\.on\) b \{ left: auto; right: 12px; \}/.test(css));
+  check('dikey ekran: kamera uzaklaşır (Dünya–Ay sistemi en çok 2,2 kat, cisim 1,75 kat); telefonda Dünya–Ay görünümü sola kayar (Ay sığar)',
+    /asp < 1 \? \(c\.mode === 'SYSTEM' \? Math\.min\(2\.2, 0\.95 \/ asp\) : 1\.75\) : 1/.test(br) && /if \(sys && !intro\) ox = Math\.round\(w \* 0\.28\)/.test(br));
 }
 
 console.log(fail ? `\n${fail} HATA` : '\nTAMAM');

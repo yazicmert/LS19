@@ -49,7 +49,9 @@ for (const [name, src] of [['deflectui.js', dui], ['labui.js', lui], ['astui.js'
 }
 const ws = [...html.matchAll(/data-workspace="(\w+)"/g)].map((m) => m[1]);
 check(ws.join() === 'sky,lab', 'üst çubukta iki çalışma alanı: ' + ws.join(' · '));
-check(/<body data-mode="lab" data-engine="mission" data-exp="ay">/.test(html) && /data-workspace="lab" class="on" aria-selected="true"/.test(html), 'varsayılan açılış Laboratuvar › Ay görevi (görev motoru); HTML ilk durumu JS ile aynı');
+check(/<body data-mode="lab" data-engine="mission" data-exp="home">/.test(html) && /data-workspace="lab" class="on" aria-selected="true"/.test(html)
+  && /<div id="lab-home" class="labpage">/.test(html) && /<div id="lab-ay" class="labpage labtabs" hidden>/.test(html) && /id="labBack"[^>]*hidden/.test(html) && /<h2 id="labTitle">Laboratuvar<\/h2>/.test(html),
+  'varsayılan açılış Laboratuvar deney merkezi (Ay görevi dışında deneyler de var; görev motoru arkada hazırlanır); HTML ilk durumu JS ile aynı');
 check(/<aside id="labPanel"[^>]*data-for="lab"/.test(html) && /id="skyControls"[^>]*data-for="sky lab@sky"/.test(html), 'Laboratuvar paneli her deneyde; zaman/kamera çubuğu Canlı Gökyüzü\'nde ve Laboratuvar gökyüzü motorundayken');
 check(['hud', 'manual', 'controls'].every((id) => new RegExp(`id="${id}"[^>]*data-for="lab@mission"`).test(html)), 'uçuş göstergesi, elle kumanda ve görev çubuğu Laboratuvar\'da görev motoru çalışırken');
 check(!/data-for="mission"|data-for="[^"]*\bmission\b(?!")/.test(html.replace(/lab@mission/g, '')) && !html.includes('id="panel"'), 'eski "mission" alanı ve ayrı görev paneli (#panel) kaldırıldı');

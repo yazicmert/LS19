@@ -16,7 +16,8 @@ import { AscentPlayer } from './ascentplay.js';
 import { Briefing } from './brifing.js';
 import { DesignJob } from './designjob.js';
 import { briefKind } from './brifingtext.js';
-import { inclRange, minIncl, LEGACY_SITE, padAllowed, siteOf as padSite } from './pads.js';
+import { inclRange, minIncl, LEGACY_SITE, padAllowed, siteOf as padSite, padShort } from './pads.js';
+import { rocketOf } from './rockets.js';
 import { twoStageDesign, STAGES as MISSION_STAGES } from './mission.js';
 import { SatLayer } from './satlayer.js';
 import { AsteroidLayer } from './asteroids.js';
@@ -54,7 +55,7 @@ import { Launches } from './launches.js';
 import { LaunchCal } from './launchcal.js';
 
 const DEFAULT_DATE = '2026-10-13';
-let brief = null;                                                                     // görev brifingi (brifing.js; aşağıda kurulur)
+let brief = null, briefEntered = false;                                                                     // görev brifingi (brifing.js; aşağıda kurulur)
 let deflect = null, updater = null, impactui = null;
 // iki bağımsız MOTOR: "mission" (Ay görevi: fizik motoru, görev saati) ve "sky" (gerçek saat, uydular, asteroitler).
 // İki GÖRÜNÜM (arayüz alanı): sky (Canlı Gökyüzü) ve lab (Laboratuvar). Laboratuvar'da motoru açık deney seçer (labui.js EXPERIMENTS:
@@ -294,6 +295,7 @@ function syncWorkspace(push = true) {
   if (m !== S.MODE || !camStore[m]) switchEngine(m);
   const b = document.body; b.dataset.mode = S.VIEW; b.dataset.engine = S.MODE; b.dataset.exp = exp || '';
   if (brief && brief.active && !(S.VIEW === 'lab' && exp === 'ay')) brief.close('away');            // brifing yalnız Ay görevinde
+  if (world.vehicle && !(brief && brief.active)) world.vehicle.visible = !(S.VIEW === 'lab' && exp === LAB_HOME);          // deney merkezinde yörüngedeki araç gizli (CSS göstergeleri de gizler)
   document.querySelectorAll('[data-workspace]').forEach((x) => { const on = x.dataset.workspace === S.VIEW; x.classList.toggle('on', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); });
   if (S.VIEW === 'lab' && narrowScreen() && (exp === LAB_HOME || (EXPERIMENTS[exp] && EXPERIMENTS[exp].phoneOpen))) $('#labPanel').classList.add('open');     // telefonda deney paneli ana içerikse açılır
   try { localStorage.setItem('ls19.mode', S.VIEW); if (exp) localStorage.setItem('ls19.exp', exp); } catch (e) { /* özel pencere */ }
@@ -354,8 +356,15 @@ const lagrange = new LagrangeUI({
     if (u.href !== location.href) history.replaceState(history.state, '', u);
   },
 });
-const labui = new LabUI({ initial: 'ay' });
+const labui = new LabUI({ initial: LAB_HOME });                                // açılış deney merkezi: Laboratuvar'da Ay görevinden başka deneyler de var
 labui.onShow = () => { if (S.VIEW === 'lab') syncWorkspace(!quietShow); };
+// Brifing, Laboratuvar merkezinden Ay görevi seçilince açılır (sayfa başına bir kez; ilk görev henüz hazır değilse hazır olunca: ready işleyicisi).
+// Laboratuvar'ın açılışı, kayıtlı son deney, geri/ileri, K kısayolu ve Lagrange'dan "bu profille uç" geçişi brifingi açmaz (brifingtext.js briefKind).
+$('#lab-home').addEventListener('click', (e) => {
+  if (!e.target.closest('[data-exp="ay"]') || briefEntered) return;
+  briefEntered = true;
+  setTimeout(() => { const bk = urlApplied && briefKind({ visited: Briefing.seen(), view: S.VIEW, exp: labui.page, entered: true }); if (bk && brief && !brief.active) brief.open(bk); }, 0);      // labui.show bittikten sonra
+});
 // geri/ileri: adresteki alanı ve deneyi kur (adres yazılmaz; kayıt zaten o adreste)
 // Ekranı kaplayan katmanlar (kalkış izleme, sinematik gösterim) geçmişte ayrı kayıt: telefonda geri önce katmanı kapatır, görünüm aynı kalır.
 // Kayıt kullanıcı tıklamasında, beklemeden önce eklenir (etkileşimsiz eklenen kaydı tarayıcı geri düğmesinde atlar); katman kendiliğinden bitince kaydı geri alınır.
@@ -367,7 +376,7 @@ window.addEventListener('popstate', () => {
   if (cinema.on && layer !== 'cine') cinema.stop();
   else if (ascent.active && layer !== 'asc') ascent.stop();
   const q = new URLSearchParams(location.search);
-  const r = resolveView({ mode: q.get('mode'), exp: q.get('exp'), tab: null, tabOwner: () => null }) || { view: 'lab', exp: 'ay' };
+  const r = resolveView({ mode: q.get('mode'), exp: q.get('exp'), tab: null, tabOwner: () => null }) || { view: 'lab', exp: LAB_HOME };
   setWorkspace(r.view, false, r.view === 'lab' ? (r.exp || LAB_HOME) : null);
 });
 function openLab(i, opts) {
@@ -458,7 +467,7 @@ async function startDesign(dateStr) {
   if (nomWorker) { nomWorker.terminate(); nomWorker = null; }
   if (latestSentInit) send({ cmd: 'pause', on: true });
   S.running = false; setBtn($('#btnPlay'), 'play', 'Başlat');
-  $('#loading').style.display = 'grid'; $('#loadBar').style.width = '0%'; $('#loadBack').hidden = true;
+  if (!(brief && brief.active)) { $('#loading').style.display = 'grid'; $('#loadBar').style.width = '0%'; $('#loadBack').hidden = true; }      // brifingde örtü yok: brifing kendi bekleme göstergesini gösterir
   $('#loadMsg').textContent = 'Görev tasarlanıyor: ' + dateStr;
   ayRefresh();
   const cfg = ui.getConfig(), pre = cachedDesign(ms, cfg);
@@ -634,6 +643,7 @@ async function briefDesign(sel, key, onProg, stop) {
 brief = new Briefing({ world, ui, root: $('#app'), latest: () => S.latest, defs: () => S.K && S.K.defs,
   preload: (id) => { const p = launch.padFor(id); ascent.preload(id, p !== undefined ? p : ui.site); },           // seçilen roket ve rampası: kalkış beklemeden açılsın
   live: briefDesign, liveStop: () => briefJob.drop(),
+  padOf: (id) => { const p = launch.padFor(id), q = (p !== undefined ? p : ui.site) || LEGACY_SITE; return { lat: q.lat, lon: q.lon, name: `${rocketOf(id).short} · ${q.short || padShort((/(Space )?Launch Complex\s+\S+/.exec(q.name) || [q.name])[0])}` }; },      // roket adımı: rampa işareti
   current: () => ({ site: $('#cfgMoonSite').value, date: $('#dateInput').value || DEFAULT_DATE, profile: ui.profileKeyOf(ui.getConfig()), rocket: ui.rocket, vehicle: vehicleMode, landing: landingMode }),
   design: async (sel) => {
     compare.cancel(); scanner.cancel();
@@ -690,7 +700,7 @@ worker.onmessage = (e) => {
     if (d.type === 'ready') revealAt = performance.now() + 1500; else $('#loading').style.display = 'none';      // yeni görev: örtü ilk gerçek kare bitince kalkar (frame › reveal)
     if (d.seek) { if (!S.running) setPlay(true); }
     else { S.running = false; setBtn($('#btnPlay'), 'play', 'Başlat'); }
-    if (d.type === 'ready' && !urlApplied) { urlApplied = true; applyUrlParams(); { const bk = briefKind({ search: location.search, visited: Briefing.seen(), view: S.VIEW, exp: labui.page }); if (bk && brief) brief.open(bk); } initHistory(); if (new URLSearchParams(location.search).get('prefetch') === '1') initSky(); if (narrowScreen() && S.VIEW === 'lab') $('#labPanel').classList.add('open'); }      // telefon: ilk açılışta deney paneli açık (hangi deney, geri dönüş görünsün)
+    if (d.type === 'ready' && !urlApplied) { urlApplied = true; applyUrlParams(); { const bk = briefKind({ search: briefEntered ? '' : location.search, visited: Briefing.seen(), view: S.VIEW, exp: labui.page, entered: briefEntered }); if (bk && brief) brief.open(bk); } initHistory(); if (new URLSearchParams(location.search).get('prefetch') === '1') initSky(); if (narrowScreen() && S.VIEW === 'lab') $('#labPanel').classList.add('open'); }      // telefon: ilk açılışta deney paneli açık (hangi deney, geri dönüş görünsün)
     if (d.type === 'ready') syncAyUrl();
     ayRefresh();
   } else if (d.type === 'state') {
@@ -880,7 +890,7 @@ function applyUrlParams() {
   let stored = null, storedExp = null; try { stored = localStorage.getItem('ls19.mode'); storedExp = localStorage.getItem('ls19.exp'); } catch (e) { /* özel pencere */ }
   const qm = q.get('mode'), tab = q.get('tab');
   const r = resolveView({ mode: qm || stored, exp: qm ? q.get('exp') : (q.get('exp') || storedExp), tab, tabOwner: (t) => (ui.isSkyTab(t) ? 'sky' : ui.isMissionTab(t) ? 'mission' : null) });
-  if (r) setWorkspace(r.view, false, r.exp);
+  if (r) setWorkspace(r.view, false, r.exp); else syncWorkspace(false);                     // değer yok: açılış deney merkezi (HTML ilk durumu; motor ve araç görünürlüğü eşlenir)
   if (tab) ui.setTab(tab);
   if (q.get('skycam')) setSkyCam(q.get('skycam').toUpperCase());
   // paylaşılan kurgu: #kurgu=… (adresin # kısmı sunucuya gitmez); ?cine= ile açılışta oynar, yoksa Yapımcı masası açılır

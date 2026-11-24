@@ -82,7 +82,9 @@ Ay görevi artık hazır bir görevle park yörüngesinde açılmıyor. LS19 ön
   3. **Nasıl?** Altı profil. Süre ve Δv, hazır tasarımlardan gelir (`data/designs_default.json`). Sahnede Dünya–Ay sistemi ve Ay'ın yörüngesi görünür.
   4. **Neyle?** Roketler. Aracı Ay yoluna taşıyamayan roket seçilemez (`tliCapacity` iniş aracının kütlesinden küçükse). Araç ve iniş güdümü "Araç ve iniş güdümü" altında katlıdır. Tahmini tasarım süresi yazılır.
   5. **Brifing.** Görev burada bir kez tasarlanır (`startDesign`). Ardından özet gelir: iniş yeri, fırlatma ve iniş anı, süre, profil, roket, inişte Güneş, Δv bütçesi. Üç başlatma düğmesi vardır: **Rampadan fırlat** (kalkış canlandırması, sonra görev kendiliğinden sürer), **Yörüngeden başla** ve **Fragman olarak izle**. Tasarım başarısız olursa neden brifingde yazar ve seçimler değiştirilebilir.
-- **Kim görür** (`briefKind`):
+- **Ne zaman açılır** (`briefKind`): Laboratuvar'ın kendisi açılınca değil. Laboratuvar'da Ay görevinden başka deneyler de var, bu yüzden site deney merkezinde açılır. Merkezde görev göstergeleri, görev çubuğu ve yörüngedeki araç gizlidir. Brifing, merkezden **Ay görevi** seçilince açılır (sayfa başına bir kez).
+  - Sayfa doğrudan Ay görevinde açılırsa (kayıtlı son deney ya da `?exp=ay`), K kısayolu ya da Lagrange deneyinden "bu profille uç" geçişi brifingi açmaz.
+- **Kim görür:**
   - İlk kez gelen brifingle başlar.
   - Geri dönen, "Kaldığım yerden devam" ya da "Yeni görev tasarla" seçeneklerini görür (`localStorage` › `ls19.brifing`).
   - Bağlantıyla ya da ayarlı adresle gelen brifingi görmez: görev anahtarları (`date`, `profile`, `yer`, `roket`…), `tab`, `cine` ve `kurgu`. `?brifing=1` brifingi açar, `?brifing=0` kapatır.
@@ -112,6 +114,17 @@ Ay görevi artık hazır bir görevle park yörüngesinde açılmıyor. LS19 ön
   - roketin aracı kaç kat taşıdığı ve TLI yakıtı.
 - **Görüntü kaydırma** (`setViewOffset`): cisim kartın arkasında kalmaz. Masaüstünde sağa, telefonda yukarı kayar; girişte başlık solda (masaüstü) ya da altta (telefon) kalır.
 - **Telefon:** tutamak düğmesi listeyi tam ekrana büyütür ya da sahneyi gösterir.
+
+### Video analizi (brifing baştan sona kaydedildi: masaüstü 1440×900, telefon 390×844)
+
+Bulunan ve düzeltilen sorunlar:
+- **Tasarımda tam ekran örtü:** tasarım sırasında siyah "Görev kuruluyor" örtüsü brifingin yerini alıyordu. Brifingdeyken örtü çıkmıyor; brifing kendi bekleme göstergesini gösteriyor.
+- **Gereksiz arka plan hesabı:** öteki profillerin hesabı roket ve özet adımlarında da sürüyordu. Artık yalnız profil adımında hesaplanıyorlar, öteki adımlarda yalnız seçili profil hesaplanıyor. Profil adımına dönünce hesap kaldığı yerden sürüyor.
+- **Roket adımında rastgele Dünya görüntüsü:** artık seçilen roketin rampası ortada ve işaretli ("Saturn V · KSC LC-39B"). Dünya, rampa gecede olabileceği için bu görünümde aydınlatılıyor.
+- **Özette büyük boşluk:** yerine görev çizelgesi geldi: fırlatma, TLI, Ay yörüngesine (ya da halo yörüngesine) giriş, halodan ayrılış, iniş; T+ ve UTC ile.
+- **Uzun durum metni:** "yakınsamadı" yazısı kartın başlığını sıkıştırıyordu. Kısa durum sağda, açıklama kart metninde.
+- **İşaret çakışmaları:** Apollo 12 ↔ 14 ve 15 ↔ 17'nin adları üst üste biniyordu; batıdakinin adı sola alındı.
+- **Telefonda cisimler sayfanın arkasında ya da kadraj dışında:** kamera dikey ekranda uzaklaşıyor (Dünya–Ay sistemi en çok 2,2 kat, cisim 1,75 kat), Dünya–Ay görünümü sola kayıyor.
 
 ### Kalkış ön yüklemesi (beklemesiz rampa görünümü)
 
