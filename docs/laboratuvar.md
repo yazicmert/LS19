@@ -331,4 +331,9 @@ Ana sayfa, saptırma ya da Lagrange noktaları açılınca panel kendiliğinden 
 4. Yalnız bu deneyde görünmesi gereken bir çubuk ya da gösterge varsa `data-for="lab@<motor>"` verin.
 5. Karar/biçim mantığını `labtext.js`'e (Node'da sınanır), arayüzü ayrı bir modüle koyun; `node test/test_preload.js --print` ile `modulepreload` listesini yenileyin; `test_lab.js` kayıt/ağaç/sayfa tutarlılığını kendiliğinden denetler.
 
-Lagrange noktaları bu yolla eklendi (§5). İniş güdümü karşılaştırması Ay görevinin Sonuç adımındadır (Dağılım denemesi › Üç güdümü karşılaştır).
+6. Deneyin bir brifingi olacaksa (önerilen: LS19 önce deneyi adım adım kurdurur) `BriefShell`'den (`js/brifkabuk.js`) bir alt sınıf yazın ve `app.js`'te `briefs.<ad> = new …` ile kaydedin. Kabuk deneyden bağımsızdır:
+   - Hazır gelenler: kart (giriş, adımlar, gezinme, telefonda büyüyen sayfa), "LS19 önerisi" ve "Bu seçim" kutuları, seçenek listeleri, iki-üç seçenekli düğme grubu, bekleme ve hata kutusu, sondaki başlatma düğmeleri, sahnedeki işaretler, kameranın adıma göre yumuşak geçişi, görüntü kaydırma (cisim kartın arkasında kalmasın), Esc ile geri.
+   - Alt sınıfın doldurdukları: `introCard`, `renderStep`, `nextLabel`, `recommendFor`, `reasonsFor`, `aim` (kamera bakışı ve işaretler), gerekirse `frameExtra`, `onOpen`, `onClosing`.
+   - Açılma kuralı her deney için aynıdır (`briefKind`): merkezden deney seçilince, sayfa başına bir kez; `?brifing=1` açık deneyin brifingini açar. Açık brifing yalnız kendi deneyinin motorundayken kare alır; başka deneye geçince kapanır.
+
+Lagrange noktaları bu yolla eklendi (§5). Ay görevi brifingi (§3a) ortak kabuğun ilk alt sınıfıdır (`js/brifing.js`). İniş güdümü karşılaştırması Ay görevinin Sonuç adımındadır (Dağılım denemesi › Üç güdümü karşılaştır).
