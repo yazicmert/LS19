@@ -105,5 +105,21 @@ check('görüntü kaydırma: cisim kartın arkasında kalmaz (masaüstü sağa, 
 check('sahnede yol: hesap bitince gerçek yola döner (gerçek yoksa şematik), Dünya kayan başlangıç noktasında', /for \(const part of real \|\| profilePath\(key\)\)/.test(br) && /this\.path3d\.g\.position\.set\(-eye\[0\], -eye\[1\], -eye\[2\]\)/.test(br));
 }
 
+// ---------------------------------------------------------------- 5) video analizi düzeltmeleri
+{
+  const tl = B.briefTimeline(defs.profiles.APOLLO.design), tn = B.briefTimeline(defs.profiles.NRHO.design);
+  check('brifing çizelgesi: fırlatma → TLI → Ay yörüngesine giriş → iniş (sıralı, T+); halo profilinde halo girişi ve ayrılışı',
+    tl.map((r) => r.k).join() === "Fırlatma,Ay'a aktarma yakışı (TLI),Ay yörüngesine giriş (LOI),İniş" && tl[0].dt === 0 && tl.every((r, i) => !i || r.dt >= tl[i - 1].dt)
+    && tn.map((r) => r.k).includes('Halo yörüngesine giriş') && tn.map((r) => r.k).includes('Halodan ayrılış') && B.tPlus(4 * 86400 + 7 * 3600 + 4 * 60 + 30).d === 4 && B.tPlus(4 * 86400 + 7 * 3600 + 4 * 60).m === 4);
+  check('arka plan hesabı: ötekiler yalnız profil adımında; roket ve brifing adımlarında yalnız seçili profil; profil adımına dönünce döngü sürer',
+    /const k = L\.rows\[this\.sel\.profile\] && L\.rows\[this\.sel\.profile\]\.st === 'wait' \? this\.sel\.profile : onProfile \?/.test(br) && /if \(!this\.liveState\.running\) this\.runLive\(this\.liveState\)/.test(br) && /L\.running = false;/.test(br));
+  check('brifingde tasarım sırasında tam ekran yükleme örtüsü yok (brifing kendi göstergesini gösterir)', /if \(!\(brief && brief\.active\)\) \{ \$\('#loading'\)\.style\.display = 'grid';/.test(app));
+  check('roket adımı: Dünya seçilen roketin rampasına döner, rampa işaretli (ad: roket · rampa)', /c\.pad && this\.h\.padOf/.test(br) && /this\.placePin\('pad'/.test(br) && /padOf: \(id\) =>/.test(app));
+  check('kart: "yakınsamadı" kısa; açıklama kart metninde (başlık sıkışmaz)', /row\.st === 'err' \? 'yakınsamadı'/.test(br) && /Görevi tasarla bir sonraki pencereyi dener/.test(br));
+  check('işaret çakışması: Apollo 12 ve 15\'in adı solda (düğme işaretlerinde de)', /left: k === 'A12' \|\| k === 'A15'/.test(br) && /button\.brief-pin\.left:not\(\.on\) b \{ left: auto; right: 12px; \}/.test(css));
+  check('dikey ekran: kamera uzaklaşır (Dünya–Ay sistemi en çok 2,2 kat, cisim 1,75 kat); telefonda Dünya–Ay görünümü sola kayar (Ay sığar)',
+    /asp < 1 \? \(c\.mode === 'SYSTEM' \? Math\.min\(2\.2, 0\.95 \/ asp\) : 1\.75\) : 1/.test(br) && /if \(sys && !intro\) ox = Math\.round\(w \* 0\.28\)/.test(br));
+}
+
 console.log(fail ? `\n${fail} HATA` : '\nTAMAM');
 process.exit(fail ? 1 : 0);

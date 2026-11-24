@@ -16,7 +16,8 @@ import { AscentPlayer } from './ascentplay.js';
 import { Briefing } from './brifing.js';
 import { DesignJob } from './designjob.js';
 import { briefKind } from './brifingtext.js';
-import { inclRange, minIncl, LEGACY_SITE, padAllowed, siteOf as padSite } from './pads.js';
+import { inclRange, minIncl, LEGACY_SITE, padAllowed, siteOf as padSite, padShort } from './pads.js';
+import { rocketOf } from './rockets.js';
 import { twoStageDesign, STAGES as MISSION_STAGES } from './mission.js';
 import { SatLayer } from './satlayer.js';
 import { AsteroidLayer } from './asteroids.js';
@@ -458,7 +459,7 @@ async function startDesign(dateStr) {
   if (nomWorker) { nomWorker.terminate(); nomWorker = null; }
   if (latestSentInit) send({ cmd: 'pause', on: true });
   S.running = false; setBtn($('#btnPlay'), 'play', 'Başlat');
-  $('#loading').style.display = 'grid'; $('#loadBar').style.width = '0%'; $('#loadBack').hidden = true;
+  if (!(brief && brief.active)) { $('#loading').style.display = 'grid'; $('#loadBar').style.width = '0%'; $('#loadBack').hidden = true; }      // brifingde örtü yok: brifing kendi bekleme göstergesini gösterir
   $('#loadMsg').textContent = 'Görev tasarlanıyor: ' + dateStr;
   ayRefresh();
   const cfg = ui.getConfig(), pre = cachedDesign(ms, cfg);
@@ -634,6 +635,7 @@ async function briefDesign(sel, key, onProg, stop) {
 brief = new Briefing({ world, ui, root: $('#app'), latest: () => S.latest, defs: () => S.K && S.K.defs,
   preload: (id) => { const p = launch.padFor(id); ascent.preload(id, p !== undefined ? p : ui.site); },           // seçilen roket ve rampası: kalkış beklemeden açılsın
   live: briefDesign, liveStop: () => briefJob.drop(),
+  padOf: (id) => { const p = launch.padFor(id), q = (p !== undefined ? p : ui.site) || LEGACY_SITE; return { lat: q.lat, lon: q.lon, name: `${rocketOf(id).short} · ${q.short || padShort((/(Space )?Launch Complex\s+\S+/.exec(q.name) || [q.name])[0])}` }; },      // roket adımı: rampa işareti
   current: () => ({ site: $('#cfgMoonSite').value, date: $('#dateInput').value || DEFAULT_DATE, profile: ui.profileKeyOf(ui.getConfig()), rocket: ui.rocket, vehicle: vehicleMode, landing: landingMode }),
   design: async (sel) => {
     compare.cancel(); scanner.cancel();

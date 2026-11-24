@@ -113,6 +113,17 @@ Ay görevi artık hazır bir görevle park yörüngesinde açılmıyor. LS19 ön
 - **Görüntü kaydırma** (`setViewOffset`): cisim kartın arkasında kalmaz. Masaüstünde sağa, telefonda yukarı kayar; girişte başlık solda (masaüstü) ya da altta (telefon) kalır.
 - **Telefon:** tutamak düğmesi listeyi tam ekrana büyütür ya da sahneyi gösterir.
 
+### Video analizi (brifing baştan sona kaydedildi: masaüstü 1440×900, telefon 390×844)
+
+Bulunan ve düzeltilen sorunlar:
+- **Tasarımda tam ekran örtü:** tasarım sırasında siyah "Görev kuruluyor" örtüsü brifingin yerini alıyordu. Brifingdeyken örtü çıkmıyor; brifing kendi bekleme göstergesini gösteriyor.
+- **Gereksiz arka plan hesabı:** öteki profillerin hesabı roket ve özet adımlarında da sürüyordu. Artık yalnız profil adımında hesaplanıyorlar, öteki adımlarda yalnız seçili profil hesaplanıyor. Profil adımına dönünce hesap kaldığı yerden sürüyor.
+- **Roket adımında rastgele Dünya görüntüsü:** artık seçilen roketin rampası ortada ve işaretli ("Saturn V · KSC LC-39B"). Dünya, rampa gecede olabileceği için bu görünümde aydınlatılıyor.
+- **Özette büyük boşluk:** yerine görev çizelgesi geldi: fırlatma, TLI, Ay yörüngesine (ya da halo yörüngesine) giriş, halodan ayrılış, iniş; T+ ve UTC ile.
+- **Uzun durum metni:** "yakınsamadı" yazısı kartın başlığını sıkıştırıyordu. Kısa durum sağda, açıklama kart metninde.
+- **İşaret çakışmaları:** Apollo 12 ↔ 14 ve 15 ↔ 17'nin adları üst üste biniyordu; batıdakinin adı sola alındı.
+- **Telefonda cisimler sayfanın arkasında ya da kadraj dışında:** kamera dikey ekranda uzaklaşıyor (Dünya–Ay sistemi en çok 2,2 kat, cisim 1,75 kat), Dünya–Ay görünümü sola kayıyor.
+
 ### Kalkış ön yüklemesi (beklemesiz rampa görünümü)
 
 Kalkış canlandırması önceden şunları bekliyordu: roket modeli (Saturn V GLB; SLS için ayrıca Mobile Launcher GLB), gökyüzü gölgelendiricisi, ardından rampa çevresinin uydu görüntüsü, kabartması ve OSM binaları. Ölçüm (yazılım çizimi): Saturn V ile "Kalkış" düğmesinden roketin rampada görünmesine **7,4 sn**.

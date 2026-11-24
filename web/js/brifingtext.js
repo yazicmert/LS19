@@ -175,3 +175,16 @@ export function reasons(step, sel = {}, ctx = {}) {
   }
   return out;
 }
+
+// brifing çizelgesi: görevin ana anları (fırlatmadan T+ ile). Halo profillerinde halo yörüngesine giriş ve ayrılış da
+export function briefTimeline(D) {
+  if (!D || !D.LAUNCH) return [];
+  const t0 = D.LAUNCH.t_launch, out = [['Fırlatma', t0]];
+  if (D.TLI && D.TLI.t_ign) out.push(['Ay\'a aktarma yakışı (TLI)', D.TLI.t_ign]);
+  if (D.ARRIVAL && D.ARRIVAL.t_P) out.push([D.HALO ? 'Halo yörüngesine giriş' : 'Ay yörüngesine giriş (LOI)', D.ARRIVAL.t_P]);
+  if (D.HALO && D.HALO.tDep) out.push(['Halodan ayrılış', D.HALO.tDep]);
+  if (D.t_L != null) out.push(['İniş', D.t_L]);
+  return out.filter(([, t]) => Number.isFinite(t)).sort((a, b) => a[1] - b[1]).map(([k, t]) => ({ k, t, dt: t - t0 }));
+}
+// T+ süre metni: g sa dk (UNIT dile göre arayüzde; burada sayılar)
+export const tPlus = (s) => { const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60); return { d, h, m }; };
