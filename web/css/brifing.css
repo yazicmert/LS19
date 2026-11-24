@@ -190,3 +190,13 @@ button.brief-pin:focus-visible { outline: none; }
 .brief-field input.bad { border-color: var(--bad); }
 .brief-field em { font: 400 11.5px var(--mono); font-style: normal; color: var(--text-muted); }
 .brief-date select { background: var(--surface-2); color: var(--text-primary); border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 8px; font: 13px var(--font); }
+/* deneyler arası geçiş (brifkabuk.js BRIEF_NAV): kartın tepesinde; brifing açıkken panel gizli olduğundan başka deneye geçmenin yolu. Seçili deney adıyla, ötekiler simgeyle */
+.brief-labnav { display: flex; gap: 4px; margin: 0 0 14px; }
+.brief-labnav button { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 9px; border-radius: 8px; border: 1px solid var(--line-2); background: rgba(255, 255, 255, .03);
+  color: var(--text-secondary); font: 600 12px var(--font); cursor: pointer; }
+.brief-labnav button svg { width: 15px; height: 15px; flex: none; }
+.brief-labnav button:not(.on) span { display: none; }
+.brief-labnav button.on { color: var(--text-primary); border-color: var(--accent); background: rgba(59, 130, 246, .14); cursor: default; }
+@media (hover: hover) and (pointer: fine) { .brief-labnav button:not(.on):hover { color: var(--text-primary); border-color: var(--text-muted); } }
+.brief-labnav button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.brief-intro .brief-labnav { margin-bottom: 22px; }

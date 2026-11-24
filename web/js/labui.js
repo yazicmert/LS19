@@ -58,6 +58,9 @@ export class LabUI {
     $('#labBack').hidden = name === LAB_HOME;
     $('#labTitle').textContent = LAB_PAGES[name];
     $('#labCrumb').hidden = name !== LAB_HOME;
+    // deneyler arası geçiş (panel başlığının altında; merkezde gizli: merkez zaten deney listesi). Brifing kartındaki seçici de aynı durumu gösterir
+    $('#labNav').hidden = name === LAB_HOME;
+    for (const b of document.querySelectorAll('#labNav [data-exp], .brief-labnav [data-exp]')) { const on = b.dataset.exp === name; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'page' : 'false'); }
     if (this.onShow) this.onShow(name);
   }
 }
