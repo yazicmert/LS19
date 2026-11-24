@@ -15,6 +15,8 @@ import { attachCanvasInput } from './canvasinput.js';
 import { AscentPlayer } from './ascentplay.js';
 import { Briefing } from './brifing.js';
 import { DeflectBrief } from './brifsaptirma.js';
+import { LagrangeBrief } from './briflagrange.js';
+import { ImpactBrief } from './brifcarpma.js';
 import { DesignJob } from './designjob.js';
 import { briefKind } from './brifingtext.js';
 import { inclRange, minIncl, LEGACY_SITE, padAllowed, siteOf as padSite, padShort } from './pads.js';
@@ -64,6 +66,9 @@ const briefOn = () => Object.values(briefs).find((b) => b.active) || null;
 const briefMakers = {
   saptirma: () => deflect && new DeflectBrief({ world, root: $('#app'), latest: () => ({ t: curT() }), dui: deflect, asts: S.asts, padOf: padOfRocket,
     rockets: () => ROCKET_IDS.filter((id) => tliCapacity(id) > 0) }),
+  lagrange: () => new LagrangeBrief({ world, root: $('#app'), latest: () => ({ t: curT() }), lg: lagrange, onFly: (key) => lagrange.onFly(key) }),
+  carpma: () => impactui && new ImpactBrief({ world, root: $('#app'), latest: () => ({ t: curT() }), iu: impactui, asts: S.asts, astui: S.astui,
+    satPos: (id, t) => S.tracker.icrfOf(id, t), follow: (id) => followSat(id) }),
 };
 const briefFor = (exp) => briefs[exp] || (briefMakers[exp] && (briefs[exp] = briefMakers[exp]() || undefined)) || null;
 const briefed = () => [...new Set([...Object.keys(briefs), ...Object.keys(briefMakers)])];                                                                     // görev brifingi (brifing.js; aşağıda kurulur)

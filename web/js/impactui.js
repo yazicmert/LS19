@@ -21,10 +21,22 @@ export class ImpactUI {
   constructor({ sats, asts, astui, follow }) {
     this.sats = sats; this.asts = asts; this.astui = astui; this.follow = follow;
     this.mode = 'sat'; this.res = null; this.doneFor = null; this.selId = null;
+    this.hook = null;                                                                     // brifing (brifcarpma.js): 'sats' (bozunma hesabı bitti), 'progress'
     $('#cpGroup').append(...[['all', 'Tüm gruplar'], ...SAT_GROUPS.map((g, i) => [String(i), g.name])].map(([v, t]) => { const o = mk('option', null, t); o.value = v; return o; }));
     document.querySelectorAll('#cpMode button').forEach((b) => b.addEventListener('click', () => { this.mode = b.dataset.m; this.render(); }));
     for (const id of ['#cpGroup', '#cpCtl', '#cpHorizon', '#cpSatQ', '#cpSort', '#cpYear', '#cpAstQ']) $(id).addEventListener(id.endsWith('Q') ? 'input' : 'change', () => this.renderList());
   }
+  emit(type, d) { if (this.hook) this.hook(type, d); }
+  // ---------------------------------------------------------------- brifingin kullandığı arayüz
+  satsReady() { const omm = this.sats.gp || this.sats.omm; return !!(this.res && omm && this.doneFor === omm && this.res.length >= omm.length); }
+  // kontrolsüz olabilecek (≥ 10 yıllık, yörüngesi korunmayan) cisimler, yeniden giriş sırasıyla; ve sayılar (panelin varsayılan süzgeciyle aynı)
+  topSats(n = 6) {
+    if (!this.satsReady()) return null;
+    const S = selectSats(this.res, { now: Date.now(), ctl: '10', groupOf: (id) => this.groupOf && this.groupOf.get(id) });
+    return { list: S.sel.slice(0, n), n1: S.n1, n5: S.n5, live: S.live.length };
+  }
+  // Sentry: çarpma olasılığı en yüksek olanlar
+  topAsts(n = 6) { const A = this.asts; if (!A.sentry || !A.sentry.size) return null; const rows = sentryRows(A.sentry); return { list: [...rows].sort((a, b) => b.ip - a.ip).slice(0, n), all: rows }; }
   // sekme açıldığında: geçmiş yörünge özeti (decayhist.js) inince hesap başlar; inemezse yalnız yaş süzgeci kullanılır
   open() { loadHist().then(() => { this.opened = true; this.render(); }); }
   // uydu kataloğu yenilendi (app.js sats.onData): sekme daha önce açıldıysa uydu listesi yeni veriyle hesaplanır (aynı katalogsa bir şey yapmaz)
@@ -46,8 +58,8 @@ export class ImpactUI {
       if (this.doneFor !== omm) return;
       const t0 = performance.now();
       while (i < omm.length && performance.now() - t0 < 12) { const o = omm[i++]; res.push({ o, id: +o.NORAD_CAT_ID, ...decayOf(o, now, false) }); }
-      $('#cpSatSum').textContent = `Yörünge bozunması hesaplanıyor… ${i.toLocaleString(LOC)} / ${omm.length.toLocaleString(LOC)}`;
-      if (i < omm.length) setTimeout(step, 0); else { this.groupOf = new Map((this.sats.ids || []).map((id, k) => [+id, this.sats.groups[k]])); this.renderList(); }
+      $('#cpSatSum').textContent = `Yörünge bozunması hesaplanıyor… ${i.toLocaleString(LOC)} / ${omm.length.toLocaleString(LOC)}`; this.emit('progress', i / omm.length);
+      if (i < omm.length) setTimeout(step, 0); else { this.groupOf = new Map((this.sats.ids || []).map((id, k) => [+id, this.sats.groups[k]])); this.renderList(); this.emit('sats'); }
     };
     step();
   }

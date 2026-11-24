@@ -46,6 +46,14 @@ export class LagrangeUI {
     if (window.ResizeObserver) new ResizeObserver(() => { if (this.shown) { this.draw(); this.drawDist(); } }).observe($('#lgMap'));
   }
   get sys() { return G.systemOf(this.st.sys, this.st.mu); }
+  // brifingin seçimleri (briflagrange.js): sistem, nokta, konum hatası (x yönünde), süre → Deney adımı açık, deney koşulmuş
+  applyBrief({ sys, point, errKm, days }) {
+    if (sys !== this.st.sys) this.setSys(sys);
+    Object.assign(this.st, { point, drKm: errKm, dvMps: 0, dir: 'x', days, view: null });
+    $('#lgDr').value = errKm; $('#lgDv').value = 0; $('#lgDays').value = days; $('#lgDir').value = 'x';
+    if (!this.shown) this.show();
+    this.syncChips(); this.open(3); this.doRun();
+  }
   // deney sayfası açılınca (app.js): ilk kez çizer; bağlantıyla gelindiyse deneyi de koşar
   show() {
     const first = !this.shown; this.shown = true;

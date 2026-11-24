@@ -327,6 +327,43 @@ Her hesap, deneyin tüm ayarlarını adres çubuğuna yazar; **Bağlantıyı kop
 
 **Sınırlar:** dairesel kısıtlı model (Ay'ın yörünge dışmerkezliği, Güneş'in Dünya–Ay sistemindeki etkisi ve gezegenler yok: Ay görevi ise tam N-cisim modelinde uçar); halo genliği halo kodunun Richardson başlangıcıyla yakınsadığı aralıkla sınırlı (aile boyunca süreklilik yok); Güneş–Dünya ve varsayımsal sistemlerde halo hesaplanmaz; konum koruma yakışları ve bunların Δv'si modellenmez. Ay görevindeki gibi bir "Denemelerim" listesi ve 3B çizim yok.
 
+### Lagrange brifingi
+
+Deney merkezinden **Lagrange noktaları** seçilince önce brifing açılır (`js/briflagrange.js`, saf mantık `js/briflagrangetext.js`). Adımlar:
+
+1. **Hangi sistem?** Dünya–Ay ya da Güneş–Dünya. Varsayımsal sistem panelde kalır.
+2. **Hangi nokta?** Beş nokta kararlılıkları, e-katlanma ya da salınım süreleri ve küçük cisme uzaklıklarıyla listelenir. Sahnedeki noktalara dokunarak da seçilir.
+   - LS19, Dünya–Ay'da en hızlı kararsız noktayı (L1, e-katlanma 1,5 gün), Güneş–Dünya'da L2'yi (JWST) önerir.
+   - Gerekçelerde noktanın bilinen sakinleri de var (ARTEMIS, Queqiao, SOHO, JWST, Euclid, Dünya'nın Truva asteroitleri).
+3. **Ne kadar hata?** 0,1–100 km konum hatası seçilir. Her seçenekte kuramın öngördüğü çıkış süresi yazar: τ·ln(yakın / hata).
+   - İzleme süresi önerisi: kararsız noktada öngörülen çıkışın en az 1,5 katı, kararlı noktada en uzun salınımın 1,5 katı.
+   - Deney hemen tümlenir. Kart, kuramla tümlemeyi yan yana gösterir: L1'de 10 km için kuram 11,8 gün, tümleme 12,2 gün.
+4. **Brifing.** Karar, özet ve bir ders. Başlatma düğmeleri:
+   - **Panelde incele:** `LagrangeUI.applyBrief` deneyi panelde aynı seçimlerle kurar ve koşar.
+   - **Halo yörüngelerine geç:** yalnız Dünya–Ay L1/L2 için.
+   - **Ay görevinde NRHO ile uç.**
+
+Sahne gerçek andadır. Noktalar, deney yolu ve küçük cismin yörüngesi dönen çerçeveden gerçek konumlarına taşınır:
+- Dünya–Ay: x ekseni Dünya→Ay, z ekseni Ay'ın yörünge normali.
+- Güneş–Dünya: x ekseni Güneş→Dünya, z ekseni ekliptik kutbu.
+
+L1 ve L2'de kamera, nokta ile küçük cismin ortasına bakar; ikisi birlikte kadrajdadır.
+
+### Çarpma riski brifingi
+
+Deney merkezinden **Çarpma riski** seçilince önce brifing açılır (`js/brifcarpma.js`, saf mantık `js/brifcarpmatext.js`). Adımlar:
+
+1. **Ne düşebilir?** Uydular ve roket gövdeleri ya da asteroitler.
+2. **Hangisi?**
+   - Uydular: LS19, panelin varsayılan süzgecindeki (kontrolsüz olabilecek, ≥ 10 yıllık) cisimlerden güveni yüksek ya da orta olan en yakın yeniden girişi seçer. İlk altısı listelenir.
+   - Asteroitler: Sentry'de çarpma olasılığı en yüksek olanı seçer.
+   - Gerekçeler: yörünge, tahmini tarih ve güven, sürüklenme kaynağı. Asteroitte ayrıca olası yıllar, olasılık, çap, hız, çarpsaydı açığa çıkacak enerji (½·m·v², yoğunluk 2.000 kg/m³ varsayımıyla) ve Palermo ölçeği.
+3. **Brifing.** Başlatma düğmeleri:
+   - Uydu: **Kamerayla izle** ve **Panelde ayrıntılar**.
+   - Asteroit: **Saptırma deneyinde dene** ("çarpacak olsaydı" senaryosuyla), **Haritada izle** ve **Panelde ayrıntılar**.
+
+Hesap deneyin kendisindedir: ImpactUI hesabı bitince `sats` olayını gönderir; `topSats` ve `topAsts` listeleri verir. Uydu bozunma hesabı (16.915 cisim, cisim başına ~1 ms) ilk açılışta ~20 saniye sürer; brifing bu sürede ilerlemeyi gösterir.
+
 ## 6. Telefon düzeni
 
 Ana sayfa, saptırma ya da Lagrange noktaları açılınca panel kendiliğinden açılır (deney ana içeriktir; Lagrange çizimi telefonda 210 px yüksekliğindedir); Ay görevinde açılmaz (3B uçuş ana içeriktir; görev çubuğundaki panel düğmesi açar/kapar, deney ağaçtan seçilirse panel açık kalır). Saptırmada "3B'de göster" paneli kapatır ki 3B görünüm örtülmesin; zaman/kamera çubuğundaki panel düğmesi geri açar. Adımlar tam genişlik, yatay taşma yoktur (tarayıcı denemesinde denetlenir).
@@ -359,4 +396,4 @@ Ana sayfa, saptırma ya da Lagrange noktaları açılınca panel kendiliğinden 
    - Alt sınıfın doldurdukları: `introCard`, `renderStep`, `nextLabel`, `recommendFor`, `reasonsFor`, `aim` (kamera bakışı ve işaretler), gerekirse `frameExtra`, `onOpen`, `onClosing`.
    - Açılma kuralı her deney için aynıdır (`briefKind`): merkezden deney seçilince, sayfa başına bir kez; `?brifing=1` açık deneyin brifingini açar. Açık brifing yalnız kendi deneyinin motorundayken kare alır; başka deneye geçince kapanır.
 
-Lagrange noktaları bu yolla eklendi (§5). Ay görevi brifingi (§3a) ortak kabuğun ilk alt sınıfıdır (`js/brifing.js`). İkincisi Asteroit saptırma brifingidir (§4, `js/brifsaptirma.js`). İniş güdümü karşılaştırması Ay görevinin Sonuç adımındadır (Dağılım denemesi › Üç güdümü karşılaştır).
+Lagrange noktaları bu yolla eklendi (§5). Ay görevi brifingi (§3a) ortak kabuğun ilk alt sınıfıdır (`js/brifing.js`). İkincisi Asteroit saptırma brifingidir (§4, `js/brifsaptirma.js`). Lagrange ve Çarpma riski brifingleri §5'tedir. İniş güdümü karşılaştırması Ay görevinin Sonuç adımındadır (Dağılım denemesi › Üç güdümü karşılaştır).
