@@ -6,7 +6,7 @@ import { loadHist, histData, decayOf } from './decayhist.js';
 import { fmt } from './format.js';
 import { SAT_GROUPS } from './satlayer.js';
 import { $, mk } from './uiutil.js';
-import { LOC } from './i18n.js';
+import { LOC, workerOpts } from './i18n.js';
 
 const DOT = { high: '#34d399', mid: '#f5b93a', low: '#8591a3' };
 const KLASS_LONG = { kept: 'yörüngesi korunuyor', free: 'serbestçe bozunuyor', unknown: 'belirsiz' };
@@ -38,7 +38,11 @@ export class ImpactUI {
   // Sentry: çarpma olasılığı en yüksek olanlar
   topAsts(n = 6) { const A = this.asts; if (!A.sentry || !A.sentry.size) return null; const rows = sentryRows(A.sentry); return { list: [...rows].sort((a, b) => b.ip - a.ip).slice(0, n), all: rows }; }
   // sekme açıldığında: geçmiş yörünge özeti (decayhist.js) inince hesap başlar; inemezse yalnız yaş süzgeci kullanılır
-  open() { loadHist().then(() => { this.opened = true; this.render(); }); }
+  open() {
+    // bozunma iş parçacığı hemen kurulur: modülleri ve geçmiş verisi uydu kataloğu gelene dek hazır olsun (geç kurulunca yazılım çiziminde açılışı ~70 sn ölçüldü)
+    const w = this.decayWorker(); if (w && !this.warmed) { this.warmed = true; w.postMessage({ cmd: 'warm' }); }
+    loadHist().then(() => { this.opened = true; this.render(); });
+  }
   // uydu kataloğu yenilendi (app.js sats.onData): sekme daha önce açıldıysa uydu listesi yeni veriyle hesaplanır (aynı katalogsa bir şey yapmaz)
   refresh() { if (this.opened && this.mode === 'sat') this.computeSats(); }
   render() {
@@ -52,16 +56,43 @@ export class ImpactUI {
     const omm = this.sats.gp || this.sats.omm;                                                  // standart GP: SupGP'nin B* değerleri bozunma için güvenilir değil
     if (!omm || !omm.length) { $('#cpSatSum').textContent = 'Uydu verisi henüz yüklenmedi.'; $('#cpSatList').replaceChildren(); return; }
     if (this.doneFor === omm) { this.renderList(); return; }
-    this.doneFor = omm; const res = this.res = [], now = Date.now(); let i = 0;
+    this.doneFor = omm; this.res = null; const now = Date.now();
     $('#cpSatList').replaceChildren(); $('#cpSatDet').hidden = true; this.selId = null;                 // eski katalogdan kalan liste ve seçim
+    const prog = (i) => { $('#cpSatSum').textContent = `Yörünge bozunması hesaplanıyor… ${i.toLocaleString(LOC)} / ${omm.length.toLocaleString(LOC)}`; this.emit('progress', i / omm.length); };
+    const finish = (res) => { if (this.doneFor !== omm) return; this.res = res; this.groupOf = new Map((this.sats.ids || []).map((id, k) => [+id, this.sats.groups[k]])); this.renderList(); this.emit('sats'); };
+    prog(0);
+    // iş parçacığında (decaywork.js): ana iş parçacığı ve çizim serbest. Sonuç omm sırasıyla gelir; GP kaydı (o) buradaki nesnedir (geri taşınmaz)
+    const w = this.decayWorker();
+    if (w) {
+      const id = (this.decaySeq = (this.decaySeq || 0) + 1);
+      this.decayCb = (d) => {
+        if (d.id !== id || this.doneFor !== omm) return;
+        if (d.type === 'progress') prog(d.i);
+        else if (d.type === 'done') { this.decayMs = d.ms; finish(omm.map((o, k) => ({ o, id: +o.NORAD_CAT_ID, ...d.out[k] }))); }        // decayMs: iş parçacığındaki süre (ölçüm)
+      };
+      w.postMessage({ cmd: 'run', id, omm, now });
+      return;
+    }
+    // yedek (iş parçacığı yok): eski yol, 12 ms'lik dilimlerle ana iş parçacığında
+    const res = []; let i = 0;
     const step = () => {
       if (this.doneFor !== omm) return;
       const t0 = performance.now();
       while (i < omm.length && performance.now() - t0 < 12) { const o = omm[i++]; res.push({ o, id: +o.NORAD_CAT_ID, ...decayOf(o, now, false) }); }
-      $('#cpSatSum').textContent = `Yörünge bozunması hesaplanıyor… ${i.toLocaleString(LOC)} / ${omm.length.toLocaleString(LOC)}`; this.emit('progress', i / omm.length);
-      if (i < omm.length) setTimeout(step, 0); else { this.groupOf = new Map((this.sats.ids || []).map((id, k) => [+id, this.sats.groups[k]])); this.renderList(); this.emit('sats'); }
+      prog(i);
+      if (i < omm.length) setTimeout(step, 0); else finish(res);
     };
     step();
+  }
+  // bozunma iş parçacığı (ilk gerektiğinde kurulur); kurulamazsa ya da hata verirse null: yedek yol
+  decayWorker() {
+    if (this.dw !== undefined) return this.dw;
+    try {
+      this.dw = new Worker(new URL('./decaywork.js', import.meta.url), workerOpts());
+      this.dw.onmessage = (e) => { if (this.decayCb) this.decayCb(e.data); };
+      this.dw.onerror = () => { this.dw.terminate(); this.dw = null; const omm = this.doneFor; this.doneFor = null; if (omm) this.computeSats(); };       // iş parçacığı çöktü: yedek yolla yeniden
+    } catch (e) { this.dw = null; }
+    return this.dw;
   }
   renderList() { if (this.mode === 'sat') this.renderSatList(); else this.renderAstList(); }
   renderSatList() {

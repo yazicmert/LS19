@@ -396,7 +396,7 @@ Deney merkezinden **Çarpma riski** seçilince önce brifing açılır (`js/brif
    - Uydu: **Kamerayla izle** ve **Panelde ayrıntılar**.
    - Asteroit: **Saptırma deneyinde dene** ("çarpacak olsaydı" senaryosuyla), **Haritada izle** ve **Panelde ayrıntılar**.
 
-Hesap deneyin kendisindedir: ImpactUI hesabı bitince `sats` olayını gönderir; `topSats` ve `topAsts` listeleri verir. Uydu bozunma hesabı (16.915 cisim, cisim başına ~1 ms) ilk açılışta ~20 saniye sürer; brifing bu sürede ilerlemeyi gösterir.
+Hesap deneyin kendisindedir: ImpactUI hesabı bitince `sats` olayını gönderir; `topSats` ve `topAsts` listeleri verir. Uydu bozunma hesabı (16.915 cisim) ayrı bir iş parçacığında koşar (`js/decaywork.js`); ana iş parçacığı ve çizim serbest kalır, brifing bu sürede ilerlemeyi gösterir. İş parçacığı deney açılınca kurulur: modüller ve geçmiş verisi uydu kataloğu gelmeden hazır olur. İş parçacığı kurulamazsa ya da çökerse eski yol (ana iş parçacığında 12 ms'lik dilimler) kullanılır. Ölçümler için bkz. `docs/performans.md` §19.
 
 ## 6. Telefon düzeni
 

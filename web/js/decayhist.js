@@ -6,7 +6,8 @@
 import { assessSat, histRow, calibHist, setSolarTable } from './impact.js';
 
 let data = null, pending = null, rows = new Map(), version = 0;
-const getJson = (u) => fetch(u).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+// adres modülün kendi yerine göre (js/ → data/): ana iş parçacığında ve bozunma iş parçacığında (decaywork.js) aynı dosya
+const getJson = (u) => fetch(new URL('../' + u, import.meta.url).href).then((r) => (r.ok ? r.json() : null)).catch(() => null);
 export function loadHist() {
   return pending || (pending = Promise.all([getJson('data/gecmis.json'), getJson('data/f107.json')]).then(([j, f]) => {
     data = j && j.sats ? j : null; rows = new Map(); setSolarTable(f); version++; return data;
