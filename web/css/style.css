@@ -81,6 +81,8 @@ body[data-mode="lab"][data-engine="sky"] [data-for]:not([data-for~="lab"]):not([
 /* Laboratuvar deney merkezi: arkadaki görev motoru hazırlanır ama görev göstergeleri, görev çubuğu ve yörüngedeki araç görünmez (deney seçilmeden görev başlamış gibi durmasın) */
 body[data-mode="lab"][data-exp="home"] #hud, body[data-mode="lab"][data-exp="home"] #controls, body[data-mode="lab"][data-exp="home"] #manual,
 body[data-mode="lab"][data-exp="home"] .lbl-stagetag, body[data-mode="lab"][data-exp="home"] .lbl-veh { display: none !important; }
+/* Ay görevi: kullanıcı bir görev kurana dek araç yok (app.js setVehReady): uçuş göstergesi ve araç adları da gizli; görev çubuğu (Başlat) kalır */
+body.veh-off #hud, body.veh-off .lbl-stagetag, body.veh-off .lbl-veh { display: none !important; }
 #modebar { position: absolute; top: calc(12px + var(--st)); left: 50%; transform: translateX(-50%); z-index: 3; display: flex; align-items: center; gap: 10px; padding: 5px 6px 5px 12px;
   background: var(--card); border: 1px solid var(--line); border-radius: 999px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 8px 30px rgba(0, 0, 0, .35); }
 #modebar .brand { display: inline-flex; align-items: center; gap: 7px; font-weight: 700; letter-spacing: .08em; font-size: 14px; }
@@ -759,6 +761,7 @@ body.launch-cine :is(.tilestatus, .tilemode) { display: none; }          /* kalk
 .labnav button:not(.on) span { display: none; }
 .labnav button.on { flex: 1 1 auto; min-width: 0; color: var(--text-primary); background: rgba(59, 130, 246, .14); border-color: var(--accent); }
 .labnav button.on span { overflow: hidden; text-overflow: ellipsis; }
+.labnav .labbrief { margin-left: auto; color: var(--accent-2); border-color: var(--line-2); }          /* bu deneyin brifingini yeniden aç */
 @media (hover: hover) and (pointer: fine) { .labnav button:not(.on):hover { color: var(--text-primary); background: var(--surface-2); } }
 .labtitles h2 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: .01em; }
 .labpage { padding: 10px 12px 14px; overflow-y: auto; flex: 1; overscroll-behavior: contain; }
