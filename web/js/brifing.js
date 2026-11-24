@@ -309,6 +309,7 @@ export class Briefing extends BriefShell {
     const D = r.D, land = D.STAGES[1].prop - D.LANDER_NEED;
     return tr('pay {0} kg · Güneş {1}°', fmt(land, 0), fmt(D.sunElAtLanding ?? 0, 0));
   }
+  pinShort(k) { const r = this.search.rows[k]; return r.st === 'ok' ? `${fmt(r.D.sunElAtLanding ?? 0, 0)}°` : r.st === 'err' ? '×' : '…'; }
   pinNote(k) { const r = this.search.rows[k]; return r.st === 'ok' ? tr('Güneş {0}°', fmt(r.D.sunElAtLanding ?? 0, 0)) : r.st === 'err' ? tr('olmaz') : '…'; }      // Ay'daki işaret: kısa (komşu adlar çakışmasın)
   ensureSearch() {
     const key = JSON.stringify([this.veh.ozel, this.veh.lander, this.sel.date]);
@@ -357,7 +358,8 @@ export class Briefing extends BriefShell {
         const all = c.k === 'yer' || c.k === 'ara', ok = c.k !== 'ara' || (this.search && this.search.rows[k].st === 'ok');
         const on = k === (this.sel.site || 'A11'), q = siteOf(k), pick = all && !on && ok ? () => { if (this.search && c.k === 'ara') this.search.picked = true; this.sel.site = k; this.go(this.step); } : null;
         if (!on && !all) continue;
-        const lbl = c.k === 'ara' && this.search ? `Apollo ${k.slice(1)} · ${this.pinNote(k)}` : `Apollo ${k.slice(1)}`;
+        // Nereye? (kendi aracımla): seçili yer tam adla, ötekiler kısa ("A15 · 12°"): altı yer yakın yüzde sık, adlar çakışmasın
+        const lbl = c.k === 'ara' && this.search ? (on ? `Apollo ${k.slice(1)} · ${this.pinNote(k)}` : `A${k.slice(1)} · ${this.pinShort(k)}`) : `Apollo ${k.slice(1)}`;
         this.placePin('s:' + k, E.add(rm, E.scale(q.icrf(x.t), 1.0006)), lbl, rm, { on, pick, left: k === 'A12' || k === 'A15' }); show.add('s:' + k);      // komşu yerler (12 ↔ 14, 15 ↔ 17): batıdakinin adı solda
       }
     } else if (c.pad && this.h.padOf) {                                           // rampa: Dünya üzerinde ortada, hafif güneyden; Dünya görünüm için aydınlatılır (rampa gecede olabilir)
