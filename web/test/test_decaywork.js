@@ -2,7 +2,8 @@
 //  1) decaywork.js sözleşmesi: iş parçacığı ortamı taklit edilir (postMessage, onmessage, dosyadan fetch); sonuç GP sırasıyla ve ana iş parçacığındaki
 //     decayOf'la birebir aynı; ilerleme iletileri; yeni istek eskisini bırakır
 //  2) impact.js hızlandırmaları sonucu değiştirmez: ay dizini (tablonun ilk ayı bir kez) eski ISO ayrıştırmasıyla aynı; yılın günü yıl sınırlarında doğru
-//  3) arayüz sözleşmesi: ImpactUI iş parçacığını deney açılınca kurar, hata verirse eski dilimli yola düşer; decayhist adresleri modüle göre; ön yükleme
+//  3) sütunlu aktarım (gpdata.js packOmm/unpackOmm): değerler birebir (null, eksik alan, karışık sütun); SAT_FIELDS hesabın okuduğu her alanı kapsar
+//  4) arayüz sözleşmesi: ImpactUI iş parçacığını deney açılınca kurar, hata verirse eski dilimli yola düşer; decayhist adresleri modüle göre; ön yükleme
 import fs from 'fs';
 
 let fail = 0;
@@ -19,6 +20,9 @@ globalThis.fetch = async (u) => {                                               
 };
 await import('../js/decaywork.js');
 const { decayOf, loadHist, histData } = await import('../js/decayhist.js');
+const { packOmm, unpackOmm } = await import('../js/gpdata.js');
+const { SAT_FIELDS } = await import('../js/impact.js');
+const job = (id, list) => { const p = packOmm(list, SAT_FIELDS); return { cmd: 'run', id, n: p.n, cols: p.cols, now: NOW }; };       // ImpactUI'nin gönderdiği biçim
 const send = (d) => globalThis.onmessage({ data: d });
 const waitDone = async (id) => { for (let k = 0; k < 2000; k++) { const m = posted.find((q) => q.type === 'done' && q.id === id); if (m) return m; await new Promise((r) => setTimeout(r, 5)); } return null; };
 
@@ -28,17 +32,17 @@ const NOW = Date.parse('2026-11-20T00:00:00Z');
 {
   send({ cmd: 'warm' }); await loadHist();
   check(`geçmiş özeti iş parçacığında modüle göre adresle yüklenir (${histData() ? 'gecmis.json okundu' : 'yok'})`, !!histData());
-  send({ cmd: 'run', id: 1, omm, now: NOW });
+  send(job(1, omm));
   const d = await waitDone(1), ref = omm.map((o) => decayOf(o, NOW, false));
-  check(`sonuç GP sırasıyla, ana iş parçacığındaki decayOf'la birebir aynı (${omm.length} cisim, ${d ? d.ms.toFixed(0) : '?'} ms)`,
+  check(`sütunlu aktarımla sonuç GP sırasıyla, tam GP kaydıyla ana iş parçacığında hesaplanan decayOf'la birebir aynı (${omm.length} cisim, ${d ? d.ms.toFixed(0) : '?'} ms)`,
     !!d && d.out.length === omm.length && JSON.stringify(d.out) === JSON.stringify(ref.map(({ h, r }) => ({ h, r }))));
   const pr = posted.filter((q) => q.type === 'progress' && q.id === 1);
   check(`ilerleme iletileri (${pr.length}): artan, toplamla`, pr.length >= 2 && pr.every((q, k) => q.n === omm.length && (!k || q.i > pr[k - 1].i)));
 }
 {
   posted.length = 0;
-  send({ cmd: 'run', id: 2, omm, now: NOW }); await new Promise((r) => setTimeout(r, 0));
-  send({ cmd: 'run', id: 3, omm: omm.slice(0, 50), now: NOW });
+  send(job(2, omm)); await new Promise((r) => setTimeout(r, 0));
+  send(job(3, omm.slice(0, 50)));
   const d3 = await waitDone(3); await new Promise((r) => setTimeout(r, 50));
   check('yeni istek (yeni katalog) eskisini bırakır: yalnız son isteğin sonucu gelir', !!d3 && d3.out.length === 50 && !posted.some((q) => q.type === 'done' && q.id === 2));
 }
@@ -63,12 +67,26 @@ const NOW = Date.parse('2026-11-20T00:00:00Z');
   check('yılın günü (son yıl önbellekte): yıl sınırında, artık yılda ve geri sırayla aynı yoğunluk', fwd.every((v, k) => v === back[k] && v > 0));
 }
 
+// ---------------------------------------------------------------- sütunlu aktarım
+{
+  const rows = [{ A: 1, B: 'x', C: null, D: 2 }, { A: 2.5, B: null, C: 3 }, { A: -0, B: 'y', C: 'z', D: NaN }];
+  const p = packOmm(rows, ['A', 'B', 'C', 'D']), back = unpackOmm(structuredClone({ n: p.n, cols: p.cols }, { transfer: p.transfer }));
+  const same = (a, b) => Object.keys(a).length === Object.keys(b).length && Object.keys(a).every((k) => Object.is(a[k], b[k]));
+  check('sayı sütunu Float64Array (aktarılır); karışık sütun düz dizi; null korunur, eksik alan eksik kalır; −0 ve NaN birebir',
+    p.cols.A instanceof Float64Array && p.transfer.length === 1 && Array.isArray(p.cols.B) && Array.isArray(p.cols.D) && back.every((o, i) => same(o, rows[i])) && !('D' in back[1]));
+  const full = gp.slice(0, 400), slim = unpackOmm(packOmm(full, SAT_FIELDS));
+  check(`GP kaydında yalnız SAT_FIELDS (${SAT_FIELDS.length} alan) taşınır; değerleri aynı`, slim.every((o, i) => SAT_FIELDS.every((k) => Object.is(o[k], full[i][k]))) && Object.keys(slim[0]).length <= SAT_FIELDS.length && Object.keys(full[0]).length > SAT_FIELDS.length);
+  // impact.js'te GP kaydından okunan her alan (o.ALAN) listede olmalı: yeni alan eklenip listeye yazılmazsa iş parçacığında sessizce undefined olurdu
+  const used = new Set([...read('js/impact.js').matchAll(/\bo\.([A-Z][A-Z_]+)/g), ...read('js/decayhist.js').matchAll(/\bo\.([A-Z][A-Z_]+)/g)].map((m) => m[1]));
+  check(`SAT_FIELDS impact.js ve decayhist.js'in okuduğu her GP alanını kapsar (${[...used].join(', ')})`, used.size >= 10 && [...used].every((k) => SAT_FIELDS.includes(k)));
+}
+
 // ---------------------------------------------------------------- arayüz sözleşmesi
 {
   const iui = read('js/impactui.js'), hist = read('js/decayhist.js'), w = read('js/decaywork.js');
   check('ImpactUI: iş parçacığı deney açılınca kurulur ve ısıtılır (katalog gelmeden modüller ve geçmiş verisi hazır)', /const w = this\.decayWorker\(\); if \(w && !this\.warmed\)/.test(iui) && /postMessage\(\{ cmd: 'warm' \}\)/.test(iui));
   check('ImpactUI: hesap iş parçacığında; sonuç GP sırasıyla eşlenir; iş parçacığı yoksa ya da çökerse eski dilimli yol',
-    /w\.postMessage\(\{ cmd: 'run', id, omm, now \}\)/.test(iui) && /omm\.map\(\(o, k\) => \(\{ o, id: \+o\.NORAD_CAT_ID, \.\.\.d\.out\[k\] \}\)\)/.test(iui)
+    /const p = packOmm\(omm, SAT_FIELDS\); w\.postMessage\(\{ cmd: 'run', id, n: p\.n, cols: p\.cols, now \}, p\.transfer\)/.test(iui) && /omm\.map\(\(o, k\) => \(\{ o, id: \+o\.NORAD_CAT_ID, \.\.\.d\.out\[k\] \}\)\)/.test(iui)
     && /this\.dw\.onerror = \(\) => \{ this\.dw\.terminate\(\); this\.dw = null;/.test(iui) && /performance\.now\(\) - t0 < 12/.test(iui));
   check('decayhist: veri adresleri modülün yerine göre (iş parçacığında da çözülür); iş parçacığı dilim arasında gerçekten bekler',
     /new URL\('\.\.\/' \+ u, import\.meta\.url\)/.test(hist) && /setTimeout\(r, 0\)/.test(w) && /workerOpts\(\)/.test(iui));

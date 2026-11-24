@@ -291,6 +291,8 @@ export function lifeRange(days, deep = false) {
 // o: CelesTrak GP (OMM) kaydı -> yeniden giriş tahmini
 // solar: false -> sabit (ortalama aktivite) atmosfer; varsayılan Güneş çevrimi modeli. lunisolar: false -> derin uzay yörüngesinde de yalnız sürüklenme.
 // curveStepDays: eğri eşit aralıklı örneklenir (varsayılan: seyrekleşen örnekleme)
+// assessSat'ın (objClass, ageYears ile) ve decayOf'un okuduğu GP alanları: iş parçacığına yalnız bunlar aktarılır (decaywork.js; test_decaywork.js denetler)
+export const SAT_FIELDS = ['NORAD_CAT_ID', 'OBJECT_TYPE', 'OBJECT_NAME', 'OBJECT_ID', 'EPOCH', 'MEAN_MOTION', 'ECCENTRICITY', 'INCLINATION', 'RA_OF_ASC_NODE', 'ARG_OF_PERICENTER', 'BSTAR', 'MEAN_MOTION_DOT'];
 export function assessSat(o, nowMs = Date.now(), withCurve = true, hist = null, { solar = true, lunisolar = true, curveStepDays = 0, deepReentryKm = DEEP_REENTRY_KM, geodetic = true, season = true, prior = true } = {}) {
   const n = +o.MEAN_MOTION, e0 = +o.ECCENTRICITY;
   if (!(n > 0) || !(e0 >= 0) || e0 >= 1) return { durum: 'nodata' };

@@ -74,3 +74,25 @@ export function ommFromColumns(d) {
   }
   return out;
 }
+
+// iş parçacığına aktarım (impactui.js → decaywork.js): yalnız istenen alanlar, sütun başına bir dizi. Hepsi sayı olan sütun Float64Array'dir
+// ve kopyalanmadan aktarılır (transfer); öteki sütunlar düz dizi. Değerler olduğu gibi korunur (null null kalır; alanı olmayan kayıtta undefined).
+//   packOmm(omm, keys) -> { n, cols, transfer: [ArrayBuffer…] }   ·   unpackOmm({ n, cols }) -> yalnız bu alanları taşıyan OMM nesneleri
+export function packOmm(omm, keys) {
+  const n = omm.length, cols = {}, transfer = [];
+  for (const k of keys) {
+    let num = true; const a = new Array(n);
+    for (let i = 0; i < n; i++) { const v = omm[i][k]; a[i] = v; if (num && typeof v !== 'number') num = false; }
+    if (num) { const f = Float64Array.from(a); cols[k] = f; transfer.push(f.buffer); } else cols[k] = a;
+  }
+  return { n, cols, transfer };
+}
+export function unpackOmm(d) {
+  const keys = Object.keys(d.cols), C = keys.map((k) => d.cols[k]), out = new Array(d.n);
+  for (let i = 0; i < d.n; i++) {
+    const o = {};
+    for (let j = 0; j < keys.length; j++) { const v = C[j][i]; if (v !== undefined) o[keys[j]] = v; }
+    out[i] = o;
+  }
+  return out;
+}
