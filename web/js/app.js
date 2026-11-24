@@ -14,10 +14,11 @@ import { ProfileCompare } from './profilecompare.js';
 import { attachCanvasInput } from './canvasinput.js';
 import { AscentPlayer } from './ascentplay.js';
 import { Briefing } from './brifing.js';
+import { DeflectBrief } from './brifsaptirma.js';
 import { DesignJob } from './designjob.js';
 import { briefKind } from './brifingtext.js';
 import { inclRange, minIncl, LEGACY_SITE, padAllowed, siteOf as padSite, padShort } from './pads.js';
-import { rocketOf } from './rockets.js';
+import { rocketOf, ROCKET_IDS, tliCapacity } from './rockets.js';
 import { twoStageDesign, STAGES as MISSION_STAGES } from './mission.js';
 import { SatLayer } from './satlayer.js';
 import { AsteroidLayer } from './asteroids.js';
@@ -58,7 +59,14 @@ const DEFAULT_DATE = '2026-10-13';
 let brief = null;                                                                       // Ay görevi brifingi (brifing.js; aşağıda kurulur)
 // Laboratuvar brifingleri: deney → brifing (ortak kabuk: brifkabuk.js). Merkezden bir deney seçilince o deneyin brifingi açılır (sayfa başına bir kez)
 const briefs = {}, briefEntered = new Set();
-const briefOn = () => Object.values(briefs).find((b) => b.active) || null;                                                                     // görev brifingi (brifing.js; aşağıda kurulur)
+const briefOn = () => Object.values(briefs).find((b) => b.active) || null;
+// gökyüzü motorundaki deneylerin brifingi motor kurulunca (initSky) yapılır: deney merkezinden seçilince ilk kez gerekir
+const briefMakers = {
+  saptirma: () => deflect && new DeflectBrief({ world, root: $('#app'), latest: () => ({ t: curT() }), dui: deflect, asts: S.asts, padOf: padOfRocket,
+    rockets: () => ROCKET_IDS.filter((id) => tliCapacity(id) > 0) }),
+};
+const briefFor = (exp) => briefs[exp] || (briefMakers[exp] && (briefs[exp] = briefMakers[exp]() || undefined)) || null;
+const briefed = () => [...new Set([...Object.keys(briefs), ...Object.keys(briefMakers)])];                                                                     // görev brifingi (brifing.js; aşağıda kurulur)
 let deflect = null, updater = null, impactui = null;
 // iki bağımsız MOTOR: "mission" (Ay görevi: fizik motoru, görev saati) ve "sky" (gerçek saat, uydular, asteroitler).
 // İki GÖRÜNÜM (arayüz alanı): sky (Canlı Gökyüzü) ve lab (Laboratuvar). Laboratuvar'da motoru açık deney seçer (labui.js EXPERIMENTS:
@@ -364,10 +372,10 @@ labui.onShow = () => { if (S.VIEW === 'lab') syncWorkspace(!quietShow); };
 // Brifing, Laboratuvar merkezinden Ay görevi seçilince açılır (sayfa başına bir kez; ilk görev henüz hazır değilse hazır olunca: ready işleyicisi).
 // Laboratuvar'ın açılışı, kayıtlı son deney, geri/ileri, K kısayolu ve Lagrange'dan "bu profille uç" geçişi brifingi açmaz (brifingtext.js briefKind).
 $('#lab-home').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-exp]'), exp = b && b.dataset.exp, B = briefs[exp];
-  if (!B || briefEntered.has(exp)) return;
+  const b = e.target.closest('[data-exp]'), exp = b && b.dataset.exp;
+  if (!exp || !briefed().includes(exp) || briefEntered.has(exp)) return;
   briefEntered.add(exp);
-  setTimeout(() => { const bk = urlApplied && briefKind({ visited: B.seen(), view: S.VIEW, exp: labui.page, entered: true, briefed: Object.keys(briefs) }); if (bk && !B.active) B.open(bk); }, 0);      // labui.show bittikten sonra
+  setTimeout(() => { const B = briefFor(exp), bk = B && urlApplied && briefKind({ visited: B.seen(), view: S.VIEW, exp: labui.page, entered: true, briefed: briefed() }); if (bk && !B.active) B.open(bk); }, 0);      // labui.show (ve gökyüzü motoru) kurulduktan sonra
 });
 // geri/ileri: adresteki alanı ve deneyi kur (adres yazılmaz; kayıt zaten o adreste)
 // Ekranı kaplayan katmanlar (kalkış izleme, sinematik gösterim) geçmişte ayrı kayıt: telefonda geri önce katmanı kapatır, görünüm aynı kalır.
@@ -644,10 +652,12 @@ async function briefDesign(sel, key, onProg, stop) {
   }
   return { D: hit.design, path: briefPaths.get(ck) || null };
 }
+// roketin rampası: brifinglerin roket adımındaki işaret (ad: roket · rampa)
+function padOfRocket(id) { const p = launch.padFor(id), q = (p !== undefined ? p : ui.site) || LEGACY_SITE; return { lat: q.lat, lon: q.lon, name: `${rocketOf(id).short} · ${q.short || padShort((/(Space )?Launch Complex\s+\S+/.exec(q.name) || [q.name])[0])}` }; }
 brief = new Briefing({ world, ui, root: $('#app'), latest: () => S.latest, defs: () => S.K && S.K.defs,
   preload: (id) => { const p = launch.padFor(id); ascent.preload(id, p !== undefined ? p : ui.site); },           // seçilen roket ve rampası: kalkış beklemeden açılsın
   live: briefDesign, liveStop: () => briefJob.drop(),
-  padOf: (id) => { const p = launch.padFor(id), q = (p !== undefined ? p : ui.site) || LEGACY_SITE; return { lat: q.lat, lon: q.lon, name: `${rocketOf(id).short} · ${q.short || padShort((/(Space )?Launch Complex\s+\S+/.exec(q.name) || [q.name])[0])}` }; },      // roket adımı: rampa işareti
+  padOf: padOfRocket,                                                                          // roket adımı: rampa işareti
   current: () => ({ site: $('#cfgMoonSite').value, date: $('#dateInput').value || DEFAULT_DATE, profile: ui.profileKeyOf(ui.getConfig()), rocket: ui.rocket, vehicle: vehicleMode, landing: landingMode }),
   design: async (sel) => {
     compare.cancel(); scanner.cancel();
@@ -705,7 +715,7 @@ worker.onmessage = (e) => {
     if (d.type === 'ready') revealAt = performance.now() + 1500; else $('#loading').style.display = 'none';      // yeni görev: örtü ilk gerçek kare bitince kalkar (frame › reveal)
     if (d.seek) { if (!S.running) setPlay(true); }
     else { S.running = false; setBtn($('#btnPlay'), 'play', 'Başlat'); }
-    if (d.type === 'ready' && !urlApplied) { urlApplied = true; applyUrlParams(); { const B = briefs[labui.page], ent = briefEntered.has(labui.page), bk = B && briefKind({ search: ent ? '' : location.search, visited: B.seen(), view: S.VIEW, exp: labui.page, entered: ent, briefed: Object.keys(briefs) }); if (bk) B.open(bk); } initHistory(); if (new URLSearchParams(location.search).get('prefetch') === '1') initSky(); if (narrowScreen() && S.VIEW === 'lab') $('#labPanel').classList.add('open'); }      // telefon: ilk açılışta deney paneli açık (hangi deney, geri dönüş görünsün)
+    if (d.type === 'ready' && !urlApplied) { urlApplied = true; applyUrlParams(); { const B = briefFor(labui.page), ent = briefEntered.has(labui.page), bk = B && briefKind({ search: ent ? '' : location.search, visited: B.seen(), view: S.VIEW, exp: labui.page, entered: ent, briefed: briefed() }); if (bk) B.open(bk); } initHistory(); if (new URLSearchParams(location.search).get('prefetch') === '1') initSky(); if (narrowScreen() && S.VIEW === 'lab') $('#labPanel').classList.add('open'); }      // telefon: ilk açılışta deney paneli açık (hangi deney, geri dönüş görünsün)
     if (d.type === 'ready') syncAyUrl();
     ayRefresh();
   } else if (d.type === 'state') {

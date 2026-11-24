@@ -47,8 +47,8 @@ check('brifing açıkken araç, uçuş göstergeleri, deney paneli, görev çubu
   /body\.briefing #hud, body\.briefing #controls, body\.briefing #manual, body\.briefing #labPanel/.test(css) && !/body\.briefing #modebar/.test(css)
   && /W\.vehicle\.visible = false/.test(br) && /W\[k\]\.visible = this\.keepVisible\(k, c\)/.test(br) && /keepVisible\(k, c\) \{ return !!c\.orbit && k === 'embMoon'; \}/.test(br) && /hideVehicle: true/.test(br));
 check('Laboratuvar merkezinden Ay görevi seçilince açılır (sayfa başına bir kez; ilk görev hazır değilse hazır olunca); açılış deney merkezi; başka alana geçince kapanır; Esc bir adım geri, öteki kısayollar kapalı',
-  /const B = briefs\[labui\.page\], ent = briefEntered\.has\(labui\.page\), bk = B && briefKind\(\{ search: ent \? '' : location\.search, visited: B\.seen\(\), view: S\.VIEW, exp: labui\.page, entered: ent, briefed: Object\.keys\(briefs\) \}\); if \(bk\) B\.open\(bk\);/.test(app)
-  && /\$\('#lab-home'\)\.addEventListener\('click', \(e\) => \{\s*const b = e\.target\.closest\('\[data-exp\]'\), exp = b && b\.dataset\.exp, B = briefs\[exp\];\s*if \(!B \|\| briefEntered\.has\(exp\)\) return;/.test(app)
+  /const B = briefFor\(labui\.page\), ent = briefEntered\.has\(labui\.page\), bk = B && briefKind\(\{ search: ent \? '' : location\.search, visited: B\.seen\(\), view: S\.VIEW, exp: labui\.page, entered: ent, briefed: briefed\(\) \}\); if \(bk\) B\.open\(bk\);/.test(app)
+  && /\$\('#lab-home'\)\.addEventListener\('click', \(e\) => \{\s*const b = e\.target\.closest\('\[data-exp\]'\), exp = b && b\.dataset\.exp;\s*if \(!exp \|\| !briefed\(\)\.includes\(exp\) \|\| briefEntered\.has\(exp\)\) return;/.test(app)
   && /briefs\.ay = brief;/.test(app)
   && /new LabUI\(\{ initial: LAB_HOME \}\)/.test(app)
   && /B\.close\('away'\)/.test(app) && /if \(briefOn\(\) && k !== 'escape'\) return;/.test(app) && /e\.key !== 'Escape'/.test(br) && /window\.addEventListener\('keydown', this\.onKey, true\)/.test(br));
@@ -119,7 +119,7 @@ check('sahnede yol: hesap bitince gerçek yola döner (gerçek yoksa şematik), 
   check('arka plan hesabı: ötekiler yalnız profil adımında; roket ve brifing adımlarında yalnız seçili profil; profil adımına dönünce döngü sürer',
     /const k = L\.rows\[this\.sel\.profile\] && L\.rows\[this\.sel\.profile\]\.st === 'wait' \? this\.sel\.profile : onProfile \?/.test(br) && /if \(!this\.liveState\.running\) this\.runLive\(this\.liveState\)/.test(br) && /L\.running = false;/.test(br));
   check('brifingde tasarım sırasında tam ekran yükleme örtüsü yok (brifing kendi göstergesini gösterir)', /if \(!\(brief && brief\.active\)\) \{ \$\('#loading'\)\.style\.display = 'grid';/.test(app));
-  check('roket adımı: Dünya seçilen roketin rampasına döner, rampa işaretli (ad: roket · rampa)', /c\.pad && this\.h\.padOf/.test(br) && /this\.placePin\('pad'/.test(br) && /padOf: \(id\) =>/.test(app));
+  check('roket adımı: Dünya seçilen roketin rampasına döner, rampa işaretli (ad: roket · rampa)', /c\.pad && this\.h\.padOf/.test(br) && /this\.placePin\('pad'/.test(br) && /padOf: padOfRocket,/.test(app) && /function padOfRocket\(id\)/.test(app));
   check('kart: "yakınsamadı" kısa; açıklama kart metninde (başlık sıkışmaz)', /row\.st === 'err' \? 'yakınsamadı'/.test(br) && /Görevi tasarla bir sonraki pencereyi dener/.test(br));
   check('işaret çakışması: Apollo 12 ve 15\'in adı solda (düğme işaretlerinde de)', /left: k === 'A12' \|\| k === 'A15'/.test(br) && /button\.brief-pin\.left:not\(\.on\) b \{ left: auto; right: 12px; \}/.test(css));
   check('dikey ekran: kamera uzaklaşır (Dünya–Ay sistemi en çok 2,2 kat, cisim 1,75 kat); telefonda Dünya–Ay görünümü sola kayar (Ay sığar)',

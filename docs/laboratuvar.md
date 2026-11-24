@@ -212,6 +212,29 @@ Her adım katlanabilir bir kutudur: tamamlanınca tek satırlık **özete** iner
 | **3 İtki** | Yöntem (Kinetik çarpıcı / Sürekli itki), araç kütlesi ve hız (ya da kuvvet ve süre), **ne zaman** (geçişten 5 yıl / 2 yıl / 1 yıl / 3 ay önce çipleri), senaryo | İtki tarihi yerine "geçişten ne kadar önce" sorulur; tarama başlangıcından önceye düşen seçenekler hiç sunulmaz. **Senaryo:** *Gerçek yörünge* (itki nominal geçişi nasıl değiştirir?) ya da *Çarpacak olsaydı* (B = 0: bu itki Dünya'yı kurtarmaya yeter mi?). Çap, yoğunluk, β, yön, tarih "Gelişmiş"te. Hatalar hesaptan önce düz dille söylenir ("İtki süresi yakın geçişe kadar bitmeli") |
 | **4 Sonuç** | Okur; "3B'de göster", "İtkiyi değiştir" | Karar kartı (yeşil/kırmızı/mavi), ölçek çubuğu (çarpacak olsaydı), **"ne kadar gerekir?" cümlesi** ("≈ 261.084 kg'lık bir çarpıcı"), B-düzlemi grafiği, tüm ayrıntılar katlı (tablo, önceden uyarı eğrisi, fizik notu, DART doğrulaması). Ayarlar sonradan değişirse sonuç "eski" olarak işaretlenir ve **Yeniden hesapla** önerilir |
 
+### Saptırma brifingi: LS19 denemeyi adım adım kurdurur
+
+Deney merkezinden **Asteroit saptırma** seçilince önce brifing açılır (`js/brifsaptirma.js`, saf mantık `js/brifsaptirmatext.js`; ortak kabuk `js/brifkabuk.js`). Hesabın tamamı deneyin kendi motorundadır: brifing DeflectUI'nin arayüzünü sürer (hedef, tarama, geçiş, yöntem, önleme çözümü, hesap), panel aynı durumu gösterir. Brifing kapanınca deney panelde sürer. Giriş kartındaki **Paneli kendim kullanayım** brifingi atlar.
+
+1. **Hangi asteroit?** Hızlı hedefler (Apophis, Bennu, Didymos, 2024 YR4) çap ve MOID'leriyle listelenir. Arkada Güneş sistemi görünür ve hedefler işaretlidir; işarete dokununca seçilir. Katalogda arama da var. Seçilince 50 yıllık tarama kendiliğinden başlar.
+2. **Ne zaman?** Taranan yakın geçişler listelenir.
+   - LS19, çarpıcı fırlatmaya yetecek zamanı (en az 1 yıl) olan en yakın geçişi önerir.
+   - Gerekçeler sayılarla gelir: uzaklık (Dünya yarıçapı ve Ay uzaklığı olarak), göreli hız, kalan süre, yakalama yarıçapı.
+   - Sahne Dünya yakınıdır: geçişin gerçek yolu (iş parçacığında tam tümleme, ±4 gün), yer eşzamanlı kuşak ve Ay'ın yörüngesi.
+   - Senaryo da bu adımda seçilir: gerçekte çarpmayan geçişte varsayılan "çarpacak olsaydı"dır.
+3. **Nasıl?** Üç yöntemin hız değişimi karşılaştırılır.
+   - Kinetik çarpıcının değeri varsayılan DART kütlesinden değil, bugün uçan roketlerin en iyi önleme çözümünden gelir: fırlatma penceresi geçiş seçilince arka planda hesaplanır.
+   - Apophis 2029'da SLS ile 9,8 mm/s'e karşılık 1 N sürekli itkiyle 0,59 mm/s.
+4. **Neyle?** Kinetik çarpıcıda tüm roketler için önleme çözümü tek örgüden gelir. Lambert örgüsü bir kez çözülür, roketler yalnız taşıdıkları kütleyle ayrışır (`intercept.js`, `caps`).
+   - Her roket için fırlatma günü, çarpıcı kütlesi, çarpma hızı ve kayma gösterilir; kayma yakalama yarıçapına oranla verilir.
+   - LS19 yalnız bugün uçan roketlerden öneri yapar. Saturn V karşılaştırma için listede kalır ve "tarihî" diye işaretlidir.
+   - Öteki yöntemlerde bu adım itki zamanını sorar (yakın geçişten 10 yıl … 3 ay önce).
+5. **Brifing.** Saptırma hesaplanır. Ardından karar kartı (kurtarır / yetmez), özet, çizelge (fırlatma → çarpma → yakın geçiş), belirsizlik ve "ne kadar gerekir?" cümlesi gelir.
+   - **3B'de yolu izle:** nominal ve saptırılmış yollar Dünya yakınında çizilir.
+   - **Ayrıntılar panelde:** B-düzlemi, önceden uyarı eğrisi ve tablo panelde açılır.
+
+Örnek: Apophis, 13 Nisan 2029, çarpacak olsaydı. SLS ile 2027 Ağustos'ta fırlatılan 9.434 kg'lık çarpıcı geçiş noktasını 572 km kaydırır. Gereken 13.773 km'dir (%4). Sonuç **Bu itki yetmez**: 2,4 yıllık uyarı süresi bu kütle için çok kısa.
+
 ### Sonuç nasıl okunur
 
 | Senaryo | Durum | Karar |
@@ -336,4 +359,4 @@ Ana sayfa, saptırma ya da Lagrange noktaları açılınca panel kendiliğinden 
    - Alt sınıfın doldurdukları: `introCard`, `renderStep`, `nextLabel`, `recommendFor`, `reasonsFor`, `aim` (kamera bakışı ve işaretler), gerekirse `frameExtra`, `onOpen`, `onClosing`.
    - Açılma kuralı her deney için aynıdır (`briefKind`): merkezden deney seçilince, sayfa başına bir kez; `?brifing=1` açık deneyin brifingini açar. Açık brifing yalnız kendi deneyinin motorundayken kare alır; başka deneye geçince kapanır.
 
-Lagrange noktaları bu yolla eklendi (§5). Ay görevi brifingi (§3a) ortak kabuğun ilk alt sınıfıdır (`js/brifing.js`). İniş güdümü karşılaştırması Ay görevinin Sonuç adımındadır (Dağılım denemesi › Üç güdümü karşılaştır).
+Lagrange noktaları bu yolla eklendi (§5). Ay görevi brifingi (§3a) ortak kabuğun ilk alt sınıfıdır (`js/brifing.js`). İkincisi Asteroit saptırma brifingidir (§4, `js/brifsaptirma.js`). İniş güdümü karşılaştırması Ay görevinin Sonuç adımındadır (Dağılım denemesi › Üç güdümü karşılaştır).

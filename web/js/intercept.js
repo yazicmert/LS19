@@ -11,12 +11,15 @@ export const GM_SUN = 132712440041.279419;
 
 // o: { L: kalkış anları (s), K: varış örgüsü (s, artan), kOf(i, j) → varış örgüsü indisi, nT,
 //      earth(i) → [r, v] (Güneş merkezli, km, km/s), ast(k) → [r, v], S(k) → 2×3 (km kayma / (km/s)) ya da null,
-//      cap(C3) → kg ya da null, beta, M (kg), c3Max }
-// Dönüş: { nL, nT, C3, U, m, shift (Float64Array nL·nT; NaN: çözüm yok), best }
+//      cap(C3) → kg ya da null, beta, M (kg), c3Max,
+//      caps: [[ad, cap(C3)]] (isteğe bağlı: birden çok roket; Lambert örgüsü bir kez çözülür, her roket yalnız taşıdığı kütleyle ayrışır) }
+// Dönüş: { nL, nT, C3, U, m, shift (Float64Array nL·nT; NaN: çözüm yok), best, bests: { ad: en iyi hücre | null } (caps verildiyse) }
 export function porkchop(o) {
   const nL = o.L.length, nT = o.nT, N = nL * nT;
   const C3 = new Float64Array(N).fill(NaN), U = new Float64Array(N).fill(NaN), m = new Float64Array(N).fill(NaN), shift = new Float64Array(N).fill(NaN);
   let best = null;
+  const caps = o.caps || [], bests = Object.fromEntries(caps.map(([id]) => [id, null]));
+  const cell = (i, j, k, n, tof, c3, un, uh, mass, sh) => ({ i, j, k, n, etL: o.L[i], etA: o.K[k], tofDays: tof / 86400, C3: c3, vinf: Math.sqrt(c3), U: un, uDir: uh, m: mass, dvMps: o.beta * mass * un / (o.M + mass) * 1000, shift: sh });
   for (let i = 0; i < nL; i++) {
     const [rE, vE] = o.earth(i), h = cross(rE, vE);
     for (let j = 0; j < nT; j++) {
@@ -27,17 +30,22 @@ export function porkchop(o) {
       if (!(c3 <= (o.c3Max ?? 200))) continue;
       const u = sub(sol.v2, vA), un = norm(u), mass = o.cap ? o.cap(c3) : o.m0;
       const n = i * nT + j; C3[n] = c3; U[n] = un;
+      const Sk0 = caps.length && o.S ? o.S(k) : null;
+      if (Sk0) {                                                       // her roket: aynı yol, kendi kütlesi (kayma kütleyle doğrusal değil: Δv = β·m·U/(M + m))
+        const uh = scale(u, 1 / un), g = Math.hypot(Sk0[0][0] * uh[0] + Sk0[0][1] * uh[1] + Sk0[0][2] * uh[2], Sk0[1][0] * uh[0] + Sk0[1][1] * uh[1] + Sk0[1][2] * uh[2]);
+        for (const [id, cp] of caps) { const mm = cp(c3); if (!(mm > 0)) continue; const sh = g * o.beta * mm * un / (o.M + mm); if (!bests[id] || sh > bests[id].shift) bests[id] = cell(i, j, k, n, tof, c3, un, uh, mm, sh); }
+      }
       if (!(mass > 0)) continue;
       m[n] = mass;
       const dv = o.beta * mass * un / (o.M + mass), uh = scale(u, 1 / un), Sk = o.S ? o.S(k) : null;
       if (Sk) {
         const sx = Sk[0][0] * uh[0] + Sk[0][1] * uh[1] + Sk[0][2] * uh[2], sz = Sk[1][0] * uh[0] + Sk[1][1] * uh[1] + Sk[1][2] * uh[2];
         shift[n] = Math.hypot(sx, sz) * dv;
-        if (!best || shift[n] > best.shift) best = { i, j, k, n, etL: o.L[i], etA: o.K[k], tofDays: tof / 86400, C3: c3, vinf: Math.sqrt(c3), U: un, uDir: uh, m: mass, dvMps: dv * 1000, shift: shift[n] };
+        if (!best || shift[n] > best.shift) best = cell(i, j, k, n, tof, c3, un, uh, mass, shift[n]);
       }
     }
   }
-  return { nL, nT, C3, U, m, shift, best };
+  return { nL, nT, C3, U, m, shift, best, ...(caps.length ? { bests } : {}) };
 }
 // tek bir aktarım (doğrulama ve ayrıntı için): kalkış ve varış durumlarından C3, U
 export function transfer(rE, vE, rA, vA, tof) {

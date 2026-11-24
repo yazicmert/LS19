@@ -5,7 +5,7 @@
 // Alt sınıfın doldurduğu yerler:
 //   introCard(kind) → { eye, h, lead, acts: [{ act, t, cls }], fine }   giriş kartı; onAct(act) düğmesi
 //   renderStep(k, body, next)                                           adımın gövdesi (next: "Devam" düğmesi; kapatılabilir, etiketi değişebilir)
-//   nextLabel(k) · recommendFor(k) → { v, why } · reasonsFor(k) → [{ t, a }]
+//   nextLabel(k) · recommendFor(k) → { v, why, a } · reasonsFor(k) → [{ t, a }]
 //   aim(c, x, show, dt) → { az, el } | null                             sahne: kameranın bakışı ve işaretler (show: bu karede görünen işaretler)
 //   frameExtra(c, x) · onOpen(kind) · onClosing(how)
 import * as E from './engine.js';
@@ -132,7 +132,7 @@ export class BriefShell {
     const r = this.recommendFor(step);
     if (r) {
       const box = el('div', 'brief-rec');
-      box.innerHTML = `<b>LS19 önerisi</b><p>${esc(tr(r.why))}</p>${r.v === cur ? '<span class="brief-ok">Seçili</span>' : r.v == null ? '' : '<button type="button" class="chip">LS19 seçsin</button>'}`;
+      box.innerHTML = `<b>LS19 önerisi</b><p>${esc(tr(r.why, ...(r.a || []).map(fa)))}</p>${r.v === cur ? '<span class="brief-ok">Seçili</span>' : r.v == null ? '' : '<button type="button" class="chip">LS19 seçsin</button>'}`;
       const b = box.querySelector('button'); if (b) b.onclick = () => apply(r.v);
       body.appendChild(box);
     }
@@ -227,8 +227,11 @@ export class BriefShell {
     let facing = true;
     if (cen) { const toEye = unit([eye[0] - p[0], eye[1] - p[1], eye[2] - p[2]]), up = unit(E.sub(p, cen)); facing = toEye[0] * up[0] + toEye[1] * up[1] + toEye[2] * up[2] > 0.05; }
     if (!facing || v.z > 1 || Math.abs(v.x) > 1 || Math.abs(v.y) > 1) { n.hidden = true; return; }
-    const r = W.canvas.getBoundingClientRect();
-    n.hidden = false; n.style.transform = `translate(${((v.x + 1) / 2 * r.width).toFixed(1)}px, ${((1 - v.y) / 2 * r.height).toFixed(1)}px)`;
+    const r = W.canvas.getBoundingClientRect(), px = (v.x + 1) / 2 * r.width;
+    n.hidden = false; n.style.transform = `translate(${px.toFixed(1)}px, ${((1 - v.y) / 2 * r.height).toFixed(1)}px)`;
     const b = n.querySelector('b'), tl = tr(label); if (b.textContent !== tl) b.textContent = tl;
+    // ad ekrana sığmıyorsa işaretin öbür yanına geçer (telefonda kenara düşen işaretler kesilmesin)
+    const bw = b.offsetWidth + 24, left = o.left ? px > bw : px + bw > r.width;
+    if (left !== !!o.left) n.classList.toggle('left', left);
   }
 }

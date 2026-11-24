@@ -78,6 +78,14 @@ globalThis.onmessage = async (ev) => {
       post({ type: 'target', id, cas, et0: d.etStart, et1, ms: performance.now() - T0, steps: sc.steps });
       return;
     }
+    if (d.cmd === 'path') {
+      // brifing: seçilen yakın geçişin çevresinde nominal yol (Dünya merkezli, ±4 gün; tam tümleme, sonuçtaki "nominal" yolla aynı)
+      if (!T) throw new Error('önce hedef seçin');
+      const ca = T.cas[d.p.ca]; if (!ca) throw new Error('yakın geçiş yok');
+      const W = 4 * D.DAY, etA = Math.max(T.et0, ca.et - W);
+      post({ type: 'path', id, ca: d.p.ca, path: geoPath(etA, stateAt(etA), etA, ca.et + W, 161, null, []) });
+      return;
+    }
     if (d.cmd === 'porkchop') {
       // önleme görevinin fırlatma penceresi (intercept.js): kalkış × uçuş süresi örgüsü, ortak adımlı (varış = kalkış + süre aynı örgüde)
       if (!T) throw new Error('önce hedef seçin');
@@ -97,8 +105,9 @@ globalThis.onmessage = async (ev) => {
       post({ type: 'progress', id, msg: 'Fırlatma penceresi taranıyor (Lambert)…', f: 0.6 });
       const L = K.slice(0, nL), EARTH = L.map((et) => { const [pE, vE] = eng.earth(et), [ps, vs] = eng.sun(et); return [[pE[0] - ps[0], pE[1] - ps[1], pE[2] - ps[2]], [vE[0] - vs[0], vE[1] - vs[1], vE[2] - vs[2]]]; });
       const pc = porkchop({ L, K, nT, kOf: (i, j) => i + j0 + j, earth: (i) => EARTH[i], ast: (k) => AST[k], S: (k) => Ssens[k],
-        cap: (c3) => c3Capacity(p.rocket, c3), beta: p.beta, M: p.M, c3Max: p.c3Max || 100 });
-      post({ type: 'porkchop', id, r: { L0: K[0], h, nL, nT, j0, shift: Float32Array.from(pc.shift), C3: Float32Array.from(pc.C3), best: pc.best, bE: b0.bE, caEt: ca.et } });
+        cap: (c3) => c3Capacity(p.rocket, c3), beta: p.beta, M: p.M, c3Max: p.c3Max || 100,
+        ...(p.rockets ? { caps: p.rockets.map((rk) => [rk, (c3) => c3Capacity(rk, c3)]) } : {}) });          // brifing: tüm roketlerin en iyi çözümü tek örgüden
+      post({ type: 'porkchop', id, r: { L0: K[0], h, nL, nT, j0, shift: Float32Array.from(pc.shift), C3: Float32Array.from(pc.C3), best: pc.best, bE: b0.bE, caEt: ca.et, ...(pc.bests ? { bests: pc.bests, rocket: p.rocket } : {}) } });
       return;
     }
     if (d.cmd === 'deflect') {
