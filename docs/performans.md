@@ -470,4 +470,21 @@ Sıradaki adaylar (yapılmadı):
 
 - **Asteroit bozunma/Sentry listeleri.** Benzer büyüklükte değiller; gerek görülmedi.
 - **`derivs` (impact.js, saf hesabın %41'i).** Yoğunluk sütunu aradeğerlemesi tablolaştırılabilir. Kazanç iş parçacığında kalır; kullanıcıya yansıması birkaç saniye. Sonucu değiştirmeden yapılması zor.
-- **Uydu kataloğunun iletimi.** 17 bin GP kaydı yapılandırılmış kopyayla gönderiliyor (birkaç yüz ms). Sütunlu biçimle (`gpdata.js`) aktarılabilir dizilere çevrilebilir.
+
+**Ek: uydu kataloğu iş parçacığına sütunlu gidiyor.** Önceden 16.915 GP kaydı (17 alanlı nesneler) yapılandırılmış kopyayla gönderiliyordu. Şimdi yalnız hesabın okuduğu 12 alan gidiyor (`impact.js` `SAT_FIELDS`), sütun sütun. Bütün değerleri sayı olan sütunlar Float64Array'dir ve kopyalanmadan aktarılır (`gpdata.js` `packOmm`/`unpackOmm`). Değerler birebir korunur: null null kalır, eksik alan eksik kalır; `+null` 0, `+undefined` NaN verdiği için bu fark sonucu değiştirirdi.
+
+Tarayıcıda gerçek katalogla ölçüldü (16.915 kayıt, 7 koşu medyanı; SwiftShader):
+
+| | Nesneler | Sütunlu (paketleme dahil) |
+|---|---|---|
+| Ana iş parçacığında gönderim | 11,3 ms | **8,6 ms** |
+
+Kazanç küçük: gönderim zaten hesabın (~8,3 sn, iş parçacığında) yanında önemsizdi. Önceki ölçümde 0,2–0,5 sn görülen bekleme, ileti kuyruğunda meşgul çizim karelerini bekleme süresiydi; kopyalama değil.
+
+Sonucun dönüşü (17 bin `{h, r}`, ~5 MB) sütunlu yapılmadı. Node'da kopyası ~21 ms; ana iş parçacığı yine nesne istediği için sütunlardan nesne kurmak bu kazancın çoğunu geri alır.
+
+Sınama: `test_decaywork.js`.
+
+- Sütunlu aktarımla sonuç, tam GP kaydıyla hesaplananla aynı.
+- Paketleme null, eksik alan, −0 ve NaN değerlerini birebir korur.
+- `SAT_FIELDS` impact.js ve decayhist.js'in okuduğu her alanı kapsar: yeni bir alan listeye yazılmazsa sınama düşer.

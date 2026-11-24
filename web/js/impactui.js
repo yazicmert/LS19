@@ -1,7 +1,8 @@
 // "Çarpma" sekmesi: Dünya'ya çarpma / yeniden giriş tahmini
 //  • Uydular: yörünge bozunmasından tahmini yeniden giriş yılı (manevrasız); seçilince yükseklik-zaman eğrisi
 //  • Asteroitler: JPL Sentry sanal çarpıcıları (olasılık, olası yıllar); seçilince N-cisim taraması için Saptırma laboratuvarı
-import { fmtReentry, fmtSpan, fmtDate, sentryRows, fmtOdds, ageYears, controlNote, selectSats, CONF_TR, KLASS_TR } from './impact.js';
+import { fmtReentry, fmtSpan, fmtDate, sentryRows, fmtOdds, ageYears, controlNote, selectSats, CONF_TR, KLASS_TR, SAT_FIELDS } from './impact.js';
+import { packOmm } from './gpdata.js';
 import { loadHist, histData, decayOf } from './decayhist.js';
 import { fmt } from './format.js';
 import { SAT_GROUPS } from './satlayer.js';
@@ -70,7 +71,7 @@ export class ImpactUI {
         if (d.type === 'progress') prog(d.i);
         else if (d.type === 'done') { this.decayMs = d.ms; finish(omm.map((o, k) => ({ o, id: +o.NORAD_CAT_ID, ...d.out[k] }))); }        // decayMs: iş parçacığındaki süre (ölçüm)
       };
-      w.postMessage({ cmd: 'run', id, omm, now });
+      const p = packOmm(omm, SAT_FIELDS); w.postMessage({ cmd: 'run', id, n: p.n, cols: p.cols, now }, p.transfer);        // sütunlu: yalnız hesabın okuduğu alanlar; sayı sütunları kopyalanmadan
       return;
     }
     // yedek (iş parçacığı yok): eski yol, 12 ms'lik dilimlerle ana iş parçacığında

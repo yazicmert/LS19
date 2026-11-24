@@ -1,9 +1,10 @@
 // Uydu bozunma iş parçacığı (Laboratuvar › Çarpma riski): tüm GP kataloğunun yeniden giriş tahmini (decayhist.js decayOf → impact.js assessSat).
 // ~17.000 cisim, cisim başına ~1 ms: ana iş parçacığında 12 ms'lik dilimlerle ~20 sn sürüyor, çizim kareleriyle yarışıyordu (yazılım çiziminde dakikalar).
 // Burada kesintisiz koşar; ana iş parçacığı yalnız sonucu alır. Geçmiş özeti ve F10.7 tablosu burada ayrıca yüklenir (tarayıcı önbelleğinden).
-//   iste: { cmd: 'warm' } (erken kurulum) · { cmd: 'run', id, omm: [GP kaydı…], now }  →  { type: 'progress', id, i, n } … { type: 'done', id, out: [{ h, r }…] (omm sırasıyla), ms }
+//   iste: { cmd: 'warm' } (erken kurulum) · { cmd: 'run', id, n, cols, now } (gpdata.js packOmm: impact.js SAT_FIELDS alanları sütun sütun)  →  { type: 'progress', id, i, n } … { type: 'done', id, out: [{ h, r }…] (omm sırasıyla), ms }
 // Yeni bir istek (yeni katalog) süreni bırakır: dilimler arasında sıra numarasına bakılır.
 import { loadHist, decayOf } from './decayhist.js';
+import { unpackOmm } from './gpdata.js';
 
 let cur = 0;
 globalThis.onmessage = async (ev) => {
@@ -13,7 +14,7 @@ globalThis.onmessage = async (ev) => {
   const id = d.id; cur = id;
   const t0 = performance.now();
   await loadHist();
-  const omm = d.omm, n = omm.length, out = new Array(n), now = d.now;
+  const omm = unpackOmm(d), n = omm.length, out = new Array(n), now = d.now;
   let last = 0;
   for (let i = 0; i < n; i++) {
     if (cur !== id) return;                                                    // daha yeni bir katalog geldi
