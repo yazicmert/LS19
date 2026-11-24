@@ -469,7 +469,6 @@ Sonuç: bütün kiplerde kare başına JS %2'nin altında; geri kalanı çizim. 
 Sıradaki adaylar (yapılmadı):
 
 - **Asteroit bozunma/Sentry listeleri.** Benzer büyüklükte değiller; gerek görülmedi.
-- **`derivs` (impact.js, saf hesabın %41'i).** Yoğunluk sütunu aradeğerlemesi tablolaştırılabilir. Kazanç iş parçacığında kalır; kullanıcıya yansıması birkaç saniye. Sonucu değiştirmeden yapılması zor.
 
 **Ek: uydu kataloğu iş parçacığına sütunlu gidiyor.** Önceden 16.915 GP kaydı (17 alanlı nesneler) yapılandırılmış kopyayla gönderiliyordu. Şimdi yalnız hesabın okuduğu 12 alan gidiyor (`impact.js` `SAT_FIELDS`), sütun sütun. Bütün değerleri sayı olan sütunlar Float64Array'dir ve kopyalanmadan aktarılır (`gpdata.js` `packOmm`/`unpackOmm`). Değerler birebir korunur: null null kalır, eksik alan eksik kalır; `+null` 0, `+undefined` NaN verdiği için bu fark sonucu değiştirirdi.
 
@@ -488,3 +487,39 @@ Sınama: `test_decaywork.js`.
 - Sütunlu aktarımla sonuç, tam GP kaydıyla hesaplananla aynı.
 - Paketleme null, eksik alan, −0 ve NaN değerlerini birebir korur.
 - `SAT_FIELDS` impact.js ve decayhist.js'in okuduğu her alanı kapsar: yeni bir alan listeye yazılmazsa sınama düşer.
+
+**Ek 2: atmosfer hesabı hızlandı; sonuç artık hesap sırasından bağımsız.** Ölçüm: 16.915 cisim, Node, aynı makinede main ile ardışık çalıştırma. Süre 7,6–8,6 sn'den **4,7–6,3 sn**'ye indi (~%35). Profil: 10,8 M dairesel ve 0,85 M eksantrik türev çağrısı (uydu başına ~690 tümleme adımı). Süre en çok eksantrik yörüngelerin yörünge ortalamasında (23 M yoğunluk örneği) ve adım başına atmosfer sütunu aramasında gidiyordu.
+
+Sonucu bit bit koruyan değişiklikler:
+
+- Aylık F10.7/Ap tablosunda ayın sırası, ay başları dizisinden bulunur (önce son bulunan ay denenir). Eskiden her çağrıda `new Date` ve `Date.UTC` vardı.
+- Orta nokta ızgarasının kosinüsleri N başına bir kez hesaplanır.
+- Son istenen sütun akılda tutulur: büyük sayı anahtarlı iki Map araması atlanır.
+
+Sonucu kayan nokta yuvarlaması düzeyinde değiştiren değişiklik: eksantrik yörünge ortalamasında yalnız perijeden apojeye yarım ızgara toplanır, çünkü E ile 2π − E aynı yüksekliktedir. Yoğunluk perijedekinin e⁻⁴⁵'ine (~3·10⁻²⁰) inince kalan örnekler atlanır. Tam katalogda hiçbir cismin durumu, güveni ya da yöntemi değişmedi. Ömürdeki en büyük göreli fark 6·10⁻¹⁴, en büyük mutlak fark 0,1 sn'nin altında.
+
+Önceden de var olan bir hata bulundu: **sonuç, ondan önce hangi cisimlerin hesaplandığına bağlıydı.**
+
+- Atmosfer sütunu önbelleği F10.7'yi ve Ap'yi 0,25'lik kovalara ayırıyordu, ama her kovanın sütununu o kovaya ilk düşen tam değerden kuruyordu.
+- Aynı uydu, önceden başka cisimler hesaplanmışsa ömürde 10⁻³'e varan farkla çıkabiliyordu: 400 cisimlik sınamada 5,3·10⁻³.
+- Bu hesap iş parçacığına taşındığından beri, uydu bilgi kartı (ana iş parçacığı) ile Çarpma riski listesi (iş parçacığı) aynı uydu için biraz farklı tarih gösterebilir hale gelmişti.
+- Düzeltme: sütun kovanın kendi ızgara değerinden kurulur, böylece önbellek yalnız anahtara bağlıdır.
+
+Düzeltmenin eski sonuçlara etkisi (tam katalog):
+
+| Göreli ömür farkı | Değer |
+|---|---|
+| Medyan | 3,4·10⁻⁴ |
+| %95 | 1,0·10⁻³ |
+| %99 | 1,4·10⁻³ |
+| En çok | 6,8·10⁻³ |
+
+- Bu, kova genişliğinin (0,25 sfu) yarattığı ve eski kodun da zaten taşıdığı belirsizlik düzeyi. Modelin kendi belirsizliği (%10'lar) bunun çok üstünde.
+- İki cismin güven etiketi eşikte değişti: biri 60,0 günde "yüksek"ten "orta"ya, biri ~9.130 günde "düşük"ten "orta"ya.
+- `test_impact.js` (gerçek yeniden girişler ve pymsis karşılaştırmaları) değişmeden geçiyor.
+
+Sınama: `test_decaywork.js`.
+
+- Sıra bağımsızlığı iki ayrı süreçte sınanır: biri yalnız hesaplar, öteki önbellekleri önce başka Güneş tablosuyla doldurur. 400 cisim bit bit aynı olmalı. Eski kodda bu sınama düşer.
+- 400 cisimlik başvuru dosyası (`fixtures/decay_ref400.json`) o günkü geçmiş satırlarını da taşır: durum, güven ve yöntem aynı, ömür 10⁻¹² oranı içinde.
+- Ap aylık değeri eski yıl–ay hesabıyla 3.000 tarihte aynı.

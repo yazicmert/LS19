@@ -45,6 +45,9 @@ const bracket = (g, x) => { let i = 0; while (i < g.length - 2 && x > g[i + 1]) 
 const colCache = new Map();
 // doy: yılın günü (0–365; -1 = mevsim ortalaması). Mevsim düzeltmesi (msis_mevsim.js) F10.7'de ve yılın gününde doğrusal, 20 km'lik ızgaradan h'de doğrusal eklenir.
 // Taban sütun (F10.7, Ap) ve mevsim sütunu (F10.7 1 sfu'ya yuvarlanmış, gün) ayrı önbelleklenir; toplamları ucuzdur.
+// Sütun F10.7 ve Ap'nin 0,25'lik ızgaradaki değerinden kurulur (column): önbellek anahtarı da odur. Eskiden kovaya ilk düşen tam değerden kuruluyordu;
+// sonuç, ondan önce hangi cisimlerin hesaplandığına bağlı kalıyordu (aynı uydu için ömürde ~10⁻³'e varan fark: bilgi kartı ile Çarpma riski listesi
+// ayrı iş parçacıklarında hesaplandığından ayrışabiliyordu). Izgara aralığı (0,25 sfu, 0,25 Ap) aylık değerlerin belirsizliğinden çok küçük.
 function baseColumn(F, A) {
   const key = Math.round(F * 4) * 4096 + Math.round(A * 4); let c = colCache.get(key); if (c) return c;
   const [i, u] = bracket(MS_F, F), [j, v] = bracket(MS_A, A), R = (fi, aj) => MSIS.lnrho[fi * MS_A.length + aj];
@@ -67,12 +70,19 @@ function seasonColumn(F, doy) {
   if (seasCache.size > 20000) seasCache.clear(); seasCache.set(key, c); return c;
 }
 const sumCache = new Map();
+// son çağrı akılda: tümleyici ardışık adımlarda çoğunlukla aynı sütunu ister (aynı yuvarlanmış F10.7, Ap ve gün); büyük sayı anahtarlı iki Map araması atlanır
+let lastFk = NaN, lastAk = NaN, lastDoy = NaN, lastCol = null;
 function column(f107, ap, doy = -1) {
-  const F = Math.max(MS_F[0], Math.min(MS_F[MS_F.length - 1], f107)), A = Math.max(MS_A[0], Math.min(MS_A[MS_A.length - 1], ap)), base = baseColumn(F, A);
-  if (doy < 0) return base;
-  const key = (Math.round(F * 4) * 4096 + Math.round(A * 4)) * 400 + doy; let c = sumCache.get(key); if (c) return c;
-  const sc = seasonColumn(F, doy); c = new Float64Array(MS_N); for (let k = 0; k < MS_N; k++) c[k] = base[k] + sc[k];
-  if (sumCache.size > 20000) sumCache.clear(); sumCache.set(key, c); return c;
+  const F = Math.max(MS_F[0], Math.min(MS_F[MS_F.length - 1], f107)), A = Math.max(MS_A[0], Math.min(MS_A[MS_A.length - 1], ap));
+  const fk = Math.round(F * 4), ak = Math.round(A * 4);
+  if (fk === lastFk && ak === lastAk && doy === lastDoy) return lastCol;
+  const Fq = fk / 4, base = baseColumn(Fq, ak / 4);                                   // ızgaradaki değer: sütun yalnız anahtara bağlı
+  let c = base;
+  if (doy >= 0) {
+    const key = (fk * 4096 + ak) * 400 + doy; c = sumCache.get(key);
+    if (!c) { const sc = seasonColumn(Fq, doy); c = new Float64Array(MS_N); for (let k = 0; k < MS_N; k++) c[k] = base[k] + sc[k]; if (sumCache.size > 20000) sumCache.clear(); sumCache.set(key, c); }
+  }
+  lastFk = fk; lastAk = ak; lastDoy = doy; lastCol = c; return c;
 }
 // yılın günü (0–365, UTC)
 // (son yılın sınırları önbellekte: tümleyici aynı yıl içinde binlerce kez sorar; sonuç Date ile hesaplananın aynısı)
@@ -111,7 +121,11 @@ export function setSolarTable(j) {
   // günlük (son ~3 yıl, gözlenen): 81 günlük ortalama F10.7 ve günlük Ap; bu aralıkta aylık değerlerin yerine geçer
   const g = j.gunluk && Array.isArray(j.gunluk.f81) && /^\d{4}-\d{2}-\d{2}$/.test(j.gunluk.ilkGun || '') ? j.gunluk : null;
   const d0 = g ? Date.parse(g.ilkGun + 'T00:00:00Z') : 0;
-  SOLAR = { mid, y0: y, m0: m, n: j.f.length, f: j.f, ap: Array.isArray(j.ap) ? j.ap : [], apTail, t0: mid(0), t1: mid(j.f.length - 1), sonGozlem: j.sonGozlem || null, guncelleme: j.guncelleme || null,
+  // ay başları ve ay ortaları bir kez (tümleyici her adımda sorar; Date.UTC ve new Date her çağrıda pahalıydı): ms0[k] ≤ t < ms0[k+1] ise t, tablonun k. ayında
+  const n = j.f.length, ms0 = new Float64Array(n + 1), midT = new Float64Array(n);
+  for (let k = 0; k <= n; k++) ms0[k] = Date.UTC(y, m - 1 + k, 1);
+  for (let k = 0; k < n; k++) midT[k] = mid(k);
+  SOLAR = { ms0, midT, kLast: 0, n: j.f.length, f: j.f, ap: Array.isArray(j.ap) ? j.ap : [], apTail, t0: mid(0), t1: mid(j.f.length - 1), sonGozlem: j.sonGozlem || null, guncelleme: j.guncelleme || null,
     day: g ? { d0, d1: d0 + g.f81.length * 864e5, f81: g.f81, ap: g.ap } : null };
   return true;
 }
@@ -120,19 +134,29 @@ export const solarTableInfo = () => (SOLAR ? { from: SOLAR.t0, to: SOLAR.t1, son
 const dayIdx = (ms) => (SOLAR && SOLAR.day && ms >= SOLAR.day.d0 && ms < SOLAR.day.d1 ? Math.floor((ms - SOLAR.day.d0) / 864e5) : -1);
 // gözlenen günlük veri aralığında mı (tümleyici orada adımı 1 güne sınırlar)
 export const inDailyRange = (ms) => dayIdx(ms) >= 0;
+// t'nin tablodaki ay sırası (t0 ≤ t ≤ t1): son bulunan ay önce denenir (tümleyici zamanda ilerler), değilse ikiye bölerek arama.
+// Sonuç (yıl − y0)·12 + ay − (m0 − 1) ile aynıdır (test_decaywork.js)
+function monthIdx(ms) {
+  const M = SOLAR.ms0; let k = SOLAR.kLast;
+  if (ms >= M[k] && ms < M[k + 1]) return k;
+  if (ms >= M[k + 1] && ms < M[k + 2]) return (SOLAR.kLast = k + 1);
+  let lo = 0, hi = SOLAR.n;                                                    // M[lo] ≤ t < M[hi]
+  while (hi - lo > 1) { const c = (lo + hi) >> 1; if (ms >= M[c]) lo = c; else hi = c; }
+  return (SOLAR.kLast = lo);
+}
 export function solarAp(ms) {
   const di = dayIdx(ms); if (di >= 0 && SOLAR.day.ap[di] != null) return SOLAR.day.ap[di];
   if (!SOLAR || ms < SOLAR.t0 || ms > SOLAR.t1) return SOLAR ? SOLAR.apTail : AP;
-  const d = new Date(ms), k = (d.getUTCFullYear() - SOLAR.y0) * 12 + d.getUTCMonth() - (SOLAR.m0 - 1), v = SOLAR.ap[k];          // tablonun ilk ayı (y0, m0) yüklenirken bir kez
+  const v = SOLAR.ap[monthIdx(ms)];
   return v != null && v >= 0 ? v : SOLAR.apTail;
 }
 export function solarF107(ms) {
   const di = dayIdx(ms); if (di >= 0 && SOLAR.day.f81[di] > 30) return SOLAR.day.f81[di];
   if (!SOLAR || ms < SOLAR.t0 || ms > SOLAR.t1) return solarCycleF107(ms);
-  const d = new Date(ms);
-  let k = (d.getUTCFullYear() - SOLAR.y0) * 12 + d.getUTCMonth() - (SOLAR.m0 - 1); if (ms < SOLAR.mid(k)) k--;
+  const T = SOLAR.midT;
+  let k = monthIdx(ms); if (ms < T[k]) k--;
   k = Math.max(0, Math.min(SOLAR.n - 2, k));
-  const a = SOLAR.mid(k), b = SOLAR.mid(k + 1), u = (ms - a) / (b - a);
+  const a = T[k], b = T[k + 1], u = (ms - a) / (b - a);
   return SOLAR.f[k] + (SOLAR.f[k + 1] - SOLAR.f[k]) * u;
 }
 // t anındaki atmosfer sütunu: Güneş aktivitesi açıksa o ayın F10.7 ve Ap'si (tablo ya da ortalama çevrim), kapalıysa ortalama aktivite
@@ -179,6 +203,9 @@ function krFromSlope(hist, a0, e0, lnr0, epochMs, solar, off = 0, season = true)
 
 // a (km), e, K·ρ0 (1/km, perije yüksekliği hp0'daki değer), lnr0 (K·ρ0'ın bağlandığı ln ρ), col (o anki atmosfer sütunu), off (yoğunluk için irtifaya eklenen
 // basıklık düzeltmesi, km; aşağıda geoOff) -> yörünge ortalamalı türevler
+// orta nokta ızgarasının kosinüsleri cos(2π(k + ½)/N), N başına bir kez (değerler döngüde hesaplananla aynı ifade)
+const cosGrids = new Map();
+const cosGrid = (N) => { let c = cosGrids.get(N); if (!c) { c = new Float64Array(N); for (let k = 0; k < N; k++) c[k] = Math.cos((2 * Math.PI * (k + 0.5)) / N); if (cosGrids.size > 512) cosGrids.clear(); cosGrids.set(N, c); } return c; };
 function derivs(a, e, kr0, lnr0, col = COL_MEAN, off = 0) {
   if (a * e < 4) {                                                                           // dairesel: e ≈ 0 kalır, yükseklik = a − Rₑ
     const v = Math.sqrt(MU / a), h = a - RE + off, kr = kr0 * Math.exp(lnAt(col, h) - lnr0);
@@ -186,12 +213,16 @@ function derivs(a, e, kr0, lnr0, col = COL_MEAN, off = 0) {
   }
   // sürüklenme perije çevresinde E'de ~√(H/ae) genişliğinde bir tepedir; orta nokta toplaması tepeyi σ/1,5 aralıkla örnekler
   const N = Math.min(4096, Math.max(12, 2 * Math.ceil(1.5 * Math.PI * Math.sqrt(a * e / scaleAt(col, a * (1 - e) - RE + off)))));
-  let sV3 = 0, sV = 0;
-  for (let k = 0; k < N; k++) {
-    const E = (2 * Math.PI * (k + 0.5)) / N, cE = Math.cos(E), r = a * (1 - e * cE), v = Math.sqrt(MU * (2 / r - 1 / a));
-    const w = (1 - e * cE) / N, h = r - RE + off, kr = kr0 * Math.exp(lnAt(col, h) - lnr0);
+  // E ile 2π − E aynı yüksekliktedir: yalnız perijeden apojeye yarım ızgara toplanıp ikiyle çarpılır. Yoğunluk yükseklikle azaldığından perijedekinin
+  // e⁻⁴⁵'inin (~3·10⁻²⁰) altına inince kalan örnekler toplamı değiştirmez (ağırlık ve hız oranı en çok ~10², toplamın ~10⁻¹⁸'i); döngü orada biter
+  let sV3 = 0, sV = 0; const C = cosGrid(N), half = N >> 1, lnP = lnAt(col, a * (1 - e * C[0]) - RE + off);
+  for (let k = 0; k < half; k++) {
+    const cE = C[k], r = a * (1 - e * cE), h = r - RE + off, ln = lnAt(col, h);
+    if (ln - lnP < -45) break;
+    const v = Math.sqrt(MU * (2 / r - 1 / a)), w = (1 - e * cE) / N, kr = kr0 * Math.exp(ln - lnr0);
     sV3 += w * kr * v ** 3; sV += w * kr * v;
   }
+  sV3 *= 2; sV *= 2;
   const dadt = -(a * a / MU) * sV3;                                                          // km/s
   const dedt = e < 1e-5 ? 0 : ((1 - e * e) / e) * (0.5 * sV + 0.5 * dadt / a);               // 1/s
   return [dadt, dedt];
