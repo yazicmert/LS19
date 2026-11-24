@@ -20,6 +20,8 @@ Sonuç: öğlen gökyüzü mavi; gün batımı kızıl (öğlene göre R/B oran�
 
 Gece–gündüz sınırında kraterler ve dağlar gölge düşürür. LOLA yükseklik alanında, her pikselden Güneş yönüne 12 adım yürünür (2,2 km × 1,45ᵏ). Yürürken Ay'ın eğriliği de hesaba katılır (s²/2R). Yolda bir tepe Güneş'in yüksekliğini aşarsa piksel gölgede kalır. Hesap yalnız alçak Güneş'te (yükseklik açısının sinüsü ≤ 0,5) yapılır. Çok yakında söner; orada ince arazi kendi kabartmasıyla gölgelenir.
 
+Aynı yürüyüş gece yüzünde de yapılır: Güneş ufkun altındayken yalnız ufku Güneş'ten alçak kalan tepeler aydınlanır. Ay'da en yüksek kabartma (~21 km) ufku en çok ~9° alçaltır; yükseklik sinüsü −0,16'nın (−9,2°) altında her yer gölgededir. Önceden gece yüzünde normal haritasıyla Güneş'e eğilen yüzler 25°–30° derinde bile aydınlanıyordu. Bu yüzden Ay'a yaklaşma çekiminde karanlık yüzeyde dağınık parlak lekeler görünüyordu.
+
 ## 3. Görev gününün bulutları
 
 **Kaynak:** NASA GIBS, `VIIRS_NOAA20_CorrectedReflectance_TrueColor` (kamu malı). Görevin kalkış günü kullanılır; gün bugün ya da gelecekteyse dün kullanılır, çünkü günlük mozaik ertesi gün tamamlanır. `web/js/bulutlar.js` 512 px parçaları birleştirir:

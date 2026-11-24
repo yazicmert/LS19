@@ -188,7 +188,7 @@ check('Apollo iki kademe: dokuz bölüm, anma süre 110–150 s, açılış INS\
   check('cinema.css: prefers-reduced-motion bloğu var ve açılış kaydırmasını/silmesini söndürür (letterbox geçişi, clip-path, ayrılma parlaması)', !!rm && /\.cine-bar \{ transition: none/.test(rm[1]) && /clip-path: none/.test(rm[1]) && /cine-flash\.go \{ animation: none/.test(rm[1]));
   check('cinema.css: eğriler tanımlı (--cine-out güçlü ease-out, --cine-io ease-in-out) ve yalnız onlar kullanılır', /--cine-out: cubic-bezier\(0\.23, 1, 0\.32, 1\)/.test(css) && /--cine-io: cubic-bezier\(0\.77, 0, 0\.175, 1\)/.test(css) && !/ease-in[^-o]/.test(css.replace(/ease-in-out/g, '')));
   check('cinema.css: dar/dikey ve kısa kadraj düzenleri kap sorgusuyla (pencere değil fragman alanı: dikey dışa aktarımda da), 9:16 güvenli alan, genel konum kuralları sorgulardan önce; letterbox çubuğu dikey ekranda en çok %15; alt karartma yalnız opacity ile belirir',
-    /@container \(max-width: 700px\) or \(max-aspect-ratio: 1\/1\)/.test(css) && /@container \(max-height: 520px\)/.test(css) && /@container \(max-aspect-ratio: 10\/16\)/.test(css) && /container-type: size/.test(css)
+    /@container \(max-width: 700px\) or \(max-aspect-ratio: 1\/1\)/.test(css) && /@container \(max-height: 600px\)/.test(css) && /@container \(max-aspect-ratio: 10\/16\)/.test(css) && /container-type: size/.test(css)
     && css.indexOf('.cine-cue { bottom: calc(var(--bar) + clamp(104px') < css.indexOf('@container (max-width: 700px)') && /\.cine > \* \{ --bar: clamp\(0px, calc\(\(100cqh - 100cqw \/ 2\.39\) \/ 2\), 15cqh\); \}/.test(css) && /container-type: size/.test(css) && !/\dv[wh]\b/.test(css)
     && /\.cine-scrim \{[^}]*transition: opacity/.test(css) && !/\.cine-scrim \{[^}]*transform/.test(css));
   // cinemaui.js sınıfları CSS'te tanımlı
@@ -225,7 +225,13 @@ check('Apollo iki kademe: dokuz bölüm, anma süre 110–150 s, açılış INS\
   check('lib/addons: son işlem eklentileri (three r170, MIT) ve gölgelendiriciler yerel', ['CopyShader', 'LuminosityHighPassShader', 'OutputShader'].every((f) => fs.existsSync(new URL(`../lib/addons/shaders/${f}.js`, import.meta.url))));
 }
 { const cin = fs.readFileSync(new URL('../js/cinema.js', import.meta.url), 'utf8');
-  check('kalkıştan sonraki açılış çekiminde karartma kalkar (post-asc → fade 0): "YÖRÜNGEDE" çekimi siyah kalmaz', /this\.state === 'wait' \|\| this\.state === 'post-asc'\) ui\.fade\(0, 900\)/.test(cin)); }
+  { const wk = fs.readFileSync(new URL('../js/worker.js', import.meta.url), 'utf8');
+    check('zaman hedefli çekimde benzetim çekim bitişini geçemez (warp until = s.tEnd; yakalamada hedef); işçi sınırda bekler: ana iş parçacığı takılınca LOI yakışı atlanmıyor',
+      /const un = !s\.wf && !s\.until \? s\.tEnd : null;/.test(cin) && /this\.h\.send\(\{ cmd: 'warp', value: this\.warpCmd, until: un \}\)/.test(cin) && /until: c\.tStart/.test(cin)
+      && /warpUntil = Number\.isFinite\(d\.until\) \? d\.until : null;/.test(wk) && /if \(!autoWarp && warpUntil != null\) tTarget = Math\.min\(tTarget, Math\.max\(tDisp, warpUntil\)\);/.test(wk)); }
+  check('çekim başlarken ekran kararmışsa her zaman açılır (kararmasız çekim de: girişten sonra "open", atlanan park-close sonrası TLI; kalkış sonrası 900 ms)',
+    /if \(s\.dip \|\| ui\.dark > 0\) ui\.fade\(0, this\.state === 'wait' \|\| this\.state === 'post-asc' \? 900 : 520\);/.test(cin)
+    && /fade\(to, ms = 350\) \{ this\.dark = \+to;/.test(fs.readFileSync(new URL('../js/cinemaui.js', import.meta.url), 'utf8'))); }
 // 4K çizim (post.js): ultra kademede tampon 3840 × 2160'a sığan en büyük boyut; küçük pencerede üst örnekleme (en çok 4×), 4K ekranda birebir; dokunmatik/az bellekte 4K ile başlanmaz
 {
   const PM = { ...(await (async () => { const src = fs.readFileSync(new URL('../js/post.js', import.meta.url), 'utf8'); const m = src.slice(src.indexOf('export const LEVELS'), src.indexOf('export class Post')).replace(/export /g, ''); return new Function(m + '; return { LEVELS, UHD, targetPixelRatio, wantsUltra };')(); })()) };

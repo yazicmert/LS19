@@ -571,8 +571,9 @@ export class Cinema {
     this.beginShot(i);
     const ui = this.ui;
     if (s.flashIn && !this.reduced) ui.flash();                                    // yapımcının geçişi: beyaz parlama
-    // kalkıştan sonra (post-asc) ekran karartılmıştır: açılış çekimi kararma istemese de (dip: false) karartma kalkmalı — yoksa "YÖRÜNGEDE" çekimi boyunca ekran siyah kalır
-    if (s.dip) ui.fade(0, 520); else if (this.state === 'wait' || this.state === 'post-asc') ui.fade(0, 900);
+    // ekran kararmışsa (kararmalı çekim, giriş kartı, kalkış sonrası ya da atlanan kararmalı çekimin bıraktığı kararma) her zaman açılır: kararma istemeyen
+    // (dip: false) çekim de olsa. Yoksa çekim boyunca ekran siyah kalır (girişten sonra "open"; park-close atlanınca TLI çekimleri)
+    if (s.dip || ui.dark > 0) ui.fade(0, this.state === 'wait' || this.state === 'post-asc' ? 900 : 520);
     this.state = 'run'; this.warpCmd = Math.max(1, Math.min(this.warpCmd, 2));
   }
   startShotNoCatch(i) { this.ui.slate(null); this.beginShot(i); const s = this.shots[i]; if (s.flashIn && !this.reduced) this.ui.flash(); if (s.dip || true) this.ui.fade(0, 520); this.state = 'run'; }
@@ -763,8 +764,8 @@ export class Cinema {
       if (c.cut && this.wall - c.t0 > 0.6) this.ui.slate(translateText('Kurgu: sahne atlanıyor') + (c.name ? ' → ' + translateText(c.name) : ''), 'T+' + fmtDur(Math.max(0, x.t - (this.h.ui.tLaunch || 0))));
       if (behind <= 0.8 || this.wall - c.t0 > (c.cut ? 90 : 30)) {
         this.evFloor = c.tStart - 30; this.cues = [];                              // geçilen sürenin olayları (worker'dan geç gelir) sonraki sahnede alt yazı olmasın
-        this.state = 'run'; this.warpCmd = 1; this.h.send({ cmd: 'warp', value: 1 }); this.startShotNoCatch(c.i); }
-      else { const w = clamp(behind / 0.9, 1, 40000); this.warpCmd = w; if (performance.now() - this.lastSend > 60) { this.lastSend = performance.now(); this.h.send({ cmd: 'warp', value: w }); } this.wall += dt; }
+        this.state = 'run'; this.warpCmd = 1; this.lastUntil = undefined; this.h.send({ cmd: 'warp', value: 1 }); this.startShotNoCatch(c.i); }
+      else { const w = clamp(behind / 0.9, 1, 40000); this.warpCmd = w; if (performance.now() - this.lastSend > 60) { this.lastSend = performance.now(); this.lastUntil = undefined; this.h.send({ cmd: 'warp', value: w, until: c.tStart }); } this.wall += dt; }      // yakalama: hedefin ötesine geçilmez
       return;
     }
     if (this.state === 'wait') {
@@ -796,7 +797,10 @@ export class Cinema {
     if (this.paused) w = 1;
     // artışta yumuşak, azalışta anında (olayı geçmesin)
     this.warpCmd = w > this.warpCmd ? this.warpCmd + (w - this.warpCmd) * (1 - Math.exp(-dt / 0.35)) : w;
-    if (performance.now() - this.lastSend > 60 && Math.abs(this.warpCmd - (this.lastWarp || 0)) > Math.max(0.02, 0.02 * this.warpCmd)) { this.lastSend = performance.now(); this.lastWarp = this.warpCmd; this.h.send({ cmd: 'warp', value: this.warpCmd }); }
+    // zaman hedefli çekimde benzetim çekimin bitişini geçemez (until): ana iş parçacığı takılınca (uzun kare, parça yükleme) son komut ×20 000'de kalıp
+    // fizik işçisi bir sonraki çekimin olayını (ör. LOI yakışı) tek seferde geçiyordu; sınırda bekler, sonraki çekim yeni komutla açar
+    const un = !s.wf && !s.until ? s.tEnd : null;
+    if (performance.now() - this.lastSend > 60 && (un !== this.lastUntil || Math.abs(this.warpCmd - (this.lastWarp || 0)) > Math.max(0.02, 0.02 * this.warpCmd))) { this.lastSend = performance.now(); this.lastWarp = this.warpCmd; this.lastUntil = un; this.h.send({ cmd: 'warp', value: this.warpCmd, until: un }); }
     // olaylar: ayrılma parlaması
     const nd = (x.debris || []).length; if (nd > this.sepSeen) { if (s.flashOnSep && !this.reduced) ui.flash(); if (this.audio) this.audio.thump(); this.sepSeen = nd; }
     if (this.audio) this.audio.update(this.paused || !isBurn(x) ? 0 : x.thr, this.warpCmd, false);

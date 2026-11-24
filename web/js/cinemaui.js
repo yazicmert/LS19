@@ -149,8 +149,11 @@ export class CineUI {
     const seen = new Set();
     for (const t of list) {
       let n = this.tagEls[t.k]; if (!n) { n = this.tagEls[t.k] = el('div', 'cine-tag', '<i></i><b></b><span></span>'); box.appendChild(n); }
-      n.style.transform = `translate(${t.x.toFixed(1)}px, ${t.y.toFixed(1)}px)`;
-      if (n._n !== t.name) { n._n = t.name; n.children[1].textContent = t.name; } if (n._s !== t.sub) { n._s = t.sub; n.children[2].textContent = t.sub || ''; }
+      if (n._n !== t.name) { n._n = t.name; n.children[1].textContent = t.name; n._w = 0; } if (n._s !== t.sub) { n._s = t.sub; n.children[2].textContent = t.sub || ''; n._w = 0; }
+      // sağ kenara sığmayan etiket noktanın soluna açılır (uzun araç etiketi "Dünya'ya … · Ay'a …" kenardan taşıyordu); 40 px histerezis
+      if (!n._w) n._w = n.offsetWidth; const bw = box.clientWidth || 1e9, room = bw - 16 - t.x;
+      const flip = n._w > room + (n.classList.contains('flip') ? 40 : 0); n.classList.toggle('flip', flip);
+      n.style.transform = `translate(${(flip ? t.x - n._w : t.x).toFixed(1)}px, ${t.y.toFixed(1)}px)`;
       n.classList.add('in'); seen.add(t.k);
     }
     for (const k in this.tagEls) if (!seen.has(k)) this.tagEls[k].classList.remove('in');
@@ -181,7 +184,7 @@ export class CineUI {
     clearTimeout(this.cueT); this.cueT = setTimeout(() => c.classList.remove('in'), ms);
   }
   // kararma geçişi: to 0..1 (1 = siyah), ms
-  fade(to, ms = 350) { this.fadeEl.style.transitionDuration = `${ms}ms`; this.fadeEl.style.opacity = String(to); }
+  fade(to, ms = 350) { this.dark = +to; this.fadeEl.style.transitionDuration = `${ms}ms`; this.fadeEl.style.opacity = String(to); }      // dark: son istenen kararma (cinema.js startShot)
   // ayrılma parlaması
   flash() { this.flashEl.classList.remove('go'); void this.flashEl.offsetWidth; this.flashEl.classList.add('go'); }
   set paused(on) { this.root.classList.toggle('paused', !!on); }

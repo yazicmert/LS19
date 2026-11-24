@@ -61,8 +61,11 @@ const scene = sceneSrc();
   const dec = (src, name) => (src.match(new RegExp(`float ${name}\\(vec4 c\\) \\{ return ([^}]*) \\}`)) || [])[1];
   check('Ay kabartma gölgesi: Güneş yönünde 12 adım (2,2 km × 1,45ⁿ ≈ 140 km), eğrilik payı s²/2R, yalnız alçak Güneş (< 30°), yakında söner; doğrudan ışığı çarpar',
     /float reliefShadow\(vec3 N, vec3 T, vec3 B, vec3 L\)/.test(FS_MOON) && /k < 12/.test(FS_MOON) && /s = 2\.2/.test(FS_MOON) && /s \*= 1\.45/.test(FS_MOON)
-    && /s \* s \/ \(2\.0 \* radius\)/.test(FS_MOON) && /sEl > 0\.5\) return 1\.0/.test(FS_MOON) && /float near = smoothstep\(0\.06, 0\.2, length\(fwidth\(vUv \* hSize\)\)\)/.test(FS_MOON)
+    && /s \* s \/ \(2\.0 \* radius\)/.test(FS_MOON) && /sEl > 0\.5\) return 1\.0/.test(FS_MOON) && /float near = sEl < 0\.0 \? 1\.0 : smoothstep\(0\.06, 0\.2, length\(fwidth\(vUv \* hSize\)\)\)/.test(FS_MOON)
     && /float mu0 = max\(dot\(Np, L\), 0\.0\) \* reliefShadow\(N, T, B, L\)/.test(FS_MOON));
+  // gece yüzü: Ay'da en yüksek kabartma ~21 km → ufuk en çok acos(R/(R+21)) ≈ 8,9° alçalır; sinüs −0,16 (−9,2°) altında hiçbir yer Güneş görmez
+  check('Ay gece yüzü: yükseliş sinüsü −0,16\'nın altında gölge (21 km kabartmanın ufuk alçalması ' + (Math.acos(1737.4 / (1737.4 + 21)) * 180 / Math.PI).toFixed(1) + '° < 9,2°); arada kabartma yürüyüşü (yalnız ufku alçak tepeler aydınlık)',
+    /if \(sEl < -0\.16\) return 0\.0;/.test(FS_MOON) && Math.acos(1737.4 / (1737.4 + 21)) < Math.asin(0.16) && /float pen = 0\.015 \+ 0\.25 \* abs\(tanEl\)/.test(FS_MOON));
   check('yükseklik çözümü gölgelendiricilerde aynı (R·256+G, −10…+11 km)', dec(VS_BODY, 'decH') && dec(VS_BODY, 'decH') === dec(FS_MOON, 'decHf'));
   // geometri: en uzun adım ≥ 100 km (alçak Güneş'te 4 km'lik sırt 2°'de ~115 km gölge düşürür)
   let s = 2.2, top = 0; for (let k = 0; k < 12; k++) { top = s; s *= 1.45; }

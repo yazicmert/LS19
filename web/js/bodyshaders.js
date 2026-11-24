@@ -184,16 +184,21 @@ float hAtF(vec2 uv) {                                                           
              mix(decHf(texelFetch(heightMap, ivec2(x0, yb), 0)), decHf(texelFetch(heightMap, ivec2(x1, yb), 0)), f.x), f.y);
 }
 // kabartma gölgesi: yüzeyde Güneş'in yönünde (teğet düzlemde) 12 adım (≈2–140 km, artan), Ay'ın eğriliği dahil; yolda Güneş'in yükselişinden dik bir sırt varsa gölge.
-// Yalnız alçak Güneş'te (gece–gündüz sınırı, yükseliş < ~30°): uzun gölgeler orada; yüksek Güneş'te gölgeler kısa ve normal haritası yeter. Yumuşak kenar (yarı gölge)
+// Yalnız alçak Güneş'te (gece–gündüz sınırı, yükseliş < ~30°): uzun gölgeler orada; yüksek Güneş'te gölgeler kısa ve normal haritası yeter. Yumuşak kenar (yarı gölge).
+// Güneş ufkun altındayken de (gece yüzü) aynı yürüyüş: yalnız ufku Güneş'ten alçak kalan tepeler aydınlanır. Ay'da en yüksek kabartma (~21 km) ufku en çok ~9° alçaltır;
+// daha derinde (yükseliş sinüsü < −0,16) her yer gölgede. Önceden gece yüzünde normal haritasıyla Güneş'e eğilen yüzler 25°–30° derinde bile aydınlanıyordu
+// (Ay'a yaklaşırken karanlık yüzeyde dağınık parlak lekeler)
 float reliefShadow(vec3 N, vec3 T, vec3 B, vec3 L) {
-  float sEl = dot(N, L); if (useHeight < 0.5 || sEl <= 0.0 || sEl > 0.5) return 1.0;
+  float sEl = dot(N, L); if (sEl < -0.16) return 0.0;
+  if (useHeight < 0.5) return smoothstep(-0.02, 0.01, sEl);
+  if (sEl > 0.5) return 1.0;
   vec3 Lt = L - N * sEl; float lt = length(Lt); if (lt < 1e-5) return 1.0; Lt /= lt;
   float east = dot(Lt, T), north = dot(Lt, B), clat = max(sqrt(max(1.0 - vLocal.z * vLocal.z, 0.0)), 0.03);
   float tanEl = sEl / sqrt(max(1.0 - sEl * sEl, 1e-6)), h0 = hAtF(vUv), mx = -1e9, s = 2.2;
   vec2 kUv = vec2(east / (2.0 * PI * radius * clat), north / (PI * radius));
   for (int k = 0; k < 12; k++) { float hk = hAtF(vUv + kUv * s); mx = max(mx, (hk - h0 - s * s / (2.0 * radius)) / s); s *= 1.45; }
-  float pen = 0.015 + 0.25 * tanEl;                                                       // yarı gölge: alçak Güneş'te dar
-  float near = smoothstep(0.06, 0.2, length(fwidth(vUv * hSize)));                         // çok yakında (bir hücre ekranda > ~15 px) kaba gölge söner: ince arazi kendi kabartmasıyla
+  float pen = 0.015 + 0.25 * abs(tanEl);                                                  // yarı gölge: alçak Güneş'te dar
+  float near = sEl < 0.0 ? 1.0 : smoothstep(0.06, 0.2, length(fwidth(vUv * hSize)));      // çok yakında (bir hücre ekranda > ~15 px) kaba gölge söner (yalnız gündüz yüzünde)
   return 1.0 - smoothstep(tanEl - pen, tanEl + pen, mx) * smoothstep(0.5, 0.42, sEl) * near;
 }
 void main() {
