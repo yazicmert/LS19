@@ -4,6 +4,7 @@
 //  3) görev gününün bulutları (NASA GIBS VIIRS): gün seçimi, parça adresi, mozaik boyu, zemine göre bulut çözümü, bulut gölgesi, sahne ve uygulama bağlantısı
 //  4) mevsimsel Dünya: dönem seçimi, oran hesabı (algılayıcı farkı, alt ortanca, renk korunan sınır, tropik tavanı, geçerlilik), gölgelendirici ve sahne
 //  5) Ay: Dünya ışığı Dünya'nın evresine ve uzaklığa göre; dolunay parlaması (Hapke karşı konum etkisi)
+//  6) pozlama uyarlaması (sahne geometrisinden ölçüm) ve Güneş mercek parlaması
 //  2) Ay kabartma gölgesi: LOLA yükseklik alanında Güneş yönünde yürüyüş, eğrilik, yalnız alçak Güneş, yakında söner; yükseklik çözümü VS_BODY ile aynı
 import { register } from 'node:module';
 import { sceneSrc } from './scenesrc.js';
@@ -11,6 +12,7 @@ register('./importmap_loader.mjs', import.meta.url);
 const { FS_ATM, FS_MOON, VS_BODY, FS_EARTH, earthshine, EARTHSHINE } = await import('../js/bodyshaders.js');
 const BL = await import('../js/bulutlar.js');
 const MV = await import('../js/mevsim.js');
+const PZ = await import('../js/pozlama.js');
 import fs from 'fs';
 
 let fail = 0;
@@ -142,6 +144,33 @@ const scene = sceneSrc();
     && /I \*= \(1\.0 \+ 1\.0 \/ \(1\.0 \+ tg \/ 0\.06\)\) \/ \(1\.0 \+ 1\.0 \/ \(1\.0 \+ 1\.0 \/ 0\.06\)\);/.test(FS_MOON)
     && /alb \* earthLit \* vec3\(0\.9, 1\.0, 1\.15\) \* max\(dot\(Np, normalize\(earthDir\)\), 0\.0\)/.test(FS_MOON) && !/alb \* 0\.012/.test(FS_MOON)
     && /this\.moonU\.earthLit\.value = earthshine\(sun, rm\);/.test(scene));
+}
+
+// ---------------------------------------------------------------- 6) pozlama uyarlaması ve mercek parlaması
+{
+  const near = (a, b, e) => Math.abs(a - b) < e;
+  check('daire kesişimi: ayrık 0, iç içe küçüğün alanı, eş daireler yarı yarıya örtüşünce düzlem formülü',
+    PZ.circleOverlap(1, 1, 2.5) === 0 && near(PZ.circleOverlap(1, 0.3, 0.2), Math.PI * 0.09, 1e-12) && near(PZ.circleOverlap(1, 1, 1), 2 * Math.PI / 3 - Math.sqrt(3) / 2, 1e-9));
+  const R = 1737.4, AU = 1.496e8, sun = [AU, 0, 0], ay = [{ c: [0, 0, 0], R, w: 0.55 }];
+  const m = (o) => PZ.meter({ fovY: 40, aspect: 16 / 9, sun, bodies: ay, ...o });
+  const gece = m({ eye: [-R - 100, 0, 0], dir: [1, 0, 0] }), konu = m({ eye: [-R - 100, 0, 0], dir: [1, 0, 0], veh: { p: [-R - 99.97, 0, 0], size: 0.012, lit: 1 } });
+  const golge = m({ eye: [-R - 100, 0, 0], dir: [1, 0, 0], veh: { p: [-R - 99.97, 0, 0], size: 0.012, lit: 0 } });
+  const gunduz = m({ eye: [R + 100, 0, 0], dir: [-1, 0, 0] }), uzak = m({ eye: [-4e5, 3e4, 0], dir: [1, -0.075, 0] });
+  const parlak = PZ.meter({ fovY: 40, aspect: 16 / 9, sun, bodies: [{ c: [0, 0, 0], R, w: 1.05 }], eye: [R + 100, 0, 0], dir: [-1, 0, 0] });
+  check('ölçüm: kadrajı gece yüzü doldurursa pozlama en çok (' + PZ.EXP_MAX + '); Güneş\'teki araç kadrajdaysa 1 (konu öncelikli); araç da gölgedeyse yine açılır; gündüz yüzü ve uzak hilal 1; çok parlak dolu disk kısılır (≥ ' + PZ.EXP_MIN + ')',
+    near(gece.target, PZ.EXP_MAX, 1e-9) && konu.target === 1 && near(golge.target, PZ.EXP_MAX, 1e-9) && gunduz.target === 1 && uzak.target === 1 && parlak.target < 1 && parlak.target >= PZ.EXP_MIN);
+  const k1 = Math.log(PZ.adapt(1, 8, PZ.TAU_UP)) / Math.log(8), k2 = Math.log(PZ.adapt(8, 1, PZ.TAU_DOWN)) / Math.log(8);
+  check('uyarlama (logaritmik): karanlığa ' + PZ.TAU_UP + ' sn, aydınlığa ' + PZ.TAU_DOWN + ' sn zaman sabiti (bir sabitte yolun %63\'ü); ilk karede hedef',
+    near(k1, 1 - Math.exp(-1), 1e-9) && near(1 - k2, 1 - Math.exp(-1), 1e-9) && PZ.adapt(undefined, 3, 0.016) === 3 && PZ.TAU_UP > PZ.TAU_DOWN);
+  const E0 = [-7000, 0, 0], ear = [[0, 0, 0], 6371];
+  const kenar = Math.asin(6371 / 7000), yanal = (a) => [-7000 + AU * Math.cos(a), AU * Math.sin(a), 0];
+  check('Güneş görünürlüğü: Dünya arkasında 0, açıkta 1, kenarda yarım (yumuşak, Güneş\'in açısal yarıçapı)',
+    PZ.sunVisible(E0, [AU, 0, 0], [ear]) === 0 && PZ.sunVisible(E0, [-AU, 0, 0], [ear]) === 1 && near(PZ.sunVisible(E0, yanal(kenar), [ear]), 0.5, 0.02));
+  const post = fs.readFileSync(new URL('../js/post.js', import.meta.url), 'utf8'), sky = fs.readFileSync(new URL('../js/skyview.js', import.meta.url), 'utf8');
+  check('bağlantı: sahne her kare ölçer (kesmede atlar, ?poz=0 kapatır, gökyüzü görünümünde 1); mercek parlaması son işlem hattında ton eşlemeden önce (6 hayalet, hâle yayı, dikenler), Dünya/Ay örtünce söner',
+    /this\.meterFrame\(eye, pose\.target, sun, rm, vehPos, lit/.test(scene) && /poz=0/.test(scene) && /cut \? m\.target : adapt\(this\.expCur, m\.target, dt\)/.test(scene)
+    && /this\.post\.setFlare\(x, y, on > 0 \? on \* sunVisible\(eye, sun/.test(scene) && /this\.expCur = 1; this\.expEye = null;/.test(sky)
+    && (post.match(/f \+= ghost\(/g) || []).length === 6 && post.indexOf('composer.addPass(this.flare)') < post.indexOf('composer.addPass(new M.OutputPass())') && /setFlare\(x, y, vis\)/.test(post));
 }
 
 console.log(fail ? `\n${fail} HATA` : '\nTAMAM');

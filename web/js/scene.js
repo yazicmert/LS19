@@ -18,6 +18,7 @@ import { VS_BODY, FS_EARTH, VS_ATM, FS_ATM, FS_MOON, EARTHSHINE, earthshine } fr
 import { bandRange } from './bodyband.js';
 import { sphereGeometry, m3ToQuat, glowTexture, ringTexture, unit3, conicEach, conicPoints, SUN_I } from './scenegeom.js';
 import { mixin } from './mixin.js';
+import { meter, adapt, sunVisible } from './pozlama.js';
 
 export { conicEach, conicPoints };
 import { PLANETS, poleVec, PLANET_VIS, planetMaterial, atmosphereMesh, ringMaterial } from './planets.js';
@@ -712,6 +713,7 @@ export class World {
     this.sunLight.intensity = Math.PI * SUN_I * lit;
     this.ambient.intensity = 0.014 + (central === 'E' && lit < 1 ? 0.02 : 0);
     this.eclipse = lit;
+    this.meterFrame(eye, pose.target, sun, rm, vehPos, lit, extra.dtReal || 0.016);
     this.updateEnv(vehPos, sun, rm, lit);
     this.updateFx(Math.min(0.1, extra.dtReal || 0.016), x, extra, info, zNow, rel, sd, lit, k, thr);
     // gölge: araç kendi üstüne ve yüzeye gölge atar; kamera uzaktaysa (>1 km) gölge haritası yenilenmez
@@ -897,6 +899,25 @@ export class World {
     d.style.display = 'block'; d.style.transform = `translate(${((v.x + 1) / 2) * w}px, ${((1 - v.y) / 2) * h - dy}px) translate(-50%, -100%)`;
   }
 
+  // pozlama uyarlaması ve Güneş mercek parlaması (pozlama.js): ölçüm sahne geometrisinden; kesmede (bakış 15°'den çok döner ya da göz hedefe uzaklığının
+  // %25'inden çok sıçrar) beklemeden hedefe atlar. ?poz=0 kapatır (pozlama 1)
+  meterFrame(eye, target, sun, rm, vehPos, lit, dt) {
+    if (this.expOff === undefined) this.expOff = /[?&]poz=0\b/.test(location.search);
+    const fw = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion), dir = [fw.x, fw.y, fw.z];
+    const cg = Math.max(-1, Math.min(1, dot(unit(sub(sun, rm)), unit(sub(eye, rm))))), tg = Math.sqrt((1 - cg) / Math.max(1 + cg, 1e-4));
+    const wMoon = 0.55 * (1 + 1 / (1 + tg / 0.06)) / (1 + 1 / (1 + 1 / 0.06));          // Ay albedosu ve dolunay parlaması (FS_MOON ile aynı)
+    const m = meter({ eye, dir, fovY: this.camera.fov, aspect: this.camera.aspect, sun, bodies: [{ c: [0, 0, 0], R: E.R_E, w: 1 }, { c: rm, R: E.R_M, w: wMoon }], veh: { p: vehPos, size: 0.012, lit } });
+    const pe = this.expEye, cut = !pe || dot(dir, this.expDir) < Math.cos(0.26) || norm(sub(eye, pe)) > 0.25 * norm(sub(target, eye));
+    this.expEye = eye.slice(); this.expDir = dir; this.expMeter = m;
+    this.expCur = this.expOff ? 1 : cut ? m.target : adapt(this.expCur, m.target, dt);
+    this.renderer.toneMappingExposure = (this.expBase || 1) * this.expCur;
+    if (this.post) {
+      const v = new THREE.Vector3(...unit(sub(sun, eye))).multiplyScalar(1e6).project(this.camera), x = (v.x + 1) / 2, y = (v.y + 1) / 2;
+      const on = v.z < 1 ? 1 - Math.max(0, Math.min(1, (Math.max(Math.abs(v.x), Math.abs(v.y)) - 1) / 0.35)) : 0;
+      this.post.setFlare(x, y, on > 0 ? on * sunVisible(eye, sun, [[[0, 0, 0], E.R_E], [rm, E.R_M]]) : 0);
+    }
+  }
+
   render() {
     if (!this.ready) return;
     const now = performance.now(), raw = (now - this._lastRender) / 1000 || 0.016, dt = Math.min(0.1, raw); this._lastRender = now;
@@ -926,7 +947,7 @@ export class World {
       this.cine.level = this.post.level;
     } else if (this._pr0) { this.renderer.setPixelRatio(this._pr0); this._pr0 = null; }
     this.cine.on = on;
-    this.sunSprite.material.color.setScalar(on ? 3 : 1); this.sunSprite.scale.setScalar(on ? 0.03 : 0.09); this.renderer.toneMappingExposure = on ? 0.92 : 1.0;
+    this.sunSprite.material.color.setScalar(on ? 3 : 1); this.sunSprite.scale.setScalar(on ? 0.03 : 0.09); this.expBase = on ? 0.92 : 1.0; this.renderer.toneMappingExposure = this.expBase * (this.expCur || 1);
     this.labelsEl.style.display = on ? 'none' : '';
     this.resize(this.canvas.clientWidth, this.canvas.clientHeight);
   }

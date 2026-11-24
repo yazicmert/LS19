@@ -1,4 +1,4 @@
-// LS19 sinematik son işlem hattı (yalnız sinematik kipte kurulur ve çalışır): HDR sahne (MSAA) → bloom → anamorfik çizgi parlama → ton eşleme (OutputPass) → film (vinyet, tane, renk, kromatik sapma).
+// LS19 sinematik son işlem hattı (yalnız sinematik kipte kurulur ve çalışır): HDR sahne (MSAA) → bloom → anamorfik çizgi parlama → Güneş mercek parlaması → ton eşleme (OutputPass) → film (vinyet, tane, renk, kromatik sapma).
 // three r170 eklentileri (lib/addons/postprocessing) ilk kullanımda içe aktarılır: normal görünümün yüklenmesini yavaşlatmaz.
 // Kare süresine göre kalite düşer (yüksek → orta → düşük): MSAA/çizgi parlama kapanır, piksel oranı iner, sonunda son işlem tamamen bırakılır.
 import * as THREE from 'three';
@@ -23,6 +23,36 @@ const FILM = {
       col *= 1.0 - vignette * smoothstep(0.12, 0.75, r2 * 1.6);
       col += (h21(vUv * res + fract(time * 7.13) * 97.0) - 0.5) * grain * (0.4 + 0.6 * (1.0 - l));     // film tanesi: karanlıkta belirgin
       gl_FragColor = vec4(col * (1.0 - fade), 1.0);
+    }`,
+};
+
+// Güneş mercek parlaması (HDR, ton eşlemeden önce): Güneş'ten ekran merkezinden geçen doğru boyunca yansıma "hayaletleri" (yumuşak, kenarı parlak diskler; renkli
+// kaplama yansımaları), merkez çevresinde kromatik bir hâle yayı (yalnız Güneş tarafında) ve Güneş'in çevresinde ışınsal dikenler (diyafram kanatları, 6 kollu).
+// vis: Güneş diskinin görünen payı × kadrajda olma (scene.js; Dünya/Ay örtünce söner). Güneş kadraj dışına çıkınca yavaşça söner (yansıma ışığı hâlâ girer)
+export const FLARE = {
+  uniforms: { tDiffuse: { value: null }, sun: { value: new THREE.Vector2(0.5, 0.5) }, vis: { value: 0 }, aspect: { value: 1 }, gain: { value: 1 } },
+  vertexShader: /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tDiffuse; uniform vec2 sun; uniform float vis, aspect, gain; varying vec2 vUv;
+    vec3 ghost(vec2 p, vec2 g, float r, vec3 c) { float d = length((p - g) * vec2(aspect, 1.0)); return c * smoothstep(r, r * 0.8, d) * (0.55 + 0.45 * smoothstep(r * 0.3, r * 0.95, d)); }
+    void main() {
+      vec3 col = texture2D(tDiffuse, vUv).rgb;
+      if (vis > 0.001) {
+        vec2 ax = vec2(0.5) - sun, p = vUv; vec3 f = vec3(0.0);
+        f += ghost(p, sun + ax * 0.55, 0.030, vec3(0.30, 0.55, 1.00) * 0.060);
+        f += ghost(p, sun + ax * 0.80, 0.060, vec3(0.45, 1.00, 0.55) * 0.030);
+        f += ghost(p, sun + ax * 1.15, 0.020, vec3(1.00, 0.65, 0.30) * 0.090);
+        f += ghost(p, sun + ax * 1.45, 0.110, vec3(0.60, 0.45, 1.00) * 0.022);
+        f += ghost(p, sun + ax * 1.80, 0.045, vec3(1.00, 0.50, 0.70) * 0.045);
+        f += ghost(p, sun + ax * 2.10, 0.150, vec3(0.40, 0.80, 1.00) * 0.016);
+        vec2 q = (p - 0.5) * vec2(aspect, 1.0), sq = (sun - 0.5) * vec2(aspect, 1.0); float rq = length(q);      // hâle: merkezde 0,42 yarıçaplı ince renkli halka, Güneş yarısında
+        float arc = pow(max(dot(q / max(rq, 1e-4), sq / max(length(sq), 1e-4)), 0.0), 3.0) * smoothstep(0.02, 0.15, length(sq));
+        f += vec3(smoothstep(0.018, 0.0, abs(rq - 0.43)), smoothstep(0.018, 0.0, abs(rq - 0.42)), smoothstep(0.018, 0.0, abs(rq - 0.41))) * arc * 0.018;
+        vec2 ds = (p - sun) * vec2(aspect, 1.0); float dl = length(ds), th = atan(ds.y, ds.x);              // dikenler: 6 kol, uzaklıkla sönen
+        f += vec3(1.0, 0.95, 0.88) * pow(abs(cos(th * 3.0)), 120.0) * 0.3 * exp(-dl * 16.0) * step(0.004, dl);
+        col += f * vis * gain;
+      }
+      gl_FragColor = vec4(col, 1.0);
     }`,
 };
 
@@ -80,6 +110,7 @@ export class Post {
       stretch(); const ss = sb.setSize.bind(sb); sb.setSize = (w, h) => { ss(w, h); stretch(); };
       composer.addPass(sb);
     } else this.streak = null;
+    this.flare = new M.ShaderPass(FLARE); this.flare.uniforms.aspect.value = W / H; composer.addPass(this.flare);
     composer.addPass(new M.OutputPass());
     this.film = new M.ShaderPass(FILM); composer.addPass(this.film);
     this.applyLook();
@@ -106,7 +137,7 @@ export class Post {
   setSize(w, h) {
     const pr = this.renderer.getPixelRatio(), W = Math.max(2, Math.round(w * pr)), H = Math.max(2, Math.round(h * pr));
     if (W === this.w && H === this.h) return;
-    this.composer.setSize(W, H); this.film.uniforms.res.value.set(W, H); this.film.uniforms.aspect.value = W / H; this.w = W; this.h = H;
+    this.composer.setSize(W, H); this.film.uniforms.res.value.set(W, H); this.film.uniforms.aspect.value = W / H; this.flare.uniforms.aspect.value = W / H; this.w = W; this.h = H;
   }
 
   // kalite: 'ultra' (4K iç çözünürlük, 2× MSAA + çizgi parlama) | 'high' (4× MSAA + çizgi parlama) | 'medium' (MSAA yok, çizgi parlama yok) | 'low' (son işlem yok: çağıran düz çizim yapar)
@@ -118,6 +149,8 @@ export class Post {
     if (this.onLevel) this.onLevel(level);
   }
   get active() { return this.level !== 'low'; }
+  // Güneş mercek parlaması: ekran konumu (uv, 0…1) ve görünürlük (scene.js her kare)
+  setFlare(x, y, vis) { if (!this.flare) return; const u = this.flare.uniforms; u.sun.value.set(x, y); u.vis.value = vis; }
 
   // ölçüm: kare süresi üssel ortalaması; 2 sn boyunca 30 fps altında kalırsa bir kademe düşer
   render(dt, raw = dt) {

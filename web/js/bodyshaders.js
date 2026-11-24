@@ -4,8 +4,9 @@ import { GLSL_NOISE } from './planets.js';
 
 // Ay'ın gece yüzüne Dünya ışığı: dolu Dünya'da (yeni Ay) EARTHSHINE, ortalama uzaklıkta. Lambert küresinin evre işlevi Φ(α) = (sin α + (π − α) cos α) / π;
 // α = Dünya'da Güneş ile Ay arasındaki açı (yeni Ay 0: Ay'dan Dünya dolu görünür, dolunay π: Dünya karanlık). Işık uzaklığın karesiyle azalır
-// (gerçek oran güneş ışığının ~1e-4'ü; ekran için ~40 kat büyütülmüş, karanlık yüzde kraterler seçilsin diye; pozlama uyarlaması kalanını açar)
-export const EARTHSHINE = 0.012; const D_MOON = 384400;
+// (gerçek oran güneş ışığının ~1e-4'ü; ekran için ~100 kat büyütülmüş: normal pozlamada gece yüzü ancak seçilir, pozlama uyarlaması (pozlama.js)
+// kadrajı gece yüzü doldurunca açar ve kraterler Dünya ışığında görünür)
+export const EARTHSHINE = 0.03; const D_MOON = 384400;
 export function earthshine(sun, rm) {
   const ns = Math.hypot(...sun), d = Math.hypot(...rm), c = (sun[0] * rm[0] + sun[1] * rm[1] + sun[2] * rm[2]) / (ns * d || 1);
   const a = Math.acos(Math.max(-1, Math.min(1, c)));
