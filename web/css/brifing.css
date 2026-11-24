@@ -121,3 +121,41 @@ body.briefing .tilestatus, body.briefing .tilemode, body.briefing #pick { displa
   .brief-sum { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { .brief-fade, .brief-opt, .brief-card button { transition: none; } .brief-spin { animation-duration: 2.4s; } }
+
+/* ---- Aşama 2 ---- */
+/* Ay'daki iniş yerleri: Nereye adımında dokununca seçilir; seçili yer vurgulu */
+button.brief-pin { padding: 0; border: 0; background: none; color: inherit; font: inherit; }
+button.brief-pin.pick { pointer-events: auto; cursor: pointer; }
+button.brief-pin.pick::after { content: ''; position: absolute; left: -16px; top: -16px; width: 32px; height: 32px; }          /* dokunma alanı */
+button.brief-pin:not(.on) i { left: -5px; top: -5px; width: 10px; height: 10px; border-color: var(--text-secondary); box-shadow: none; }
+button.brief-pin:not(.on) b { top: -20px; left: 10px; font-size: 11px; color: var(--text-secondary); background: rgba(7, 8, 13, .6); }
+button.brief-pin.pick:hover i, button.brief-pin.pick:focus-visible i { border-color: var(--accent-2); }
+button.brief-pin.pick:hover b, button.brief-pin.pick:focus-visible b { color: var(--text-primary); border-color: var(--accent-2); }
+button.brief-pin:focus-visible { outline: none; }
+
+/* seçimin gerekçesi (sayılarla) */
+.brief-why { margin: -4px 0 12px; padding: 8px 12px 8px 14px; border-left: 2px solid var(--line-2); }
+.brief-why b { font: 600 10.5px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--text-muted); }
+.brief-why ul { margin: 4px 0 0; padding-left: 16px; color: var(--text-secondary); font-size: 12.5px; line-height: 1.5; }
+.brief-why li + li { margin-top: 2px; }
+
+/* profil kartlarında şematik yol (üstten; Dünya solda, Ay sağda) */
+.brief-opt.has-svg { grid-template-columns: 1fr auto; }
+.bo-svg { grid-column: 1 / -1; width: 100%; height: 72px; margin: 4px 0 2px; border-radius: 8px; background: rgba(0, 0, 0, .25); }
+.bo-svg path { fill: none; stroke-width: 1.2; stroke-linejoin: round; stroke-linecap: round; }
+.bo-svg .park, .bo-svg .raise { stroke: var(--text-muted); }
+.bo-svg .moon { stroke: #d9dee8; }
+.bo-svg .transfer { stroke: var(--accent-2); stroke-width: 1.5; }
+.bo-svg .halo { stroke: var(--warn); stroke-width: 1.5; }
+.bo-svg .e { fill: #3b82f6; }
+.bo-svg .m { fill: #c9ced8; }
+
+/* telefon: tutamak düğmesi listeyi tam ekrana büyütür ya da sahneyi gösterir */
+.brief-grab { display: none; }
+@media (max-width: 700px) {
+  .brief-grab { display: block; align-self: center; width: 64px; height: 22px; margin: -8px auto 6px; padding: 0; border: 0; background: none; cursor: pointer; }
+  .brief-grab span { display: block; width: 40px; height: 4px; margin: 0 auto; border-radius: 2px; background: var(--line-2); }
+  .brief-step.full { top: calc(64px + var(--st)); max-height: none; }
+}
+
+.brief-pin.left b { left: auto; right: 12px; }                                          /* komşu işaretle çakışmasın (Apollo 12 ↔ 14) */

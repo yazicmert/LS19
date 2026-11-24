@@ -89,6 +89,30 @@ Ay görevi artık hazır bir görevle park yörüngesinde açılmıyor. LS19 ön
   - Ay görevi panelinin Görev adımındaki **LS19 ile adım adım tasarla** düğmesi brifingi yeniden açar.
 - **Kısayollar:** Esc bir adım geri gider; brifing açıkken uçuş kısayolları kapalıdır. Canlı Gökyüzü'ne ya da başka bir deneye geçince brifing kapanır.
 
+### Aşama 2: Ay'da yer seçme, canlı tasarım, gerçek yol, gerekçeler
+
+- **Ay'da yer seçme:**
+  - Nereye adımında altı iniş yeri Ay'ın üstünde işaretlidir; işarete dokununca yer seçilir. Apollo 12 ile 14 yakın olduğu için Apollo 12'nin adı solda durur.
+  - Görev tarihinde yer gecede olabilir (Ekim 2026'da yakın yüz hilal evresinde karanlıktır). Bu yüzden Ay bu adımlarda "stüdyo ışığıyla" aydınlatılır: ışık yerin batısından ~35° yükseklikten gelir, kabartma okunur. Her karede gerçek Güneş'e geri döner.
+- **Canlı tasarım** (`app.js` › `briefDesign`):
+  - Profil adımında altı profil seçilen iniş yeri, tarih, roket ve roketin rampasıyla iş parçacığında gerçekten tasarlanır. Önce seçili profil hesaplanır.
+  - Kartlarda süre, Δv ve yakıt görünür: TLI ve iniş için gereken ve kademede olan. Kart durumları: sırada / hesaplanıyor… / bu pencerede yakınsamadı.
+  - Sonuç ortak tasarım önbelleğine yazılır. Brifingin sonundaki "Görevi tasarla" aynı seçimle önbellekten gelir. Ölçüm: Hadley + Apollo, kurulum dahil 4,2 sn. Seçili profil hâlâ hesaplanıyorsa aynı hesap beklenir, iki kez hesaplanmaz.
+  - Yer, tarih ya da roket değişince hesap baştan başlar; brifing kapanınca durur.
+  - Ölçüm (yazılım çizimi, Hadley, 13 Ekim 2026): iki Apollo profili 15 sn içinde, NRHO 30 sn, L1 ~2 dk. Yükseltmeli ve L2 profilleri bu pencerede yakınsamaz (§3: bu iki birleşim bir sonraki pencereye kayar); kart bunu söyler ve son tasarım sonraki pencereyi dener.
+- **Gerçek yol** (`design.js` › `missionPath`):
+  - TLI yakışı ve Ay'a aktarma, tasarımın kendi kuvvet modeliyle (`flyTli` ile aynı) yeniden uçurulur. Halo profillerinde NRI'den sonra bir halo turu doğal hareketle (N-cisim) çizilir.
+  - Yol Dünya–Ay dönen çerçevesinde örneklenir. Kartlarda üstten SVG olarak (çizime sığdırılır), sahnede 3B olarak; park ve Ay yörüngesi okunur olsun diye şematiktir.
+  - Ay'a ulaşmayan yol çizilmez; yükseltmeli profilin TLI'ı ayrı yoldan gider, orada şematik çizim kalır.
+  - Hazır (önbellekteki) tasarımın yolu ayrıca hesaplanır (`designwork.js` › `pathFor`).
+- **Gerekçeler, sayılarla** (`brifingtext.js` › `reasons`):
+  - enleme göre en küçük Ay yörüngesi eğimi;
+  - en kısa ve en ucuz profile göre fark;
+  - iniş yakıtı payı ya da "göreve göre boyutlandı";
+  - roketin aracı kaç kat taşıdığı ve TLI yakıtı.
+- **Görüntü kaydırma** (`setViewOffset`): cisim kartın arkasında kalmaz. Masaüstünde sağa, telefonda yukarı kayar; girişte başlık solda (masaüstü) ya da altta (telefon) kalır.
+- **Telefon:** tutamak düğmesi listeyi tam ekrana büyütür ya da sahneyi gösterir.
+
 ### Kalkış ön yüklemesi (beklemesiz rampa görünümü)
 
 Kalkış canlandırması önceden şunları bekliyordu: roket modeli (Saturn V GLB; SLS için ayrıca Mobile Launcher GLB), gökyüzü gölgelendiricisi, ardından rampa çevresinin uydu görüntüsü, kabartması ve OSM binaları. Ölçüm (yazılım çizimi): Saturn V ile "Kalkış" düğmesinden roketin rampada görünmesine **7,4 sn**.
