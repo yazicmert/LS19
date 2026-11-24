@@ -2,9 +2,12 @@
 //  1) decaywork.js sözleşmesi: iş parçacığı ortamı taklit edilir (postMessage, onmessage, dosyadan fetch); sonuç GP sırasıyla ve ana iş parçacığındaki
 //     decayOf'la birebir aynı; ilerleme iletileri; yeni istek eskisini bırakır
 //  2) impact.js hızlandırmaları sonucu değiştirmez: ay dizini (tablonun ilk ayı bir kez) eski ISO ayrıştırmasıyla aynı; yılın günü yıl sınırlarında doğru
+//  2b) atmosfer sütunu: sonuç hesap sırasından bağımsız (önceden başka cisimler hesaplanmış olsa da bit bit aynı). Başvuru (fixtures/decay_ref400.json,
+//      400 cisim, o günkü geçmiş satırlarıyla): durum, güven, yöntem aynı; ömür 10⁻¹² oranı içinde
 //  3) sütunlu aktarım (gpdata.js packOmm/unpackOmm): değerler birebir (null, eksik alan, karışık sütun); SAT_FIELDS hesabın okuduğu her alanı kapsar
 //  4) arayüz sözleşmesi: ImpactUI iş parçacığını deney açılınca kurar, hata verirse eski dilimli yola düşer; decayhist adresleri modüle göre; ön yükleme
 import fs from 'fs';
+import { execFileSync } from 'child_process';
 
 let fail = 0;
 const check = (name, ok) => { console.log(`${ok ? 'TAMAM' : 'HATA '} ${name}`); if (!ok) fail++; };
@@ -65,6 +68,41 @@ const NOW = Date.parse('2026-11-20T00:00:00Z');
   const seq = ['2025-12-31T23:00:00Z', '2026-01-01T01:00:00Z', '2024-02-29T12:00:00Z', '2024-12-31T23:59:00Z', '2026-07-01T00:00:00Z', '2025-01-01T00:00:00Z'];
   const fwd = seq.map((s) => I.atmosphereDensity(h, 150, 15, at(s))), back = [...seq].reverse().map((s) => I.atmosphereDensity(h, 150, 15, at(s))).reverse();
   check('yılın günü (son yıl önbellekte): yıl sınırında, artık yılda ve geri sırayla aynı yoğunluk', fwd.every((v, k) => v === back[k] && v > 0));
+}
+
+// ---------------------------------------------------------------- atmosfer hızlandırmaları: eski kodla aynı sonuç
+{
+  const I = await import('../js/impact.js');
+  const REF = JSON.parse(read('test/fixtures/decay_ref400.json')), byId = new Map(gp.map((o) => [+o.NORAD_CAT_ID, o]));
+  I.setSolarTable(JSON.parse(read('test/fixtures/' + REF.f107)));
+  const now = Date.parse(REF.now); let bad = 0, maxRel = 0, ecc = 0;
+  for (const [id, durum, conf, method, life] of REF.rows) {
+    const o = byId.get(id), r = REF.hist[id], h = r ? I.histRow(r) : null, a = I.assessSat(o, now, false, I.calibHist(h));
+    if (a.ecc > 0.1) ecc++;
+    if (a.durum !== durum || (a.conf ?? null) !== conf || (a.method ?? null) !== method) { bad++; continue; }
+    const L = Number.isFinite(a.lifeDays) ? a.lifeDays : a.lifeDays == null ? null : 'inf';
+    if (typeof life === 'number') maxRel = Math.max(maxRel, Math.abs(L - life) / life); else if (L !== life) bad++;
+  }
+  check(`başvuruyla 400 cisim (${ecc} eksantrik, ${REF.rows.filter((q) => q[5]).length} geçmişli): durum, güven, yöntem aynı; ömürde en büyük göreli fark ${maxRel.toExponential(1)}`, bad === 0 && maxRel < 1e-12);
+  // sıra bağımsızlığı: önbellekler süreç boyunca kalır; bu yüzden iki ayrı süreçte: (a) yalnız bu 120 cisim, (b) önce başka Güneş tablosu ve başka cisimler,
+  // sonra aynı 120 cisim. Çıktılar bit bit aynı olmalı (eski sürümde sütun kovaya ilk düşen değerden kurulduğu için ~10⁻³ ayrışıyordu)
+  const child = (pollute) => execFileSync(process.execPath, ['--input-type=module', '-e', `
+    import fs from 'fs'; const I = await import(${JSON.stringify(new URL('../js/impact.js', import.meta.url).href)});
+    const rd = (f) => JSON.parse(fs.readFileSync(new URL(f, ${JSON.stringify(new URL('./fixtures/', import.meta.url).href)}), 'utf8'));
+    const gp = rd('gp_active.json'), REF = rd('decay_ref400.json'), now = Date.parse(REF.now), by = new Map(gp.map((o) => [+o.NORAD_CAT_ID, o]));
+    if (${pollute}) { I.setSolarTable(rd('f107_2025-07-20.json')); for (const o of gp) I.assessSat(o, now, false, null); }          // başka Güneş tablosu: aynı kovalara başka F10.7 değerleri düşer
+    I.setSolarTable(rd(REF.f107));
+    process.stdout.write(JSON.stringify(REF.rows.map(([id]) => I.assessSat(by.get(id), now, false, null))));`], { encoding: 'utf8', maxBuffer: 64e6 });
+  const ca = child(false), cb = child(true);
+  check(`sonuç hesap sırasından bağımsız: iki ayrı süreçte (yalnız / önbellekler önce başka tablo ve cisimlerle doldurulmuş) 400 cisim bit bit aynı — bilgi kartı ve liste ayrı iş parçacıklarında aynı tarihi verir`, ca.length > 1000 && ca === cb);
+  // ay sırası (ay başları tablosundan): Ap aylık değeri eski yolla (yıl ve ay farkı) aynı
+  const TAB = JSON.parse(read('test/fixtures/f107_2026-11-12.json')); I.setSolarTable(TAB);
+  const [y0, m0] = TAB.ilkAy.split('-').map(Number), t0 = Date.UTC(y0, m0 - 1, 15, 12), t1 = Date.UTC(y0, m0 - 1 + TAB.f.length - 1, 15, 12), day = TAB.gunluk ? Date.parse(TAB.gunluk.ilkGun + 'T00:00:00Z') : Infinity;
+  const apTail = I.solarAp(t1 + 400 * 864e5); let n = 0, apBad = 0;
+  for (const ms of [...Array(3000)].map((_, k) => t0 + ((k * 7919) % 3000) / 3000 * (Math.min(t1, day - 1) - t0))) {         // sıra karışık: önbellekteki son ay da sınanır
+    const d = new Date(ms), v = TAB.ap[(d.getUTCFullYear() - y0) * 12 + d.getUTCMonth() - (m0 - 1)], want = v != null && v >= 0 ? v : apTail; n++; if (I.solarAp(ms) !== want) apBad++;
+  }
+  check(`Ap aylık değeri eski yıl–ay hesabıyla aynı (${n} tarih, karışık sırayla)`, apBad === 0);
 }
 
 // ---------------------------------------------------------------- sütunlu aktarım
