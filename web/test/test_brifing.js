@@ -66,7 +66,7 @@ check('ne zaman: brifingde roket adımında seçilen roket ve rampası; her gör
 
 // ---------------------------------------------------------------- 4) Aşama 2: yer seçme, canlı tasarım, gerçek yol, gerekçeler, telefon
 {
-const E = await import('../js/engine.js'), EO = await import('../js/earth.js'), { makeLive } = await import('../js/live.js'), { missionPath } = await import('../js/design.js');
+const EO = await import('../js/earth.js'), { makeLive } = await import('../js/live.js'), { missionPath } = await import('../js/design.js');
 const ab = (f) => { const b = fs.readFileSync(new URL('../' + f, import.meta.url)); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); };
 const eo = JSON.parse(read('data/earth_orient.json')); EO.loadEarthOrientation(eo);
 makeLive(ab('data/de440s.bsp'), ab('data/moon_pa_de440_200625.bpc'), eo, defs.tStart);
