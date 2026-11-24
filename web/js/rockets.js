@@ -101,7 +101,32 @@ export const ROCKETS = {
 };
 export const ROCKET_IDS = Object.keys(ROCKETS);
 export const DEFAULT_ROCKET = 'GENEL';
-export const rocketOf = (id) => ROCKETS[id] || ROCKETS[DEFAULT_ROCKET];
+
+// ---------------------------------------------------------------- kullanıcının roketi ("Kendi roketim", kimlik OZEL)
+// Üst kademe sayılarla tanımlanır: kuru kütle (kg), tank (kg), vakum itkisi (kN), vakum Isp (s) ve roketin yayımlanmış Ay'a (TLI, C3 ≈ −2) yük kapasitesi (kg).
+// Park yörüngesindeki kütle öteki roketlerdeki gibi bu kapasiteden türetilir (parkMass). Kayıt modül düzeyinde tutulur: görev yapılandırması tanımı taşır
+// (cfg.ozel; önbellek anahtarına ve bağlantıya girer), tasarım onu setCustomRocket ile kurar (ana iş parçacığında ve tasarım worker'ında ayrı ayrı).
+// Kalkış canlandırması ve 3B model genel kademeninkidir; her rampadan fırlatılabilir (pads.js ROCKET_PADS'te yok).
+export const CUSTOM_ID = 'OZEL';
+export const CUSTOM_LIMITS = { dry: [100, 200000], tank: [100, 2e6], T: [1, 20000], isp: [200, 480], P: [100, 200000] };
+let CUSTOM = null;
+// tanımı doğrula ve yuvarla (önbellek anahtarı kararlı kalsın); geçersizse null
+export function validCustom(o) {
+  if (!o || typeof o !== 'object') return null;
+  const out = {};
+  for (const [k, [a, b]] of Object.entries(CUSTOM_LIMITS)) { const v = +o[k]; if (!Number.isFinite(v) || v < a || v > b) return null; out[k] = k === 'isp' || k === 'T' ? Math.round(v * 10) / 10 : Math.round(v); }
+  return out;
+}
+export function customRocket(spec) {
+  const g = ROCKETS.GENEL;
+  return { name: 'Kendi roketim', short: 'Özel', year: '—', pad: g.pad, status: 'Kullanıcı tanımı', note: 'Üst kademesini ve Ay\'a yük kapasitesini kullanıcı verdi.',
+    stage: { name: 'Üst kademe', dry: spec.dry, tank: spec.tank, T: spec.T, isp: spec.isp, engines: 1, prop: '—', engine: '—' },
+    ref: { kind: 'TLI', P: spec.P, src: 'kullanıcı tanımı' }, model: 'generic', ascent: g.ascent, stageNote: 'Kullanıcının tanımladığı üst kademe', custom: true };
+}
+export function setCustomRocket(spec) { const v = validCustom(spec); CUSTOM = v ? customRocket(v) : null; return CUSTOM; }
+export const customSpec = () => (CUSTOM ? { dry: CUSTOM.stage.dry, tank: CUSTOM.stage.tank, T: CUSTOM.stage.T, isp: CUSTOM.stage.isp, P: CUSTOM.ref.P } : null);
+export const isRocket = (id) => !!ROCKETS[id] || (id === CUSTOM_ID && !!CUSTOM);
+export const rocketOf = (id) => ROCKETS[id] || (id === CUSTOM_ID && CUSTOM) || ROCKETS[DEFAULT_ROCKET];
 
 // park yörüngesindeki toplam kütle (kademe + yakıt + yük), kg — yayımlanmış başarımdan
 export function parkMass(id) {
@@ -141,5 +166,5 @@ export function parkPropellant(id, payload, dvPen = 0) {
 // görev tasarımının kademe kaydı (mission.js STAGES[0] biçimi); prop tasarımda belirlenir
 export function stageRecord(id) {
   const r = rocketOf(id), s = r.stage;
-  return { name: s.name, dry: s.dry, prop: 0, T: s.T, isp: s.isp, thr_min: 1.0, rocket: ROCKETS[id] ? id : DEFAULT_ROCKET };
+  return { name: s.name, dry: s.dry, prop: 0, T: s.T, isp: s.isp, thr_min: 1.0, rocket: isRocket(id) ? id : DEFAULT_ROCKET };
 }

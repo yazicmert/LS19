@@ -126,6 +126,32 @@ Bulunan ve düzeltilen sorunlar:
 - **İşaret çakışmaları:** Apollo 12 ↔ 14 ve 15 ↔ 17'nin adları üst üste biniyordu; batıdakinin adı sola alındı.
 - **Telefonda cisimler sayfanın arkasında ya da kadraj dışında:** kamera dikey ekranda uzaklaşıyor (Dünya–Ay sistemi en çok 2,2 kat, cisim 1,75 kat), Dünya–Ay görünümü sola kayıyor.
 
+### Aşama 4: Kendi aracımla (roket ve iniş aracı sayılarla, LS19 yolu ve yeri hesaplar)
+
+Brifingin girişindeki **Kendi aracımla** düğmesi üç adımlık ayrı bir yol açar.
+
+1. **Aracın.** İki form doldurulur:
+   - Roketin üst kademesi: kuru kütle, yakıt kapasitesi, vakum itkisi, vakum Isp ve roketin yayımlanmış Ay'a (TLI) yük kapasitesi.
+   - İniş aracı: kuru kütle, yakıt kapasitesi, itki, Isp.
+
+   Alanlar gerçek bir roketin değerleriyle başlar (Başlangıç değerleri: Saturn V, SLS, Falcon 9, Falcon Heavy, Vulcan). LS19'un anında denetimi formun üstündedir:
+   - dolu iniş aracı roketin taşıyabileceğine sığar mı;
+   - dolu tankla Δv, Apollo profilinin gerektirdiğine (~2.876 m/s) yeter mi;
+   - Ay'da itki/ağırlık yeterli mi.
+2. **Nereye?** Altı iniş yeri bu araçla gerçekten, sırayla tasarlanır (Apollo profili, bugünden sonraki ilk pencere, iş parçacığında).
+   - Sıra: önce en dar yakıt payı (iniş ya da TLI), sonra inişte Güneş'in 10°'ye yakınlığı (uzun gölgeler), sonra erken iniş.
+   - Yetmeyen yer nedeniyle görünür: "iniş yakıtı eksik 50 kg" ya da "roket aracı Ay yoluna çıkaramaz".
+   - Kullanıcı seçmediyse en iyi yer seçili kalır. Ay'daki işaretlerde her yerin inişteki Güneş yüksekliği yazar.
+3. **Brifing.** Özet; iniş ve TLI yakıtı gereken / olan olarak verilir.
+
+Bulgu: Ay yörüngesinin düzlemi iniş yerine göre seçildiği için Ay yörüngesine giriş (LOI) her yerde aynıdır (Ekim 2026: 827 m/s). Yakıt payları yerden yere eşit çıkar; fark tarihte ve ışıktadır. LS19 bunu gerekçesinde açıkça söyler.
+
+Motor tarafı:
+- **Kendi roketim (`rockets.js`).** Kimliği `OZEL`. Tanım `validCustom` ile doğrulanır, `setCustomRocket` ile kurulur. Park kütlesi öteki roketlerdeki gibi yayımlanmış yükten türetilir; kalkış canlandırması genel kademeninkidir, her rampadan fırlatılabilir.
+- **Kullanıcının iniş aracı (`design.js` › `validLander`).** Tankı doludur, dolu araç TLI'da taşınır. Gereken yakıt tanktan fazlaysa tasarım "İniş aracının yakıtı bu göreve yetmez: … (eksik … kg)" der. Araç tek kademe uçar: iki kademe modunda iniş kademesinin itkisi sabit olduğundan girilen itki kullanılmazdı.
+- **Taşıma.** Yapılandırma (`cfg.ozel`, `cfg.lander`) önbellek anahtarına, panelin `getConfig`/`setConfig`'ine ve paylaşım bağlantısına (`ozel=kuru,tank,itki,Isp,yük`, `inis=kuru,tank,itki,Isp`) girer. Tasarım worker'ı roketi yapılandırmadan kurar.
+- **Doğrulama (`test_ozelarac.js`).** SLS'in sayılarıyla tanımlanan roket, SLS'le kilogramına kadar aynı yakıtı verir (TLI 28.940 kg, gereken 7.510 kg). Fırlatma anı yalnız kalkış süresi kadar farklıdır.
+
 ### Kalkış ön yüklemesi (beklemesiz rampa görünümü)
 
 Kalkış canlandırması önceden şunları bekliyordu: roket modeli (Saturn V GLB; SLS için ayrıca Mobile Launcher GLB), gökyüzü gölgelendiricisi, ardından rampa çevresinin uydu görüntüsü, kabartması ve OSM binaları. Ölçüm (yazılım çizimi): Saturn V ile "Kalkış" düğmesinden roketin rampada görünmesine **7,4 sn**.

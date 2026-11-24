@@ -6,9 +6,10 @@
 import * as THREE from 'three';
 import * as E from './engine.js';
 import { BriefShell, el, esc, unit } from './brifkabuk.js';
-import { BRIEF_STEPS, SITE_NOTES, PROFILE_NOTES, PROFILE_ORDER, datePresets, profileStats, rocketFit, designEta, recommend, briefSummary, profilePath, profileSvg, reasons, statsOf, livePath, briefTimeline, tPlus, DEFAULT_BRIEF_DATE } from './brifingtext.js';
+import { VEH_STEPS, VEH_SITES, DEFAULT_LANDER, vehicleFacts, rankSites, siteScore, siteErr, marginsDiffer, BRIEF_STEPS, SITE_NOTES, PROFILE_NOTES, PROFILE_ORDER, datePresets, profileStats, rocketFit, designEta, recommend, briefSummary, profilePath, profileSvg, reasons, statsOf, livePath, briefTimeline, tPlus, DEFAULT_BRIEF_DATE } from './brifingtext.js';
 import { LUNAR_SITES, siteOf } from './moonsite.js';
-import { ROCKETS, ROCKET_IDS, tliCapacity } from './rockets.js';
+import { ROCKETS, ROCKET_IDS, tliCapacity, rocketOf, CUSTOM_ID, CUSTOM_LIMITS, validCustom, setCustomRocket } from './rockets.js';
+import { validLander, LANDER_LIMITS } from './design.js';
 import { DV_NAMES } from './dvbudget.js';
 import { fmt } from './format.js';
 import { ns, ew, t as tr, UNIT } from './i18n.js';
@@ -26,7 +27,14 @@ const SCENES = {
   profil: { mode: 'SYSTEM', dist: 820000, el: 1.15, az: -Math.PI / 2, orbit: true, tags: true, path: true },        // üstten; Dünya ortada, Ay sağda
   roket: { mode: 'EARTH', dist: 15000, pad: true },                                   // seçilen roketin fırlatma rampası ortada
   brifing: { mode: 'SYSTEM', dist: 820000, el: 1.05, az: -Math.PI / 2, orbit: true, tags: true, path: true },
+  arac: { mode: 'EARTH', dist: 15000, pad: true },                                     // "Kendi aracımla": rampa (kendi roketin genel kademe gibi her rampadan)
+  ara: { mode: 'MOON', dist: 7200, site: true },                                      // altı yer işaretli, sonuçlarıyla
 };
+// "Kendi aracımla" giriş alanları (etiket, birim, alan): roketin üst kademesi ve iniş aracı
+const ROCKET_FIELDS = [['dry', 'Kuru kütle', 'kg'], ['tank', 'Yakıt kapasitesi', 'kg'], ['T', 'İtki (vakum)', 'kN'], ['isp', 'Isp (vakum)', 's'], ['P', 'Ay\'a yük kapasitesi (TLI)', 'kg']];
+const LANDER_FIELDS = [['dry', 'Kuru kütle', 'kg'], ['tank', 'Yakıt kapasitesi', 'kg'], ['T', 'İtki', 'kN'], ['isp', 'Isp', 's']];
+// başlangıç değerleri: gerçek roketlerin üst kademesi ve türetilmiş Ay'a yük kapasitesi (rockets.js tliCapacity)
+const ROCKET_STARTS = ROCKET_IDS.filter((id) => tliCapacity(id) > 0).map((id) => { const r = ROCKETS[id], st = r.stage; return { id, t: r.name, spec: { dry: st.dry, tank: st.tank, T: st.T, isp: st.isp, P: Math.round(tliCapacity(id)) } }; });
 // brifingde gizlenen sahne çizgileri (araç izi, yörüngeler, eksenler, meridyenler, işaretler)
 const HIDE = ['trailLineE', 'trailLineM', 'osc', 'stageOsc', 'haloPath', 'moonPath', 'siteMarker', 'embEarth', 'embMoon', 'embMarker', 'earthAxis', 'moonAxis', 'earthMer', 'moonMer'];
 
@@ -44,7 +52,7 @@ export class Briefing extends BriefShell {
     this.sel = { ...this.h.current() };
     if (!PROFILE_ORDER.includes(this.sel.profile)) this.sel.profile = 'APOLLO';
   }
-  onClosing() { this.stopLive(); this.waitLive = false; }
+  onClosing() { this.stopLive(); this.stopSearch(); this.waitLive = false; }
 
   // ---------------------------------------------------------------- giriş kartı
   introCard(kind) {
@@ -54,15 +62,21 @@ export class Briefing extends BriefShell {
       h: ret ? 'Yeni bir göreve hazır mısın?' : 'Ay\'a bir görev tasarlayalım.',
       lead: ret ? 'Kaldığın görev seni bekliyor. İstersen yeni bir iniş yeri, tarih ve roketle baştan tasarla.'
         : 'Nereye ineceğini, ne zaman fırlatacağını, hangi yoldan ve hangi roketle gideceğini sen seç. LS19 her adımda önerisini ve gerekçesini söyler; gerçek fizikle görevi hesaplar, sonra rampadan fırlatırsın.',
-      acts: [{ act: 'start', t: ret ? 'Yeni görev tasarla' : 'Tasarlamaya başla', cls: 'primary' }, { act: ret ? 'resume' : 'watch', t: ret ? 'Kaldığım yerden devam' : 'Hazır görevi izle' }],
+      acts: [{ act: 'start', t: ret ? 'Yeni görev tasarla' : 'Tasarlamaya başla', cls: 'primary' }, { act: 'vehicle', t: 'Kendi aracımla' }, { act: ret ? 'resume' : 'watch', t: ret ? 'Kaldığım yerden devam' : 'Hazır görevi izle' }],
       fine: ret ? '' : 'Hazır görev: 13 Ekim 2026, Apollo 11 yerine iniş, fragman olarak.',
     };
   }
-  onAct(act) { const w = act === 'watch'; this.close(w ? 'cine' : null); if (w) this.h.launch('cine'); }
+  onAct(act) {
+    if (act === 'vehicle') { this.startVehicle(); return; }
+    const w = act === 'watch'; this.close(w ? 'cine' : null); if (w) this.h.launch('cine');
+  }
+  intro(kind) { this.steps = BRIEF_STEPS; this.flow = 'design'; this.stopSearch(); super.intro(kind); }       // giriş: adım adım tasarım yolu (varsayılan)
 
   // ---------------------------------------------------------------- adımlar
-  nextLabel(k) { return k === 'roket' ? 'Görevi tasarla' : 'Devam'; }
+  nextLabel(k) { return k === 'roket' || k === 'ara' ? 'Görevi tasarla' : k === 'arac' ? 'Yolu ve yeri hesapla' : 'Devam'; }
   renderStep(k, body, next) {
+    if (k === 'arac') { this.stepVehicleSpec(body, next); return; }
+    if (k === 'ara') { this.stepSearch(body, next); return; }
     if (k === 'profil' || k === 'roket') this.ensureLive();
     if (k === 'yer') this.stepSite(body);
     else if (k === 'tarih') this.stepDate(body);
@@ -71,8 +85,17 @@ export class Briefing extends BriefShell {
     else this.stepBrief(body);
   }
   // LS19 önerisi ve seçimin sayılarla gerekçesi (brifingtext.js recommend, reasons)
-  recommendFor(step) { return recommend(step, this.sel, todayStr()); }
-  reasonsFor(step) { return reasons(step, this.sel, { defs: this.h.defs(), stats: (k) => this.stats(k), cap: tliCapacity, lat: (k) => siteOf(k).latDeg }); }
+  recommendFor(step) {
+    if (step === 'ara') {
+      const R = this.search && this.search.rows, best = R && rankSites(R)[0]; if (!best) return null;
+      const D = R[best].D, name = `Apollo ${best.slice(1)} · ${SITE_NOTES[best].t}`, sun = { n: D.sunElAtLanding ?? 0, d: 1 };
+      return marginsDiffer(R) ? { v: best, why: '{0}: bu araçla en geniş yakıt payı ({1}); inişte Güneş {2}°.', a: [name, tr('{0} kg', fmt(D.STAGES[1].prop - D.LANDER_NEED, 0)), sun] }
+        : { v: best, why: '{0}. Yakıt her yerde aynı ölçüde yetiyor: Ay yörüngesinin düzlemi iniş yerine göre seçilir, Ay yörüngesine giriş her yerde aynıdır. Fark ışıkta: burada inişte Güneş {1}°, alçak Güneş\'in uzun gölgeleri araziyi en iyi gösterir.', a: [name, sun] };
+    }
+    if (step === 'arac') return null;
+    return recommend(step, this.sel, todayStr());
+  }
+  reasonsFor(step) { if (step === 'arac' || step === 'ara') return this.vehReasons(step); return reasons(step, this.sel, { defs: this.h.defs(), stats: (k) => this.stats(k), cap: tliCapacity, lat: (k) => siteOf(k).latDeg }); }
 
   stepSite(body) {
     const pick = (v) => { this.sel.site = v; this.go(this.step); };
@@ -202,10 +225,11 @@ export class Briefing extends BriefShell {
     this.failBox(body, tr('Bu seçimlerle görev tasarlanamadı: {0}', msg), 'Başka bir tarih, profil ya da daha güçlü bir roket dene.');
   }
   renderSummary(body) {
-    const D = this.result.D, sm = briefSummary(D, utc), s = siteOf(this.sel.site), R = ROCKETS[this.sel.rocket];
+    const D = this.result.D, sm = briefSummary(D, utc), s = siteOf(this.sel.site), R = rocketOf(this.sel.rocket);
     const rows = [['İniş yeri', `Apollo ${this.sel.site.slice(1)} · ${SITE_NOTES[this.sel.site].t}`], ['Fırlatma', sm.launch], ['İniş', sm.landing || '—'],
       ['Süre', sm.days != null ? tr('{0} gün', fmt(sm.days, 1)) : '—'], ['Profil', PROFILE_NOTES[this.sel.profile].t], ['Roket', R ? R.name : '—'],
       ['İnişte Güneş', sm.sunEl != null ? `${fmt(sm.sunEl, 1)}°` : '—']];
+    if (this.flow === 'vehicle' && D.LANDER_NEED != null && D.STAGES[1]) rows.push(['İniş yakıtı', tr('{0} / {1} kg (gereken / tank)', fmt(D.LANDER_NEED, 0), fmt(D.STAGES[1].prop, 0))], ['TLI yakıtı', tr('{0} / {1} kg', fmt(D.TLI_NEED, 0), fmt(D.STAGES[0].prop, 0))]);
     const dv = sm.dv.map(([k, v]) => `<tr><td>${esc(tr(DV_NAMES[k] || k))}</td><td>${fmt(v, 0)} m/s</td></tr>`).join('');
     body.innerHTML = `<p class="brief-lead">${esc(tr('Görev hazır. {0} yerine iniş, {1} gün sürecek.', s.name, fmt(sm.days, 1)))}</p>
       <dl class="brief-sum">${rows.map(([k, v]) => `<div><dt>${esc(tr(k))}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
@@ -215,6 +239,106 @@ export class Briefing extends BriefShell {
     this.goButtons([{ go: 'pad', t: 'Rampadan fırlat' }, { go: 'orbit', t: 'Yörüngeden başla' }, { go: 'cine', t: 'Fragman olarak izle' }], 'Seçimleri değiştir',
       (how) => { this.close(how); this.h.launch(how); });
   }
+
+  // ---------------------------------------------------------------- "Kendi aracımla": roket ve iniş aracı sayılarla, LS19 yolu ve yeri hesaplar
+  startVehicle() {
+    this.flow = 'vehicle'; this.steps = VEH_STEPS;
+    const cur = this.h.current();
+    this.veh = { ozel: validCustom(cur.ozel) || { ...ROCKET_STARTS.find((r) => r.id === 'SLS1').spec }, lander: validLander(cur.lander) || { ...DEFAULT_LANDER }, start: 'SLS1' };
+    Object.assign(this.sel, { profile: 'APOLLO', vehicle: 'one', date: todayStr(), rocket: CUSTOM_ID });
+    setCustomRocket(this.veh.ozel);                                                            // rampa işareti ve kalkış ön yüklemesi kendi roketinle          // tek kademe: girilen itki ve Isp inişte de geçerli (iki kademe modunda iniş kademesi sabit)
+    this.search = null; this.go(0);
+  }
+  vehOk() { return !!(validCustom(this.veh.ozel) && validLander(this.veh.lander)); }
+  stepVehicleSpec(body, next) {
+    const V = this.veh, f = this.vehOk() ? vehicleFacts(V.ozel, V.lander, this.h.defs()) : null;
+    body.appendChild(el('p', 'brief-lead', esc(tr('Roketinin Ay\'a giden üst kademesini ve iniş aracını sayılarla ver. LS19 altı iniş yeri için yolu bu araçla gerçekten hesaplar; yakıt payına ve inişteki ışığa göre en uygun yeri önerir.'))));
+    this.why(body, 'arac');                                                                // LS19'un anında denetimi formun üstünde (sayılar değişince yenilenir)
+    // başlangıç değerleri: gerçek bir roketten (alanlar onunla dolar, sonra değiştirilebilir)
+    const pre = el('label', 'brief-date', `<span>${esc(tr('Başlangıç değerleri'))}</span><select>${ROCKET_STARTS.map((r) => `<option value="${r.id}"${r.id === V.start ? ' selected' : ''}>${esc(r.t)}</option>`).join('')}</select>`);
+    pre.querySelector('select').onchange = (e) => { const r = ROCKET_STARTS.find((q) => q.id === e.target.value); if (r) { V.start = r.id; V.ozel = { ...r.spec }; this.stopSearch(); setCustomRocket(V.ozel); this.go(this.step); } };
+    body.appendChild(pre);
+    const form = (title, obj, fields, lim) => {
+      const box = el('fieldset', 'brief-form'); box.appendChild(el('legend', null, esc(tr(title))));
+      for (const [k, lab, unit] of fields) {
+        const [a, b] = lim[k], row = el('label', 'brief-field', `<span>${esc(tr(lab))}</span><input type="number" inputmode="decimal" min="${a}" max="${b}" step="any" value="${obj[k]}"><em>${unit}</em>`);
+        const inp = row.querySelector('input');
+        inp.onchange = () => { const v = +inp.value; inp.classList.toggle('bad', !(v >= a && v <= b)); if (v >= a && v <= b) { obj[k] = v; this.stopSearch(); if (obj === V.ozel) setCustomRocket(V.ozel); this.go(this.step); } };
+        box.appendChild(row);
+      }
+      body.appendChild(box);
+    };
+    form('Roketin üst kademesi', V.ozel, ROCKET_FIELDS, CUSTOM_LIMITS);
+    form('İniş aracı', V.lander, LANDER_FIELDS, LANDER_LIMITS);
+    body.appendChild(el('p', 'brief-note', esc(tr('Ay\'a yük kapasitesi: roketin yayımlanmış TLI (C3 ≈ −2 km²/s²) yükü; üst kademenin park yörüngesindeki yakıtı bundan türetilir. Araç tek kademe uçar: girdiğin itki ve Isp inişte de kullanılır. Tank doludur.'))));
+    next.disabled = !f;
+    if (f && (!f.fits || !f.dvOk)) next.textContent = tr('Yine de hesapla');
+  }
+  vehReasons(step) {
+    if (step === 'arac') {
+      if (!this.vehOk()) return [];
+      const f = vehicleFacts(this.veh.ozel, this.veh.lander, this.h.defs()), out = [];
+      out.push(f.fits ? { t: 'Dolu iniş aracı {0} kg; roket Ay\'a {1} kg taşır: sığar.', a: [{ n: f.wet, d: 0 }, { n: f.cap, d: 0 }] } : { t: 'Dolu iniş aracı {0} kg; roket Ay\'a en çok {1} kg taşır: yetmeyebilir.', a: [{ n: f.wet, d: 0 }, { n: f.cap, d: 0 }] });
+      if (f.needDv) out.push(f.dvOk ? { t: 'İniş aracı dolu tankla {0} m/s verir; Apollo profilinde Ay yörüngesi ve iniş için ~{1} m/s gerekir.', a: [{ n: f.haveDv, d: 0 }, { n: f.needDv, d: 0 }] } : { t: 'İniş aracı dolu tankla {0} m/s verir; Apollo profilinde ~{1} m/s gerekir: yakıt yetmeyebilir.', a: [{ n: f.haveDv, d: 0 }, { n: f.needDv, d: 0 }] });
+      out.push(f.twrOk ? { t: 'Ay\'da itki/ağırlık {0} (dolu tankla): iniş için yeterli.', a: [{ n: f.twr, d: 1 }] } : { t: 'Ay\'da itki/ağırlık {0} (dolu tankla): düşük, iniş güdümü zorlanır.', a: [{ n: f.twr, d: 1 }] });
+      return out;
+    }
+    const k = this.sel.site, row = this.search && this.search.rows[k]; if (!row || row.st !== 'ok') return [];
+    const D = row.D;
+    return [{ t: 'İniş yakıtı: gereken {0} kg, tankta {1} kg.', a: [{ n: D.LANDER_NEED, d: 0 }, { n: D.STAGES[1].prop, d: 0 }] }, { t: 'TLI yakıtı: gereken {0} kg, kademede {1} kg.', a: [{ n: D.TLI_NEED, d: 0 }, { n: D.STAGES[0].prop, d: 0 }] },
+      ...(D.sunElAtLanding != null ? [{ t: 'İnişte Güneş {0}° yükseklikte.', a: [{ n: D.sunElAtLanding, d: 1 }] }] : [])];
+  }
+  // 2: altı iniş yeri bu araçla (Apollo profili, bugünden sonraki ilk pencere) sırayla tasarlanır; sonuç geldikçe kart ve Ay'daki işaretler yenilenir
+  stepSearch(body, next) {
+    this.ensureSearch();
+    const S = this.search, rank = rankSites(S.rows), done = VEH_SITES.every((k) => S.rows[k].st === 'ok' || S.rows[k].st === 'err');
+    if (rank.length && !(S.picked && S.rows[this.sel.site] && S.rows[this.sel.site].st === 'ok')) this.sel.site = rank[0];      // kullanıcı seçmediyse en iyisi (sonuç geldikçe)
+    const pick = (v) => { S.picked = true; this.sel.site = v; this.go(this.step); };
+    if (rank.length) this.rec(body, 'ara', this.sel.site, pick);
+    else body.appendChild(el('p', 'brief-lead', esc(tr(done ? 'Bu araçla altı yerden hiçbirine görev kurulamadı. Aracını değiştir: neden her satırda yazıyor.' : 'LS19 her iniş yeri için yolu bu araçla hesaplıyor: fırlatma penceresi, Ay\'a aktarma, Ay yörüngesi ve iniş.'))));
+    this.options(body, 'İniş yeri', VEH_SITES.map((k) => {
+      const r = S.rows[k], st = r.st, s = siteOf(k);
+      const meta = st === 'ok' ? this.marginText(k) : st === 'busy' ? tr('hesaplanıyor…') : st === 'wait' ? tr('sırada') : tr(siteErr(r.err).t, ...siteErr(r.err).a);
+      return { v: k, t: `Apollo ${k.slice(1)} · ${SITE_NOTES[k].t}`, meta, s: `${fmt(Math.abs(s.latDeg), 1)}° ${ns(s.latDeg)} ${fmt(Math.abs(s.lonDeg), 1)}° ${ew(s.lonDeg)}`, disabled: st !== 'ok', warn: st === 'err' };
+    }), this.sel.site, pick);
+    body.appendChild(el('p', 'brief-note', esc(tr('Profil: Apollo, hızlı (en az Δv). Tarih: bugünden sonraki ilk uygun pencere. Sıra: önce yakıt payı, sonra inişte Güneş\'in 10°\'ye yakınlığı (uzun gölgeler), sonra erken iniş. Bir yer için hesap 10–30 sn sürer.'))));
+    next.disabled = !(S.rows[this.sel.site] && S.rows[this.sel.site].st === 'ok');
+  }
+  marginText(k) {
+    const r = this.search && this.search.rows[k]; if (!r || r.st !== 'ok') return '';
+    const D = r.D, land = D.STAGES[1].prop - D.LANDER_NEED;
+    return tr('pay {0} kg · Güneş {1}°', fmt(land, 0), fmt(D.sunElAtLanding ?? 0, 0));
+  }
+  pinNote(k) { const r = this.search.rows[k]; return r.st === 'ok' ? tr('Güneş {0}°', fmt(r.D.sunElAtLanding ?? 0, 0)) : r.st === 'err' ? tr('olmaz') : '…'; }      // Ay'daki işaret: kısa (komşu adlar çakışmasın)
+  ensureSearch() {
+    const key = JSON.stringify([this.veh.ozel, this.veh.lander, this.sel.date]);
+    if (this.search && this.search.key === key) { if (!this.search.running) this.runSearch(this.search); return; }
+    this.stopSearch();
+    setCustomRocket(this.veh.ozel);
+    Object.assign(this.sel, { rocket: CUSTOM_ID, ozel: { ...this.veh.ozel }, lander: { ...this.veh.lander } });
+    const S = this.search = { key, rows: Object.fromEntries(VEH_SITES.map((k) => [k, { st: 'wait' }])), stopped: false };
+    this.runSearch(S);
+  }
+  runSearch(S) {
+    const dead = () => S.stopped || this.search !== S;
+    S.running = true;
+    (async () => {
+      for (const k of VEH_SITES) {
+        const row = S.rows[k]; if (row.st !== 'wait') continue;
+        if (dead()) break;
+        row.st = 'busy'; this.searchUpdate();
+        try {
+          const r = await this.h.live({ ...this.sel, site: k }, 'APOLLO', () => {}, dead);
+          if (dead()) break;
+          if (r) { row.st = 'ok'; row.D = r.D; row.score = siteScore(row); } else { row.st = 'err'; row.err = ''; }
+        } catch (e) { if (dead()) break; row.st = 'err'; row.err = String((e && e.message) || e); }
+        this.searchUpdate();
+      }
+      S.running = false;
+    })();
+  }
+  stopSearch() { if (this.search) { this.search.stopped = true; this.search = null; if (this.h.liveStop) this.h.liveStop(); } }
+  searchUpdate() { if (this.active && this.stepKey() === 'ara') this.go(this.step); }
 
   // ---------------------------------------------------------------- 3B sahne (kabuk her karede çağırır)
   keepVisible(k, c) { return !!c.orbit && k === 'embMoon'; }                      // Dünya–Ay adımlarında Ay'ın yörüngesi görünür
@@ -230,9 +354,11 @@ export class Briefing extends BriefShell {
       if (W.moonU && W.moonU.sunDir) W.moonU.sunDir.value.set(...unit(E.add(E.add(E.scale(d, 0.75), E.scale(east, -0.62)), E.scale(north, 0.2))));
       // altı iniş yeri Ay'da işaretli; Nereye adımında işarete dokununca seçilir
       for (const k of Object.keys(SITE_NOTES)) {
-        const on = k === (this.sel.site || 'A11'), q = siteOf(k), pick = c.k === 'yer' && !on ? () => { this.sel.site = k; this.go(this.step); } : null;
-        if (!on && c.k !== 'yer') continue;
-        this.placePin('s:' + k, E.add(rm, E.scale(q.icrf(x.t), 1.0006)), `Apollo ${k.slice(1)}`, rm, { on, pick, left: k === 'A12' || k === 'A15' }); show.add('s:' + k);      // komşu yerler (12 ↔ 14, 15 ↔ 17): batıdakinin adı solda
+        const all = c.k === 'yer' || c.k === 'ara', ok = c.k !== 'ara' || (this.search && this.search.rows[k].st === 'ok');
+        const on = k === (this.sel.site || 'A11'), q = siteOf(k), pick = all && !on && ok ? () => { if (this.search && c.k === 'ara') this.search.picked = true; this.sel.site = k; this.go(this.step); } : null;
+        if (!on && !all) continue;
+        const lbl = c.k === 'ara' && this.search ? `Apollo ${k.slice(1)} · ${this.pinNote(k)}` : `Apollo ${k.slice(1)}`;
+        this.placePin('s:' + k, E.add(rm, E.scale(q.icrf(x.t), 1.0006)), lbl, rm, { on, pick, left: k === 'A12' || k === 'A15' }); show.add('s:' + k);      // komşu yerler (12 ↔ 14, 15 ↔ 17): batıdakinin adı solda
       }
     } else if (c.pad && this.h.padOf) {                                           // rampa: Dünya üzerinde ortada, hafif güneyden; Dünya görünüm için aydınlatılır (rampa gecede olabilir)
       const P = this.h.padOf(this.sel.rocket), la = P.lat * Math.PI / 180, lo = P.lon * Math.PI / 180;

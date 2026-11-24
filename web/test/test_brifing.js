@@ -53,7 +53,7 @@ check('Laboratuvar merkezinden Ay görevi seçilince açılır (sayfa başına b
   && /new LabUI\(\{ initial: LAB_HOME \}\)/.test(app)
   && /B\.close\('away'\)/.test(app) && /if \(briefOn\(\) && k !== 'escape'\) return;/.test(app) && /e\.key !== 'Escape'/.test(br) && /window\.addEventListener\('keydown', this\.onKey, true\)/.test(br));
 check('tasarım yalnız sonda bir kez: seçimler yapılandırmaya yazılır (araç ve roket yeniden tasarım tetiklemeden), startDesign çağrılır; hazır olunca özet, hata brifingde',
-  /applyRocket\(sel\.rocket\)/.test(app) && /ui\.setConfig\(\{ \.\.\.PROFILES\[sel\.profile\]\.cfg, moonSite: sel\.site \}\)/.test(app) && /await startDesign\(sel\.date\);/.test(app)
+  /applyRocket\(sel\.rocket\)/.test(app) && /ui\.setConfig\(\{ \.\.\.PROFILES\[sel\.profile\]\.cfg, moonSite: sel\.site, lander: sel\.lander \|\| null \}\)/.test(app) && /await startDesign\(sel\.date\);/.test(app)
   && /if \(brief\) brief\.onReady\(S\.DESIGN\);/.test(app) && /brief\.onFail\(m\)/.test(app) && /function applyRocket\(id\)/.test(app));
 check('başlatma: rampadan (kalkış, sonra görev kendiliğinden sürer), yörüngeden ya da fragman', /if \(how === 'pad'\) \{ ascentThenPlay = true; \$\('#btnAscent'\)\.click\(\); \}/.test(app)
   && /if \(ascentThenPlay\) \{ ascentThenPlay = false; setTimeout\(\(\) => setPlay\(true\), 300\); \}/.test(app) && /go: 'pad'/.test(br) && /go: 'orbit'/.test(br) && /go: 'cine'/.test(br) && /data-go="\$\{first\.go\}"/.test(br));
@@ -101,7 +101,7 @@ check('gerekçeler sayılarla: en kısa/en ucuz karşılaştırması, iniş yak�
 check('canlı tasarım: seçilen yer, tarih, roket ve rampasıyla iş parçacığında (önce seçili profil), ortak önbelleğe yazılır (son tasarım anında), yol da hesaplanır; seçim değişince yeniden, brifing kapanınca durur',
   /async function briefDesign\(sel, key, onProg, stop\)/.test(app) && /designCache\.set\(ck, hit\)/.test(app) && /path: true/.test(app) && /pathFor: hit\.design/.test(app)
   && /liveKey\(\) \{ const s = this\.sel; return \[s\.site, s\.date, s\.rocket\]\.join\('\|'\); \}/.test(br) && /this\.sel\.profile\].st === 'wait' \? this\.sel\.profile/.test(br)
-  && /this\.stopLive\(\); this\.waitLive = false;/.test(br) && /if \(row && row\.st === 'busy'\) \{ this\.waitLive = true; return; \}/.test(br)
+  && /this\.stopLive\(\); this\.stopSearch\(\); this\.waitLive = false;/.test(br) && /if \(row && row\.st === 'busy'\) \{ this\.waitLive = true; return; \}/.test(br)
   && /missionPath\(design\)/.test(read('js/designwork.js')) && /this\.lastPath = d\.path \|\| null/.test(read('js/designjob.js')));
 check('Ay\'da yer seçme: altı yer işaretli, Nereye adımında işarete dokununca seçilir; Ay görünüm için aydınlatılır (görev gününde yer gecede olabilir)',
   /this\.placePin\('s:' \+ k/.test(br) && /n\.onclick = o\.pick \|\| null/.test(br) && /W\.moonU\.sunDir\.value\.set/.test(br) && /button\.brief-pin\.pick \{ pointer-events: auto/.test(css));

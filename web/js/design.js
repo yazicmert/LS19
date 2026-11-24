@@ -17,7 +17,7 @@ import * as E from './engine.js';
 import { STAGES as BASE_STAGES } from './mission.js';
 import { siteOf, validSite, DEFAULT_SITE } from './moonsite.js';
 const LUNATION_RETRY = 29.6 * 86400;                 // s: sonraki aydınlanma penceresi (kameri ay 29,53 gün; arama başlangıcı önceki pencereyi kesin geçsin)
-import { ROCKETS, DEFAULT_ROCKET, stageRecord, parkPropellant, rocketOf } from './rockets.js';
+import { ROCKETS, DEFAULT_ROCKET, stageRecord, parkPropellant, rocketOf, CUSTOM_ID, validCustom, setCustomRocket } from './rockets.js';
 import { LEGACY_SITE, minIncl, incPenalty, padAllowed, homeSite, inclRange, azInRange } from './pads.js';
 import { HALO_PRESETS, haloMember, ephemerisHalo } from './halo.js';
 import * as CR from './cr3bp.js';
@@ -73,6 +73,9 @@ export function normalizeConfig(c) {
   out.moon.llo.revs = Math.min(40, Math.max(1, Math.round(+out.moon.llo.revs)));
   // fırlatma aracı (rockets.js); varsayılan yazılmaz: hazır tasarımların önbellek anahtarı değişmesin
   if (cfg.rocket && cfg.rocket !== DEFAULT_ROCKET && ROCKETS[cfg.rocket]) out.rocket = cfg.rocket;
+  else if (cfg.rocket === CUSTOM_ID && validCustom(cfg.ozel)) { out.rocket = CUSTOM_ID; out.ozel = validCustom(cfg.ozel); }      // kullanıcının roketi: tanımı yapılandırmada
+  // kullanıcının iniş aracı (yoksa varsayılan araç: yakıtı göreve göre boyutlanır)
+  if (validLander(cfg.lander)) out.lander = validLander(cfg.lander);
   // Ay iniş yeri (moonsite.js); varsayılan (Apollo 11) yazılmaz: hazır tasarımların ve önbelleğin anahtarı değişmesin. Kutup bölgeleri desteklenmez (validSite)
   if (cfg.moonSite && validSite(cfg.moonSite) !== DEFAULT_SITE) out.moonSite = validSite(cfg.moonSite);
   out.moon.halo.revs = Math.min(6, Math.max(1, Math.round(+out.moon.halo.revs)));
@@ -89,7 +92,19 @@ function configLabel(cfg) {
 }
 
 // tasarım bağlamı: yapılandırmadan türetilen sabitler
+// ---------------------------------------------------------------- kullanıcının iniş aracı ("Kendi aracım")
+// kuru kütle (kg), tank (kg), itki (kN), Isp (s). Varsayılan araçtan farkı: yakıt göreve göre boyutlanmaz, tank doludur; gereken tanktan fazlaysa tasarım
+// "yetmez" der (sizeLander). TLI kademesi dolu aracı taşır.
+export const LANDER_LIMITS = { dry: [200, 50000], tank: [100, 100000], T: [0.5, 500], isp: [200, 470] };
+export function validLander(o) {
+  if (!o || typeof o !== 'object') return null;
+  const out = {};
+  for (const [k, [a, b]] of Object.entries(LANDER_LIMITS)) { const v = +o[k]; if (!Number.isFinite(v) || v < a || v > b) return null; out[k] = k === 'isp' || k === 'T' ? Math.round(v * 10) / 10 : Math.round(v); }
+  return out;
+}
+const landerRecord = (L) => ({ name: 'İniş aracı', dry: L.dry, prop: L.tank, tank: L.tank, T: L.T, isp: L.isp, thr_min: 0.10 });
 function ctx(cfg, stages) {
+  if (cfg.rocket === CUSTOM_ID) setCustomRocket(cfg.ozel);                  // tasarım (ana iş parçacığı ya da worker) kullanıcının roketini kurar
   const H_PARK = cfg.earth.h, R_PARK = E.R_E + H_PARK;
   const H_LLO = cfg.moon.llo.h, R_LLO = E.R_M + H_LLO, N_LLOm = Math.sqrt(E.MU_M / R_LLO ** 3), P_LLO = 2 * Math.PI / N_LLOm;
   const N_REV = cfg.moon.llo.revs;
@@ -98,7 +113,7 @@ function ctx(cfg, stages) {
   const RAISE = cfg.earth.raise || DEFAULT_RAISE, RA = RAISE.n ? E.R_E + RAISE.ha : R_PARK;
   const V_PRE = RAISE.n ? Math.sqrt(E.MU_E * (2 / R_PARK - 2 / (R_PARK + RA))) : Math.sqrt(E.MU_E / R_PARK);
   return { cfg, H_PARK, R_PARK, PARK_REVS: cfg.earth.revs, incList, H_LLO, R_LLO, N_LLOm, P_LLO, N_REV, VINF: 0.85, RAISE, RA, V_PRE,
-    STAGES: stages || BASE_STAGES.map((s, i) => (i === 0 && cfg.rocket ? stageRecord(cfg.rocket) : { ...s })),
+    STAGES: stages || BASE_STAGES.map((s, i) => (i === 0 && cfg.rocket ? stageRecord(cfg.rocket) : i === 1 && cfg.lander ? landerRecord(cfg.lander) : { ...s })),
     ROCKET: cfg.rocket || null, SITE: cfg.site || null,
     site: cfg.site || LEGACY_SITE, moonSite: siteOf(cfg.moonSite || DEFAULT_SITE),          // site: fırlatma rampası (Dünya); moonSite: Ay iniş yeri
     tLof: (tP) => tP + 700.0 + (N_REV + 0.5) * P_LLO, arrState: null };
@@ -465,6 +480,10 @@ function doiDv(K) {                              // LLO -> 15 km perilünlü eli
 function sizeLander(K, lunarDv) {
   const st = K.STAGES[1], c = st.isp * E.G0, dv = (MCC_RES + lunarDv + doiDv(K) + PDI_DV) * MARGIN;
   K.LANDER_NEED = Math.ceil(st.dry * (Math.exp(dv / c) - 1) / 10) * 10;             // gereken (tabansız; pencere karşılaştırması için)
+  if (st.tank != null) {                                                          // kullanıcının aracı: tank dolu, gereken sığmalı
+    if (K.LANDER_NEED > st.tank) throw new Error(`İniş aracının yakıtı bu göreve yetmez: ${K.LANDER_NEED} kg gerekir, tankta ${st.tank} kg (eksik ${K.LANDER_NEED - st.tank} kg)`);
+    st.prop = st.tank; return dv;
+  }
   st.prop = Math.max(BASE_STAGES[1].prop, K.LANDER_NEED);
   return dv;
 }

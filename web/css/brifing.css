@@ -182,3 +182,11 @@ button.brief-pin:focus-visible { outline: none; }
 .brief-verdict.good b { color: var(--good); }
 .brief-verdict.bad { border-color: color-mix(in srgb, var(--bad) 55%, transparent); background: color-mix(in srgb, var(--bad) 9%, transparent); }
 .brief-verdict.bad b { color: var(--bad); }
+/* "Kendi aracımla" (js/brifing.js): roketin üst kademesi ve iniş aracı formu */
+.brief-form { margin: 12px 0 0; padding: 8px 12px 10px; border: 1px solid var(--line-2); border-radius: 10px; }
+.brief-form legend { padding: 0 6px; font: 600 10.5px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--accent-2); }
+.brief-field { display: grid; grid-template-columns: 1fr 112px 26px; align-items: center; gap: 8px; margin-top: 6px; font-size: 13px; color: var(--text-secondary); }
+.brief-field input { min-width: 0; background: var(--surface-2); color: var(--text-primary); border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 8px; font: 13px var(--mono); text-align: right; }
+.brief-field input.bad { border-color: var(--bad); }
+.brief-field em { font: 400 11.5px var(--mono); font-style: normal; color: var(--text-muted); }
+.brief-date select { background: var(--surface-2); color: var(--text-primary); border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 8px; font: 13px var(--font); }
