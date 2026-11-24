@@ -14,10 +14,11 @@ import { AscentView } from './ascentview.js';
 import { CameraRig } from './camerarig.js';
 import { SkyView } from './skyview.js';
 import { SurfaceView } from './surfaceview.js';
-import { VS_BODY, FS_EARTH, VS_ATM, FS_ATM, FS_MOON } from './bodyshaders.js';
+import { VS_BODY, FS_EARTH, VS_ATM, FS_ATM, FS_MOON, EARTHSHINE, earthshine } from './bodyshaders.js';
 import { bandRange } from './bodyband.js';
 import { sphereGeometry, m3ToQuat, glowTexture, ringTexture, unit3, conicEach, conicPoints, SUN_I } from './scenegeom.js';
 import { mixin } from './mixin.js';
+import { meter, adapt, sunVisible } from './pozlama.js';
 
 export { conicEach, conicPoints };
 import { PLANETS, poleVec, PLANET_VIS, planetMaterial, atmosphereMesh, ringMaterial } from './planets.js';
@@ -29,6 +30,7 @@ import { TEX, UPGRADE } from './texplan.js';
 
 
 const { add, sub, scale, dot, cross, norm, unit } = E;
+const ATM_K = 5.5;                        // atmosfer saçılmasının pozlaması (FS_ATM; diğer cisimlerle aynı tonlamada dengeli)
 const EARTH_I = 1.15;                    // Dünya (bulutlar ve okyanus yansıması parlak olduğundan düşük)
 const KM = 0.001;                        // m -> km
 // Dünya küresinin ayrıntı düzeyi (LOD). Dünya küresi yer değiştirmesizdir (useHeight 0): köşeler yalnız şekli taşır, iki ağ arasındaki fark yalnız kiriş hatasıdır.
@@ -214,19 +216,24 @@ export class World {
       normalMap: { value: A.enorm || flat([128, 128, 255, 255]) }, sunDir: { value: new THREE.Vector3(1, 0, 0) }, sunI: { value: EARTH_I },
       heightMap: { value: flat([0, 0, 0, 255]) }, hSize: { value: new THREE.Vector2(1, 1) }, radius: { value: E.R_E }, useHeight: { value: 0 }, obsMode: { value: 0 },
       tileMap: { value: flat([0, 0, 0, 255]) }, useTile: { value: 0 }, tileKind: { value: 0 },
-      parentMap: { value: flat([0, 0, 0, 255]) }, pXf: { value: new THREE.Vector4(1, 1, 0, 0) }, pHas: { value: 0 }, tileFade: { value: 1 } };      // parça geçişi (her parça kendi kopyasını alır: tiles.js)
+      parentMap: { value: flat([0, 0, 0, 255]) }, pXf: { value: new THREE.Vector4(1, 1, 0, 0) }, pHas: { value: 0 }, tileFade: { value: 1 },      // parça geçişi (her parça kendi kopyasını alır: tiles.js)
+      realMap: { value: flat([0, 0, 0, 255]) }, useReal: { value: 0 },             // görev gününün gerçek bulutları (setRealClouds; parçalar aynı nesneyi paylaşır)
+      seasonMap: { value: flat([128, 128, 128, 0]) }, useSeason: { value: 0 } };    // görev döneminin kara rengi (setSeason)
     this.earthGeo = EARTH_SEG.map(([a, b]) => sphereGeometry(E.R_E, a, b)); this.earthLod = 0;          // ayrıntı düzeyleri (earthLodUpdate); ikisi de atılmaz
     this.earth = new THREE.Mesh(this.earthGeo[0], new THREE.ShaderMaterial({ uniforms: eu, vertexShader: VS_BODY, fragmentShader: FS_EARTH }));
     S.add(this.earth);                                    // görüş dışındaki cisim köşe işlemeye girmez (frustum culling): her biri ~1 milyon üçgen
+    // atmosfer (bodyshaders.js FS_ATM): tek saçılmalı ışın yürütme; önçarpımlı karışım (saçılan ışık + yüzeyi puslayan geçirgenlik). Kamera atmosferin içindeyken
+    // kabuğun arka yüzü çizilir (earthLodUpdate yanında, her kare)
     this.atm = new THREE.Mesh(sphereGeometry(E.R_E * 1.0125, 256, 128), new THREE.ShaderMaterial({
-      uniforms: { sunDir: eu.sunDir, sunI: eu.sunI }, vertexShader: VS_ATM, fragmentShader: FS_ATM, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+      uniforms: { sunDir: eu.sunDir, sunI: eu.sunI, Rp: { value: E.R_E }, Ra: { value: E.R_E * 1.0125 }, atmK: { value: ATM_K } }, vertexShader: VS_ATM, fragmentShader: FS_ATM, transparent: true,
+      blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor, depthWrite: false }));
     S.add(this.atm);
     // Ay (LOLA ile yer değiştirmiş)
     const sd = VIEW.site.me;
     const mu = { colorMap: { value: A.mcol || flat([150, 150, 150, 255]) }, normalMap: { value: A.mnorm || flat([128, 128, 255, 255]) },
       heightMap: { value: A.mh || flat([0, 0, 0, 255]) }, hSize: { value: new THREE.Vector2(...(A.mh ? A.mh.userData.size : [1, 1])) },          // boyut: yükleyici saklar (bitmap GPU'ya yüklenince kapatılır)
       radius: { value: E.R_M }, useHeight: { value: A.mh ? 1 : 0 },
-      sunDir: { value: new THREE.Vector3(1, 0, 0) }, earthDir: { value: new THREE.Vector3(1, 0, 0) }, sunI: { value: SUN_I },
+      sunDir: { value: new THREE.Vector3(1, 0, 0) }, earthDir: { value: new THREE.Vector3(1, 0, 0) }, earthLit: { value: EARTHSHINE }, sunI: { value: SUN_I },
       siteDir: { value: new THREE.Vector3(sd[0], sd[1], sd[2]) }, albScale: { value: 0.8 }, holeCos: { value: 2.0 },          // delik (arazi yaması varken küre çizilmez): arazi hazır olunca açılır (loadTerrain)
       tileMap: { value: flat([128, 128, 128, 255]) }, useTile: { value: 0 }, lodDelta: { value: 0 }, tileAlpha: { value: 0 }, latCut: { value: 2 }, tilePull: { value: 0 },
       parentMap: { value: flat([128, 128, 128, 255]) }, pXf: { value: new THREE.Vector4(1, 1, 0, 0) }, pHas: { value: 0 }, tileFade: { value: 1 } };
@@ -550,10 +557,12 @@ export class World {
     this.earthU.sunDir.value.copy(unit3(sub(sun, [0, 0, 0])));
     this.moonU.sunDir.value.copy(unit3(sub(sun, rm)));
     this.moonU.earthDir.value.copy(unit3(scale(rm, -1)));
+    this.moonU.earthLit.value = earthshine(sun, rm);
     this.sunSprite.position.copy(sd.clone().multiplyScalar(5e6));
     // Dünya ve Ay
     rel([0, 0, 0], this.earth.position); this.earth.quaternion.copy(m3ToQuat(E.mT(Mitrf)));
     this.atm.position.copy(this.earth.position); this.earthLodUpdate();
+    this.atm.material.side = this.earth.position.length() < E.R_E * 1.0125 ? THREE.BackSide : THREE.FrontSide;      // atmosferin içinden (kalkış): arka yüz
     if (this.earthLod === 0) this.bodyBand(this.earth, 1024, 512, E.R_E - 0.07, E.R_E);                 // ince ağ: yalnız ufkun berisindeki satırlar
     rel(rm, this.moon.position); this.moon.quaternion.copy(m3ToQuat(E.mT(Mme)));
     this.moonLodUpdate();
@@ -563,6 +572,65 @@ export class World {
     if (this.terrainReady) this.placeTerrain(rm, Mme, eye, rel);
     return { eye, rel, sd };
   }
+  // görev gününün gerçek bulutları (bulutlar.js, NASA GIBS VIIRS): ms = kalkış anı (UTC). Aynı gün yeniden indirilmez; inmezse durağan bulut dokusu kalır.
+  // Düşük bellekte 2560 × 1280, değilse 5120 × 2560. ?bulut=0 kapatır.
+  // mevsimsel Dünya (mevsim.js): görev tarihine göre 4 art arda 8 günlük VIIRS yüzey mozaiği → taban dokuya oran dokusu. Taban, sahnedeki gündüz dokusunun
+  // 1280 × 640'a indirgenmiş hâli (mip ortalaması; ayrı indirme yok). Oran iş parçacığında hesaplanır. ?mevsim=0 kapatır; ağ yoksa taban doku olduğu gibi kalır
+  async setSeason(ms) {
+    if (/[?&]mevsim=0\b/.test(location.search)) return false;
+    const M = await import('./mevsim.js'), gunler = M.mevsimDonemleri(ms), anahtar = gunler[0];
+    if (anahtar === this.seasonKey) return true;
+    this.seasonKey = anahtar; if (this.seasonAbort) this.seasonAbort.abort(); const ac = this.seasonAbort = new AbortController();
+    let kareler; try { kareler = (await Promise.all(gunler.map((g) => M.mevsimKaresi(g, { signal: ac.signal })))).filter(Boolean); } catch (e) { return false; }
+    if (ac.signal.aborted || this.seasonKey !== anahtar) return false;
+    const taban = kareler.length >= 2 ? this.seasonBase(M.MW, M.MH) : null;
+    if (!taban) { this.seasonKey = null; return false; }
+    let r = null;
+    try {
+      const w = new Worker(new URL('./mevsimworker.js', import.meta.url), { type: 'module' });
+      r = await new Promise((ok, no) => { w.onmessage = (e) => ok(e.data); w.onerror = no; w.postMessage({ kareler, taban }, [taban.buffer, ...kareler.map((k) => k.buffer)]); });
+      w.terminate();
+    } catch (e) { return false; }
+    if (ac.signal.aborted || this.seasonKey !== anahtar) return false;
+    const W = M.MW, H = M.MH, d = new Uint8Array(W * H * 4);              // DataTexture: satır 0 = v 0 = güney (oran kuzeyden başlar)
+    for (let y = 0; y < H; y++) d.set(r.data.subarray((H - 1 - y) * W * 4, (H - y) * W * 4), y * W * 4);
+    const t = new THREE.DataTexture(d, W, H, THREE.RGBAFormat); t.colorSpace = THREE.NoColorSpace; t.wrapS = THREE.RepeatWrapping;
+    t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true; t.needsUpdate = true;
+    const eu = this.earthU, old = eu.seasonMap.value; eu.seasonMap.value = t; eu.useSeason.value = 1;
+    if (old && old.isDataTexture && old.image.width > 1) old.dispose();
+    return true;
+  }
+  // taban: gündüz dokusu (sRGB) + özyansıma (A), W × H, satır 0 = kuzey. Doku henüz yoksa null
+  seasonBase(W, H) {
+    const eu = this.earthU, day = eu.dayMap.value;
+    if (!day || (day.isDataTexture && day.image.width <= 1)) return null;
+    const rt = new THREE.WebGLRenderTarget(W, H, { depthBuffer: false }), sc = new THREE.Scene(), cam = new THREE.Camera();
+    const mat = new THREE.ShaderMaterial({ uniforms: { dayMap: eu.dayMap, specMap: eu.specMap }, depthTest: false, depthWrite: false,
+      vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+      fragmentShader: `uniform sampler2D dayMap, specMap; varying vec2 vUv;
+        void main() { vec3 c = clamp(texture2D(dayMap, vUv).rgb, 0.0, 1.0);
+          gl_FragColor = vec4(mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)), texture2D(specMap, vUv).r); }` });
+    const q = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat); q.frustumCulled = false; sc.add(q);
+    const R = this.renderer, prev = R.getRenderTarget(), px = new Uint8Array(W * H * 4);
+    try { R.setRenderTarget(rt); R.render(sc, cam); R.readRenderTargetPixels(rt, 0, 0, W, H, px); } finally { R.setRenderTarget(prev); rt.dispose(); mat.dispose(); q.geometry.dispose(); }
+    const out = new Uint8Array(W * H * 4);                                  // okunan satır 0 = alt (güney) → kuzeyden başlat
+    for (let y = 0; y < H; y++) out.set(px.subarray((H - 1 - y) * W * 4, (H - y) * W * 4), y * W * 4);
+    return out;
+  }
+  async setRealClouds(ms) {
+    if (/[?&]bulut=0\b/.test(location.search)) return false;
+    const B = await import('./bulutlar.js'), gun = B.bulutGunu(ms);
+    if (gun === this.realGun) return true;
+    this.realGun = gun; if (this.realAbort) this.realAbort.abort(); const ac = this.realAbort = new AbortController();
+    let cv = null; try { cv = await B.bulutMozaigi(gun, this.lowMem ? 2 : 3, { signal: ac.signal }); } catch (e) { return false; }
+    if (ac.signal.aborted || this.realGun !== gun) return false;
+    if (!cv) { this.realGun = null; return false; }
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.NoColorSpace; t.wrapS = THREE.RepeatWrapping; t.anisotropy = 4; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter;
+    const eu = this.earthU, old = eu.realMap.value; eu.realMap.value = t; eu.useReal.value = 1;
+    if (old && old.isCanvasTexture) old.dispose();
+    return true;
+  }
+
   // ---------------------------------------------------------------- kare güncelle
   update(x, extra) {
     if (!this.ready || !x) return;
@@ -645,6 +713,7 @@ export class World {
     this.sunLight.intensity = Math.PI * SUN_I * lit;
     this.ambient.intensity = 0.014 + (central === 'E' && lit < 1 ? 0.02 : 0);
     this.eclipse = lit;
+    this.meterFrame(eye, pose.target, sun, rm, vehPos, lit, extra.dtReal || 0.016);
     this.updateEnv(vehPos, sun, rm, lit);
     this.updateFx(Math.min(0.1, extra.dtReal || 0.016), x, extra, info, zNow, rel, sd, lit, k, thr);
     // gölge: araç kendi üstüne ve yüzeye gölge atar; kamera uzaktaysa (>1 km) gölge haritası yenilenmez
@@ -830,6 +899,25 @@ export class World {
     d.style.display = 'block'; d.style.transform = `translate(${((v.x + 1) / 2) * w}px, ${((1 - v.y) / 2) * h - dy}px) translate(-50%, -100%)`;
   }
 
+  // pozlama uyarlaması ve Güneş mercek parlaması (pozlama.js): ölçüm sahne geometrisinden; kesmede (bakış 15°'den çok döner ya da göz hedefe uzaklığının
+  // %25'inden çok sıçrar) beklemeden hedefe atlar. ?poz=0 kapatır (pozlama 1)
+  meterFrame(eye, target, sun, rm, vehPos, lit, dt) {
+    if (this.expOff === undefined) this.expOff = /[?&]poz=0\b/.test(location.search);
+    const fw = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion), dir = [fw.x, fw.y, fw.z];
+    const cg = Math.max(-1, Math.min(1, dot(unit(sub(sun, rm)), unit(sub(eye, rm))))), tg = Math.sqrt((1 - cg) / Math.max(1 + cg, 1e-4));
+    const wMoon = 0.55 * (1 + 1 / (1 + tg / 0.06)) / (1 + 1 / (1 + 1 / 0.06));          // Ay albedosu ve dolunay parlaması (FS_MOON ile aynı)
+    const m = meter({ eye, dir, fovY: this.camera.fov, aspect: this.camera.aspect, sun, bodies: [{ c: [0, 0, 0], R: E.R_E, w: 1 }, { c: rm, R: E.R_M, w: wMoon }], veh: { p: vehPos, size: 0.012, lit } });
+    const pe = this.expEye, cut = !pe || dot(dir, this.expDir) < Math.cos(0.26) || norm(sub(eye, pe)) > 0.25 * norm(sub(target, eye));
+    this.expEye = eye.slice(); this.expDir = dir; this.expMeter = m;
+    this.expCur = this.expOff ? 1 : cut ? m.target : adapt(this.expCur, m.target, dt);
+    this.renderer.toneMappingExposure = (this.expBase || 1) * this.expCur;
+    if (this.post) {
+      const v = new THREE.Vector3(...unit(sub(sun, eye))).multiplyScalar(1e6).project(this.camera), x = (v.x + 1) / 2, y = (v.y + 1) / 2;
+      const on = v.z < 1 ? 1 - Math.max(0, Math.min(1, (Math.max(Math.abs(v.x), Math.abs(v.y)) - 1) / 0.35)) : 0;
+      this.post.setFlare(x, y, on > 0 ? on * sunVisible(eye, sun, [[[0, 0, 0], E.R_E], [rm, E.R_M]]) : 0);
+    }
+  }
+
   render() {
     if (!this.ready) return;
     const now = performance.now(), raw = (now - this._lastRender) / 1000 || 0.016, dt = Math.min(0.1, raw); this._lastRender = now;
@@ -859,7 +947,7 @@ export class World {
       this.cine.level = this.post.level;
     } else if (this._pr0) { this.renderer.setPixelRatio(this._pr0); this._pr0 = null; }
     this.cine.on = on;
-    this.sunSprite.material.color.setScalar(on ? 3 : 1); this.sunSprite.scale.setScalar(on ? 0.03 : 0.09); this.renderer.toneMappingExposure = on ? 0.92 : 1.0;
+    this.sunSprite.material.color.setScalar(on ? 3 : 1); this.sunSprite.scale.setScalar(on ? 0.03 : 0.09); this.expBase = on ? 0.92 : 1.0; this.renderer.toneMappingExposure = this.expBase * (this.expCur || 1);
     this.labelsEl.style.display = on ? 'none' : '';
     this.resize(this.canvas.clientWidth, this.canvas.clientHeight);
   }

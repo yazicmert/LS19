@@ -40,6 +40,7 @@ export class SkyView {
     const pose = this.cameraPose({ t, r: [0, 0, E.R_E * 3], v: [1, 0, 0] }, info);
     const { eye, sd } = this.placeFrame(pose, sun, rm, Mitrf, Mme);
     this.sunLight.intensity = Math.PI * SUN_I; this.sunLight.castShadow = false; this.ambient.intensity = 0.02; this.eclipse = 1;
+    this.expCur = 1; this.expEye = null; this.renderer.toneMappingExposure = this.expBase || 1;          // gökyüzü görünümünde pozlama uyarlaması yok (meterFrame)
     this.sunLight.target.position.set(0, 0, 0); this.sunLight.position.copy(sd);
     // Ay'ın yolu (±4 gün)
     this.drawMoonPath(t, eye, ['EARTH', 'MOON', 'FOCUS'].includes(this.cam.mode) && norm(eye) > 60000);

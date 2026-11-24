@@ -2,6 +2,17 @@
 // logaritmik derinlik); FS_EARTH: gündüz/gece, bulut, okyanus parıltısı, yakın ayrıntı, parça geçişi; FS_MOON: Hapke benzeri albedo, WAC/Kaguya parçaları.
 import { GLSL_NOISE } from './planets.js';
 
+// Ay'ın gece yüzüne Dünya ışığı: dolu Dünya'da (yeni Ay) EARTHSHINE, ortalama uzaklıkta. Lambert küresinin evre işlevi Φ(α) = (sin α + (π − α) cos α) / π;
+// α = Dünya'da Güneş ile Ay arasındaki açı (yeni Ay 0: Ay'dan Dünya dolu görünür, dolunay π: Dünya karanlık). Işık uzaklığın karesiyle azalır
+// (gerçek oran güneş ışığının ~1e-4'ü; ekran için ~100 kat büyütülmüş: normal pozlamada gece yüzü ancak seçilir, pozlama uyarlaması (pozlama.js)
+// kadrajı gece yüzü doldurunca açar ve kraterler Dünya ışığında görünür)
+export const EARTHSHINE = 0.03; const D_MOON = 384400;
+export function earthshine(sun, rm) {
+  const ns = Math.hypot(...sun), d = Math.hypot(...rm), c = (sun[0] * rm[0] + sun[1] * rm[1] + sun[2] * rm[2]) / (ns * d || 1);
+  const a = Math.acos(Math.max(-1, Math.min(1, c)));
+  return EARTHSHINE * (Math.sin(a) + (Math.PI - a) * Math.cos(a)) / Math.PI * (D_MOON / Math.max(d, 1e4)) ** 2;
+}
+
 export const VS_BODY = /* glsl */`
 #include <common>
 #include <logdepthbuf_pars_vertex>
@@ -36,9 +47,27 @@ export const FS_EARTH = /* glsl */`
 #include <logdepthbuf_pars_fragment>
 uniform sampler2D dayMap, nightMap, cloudMap, specMap, normalMap, tileMap; uniform vec3 sunDir; uniform float sunI; uniform float obsMode; uniform float useTile, tileKind;
 uniform sampler2D parentMap; uniform vec4 pXf; uniform float pHas, tileFade;          // parça geçişi (tiles.js): ata parça (ya da taban doku) → yeni parça
+uniform sampler2D realMap; uniform float useReal;                                       // görev gününün gerçek renk mozaiği (bulutlar.js; 0: durağan bulut dokusu)
+uniform sampler2D seasonMap; uniform float useSeason;                                   // görev döneminin kara rengi (mevsim.js): log2 oranı, A = geçerlilik
 varying vec2 vUvT;
 varying vec3 vN; varying vec3 vE; varying vec3 vPos; varying vec2 vUv; varying vec3 vLocal;
 ${GLSL_NOISE}
+// bulut örtüsü (saydamlık 0…1) bir uv'de. Durağan doku kontrast eğrisiyle. Gerçek mozaikte piksel = karışım(bulutsuz zemin, beyaz, α) çözülür: zemin Blue Marble
+// gündüz dokusu (sRGB'ye çevrilip mozaikle aynı uzayda), α = kanallarda en küçük (gerçek − zemin) / (1 − zemin). Çöl, kara ve kar kendi renginde kaldığından bulut sayılmaz.
+// Veri boşluğu (siyah şerit) ve kar/buz (zemin beyaza yakın: çözüm kararsız) durağan dokudan
+// mevsim: taban dokuya görev döneminin düşük frekanslı oranı (≈ 31 km/px) uygulanır; ayrıntı tabandan, renk ve parlaklık (kar, yeşil, kuru) dönemden. Yalnız kara
+vec3 seasonal(vec2 uv, vec3 c, float land) {
+  if (useSeason < 0.5) return c;
+  vec4 s = texture2D(seasonMap, uv); return c * exp2((s.rgb - 0.5) * 12.0 * (s.a * land));
+}
+float cloudAt(vec2 uv) {
+  float cs = smoothstep(0.08, 0.9, texture2D(cloudMap, uv).r);
+  if (useReal < 0.5) return cs;
+  vec3 rc = texture2D(realMap, uv).rgb, gr = pow(clamp(seasonal(uv, texture2D(dayMap, uv).rgb, 1.0 - smoothstep(0.1, 0.5, texture2D(specMap, uv).r)), 0.0, 1.0), vec3(1.0 / 2.2));
+  vec3 a3 = (rc - gr) / (1.001 - gr); float al = min(a3.r, min(a3.g, a3.b));
+  float m = pow(clamp((al - 0.08) / 0.8, 0.0, 1.0), 1.2), ice = smoothstep(0.7, 0.85, dot(gr, vec3(0.333)));
+  return mix(cs, mix(m, cs, ice), step(0.03, max(rc.r, max(rc.g, rc.b))));
+}
 void main() {
   // kaplama parçaları: 1 = JPEG (saf siyah = kapsam yok, ör. okyanus), 2 = PNG (saydam = veri yok): alttaki Blue Marble görünür
   if (useTile > 0.5 && tileKind > 0.5) { vec4 tq = texture2D(tileMap, vUvT); if ((tileKind < 1.5 && tq.r + tq.g + tq.b < 0.012) || (tileKind > 1.5 && tq.a < 0.5)) discard; }
@@ -53,24 +82,32 @@ void main() {
   float magE = smoothstep(0.9, 0.08, useTile > 0.5 ? length(fwidth(vUvT * 512.0)) : length(fwidth(vUv * vec2(8192.0, 4096.0)))), dnE = 0.0, landE = 1.0 - smoothstep(0.1, 0.5, spec);
   if (magE > 0.001) { dnE = (fbm(vLocal * 600.0) - 0.5) * 0.5 + (fbm(vLocal * 2600.0) - 0.5) * 0.35 + (fbm(vLocal * 11000.0) - 0.5) * 0.15; ndlp *= 1.0 + dnE * 0.7 * magE * landE; }
   float magC = smoothstep(0.9, 0.08, length(fwidth(vUv * vec2(8192.0, 4096.0))));        // bulut dokusu kendi çözünürlüğünü aştıkça seyrelir: yer ayrıntısı bulanık lekelerin altında kalmasın
-  float cloud = texture2D(cloudMap, vUv).r + dnE * 0.4 * magE; cloud = smoothstep(0.08, 0.9, cloud) * (1.0 - 0.6 * magC);
+  float cloud = clamp(cloudAt(vUv) + dnE * 0.3 * magE, 0.0, 1.0) * (1.0 - 0.6 * magC);
+  // bulut gölgesi: bulutlar ~6 km'de; zemin, Güneş yönünde (teğet düzlemde) 6 km / tan(yükseliş) ötedeki bulutun gölgesinde (alçak Güneş'te uzun, en çok 60 km)
+  float cShade = 0.0;
+  if (ndl > 0.0 && magC < 0.95) {
+    vec3 Lt = L - N * ndl; float lt = length(Lt);
+    if (lt > 1e-4) { Lt /= lt; float clat = max(sqrt(max(1.0 - vLocal.z * vLocal.z, 0.0)), 0.03), dkm = min(6.0 * sqrt(max(1.0 - ndl * ndl, 0.0)) / max(ndl, 0.1), 60.0);
+      vec2 o = vec2(dot(Lt, T) / (2.0 * PI * 6371.0 * clat), dot(Lt, B) / (PI * 6371.0)) * dkm;
+      cShade = cloudAt(vUv + o) * (1.0 - 0.6 * magC); }
+  }
   vec3 day = useTile > 0.5 ? texture2D(tileMap, vUvT).rgb : texture2D(dayMap, vUv).rgb;
   if (useTile > 0.5 && tileFade < 0.999) {                                                // yumuşak geçiş: yerinde önceden çizilen kaba görüntüden
     vec4 pq = texture2D(parentMap, vUvT * pXf.xy + pXf.zw); vec3 pc = pHas > 0.5 ? pq.rgb : texture2D(dayMap, vUv).rgb;
     bool pBad = tileKind > 0.5 && (pHas < 0.5 || (tileKind < 1.5 ? pq.r + pq.g + pq.b < 0.012 : pq.a < 0.5));   // kaplamanın atasında veri yok: saydamlıkla belirir
     day = mix(pBad ? day : pc, day, tileFade);
   }
+  day = seasonal(vUv, day, landE);
   day *= 1.0 + dnE * 0.5 * magE * landE;
   float tw = smoothstep(-0.12, 0.2, ndl);
   vec3 sunCol = mix(vec3(1.0, 0.55, 0.3), vec3(1.0), smoothstep(0.0, 0.35, ndl));
-  vec3 col = day * ndlp * sunCol * tw;
+  vec3 col = day * ndlp * sunCol * tw * (1.0 - 0.5 * cShade);
   float nh = max(dot(N, H), 0.0), glint = spec * (pow(nh, 400.0) * 1.15 + pow(nh, 40.0) * 0.1);                // okyanus Güneş parıltısı: küçük, parlak çekirdek ve ince hâle (geniş, patlak bir leke değil)
   col += glint * sunCol * step(0.0, ndl) * (1.0 - cloud);
   col = mix(col, vec3(0.85) * max(ndl, 0.0) * sunCol * tw, cloud * 0.9);
   vec3 night = texture2D(nightMap, vUv).rgb;
   col += night * vec3(1.0, 0.78, 0.5) * (1.0 - smoothstep(-0.12, 0.05, ndl)) * (1.0 - cloud * 0.85) * 0.9 / sunI;
-  float mu = max(dot(N, V), 0.0);
-  col = mix(col, vec3(0.32, 0.55, 1.0) * max(ndl + 0.15, 0.0) * 0.7, pow(1.0 - mu, 3.0) * 0.45);
+  // kenar pusu: fiziksel atmosfer kabuğunda (FS_ATM)
   // yerdeki gözlemci: yakın zemin doku çözünürlüğünün altında; sade, aydınlanmaya göre koyulaşan zemin (şehir ışığı pikseli büyümesin)
   if (obsMode > 0.5) { float nearG = 1.0 - smoothstep(60.0, 500.0, length(vPos));
     vec3 g = vec3(0.018, 0.02, 0.024) + day * 0.35 * max(ndl, 0.0) * sunCol + vec3(0.25, 0.32, 0.45) * 0.05 * smoothstep(-0.2, 0.1, ndl);
@@ -80,28 +117,50 @@ void main() {
   #include <colorspace_fragment>
 }`;
 
+// Atmosfer: tek saçılmalı ışın yürütme (Rayleigh + Mie, üstel yoğunluk). Kabuk küresi (R⊕ + 80 km) çizilir; her piksel kameradan görüş ışınını atmosferde
+// (yüzeye çarpıyorsa yüzeye dek) 16 adımda yürür, her adımda Güneş'e doğru 4 adımla ışık geçirgenliği; Dünya'nın gölgesindeki noktalar ışık almaz (gece).
+// Çıkış önçarpımlı: renk = saçılan ışık, alfa = 1 − ortalama geçirgenlik (yüzey kenarda puslanır; karışım ONE, ONE_MINUS_SRC_ALPHA).
+// Birimler km: β_R = (5,8; 13,5; 33,1)×10⁻³ /km, β_M = 21×10⁻³ /km (sönüm ×1,1), ölçek yükseklikleri 8 km ve 1,2 km, Mie g = 0,76.
 export const VS_ATM = /* glsl */`
 #include <common>
 #include <logdepthbuf_pars_vertex>
-varying vec3 vN; varying vec3 vPos;
+varying vec3 vPos; varying vec3 vCen;
 void main() {
-  vec4 wp = modelMatrix * vec4(position, 1.0); vPos = wp.xyz; vN = normalize(mat3(modelMatrix) * normalize(position));
+  vec4 wp = modelMatrix * vec4(position, 1.0); vPos = wp.xyz; vCen = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
   gl_Position = projectionMatrix * viewMatrix * wp;
   #include <logdepthbuf_vertex>
 }`;
 export const FS_ATM = /* glsl */`
 #include <common>
 #include <logdepthbuf_pars_fragment>
-uniform vec3 sunDir; uniform float sunI;
-varying vec3 vN; varying vec3 vPos;
+uniform vec3 sunDir; uniform float sunI, Rp, Ra, atmK;
+varying vec3 vPos; varying vec3 vCen;
+const vec3 BR = vec3(5.8e-3, 13.5e-3, 33.1e-3); const float BM = 21e-3, HR = 8.0, HM = 1.2;
+// küre kesişimi (o + t d, |d| = 1): [giriş, çıkış]; kesişmezse giriş > çıkış. En yakın nokta üzerinden (büyük sayılarda kararlı)
+vec2 sph(vec3 o, vec3 d, float r) { vec3 oc = o - vCen; float b = dot(oc, d); vec3 q = oc - b * d; float h = r * r - dot(q, q); if (h < 0.0) return vec2(1e9, -1e9); h = sqrt(h); return vec2(-b - h, -b + h); }
 void main() {
   #include <logdepthbuf_fragment>
-  vec3 N = normalize(vN), V = normalize(-vPos), L = normalize(sunDir);
-  float mu = abs(dot(N, V)); float rim = pow(1.0 - mu, 3.2);
-  float ndl = dot(N, L);
-  vec3 c = mix(vec3(1.0, 0.42, 0.12), vec3(0.28, 0.55, 1.0), smoothstep(-0.05, 0.35, ndl));
-  float a = rim * smoothstep(-0.35, 0.25, ndl) * 1.3;
-  gl_FragColor = vec4(c * a * sunI * 0.6, 1.0);
+  vec3 o = cameraPosition, d = normalize(vPos - cameraPosition), L = normalize(sunDir);
+  vec2 ta = sph(o, d, Ra); float t0 = max(ta.x, 0.0), t1 = ta.y;
+  vec2 tp = sph(o, d, Rp); if (tp.x < tp.y && tp.y > 0.0) t1 = min(t1, max(tp.x, 0.0));
+  if (t1 <= t0) discard;
+  float mu = dot(d, L), g = 0.76, g2 = g * g;
+  float pR = 3.0 / (16.0 * PI) * (1.0 + mu * mu);
+  float pM = 3.0 / (8.0 * PI) * ((1.0 - g2) * (1.0 + mu * mu)) / ((2.0 + g2) * pow(1.0 + g2 - 2.0 * g * mu, 1.5));
+  const int N = 16; float ds = (t1 - t0) / float(N);
+  vec3 sR = vec3(0.0), sM = vec3(0.0); float oR = 0.0, oM = 0.0;
+  for (int i = 0; i < N; i++) {
+    vec3 p = o + d * (t0 + (float(i) + 0.5) * ds); float h = max(length(p - vCen) - Rp, 0.0);
+    float hr = exp(-h / HR) * ds, hm = exp(-h / HM) * ds; oR += hr; oM += hm;
+    vec2 tpl = sph(p, L, Rp); if (tpl.x < tpl.y && tpl.y > 0.0) continue;         // Dünya'nın gölgesi: Güneş görünmez
+    float dl = sph(p, L, Ra).y / 4.0, lR = 0.0, lM = 0.0;
+    for (int j = 0; j < 4; j++) { float hl = max(length(p + L * ((float(j) + 0.5) * dl) - vCen) - Rp, 0.0); lR += exp(-hl / HR) * dl; lM += exp(-hl / HM) * dl; }
+    vec3 att = exp(-(BR * (oR + lR) + BM * 1.1 * (oM + lM)));
+    sR += att * hr; sM += att * hm;
+  }
+  vec3 col = (sR * BR * pR + sM * BM * pM) * sunI * atmK;
+  vec3 T = exp(-(BR * oR + BM * 1.1 * oM));
+  gl_FragColor = vec4(col, 1.0 - (T.r + T.g + T.b) / 3.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
 }`;
@@ -109,11 +168,34 @@ void main() {
 export const FS_MOON = /* glsl */`
 #include <common>
 #include <logdepthbuf_pars_fragment>
-uniform sampler2D colorMap, normalMap, tileMap; uniform vec3 sunDir, earthDir; uniform float sunI, holeCos, albScale, useTile, lodDelta, tileAlpha, latCut, tilePull; uniform vec3 siteDir;
+uniform sampler2D colorMap, normalMap, tileMap; uniform vec3 sunDir, earthDir; uniform float earthLit; uniform float sunI, holeCos, albScale, useTile, lodDelta, tileAlpha, latCut, tilePull; uniform vec3 siteDir;
 uniform sampler2D parentMap; uniform vec4 pXf; uniform float pHas, tileFade;          // parça geçişi (tiles.js)
+uniform sampler2D heightMap; uniform vec2 hSize; uniform float radius, useHeight;       // LOLA yükseklik alanı (VS_BODY ile aynı): kabartma gölgesi
 varying vec2 vUvT;
 varying vec3 vN; varying vec3 vE; varying vec3 vPos; varying vec2 vUv; varying vec3 vLocal;
 ${GLSL_NOISE}
+float decHf(vec4 c) { return (c.r * 255.0 * 256.0 + c.g * 255.0) / 65535.0 * 21.0 - 10.0; }
+float hAtF(vec2 uv) {                                                                      // VS_BODY hAt ile aynı: elle çift doğrusal (16 bit R·256+G kodlu, nearest doku)
+  vec2 p = uv * hSize - 0.5; ivec2 i0 = ivec2(floor(p)); vec2 f = fract(p);
+  int W = int(hSize.x), H = int(hSize.y);
+  int x0 = i0.x < 0 ? i0.x + W : (i0.x >= W ? i0.x - W : i0.x); int x1 = x0 + 1 >= W ? 0 : x0 + 1;
+  int ya = clamp(i0.y, 0, H - 1), yb = clamp(i0.y + 1, 0, H - 1);
+  return mix(mix(decHf(texelFetch(heightMap, ivec2(x0, ya), 0)), decHf(texelFetch(heightMap, ivec2(x1, ya), 0)), f.x),
+             mix(decHf(texelFetch(heightMap, ivec2(x0, yb), 0)), decHf(texelFetch(heightMap, ivec2(x1, yb), 0)), f.x), f.y);
+}
+// kabartma gölgesi: yüzeyde Güneş'in yönünde (teğet düzlemde) 12 adım (≈2–140 km, artan), Ay'ın eğriliği dahil; yolda Güneş'in yükselişinden dik bir sırt varsa gölge.
+// Yalnız alçak Güneş'te (gece–gündüz sınırı, yükseliş < ~30°): uzun gölgeler orada; yüksek Güneş'te gölgeler kısa ve normal haritası yeter. Yumuşak kenar (yarı gölge)
+float reliefShadow(vec3 N, vec3 T, vec3 B, vec3 L) {
+  float sEl = dot(N, L); if (useHeight < 0.5 || sEl <= 0.0 || sEl > 0.5) return 1.0;
+  vec3 Lt = L - N * sEl; float lt = length(Lt); if (lt < 1e-5) return 1.0; Lt /= lt;
+  float east = dot(Lt, T), north = dot(Lt, B), clat = max(sqrt(max(1.0 - vLocal.z * vLocal.z, 0.0)), 0.03);
+  float tanEl = sEl / sqrt(max(1.0 - sEl * sEl, 1e-6)), h0 = hAtF(vUv), mx = -1e9, s = 2.2;
+  vec2 kUv = vec2(east / (2.0 * PI * radius * clat), north / (PI * radius));
+  for (int k = 0; k < 12; k++) { float hk = hAtF(vUv + kUv * s); mx = max(mx, (hk - h0 - s * s / (2.0 * radius)) / s); s *= 1.45; }
+  float pen = 0.015 + 0.25 * tanEl;                                                       // yarı gölge: alçak Güneş'te dar
+  float near = smoothstep(0.06, 0.2, length(fwidth(vUv * hSize)));                         // çok yakında (bir hücre ekranda > ~15 px) kaba gölge söner: ince arazi kendi kabartmasıyla
+  return 1.0 - smoothstep(tanEl - pen, tanEl + pen, mx) * smoothstep(0.5, 0.42, sEl) * near;
+}
 void main() {
   if (dot(normalize(vLocal), siteDir) > holeCos) discard;
   #include <logdepthbuf_fragment>
@@ -125,8 +207,12 @@ void main() {
   vec3 nm = texture2D(normalMap, vUv).xyz * 2.0 - 1.0;
   vec3 Np = normalize(T * nm.x + B * nm.y + N * max(nm.z, 0.2));
   vec3 L = normalize(sunDir), V = normalize(-vPos);
-  float mu0 = max(dot(Np, L), 0.0), mu = max(dot(N, V), 0.05);
+  float mu0 = max(dot(Np, L), 0.0) * reliefShadow(N, T, B, L), mu = max(dot(N, V), 0.05);
   float I = mix(mu0, 2.0 * mu0 / (mu0 + mu + 1e-4), 0.45);
+  // dolunay parlaması (karşı konum etkisi, Hapke gölge gizlenmesi): B(g) = B0 / (1 + tan(g/2)/h), B0 = 1, h = 0,06. Faz açısı g → 0'da yüzey ~1,9 kat parlar
+  // (regolit taneleri kendi gölgelerini örter); g = 90°'de 1'e bölünmüş (dörtte bir evre ve yan ışık değişmez)
+  float cg = clamp(dot(L, V), -1.0, 1.0), tg = sqrt(max(1.0 - cg, 0.0) / max(1.0 + cg, 1e-4));
+  I *= (1.0 + 1.0 / (1.0 + tg / 0.06)) / (1.0 + 1.0 / (1.0 + 1.0 / 0.06));
   vec3 alb = texture2D(colorMap, vUv).rgb * albScale;
   // yüksek çözünürlüklü WAC parçası: taban rengi korunur, parçanın taban çözünürlüğünün altındaki yerel kontrastı (krater, ışın, gölge) eklenir
   if (useTile > 0.5) {
@@ -144,7 +230,8 @@ void main() {
     float dn = (fbm(vLocal * 900.0) - 0.5) * 0.5 + (fbm(vLocal * 4200.0) - 0.5) * 0.3 + (fbm(vLocal * 16000.0) - 0.5) * 0.2;
     alb *= 1.0 + dn * 0.5 * magM; I *= 1.0 + dn * 0.9 * magM * (1.0 - 0.5 * mu0);
   }
-  vec3 col = alb * I * sunI + alb * 0.012 * max(dot(Np, normalize(earthDir)), 0.0);
+  // Dünya ışığı: Dünya'nın Ay'dan görünen evresi (Lambert küresi) ve uzaklığa göre (scene.js earthLit); mavimsi (okyanus ve Rayleigh), parlaklığı korunmuş
+  vec3 col = alb * I * sunI + alb * earthLit * vec3(0.9, 1.0, 1.15) * max(dot(Np, normalize(earthDir)), 0.0);
   gl_FragColor = vec4(col, tileAlpha > 0.5 && pHas < 0.5 ? tileFade : 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
