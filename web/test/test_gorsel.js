@@ -3,11 +3,12 @@
 //     (aynı katsayılar) gökyüzü maviliğini, ufkun kızıllığını ve gece tarafının karanlığını verir
 //  3) görev gününün bulutları (NASA GIBS VIIRS): gün seçimi, parça adresi, mozaik boyu, zemine göre bulut çözümü, bulut gölgesi, sahne ve uygulama bağlantısı
 //  4) mevsimsel Dünya: dönem seçimi, oran hesabı (algılayıcı farkı, alt ortanca, renk korunan sınır, tropik tavanı, geçerlilik), gölgelendirici ve sahne
+//  5) Ay: Dünya ışığı Dünya'nın evresine ve uzaklığa göre; dolunay parlaması (Hapke karşı konum etkisi)
 //  2) Ay kabartma gölgesi: LOLA yükseklik alanında Güneş yönünde yürüyüş, eğrilik, yalnız alçak Güneş, yakında söner; yükseklik çözümü VS_BODY ile aynı
 import { register } from 'node:module';
 import { sceneSrc } from './scenesrc.js';
 register('./importmap_loader.mjs', import.meta.url);
-const { FS_ATM, FS_MOON, VS_BODY, FS_EARTH } = await import('../js/bodyshaders.js');
+const { FS_ATM, FS_MOON, VS_BODY, FS_EARTH, earthshine, EARTHSHINE } = await import('../js/bodyshaders.js');
 const BL = await import('../js/bulutlar.js');
 const MV = await import('../js/mevsim.js');
 import fs from 'fs';
@@ -127,6 +128,20 @@ const scene = sceneSrc();
     && /gr = pow\(clamp\(seasonal\(uv, texture2D\(dayMap, uv\)\.rgb/.test(FS_EARTH)
     && /async setSeason\(ms\)/.test(scene) && /seasonBase\(W, H\)/.test(scene) && /readRenderTargetPixels/.test(scene) && /mevsim=0/.test(scene) && /mevsimworker\.js/.test(scene)
     && /seasonMap: \{ value: flat\(\[128, 128, 128, 0\]\) \}, useSeason: \{ value: 0 \}/.test(scene) && /world\.setSeason\(ms\)/.test(app) && /mevsimOrani\(kareler, taban\)/.test(wk));
+}
+
+// ---------------------------------------------------------------- 5) Dünya ışığı ve dolunay parlaması
+{
+  const AU = 1.496e8, m = 384400, es = (deg, d = m) => earthshine([AU, 0, 0], [d * Math.cos(deg * Math.PI / 180), d * Math.sin(deg * Math.PI / 180), 0]);
+  check('Dünya ışığı: yeni Ay (Ay Güneş yönünde, Ay\'dan Dünya dolu) en güçlü = EARTHSHINE; dörtte birde 1/π katı; dolunayda (Dünya karanlık) 0; uzaklığın karesiyle azalır',
+    Math.abs(es(0) - EARTHSHINE) < 1e-9 && Math.abs(es(90) - EARTHSHINE / Math.PI) < 1e-9 && es(180) < 1e-9 && es(60) > es(120)
+    && Math.abs(es(0, 2 * m) - EARTHSHINE / 4) < 1e-9);
+  const opp = (gDeg) => { const cg = Math.cos(gDeg * Math.PI / 180), tg = Math.sqrt(Math.max(1 - cg, 0) / Math.max(1 + cg, 1e-4)); return (1 + 1 / (1 + tg / 0.06)) / (1 + 1 / (1 + 1 / 0.06)); };
+  check('dolunay parlaması (B0 = 1, h = 0,06): faz 0°\'de ~1,9 kat, 5°\'de ~1,5, 90°\'de 1 (yan ışık değişmez); gölgelendiricide aynı formül, Dünya ışığı evreli ve mavimsi',
+    Math.abs(opp(0) - 1.893) < 0.01 && opp(5) > 1.4 && opp(5) < 1.6 && Math.abs(opp(90) - 1) < 1e-9 && opp(30) > opp(60)
+    && /I \*= \(1\.0 \+ 1\.0 \/ \(1\.0 \+ tg \/ 0\.06\)\) \/ \(1\.0 \+ 1\.0 \/ \(1\.0 \+ 1\.0 \/ 0\.06\)\);/.test(FS_MOON)
+    && /alb \* earthLit \* vec3\(0\.9, 1\.0, 1\.15\) \* max\(dot\(Np, normalize\(earthDir\)\), 0\.0\)/.test(FS_MOON) && !/alb \* 0\.012/.test(FS_MOON)
+    && /this\.moonU\.earthLit\.value = earthshine\(sun, rm\);/.test(scene));
 }
 
 console.log(fail ? `\n${fail} HATA` : '\nTAMAM');

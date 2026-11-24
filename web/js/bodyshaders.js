@@ -2,6 +2,16 @@
 // logaritmik derinlik); FS_EARTH: gündüz/gece, bulut, okyanus parıltısı, yakın ayrıntı, parça geçişi; FS_MOON: Hapke benzeri albedo, WAC/Kaguya parçaları.
 import { GLSL_NOISE } from './planets.js';
 
+// Ay'ın gece yüzüne Dünya ışığı: dolu Dünya'da (yeni Ay) EARTHSHINE, ortalama uzaklıkta. Lambert küresinin evre işlevi Φ(α) = (sin α + (π − α) cos α) / π;
+// α = Dünya'da Güneş ile Ay arasındaki açı (yeni Ay 0: Ay'dan Dünya dolu görünür, dolunay π: Dünya karanlık). Işık uzaklığın karesiyle azalır
+// (gerçek oran güneş ışığının ~1e-4'ü; ekran için ~40 kat büyütülmüş, karanlık yüzde kraterler seçilsin diye; pozlama uyarlaması kalanını açar)
+export const EARTHSHINE = 0.012; const D_MOON = 384400;
+export function earthshine(sun, rm) {
+  const ns = Math.hypot(...sun), d = Math.hypot(...rm), c = (sun[0] * rm[0] + sun[1] * rm[1] + sun[2] * rm[2]) / (ns * d || 1);
+  const a = Math.acos(Math.max(-1, Math.min(1, c)));
+  return EARTHSHINE * (Math.sin(a) + (Math.PI - a) * Math.cos(a)) / Math.PI * (D_MOON / Math.max(d, 1e4)) ** 2;
+}
+
 export const VS_BODY = /* glsl */`
 #include <common>
 #include <logdepthbuf_pars_vertex>
@@ -157,7 +167,7 @@ void main() {
 export const FS_MOON = /* glsl */`
 #include <common>
 #include <logdepthbuf_pars_fragment>
-uniform sampler2D colorMap, normalMap, tileMap; uniform vec3 sunDir, earthDir; uniform float sunI, holeCos, albScale, useTile, lodDelta, tileAlpha, latCut, tilePull; uniform vec3 siteDir;
+uniform sampler2D colorMap, normalMap, tileMap; uniform vec3 sunDir, earthDir; uniform float earthLit; uniform float sunI, holeCos, albScale, useTile, lodDelta, tileAlpha, latCut, tilePull; uniform vec3 siteDir;
 uniform sampler2D parentMap; uniform vec4 pXf; uniform float pHas, tileFade;          // parça geçişi (tiles.js)
 uniform sampler2D heightMap; uniform vec2 hSize; uniform float radius, useHeight;       // LOLA yükseklik alanı (VS_BODY ile aynı): kabartma gölgesi
 varying vec2 vUvT;
@@ -198,6 +208,10 @@ void main() {
   vec3 L = normalize(sunDir), V = normalize(-vPos);
   float mu0 = max(dot(Np, L), 0.0) * reliefShadow(N, T, B, L), mu = max(dot(N, V), 0.05);
   float I = mix(mu0, 2.0 * mu0 / (mu0 + mu + 1e-4), 0.45);
+  // dolunay parlaması (karşı konum etkisi, Hapke gölge gizlenmesi): B(g) = B0 / (1 + tan(g/2)/h), B0 = 1, h = 0,06. Faz açısı g → 0'da yüzey ~1,9 kat parlar
+  // (regolit taneleri kendi gölgelerini örter); g = 90°'de 1'e bölünmüş (dörtte bir evre ve yan ışık değişmez)
+  float cg = clamp(dot(L, V), -1.0, 1.0), tg = sqrt(max(1.0 - cg, 0.0) / max(1.0 + cg, 1e-4));
+  I *= (1.0 + 1.0 / (1.0 + tg / 0.06)) / (1.0 + 1.0 / (1.0 + 1.0 / 0.06));
   vec3 alb = texture2D(colorMap, vUv).rgb * albScale;
   // yüksek çözünürlüklü WAC parçası: taban rengi korunur, parçanın taban çözünürlüğünün altındaki yerel kontrastı (krater, ışın, gölge) eklenir
   if (useTile > 0.5) {
@@ -215,7 +229,8 @@ void main() {
     float dn = (fbm(vLocal * 900.0) - 0.5) * 0.5 + (fbm(vLocal * 4200.0) - 0.5) * 0.3 + (fbm(vLocal * 16000.0) - 0.5) * 0.2;
     alb *= 1.0 + dn * 0.5 * magM; I *= 1.0 + dn * 0.9 * magM * (1.0 - 0.5 * mu0);
   }
-  vec3 col = alb * I * sunI + alb * 0.012 * max(dot(Np, normalize(earthDir)), 0.0);
+  // Dünya ışığı: Dünya'nın Ay'dan görünen evresi (Lambert küresi) ve uzaklığa göre (scene.js earthLit); mavimsi (okyanus ve Rayleigh), parlaklığı korunmuş
+  vec3 col = alb * I * sunI + alb * earthLit * vec3(0.9, 1.0, 1.15) * max(dot(Np, normalize(earthDir)), 0.0);
   gl_FragColor = vec4(col, tileAlpha > 0.5 && pHas < 0.5 ? tileFade : 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>

@@ -14,7 +14,7 @@ import { AscentView } from './ascentview.js';
 import { CameraRig } from './camerarig.js';
 import { SkyView } from './skyview.js';
 import { SurfaceView } from './surfaceview.js';
-import { VS_BODY, FS_EARTH, VS_ATM, FS_ATM, FS_MOON } from './bodyshaders.js';
+import { VS_BODY, FS_EARTH, VS_ATM, FS_ATM, FS_MOON, EARTHSHINE, earthshine } from './bodyshaders.js';
 import { bandRange } from './bodyband.js';
 import { sphereGeometry, m3ToQuat, glowTexture, ringTexture, unit3, conicEach, conicPoints, SUN_I } from './scenegeom.js';
 import { mixin } from './mixin.js';
@@ -232,7 +232,7 @@ export class World {
     const mu = { colorMap: { value: A.mcol || flat([150, 150, 150, 255]) }, normalMap: { value: A.mnorm || flat([128, 128, 255, 255]) },
       heightMap: { value: A.mh || flat([0, 0, 0, 255]) }, hSize: { value: new THREE.Vector2(...(A.mh ? A.mh.userData.size : [1, 1])) },          // boyut: yükleyici saklar (bitmap GPU'ya yüklenince kapatılır)
       radius: { value: E.R_M }, useHeight: { value: A.mh ? 1 : 0 },
-      sunDir: { value: new THREE.Vector3(1, 0, 0) }, earthDir: { value: new THREE.Vector3(1, 0, 0) }, sunI: { value: SUN_I },
+      sunDir: { value: new THREE.Vector3(1, 0, 0) }, earthDir: { value: new THREE.Vector3(1, 0, 0) }, earthLit: { value: EARTHSHINE }, sunI: { value: SUN_I },
       siteDir: { value: new THREE.Vector3(sd[0], sd[1], sd[2]) }, albScale: { value: 0.8 }, holeCos: { value: 2.0 },          // delik (arazi yaması varken küre çizilmez): arazi hazır olunca açılır (loadTerrain)
       tileMap: { value: flat([128, 128, 128, 255]) }, useTile: { value: 0 }, lodDelta: { value: 0 }, tileAlpha: { value: 0 }, latCut: { value: 2 }, tilePull: { value: 0 },
       parentMap: { value: flat([128, 128, 128, 255]) }, pXf: { value: new THREE.Vector4(1, 1, 0, 0) }, pHas: { value: 0 }, tileFade: { value: 1 } };
@@ -556,6 +556,7 @@ export class World {
     this.earthU.sunDir.value.copy(unit3(sub(sun, [0, 0, 0])));
     this.moonU.sunDir.value.copy(unit3(sub(sun, rm)));
     this.moonU.earthDir.value.copy(unit3(scale(rm, -1)));
+    this.moonU.earthLit.value = earthshine(sun, rm);
     this.sunSprite.position.copy(sd.clone().multiplyScalar(5e6));
     // Dünya ve Ay
     rel([0, 0, 0], this.earth.position); this.earth.quaternion.copy(m3ToQuat(E.mT(Mitrf)));
