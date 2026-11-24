@@ -425,3 +425,49 @@ Sonuç (aynı koşul, üç koşu): TLI'daki 454–785 ms'lik uzun görev kaybold
   - Tutamaçla sürüklenir: yukarı çekilince tam ekran, aşağı çekilince kapanır.
   - Yazı alanına girilince tam yüksekliğe çıkar; klavye açıkken yarım sayfa çok daralıyordu.
 - Telefonda cam bulanıklığı (`backdrop-filter`) kapalı: sürekli yeniden çizilen tuvalin üstünde pahalıdır.
+
+## 19. Kasım 2026, yedinci tur: uydu bozunma hesabı iş parçacığında; kare başına iş nerede
+
+**Bulgu: Çarpma riski açılınca ana iş parçacığı onlarca saniye doluyordu.** 16.915 uydunun yeniden giriş tahmini (`decayOf` → `assessSat`) ana iş parçacığında 12 ms'lik dilimlerle koşuyordu. Saf hesap ~18 sn; çizim kareleriyle yarıştığı için yazılım çiziminde liste 300 sn'de de hazır olmuyordu.
+
+Düzeltmeler:
+
+- `js/decaywork.js`: hesap iş parçacığında, kesintisiz koşar. 500 cisimde bir ilerleme bildirir ve `setTimeout(0)` ile yeni iletiye fırsat verir (`await 0` iş parçacığında ileti kuyruğuna dönmüyor). Yeni katalog eski hesabı bırakır. Sonuç GP sırasıyla döner; GP kayıtları geri taşınmaz.
+- İş parçacığı deney açılınca kurulur ve ısıtılır (`{cmd:'warm'}`). İlk kurulumda modül yüklemesi meşgul ana iş parçacığı yüzünden ~70 sn sürüyordu; katalog gelmeden hazır olunca bu süre gizlenir.
+- `decayhist.js` veri adreslerini modülün yerine göre çözer: aynı kod ana iş parçacığında ve iş parçacığında çalışır.
+- Yedek: iş parçacığı kurulamazsa ya da `onerror` verirse eski dilimli yol.
+- `impact.js`, sonucu değiştirmeyen iki hızlandırma:
+  - `solarAp`/`solarF107` tablonun ilk ayını her çağrıda `toISOString()` ile ayrıştırıyordu; ilk ay artık tablo yüklenirken bir kez alınır.
+  - `doyOf` son yılın sınırlarını önbellekte tutar; tümleyici aynı yıl içinde binlerce kez sorar.
+
+Ölçümler. Node: 16.915 cisim, çıktılar önceki sürümle bayt bayt aynı. Tarayıcı: SwiftShader, Canlı Gökyüzü verisiyle.
+
+| | Önce | Sonra |
+|---|---|---|
+| Saf hesap (Node, tüm katalog) | 17,96 sn | **8,36 sn** |
+| Liste hazır (deney açıldıktan sonra, tarayıcı) | > 300 sn | **33 sn** (katalog ~13–28 sn'de gelir; iş parçacığı ~19 sn) |
+| Hesap sırasında ana iş parçacığı | dolu (12 ms'lik dilimler) | serbest; sonucun alınması 0,2–0,5 sn |
+
+Sınama: `test_decaywork.js`.
+
+- Sözleşme, iş parçacığı ortamı taklit edilerek: sonuç ana iş parçacığındaki `decayOf` ile aynı; ilerleme iletileri geliyor; yeni istek eskisini bırakıyor.
+- F10.7 aradeğerlemesi eski ISO ayrıştırmasıyla 6.522 tarihte birebir aynı.
+- Yılın günü önbelleği yıl sınırında, artık yılda ve geri sırada aynı sonucu veriyor.
+
+**Kare başına iş nerede (CPU örnekleyici, 0,5 ms aralık, 10 sn pencere; SwiftShader 1280×800):**
+
+| Kip | JS payı | GC | Çizim çağrısı | Bellek (geometri/doku/program) |
+|---|---|---|---|---|
+| Deney merkezi (görev motoru) | %1,6 | %0,0 | 41 | 77 / 63 / 31 |
+| Ay görevi uçuşu (×5) | %1,2 | %0,1 | 32 | 84 / 64 / 31 |
+| Canlı Gökyüzü | %0,9 | %0,0 | 29 | 101 / 66 / 36 |
+| Saptırma brifingi (Güneş sistemi, 55 bin asteroit) | %0,8 | %0,0 | 28 | 141 / 93 / 39 |
+| Çarpma riski (uydu bulutu) | %1,0 | %0,0 | 22 | 141 / 93 / 40 |
+
+Sonuç: bütün kiplerde kare başına JS %2'nin altında; geri kalanı çizim. En büyük JS kalemi `SatInstancer.update` (%0,3–0,4); Ay görevinde doku yükleme (`compressedTexSubImage2D`, %1). §8'deki "SatInstancer ölçülemedi" notu böylece kapanmış oldu: ölçülen pay küçük. Dünya ve Ay'ın 1 milyon üçgenlik ağları zaten kuşak çizimiyle (`bodyBand`, yalnız ufkun berisindeki satırlar) ve LOD ile sınırlı. Bu ortamda GPU süresi ölçülemiyor (yazılım çizimi); kare hızı yön göstermekten öte bir şey söylemez.
+
+Sıradaki adaylar (yapılmadı):
+
+- **Asteroit bozunma/Sentry listeleri.** Benzer büyüklükte değiller; gerek görülmedi.
+- **`derivs` (impact.js, saf hesabın %41'i).** Yoğunluk sütunu aradeğerlemesi tablolaştırılabilir. Kazanç iş parçacığında kalır; kullanıcıya yansıması birkaç saniye. Sonucu değiştirmeden yapılması zor.
+- **Uydu kataloğunun iletimi.** 17 bin GP kaydı yapılandırılmış kopyayla gönderiliyor (birkaç yüz ms). Sütunlu biçimle (`gpdata.js`) aktarılabilir dizilere çevrilebilir.
