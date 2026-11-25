@@ -66,7 +66,8 @@ export class SurfaceView {
     const camE = this.earth.position, eyeE = [-camE.x, -camE.y, -camE.z];               // kamera Dünya merkezine göre (sahne kameraya göre)
     const padGround = !!(AG && AG.ready && padP && this.cam && this.cam.mode === 'LAUNCH' && groundCovers(eyeE, padP.pos, E.R_E));
     if (AG && AG.ready && AG.mesh.visible !== padGround) AG.mesh.visible = padGround;
-    if (this.earth.material.visible === padGround) this.earth.material.visible = !padGround;
+    const em = this.earth.material[0];                                                     // tek elemanlı malzeme dizisi (ufuk yamaları: scene.js bodyBand)
+    if (em.visible === padGround) em.visible = !padGround;
     for (const [layer, body] of [[this.earthTiles, this.earth], [this.earthWeld, this.earth], [this.earthHls, this.earth], [this.moonTiles, this.moon], [this.moonTiles2, this.moon]]) {
       if (!layer || !body.visible || layer.userOn === false || (padGround && body === this.earth)) { if (layer) layer.setEnabled(false); continue; }
       layer.setEnabled(true);

@@ -826,3 +826,31 @@ Sınama: `test_kurelod.js`.
 - Örnek uzaklıklarda seçilen düzey.
 
 Kalan bir gözlem: Canlı Gökyüzü'nün Ay görünümünde (9.000 km) Ay 1024×512 ağda (~1 milyon üçgen) çiziliyor. Bu ölçütün sonucu: 256×128'in en kötü hatası kabartma payı (9,5 km) yüzünden ~2 piksel. Payı hücre başına (yerel) hesaplamak bunu düşürebilir.
+
+**Ek 14: ince küre ağında yalnız görülebilen yamalar.** Dünya ve Ay'ın ince ağında (1024×512, ~1 milyon üçgen) "ufuk bandı" yalnız enlem satırlarını kırpıyordu (tek `setDrawRange`). Ay'a ya da Dünya'ya ekvatordan bakınca görülebilen başlık bütün enlemleri kapsıyor, ağın tamamı çiziliyordu. Kameranın arkasındaki yarı da buna dahildi: Ay'a 9.000 km'den bakınca 1.000.322 üçgen.
+
+Düzeltme: `bodyband.js`, `scenegeom.js`, `scene.js`, `surfaceview.js`.
+
+- **Dizin sırası:** ince ağın dizini 32 satır × 32 sütunluk yamalar halinde sıralanır (`patchIndex`; 16 × 32 = 512 yama). Üçgenler aynı, yalnız sırası farklı.
+- **Yama tablosu (`patchTable`):** her yamanın dizindeki aralığı ve birim yön konisi (merkez, köşelerin en büyük açısı). Ay, Dünya'nın dizinini ve tablosunu paylaşır.
+- **Seçim (`patchRanges`):** her karede, konisi kameranın altındaki noktaya ψ + yarıçap açısından uzak olan yama atlanır. ψ önceki ufuk bandıyla aynı sınır (kabartma dahil). Dizinde art arda gelen görünür yamalar tek aralıkta birleşir.
+- **Çizim:** aralıklar `geometry.groups` olarak verilir; her biri bir çizim çağrısı. three.js grupları yalnız malzeme dizisiyle çizdiği için Dünya ve Ay'ın malzemesi tek elemanlı dizi; kaba düzeyler tek grup.
+- Önceki `bandRange` kaldırıldı.
+
+Ölçüm: tarayıcıda (yazılımla çizim), main ile yan yana.
+
+| | Önce: üçgen · kare/sn | Sonra: üçgen · kare/sn |
+|---|---|---|
+| Canlı Gökyüzü, Ay 9.000 km | 1.000.322 · 1,17 | **584.322 · 1,35** |
+| Canlı Gökyüzü, Ay 3.000 km | 759.986 · 1,53 | **290.514 · 1,97** |
+| Canlı Gökyüzü, Dünya 9.000 km | 625.850 · 1,19 | **287.034 · 1,34** |
+| Deney merkezi (Dünya, 184 km) | 246.904 · 1,15 | **99.840 · 1,22** (burada maliyetin çoğu piksel gölgelendiricisinde) |
+
+Çizim çağrıları 8–39'dan 23–48'e çıktı. Aynı karede (saat durdurulmuş) yamalı ağ ile tam ağ karşılaştırıldı: dört görünümde de, arayüz panelleri dışında, piksel farkı 0.
+
+Sınama: `test_bodyband.js`.
+
+- Yama dizini, satır sıralı ağın 1.046.528 üçgeninin aynısı; her yamanın üçgenleri kendi hücrelerinde.
+- Rastgele 3.000 kamera konumunda (kabartma kabuğunun içi dahil) kameradan görülebilen ~20.000 yüzey noktasının hepsi çizilen yamalarda.
+- Ay'a ekvatordan 9.000 km: ağın %59'u (16 çağrı); 185 km park yörüngesinde Dünya: %2,3 (4 çağrı).
+- `test_kurelod.js`: yama paylaşımı ve sahne sözleşmesi.

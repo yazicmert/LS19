@@ -1,13 +1,15 @@
 // Sahne yardımcıları (scene.js'ten ayrıldı): küre geometrisi, yönelim matrisleri, ışıltı/halka dokuları, oskülatör konik örnekleme.
 import * as THREE from 'three';
 import { sub, scale, dot, cross, norm, unit } from './vec3.js';
+import { patchIndex, patchTable } from './bodyband.js';
 
 export const SUN_I = 1.6;                       // tonlamadan önce Güneş aydınlığı (Ay, araç, arazi)
 
 // like: aynı ızgaralı başka bir küre (sphereGeometry). Doku koordinatları ve üçgen dizini yarıçaptan bağımsızdır: onunkiler paylaşılır, yalnız konumlar
 // hesaplanır (Dünya ve Ay 1024×512: dizin 12,6 MB + uv 4,2 MB bir kez; ekran kartında da tek arabellek, three öznitelik nesnesine göre arabellek tutar)
-export function sphereGeometry(R, nLon, nLat, like = null) {
-  const sh = like && like.userData.grid === `${nLon}x${nLat}` ? like : null;
+// patch: [pr, pc] verilirse dizin ufuk yamaları sırasında (bodyband.js patchIndex; userData.patches: yama tablosu). like ile paylaşılır.
+export function sphereGeometry(R, nLon, nLat, like = null, patch = null) {
+  const sh = like && like.userData.grid === `${nLon}x${nLat}` && !!like.userData.patches === !!patch ? like : null;
   // dizin sayısı kesin bilinir (kutup şeritlerinde tek üçgen): düz tipli dizi, ara JS dizisi (3 milyon eleman) ve boyut dönüşümü yok
   const n = (nLon + 1) * (nLat + 1), pos = new Float32Array(n * 3), uv = sh ? null : new Float32Array(n * 2), idx = sh ? null : new (n > 65535 ? Uint32Array : Uint16Array)(6 * nLon * (nLat - 1));
   const cx = new Float64Array(nLon + 1), sx = new Float64Array(nLon + 1);                  // boylam kosinüs/sinüsü satırdan satıra aynı
@@ -22,7 +24,8 @@ export function sphereGeometry(R, nLon, nLat, like = null) {
     }
   }
   let q = 0;
-  if (idx) for (let j = 0; j < nLat; j++) for (let k = 0; k < nLon; k++) {
+  if (idx && patch) patchIndex(nLon, nLat, patch[0], patch[1], idx);
+  else if (idx) for (let j = 0; j < nLat; j++) for (let k = 0; k < nLon; k++) {
     const a = j * (nLon + 1) + k, b = a + 1, c = a + nLon + 1, d = c + 1;
     if (j > 0) { idx[q++] = a; idx[q++] = b; idx[q++] = d; }
     if (j < nLat - 1) { idx[q++] = a; idx[q++] = d; idx[q++] = c; }
@@ -32,6 +35,7 @@ export function sphereGeometry(R, nLon, nLat, like = null) {
   g.setAttribute('uv', sh ? sh.getAttribute('uv') : new THREE.BufferAttribute(uv, 2));
   g.setIndex(sh ? sh.index : new THREE.BufferAttribute(idx, 1));
   g.userData.grid = `${nLon}x${nLat}`;
+  if (patch) g.userData.patches = sh ? sh.userData.patches : patchTable(nLon, nLat, patch[0], patch[1]);
   g.computeBoundingSphere();
   return g;
 }
