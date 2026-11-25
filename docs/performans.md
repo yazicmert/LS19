@@ -798,3 +798,31 @@ Sınama: `test_satinstancer.js`.
 - Yapay modelde kutu kalır, kaburga ve küçük parça düşer, silindir kutuya iner, kaburganın rengi yalnız oturduğu yüze alan oranında karışır.
 - `seen`: görüş alanı, kenar payı, Dünya'nın arkası, ufkun hemen üstü ve altı.
 - `update`: yalnız görünen uydular model alır; 30.000 km'dekiler uzak, yakındaki asıl modelle; nokta gizleme uzaklığı doğru.
+
+**Ek 13: Dünya, atmosfer ve Ay kürelerine kaba ayrıntı düzeyleri.** Bu üç küre ekranda kaç piksel görünürse görünsün en az 256×128 ağla (65.536'şar üçgen) çiziliyordu. Saptırma ve Lagrange görünümlerinde küreler 0–4 pikseldi; üçü çizdirilmeyince kare hızı 3,5 → 8,8 (Saptırma) ve 3,4 → 11,8 (Lagrange) çıkıyordu.
+
+Düzeltme: `scene.js`, `scenegeom.js` (`pickLod`), `tools/ay_lod.py`.
+
+- **Düzeyler:** `EARTH_SEG` 1024×512 ve 256×128'e ek olarak 64×32 (4.096 üçgen) ve 32×16 (1.024 üçgen).
+- **Seçim:** aynı ölçüt, ekrandaki en kötü kiriş hatası ≤ 0,2 piksel (kalmak için 0,3; histerezis). Gezegenlerin `skyview.js` ayrıntı düzeyiyle aynı. `pickLod` eşiğin altında kalan en kaba düzeyi seçer.
+- **Atmosfer:** artık ayrıntı düzeyi var. En ince düzeyi 256×128 (içeriden ve yakından); kaba düzeyleri Dünya ızgarasının uv ve dizinini paylaşır.
+- **Ay:** kabartma payı düzey başına. `tools/ay_lod.py` hücre içi en büyük yükseklik farkını üç hücre boyunda ölçer: 4×4 hücrede 8,93 km, 16×16'da 12,39 km, 32×32'de 14,20 km. `MOON_RELIEF` = 9,5 / 13 / 15 km; araç, sabit ölçülenden küçükse hata verir.
+
+Ölçüm: tarayıcıda (yazılımla çizim), main ile yan yana.
+
+| | Önce: sahne üçgeni · kare/sn | Sonra: sahne üçgeni · kare/sn |
+|---|---|---|
+| Saptırma paneli | 210.826 · 4,89 | **18.634 · 8,94** |
+| Lagrange paneli | 199.042 · 3,33 | **6.850 · 11,7** |
+| Deney merkezi, Ay görevi, Canlı Gökyüzü (Dünya büyük) | değişmedi | değişmedi |
+
+Aynı karede (saat durdurulmuş) kaba düzey ile eski 256×128 karşılaştırıldı. Saptırma, Lagrange ve Canlı Gökyüzü sistem görünümünde, üç küre de 32×16 iken, en büyük piksel farkı 0.
+
+Sınama: `test_kurelod.js`.
+
+- `pickLod`: eşik, histerezis, sonsuz/NaN hata.
+- Kiriş hatası formülü gerçek ağda üst sınır (32×16, 64×32, 256×128).
+- Sahne sözleşmesi ve Ay kabartma payları.
+- Örnek uzaklıklarda seçilen düzey.
+
+Kalan bir gözlem: Canlı Gökyüzü'nün Ay görünümünde (9.000 km) Ay 1024×512 ağda (~1 milyon üçgen) çiziliyor. Bu ölçütün sonucu: 256×128'in en kötü hatası kabartma payı (9,5 km) yüzünden ~2 piksel. Payı hücre başına (yerel) hesaplamak bunu düşürebilir.
