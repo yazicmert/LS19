@@ -763,3 +763,38 @@ Görüntü iki sürümde aynı. Sınama: `test_padground.js`.
 - `buildingArrays` belirlenimci.
 - Bitki paketleme gidiş-dönüşü.
 - İş parçacığı sözleşmesi.
+
+**Ek 12: uydu aile modelleri: uzak sürüm ve yalnız görünen uydulara model.** Canlı Gökyüzü'nde kameraya en yakın 1.500 uydu, ailesinin 3B modeliyle (`satinstancer.js`, `models/fam/*.glb`, 72–380 üçgen) çizilir; uzaktakiler ekranda 13 piksel kalacak kadar büyütülür. Dünya görünümünde (36.000 km) bu modeller ~370 bin üçgen ediyordu: sahnedeki üçgenlerin ~%75'i. Modeller kapatılınca kare hızı 1,3'ten 3,0'a çıkıyordu. Ayrıca seçim yalnız uzaklığa göreydi: bir uyduyu 60 km'den izlerken 1.500 modelin yalnız %2–20'si ekrandaydı, önümüzdeki uydular nokta kalıyordu.
+
+Düzeltme: `satinstancer.js`.
+
+- **Uzak sürüm (`farGeometry`):** modeller yüklenirken aile başına üretilir; model kutu, silindir/çanak ve ince panel kaburgalarından oluşur (`tools/uydu_aileleri.py`).
+  - Her boyutu modelin %4'ünden küçük parça atılır.
+  - Kutu olduğu gibi kalır.
+  - Silindir ve çanak kendi kutusuna iner.
+  - Kaburga, oturduğu panel yüzünün rengine alan oranında karışır. Açık renkli kaburgalar uzaktan panele açık bir ton veriyor; atılınca paneller koyulaşıyordu, ayrı çizilince kazanç yarıya iniyordu.
+  - Toplam 2.612 → 728 üçgen (aile başına 48–84). Cubesat'ta kazanç az, asıl model kalır.
+  - İki sürüm aynı malzemeyi ve aynı renk özniteliği boyunu kullanır: ek gölgelendirici programı yok.
+- **Hangi sürüm:** PX'e büyütülen uydu (gerçek boyutu 13 pikselden küçük) uzak sürümle, daha büyük görünen asıl modelle çizilir.
+- **Seçim (`seen`):** model, uzaklıktan önce görüş alanı (ekrandaki model boyu kadar payla) ve Dünya'nın örtmesi denetlenerek yalnız görünen uydulara verilir.
+  - Nokta gizleme uzaklığı (`hideRadius`) görünen uydulara göre çıkar; görünmeyen uydunun noktası zaten ekranda değil.
+  - Gerçek (NASA) modeli olan yakın uydular ekran dışındayken de `realNear`'a girer: dönünce yüklenmiş olur.
+
+Ölçüm: tarayıcıda (yazılımla çizim), main ile yan yana.
+
+| | Önce | Sonra |
+|---|---|---|
+| Dünya görünümü: model üçgeni / sahne üçgeni | 364.488 / 498.514 | **80.304 / 214.330** |
+| Dünya görünümü: kare/sn | 1,17 | **1,84** |
+| Dünya görünümü: ekrandaki model | 1.338 / 1.500 | 1.500 / 1.500 |
+| Tiangong takibi (60 km): model üçgeni | 352.868 | **18.688** |
+| Tiangong takibi: ekrandaki model / nokta gizleme | 126 / 1.500 · 3.891 km | **353 / 363 · 60.000 km** |
+
+Aynı karede (saat durdurulmuş) uzak sürüm ile asıl model karşılaştırıldı: ortalama parlaklık %3 içinde, 400×400 kesitte belirgin fark gösteren piksel %0,3. Fark panellerde: asıl modelde piksel altı kaburgalar seyrek kırık çizgiler (titreşen desen) çiziyor, uzak sürümde panel düz ve ortalama tonunda.
+
+Sınama: `test_satinstancer.js`.
+
+- Her ailenin uzak sürümü kaynağın kutusu içinde, boyu ve öznitelikleri korunur.
+- Yapay modelde kutu kalır, kaburga ve küçük parça düşer, silindir kutuya iner, kaburganın rengi yalnız oturduğu yüze alan oranında karışır.
+- `seen`: görüş alanı, kenar payı, Dünya'nın arkası, ufkun hemen üstü ve altı.
+- `update`: yalnız görünen uydular model alır; 30.000 km'dekiler uzak, yakındaki asıl modelle; nokta gizleme uzaklığı doğru.
