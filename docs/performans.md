@@ -571,3 +571,38 @@ Görüntü farkı, gerçek bulutlar geldikten sonra aynı kamera konumlarında, 
 Antarktika yakın planı gece yüzüne düştü; gündüz yüzünde buzul yakın planı bu ortamda ayrıca sınanamadı.
 
 Sınama: `test_texplan.js`. Sahte `this` ile dört durum denetlenir: gerçek bulut gelir, gelmez, sonradan istenip gelir, hiç istenmez. Ayrıca yükseltme denetimleri ayrılan `applyUpgrade`'i de kapsayacak biçimde genişletildi.
+
+**Ek 5: Ay dokuları ilk görüntüyü beklemiyor.**
+
+Bulgu: yükleme örtüsü kalkmadan inen 13,5 MB'ın 4,3 MB'ı (%32) Ay'ın önceden küçültülmüş dokularıydı: renk 4096×2048, normal 2880×1440, yükseklik 1440×720. Laboratuvar ve gökyüzü açılışında kamera Dünya yanında; Ay ekranda ~8 piksel.
+
+Düzeltme:
+
+- **Açılış adresine göre ayrım** (`texplan.js` `moonFirst`). Ay'a yakın açılabilen adreslerde (`seek`, `cine`, `cam=moon`) Ay dokuları eskisi gibi ilk yüklemede iner. Öbür adreslerde erken indirmeden (`index.html` `#earlyFetch`) ve ilk yüklemeden çıkarılır.
+- **Yer tutucuyla kurulum.** Sahne yer tutucularla kurulur. İniş arazisi malzemesi map'li yer tutucuyla aynı programla derlenir.
+- **Sonradan indirme** (`startMoonLo`). Dokular yükleme örtüsü kalkınca düşük öncelikle iner. Gelince `applyUpgrade` ile Ay küresine ve iniş arazisine geçer; kabartma (`useHeight`) o zaman açılır.
+- **Tam çözünürlükle yarış.** Tam çözünürlük (`upgradeTextures('moon')`) önce başladıysa küçük dosyalar atılır.
+- **Ay'a yakın açılış.** Kamera Ay dokuları gelmeden Ay'a yakınsa (< 40 Ay yarıçapı) indirme hemen başlar ve yükleme örtüsü onları bekler (en çok 15 sn).
+
+Ölçüm: başsız Chromium, ağ hızı sınırlı (60 ms gecikme), önbellek kapalı. Eski sürüm (`claude/bulut-dokusu`) ve yeni sürüm yan yana sunuldu.
+
+| Bağlantı | Örtü kalkıyor (önce → sonra) | O ana dek inen | Ay dokuları hazır (sonra) |
+|---|---|---|---|
+| 20 Mbit/s | 11,8 → **10,1 sn** | 13,5 → 9,2 MB | 24,5 sn |
+| 5 Mbit/s | 26,9 → **20,3 sn** | 13,5 → 9,2 MB | 50,4 sn |
+| 20 Mbit/s, `cam=moon` | 12,8 sn (Ay baştan) | 13,5 MB | — |
+
+İlk denemede Ay indirmesi sahne hazır olur olmaz başlıyordu. Yükleme örtüsünden önce efemeris ve görev durumuyla bant genişliği paylaştığından kazanç 1,8–2,6 sn'de kalıyordu. İndirme örtü kalkınca başlayacak biçimde değiştirildi.
+
+Görüntü: Ay yakın planları (6.000–7.000 km), iki sürümde de küçük dokularla.
+
+- Kutup görünümünde fark 0.
+- Ekvator görünümünde Ay aynı. Kalan fark iki çekim arasındaki zaman farkıyla kayan yıldız alanı ve yörünge çizgileri.
+- Konsolda WebGL hatası yok.
+
+Sınama: `test_texplan.js`.
+
+- Erken indirmenin texload ile aynı listeyi indirmesi 88 durumda sınanır: Ay'a yakın açılış adresleri dahil.
+- `moonFirst` kuralı.
+- Yer tutucudan gerçek dokuya geçiş: Ay küresi, arazi map'i, `useHeight`, `hSize`.
+- Yükleme örtüsünün yalnız Ay yakınken beklemesi ve indirmenin o anda başlaması.

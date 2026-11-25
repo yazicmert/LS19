@@ -27,6 +27,10 @@ export const TEX = [
 export const ktxName = (s, lo = false) => s.f.replace(/\.webp$/, lo ? '_lo.ktx2' : '.ktx2');
 // tam çözünürlüğe yükseltme grupları (masaüstü): Dünya ve yıldızlar ilk görüntüden hemen sonra, Ay kamera yaklaşınca
 export const UPGRADE = { earth: ['day', 'night', 'clouds', 'stars'], moon: ['mcol', 'mnorm', 'mh'] };
+// Ay dokuları (4,3 MB) ilk görüntüyü beklemez: açılışta kamera Dünya yanında, Ay ekranda ~8 piksel. Sahne yer tutucularla kurulur, dokular ilk görüntüden sonra
+// düşük öncelikle iner (scene.js loadMoonLo). Ay'a yakın açılabilen adreslerde (zamanda ileri: seek; sinematik: cine; Ay kamerası: cam=moon) baştan iner.
+// index.html #earlyFetch aynı kuralı uygular (test_texplan.js).
+export const moonFirst = (search = '') => { const q = new URLSearchParams(search); return q.has('seek') || q.has('cine') || /^moon$/i.test(q.get('cam') || ''); };
 // indirilecek dosya ve çözme planı: düşük bellekte (ve her cihazın ilk yüklemesinde) önceden küçültülmüş dosya (çözerken yeniden küçültme gerekmez:
 // lo boşaltılır); yedekte özgün dosya + cihazda küçültme. Veri haritası (nearest: paketli 16 bit yükseklik) cihazda küçültülmez: ortalama değeri bozar.
 // ktx: KTX2 yolu (cihazda küçültme yok: düşük bellekte _lo.ktx2, yoksa tam dosya)

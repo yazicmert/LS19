@@ -32,7 +32,9 @@
   // Renk dokuları ve Dünya normali KTX2 (ekran kartında sıkıştırılmış kalır; js/texplan.js "ktx"), ?ktx=0 ise WebP; tek kanallılar, Ay normali ve yüksekliği WebP.
   // KTX2'yi desteklemeyen tarayıcıda (nadir) bu indirmeler boşa gider, js/texload.js WebP'leri ayrıca indirir.
   var k = !/[?&]ktx=0(&|$)/.test(location.search), x = k ? '.ktx2' : '.webp';
-  var lo = ['earth_day_lo' + x, 'earth_night_lo' + x, 'earth_clouds_lo.webp', 'earth_spec.webp', 'earth_normal' + x, 'moon_color_lo' + x, 'moon_normal_lo.webp', 'moon_height_lo.webp', 'stars_lo' + x];
+  // Ay dokuları ilk görüntüden sonra iner (js/texplan.js moonFirst): yalnız Ay'a yakın açılabilen adreslerde (seek, cine, cam=moon) burada başlar
+  var mf = /[?&](seek|cine)=/.test(location.search) || /[?&]cam=moon(&|$)/i.test(location.search);
+  var lo = ['earth_day_lo' + x, 'earth_night_lo' + x, 'earth_clouds_lo.webp', 'earth_spec.webp', 'earth_normal' + x].concat(mf ? ['moon_color_lo' + x, 'moon_normal_lo.webp', 'moon_height_lo.webp'] : [], ['stars_lo' + x]);
   var early = window.LS19_EARLY = { tex: {} };
   if (window.fetch) lo.forEach(function (f) {
     early.tex[f] = fetch('textures/' + f, { priority: 'low' }).then(function (r) { return r.ok ? r.blob() : null; }).catch(function () { return null; });

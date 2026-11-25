@@ -26,7 +26,7 @@ import { makeSpaceEnv, ENV_HALF_DEG, makePlume, plumeGeometry, setPlume, plumeTi
 import { PointStore, synodicBasis } from './pointstore.js';
 import { mergeByMaterial } from './meshmerge.js';
 import { loadTextures, lowMemory } from './texload.js';
-import { TEX, UPGRADE } from './texplan.js';
+import { TEX, UPGRADE, moonFirst } from './texplan.js';
 
 
 const { add, sub, scale, dot, cross, norm, unit } = E;
@@ -94,16 +94,21 @@ export class World {
   // dosyalardan gelir (masaüstünde ~29 MB yerine ~9 MB); masaüstü tam çözünürlüğü sonra alır (upgradeTextures).
   async load(base, onProgress = () => {}) {
     this.base = base;
-    const lowmem = this.lowMem = lowMemory(), total = TEX.length * 2 + 5; let done = 0;       // doku başına 2 adım (çözüldü, GPU'da) + arazi verisi + 3 model + derleme
+    // Ay dokuları ilk görüntüyü beklemez (texplan.js moonFirst): sahne yer tutucularla kurulur, dokular hazırdan sonra iner (loadMoonLo)
+    const deferMoon = !moonFirst(typeof location !== 'undefined' ? location.search : ''), first = deferMoon ? TEX.filter((s) => !UPGRADE.moon.includes(s.key)) : TEX;
+    const lowmem = this.lowMem = lowMemory(), total = first.length * 2 + 5; let done = 0;       // doku başına 2 adım (çözüldü, GPU'da) + arazi verisi + 3 model + derleme
     const tick = (n) => { done++; onProgress(Math.min(1, done / total), n); };
     const json = (f) => fetch(base + f).then((r) => (r.ok ? r.json() : null)).catch(() => null).then((x) => { tick('dem'); return x; });
     const gl = new GLTFLoader(); gl.setMeshoptDecoder(MeshoptDecoder);
     const glb = (f) => new Promise((res) => gl.load(base + 'models/' + f, (g) => { tick(f); res(g.scene); }, undefined, () => { tick(f + ' (yok)'); res(null); }));
-    const [T, dem, lander, stage, orb] = await Promise.all([loadTextures(this.renderer, base, { lowmem: true, conc: lowmem ? 2 : 3, tick }), json('data/site_dem.json'),
+    const [T, dem, lander, stage, orb] = await Promise.all([loadTextures(this.renderer, base, { specs: first, lowmem: true, conc: lowmem ? 2 : 3, tick }), json('data/site_dem.json'),
       glb('lander.glb'), glb('stage.glb'), glb('orb.glb')]);          // NASA resmî Apollo modelleri: LM, S-IVB, hizmet modülü (tools/apollo_modelleri.mjs)
-    this.build({ ...T, dem, lander, stage, orb });
+    // ertelenen Ay renk dokusunun yer tutucusu: iniş arazisi malzemesi aynı programla (map'li) derlensin; gelince yerine geçer (applyUpgrade)
+    const mcol0 = deferMoon ? new THREE.DataTexture(new Uint8Array([150, 150, 150, 255]), 1, 1) : null; if (mcol0) { mcol0.colorSpace = THREE.SRGBColorSpace; mcol0.needsUpdate = true; }
+    this.build({ ...T, ...(mcol0 ? { mcol: mcol0 } : {}), dem, lander, stage, orb });
     await this.precompile(); tick('gölgelendiriciler');
     this.ready = true;
+    this.moonDeferred = deferMoon;                                        // Ay dokuları yükleme örtüsü kalkınca iner (startMoonLo; app.js reveal); Ay yakınsa hemen (moonTexWait)
     // masaüstü: Dünya ve yıldızların tam çözünürlüğü ilk görüntüden kısa süre sonra; Ay'ınki kamera yaklaşınca (placeFrame). Veri tasarrufunda yükseltme yok.
     const saveData = typeof navigator !== 'undefined' && navigator.connection && navigator.connection.saveData;
     if (!lowmem && !saveData) { this.texUp = {}; setTimeout(() => this.upgradeTextures('earth'), 1500); }
@@ -124,6 +129,23 @@ export class World {
       if (this.earthU.useReal.value > 0.5) this.texUp.cloudsSkipped = true; else this.applyUpgrade(await load([cl]));
     }
     this.texUp[group] = 'tamam';
+  }
+  // ertelenen Ay dokuları (önceden küçültülmüş): ilk görüntüden sonra düşük öncelikle; o sırada tam çözünürlük (upgradeTextures('moon')) başladıysa atılır
+  async loadMoonLo() {
+    this.moonPending = true;
+    let T = {};
+    try { T = await loadTextures(this.renderer, this.base, { specs: TEX.filter((s) => UPGRADE.moon.includes(s.key)), lowmem: true, conc: 2, priority: 'low' }); } catch (e) { T = {}; }
+    if (this.texUp && this.texUp.moon) { for (const t of Object.values(T)) if (t) t.dispose(); } else this.applyUpgrade(T);
+    this.moonPending = false;
+    return T;
+  }
+  // ertelenen Ay dokularını başlat (bir kez): yükleme örtüsü kalkınca ya da kamera Ay'a yaklaşınca. İlk görüntüye gereken verilerle (efemeris, görev
+  // durumu) bant genişliği paylaşılmasın diye örtü kalkmadan başlamaz
+  startMoonLo() { if (this.moonDeferred) { this.moonDeferred = false; this.moonPending = true; this.moonTexP = this.loadMoonLo(); } return this.moonTexP; }
+  // Ay dokuları henüz yokken kamera Ay'a yakın mı (~40 Ay yarıçapı, tam çözünürlük eşiği): yükleme örtüsü dokuları bekler (app.js reveal); indirme hemen başlar
+  moonTexWait() {
+    if (!(this.moonDeferred || this.moonPending) || !this.moon || !(this.moon.position.length() < 40 * E.R_M)) return false;
+    this.startMoonLo(); return true;
   }
   // gerçek bulut isteğinin sonucunu bekle; istek yoksa en çok waitMs bekler (gökyüzüyle açılışta tasarım olmayabilir). Sonuçtan sonra useReal okunur
   async realCloudsSettled(waitMs = 20000) {
@@ -147,7 +169,7 @@ export class World {
       const old = k === 'stars' ? this.stars.material.map : slot[k] ? slot[k][0][slot[k][1]].value : null;
       if (!old || old === t) continue;
       swap(old, t);
-      if (k === 'mh') this.moonU.hSize.value.set(...t.userData.size);
+      if (k === 'mh') { this.moonU.hSize.value.set(...t.userData.size); this.moonU.useHeight.value = 1; }      // ertelenmiş yüklemede kabartma ilk kez burada açılır
       if (!old.isDataTexture) old.dispose();
     }
   }
