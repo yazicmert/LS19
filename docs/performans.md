@@ -688,3 +688,46 @@ Veri tasarrufunda yine yapılmaz. Sürmekte olan tasarım varsa onun sonucu bekl
 | Ay görevi sayfasına girince | (zaten inmişti) | 87 istek, 2,96 MB |
 
 Kalkış ön hazırlık olmadan da açılır (`ascent.start` modelleri ve zemini kendisi yükler). Sınama: `test_brifing.js`.
+
+**Ek 9: kalkış rampası zemini ~8 kat hızlı geliyor (paftalar iş parçacığında, seviyeler birlikte).**
+
+Bulgu (kalkış sahnesi, ön hazırlıksız, Cache Storage boş):
+
+- Rampa çevresinin uydu görüntüsü 7 ayrıntı seviyesinden (× 36 pafta), kabartması 4 seviyeden (× 9 pafta) oluşuyor.
+- İki şey yavaşlatıyordu:
+  - Seviyeler sırayla iniyordu: bir seviyenin bütün paftaları bitmeden sonrakine geçilmiyordu.
+  - Her pafta indikten sonra çözme, büyük tuvale çizme ve piksel okuma ana iş parçacığında yapılıyordu. Her adım bir sonraki kareyi bekliyordu; sınırlı kuyruktaki yuvalar ağ yerine ana iş parçacığını beklerken dolu kalıyordu.
+- Tek pafta isteği ortalama 0,2 sn sürdüğü halde zemin 240 sn'de bitmiyordu.
+- JS işi ve çizim yükü küçüktü (birkaç yüz ms; 11 çizim çağrısı, 269 bin üçgen); yük ağda ve ana iş parçacığındaki beklemelerdeydi.
+
+Düzeltme (`padground.js`, yeni `padtilework.js`):
+
+- En kaba seviye önce iner (kaynak denetimi; hemen bir zemin görünür). Sonra öbür seviyeler birlikte ortak sınırlı kuyruğa girer (`limiter`; görüntü 12, kabartma 8 eşzamanlı). Kaba seviyeler önce kuyruğa girdiği için önce iner; her seviye hazır olunca zemine eklenir. Kabartma seviyeleri de birlikte iner.
+- İndirme (Cache Storage önbelleğiyle), çözme, birleştirme ve yer tutucu ayıklama paylaşılan bir iş parçacığında yapılır. Ana iş parçacığı yalnız gelen piksellerden dokuyu kurar (`DataTexture`, tuval dokusuyla aynı yön ve süzgeç).
+- Çatı ve ağaç rengi örneklemesi (`sample`) her binada tuvalden okumak yerine aynı piksel dizisinden okur.
+- İş parçacığı kurulamazsa aynı işlevlerle (`composeLevel`, `demGrid`) ana iş parçacığında çalışır.
+
+Ölçüm (kalkış başladıktan sonra, aynı makinede önceki sürümle yan yana):
+
+| | Önce | Sonra |
+|---|---|---|
+| İlk zemin görüntüsü | 45,5 sn | **17,0 sn** |
+| Kabartma | 68,5 sn | **20,1 sn** |
+| 4 görüntü seviyesi | 188 sn | **24,7 sn** |
+| 7 seviyenin hepsi | > 250 sn (bitmedi) | **32,2 sn** |
+| Binalar renklendi, ağaçlar kuruldu | > 250 sn | **32,2 sn** |
+| Uzun görevlerin toplamı (çoğu yazılım çizimi) | 265 sn (331 görev) | 63 sn (41 görev) |
+
+Bu ortamda çizim yazılımla yapıldığından süreler gerçek cihazdakinden uzun. Oran ise sıralı beklemenin ve ana iş parçacığı beklemelerinin kalkmasından geliyor.
+
+Doğruluk:
+
+- İş parçacığının ürettiği seviye görüntüsü ana iş parçacığı yoluyla z18, z11 ve z5'te bayt bayt aynı (3 × 9,4 MB, 0 fark).
+- Kabartma geliyor; konsolda hata yok.
+- OSM binaları bu ortamda engelli olduğundan sınamada KSC karosu (fikstür) her karo için sunuldu.
+
+Sınama: `test_padground.js`.
+
+- Sınırlı kuyruk (en çok N iş, giriş sırası).
+- `load()` önce en kaba seviyeyi, sonra kalanları birlikte başlatır; ilk kaynak gelmezse ikinciye geçer.
+- İş parçacığı sözleşmesi.

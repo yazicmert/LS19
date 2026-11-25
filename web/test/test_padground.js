@@ -161,5 +161,34 @@ check('180. meridyeni aşan ızgarada Mercator kayması sürekli', maxJump < 2 *
   const glbOk = ['vab', 'crawler'].every((k) => { const b = fs.readFileSync(new URL(`../models/ksc/${k}.glb`, import.meta.url)); return b.toString('ascii', 0, 4) === 'glTF' && b.length < 400e3; });
   check('NASA modelleri (models/ksc/vab.glb, crawler.glb) GLB ve küçük (< 400 kB)', glbOk);
 }
+// ---------------------------------------------------------------- paftalar birlikte iner (eskiden seviye seviye sıralıydı)
+{
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const lim = P.limiter(3); let act = 0, peak = 0; const order = [];
+  await Promise.all([...Array(10)].map((_, i) => lim(async () => { act++; peak = Math.max(peak, act); order.push(i); await sleep(5); act--; })));
+  check('sınırlı kuyruk: aynı anda en çok 3 iş, giriş sırasıyla başlar', peak === 3 && order.join() === '0,1,2,3,4,5,6,7,8,9');
+  // load(): en kaba seviye önce (kaynak denetimi), sonra kalan seviyeler BİRLİKTE başlar; ilk kaynağın kaba seviyesi gelmezse ikinci kaynak
+  const run = async (firstOk) => {
+    const ev = [], applied = []; let t = 0;
+    const fake = { rects: P.LEVELS.map((z) => ({ z })), ctl: { signal: { aborted: false } }, loadDem: async () => {}, applyLevel: (prov, k) => applied.push(prov.name + k),
+      loadLevel: async (prov, r) => { const k = P.LEVELS.indexOf(r.z); ev.push(['s', prov.name, k, t]); await sleep(10); t++; ev.push(['e', prov.name, k, t]); return prov.name === 'esri' && !firstOk ? null : {}; } };
+    await P.PadGround.prototype.load.call(fake);
+    return { ev, applied };
+  };
+  const a = await run(true), starts = a.ev.filter((e) => e[0] === 's'), coarse = P.LEVELS.length - 1;
+  const restStart = starts.slice(1), firstEnd = a.ev.findIndex((e) => e[0] === 'e');
+  check(`seviyeler: önce en kaba (z${P.LEVELS[coarse]}) tek başına, sonra kalan ${restStart.length} seviye birlikte başlar (hiçbiri bir öncekini beklemez); hepsi zemine eklenir`,
+    starts[0][2] === coarse && firstEnd === 1 && restStart.every((e) => a.ev.indexOf(e) < a.ev.findIndex((x, i) => i > 1 && x[0] === 'e')) && a.applied.length === P.LEVELS.filter((z) => z <= 19).length && a.applied[0] === 'esri' + coarse);
+  const b = await run(false);
+  check('ilk kaynağın en kaba seviyesi gelmezse öbür seviyeleri denenmez, ikinci kaynağa (EOX) geçilir; onun sınırındaki seviyeler (z ≤ 15) eklenir',
+    b.ev.filter((e) => e[0] === 's' && e[1] === 'esri').length === 1 && b.applied.every((x) => x.startsWith('eox')) && b.applied.length === P.LEVELS.filter((z) => z <= 15).length);
+}
+{
+  const src = fs.readFileSync(new URL('../js/padground.js', import.meta.url), 'utf8'), wk = fs.readFileSync(new URL('../js/padtilework.js', import.meta.url), 'utf8');
+  check('paftalar iş parçacığında (padtilework.js) indirilip birleştirilir; ana iş parçacığı yalnız dokuyu kurar; iş parçacığı yoksa aynı işlevlerle (composeLevel, demGrid) ana iş parçacığında',
+    /import \{ composeLevel, demGrid, limiter \} from '\.\/padground\.js'/.test(wk) && /postMessage\(\{ id: d\.id, got, pix \}, \[pix\.buffer\]\)/.test(wk) && /postMessage\(\{ id: d\.id, grid \}, \[grid\.buffer\]\)/.test(wk)
+    && /const w = await tileJob\(\{ cmd: 'level'/.test(src) && /await composeLevel\(g, n,/.test(src) && /new T\.DataTexture\(w\.pix, W, W, T\.RGBAFormat\); t\.flipY = true; t\.magFilter = T\.LinearFilter;/.test(src)
+    && /await demGrid\(z, r, HEIGHT_N, this\.ctl\.signal, this\.slotDem\)/.test(src) && /tileW\.postMessage\(\{ cmd: 'abort', owner: this\.owner \}\)/.test(src) && /if \(cv\.data\) \{/.test(src));
+}
 console.log(fail ? `\n${fail} HATA` : '\nTüm denetimler geçti');
 process.exit(fail ? 1 : 0);
