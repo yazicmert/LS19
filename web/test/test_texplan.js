@@ -232,7 +232,7 @@ function dims(file) {
     const plume = new THREE.Group(); plume.name = 'alev'; w.landerModel.add(plume); const sPlume = new THREE.Group(); w.stackStage.add(sPlume);
     const fake = (n) => { const g = new THREE.Group(); const m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ name: 'x' })); m.name = n; g.add(m); g.userData = { ...MODEL_PLACE.lander }; return g; };
     P.applyModels.call(w, { lander: fake('LM'), stage: fake('SIVB'), orb: null });
-    const slot = (g) => g.children.find((c) => c.userData.modelSlot), has = (g, n) => { let f = false; slot(g).traverse((o) => { if (o.isMesh && (o.name === n || (o.parent && o.parent.name === n))) f = true; }); return f; };
+    const slot = (g) => g.children.find((c) => c.userData.modelSlot);
     const lmOk = slot(w.landerModel).children[0].children.some((c) => c.isMesh || c.children.length), oneSlot = (g) => g.children.filter((c) => c.userData.modelSlot).length === 1;
     check('model gelince: iniş aracı, S-IVB şablonu ve yığındaki kopyası yer tutucudan modele geçer; alevler grupta kalır; Ay yörünge kademesi modeli inmediyse çizimle kurulur; enkaz kopyaları yenilenir; programlar ısıtılır',
       lmOk && slot(w.landerModel) !== null && w.landerModel.children.includes(plume) && w.stackStage.children.includes(sPlume) && oneSlot(w.landerModel) && oneSlot(sivb) && oneSlot(w.stackStage) && oneSlot(w.orbModel) && oneSlot(w.orbStage)
