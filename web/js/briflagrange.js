@@ -13,10 +13,12 @@ import { t as tr } from './i18n.js';
 
 const SEEN = 'ls19.brifing.lagrange';
 const ECL = [0, -0.3977771559, 0.9174820621];                                // ekliptik kutbu (ICRF)
+// gökyüzü katmanının Dünya–Ay çizgileri: Ay'ın gerçek (eliptik) yörüngesi brifingin dönen çerçeve çemberiyle neredeyse üst üste biniyordu
+const HIDE = ['embEarth', 'embMoon', 'embMarker', 'earthAxis', 'moonAxis', 'earthMer', 'moonMer'];
 const SCENES = {
   intro: { mode: 'SYSTEM', dist: 1.25e6, el: 1.0, az: -Math.PI / 2, spin: 0.03, wide: true, sys: true },
   sistem: { mode: 'SYSTEM', dist: 1.3e6, el: 1.2, az: -Math.PI / 2, wide: true, sys: true },
-  nokta: { mode: 'FOCUS', dist: 2e5, point: true },
+  nokta: { mode: 'SYSTEM', dist: 1.3e6, el: 1.2, az: -Math.PI / 2, wide: true, sys: true, fit: true },      // bütün sistem: beş nokta da görünür ve dokunularak seçilir
   deney: { mode: 'FOCUS', dist: 2e5, point: true, path: true },
   brifing: { mode: 'FOCUS', dist: 2e5, point: true, path: true },
 };
@@ -24,7 +26,7 @@ const SCENES = {
 export class LagrangeBrief extends BriefShell {
   // host: { world, latest() → { t }, root, lg (LagrangeUI), onFly(profil), onClose }
   constructor(host) {
-    super(host, { id: 'lagrange', label: 'Lagrange brifingi', seen: SEEN, steps: LG_STEPS, scenes: SCENES, hide: [] });
+    super(host, { id: 'lagrange', label: 'Lagrange brifingi', seen: SEEN, steps: LG_STEPS, scenes: SCENES, hide: HIDE });
     this.lines = null;
   }
   onOpen() {
@@ -145,14 +147,16 @@ export class LagrangeBrief extends BriefShell {
       const look = unit(E.add(F.zz, E.scale(F.yy, -0.45)));
       a = { az: Math.atan2(look[1], look[0]), el: Math.max(-1.35, Math.min(1.35, Math.asin(look[2]))) };
     }
-    // cisimler ve noktalar (Hangi nokta? adımında dokununca seçilir)
+    // cisimler ve noktalar: girişte de görünür (seçilmez); Hangi nokta? adımında bütün sistem görünür, noktaya dokununca seçilir
     if (se) { this.placePin('S', E.sunPos(t), 'Güneş'); show.add('S'); }
-    this.placePin('E', [0, 0, 0], 'Dünya'); show.add('E');
-    if (!se) { this.placePin('M', E.moonPos(t), 'Ay'); show.add('M'); }
+    this.placePin('E', [0, 0, 0], 'Dünya', null, { up: !!c.sys }); show.add('E');                     // bütün sistemde Dünya'nın adı üstte: yanlar L1/L2 (Güneş–Dünya: üst üste) ve L3 adlarına kalır
+    if (!se) { this.placePin('M', E.moonPos(t), 'Ay', null, { up: !!c.sys }); show.add('M'); }                  // bütün sistemde L1 solda, L2 sağda: Ay'ın adı üstte
+    this.ringKm = F.D;
+    const lft = lagrangeLeft(P, (q) => this.screenX(F.geo(q))), narrow = this.h.world.canvas && this.h.world.canvas.clientWidth <= 700;
     for (const p of P) {
       const on = p.id === this.sel.point, pick = c.k === 'nokta' && !on ? () => this.pickPoint(p.id) : null;
-      if (c.k === 'intro') continue;
-      this.placePin('p:' + p.id, F.geo([p.x, p.y, 0]), p.id, null, { on: on && !c.sys, pick, left: p.id === 'L1' }); show.add('p:' + p.id);
+      const down = narrow && !se && !!c.sys && (p.id === 'L1' || p.id === 'L2') && !lft.has(p.id);      // telefonda L1, Ay, L2 ~40 piksele sığar: dıştakinin adı altta
+      this.placePin('p:' + p.id, F.geo([p.x, p.y, 0]), p.id, null, { on: on && (c.k === 'nokta' || !!c.point), pick, left: lft.has(p.id), down }); show.add('p:' + p.id);
     }
     this.drawLines(c, x, F);
     return a;
@@ -176,5 +180,20 @@ export class LagrangeBrief extends BriefShell {
     L.path.visible = !!r; if (r) put(L.path, r.pts);
   }
   clearScene() { if (this.lines) this.lines.g.visible = false; }
-  portraitScale(c, asp) { return c.mode === 'SYSTEM' || c.mode === 'SOLAR' ? Math.min(2.2, 0.95 / asp) : 1.5; }
+  screenX(p) { const W = this.h.world, eye = W.eye; return eye ? new THREE.Vector3(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]).project(W.camera).x : 0; }
+  portraitScale(c, asp) {
+    if (c.fit && this.fitH && this.ringKm) {                                        // telefon, Hangi nokta?: küçük cismin yörüngesi kartın üstündeki alanın ~%80'ine sığar
+      const W = this.h.world, h = W.canvas.clientHeight, w = W.canvas.clientWidth, px = Math.min(0.4 * this.fitH, 0.38 * w);
+      return Math.max(1, this.ringKm * (h / 2) / (Math.tan(W.camera.fov * Math.PI / 360) * px) / c.dist);
+    }
+    return c.mode === 'SYSTEM' || c.mode === 'SOLAR' ? Math.min(2.2, 0.95 / asp) : 1.5;
+  }
+}
+
+// Adı solda yazılacak noktalar: ekranda küçük cismin (Ay, Dünya) solunda kalan L1/L2 iç nokta. Güneş–Dünya bütün sistem görünümünde L1, L2 ve
+// Dünya birkaç piksel içinde üst üste düşer: adlar iki yana ayrılır, her ad kendi dokunma alanı olur. sx(q): dönen çerçeve noktasının ekran x'i (−1…1).
+export function lagrangeLeft(P, sx) {
+  const L1 = P.find((p) => p.id === 'L1'), L2 = P.find((p) => p.id === 'L2');
+  if (!L1 || !L2) return new Set(['L1']);
+  return new Set([sx([L1.x, L1.y, 0]) <= sx([L2.x, L2.y, 0]) ? 'L1' : 'L2']);
 }

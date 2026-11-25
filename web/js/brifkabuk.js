@@ -219,7 +219,11 @@ export class BriefShell {
     let ox = 0, oy = 0;
     if (!off) {
       const sys = this.cam && (this.cam.mode === 'SYSTEM' || this.cam.wide), site = this.cam && this.cam.site;
-      if (narrow) { oy = intro ? Math.round(h * 0.2) : this.full ? 0 : Math.round(h * (site ? 0.27 : 0.21)); if (sys && !intro) ox = Math.round(w * 0.28); }      // telefonda Dünya–Ay: Dünya solda, Ay sağda sığar
+      this.fitH = 0;
+      if (narrow && this.cam && this.cam.fit && !intro && !this.full) {                    // fit: sahne kartın üstündeki boş alanın ortasına (bütün sistem, dokunarak seçim)
+        const top = 64, bot = Math.max(top + 120, Math.min(h, this.card.getBoundingClientRect().top - cv.getBoundingClientRect().top));
+        this.fitH = bot - top; oy = Math.round(h / 2 - (top + bot) / 2);
+      } else if (narrow) { oy = intro ? Math.round(h * 0.2) : this.full ? 0 : Math.round(h * (site ? 0.27 : 0.21)); if (sys && !intro) ox = Math.round(w * 0.28); }      // telefonda Dünya–Ay: Dünya solda, Ay sağda sığar
       else ox = intro ? -Math.round(w * 0.16) : -Math.round(Math.min(260, ((this.card.offsetWidth || 432) + 14) / 2));
     }
     const k = [w, h, ox, oy].join(); if (k === this.vo) return; this.vo = k;
@@ -229,12 +233,13 @@ export class BriefShell {
   hidePins() { for (const k in this.pins) this.pins[k].hidden = true; this.clearScene(); }
   clearScene() {}
   // ekran işareti: p (km, Dünya merkezli); cen verilirse p bir yüzey noktasıdır ve cismin arka yüzündeyse gizlenir.
-  // o: { on (seçili), pick (dokununca seçer: düğme), left (ad solda: komşu işaretler çakışmasın) }
+  // o: { on (seçili), pick (dokununca seçer: düğme; null: şu an seçilemez), left (ad solda: komşu işaretler çakışmasın), up / down (ad üstte / altta: yakın işaretlerin adlarıyla çakışmasın) }
+  // Gök cismi işareti (yüzey noktası değil, seçilemez) soluk ve küçük çizilir; seçilebilir işaretler (Lagrange noktaları, hedefler) seçilince vurgulanır.
   placePin(key, p, label, cen = null, o = {}) {
     const W = this.h.world, eye = W.eye, cam = W.camera;
     let n = this.pins[key];
-    if (!n) { n = this.pins[key] = el(o.pick !== undefined ? 'button' : 'div', 'brief-pin' + (cen ? '' : ' body'), '<i></i><b></b>'); if (n.tagName === 'BUTTON') n.type = 'button'; this.root.insertBefore(n, this.card); }
-    n.classList.toggle('on', !!o.on); n.classList.toggle('pick', !!o.pick); n.classList.toggle('left', !!o.left); n.onclick = o.pick || null; if (n.tagName === 'BUTTON') { n.disabled = !o.pick; n.setAttribute('aria-pressed', String(!!o.on)); }
+    if (!n) { n = this.pins[key] = el(o.pick !== undefined ? 'button' : 'div', 'brief-pin' + (cen || o.pick !== undefined ? '' : ' body'), '<i></i><b></b>'); if (n.tagName === 'BUTTON') n.type = 'button'; this.root.insertBefore(n, this.card); }
+    n.classList.toggle('on', !!o.on); n.classList.toggle('pick', !!o.pick); n.classList.toggle('left', !!o.left); n.classList.toggle('up', !!o.up); n.classList.toggle('down', !!o.down); n.onclick = o.pick || null; if (n.tagName === 'BUTTON') { n.disabled = !o.pick; n.setAttribute('aria-pressed', String(!!o.on)); }
     if (!eye || !cam) { n.hidden = true; return; }
     const v = cam.position.clone().set(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]).project(cam);
     let facing = true;
