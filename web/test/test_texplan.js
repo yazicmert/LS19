@@ -241,6 +241,23 @@ function dims(file) {
     const a = vis(true, false, [true, true]), b = vis(true, false, [false, true]), c = vis(true, false, [true, false]), d = vis(false, false, [true, true]);
     check('yükleme örtüsü modelleri yalnız araç görünüyorken bekler ve indirmeyi o anda başlatır (Laboratuvar açılışında araç gizli: beklenmez)', a[0] && a[1] === 1 && !b[0] && !c[0] && !d[0]);
   }
+  // Dünya ve Ay küreleri: doku koordinatları ve üçgen dizini ortak (yarıçaptan bağımsız); JS kopyaları ekran kartına yüklenince bırakılır
+  {
+    const { sphereGeometry, releaseAfterUpload } = await import('../js/scenegeom.js');
+    const e = sphereGeometry(6378.137, 64, 32), m = sphereGeometry(1737.4, 64, 32, e), m0 = sphereGeometry(1737.4, 64, 32), o = sphereGeometry(1737.4, 32, 16, e);
+    const same = (a, b) => a.length === b.length && a.every((v, i) => Object.is(v, b[i]));
+    check('küre: aynı ızgarada uv ve dizin paylaşılır (aynı nesne), konumlar kendi yarıçapıyla; sonuç ayrı kurulanla bit bit aynı; farklı ızgarada paylaşılmaz',
+      m.index === e.index && m.getAttribute('uv') === e.getAttribute('uv') && m.getAttribute('position') !== e.getAttribute('position')
+      && same(m.getAttribute('position').array, m0.getAttribute('position').array) && same(m.getAttribute('uv').array, m0.getAttribute('uv').array) && same(m.index.array, m0.index.array)
+      && m.boundingSphere.radius === m0.boundingSphere.radius && o.index !== e.index);
+    releaseAfterUpload(e); releaseAfterUpload(m); const cb = e.index.onUploadCallback; releaseAfterUpload(e);
+    const cnt = [e.index.count, m.getAttribute('position').count], r = e.boundingSphere.radius;
+    for (const a of [e.index, e.getAttribute('uv'), e.getAttribute('position'), m.getAttribute('position')]) a.onUploadCallback.call(a);      // three yükleyince çağırır
+    check('yüklenince JS kopyası bırakılır (dizi null); sayılar ve sınır küresi korunur; paylaşılan öznitelik bir kez kaydedilir',
+      e.index.array === null && m.index.array === null && e.getAttribute('uv').array === null && m.getAttribute('position').array === null && e.index.count === cnt[0] && m.getAttribute('position').count === cnt[1] && e.boundingSphere.radius === r && e.index.onUploadCallback === cb);
+    check('sahne: Ay küreleri Dünya kürelerinin ızgarasını paylaşır ve ikisinin JS kopyaları yüklenince bırakılır',
+      /sphereGeometry\(E\.R_M, a, b, this\.earthGeo\[i\]\)/.test(sc) && /for \(const g of \[\.\.\.this\.earthGeo, \.\.\.this\.moonGeo\]\) releaseAfterUpload\(g\);/.test(sc));
+  }
   const surf = rd('../js/surfaceview.js');
   check('yüzey parçaları Dünya/Ay uniform nesnelerini paylaşır ({ ...eu }, { ...mu }): yükseltilen doku parçalarda da görünür', /uniforms: \{ \.\.\.eu,/.test(surf) && /uniforms: \{ \.\.\.mu,/.test(surf));
 }
