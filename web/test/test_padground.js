@@ -98,6 +98,9 @@ check('180. meridyeni aşan ızgarada Mercator kayması sürekli', maxJump < 2 *
   const clear = all.every(([, L]) => L.filter((p) => p.type === 'lattice' || p.type === 'mast' || p.type === 'water' || p.type === 'box').every((p) => Math.hypot(p.x, p.z) - (p.w || 0) / 2 > 12));   // roketten (orijin) uzakta
   const vif = PM.padLayout('SLC-41').find((p) => p.type === 'box');
   check('her rampada sayılar sonlu, yapılar roket ekseninden > 12 m; SLC-41 VIF 89 m, rampanın 550 m güneyinde', fin && clear && Math.abs(vif.h - 89) < 0.1 && vif.z === 550);
+  const G = PM.padLayout('generic');
+  check('ölçüsü bilinmeyen rampada (Baikonur, Plesetsk, Vandenberg …) kule ya da direk uydurulmaz: yalnız rampa zemini ve hendek (yapılar OSM\'den)',
+    G.every((p) => p.type === 'octagon' || p.type === 'trench') && G.some((p) => p.type === 'octagon'), G.map((p) => p.type).join());
   let built = true, why = '';
   for (const [key] of all) { try { const r = PM.buildPad(THREE, mergeGeometries, key); if (!r.parts.length || r.parts.some((o) => !o.geometry)) { built = false; why += key + ' '; } } catch (e) { built = false; why += `${key}: ${e.message} `; } }
   check('her rampa three.js ile kurulur (birleştirilmiş kafes, tel, su kulesi)', built, why);
