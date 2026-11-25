@@ -31,6 +31,8 @@ Aynı yürüyüş gece yüzünde de yapılır: Güneş ufkun altındayken yalnı
 
 Parçaların %60'ından azı inerse mozaik kullanılmaz ve durağan bulut dokusu kalır.
 
+Mozaik gelirse durağan bulut dokusunun tam çözünürlüklüsü (8192×4096, 6,5 MB) indirilmez. Durağan doku o zaman yalnız veri boşluğunda ve kar/buzda kullanılır; orada önceden küçültülmüş 4096×2048'lik doku yeter. Doku yükseltmesi bulutu en sona bırakır ve mozaiğin sonucunu bekler (`scene.js` `upgradeTextures`). Mozaik gelmezse eskisi gibi indirilir: `bulut=0`, ağ hatası ya da istek hiç yapılmazsa, 20 sn sonra. Ölçüm: `docs/performans.md` §19.
+
 **Bulut maskesi:** gölgelendirici her pikselin "bulutsuz zemin ile beyazın karışımı" olduğunu varsayar ve karışımın α'sını çözer (`cloudAt`). Zemin, mevsimli Blue Marble gündüz dokusudur (sRGB). Böylece çöl ve kara bulut sayılmaz. Veri boşluğunda ve kar/buzda (zemin beyaza yakın, çözüm kararsız) durağan doku kullanılır.
 
 **Bulut gölgesi:** bulutların ~6 km yükseklikte olduğu varsayılır. Zemin, Güneş yönünde 6 km / tan(yükseklik açısı) ötedeki bulutun gölgesinde kalır; uzaklık en çok 60 km. Gölge, doğrudan Güneş ışığını %50 kısar.

@@ -534,3 +534,40 @@ Düzeltme: iki liste saklanır.
 Tarayıcıda, 16.915 uyduyla, `ctx()` medyanı: **7,3 ms → ~0 ms** kare başına. Kare bütçesi 16,7 ms; telefonda ~3–4 kat yavaş olduğundan bu tek başına kare düşürüyordu. Liste aynı.
 
 Sınama: `test_briflagrange.js`. İkinci istek aynı nesneyi döndürür, sonuç süzgecin kendisiyle aynıdır, 1 dakika sonra, yeni hesapta ve yeni Sentry listesinde yenilenir. Eski kodda düşer.
+**Ek 4: görev gününün gerçek bulutları gelince durağan bulut dokusunun tam çözünürlüklüsü indirilmiyor.**
+
+Bulgu:
+
+- Açılıştaki ~24 MB'lık indirmenin en büyük dosyası `earth_clouds.webp` (8192×4096, 6,5 MB). Önce küçültülmüşü (4096×2048, 1,8 MB) iniyor, 1,5 sn sonra doku yükseltmesiyle tam çözünürlüklüsü.
+- Gerçek bulut mozaiği (GIBS, tasarım hazır olunca, ~5 sn'de istenir) gelince bulut ondan okunuyor. Durağan doku yalnız veri boşluğunda ve kar/buzda kullanılıyor (`bodyshaders.js` `cloudAt`).
+
+Düzeltme (`scene.js` `upgradeTextures`):
+
+- Bulut yükseltmenin sonuna alındı ve gerçek bulutların sonucu bekleniyor (`realCloudsSettled`). Aynı gün ikinci istek hemen döndüğü için sürmekte olan indirme de bekleniyor (`realBusy`).
+- Mozaik gelirse tam doku indirilmez (`texUp.cloudsSkipped`).
+- Mozaik gelmezse eskisi gibi indirilir: `bulut=0`, ağ hatası ya da 20 sn içinde istek yoksa (gökyüzüyle açılış).
+
+Ölçüm: tarayıcıda, eski (main) ve yeni sürüm yan yana sunuldu.
+
+| | İndirilen bulut dosyaları |
+|---|---|
+| main | `earth_clouds_lo.webp` + `earth_clouds.webp` |
+| Yeni | yalnız `earth_clouds_lo.webp` (**−6,5 MB**) |
+| Yeni, `bulut=0` | ikisi de (eskisi gibi) |
+
+Ayrıca:
+
+- 8k görüntünün çözülmesine (geçici ~128 MB RGBA) gerek kalmaz.
+- GPU'da R8 bulut dokusu ~43 MB'tan ~11 MB'a iner (mip'ler dahil).
+
+Görüntü farkı, gerçek bulutlar geldikten sonra aynı kamera konumlarında, piksel başına en büyük kanal farkı (0–255):
+
+| Görünüm | En çok | 8'den büyük farklı piksel |
+|---|---|---|
+| Bütün Dünya (güney kutbu, kuzey, ekvator; 30.000 km) | 1–2 | %0 |
+| Grönland (9.500 km) | 12 | %0 |
+| Antarktika (9.500 km) | 16 | %0,01 |
+
+Antarktika yakın planı gece yüzüne düştü; gündüz yüzünde buzul yakın planı bu ortamda ayrıca sınanamadı.
+
+Sınama: `test_texplan.js`. Sahte `this` ile dört durum denetlenir: gerçek bulut gelir, gelmez, sonradan istenip gelir, hiç istenmez. Ayrıca yükseltme denetimleri ayrılan `applyUpgrade`'i de kapsayacak biçimde genişletildi.
