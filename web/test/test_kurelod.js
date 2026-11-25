@@ -30,10 +30,19 @@ for (const [n, m] of [[32, 16], [64, 32], [256, 128]]) {
   check(`${n}×${m}: ağ ile küre arası en büyük uzaklık ≤ sag (${worst.toFixed(4)} ≤ ${sag(R, n).toFixed(4)} km; konumlar Float32: ±0,005 km)`, worst <= sag(R, n) + 0.005 && worst >= 0.4 * sag(R, n));
 }
 
+// 2b) ufuk yamalı ince ağ: Ay, Dünya'nın yamalı dizinini ve yama tablosunu paylaşır; yamasız ağla paylaşılmaz (dizin sırası farklı)
+{
+  const e = sphereGeometry(6378.137, 64, 32, null, [8, 8]), m = sphereGeometry(1737.4, 64, 32, e, [8, 8]), plain = sphereGeometry(1737.4, 64, 32, e);
+  check('yamalı ağ: Ay Dünya\'nın dizinini ve yama tablosunu paylaşır; yamasız ağ paylaşmaz', !!e.userData.patches && m.index === e.index && m.userData.patches === e.userData.patches && plain.index !== e.index && !plain.userData.patches
+    && e.userData.patches.total === e.index.count);
+}
+
 // 3) sahne sözleşmesi
 const sc = fs.readFileSync(new URL('../js/scene.js', import.meta.url), 'utf8');
 check('scene.js: dört düzey (1024×512, 256×128, 64×32, 32×16); Dünya, Ay ve atmosfer pickLod ile', /const EARTH_SEG = \[\[1024, 512\], \[256, 128\], \[64, 32\], \[32, 16\]\];/.test(sc)
   && /pickLod\(this\.earthLod, EARTH_SEG\.length/.test(sc) && /pickLod\(this\.moonLod, EARTH_SEG\.length/.test(sc) && /pickLod\(this\.atmLod, EARTH_SEG\.length/.test(sc));
+check('scene.js: ince ağ ufuk yamalı; Dünya ve Ay tek elemanlı malzeme dizisiyle (gruplar), kaba ağlar tek grup', /i === 0 \? BODY_PATCH : null/.test(sc) && /this\.earth = new THREE\.Mesh\(this\.earthGeo\[0\], \[new THREE\.ShaderMaterial/.test(sc)
+  && /this\.moon = new THREE\.Mesh\(this\.moonGeo\[0\], \[new THREE\.ShaderMaterial/.test(sc) && /const fullGroup = \(g\) => \{ g\.addGroup\(0, Infinity, 0\)/.test(sc) && /patchRanges\(\[v\.x, v\.y, v\.z\], rMin, rMax, T, r\)/.test(sc));
 check('scene.js: atmosfer en ince 256×128 (içeriden ve yakından), kaba düzeyleri Dünya ızgarasını paylaşır', /Math\.max\(1, pickLod\(this\.atmLod/.test(sc) && /sphereGeometry\(ATM_R, a, b, this\.earthGeo\[i\]\)/.test(sc) && /this\.atmGeo\[0\] = this\.atmGeo\[1\]/.test(sc));
 const rel = sc.match(/const MOON_RELIEF = \[([0-9., ]+)\]/), R = rel ? rel[1].split(',').map(Number) : [];
 check('Ay kabartma payı düzey başına, tools/ay_lod.py ölçümünün (8,93 / 12,39 / 14,20 km) üstünde', R.length === 4 && R[1] >= 8.93 && R[2] >= 12.39 && R[3] >= 14.21, JSON.stringify(R));

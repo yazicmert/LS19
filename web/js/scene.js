@@ -15,7 +15,7 @@ import { CameraRig } from './camerarig.js';
 import { SkyView } from './skyview.js';
 import { SurfaceView } from './surfaceview.js';
 import { VS_BODY, FS_EARTH, VS_ATM, FS_ATM, FS_MOON, EARTHSHINE, earthshine } from './bodyshaders.js';
-import { bandRange } from './bodyband.js';
+import { patchRanges } from './bodyband.js';
 import { sphereGeometry, releaseAfterUpload, pickLod, m3ToQuat, glowTexture, ringTexture, unit3, conicEach, conicPoints, SUN_I } from './scenegeom.js';
 import { mixin } from './mixin.js';
 import { meter, adapt, sunVisible } from './pozlama.js';
@@ -43,6 +43,8 @@ const KM = 0.001;                        // m -> km
 // Uzakta (küre ekranda küçükken) 64×32 ve 32×16 düzeyleri: aynı ölçütle seçilir (pickLod; gezegenlerdeki skyview.js ayrıntı düzeyiyle aynı). Ör. Saptırma ve
 // Lagrange görünümlerinde Dünya, atmosfer ve Ay 0–4 piksel iken 65.536'şar üçgenle çiziliyordu; bu sahnelerde karenin yarısından fazlası onlara gidiyordu.
 const EARTH_SEG = [[1024, 512], [256, 128], [64, 32], [32, 16]];
+const BODY_PATCH = [32, 32];                                                                    // ince ağın ufuk yamaları: 32 satır × 32 sütun (16 × 32 = 512 yama)
+const fullGroup = (g) => { g.addGroup(0, Infinity, 0); return g; };                             // malzeme dizisi: grubu olmayan ağ hiç çizilmez
 const sag = (R, n) => R * (1 - Math.cos(Math.SQRT2 * Math.PI / n));                          // km, n boylam dilimli ağın en büyük kiriş hatası
 const EARTH_SAG = EARTH_SEG.map(([n]) => sag(E.R_E, n));
 const ATM_R = E.R_E * 1.0125, ATM_SAG = EARTH_SEG.map(([n]) => sag(ATM_R, Math.min(n, 256)));      // atmosfer kabuğu en ince 256×128
@@ -306,8 +308,10 @@ export class World {
       parentMap: { value: flat([0, 0, 0, 255]) }, pXf: { value: new THREE.Vector4(1, 1, 0, 0) }, pHas: { value: 0 }, tileFade: { value: 1 },      // parça geçişi (her parça kendi kopyasını alır: tiles.js)
       realMap: { value: flat([0, 0, 0, 255]) }, useReal: { value: 0 },             // görev gününün gerçek bulutları (setRealClouds; parçalar aynı nesneyi paylaşır)
       seasonMap: { value: flat([128, 128, 128, 0]) }, useSeason: { value: 0 } };    // görev döneminin kara rengi (setSeason)
-    this.earthGeo = EARTH_SEG.map(([a, b]) => sphereGeometry(E.R_E, a, b)); this.earthLod = 0;          // ayrıntı düzeyleri (earthLodUpdate); ikisi de atılmaz
-    this.earth = new THREE.Mesh(this.earthGeo[0], new THREE.ShaderMaterial({ uniforms: eu, vertexShader: VS_BODY, fragmentShader: FS_EARTH }));
+    // ince ağın dizini ufuk yamaları sırasında (bodyband.js): her karede yalnız görülebilen yamalar çizilir (bodyBand; geometry.groups). Gruplar yalnız
+    // malzeme dizisiyle çizildiği için Dünya ve Ay'ın malzemesi tek elemanlı dizi; kaba düzeylerde ağın tamamı tek grup.
+    this.earthGeo = EARTH_SEG.map(([a, b], i) => fullGroup(sphereGeometry(E.R_E, a, b, null, i === 0 ? BODY_PATCH : null))); this.earthLod = 0;          // ayrıntı düzeyleri (earthLodUpdate); hiçbiri atılmaz
+    this.earth = new THREE.Mesh(this.earthGeo[0], [new THREE.ShaderMaterial({ uniforms: eu, vertexShader: VS_BODY, fragmentShader: FS_EARTH })]);
     S.add(this.earth);                                    // görüş dışındaki cisim köşe işlemeye girmez (frustum culling): her biri ~1 milyon üçgen
     // atmosfer (bodyshaders.js FS_ATM): tek saçılmalı ışın yürütme; önçarpımlı karışım (saçılan ışık + yüzeyi puslayan geçirgenlik). Kamera atmosferin içindeyken
     // kabuğun arka yüzü çizilir (earthLodUpdate yanında, her kare)
@@ -325,9 +329,9 @@ export class World {
       siteDir: { value: new THREE.Vector3(sd[0], sd[1], sd[2]) }, albScale: { value: 0.8 }, holeCos: { value: 2.0 },          // delik (arazi yaması varken küre çizilmez): arazi hazır olunca açılır (loadTerrain)
       tileMap: { value: flat([128, 128, 128, 255]) }, useTile: { value: 0 }, lodDelta: { value: 0 }, tileAlpha: { value: 0 }, latCut: { value: 2 }, tilePull: { value: 0 },
       parentMap: { value: flat([128, 128, 128, 255]) }, pXf: { value: new THREE.Vector4(1, 1, 0, 0) }, pHas: { value: 0 }, tileFade: { value: 1 } };
-    this.moonGeo = EARTH_SEG.map(([a, b], i) => { const g = sphereGeometry(E.R_M, a, b, this.earthGeo[i]); g.boundingSphere.radius = E.R_M + 15; return g; }); this.moonLod = 0;   // LOLA yer değiştirmesi (±11 km) küre sınırının dışına taşabilir
+    this.moonGeo = EARTH_SEG.map(([a, b], i) => { const g = fullGroup(sphereGeometry(E.R_M, a, b, this.earthGeo[i], i === 0 ? BODY_PATCH : null)); g.boundingSphere.radius = E.R_M + 15; return g; }); this.moonLod = 0;   // LOLA yer değiştirmesi (±11 km) küre sınırının dışına taşabilir
     for (const g of new Set([...this.earthGeo, ...this.moonGeo, ...this.atmGeo])) releaseAfterUpload(g);          // uv ve dizin Dünya ile Ay arasında ortak (sphereGeometry like); JS kopyaları yüklenince bırakılır
-    this.moon = new THREE.Mesh(this.moonGeo[0], new THREE.ShaderMaterial({ uniforms: mu, vertexShader: VS_BODY, fragmentShader: FS_MOON }));
+    this.moon = new THREE.Mesh(this.moonGeo[0], [new THREE.ShaderMaterial({ uniforms: mu, vertexShader: VS_BODY, fragmentShader: FS_MOON })]);
     S.add(this.moon);
     this.moonU = mu; this.earthU = eu; this.holeCos0 = mu.holeCos.value;
     this.buildTiles(eu, mu);                                           // yüzey parçaları (surfaceview.js)
@@ -619,14 +623,17 @@ export class World {
     const lod = pickLod(this.moonLod, EARTH_SEG.length, (k) => this.moonLodErr(k), EARTH_LOD_IN, EARTH_LOD_OUT);
     if (lod !== this.moonLod) { this.moonLod = lod; this.moon.geometry = this.moonGeo[lod]; }
   }
-  // Ufuk bandı (bodyband.js): ince küre ağında yalnız kameradan görülebilecek enlem satırları çizilir (setDrawRange). Kamera orijinde: yerel
-  // çerçevedeki konumu −Q⁻¹·P. Görülemeyen üçgenler zaten arka yüz ya da örtülü olduğundan görüntü değişmez; köşe işi azalır
-  // (185 km park yörüngesinde Dünya'nın ~14°'lik başlığı görünür).
-  bodyBand(mesh, W, H, rMin, rMax) {
-    const q = this._bq || (this._bq = new THREE.Quaternion()), v = this._bv || (this._bv = new THREE.Vector3());
-    if (this.noBand) { mesh.geometry.setDrawRange(0, Infinity); return; }                         // karşılaştırma (sayfa içi A/B denetimi)
-    q.copy(mesh.quaternion).invert(); v.copy(mesh.position).negate().applyQuaternion(q);
-    const [st, n] = bandRange([v.x, v.y, v.z], rMin, rMax, W, H); mesh.geometry.setDrawRange(st, n);
+  // Ufuk yamaları (bodyband.js): ince küre ağında yalnız kameradan görülebilecek yamalar çizilir (geometry.groups, dizinde art arda olanlar tek çağrı).
+  // Kamera orijinde: yerel çerçevedeki konumu −Q⁻¹·P. Görülemeyen üçgenler zaten arka yüz ya da örtülü olduğundan görüntü değişmez; köşe işi azalır
+  // (185 km park yörüngesinde Dünya'nın ~14°'lik başlığı görünür; Ay'a 9.000 km'den bakınca ağın yarısı arkada kalır).
+  bodyBand(mesh, rMin, rMax) {
+    const q = this._bq || (this._bq = new THREE.Quaternion()), v = this._bv || (this._bv = new THREE.Vector3()), g = mesh.geometry, T = g.userData.patches;
+    if (!T) return;
+    const r = this._br || (this._br = []);
+    if (this.noBand) { r.length = 0; r.push(0, T.total); }                                   // karşılaştırma (sayfa içi A/B denetimi)
+    else { q.copy(mesh.quaternion).invert(); v.copy(mesh.position).negate().applyQuaternion(q); patchRanges([v.x, v.y, v.z], rMin, rMax, T, r); }
+    const G = g.groups; G.length = r.length / 2;                                          // grup nesneleri yeniden kullanılır (her karede)
+    for (let i = 0; i < G.length; i++) { const o = G[i] || (G[i] = { start: 0, count: 0, materialIndex: 0 }); o.start = r[2 * i]; o.count = r[2 * i + 1]; }
   }
   earthLodUpdate() {
     const lod = pickLod(this.earthLod, EARTH_SEG.length, (k) => this.earthLodErr(k), EARTH_LOD_IN, EARTH_LOD_OUT);          // NaN → 0
@@ -656,10 +663,10 @@ export class World {
     rel([0, 0, 0], this.earth.position); this.earth.quaternion.copy(m3ToQuat(E.mT(Mitrf)));
     this.atm.position.copy(this.earth.position); this.earthLodUpdate();
     this.atm.material.side = this.earth.position.length() < E.R_E * 1.0125 ? THREE.BackSide : THREE.FrontSide;      // atmosferin içinden (kalkış): arka yüz
-    if (this.earthLod === 0) this.bodyBand(this.earth, 1024, 512, E.R_E - 0.07, E.R_E);                 // ince ağ: yalnız ufkun berisindeki satırlar
+    if (this.earthLod === 0) this.bodyBand(this.earth, E.R_E - 0.07, E.R_E);                          // ince ağ: yalnız ufkun berisindeki yamalar
     rel(rm, this.moon.position); this.moon.quaternion.copy(m3ToQuat(E.mT(Mme)));
     this.moonLodUpdate();
-    if (this.moonLod === 0) this.bodyBand(this.moon, 1024, 512, E.R_M - 10.1, E.R_M + 11.05);           // LOLA kabartması −10…+11 km (+ kiriş hatası)
+    if (this.moonLod === 0) this.bodyBand(this.moon, E.R_M - 10.1, E.R_M + 11.05);                    // LOLA kabartması −10…+11 km (+ kiriş hatası)
     if (this.texUp && !this.texUp.moon && this.moon.position.length() < 40 * E.R_M) this.upgradeTextures('moon');          // Ay'a yaklaşıldı (~70.000 km): tam çözünürlük
     this.updateTiles();
     if (this.terrainReady) this.placeTerrain(rm, Mme, eye, rel);
