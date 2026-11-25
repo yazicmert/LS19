@@ -737,3 +737,29 @@ Sınama: `test_padground.js`.
 Artık bu rampalarda yalnız rampa zemini ve alev hendeği çiziliyor. Yapılar o rampanın gerçek verisinden gelir: OSM binaları (yükseklikleriyle; ince kuleler kafes olarak) ve açıksa Google 3B karoları.
 
 Kaynaklı rampalarda da OSM'de rampa çevresinde gerçek yapılar varsa (`nearPad() ≥ 3`) çizilen yapılar gizlenir. Gerçek KSC OSM karosuyla denendi: LC-39B'de 11 temsilî yapının hepsi gizlendi; OSM'deki üç gerçek kule (147 m, rampaya 138–150 m) ve öbür rampa yapıları görünüyor. Sınama: `test_padground.js`.
+
+**Ek 11: rampa çevresinin OSM binaları ve doğası iş parçacığında kuruluyor.** Kalkış sahnesi tamamlanırken ana iş parçacığında OSM için ~1,6 sn iş yapılıyordu: karoların çözülmesi, bina çokgenleri, doğa alanları ve ağaç yerleştirme, bina geometrisinin iki kez kurulması (renklendirme ve kabartma sonrası). Ölçümde ilk üç kalem `addTiles` 807 ms (bunun `scatter` 700 ms, `inPolygon` 476 ms), bina geometrisi `build` 569 ms.
+
+Düzeltme: `osmwork.js` (yeni), `osmbuildings.js`, `osmnature.js`.
+
+- Karoların indirilmesi ve çözülmesi (`fetchOsm`), bina çokgenleri, doğa alanları ve bitki yerleşimi iş parçacığında yapılır.
+- Bina geometrisi de iş parçacığında kurulur: duvar, çatı üçgenlemesi ve normaller (`buildingArrays`). Ana iş parçacığı yalnız gelen dizilerden ağı kurar.
+- Zemin yüksekliği ve uydu görüntüsünden çatı rengi ana iş parçacığında kalır (kabartma ve görüntü orada); bina başına değer olarak gönderilir.
+- Yeniden renklendirmede eski ağ yenisi gelene dek kalır, arada binalar kaybolmaz.
+- Bitkiler paketlenip aktarılır (`packPlants`). `build`'in sınırları aynı sırayla uygulanır; konumlar Float32 yuvarlamasıyla aynı.
+- Özel `fetchFn` verilmişse (sınamalar) ya da iş parçacığı yoksa bütün iş ana iş parçacığında aynı işlevlerle yapılır. İş parçacığı çökerse geometri ana iş parçacığında kurulur.
+
+Ölçüm: tarayıcıda, kalkış sahnesi, main ile yan yana. OSM sunucusu bu ortamda engelli olduğundan KSC karosu (fikstür) her karo için sunuldu.
+
+| | Önce | Sonra |
+|---|---|---|
+| Ana iş parçacığında OSM ile ilgili JS | ~1,6 sn (`addTiles` 807, `build` 569 ms …) | **~0,25 sn** (doğa örneklerinin kurulması 148 ms) |
+| Bina köşesi / bina / bitki / su köşesi / Crawler | 366.279 / 2.645 / 22.163 / 212.814 / 2 | aynı |
+| En uzun görev (çoğu yazılım çizimi) | 5,9 sn | 4,8 sn |
+
+Görüntü iki sürümde aynı. Sınama: `test_padground.js`.
+
+- `fetchOsm`, `polygonsFromLayer` ile aynı sonucu verir.
+- `buildingArrays` belirlenimci.
+- Bitki paketleme gidiş-dönüşü.
+- İş parçacığı sözleşmesi.
