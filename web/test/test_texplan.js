@@ -89,7 +89,7 @@ function dims(file) {
 {
   const src = sceneSrc(), build = src.slice(src.indexOf('  build(A) {'), src.indexOf('  prepModel('));
   const used = new Set([...build.matchAll(/\bA\.([a-zA-Z]+)\b/g)].map((m) => m[1]));
-  const planKeys = new Set(TEX.map((s) => s.key)), extra = new Set(['dem', 'lander', 'stage', 'orb']);
+  const planKeys = new Set(TEX.map((s) => s.key)), extra = new Set(['dem', 'lander', 'stage', 'orb', 'modelsLater']);
   const unknown = [...used].filter((k) => !planKeys.has(k) && !extra.has(k)), unused = [...planKeys].filter((k) => !used.has(k));
   check('World.build: kullandığı her doku anahtarı planda; plandaki her doku kullanılıyor', unknown.length === 0 && unused.length === 0, `bilinmeyen: ${unknown.join(',') || '-'}; kullanılmayan: ${unused.join(',') || '-'}`);
 }
@@ -121,7 +121,7 @@ function dims(file) {
   check('texload: yükleme boyutları userData.size\'da saklanır (kapatılan bitmap\'te image.width 0 olur)', /userData\.size = \[w, h\]/.test(tl) && /userData\.size/.test(sc) && !/A\.mh\.image/.test(sc));
   check('texload: nearest/mip ayarı yükleme öncesi (finish) yapılır; build() sonradan değiştirmez', /nearest\) \{ t\.magFilter = t\.minFilter = THREE\.NearestFilter; t\.generateMipmaps = false/.test(tl) && !/A\.mh\.(magFilter|minFilter|generateMipmaps|flipY)/.test(sc));
   check('texload: R8 yalnız bitmap yolunda (yedek yol RGBA: eski davranış)', /if \(s\.red\) \{ t\.format = THREE\.RedFormat/.test(tl) && !/decodeImage[\s\S]{0,400}RedFormat/.test(tl));
-  check('World.load: dokular (her cihazda önce küçük dosyalar), arazi verisi ve modeller birlikte iner; derleme ardından ready', /Promise\.all\(\[loadTextures\(this\.renderer, base, \{ specs: first, lowmem: true, conc: lowmem \? 2 : 3, tick \}\)/.test(sc) && /await this\.precompile\(\);[^]*this\.ready = true/.test(sc) && /first\.length \* 2 \+ 5/.test(sc));
+  check('World.load: dokular (her cihazda önce küçük dosyalar), arazi verisi ve modeller birlikte iner; derleme ardından ready', /Promise\.all\(\[loadTextures\(this\.renderer, base, \{ specs: first, lowmem: true, conc: lowmem \? 2 : 3, tick \}\)/.test(sc) && /deferModels \? \[null, null, null\] : models\(\)\]\)/.test(sc) && /await this\.precompile\(\);[^]*this\.ready = true/.test(sc) && /first\.length \* 2 \+ \(deferModels \? 2 : 5\)/.test(sc));
   check('precompile: derleme sırasında checkShaderErrors kapalı (paralel derleme), sonra eski değer ve bağlama durumu denetimi; 10 sn zaman aşımı; eklenti yoksa eşzamanlı compile (uyarı yok)', /checkShaderErrors = false/.test(sc) && /finally \{ r\.debug\.checkShaderErrors = was;/.test(sc) && /LINK_STATUS/.test(sc) && /setTimeout\(res, 10000\)/.test(sc) && /extensions\.has\('KHR_parallel_shader_compile'\)/.test(sc) && /else r\.compile\(this\.scene, this\.camera\)/.test(sc));
   check('bağlam kaybı: webglcontextlost preventDefault; geri gelince bir kez yenile (30 sn içinde ikinci kayıpta döngü yok)', /webglcontextlost[^\n]*preventDefault/.test(sc) && /webglcontextrestored/.test(sc) && /ls19\.ctxReload/.test(sc) && /Date\.now\(\) - last > 30000/.test(sc));
   check('precompile: bindirme katmanlarının saydam geçiş malzemesi (warmMaterial) de derlenir, sonra sahneden çıkarılır; malzeme atılmaz (warmMats)', /warmMaterial\(\) \{[^]*m\.transparent = true/.test(tiles) && /\[this\.earthWeld, this\.earthHls, this\.moonTiles2\][^\n]*L\.warmMaterial\(\)/.test(sc) && /this\.warmMats = warm\.map/.test(sc) && /for \(const o of warm\) \{ this\.scene\.remove\(o\); o\.geometry\.dispose\(\); \}/.test(sc));
@@ -212,9 +212,34 @@ function dims(file) {
     const W = (def, pend, d) => { const w = { moonDeferred: def, moonPending: pend, starts: 0, moon: { position: { length: () => d } } }; w.startMoonLo = () => { w.starts++; w.moonDeferred = false; w.moonPending = true; }; return [World.prototype.moonTexWait.call(w), w.starts]; };
     const near = W(true, false, 3e4), far = W(true, false, 3e5), busy = W(false, true, 3e4), done = W(false, false, 3e4);
     check('Ay dokuları yükleme örtüsü kalkınca başlar; kamera Ay\'a yakınsa (< 40 Ay yarıçapı) hemen başlar ve örtü onları bekler (en çok 15 sn; yalnız konumlanmış sahnede); uzaktaysa ya da indiyse beklenmez',
-      near[0] && near[1] === 1 && !far[0] && far[1] === 0 && busy[0] && !done[0] && /!\(placed && world\.moonTexWait\(\) && now < revealAt \+ 15000\)/.test(rd('../js/app.js')) && /\$\('#loading'\)\.style\.display = 'none';\n  world\.startMoonLo\(\);/.test(rd('../js/app.js')));
+      near[0] && near[1] === 1 && !far[0] && far[1] === 0 && busy[0] && !done[0] && /!\(placed && \(world\.modelWait\(\) \| world\.moonTexWait\(\)\) && now < revealAt \+ 15000\)/.test(rd('../js/app.js')) && /\$\('#loading'\)\.style\.display = 'none';\n  world\.startModels\(\); world\.startMoonLo\(\);/.test(rd('../js/app.js')));
     check('ertelenen yükleme: tam çözünürlük (upgradeTextures moon) önce başladıysa küçük dosyalar atılır; arazi malzemesi map\'li yer tutucuyla derlenir',
       /if \(this\.texUp && this\.texUp\.moon\) \{ for \(const t of Object\.values\(T\)\) if \(t\) t\.dispose\(\); \} else this\.applyUpgrade\(T\);/.test(sc) && /\.\.\.\(mcol0 \? \{ mcol: mcol0 \} : \{\}\)/.test(sc) && /this\.moonDeferred = deferMoon;/.test(sc));
+  }
+  // araç modelleri ilk görüntüyü beklemez (Laboratuvar açılışında araç gizli); yer tutucular gelen modelle değişir
+  {
+    const THREE = await import('three'), { World, MODEL_PLACE } = await import('../js/scene.js'), { vehicleFirst } = await import('../js/texplan.js');
+    const extras = (f) => { const b = fs.readFileSync(new URL(`../models/${f}.glb`, import.meta.url)), n = b.readUInt32LE(12), j = JSON.parse(b.subarray(20, 20 + n).toString()); return j.scenes[j.scene || 0].extras; };
+    check('MODEL_PLACE model dosyalarının yerleşim sayılarıyla (glTF extras) aynı: modeller ertelenince alevler ve iticiler doğru yerde kurulur',
+      ['lander', 'stage', 'orb'].every((k) => JSON.stringify(extras(k)) === JSON.stringify(MODEL_PLACE[k])), JSON.stringify(['lander', 'stage', 'orb'].map(extras)));
+    check('araç modelleri: yalnız aracın açılışta görünebildiği adreslerde (Ay\'a yakın açılışlar, play, cam=vehicle) ilk yüklemede',
+      vehicleFirst('?play=1') && vehicleFirst('?cam=vehicle') && vehicleFirst('?seek=10') && vehicleFirst('?cam=moon') && !vehicleFirst('') && !vehicleFirst('?mode=sky') && !vehicleFirst('?exp=ay'));
+    const P = World.prototype, w = { place: JSON.parse(JSON.stringify(MODEL_PLACE)), debrisMeshes: new Map([[1, {}]]), scene: { remove() {} }, warmed: 0 };
+    Object.assign(w, { prepModel: P.prepModel, makeOrbitalStage: P.makeOrbitalStage, warm() { w.warmed++; } });
+    w.landerModel = w.prepModel(null, 'lander'); const sivb = w.prepModel(null, 'stage'); w.orbModel = w.prepModel(null, 'orb');
+    w.stageModel = sivb; w.stageModels = { sivb: { group: sivb } }; w.stageKey = 'sivb';
+    w.orbStage = w.orbModel.clone(); w.stackStage = sivb.clone();
+    const plume = new THREE.Group(); plume.name = 'alev'; w.landerModel.add(plume); const sPlume = new THREE.Group(); w.stackStage.add(sPlume);
+    const fake = (n) => { const g = new THREE.Group(); const m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ name: 'x' })); m.name = n; g.add(m); g.userData = { ...MODEL_PLACE.lander }; return g; };
+    P.applyModels.call(w, { lander: fake('LM'), stage: fake('SIVB'), orb: null });
+    const slot = (g) => g.children.find((c) => c.userData.modelSlot);
+    const lmOk = slot(w.landerModel).children[0].children.some((c) => c.isMesh || c.children.length), oneSlot = (g) => g.children.filter((c) => c.userData.modelSlot).length === 1;
+    check('model gelince: iniş aracı, S-IVB şablonu ve yığındaki kopyası yer tutucudan modele geçer; alevler grupta kalır; Ay yörünge kademesi modeli inmediyse çizimle kurulur; enkaz kopyaları yenilenir; programlar ısıtılır',
+      lmOk && slot(w.landerModel) !== null && w.landerModel.children.includes(plume) && w.stackStage.children.includes(sPlume) && oneSlot(w.landerModel) && oneSlot(sivb) && oneSlot(w.stackStage) && oneSlot(w.orbModel) && oneSlot(w.orbStage)
+      && slot(w.orbModel).children.length > 3 && slot(w.orbStage).children.length === slot(w.orbModel).children.length && slot(w.stackStage) !== slot(sivb) && w.debrisMeshes.size === 0 && w.warmed === 1);
+    const vis = (deferred, pending, chain) => { const parent = { visible: chain[1], parent: null }, v = { visible: chain[0], parent }; const x = { modelsDeferred: deferred, modelsPending: pending, vehicle: v, starts: 0 }; x.startModels = () => { x.starts++; }; return [P.modelWait.call(x), x.starts]; };
+    const a = vis(true, false, [true, true]), b = vis(true, false, [false, true]), c = vis(true, false, [true, false]), d = vis(false, false, [true, true]);
+    check('yükleme örtüsü modelleri yalnız araç görünüyorken bekler ve indirmeyi o anda başlatır (Laboratuvar açılışında araç gizli: beklenmez)', a[0] && a[1] === 1 && !b[0] && !c[0] && !d[0]);
   }
   const surf = rd('../js/surfaceview.js');
   check('yüzey parçaları Dünya/Ay uniform nesnelerini paylaşır ({ ...eu }, { ...mu }): yükseltilen doku parçalarda da görünür', /uniforms: \{ \.\.\.eu,/.test(surf) && /uniforms: \{ \.\.\.mu,/.test(surf));

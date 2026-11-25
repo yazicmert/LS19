@@ -26,7 +26,7 @@ import { makeSpaceEnv, ENV_HALF_DEG, makePlume, plumeGeometry, setPlume, plumeTi
 import { PointStore, synodicBasis } from './pointstore.js';
 import { mergeByMaterial } from './meshmerge.js';
 import { loadTextures, lowMemory } from './texload.js';
-import { TEX, UPGRADE, moonFirst } from './texplan.js';
+import { TEX, UPGRADE, moonFirst, vehicleFirst } from './texplan.js';
 
 
 const { add, sub, scale, dot, cross, norm, unit } = E;
@@ -58,6 +58,9 @@ const PBR = {
 // ------------------------------------------------------------------ dünya
 // ayrılan kademelerin ekrandaki en büyük dönme hızı (rad/s gerçek zaman): 0,2 rad/s ≈ 11°/s (bir tur ~31 s); ×1 ve düşük hızlarda fizikteki dönme bunun çok altındadır
 const DEBRIS_SPIN_MAX = 0.2;
+// model dosyalarının yerleşim sayıları (glTF sahne extras'ı: çan çıkışı z/yarıçap, iticiler halkası z/yarıçap, len: kademe boyu; m). Modeller ertelenince
+// (vehicleFirst) alevler ve iticiler bu sayılarla kurulur; model gelince aynı değerleri yazar (test_texplan.js dosyalarla karşılaştırır)
+export const MODEL_PLACE = { lander: { exitZ: -2.65, exitR: 0.4, rcsZ: -0.26, rcsR: 1.5 }, stage: { exitZ: -8.96, exitR: 0.92, rcsZ: -7, rcsR: 2.15 }, orb: { exitZ: -6.19, exitR: 1.09, len: 4.55, rcsZ: -1.3, rcsR: 1.95 } };
 export class World {
   constructor(canvas, labelsEl) {
     this.canvas = canvas; this.labelsEl = labelsEl;
@@ -96,18 +99,20 @@ export class World {
     this.base = base;
     // Ay dokuları ilk görüntüyü beklemez (texplan.js moonFirst): sahne yer tutucularla kurulur, dokular hazırdan sonra iner (loadMoonLo)
     const deferMoon = !moonFirst(typeof location !== 'undefined' ? location.search : ''), first = deferMoon ? TEX.filter((s) => !UPGRADE.moon.includes(s.key)) : TEX;
-    const lowmem = this.lowMem = lowMemory(), total = first.length * 2 + 5; let done = 0;       // doku başına 2 adım (çözüldü, GPU'da) + arazi verisi + 3 model + derleme
+    const deferModels = !vehicleFirst(typeof location !== 'undefined' ? location.search : '');
+    const lowmem = this.lowMem = lowMemory(), total = first.length * 2 + (deferModels ? 2 : 5); let done = 0;       // doku başına 2 adım (çözüldü, GPU'da) + arazi verisi + 3 model + derleme
     const tick = (n) => { done++; onProgress(Math.min(1, done / total), n); };
     const json = (f) => fetch(base + f).then((r) => (r.ok ? r.json() : null)).catch(() => null).then((x) => { tick('dem'); return x; });
-    const gl = new GLTFLoader(); gl.setMeshoptDecoder(MeshoptDecoder);
-    const glb = (f) => new Promise((res) => gl.load(base + 'models/' + f, (g) => { tick(f); res(g.scene); }, undefined, () => { tick(f + ' (yok)'); res(null); }));
-    const [T, dem, lander, stage, orb] = await Promise.all([loadTextures(this.renderer, base, { specs: first, lowmem: true, conc: lowmem ? 2 : 3, tick }), json('data/site_dem.json'),
-      glb('lander.glb'), glb('stage.glb'), glb('orb.glb')]);          // NASA resmî Apollo modelleri: LM, S-IVB, hizmet modülü (tools/apollo_modelleri.mjs)
+    const models = () => this.fetchModels(tick);                       // NASA resmî Apollo modelleri: LM, S-IVB, hizmet modülü (tools/apollo_modelleri.mjs)
+    if (deferModels) for (const k of Object.keys(MODEL_PLACE)) Object.assign(this.place[k], MODEL_PLACE[k]);
+    const [T, dem, [lander, stage, orb]] = await Promise.all([loadTextures(this.renderer, base, { specs: first, lowmem: true, conc: lowmem ? 2 : 3, tick }), json('data/site_dem.json'),
+      deferModels ? [null, null, null] : models()]);
     // ertelenen Ay renk dokusunun yer tutucusu: iniş arazisi malzemesi aynı programla (map'li) derlensin; gelince yerine geçer (applyUpgrade)
     const mcol0 = deferMoon ? new THREE.DataTexture(new Uint8Array([150, 150, 150, 255]), 1, 1) : null; if (mcol0) { mcol0.colorSpace = THREE.SRGBColorSpace; mcol0.needsUpdate = true; }
-    this.build({ ...T, ...(mcol0 ? { mcol: mcol0 } : {}), dem, lander, stage, orb });
+    this.build({ ...T, ...(mcol0 ? { mcol: mcol0 } : {}), dem, lander, stage, orb, modelsLater: deferModels });
     await this.precompile(); tick('gölgelendiriciler');
     this.ready = true;
+    this.modelsDeferred = deferModels;                                    // araç modelleri yükleme örtüsü kalkınca iner (startModels); araç görünürse hemen (modelWait)
     this.moonDeferred = deferMoon;                                        // Ay dokuları yükleme örtüsü kalkınca iner (startMoonLo; app.js reveal); Ay yakınsa hemen (moonTexWait)
     // masaüstü: Dünya ve yıldızların tam çözünürlüğü ilk görüntüden kısa süre sonra; Ay'ınki kamera yaklaşınca (placeFrame). Veri tasarrufunda yükseltme yok.
     const saveData = typeof navigator !== 'undefined' && navigator.connection && navigator.connection.saveData;
@@ -138,6 +143,45 @@ export class World {
     if (this.texUp && this.texUp.moon) { for (const t of Object.values(T)) if (t) t.dispose(); } else this.applyUpgrade(T);
     this.moonPending = false;
     return T;
+  }
+  fetchModels(tick = () => {}) {
+    const gl = new GLTFLoader(); gl.setMeshoptDecoder(MeshoptDecoder);
+    const glb = (f) => new Promise((res) => gl.load(this.base + 'models/' + f, (g) => { tick(f); res(g.scene); }, undefined, () => { tick(f + ' (yok)'); res(null); }));
+    return Promise.all([glb('lander.glb'), glb('stage.glb'), glb('orb.glb')]);
+  }
+  // ertelenen araç modellerini başlat (bir kez): yükleme örtüsü kalkınca ya da araç görünür olunca
+  startModels() {
+    if (this.modelsDeferred) {
+      this.modelsDeferred = false; this.modelsPending = true;
+      this.modelsP = this.fetchModels().then(([lander, stage, orb]) => { this.applyModels({ lander, stage, orb }); }).catch(() => {}).finally(() => { this.modelsPending = false; });
+    }
+    return this.modelsP;
+  }
+  // modeller yoldayken araç görünüyor mu: yükleme örtüsü modelleri bekler (app.js reveal); indirme hemen başlar
+  modelWait() {
+    if (!(this.modelsDeferred || this.modelsPending) || !this.vehicle) return false;
+    for (let o = this.vehicle; o; o = o.parent) if (!o.visible) return false;
+    this.startModels(); return true;
+  }
+  // gelen modeller yer tutucuların yerine geçer: şablon (landerModel, S-IVB şablonu, orbModel) ve ondan klonlanmış yığındaki kopyalar. Alevler, iticiler ve
+  // motor ışığı grupta kalır (yerleşim MODEL_PLACE ile aynı). Model inmediyse: iniş aracı/S-IVB yer tutucusu kalır, Ay yörünge kademesi çizimle kurulur.
+  applyModels(M) {
+    const slotOf = (g) => (g ? g.children.find((c) => c.userData.modelSlot) : null);
+    const sivb = this.stageModels && this.stageModels.sivb ? this.stageModels.sivb.group : this.stageModel;
+    const holders = { lander: [this.landerModel], stage: [sivb, this.stageKey === 'sivb' ? this.stackStage : null], orb: [this.orbModel, this.orbStage] };
+    for (const kind of ['lander', 'stage', 'orb']) {
+      const src = M[kind] ? this.prepModel(M[kind], kind) : kind === 'orb' ? this.makeOrbitalStage() : null;
+      if (!src) continue;
+      let inner = slotOf(src);
+      if (!inner) { inner = new THREE.Group(); while (src.children.length) inner.add(src.children[0]); }       // çizimle kurulan kademe: parçalar doğrudan grupta
+      inner.userData.modelSlot = true;
+      const old = slotOf(holders[kind][0]);
+      if (old) old.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); if (o.material) o.material.dispose(); } });   // yer tutucu (kopyalar aynı geometriyi paylaşır)
+      holders[kind].forEach((g, i) => { const s = slotOf(g); if (!g || !s) return; g.remove(s); g.add(i ? inner.clone() : inner); });
+    }
+    for (const m of this.debrisMeshes.values()) this.scene.remove(m);
+    this.debrisMeshes.clear();
+    this.warm([this.landerModel, sivb, this.orbModel]);                  // yeni malzemelerin programları çizimden önce
   }
   // ertelenen Ay dokularını başlat (bir kez): yükleme örtüsü kalkınca ya da kamera Ay'a yaklaşınca. İlk görüntüye gereken verilerle (efemeris, görev
   // durumu) bant genişliği paylaşılmasın diye örtü kalkmadan başlamaz
@@ -304,7 +348,7 @@ export class World {
     this.vehicle = new THREE.Group(); S.add(this.vehicle);
     this.landerModel = this.prepModel(A.lander, 'lander');
     this.stageModel = this.prepModel(A.stage, 'stage');             // TLI kademesi (şablon; araçtaki ve ayrılan kopyalar bundan klonlanır)
-    this.orbModel = A.orb ? this.prepModel(A.orb, 'orb') : this.makeOrbitalStage();         // Ay yörünge kademesi (iki kademeli iniş aracı; şablon)
+    this.orbModel = A.orb ? this.prepModel(A.orb, 'orb') : A.modelsLater ? this.prepModel(null, 'orb') : this.makeOrbitalStage();         // Ay yörünge kademesi (iki kademeli iniş aracı; şablon); ertelenmişse yer tutucu
     this.vehicle.add(this.landerModel);
     // yığın (üstten alta): iniş aracı / Ay yörünge kademesi (varsa) / TLI kademesi; motorlar en altta
     this.orbStage = this.orbModel.clone(); this.orbStage.position.set(0, 0, -3.05 * KM); this.vehicle.add(this.orbStage);
@@ -425,11 +469,12 @@ export class World {
       const mat = new THREE.MeshStandardMaterial({ color: kind === 'lander' ? 0xc8a24a : 0xdadde2, metalness: 0.6, roughness: 0.4 });
       const m = kind === 'lander' ? new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.8, 3.2, 16), mat) : new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 12, 16), mat);
       m.rotation.x = Math.PI / 2; if (kind !== 'lander') m.position.z = -8;
+      m.userData.modelSlot = true;                                     // yer tutucu: model gelince yerine geçer (applyModels)
       g.add(m); g.scale.setScalar(KM);
       g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
       return g;
     }
-    const inner = new THREE.Group(); inner.rotation.x = Math.PI / 2; inner.add(scene3);   // glTF Y-yukarı -> gövde Z-yukarı
+    const inner = new THREE.Group(); inner.rotation.x = Math.PI / 2; inner.add(scene3); inner.userData.modelSlot = true;   // glTF Y-yukarı -> gövde Z-yukarı
     g.add(inner); g.scale.setScalar(KM);
     const pbr = PBR[kind] || {};
     scene3.traverse((o) => {

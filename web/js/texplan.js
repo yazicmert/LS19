@@ -31,6 +31,9 @@ export const UPGRADE = { earth: ['day', 'night', 'clouds', 'stars'], moon: ['mco
 // düşük öncelikle iner (scene.js loadMoonLo). Ay'a yakın açılabilen adreslerde (zamanda ileri: seek; sinematik: cine; Ay kamerası: cam=moon) baştan iner.
 // index.html #earlyFetch aynı kuralı uygular (test_texplan.js).
 export const moonFirst = (search = '') => { const q = new URLSearchParams(search); return q.has('seek') || q.has('cine') || /^moon$/i.test(q.get('cam') || ''); };
+// Araç modelleri (iniş aracı, kademeler; 0,72 MB) de ilk görüntüyü beklemez: Laboratuvar açılışında araç gizli (app.js vehHidden). Aracın açılışta görünebildiği
+// adreslerde (Ay'a yakın açılışlar, play, cam=vehicle) baştan iner; öbür durumlarda araç görünür olursa yükleme örtüsü modelleri bekler (scene.js modelWait).
+export const vehicleFirst = (search = '') => { const q = new URLSearchParams(search); return moonFirst(search) || q.has('play') || /^vehicle$/i.test(q.get('cam') || ''); };
 // indirilecek dosya ve çözme planı: düşük bellekte (ve her cihazın ilk yüklemesinde) önceden küçültülmüş dosya (çözerken yeniden küçültme gerekmez:
 // lo boşaltılır); yedekte özgün dosya + cihazda küçültme. Veri haritası (nearest: paketli 16 bit yükseklik) cihazda küçültülmez: ortalama değeri bozar.
 // ktx: KTX2 yolu (cihazda küçültme yok: düşük bellekte _lo.ktx2, yoksa tam dosya)

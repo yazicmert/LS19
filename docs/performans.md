@@ -606,3 +606,25 @@ Sınama: `test_texplan.js`.
 - `moonFirst` kuralı.
 - Yer tutucudan gerçek dokuya geçiş: Ay küresi, arazi map'i, `useHeight`, `hSize`.
 - Yükleme örtüsünün yalnız Ay yakınken beklemesi ve indirmenin o anda başlaması.
+
+**Ek 6: araç modelleri ilk görüntüyü beklemiyor.** İniş aracı, S-IVB ve Ay yörünge kademesi modelleri (0,72 MB) yükleme örtüsü kalkmadan iniyordu. Oysa Laboratuvar açılışında araç, kullanıcı görev kurana dek gizli (`app.js` `vehHidden`).
+
+Düzeltme:
+
+- `texplan.js` `vehicleFirst`: aracın açılışta görünebildiği adreslerde (Ay'a yakın açılışlar, `play`, `cam=vehicle`) modeller eskisi gibi baştan iner. Öbür adreslerde sahne yer tutucularla kurulur.
+- Alevler, iticiler ve motor ışığı modellerin yerleşim sayılarıyla kurulur (`MODEL_PLACE`). Sayılar glTF extras'ıyla aynıdır; `test_texplan.js` dosyalarla karşılaştırır.
+- Modeller yükleme örtüsü kalkınca iner (`startModels`). Gelince şablonda ve yığındaki kopyalarda yalnız model bölümü (`modelSlot`) değişir; alevler grupta kalır.
+  - Enkaz kopyaları yenilenir.
+  - Yeni malzemelerin programları çizimden önce derlenir (`warm`).
+  - Ay yörünge kademesi modeli inmezse eskisi gibi çizimle kurulur.
+- Araç görünür durumdayken modeller yoldaysa yükleme örtüsü bekler ve indirme o anda başlar (`modelWait`, en çok 15 sn).
+
+Ölçüm: ağ sınırlı, önbellek kapalı; önceki sürüm (`claude/ay-dokusu-ertele`) ile yan yana, birer koşu.
+
+| Bağlantı | Örtü kalkıyor (önce → sonra) | O ana dek inen |
+|---|---|---|
+| 20 Mbit/s | 9,8 → **8,8 sn** | 9,2 → 8,5 MB |
+| 5 Mbit/s | 19,8 → **18,2 sn** | 9,2 → 8,5 MB |
+| 20 Mbit/s, `play=1` | 9,3 sn (modeller baştan) | 9,2 MB |
+
+Görüntü: model geldikten sonra araç yakın planı iki sürümde de aynı Apollo modeli (araçta 62 ağ). Konsolda hata yok.
