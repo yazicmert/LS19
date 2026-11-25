@@ -119,11 +119,24 @@ export function treeGeo(THREE, kind) {
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   return g;
 }
+// bitkileri iş parçacığından aktarmak için paketle (Float32Array, bitki başına 6 sayı: x, z, s, v, tür, koni). build'in sınırları (MAX_TREES/MAX_BUSHES,
+// sırayla) burada da uygulanır: build aynı bitkileri aynı sırayla görür, aktarılan dizi küçük kalır
+const KINDS = ['wood', 'scrub', 'wetland'];
+export function packPlants(plants) {
+  const keep = []; let nT = 0, nB = 0;
+  for (const q of plants) { if (q.kind === 'wood' ? nT++ >= MAX_TREES : nB++ >= MAX_BUSHES) continue; keep.push(q); }
+  const a = new Float32Array(keep.length * 6);
+  keep.forEach((q, i) => { a.set([q.x, q.z, q.s, q.v, KINDS.indexOf(q.kind), q.cone ? 1 : 0], i * 6); });
+  return a;
+}
+export const unpackPlants = (a) => { const out = new Array(a.length / 6); for (let i = 0; i < out.length; i++) { const o = i * 6; out[i] = { x: a[o], z: a[o + 1], s: a[o + 2], v: a[o + 3], kind: KINDS[a[o + 4]], cone: a[o + 5] === 1 }; } return out; };
 export class OsmNature {
   // THREE · parent: rampa grubu (ölçek KM, birim m) · site
   constructor(THREE, parent, site) { this.T = THREE; this.parent = parent; this.site = site; this.group = new THREE.Group(); parent.add(this.group); this.polys = []; this.plants = []; this.t = 0; }
   // karolar (osmbuildings.js'in indirdikleri): [{ t, layers }]
   addTiles(tiles) { for (const { t, layers } of tiles) this.polys.push(...naturePolygons(layers, t, this.site)); this.plants = scatter(this.polys, 7); }
+  // iş parçacığında hazırlanmış veri (osmwork.js): { polys: su çokgenleri, plants: packPlants çıktısı }
+  setData({ polys, plants }) { this.polys = polys; this.plants = unpackPlants(plants); }
   // ground: { groundAt(e, s), sample(lat, lon) } (padground.js; yoksa düz zemin, yeşil tonlar)
   build(ground = null) {
     const THREE = this.T; this.clear();

@@ -257,7 +257,7 @@ export class AscentView {
         if (A.osm && A.osm.ready && !A.osmColored && (imgFine || A.ground.done)) { A.osmColored = true; A.osm.recolor((la, lo) => A.ground.sample(la, lo), A.ground.heightAt ? (e, s) => A.ground.groundAt(e, s) : null); }
         // doğal unsurlar (osmnature.js): zemin tamamlanınca (görüntü + kabartma) kurulur; kabartma sonradan gelirse binalar ve doğa yeniden oturtulur
         if (A.osm && A.osm.ready && A.osmColored && !A.nature && (A.ground.done || A.ground.hasDem)) {
-          A.nature = new OsmNature(THREE, A.pad, A.spec.site); A.nature.addTiles(A.osm.tiles); A.nature.build(A.ground); A.natureDem = A.ground.hasDem;
+          A.nature = new OsmNature(THREE, A.pad, A.spec.site); if (A.osm.nature) A.nature.setData(A.osm.nature); else A.nature.addTiles(A.osm.tiles); A.nature.build(A.ground); A.natureDem = A.ground.hasDem;
         }
         if (A.nature && !A.natureDem && A.ground.hasDem) { A.natureDem = true; A.nature.build(A.ground); A.osm.recolor((la, lo) => A.ground.sample(la, lo), (e, s) => A.ground.groundAt(e, s)); }
         if (A.nature) { const nowN = performance.now(); A.nature.visible = !on; A.nature.frame({ pad: A.pad, sunDir: o.sunDir, day: A.ground.u.day.value, dt: Math.min(0.1, (nowN - (A.natT || nowN)) / 1000), camH }); A.natT = nowN; }

@@ -164,6 +164,24 @@ check('180. meridyeni aşan ızgarada Mercator kayması sürekli', maxJump < 2 *
   const glbOk = ['vab', 'crawler'].every((k) => { const b = fs.readFileSync(new URL(`../models/ksc/${k}.glb`, import.meta.url)); return b.toString('ascii', 0, 4) === 'glTF' && b.length < 400e3; });
   check('NASA modelleri (models/ksc/vab.glb, crawler.glb) GLB ve küçük (< 400 kB)', glbOk);
 }
+// ---------------------------------------------------------------- OSM iş parçacığında (osmwork.js): saf işlevler ana iş parçacığındakiyle aynı sonucu verir
+{
+  const site = { lat: 28.62711, lon: -80.62102 }, buf = fs.readFileSync(new URL('./fixtures/osm_14_4522_6831.pbf', import.meta.url));
+  const fake = async (u) => (/planet$/.test(u) ? { ok: true, json: async () => ({ tiles: ['https://t/{z}/{x}/{y}.pbf'] }) } : /\/14\/4522\/6831\.pbf$/.test(u) ? { ok: true, arrayBuffer: async () => buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) } : { ok: false });
+  const r = await OB.fetchOsm(site, fake), L = decodeTile(new Uint8Array(buf)), ref = OB.polygonsFromLayer(L.building, { x: 4522, y: 6831, z: 14 }, site);
+  check('fetchOsm: karoyu indirip çözer; binalar polygonsFromLayer ile aynı; doğa ve Crawlerway katmanları taşınır', r.polys.length === ref.length && JSON.stringify(r.polys) === JSON.stringify(ref) && r.tiles.length === 1 && !!r.tiles[0].layers.transportation_name && !!r.tiles[0].layers.landcover);
+  const n = ref.length, y0s = new Float32Array(n).map((_, i) => (i % 7) * 0.5), rgbs = new Float32Array(3 * n).fill(NaN); rgbs.set([0.2, 0.4, 0.6], 0);
+  const O = new OB.OsmBuildings(THREE, new THREE.Group(), site, { fetchFn: fake }); O.polys = ref; O.groundAt = (x, z) => 0;
+  const a = OB.buildingArrays(THREE, ref, { y0s, rgbs }), b = OB.buildingArrays(THREE, ref, { y0s, rgbs });
+  check('buildingArrays: yazılı diziler (Float32Array), belirlenimci; zemin yüksekliği ve renk çokgen başına dışarıdan', a.pos instanceof Float32Array && a.pos.length > 1000 && a.pos.length === a.col.length && a.pos.length === a.fac.length && a.pos.every((v, i) => v === b.pos[i]) && a.col[0] !== OB.buildingArrays(THREE, ref, { y0s }).col[0]);
+  const N = ON.naturePolygons(L, { x: 4522, y: 6831, z: 14 }, site), plants = ON.scatter(N, 7), pk = ON.packPlants(plants), up = ON.unpackPlants(pk);
+  let nT = 0, nB = 0; const keep = plants.filter((q) => !(q.kind === 'wood' ? nT++ >= ON.MAX_TREES : nB++ >= ON.MAX_BUSHES));
+  check('bitkiler paketlenip aktarılır: aynı sınırlar aynı sırayla, tür ve koni bilgisi korunur, konumlar Float32 yuvarlamasıyla aynı', up.length === keep.length && up.every((q, i) => q.kind === keep[i].kind && q.cone === keep[i].cone && Math.abs(q.x - keep[i].x) < 1e-3 && Math.abs(q.z - keep[i].z) < 1e-3));
+  const src = fs.readFileSync(new URL('../js/osmbuildings.js', import.meta.url), 'utf8'), wk = fs.readFileSync(new URL('../js/osmwork.js', import.meta.url), 'utf8'), av = fs.readFileSync(new URL('../js/ascentview.js', import.meta.url), 'utf8');
+  check('iş parçacığı sözleşmesi: yükleme ve geometri osmwork.js\'te; özel fetchFn ya da iş parçacığı yoksa ana iş parçacığında; iş parçacığı çökerse geometri burada; doğa hazır veriyle',
+    /fetchOsm\(d\.site/.test(wk) && /buildingArrays\(THREE, o\.polys/.test(wk) && /packPlants\(scatter\(np, 7\)\)/.test(wk) && /this\.customFetch \? null : await osmJob/.test(src)
+    && /this\.setMesh\(a && a\.pos \? a : buildingArrays/.test(src) && /if \(A\.osm\.nature\) A\.nature\.setData\(A\.osm\.nature\); else A\.nature\.addTiles/.test(av));
+}
 // ---------------------------------------------------------------- paftalar birlikte iner (eskiden seviye seviye sıralıydı)
 {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -78,43 +78,52 @@ export function latticeBeams(p, { top = 0.22, bay = 12 } = {}) {
   return out;
 }
 
-export class OsmBuildings {
-  // THREE: three.js · parent: rampa grubu (ölçek KM, birim m) · site: { lat, lon } · onReady(this): binalar eklendi
-  constructor(THREE, parent, site, { onReady, fetchFn = (u, o) => fetch(u, o) } = {}) {
-    this.T = THREE; this.parent = parent; this.site = site; this.onReady = onReady; this.fetch = fetchFn;
-    this.ctl = new AbortController(); this.group = new THREE.Group(); parent.add(this.group); this.polys = []; this.tiles = []; this.exclude = []; this.ready = false; this.status = 'loading'; this.groundAt = null;
-  }
-  credit() { return this.polys.length ? ATTRIB : ''; }
-  // rampanın r metresi içinde h metreden yüksek bina sayısı (prosedürel rampa yapılarını gizleme kararı)
-  nearPad(r = 600, h = 20) { return this.polys.filter((p) => p.d <= r && p.h >= h).length; }
-  async load() {
+// rampa çevresinin karoları → { polys (binalar), tiles: [{ t, layers: { landcover, water, transportation_name } }] } (saf; iş parçacığında da: osmwork.js)
+export async function fetchOsm(site, fetchFn, signal) {
+  const polys = [], out = [];
+  const tj = await (await fetchFn(TILEJSON, { signal })).json(), tpl = tj.tiles && tj.tiles[0];
+  if (!tpl) throw new Error('TileJSON');
+  await Promise.all(tilesAround(site.lat, site.lon).map(async (t) => {
     try {
-      const tj = await (await this.fetch(TILEJSON, { signal: this.ctl.signal })).json(), tpl = tj.tiles && tj.tiles[0];
-      if (!tpl) throw new Error('TileJSON');
-      const tiles = tilesAround(this.site.lat, this.site.lon);
-      await Promise.all(tiles.map(async (t) => {
-        try {
-          const r = await this.fetch(tpl.replace('{z}', t.z).replace('{x}', t.x).replace('{y}', t.y), { signal: this.ctl.signal });
-          if (!r.ok) return;
-          let buf = new Uint8Array(await r.arrayBuffer());
-          if (buf[0] === 0x1f && buf[1] === 0x8b && typeof DecompressionStream === 'function') buf = new Uint8Array(await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
-          const layers = decodeTile(buf); this.tiles.push({ t, layers: { landcover: layers.landcover, water: layers.water, transportation_name: layers.transportation_name } });     // doğal unsurlar (osmnature.js), Crawlerway (kscmodels.js)
-          this.polys.push(...polygonsFromLayer(layers.building, t, this.site));
-        } catch (e) { if (e.name === 'AbortError') throw e; }
-      }));
-      if (this.ctl.signal.aborted) return;
-      this.build(); this.ready = true; this.status = 'ready'; if (this.onReady) this.onReady(this);
-    } catch (e) { this.status = 'error'; this.msg = String(e.message || e); }
+      const r = await fetchFn(tpl.replace('{z}', t.z).replace('{x}', t.x).replace('{y}', t.y), { signal });
+      if (!r.ok) return;
+      let buf = new Uint8Array(await r.arrayBuffer());
+      if (buf[0] === 0x1f && buf[1] === 0x8b && typeof DecompressionStream === 'function') buf = new Uint8Array(await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
+      const layers = decodeTile(buf); out.push({ t, layers: { landcover: layers.landcover, water: layers.water, transportation_name: layers.transportation_name } });     // doğal unsurlar (osmnature.js), Crawlerway (kscmodels.js)
+      polys.push(...polygonsFromLayer(layers.building, t, site));
+    } catch (e) { if (e.name === 'AbortError') throw e; }
+  }));
+  return { polys, tiles: out };
+}
+// paylaşılan iş parçacığı (osmwork.js); yoksa (kurulamadı, çöktü) null: yedek yol ana iş parçacığında aynı işlevlerle
+let osmW, osmSeq = 0, osmOwner = 0; const osmWait = new Map();
+function osmJob(msg) {
+  if (osmW === undefined) {
+    osmW = null;
+    try {
+      if (typeof Worker !== 'undefined') {
+        osmW = new Worker(new URL('./osmwork.js', import.meta.url), { type: 'module', name: 'ls19:osm' });
+        osmW.onmessage = (e) => { const f = osmWait.get(e.data.id); if (f) { osmWait.delete(e.data.id); f(e.data); } };
+        osmW.onerror = () => { osmW = null; for (const f of osmWait.values()) f(null); osmWait.clear(); };
+      }
+    } catch (e) { osmW = null; }
   }
-  build() {
-    const THREE = this.T, pos = [], col = [], fac = [], c = new THREE.Color();
+  if (!osmW) return Promise.resolve(null);
+  const id = ++osmSeq; return new Promise((res) => { osmWait.set(id, res); osmW.postMessage({ ...msg, id }); });
+}
+// bina geometrisi (saf; iş parçacığında da: osmwork.js): duvarlar + çatı + yükseltilmiş taban, köşe rengi ve cephe koordinatı. y0s: çokgen başına zemin
+// yüksekliği (rampa düzeyine göre, m), rgbs: çokgen başına çatı rengi (sRGB; NaN = yok, p.rgb ya da OSM rengi). Döner: { pos, col, fac } (Float32Array)
+export function buildingArrays(THREE, polys, { exclude = [], y0s = null, rgbs = null } = {}) {
+  const pos = [], col = [], fac = [], c = new THREE.Color();
     const drop = (x, z) => -(x * x + z * z) / (2 * R_E);                         // Dünya eğriliği (12 km'de ~11 m)
-    for (const p of this.polys) {
-      if (this.exclude.some((r) => inRect(p.c[0], p.c[1], r))) continue;                  // yerine resmî 3B modeli konan yapı (kscmodels.js: VAB)
-      if (p.rgb) c.setRGB(p.rgb[0], p.rgb[1], p.rgb[2], THREE.SRGBColorSpace);         // uydu görüntüsünden çatı rengi (recolor)
+    for (let i = 0; i < polys.length; i++) {
+      const p = polys[i];
+      if (exclude.some((r) => inRect(p.c[0], p.c[1], r))) continue;                  // yerine resmî 3B modeli konan yapı (kscmodels.js: VAB)
+      const rgb = rgbs && !Number.isNaN(rgbs[3 * i]) ? [rgbs[3 * i], rgbs[3 * i + 1], rgbs[3 * i + 2]] : p.rgb;
+      if (rgb) c.setRGB(rgb[0], rgb[1], rgb[2], THREE.SRGBColorSpace);         // uydu görüntüsünden çatı rengi (recolor)
       else { try { c.set(p.color || '#d8d6d0'); } catch (e) { c.set('#d8d6d0'); } }
       const tone = 0.85 + 0.15 * ((p.h * 7.3) % 1), cr = c.r * tone, cg = c.g * tone, cb = c.b * tone;
-      const y0 = this.groundAt ? this.groundAt(p.c[0], p.c[1]) - 0.25 : 0;                  // zeminin kabartması (rampa düzeyine göre; düz zeminde 0)
+      const y0 = y0s ? y0s[i] : 0;                  // zeminin kabartması (rampa düzeyine göre; düz zeminde 0)
       const put = (x, y, z, k = 1, fu = 0, fv = 0, fw = 0) => { pos.push(x, y + y0 + drop(x, z), z); col.push(cr * k, cg * k, cb * k); fac.push(fu, fv, fw); };
       if (isSlender(p)) {                                                                    // kafes kule: her kiriş ince kare kesitli çubuk
         const w = Math.max(0.35, Math.min(1.2, (p.h - p.minH) / 300));
@@ -144,11 +153,57 @@ export class OsmBuildings {
       for (const [a, b, d] of THREE.ShapeUtils.triangulateShape(o2, h2)) { for (const k of [a, b, d]) put(all[k].x, p.h, all[k].y, 1.05); }   // çatı
       if (p.minH > 0) for (const [a, b, d] of THREE.ShapeUtils.triangulateShape(o2, h2)) { for (const k of [d, b, a]) put(all[k].x, p.minH, all[k].y, 0.7); }   // yükseltilmiş parçanın tabanı (tank)
     }
+  return { pos: new Float32Array(pos), col: new Float32Array(col), fac: new Float32Array(fac) };
+}
+
+export class OsmBuildings {
+  // THREE: three.js · parent: rampa grubu (ölçek KM, birim m) · site: { lat, lon } · onReady(this): binalar eklendi
+  constructor(THREE, parent, site, { onReady, fetchFn = null } = {}) {
+    this.T = THREE; this.parent = parent; this.site = site; this.onReady = onReady; this.fetch = fetchFn || ((u, o) => fetch(u, o)); this.customFetch = !!fetchFn; this.owner = ++osmOwner;
+    this.ctl = new AbortController(); this.group = new THREE.Group(); parent.add(this.group); this.polys = []; this.tiles = []; this.exclude = []; this.ready = false; this.status = 'loading'; this.groundAt = null;
+  }
+  credit() { return this.polys.length ? ATTRIB : ''; }
+  // rampanın r metresi içinde h metreden yüksek bina sayısı (prosedürel rampa yapılarını gizleme kararı)
+  nearPad(r = 600, h = 20) { return this.polys.filter((p) => p.d <= r && p.h >= h).length; }
+  // karolar iş parçacığında indirilip çözülür (osmwork.js: MVT, bina çokgenleri, doğa alanları ve bitki yerleşimi); özel fetchFn verilmişse (sınamalar)
+  // ya da iş parçacığı yoksa burada
+  async load() {
+    try {
+      const w = this.customFetch ? null : await osmJob({ cmd: 'load', owner: this.owner, site: this.site });
+      if (this.ctl.signal.aborted) return;
+      if (w && w.polys) {
+        this.useWorker = true; this.polys = w.polys; this.tiles = w.tiles; this.nature = w.nature;           // nature: { polys (su), plants (paketli) } (osmnature.js setData)
+      } else {
+        if (w && w.err) throw new Error(w.err);
+        const r = await fetchOsm(this.site, this.fetch, this.ctl.signal);
+        if (this.ctl.signal.aborted) return;
+        this.polys = r.polys; this.tiles = r.tiles;
+      }
+      this.build(); this.ready = true; this.status = 'ready'; if (this.onReady) this.onReady(this);
+    } catch (e) { this.status = 'error'; this.msg = String(e.message || e); }
+  }
+  // çokgen başına zemin yüksekliği ve çatı rengi (ana iş parçacığında: kabartma ve uydu görüntüsü burada); geometri iş parçacığında ya da yedekte burada
+  build() {
+    const n = this.polys.length, y0s = new Float32Array(n), rgbs = new Float32Array(3 * n).fill(NaN);
+    this.polys.forEach((p, i) => { if (this.groundAt) y0s[i] = this.groundAt(p.c[0], p.c[1]) - 0.25; if (p.rgb) rgbs.set(p.rgb, 3 * i); });
+    const seq = (this.buildSeq = (this.buildSeq || 0) + 1);
+    if (this.useWorker) {
+      osmJob({ cmd: 'build', owner: this.owner, exclude: this.exclude, y0s, rgbs }).then((a) => {
+        if (seq !== this.buildSeq || this.ctl.signal.aborted) return;
+        this.setMesh(a && a.pos ? a : buildingArrays(this.T, this.polys, { exclude: this.exclude, y0s, rgbs }));      // iş parçacığı çöktüyse burada
+      });
+      return;
+    }
+    this.setMesh(buildingArrays(this.T, this.polys, { exclude: this.exclude, y0s, rgbs }));
+  }
+  setMesh({ pos, col, fac, nrm }) {
+    const THREE = this.T;
+    if (this.mesh) { this.group.remove(this.mesh); this.mesh.geometry.dispose(); this.mesh.material.dispose(); this.mesh = null; }
     if (!pos.length) return;
     const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-    g.setAttribute('fac', new THREE.Float32BufferAttribute(fac, 3));
-    g.computeVertexNormals();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    g.setAttribute('fac', new THREE.BufferAttribute(fac, 3));
+    if (nrm) g.setAttribute('normal', new THREE.BufferAttribute(nrm, 3)); else g.computeVertexNormals();      // iş parçacığı normalleri hesaplayıp gönderir
     const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, emissive: 0x3a3a3a });
     // cephe ayrıntısı: kat/aks ızgarasında koyu cam pencereler (uzakta, ızgara piksel altına inince söner: hare yok) ve duvar dibinde zemin gölgesi
     mat.onBeforeCompile = (sh) => {
@@ -179,9 +234,8 @@ export class OsmBuildings {
       const m = (v[0] + v[1] + v[2]) / 3, k = m < 0.25 ? 0.25 / Math.max(m, 0.01) : m > 0.92 ? 0.92 / m : 1;
       p.rgb = v.map((x) => Math.min(1, x * k)); n++;
     }
-    if (this.mesh) { this.group.remove(this.mesh); this.mesh.geometry.dispose(); this.mesh.material.dispose(); this.mesh = null; }
-    this.build(); return n;
+    this.build(); return n;                                                        // eski ağ yenisi gelince değişir (setMesh): arada binalar kaybolmaz
   }
   set visible(v) { this.group.visible = v; }
-  dispose() { this.ctl.abort(); if (this.group.parent) this.group.parent.remove(this.group); if (this.mesh) { this.mesh.geometry.dispose(); this.mesh.material.dispose(); } }
+  dispose() { this.ctl.abort(); if (osmW) osmW.postMessage({ cmd: 'abort', owner: this.owner }); if (this.group.parent) this.group.parent.remove(this.group); if (this.mesh) { this.mesh.geometry.dispose(); this.mesh.material.dispose(); } }
 }
