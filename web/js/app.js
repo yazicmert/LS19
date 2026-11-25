@@ -73,6 +73,17 @@ function setVehReady() {
   if (world.vehicle && !briefOn() && labui.page !== LAB_HOME) world.vehicle.visible = true;
   if (world.cam.vehWait) Object.assign(world.cam, { auto: true, key: '', vehWait: false });             // araç beklerken kurulan Dünya görünümü: otomatik kameraya dön
   syncVehClass();
+  preloadLaunch();
+}
+// kalkışı önceden hazırla (roket, rampa, rampa çevresi: yükseklik ve uydu görüntüsü paftaları, OSM binaları, VAB/Crawler): "Kalkış" ya da brifingin
+// "Rampadan fırlat"ı beklemeden açılır. Yalnız kullanıcı görevi kurunca (vehReady: tasarım, Başlat, fragman, bağlantı) ya da Ay görevi sayfasına girince
+// (Kalkış düğmesi orada; vehReady'yi kurmaz): açılıştaki arka plan
+// tasarımında araç gizli, kullanıcı kalkışa belki hiç gelmez; yoksa her açılışta ~3,3 MB ve 100'ü aşkın dış istek inerdi (docs/performans.md §19).
+// Veri tasarrufunda yapılmaz; sürmekte olan tasarım varsa onun sonucu beklenir (ready yeniden çağırır)
+function preloadLaunch() {
+  if (!(vehReady || (S.VIEW === 'lab' && labui.page === 'ay')) || (navigator.connection && navigator.connection.saveData)) return;
+  const D0 = S.DESIGN; if (!D0) return;
+  (window.requestIdleCallback || ((f) => setTimeout(f, 1500)))(() => { if (S.DESIGN === D0 && !S.designing && S.MODE === 'mission') ascent.preloadDesign(D0); }, { timeout: 4000 });
 }
 function syncVehClass() { document.body.classList.toggle('veh-off', S.VIEW === 'lab' && labui.page === 'ay' && !vehReady); }
 // gökyüzü motorundaki deneylerin brifingi motor kurulunca (initSky) yapılır: deney merkezinden seçilince ilk kez gerekir
@@ -388,7 +399,7 @@ const lagrange = new LagrangeUI({
   },
 });
 const labui = new LabUI({ initial: LAB_HOME });                                // açılış deney merkezi: Laboratuvar'da Ay görevinden başka deneyler de var
-labui.onShow = () => { if (S.VIEW === 'lab') syncWorkspace(!quietShow); };
+labui.onShow = () => { if (S.VIEW === 'lab') { syncWorkspace(!quietShow); if (labui.page === 'ay') preloadLaunch(); } };
 // Brifing, Laboratuvar merkezinden Ay görevi seçilince açılır (sayfa başına bir kez; ilk görev henüz hazır değilse hazır olunca: ready işleyicisi).
 // Laboratuvar'ın açılışı, kayıtlı son deney, geri/ileri, K kısayolu ve Lagrange'dan "bu profille uç" geçişi brifingi açmaz (brifingtext.js briefKind).
 // Deneye giriş üç yerden aynı yoldan: merkezin listesi, panel başlığındaki deney sekmeleri (#labNav) ve brifing kartının tepesindeki seçici (BRIEF_NAV).
@@ -733,8 +744,7 @@ worker.onmessage = (e) => {
     refreshNominal(d.nominal, ce);
     refreshCompare();
     if (brief) brief.onReady(S.DESIGN);
-    // kalkışı önceden hazırla (roket, rampa, rampa çevresi): "Kalkış" ya da brifingin "Rampadan fırlat"ı beklemeden açılır. Veri tasarrufunda yapılmaz
-    if (!(navigator.connection && navigator.connection.saveData)) { const D0 = S.DESIGN; (window.requestIdleCallback || ((f) => setTimeout(f, 1500)))(() => { if (S.DESIGN === D0 && S.MODE === 'mission') ascent.preloadDesign(D0); }, { timeout: 4000 }); }
+    preloadLaunch();
   }
   if (d.type === 'ready' || d.type === 'restarted') {
     ui.reset(d.plan, d.t0, S.DESIGN.LAUNCH.t_launch);

@@ -88,16 +88,67 @@ export const CREDITS = {
 const CACHE = 'ls19-tiles-v1';
 let cacheP = null;
 const openCache = () => (cacheP = cacheP || (typeof caches !== 'undefined' ? caches.open(CACHE).catch(() => null) : Promise.resolve(null)));
-async function getBlob(url, signal) {
+export async function getBlob(url, signal) {
   const c = await openCache();
   if (c) try { const hit = await c.match(url); if (hit) return await hit.blob(); } catch (e) { /* önbellek isteğe bağlı */ }
   const r = await fetch(url, { mode: 'cors', credentials: 'omit', signal }); if (!r.ok) throw new Error('HTTP ' + r.status);
   if (c) c.put(url, r.clone()).catch(() => {});
   return r.blob();
 }
-// sınırlı eşzamanlılıkla iş kuyruğu
-async function pool(jobs, conc) { let i = 0; await Promise.all(Array.from({ length: Math.min(conc, jobs.length) }, async () => { while (i < jobs.length) { const j = jobs[i++]; try { await j(); } catch (e) { /* tek karo eksik kalabilir */ } } })); }
-const wrapX = (x, z) => ((x % 2 ** z) + 2 ** z) % 2 ** z;
+// sınırlı eşzamanlılık (sıralı kuyruk): önce gelen önce. Bütün seviyelerin paftaları aynı kuyruktan geçer; kaba seviyeler önce kuyruğa girdiği için önce iner
+export function limiter(conc) {
+  let active = 0; const q = [];
+  const next = () => { if (active >= conc || !q.length) return; active++; const [job, res, rej] = q.shift(); job().then(res, rej).finally(() => { active--; next(); }); };
+  return (job) => new Promise((res, rej) => { q.push([job, res, rej]); next(); });
+}
+export const wrapX = (x, z) => ((x % 2 ** z) + 2 ** z) % 2 ** z;
+// bir seviyenin N × N paftasını 2B bağlama (g: tuval ya da OffscreenCanvas bağlamı) çiz; veri olmayan (yer tutucu) paftayı saydam bırak. Döner: gelen pafta sayısı.
+// Hem iş parçacığında (padtilework.js) hem yedek yolda (ana iş parçacığı) aynı işlev.
+export async function composeLevel(g, n, urlAt, signal, slot) {
+  let got = 0;
+  await Promise.all([...Array(n * n)].map((_, q) => slot(async () => {
+    const i = q % n, j = (q / n) | 0, b = await getBlob(urlAt(i, j), signal);
+    const bm = await createImageBitmap(b); g.drawImage(bm, i * 256, j * 256); if (bm.close) bm.close();
+    const sm = g.getImageData(i * 256 + 8, j * 256 + 8, 240, 240).data, pts = new Uint8ClampedArray(64);           // 16 örnek piksel
+    for (let k = 0; k < 16; k++) { const o = (((k >> 2) * 76 + 10) * 240 + (k & 3) * 76 + 10) * 4; pts.set(sm.subarray(o, o + 4), k * 4); }
+    if (isPlaceholder(pts)) { g.clearRect(i * 256, j * 256, 256, 256); return; }                                  // veri yok: saydam bırak
+    got++;
+  }).catch(() => {})));                                                                                             // tek pafta inmezse saydam kalır
+  return got;
+}
+// Terrarium seviyesi (N × N pafta) → yükseklik ızgarası (W × W, m); eksik pafta varsa null
+export async function demGrid(z, r, n, signal, slot) {
+  const W = n * 256, grid = new Float32Array(W * W); let got = 0;
+  const cv = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(256, 256) : Object.assign(document.createElement('canvas'), { width: 256, height: 256 });
+  const g = cv.getContext('2d', { willReadFrequently: true });
+  await Promise.all([...Array(n * n)].map((_, q) => slot(async () => {
+    const i = q % n, j = (q / n) | 0, b = await getBlob(TERRARIUM(z, wrapX(r.x0 + i, z), r.y0 + j), signal);
+    const bm = await createImageBitmap(b, { premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
+    g.clearRect(0, 0, 256, 256); g.drawImage(bm, 0, 0); if (bm.close) bm.close();
+    const h = decodeTerrarium(g.getImageData(0, 0, 256, 256).data);
+    for (let y = 0; y < 256; y++) grid.set(h.subarray(y * 256, y * 256 + 256), (j * 256 + y) * W + i * 256);
+    got++;
+  }).catch(() => {})));
+  return got === n * n ? grid : null;
+}
+// paftaları indirip çözen paylaşılan iş parçacığı (padtilework.js): ana iş parçacığı yalnız hazır görüntüyü ekran kartına yükler. Yoksa (OffscreenCanvas
+// desteklenmiyor, kurulamadı ya da çöktü) null: yedek yol ana iş parçacığında aynı işlevlerle
+let tileW, tileSeq = 0; const tileWait = new Map();
+function tileJob(msg) {
+  if (tileW === undefined) {
+    tileW = null;
+    try {
+      if (typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined') {
+        tileW = new Worker(new URL('./padtilework.js', import.meta.url), { type: 'module', name: 'ls19:pad' });
+        tileW.onmessage = (e) => { const f = tileWait.get(e.data.id); if (f) { tileWait.delete(e.data.id); f(e.data); } };
+        tileW.onerror = () => { tileW = null; for (const f of tileWait.values()) f(null); tileWait.clear(); };
+      }
+    } catch (e) { tileW = null; }
+  }
+  if (!tileW) return Promise.resolve(null);
+  const id = ++tileSeq; return new Promise((res) => { tileWait.set(id, res); tileW.postMessage({ ...msg, id }); });
+}
+let ownerSeq = 0;
 
 const VS = /* glsl */`
 #include <common>
@@ -150,6 +201,7 @@ export class PadGround {
   // THREE: three.js modülü · parent: rampa grubu (ölçek KM, birim m) · site: { lat, lon }
   constructor(THREE, parent, site, { onProgress } = {}) {
     this.T = THREE; this.site = site; this.onProgress = onProgress; this.ctl = new AbortController(); this.provider = null; this.hasDem = false; this.ready = false;
+    this.slotImg = limiter(12); this.slotDem = limiter(8); this.owner = ++ownerSeq;                     // görüntü ve kabartma ayrı sunucularda: ayrı sınırlar (tarayıcının sunucu başına bağlantı sınırı)
     const u = { N: { value: LEVEL_N }, sunDir: { value: new THREE.Vector3(0, 1, 0) }, day: { value: 1 }, camH: { value: 0 }, sunI: { value: 1.25 }, radius: { value: R_M }, hazeL: { value: 22 }, sunDim: { value: 1 },
       plumeW: { value: new THREE.Vector3() }, plumeCol: { value: new THREE.Color(1, 0.6, 0.3) }, plumeI: { value: 0 }, holeR: { value: 0 } };
     this.rects = LEVELS.map((z) => levelRect(site.lat, site.lon, z, LEVEL_N));
@@ -165,23 +217,30 @@ export class PadGround {
     g.setAttribute('position', new T.BufferAttribute(G.pos, 3)); g.setAttribute('mxy', new T.BufferAttribute(G.mxy, 2)); g.setIndex(new T.BufferAttribute(G.idx, 1));
     g.computeVertexNormals(); g.boundingSphere = new T.Sphere(new T.Vector3(), 3e6); return g;
   }
-  // görüntü ve kabartmayı indir: kaba seviyeler önce (hemen bir zemin görünsün), ince seviyeler sonra; kabartma paralel
+  // görüntü ve kabartmayı indir. Önce en kaba seviye (kaynak çalışıyor mu; hemen bir zemin görünsün), sonra öbür seviyeler BİRLİKTE: paftalar ortak
+  // sınırlı kuyruktan kaba → ince sırayla geçer, her seviye hazır olunca zemine eklenir. Eskiden seviyeler sırayla iniyordu (7 seviye × 36 pafta,
+  // her seviye bir öncekinin bitmesini bekliyordu): süre seviye sayısıyla katlanıyordu. Kabartma paralel (loadDem, kendi seviyeleri de birlikte).
   async load() {
     const dem = this.loadDem().catch(() => null);
     for (const prov of IMAGERY) {
-      let okAny = false;
-      for (let k = LEVELS.length - 1; k >= 0; k--) {
-        if (this.ctl.signal.aborted) return false;
-        const r = this.rects[k]; if (r.z > prov.maxZ) continue;
-        const tex = await this.loadLevel(prov, r);
-        if (tex) { const U = this.u; if (U['t' + k].value) U['t' + k].value.dispose(); U['t' + k].value = tex; this.cv = this.cv || []; this.cv[k] = tex.image; U['L' + k].value.w = 1; okAny = true; this.provider = this.provider || prov.name; this.mesh.visible = true; this.ready = true; if (this.onProgress) this.onProgress(this); }
-        else if (!okAny) break;                                                    // ilk (en kaba) seviye bile gelmediyse bu kaynağı bırak
-      }
-      if (okAny) break;
+      const ks = []; for (let k = LEVELS.length - 1; k >= 0; k--) if (this.rects[k].z <= prov.maxZ) ks.push(k);        // kaba → ince
+      if (!ks.length) continue;
+      const first = await this.loadLevel(prov, this.rects[ks[0]]);
+      if (this.ctl.signal.aborted) return false;
+      if (!first) continue;                                                        // en kaba seviye bile gelmediyse bu kaynağı bırak
+      this.applyLevel(prov, ks[0], first);
+      await Promise.all(ks.slice(1).map(async (k) => { const tex = await this.loadLevel(prov, this.rects[k]); if (tex && !this.ctl.signal.aborted) this.applyLevel(prov, k, tex); }));
+      if (this.ctl.signal.aborted) return false;
+      break;
     }
     await dem;
     this.done = true; if (this.onProgress) this.onProgress(this);
     return this.ready;
+  }
+  // seviyenin dokusunu zemine ekle (seviyeler birbirinden bağımsız: gölgelendirici hepsini kabadan inceye karıştırır; geliş sırası önemsiz)
+  applyLevel(prov, k, tex) {
+    const U = this.u; if (U['t' + k].value) U['t' + k].value.dispose(); U['t' + k].value = tex; this.cv = this.cv || []; this.cv[k] = tex.image; U['L' + k].value.w = 1;
+    this.provider = this.provider || prov.name; this.mesh.visible = true; this.ready = true; if (this.onProgress) this.onProgress(this);
   }
   // uydu görüntüsünden renk (sRGB 0..1): noktayı kapsayan en ince seviyenin tuvalinden r piksellik kare ortalaması; yoksa null (OSM bina çatıları)
   sample(lat, lon, r = 2) {
@@ -191,47 +250,52 @@ export class PadGround {
       const [X, Y] = merc01(lat, lon), s = 2 ** R.z, px = Math.round((X * s - R.x0) * 256), py = Math.round((Y * s - R.y0) * 256), W = R.n * 256;
       if (px < r || py < r || px >= W - r || py >= W - r) continue;
       try {
-        const d = cv.getContext('2d', { willReadFrequently: true }).getImageData(px - r, py - r, 2 * r + 1, 2 * r + 1).data; let a = 0; const c = [0, 0, 0];
-        for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 200) { c[0] += d[i]; c[1] += d[i + 1]; c[2] += d[i + 2]; a++; }
+        let a = 0; const c = [0, 0, 0];
+        if (cv.data) {                                                                     // iş parçacığından gelen pikseller (satır 0 = kuzey, tuvalle aynı düzen)
+          const D = cv.data;
+          for (let y = py - r; y <= py + r; y++) for (let x = px - r; x <= px + r; x++) { const o = (y * W + x) * 4; if (D[o + 3] > 200) { c[0] += D[o]; c[1] += D[o + 1]; c[2] += D[o + 2]; a++; } }
+        } else {
+          const d = cv.getContext('2d', { willReadFrequently: true }).getImageData(px - r, py - r, 2 * r + 1, 2 * r + 1).data;
+          for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 200) { c[0] += d[i]; c[1] += d[i + 1]; c[2] += d[i + 2]; a++; }
+        }
         if (a) return [c[0] / a / 255, c[1] / a / 255, c[2] / a / 255];
       } catch (e) { return null; }
     }
     return null;
   }
+  // seviyenin dokusu: paftalar iş parçacığında indirilip birleştirilir (gelen pikseller hem doku hem çatı rengi örneklemesi için); iş parçacığı
+  // yoksa ana iş parçacığında. Yarıdan azı geldiyse null
   async loadLevel(prov, r) {
-    const T = this.T, n = r.n, cv = document.createElement('canvas'); cv.width = cv.height = n * 256; const g = cv.getContext('2d', { willReadFrequently: true }); let got = 0;
-    const jobs = []; for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) jobs.push(async () => {
-      const b = await getBlob(prov.url(r.z, wrapX(r.x0 + i, r.z), r.y0 + j), this.ctl.signal);
-      const bm = await createImageBitmap(b); g.drawImage(bm, i * 256, j * 256); if (bm.close) bm.close();
-      const sm = g.getImageData(i * 256 + 8, j * 256 + 8, 240, 240).data, pts = new Uint8ClampedArray(64);           // 16 örnek piksel
-      for (let k = 0; k < 16; k++) { const o = (((k >> 2) * 76 + 10) * 240 + (k & 3) * 76 + 10) * 4; pts.set(sm.subarray(o, o + 4), k * 4); }
-      if (isPlaceholder(pts)) { g.clearRect(i * 256, j * 256, 256, 256); return; }                                  // veri yok: saydam bırak
-      got++;
-    });
-    await pool(jobs, 8);
-    if (got < n * n * 0.5) return null;
-    const t = new T.CanvasTexture(cv); t.colorSpace = T.SRGBColorSpace; t.anisotropy = 16; t.generateMipmaps = true; t.minFilter = T.LinearMipmapLinearFilter; t.wrapS = t.wrapT = T.ClampToEdgeWrapping;
+    const T = this.T, n = r.n, W = n * 256, urls = []; for (let q = 0; q < n * n; q++) urls.push(prov.url(r.z, wrapX(r.x0 + (q % n), r.z), r.y0 + ((q / n) | 0)));
+    const w = await tileJob({ cmd: 'level', owner: this.owner, n, urls });
+    let t;
+    if (w) {
+      if (!w.pix || w.got < n * n * 0.5) return null;
+      t = new T.DataTexture(w.pix, W, W, T.RGBAFormat); t.flipY = true; t.magFilter = T.LinearFilter;           // tuval dokusuyla aynı yön ve süzgeç
+    } else {
+      const cv = document.createElement('canvas'); cv.width = cv.height = W; const g = cv.getContext('2d', { willReadFrequently: true });
+      const got = await composeLevel(g, n, (i, j) => urls[j * n + i], this.ctl.signal, this.slotImg);
+      if (got < n * n * 0.5) return null;
+      t = new T.CanvasTexture(cv);
+    }
+    t.colorSpace = T.SRGBColorSpace; t.anisotropy = 16; t.generateMipmaps = true; t.minFilter = T.LinearMipmapLinearFilter; t.wrapS = t.wrapT = T.ClampToEdgeWrapping; t.needsUpdate = true;
     return t;
   }
   // Terrarium kabartması: her seviyede 3 × 3 karo → yükseklik ızgarası; ağ yeniden kurulur (rampa yüksekliği hPad ızgaranın en incesinden)
   async loadDem() {
-    const grids = [];
-    for (const z of HEIGHT_LEVELS) {
-      const r = levelRect(this.site.lat, this.site.lon, z, HEIGHT_N), W = HEIGHT_N * 256, grid = new Float32Array(W * W); let got = 0;
-      const cv = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(256, 256) : Object.assign(document.createElement('canvas'), { width: 256, height: 256 });
-      const g = cv.getContext('2d', { willReadFrequently: true });
-      const jobs = []; for (let j = 0; j < HEIGHT_N; j++) for (let i = 0; i < HEIGHT_N; i++) jobs.push(async () => {
-        const b = await getBlob(TERRARIUM(z, wrapX(r.x0 + i, z), r.y0 + j), this.ctl.signal);
-        const bm = await createImageBitmap(b, { premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
-        g.clearRect(0, 0, 256, 256); g.drawImage(bm, 0, 0); if (bm.close) bm.close();
-        const h = decodeTerrarium(g.getImageData(0, 0, 256, 256).data);
-        for (let y = 0; y < 256; y++) grid.set(h.subarray(y * 256, y * 256 + 256), (j * 256 + y) * W + i * 256);
-        got++;
-      });
-      await pool(jobs, 6);
-      if (got === HEIGHT_N * HEIGHT_N) grids.push({ z, r, W, grid });
-    }
+    // seviyeler birlikte iner (ortak sınırlı kuyruk); ızgaralar yine inceden kabaya sıralanır (heightAt ilk kapsayan, en ince ızgarayı kullanır)
+    const lv = await Promise.all(HEIGHT_LEVELS.map((z) => this.demLevel(z)));
+    const grids = lv.filter(Boolean);
     if (!grids.length || this.ctl.signal.aborted) return;
+    this.useDem(grids);
+  }
+  async demLevel(z) {
+    const r = levelRect(this.site.lat, this.site.lon, z, HEIGHT_N), W = HEIGHT_N * 256;
+    const w = await tileJob({ cmd: 'dem', owner: this.owner, z, r, n: HEIGHT_N });
+    const grid = w ? w.grid || null : await demGrid(z, r, HEIGHT_N, this.ctl.signal, this.slotDem);
+    return grid ? { z, r, W, grid } : null;
+  }
+  useDem(grids) {
     const heightAt = (la, lo) => {
       const [X, Y] = merc01(la, lo);
       for (const G of grids) { const s = 2 ** G.z, fx = (X * s - G.r.x0) * 256, fy = (Y * s - G.r.y0) * 256; if (fx >= 1 && fy >= 1 && fx < G.W - 1 && fy < G.W - 1) return sampleGrid(G.grid, G.W, G.W, fx, fy); }
@@ -256,7 +320,7 @@ export class PadGround {
     if (plumeW) U.plumeW.value.copy(plumeW); U.plumeI.value = (thr || 0) * (0.5 + 1.3 * (1 - U.day.value)); if (plumeCol) U.plumeCol.value.copy(plumeCol);   // gece belirgin
   }
   dispose() {
-    this.ctl.abort();
+    this.ctl.abort(); if (tileW) tileW.postMessage({ cmd: 'abort', owner: this.owner });     // iş parçacığındaki indirmeler de durur
     if (this.mesh.parent) this.mesh.parent.remove(this.mesh);
     this.mesh.geometry.dispose(); this.mesh.material.dispose();
     for (let k = 0; k < LEVELS.length; k++) { const t = this.u['t' + k].value; if (t) t.dispose(); }
