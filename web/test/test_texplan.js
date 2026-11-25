@@ -255,8 +255,8 @@ function dims(file) {
     for (const a of [e.index, e.getAttribute('uv'), e.getAttribute('position'), m.getAttribute('position')]) a.onUploadCallback.call(a);      // three yükleyince çağırır
     check('yüklenince JS kopyası bırakılır (dizi null); sayılar ve sınır küresi korunur; paylaşılan öznitelik bir kez kaydedilir',
       e.index.array === null && m.index.array === null && e.getAttribute('uv').array === null && m.getAttribute('position').array === null && e.index.count === cnt[0] && m.getAttribute('position').count === cnt[1] && e.boundingSphere.radius === r && e.index.onUploadCallback === cb);
-    check('sahne: Ay küreleri Dünya kürelerinin ızgarasını paylaşır ve ikisinin JS kopyaları yüklenince bırakılır',
-      /sphereGeometry\(E\.R_M, a, b, this\.earthGeo\[i\]\)/.test(sc) && /for \(const g of \[\.\.\.this\.earthGeo, \.\.\.this\.moonGeo\]\) releaseAfterUpload\(g\);/.test(sc));
+    check('sahne: Ay ve atmosfer küreleri Dünya kürelerinin ızgarasını paylaşır; hepsinin JS kopyaları yüklenince bırakılır',
+      /sphereGeometry\(E\.R_M, a, b, this\.earthGeo\[i\]\)/.test(sc) && /for \(const g of new Set\(\[\.\.\.this\.earthGeo, \.\.\.this\.moonGeo, \.\.\.this\.atmGeo\]\)\) releaseAfterUpload\(g\);/.test(sc));
   }
   const surf = rd('../js/surfaceview.js');
   check('yüzey parçaları Dünya/Ay uniform nesnelerini paylaşır ({ ...eu }, { ...mu }): yükseltilen doku parçalarda da görünür', /uniforms: \{ \.\.\.eu,/.test(surf) && /uniforms: \{ \.\.\.mu,/.test(surf));

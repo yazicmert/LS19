@@ -35,6 +35,12 @@ export function sphereGeometry(R, nLon, nLat, like = null) {
   g.computeBoundingSphere();
   return g;
 }
+// Ayrıntı düzeyi seçimi: düzey 0 en ince, n − 1 en kaba; err(k) k düzeyinin ekrandaki en kötü hatası (piksel). Hatası eşiğin altında kalan en kaba düzey seçilir;
+// şimdikinden kabaya geçmek için inn (0,2), şimdiki ya da daha ince düzeyde kalmak için out (0,3) yeter: histerezis bandı, eşikte titreme olmaz. Hiçbiri olmazsa 0.
+export function pickLod(cur, n, err, inn, out) {
+  for (let k = n - 1; k >= 1; k--) if (err(k) <= (k > cur ? inn : out)) return k;
+  return 0;
+}
 // ekran kartına yüklenince JS'teki kopyayı bırak (Dünya/Ay küreleri: bir daha okunmaz ve yazılmaz; bağlam kaybında sayfa yenilenir: scene.js webglcontextrestored).
 // Sınırlar ve sayılar (boundingSphere, count) kurulurken hesaplandığı için korunur. Paylaşılan öznitelik bir kez yüklenir, bir kez bırakılır.
 const released = new WeakSet();
