@@ -620,6 +620,8 @@ $('#btnAscent').addEventListener('click', async () => {
   const btn = $('#btnAscent');
   if (S.designing || ascent.active || btn.disabled) return;
   btn.disabled = true; btn.setAttribute('aria-busy', 'true');                      // model ve gökyüzü yüklenirken düğme kapalı: yeniden basılınca ikinci kez başlamaz
+  setVehReady();                                                                    // kalkış aracı görünür yapar: yoksa ("Kaldığım yerden devam" ile, görev kurmadan) Laboratuvar'ın
+                                                                                    // her karede gizlediği araç gizli kalıyor, kalkış sahnesinde roket görünmüyordu
   pushLayer('asc');                                                                 // geri düğmesi kalkışı kapatır (kayıt tıklama anında)
   try {
     if (!insState) { send({ cmd: 'seek', t: ui.t0 }); await new Promise((r) => setTimeout(r, 400)); }
