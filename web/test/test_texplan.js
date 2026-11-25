@@ -211,8 +211,8 @@ function dims(file) {
       mu.colorMap.value === col && terrain.map === col && terrain.needsUpdate && mu.heightMap.value === hh && mu.useHeight.value === 1 && mu.hSize.value.v.join() === '1440,720');
     const W = (def, pend, d) => { const w = { moonDeferred: def, moonPending: pend, starts: 0, moon: { position: { length: () => d } } }; w.startMoonLo = () => { w.starts++; w.moonDeferred = false; w.moonPending = true; }; return [World.prototype.moonTexWait.call(w), w.starts]; };
     const near = W(true, false, 3e4), far = W(true, false, 3e5), busy = W(false, true, 3e4), done = W(false, false, 3e4);
-    check('Ay dokuları yükleme örtüsü kalkınca başlar; kamera Ay\'a yakınsa (< 40 Ay yarıçapı) hemen başlar ve örtü onları bekler (en çok 15 sn); uzaktaysa ya da indiyse beklenmez',
-      near[0] && near[1] === 1 && !far[0] && far[1] === 0 && busy[0] && !done[0] && /!\(world\.moonTexWait\(\) && now < revealAt \+ 15000\)/.test(rd('../js/app.js')) && /\$\('#loading'\)\.style\.display = 'none';\n  world\.startMoonLo\(\);/.test(rd('../js/app.js')));
+    check('Ay dokuları yükleme örtüsü kalkınca başlar; kamera Ay\'a yakınsa (< 40 Ay yarıçapı) hemen başlar ve örtü onları bekler (en çok 15 sn; yalnız konumlanmış sahnede); uzaktaysa ya da indiyse beklenmez',
+      near[0] && near[1] === 1 && !far[0] && far[1] === 0 && busy[0] && !done[0] && /!\(placed && world\.moonTexWait\(\) && now < revealAt \+ 15000\)/.test(rd('../js/app.js')) && /\$\('#loading'\)\.style\.display = 'none';\n  world\.startMoonLo\(\);/.test(rd('../js/app.js')));
     check('ertelenen yükleme: tam çözünürlük (upgradeTextures moon) önce başladıysa küçük dosyalar atılır; arazi malzemesi map\'li yer tutucuyla derlenir',
       /if \(this\.texUp && this\.texUp\.moon\) \{ for \(const t of Object\.values\(T\)\) if \(t\) t\.dispose\(\); \} else this\.applyUpgrade\(T\);/.test(sc) && /\.\.\.\(mcol0 \? \{ mcol: mcol0 \} : \{\}\)/.test(sc) && /this\.moonDeferred = deferMoon;/.test(sc));
   }
