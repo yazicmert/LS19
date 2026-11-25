@@ -4,9 +4,12 @@ import { sub, scale, dot, cross, norm, unit } from './vec3.js';
 
 export const SUN_I = 1.6;                       // tonlamadan önce Güneş aydınlığı (Ay, araç, arazi)
 
-export function sphereGeometry(R, nLon, nLat) {
+// like: aynı ızgaralı başka bir küre (sphereGeometry). Doku koordinatları ve üçgen dizini yarıçaptan bağımsızdır: onunkiler paylaşılır, yalnız konumlar
+// hesaplanır (Dünya ve Ay 1024×512: dizin 12,6 MB + uv 4,2 MB bir kez; ekran kartında da tek arabellek, three öznitelik nesnesine göre arabellek tutar)
+export function sphereGeometry(R, nLon, nLat, like = null) {
+  const sh = like && like.userData.grid === `${nLon}x${nLat}` ? like : null;
   // dizin sayısı kesin bilinir (kutup şeritlerinde tek üçgen): düz tipli dizi, ara JS dizisi (3 milyon eleman) ve boyut dönüşümü yok
-  const n = (nLon + 1) * (nLat + 1), pos = new Float32Array(n * 3), uv = new Float32Array(n * 2), idx = new (n > 65535 ? Uint32Array : Uint16Array)(6 * nLon * (nLat - 1));
+  const n = (nLon + 1) * (nLat + 1), pos = new Float32Array(n * 3), uv = sh ? null : new Float32Array(n * 2), idx = sh ? null : new (n > 65535 ? Uint32Array : Uint16Array)(6 * nLon * (nLat - 1));
   const cx = new Float64Array(nLon + 1), sx = new Float64Array(nLon + 1);                  // boylam kosinüs/sinüsü satırdan satıra aynı
   for (let k = 0; k <= nLon; k++) { const lon = -Math.PI + (k / nLon) * 2 * Math.PI; cx[k] = Math.cos(lon); sx[k] = Math.sin(lon); }
   let i = 0;
@@ -14,20 +17,29 @@ export function sphereGeometry(R, nLon, nLat) {
     const v = j / nLat, lat = -Math.PI / 2 + v * Math.PI, cl = Math.cos(lat), sl = Math.sin(lat);
     for (let k = 0; k <= nLon; k++) {
       pos[i * 3] = R * cl * cx[k]; pos[i * 3 + 1] = R * cl * sx[k]; pos[i * 3 + 2] = R * sl;
-      uv[i * 2] = k / nLon; uv[i * 2 + 1] = v; i++;
+      if (uv) { uv[i * 2] = k / nLon; uv[i * 2 + 1] = v; }
+      i++;
     }
   }
   let q = 0;
-  for (let j = 0; j < nLat; j++) for (let k = 0; k < nLon; k++) {
+  if (idx) for (let j = 0; j < nLat; j++) for (let k = 0; k < nLon; k++) {
     const a = j * (nLon + 1) + k, b = a + 1, c = a + nLon + 1, d = c + 1;
     if (j > 0) { idx[q++] = a; idx[q++] = b; idx[q++] = d; }
     if (j < nLat - 1) { idx[q++] = a; idx[q++] = d; idx[q++] = c; }
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-  g.setIndex(new THREE.BufferAttribute(idx, 1));
+  g.setAttribute('uv', sh ? sh.getAttribute('uv') : new THREE.BufferAttribute(uv, 2));
+  g.setIndex(sh ? sh.index : new THREE.BufferAttribute(idx, 1));
+  g.userData.grid = `${nLon}x${nLat}`;
   g.computeBoundingSphere();
+  return g;
+}
+// ekran kartına yüklenince JS'teki kopyayı bırak (Dünya/Ay küreleri: bir daha okunmaz ve yazılmaz; bağlam kaybında sayfa yenilenir: scene.js webglcontextrestored).
+// Sınırlar ve sayılar (boundingSphere, count) kurulurken hesaplandığı için korunur. Paylaşılan öznitelik bir kez yüklenir, bir kez bırakılır.
+const released = new WeakSet();
+export function releaseAfterUpload(g) {
+  for (const a of [...Object.values(g.attributes), g.index]) if (a && !released.has(a)) { released.add(a); a.onUpload(function () { this.array = null; }); }
   return g;
 }
 export const m3ToQuat = (M) => {            // satır matrisi (ICRF sütunları) -> THREE.Quaternion; M: yerel -> ICRF

@@ -16,7 +16,7 @@ import { SkyView } from './skyview.js';
 import { SurfaceView } from './surfaceview.js';
 import { VS_BODY, FS_EARTH, VS_ATM, FS_ATM, FS_MOON, EARTHSHINE, earthshine } from './bodyshaders.js';
 import { bandRange } from './bodyband.js';
-import { sphereGeometry, m3ToQuat, glowTexture, ringTexture, unit3, conicEach, conicPoints, SUN_I } from './scenegeom.js';
+import { sphereGeometry, releaseAfterUpload, m3ToQuat, glowTexture, ringTexture, unit3, conicEach, conicPoints, SUN_I } from './scenegeom.js';
 import { mixin } from './mixin.js';
 import { meter, adapt, sunVisible } from './pozlama.js';
 
@@ -319,7 +319,8 @@ export class World {
       siteDir: { value: new THREE.Vector3(sd[0], sd[1], sd[2]) }, albScale: { value: 0.8 }, holeCos: { value: 2.0 },          // delik (arazi yaması varken küre çizilmez): arazi hazır olunca açılır (loadTerrain)
       tileMap: { value: flat([128, 128, 128, 255]) }, useTile: { value: 0 }, lodDelta: { value: 0 }, tileAlpha: { value: 0 }, latCut: { value: 2 }, tilePull: { value: 0 },
       parentMap: { value: flat([128, 128, 128, 255]) }, pXf: { value: new THREE.Vector4(1, 1, 0, 0) }, pHas: { value: 0 }, tileFade: { value: 1 } };
-    this.moonGeo = EARTH_SEG.map(([a, b]) => { const g = sphereGeometry(E.R_M, a, b); g.boundingSphere.radius = E.R_M + 15; return g; }); this.moonLod = 0;   // LOLA yer değiştirmesi (±11 km) küre sınırının dışına taşabilir
+    this.moonGeo = EARTH_SEG.map(([a, b], i) => { const g = sphereGeometry(E.R_M, a, b, this.earthGeo[i]); g.boundingSphere.radius = E.R_M + 15; return g; }); this.moonLod = 0;   // LOLA yer değiştirmesi (±11 km) küre sınırının dışına taşabilir
+    for (const g of [...this.earthGeo, ...this.moonGeo]) releaseAfterUpload(g);          // uv ve dizin Dünya ile Ay arasında ortak (sphereGeometry like); JS kopyaları yüklenince bırakılır
     this.moon = new THREE.Mesh(this.moonGeo[0], new THREE.ShaderMaterial({ uniforms: mu, vertexShader: VS_BODY, fragmentShader: FS_MOON }));
     S.add(this.moon);
     this.moonU = mu; this.earthU = eu; this.holeCos0 = mu.holeCos.value;

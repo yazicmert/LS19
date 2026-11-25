@@ -628,3 +628,39 @@ Düzeltme:
 | 20 Mbit/s, `play=1` | 9,3 sn (modeller baştan) | 9,2 MB |
 
 Görüntü: model geldikten sonra araç yakın planı iki sürümde de aynı Apollo modeli (araçta 62 ağ). Konsolda hata yok.
+
+**Ek 7: Dünya ve Ay küreleri ortak ızgara kullanıyor; JS kopyaları yüklenince bırakılıyor.**
+
+Bulgu (Laboratuvar açılışında yığın dökümü):
+
+- 167 MB'lık JS belleğinin 144 MB'ı ikili dizilerdeydi.
+- Dünya ve Ay kürelerinin (1024×512) her biri ~23 MB tutuyordu: dizin 12,6 MB, konum 6,3 MB, uv 4,2 MB.
+- İki kürenin dizini ve uv'si birebir aynıydı (yarıçaptan bağımsız), ama iki kez tutuluyordu.
+- Diziler ekran kartına yüklendikten sonra JS'te bir daha okunmuyordu.
+
+Düzeltme:
+
+- `scenegeom.js` `sphereGeometry(R, nLon, nLat, like)`: aynı ızgaralı kürenin uv ve dizin özniteliklerini paylaşır, yalnız konumları hesaplar. three arabelleği öznitelik nesnesine göre tuttuğundan ekran kartında da tek kopya olur.
+- `releaseAfterUpload`: yükleme sonrası (`onUpload`) dizileri bırakır. Sayılar ve sınır küresi kurulurken hesaplandığından korunur. Bağlam kaybında sayfa zaten yenilenir. Dünya/Ay küre dizilerini okuyan başka kod yok (tarandı).
+
+Ölçüm: tarayıcıda, önceki sürümle (`claude/arac-modeli-ertele`) yan yana.
+
+| | Önce | Sonra |
+|---|---|---|
+| JS belleği (`usedJSHeapSize`, GC sonrası) | 167 MB | **116 MB** (−51 MB) |
+| Ekran kartında küre arabellekleri | 2 × (dizin + uv) | 1 × (−16,8 MB) |
+
+Görüntü: dört görünümde fark en çok 2/255; tek fark o an ekranda olan "Yüzey ayrıntısı yükleniyor" rozeti.
+
+- Dünya 30.000 km
+- Dünya 400.000 km (düşük ayrıntı düzeyi)
+- Ay yakın planı
+- Dünya yakın planı
+
+Konsolda hata yok. Ayrıntı düzeyi geçişi (1024 ↔ 256) sonrası dört geometrinin dizileri de bırakılmış.
+
+Sınama: `test_texplan.js`.
+
+- Paylaşılan uv ve dizin aynı nesne; sonuç ayrı kurulan küreyle bit bit aynı; farklı ızgarada paylaşılmaz.
+- Yüklemede diziler null olur; sayılar ve sınır küresi korunur; paylaşılan öznitelik bir kez kaydedilir.
+- İlk sürümde `BufferAttribute.userData` kullanıldığı için sayfa açılmıyordu. Bu hatayı yakalayan sınama da bu turda eklendi.
