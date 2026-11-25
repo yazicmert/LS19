@@ -801,7 +801,7 @@ function frame(now) {
   if (!S.designing && placed) { world.render(); staleCleared = false; }
   else if (S.MODE === 'sky' && !placed && !staleCleared) { world.renderer.clear(); staleCleared = true; }    // gökyüzü ilk kez kuruluyor (efemeris iniyor): görev motorunun son karesi asılı kalmasın                     // tasarım sırasında katman her şeyi örtüyor: işlemci tasarıma kalsın
   if (!primed && !S.designing && placed && S.MODE === 'mission') { primed = true; world.primeHidden(); }     // alevler vb. uçuş ortasında ilk kez görünecek nesneler: ilk çizim ilk görev karesinde (açılışta örtü altında; scene.js)
-  if (revealAt && !S.designing && (placed || now > revealAt) && !(placed && world.moonTexWait() && now < revealAt + 15000)) reveal(placed);     // Ay'a yakın açılışta ertelenen Ay dokuları beklenir (en çok 15 sn; scene.js loadMoonLo). Yalnız konumlanmış sahnede: öncesinde Ay sıfır noktasında, yakın sanılırdı
+  if (revealAt && !S.designing && (placed || now > revealAt) && !(placed && (world.modelWait() | world.moonTexWait()) && now < revealAt + 15000)) reveal(placed);     // Araç görünüyorsa ertelenen modeller, Ay'a yakın açılışta ertelenen Ay dokuları beklenir (en çok 15 sn; scene.js modelWait, loadMoonLo); ikisi de denetlenir (|) ki gerekeni hemen başlasın. Yalnız konumlanmış sahnede: öncesinde Ay sıfır noktasında, yakın sanılırdı
   if (perfHud) perfHud.frame(now, dtMs);
   requestAnimationFrame(frame);
 }
@@ -812,7 +812,7 @@ function reveal(drawn) {
   revealAt = 0;
   if (drawn) { try { const gl = world.renderer.getContext(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4)); } catch (e) { /* bağlam kaybı: beklemeden kaldır */ } }
   $('#loading').style.display = 'none';
-  world.startMoonLo();                                                            // ertelenen Ay dokuları (scene.js): ilk görüntüden sonra düşük öncelikle
+  world.startModels(); world.startMoonLo();                                       // ertelenen araç modelleri ve Ay dokuları (scene.js): ilk görüntüden sonra
 }
 // Canlı Gökyüzü karesi (efemeris kurulu iken)
 let skyPlaced = false, skyWarm = null;
