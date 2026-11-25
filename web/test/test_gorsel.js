@@ -86,7 +86,7 @@ const scene = sceneSrc();
     && !/vec3\(0\.32, 0\.55, 1\.0\) \* max\(ndl \+ 0\.15/.test(FS_EARTH));
   const app = fs.readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
   check('sahne ve uygulama: setRealClouds (aynı gün yeniden inmez, eski doku bırakılır, düşük bellekte seviye 2, ?bulut=0 kapatır); görev kurulunca kalkış günüyle çağrılır',
-    /async setRealClouds\(ms\)/.test(scene) && /if \(gun === this\.realGun\) return true;/.test(scene) && /this\.lowMem \? 2 : 3/.test(scene) && /bulut=0/.test(scene) && /old\.dispose\(\)/.test(scene)
+    /setRealClouds\(ms\) \{ const p = this\.loadRealClouds\(ms\);/.test(scene) && /async loadRealClouds\(ms\)/.test(scene) && /if \(gun === this\.realGun\) return true;/.test(scene) && /this\.lowMem \? 2 : 3/.test(scene) && /bulut=0/.test(scene) && /old\.dispose\(\)/.test(scene)
     && /realMap: \{ value: flat\(\[0, 0, 0, 255\]\) \}, useReal: \{ value: 0 \},/.test(scene) && /const ms = E\.utcMsFromT\(S\.DESIGN\.LAUNCH\.t_launch\); world\.setRealClouds\(ms\)/.test(app));
 }
 

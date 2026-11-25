@@ -113,9 +113,26 @@ export class World {
   async upgradeTextures(group) {
     if (!this.texUp || this.texUp[group]) return;
     this.texUp[group] = 'iniyor';
-    const specs = TEX.filter((s) => UPGRADE[group].includes(s.key) && s.flo);
-    let T = {};
-    try { T = await loadTextures(this.renderer, this.base, { specs, lowmem: false, conc: 1, priority: 'low', idle: true }); } catch (e) { T = {}; }
+    const all = TEX.filter((s) => UPGRADE[group].includes(s.key) && s.flo), cl = all.find((s) => s.key === 'clouds'), specs = all.filter((s) => s !== cl);
+    const load = async (sp) => { try { return await loadTextures(this.renderer, this.base, { specs: sp, lowmem: false, conc: 1, priority: 'low', idle: true }); } catch (e) { return {}; } };
+    this.applyUpgrade(await load(specs));
+    // statik bulut dokusu (8192×4096, ~6,5 MB) en sona: görev gününün gerçek bulutları (setRealClouds) gelirse bulut onlardan okunur, statik doku yalnız
+    // buzul ve kapsam boşluğunda kullanılır (bodyshaders.js cloudAt) ve orada önceden küçültülmüş 4096×2048'lik doku yeter: tam doku hiç indirilmez.
+    // Gerçek bulutlar gelmezse (bulut=0, ağ hatası, istenmedi) eskisi gibi indirilir.
+    if (cl) {
+      await this.realCloudsSettled();
+      if (this.earthU.useReal.value > 0.5) this.texUp.cloudsSkipped = true; else this.applyUpgrade(await load([cl]));
+    }
+    this.texUp[group] = 'tamam';
+  }
+  // gerçek bulut isteğinin sonucunu bekle; istek yoksa en çok waitMs bekler (gökyüzüyle açılışta tasarım olmayabilir). Sonuçtan sonra useReal okunur
+  async realCloudsSettled(waitMs = 20000) {
+    const t0 = performance.now();
+    while (!this.realP && performance.now() - t0 < waitMs) await new Promise((r) => setTimeout(r, 500));
+    if (this.realP) await this.realP.catch(() => false);
+    while (this.realBusy) await this.realBusy.catch(() => null).then(() => new Promise((r) => setTimeout(r, 0)));     // aynı gün ikinci istek hemen döner: sürmekte olan indirme beklenir
+  }
+  applyUpgrade(T) {
     const slot = { day: [this.earthU, 'dayMap'], night: [this.earthU, 'nightMap'], clouds: [this.earthU, 'cloudMap'], mcol: [this.moonU, 'colorMap'], mnorm: [this.moonU, 'normalMap'], mh: [this.moonU, 'heightMap'] };
     // eski dokuyu kullanan her malzemede (iniş arazisi Ay renk dokusunu map olarak kullanır) ve uniform'da yenisiyle değiştir: atılan doku bir daha
     // çizilirse kapatılmış bitmap'ten yeniden yüklenmeye çalışılır (WebGL hatası, siyah yüzey)
@@ -133,7 +150,6 @@ export class World {
       if (k === 'mh') this.moonU.hSize.value.set(...t.userData.size);
       if (!old.isDataTexture) old.dispose();
     }
-    this.texUp[group] = 'tamam';
   }
   // Programları (gölgelendirici bağlama) ilk çizimden önce derle: KHR_parallel_shader_compile varsa ana iş parçacığını tutmadan.
   // Eşzamanlı hata denetimi paralel derlemeyi engeller: derleme sırasında kapatılır, sonra bağlama durumu toplu denetlenir.
@@ -617,12 +633,15 @@ export class World {
     for (let y = 0; y < H; y++) out.set(px.subarray((H - 1 - y) * W * 4, (H - y) * W * 4), y * W * 4);
     return out;
   }
-  async setRealClouds(ms) {
+  // sonuç (söz) realP'de: doku yükseltmesi statik bulutu indirip indirmeyeceğine buna bakarak karar verir (upgradeTextures)
+  setRealClouds(ms) { const p = this.loadRealClouds(ms); this.realP = p; return p; }
+  async loadRealClouds(ms) {
     if (/[?&]bulut=0\b/.test(location.search)) return false;
     const B = await import('./bulutlar.js'), gun = B.bulutGunu(ms);
     if (gun === this.realGun) return true;
     this.realGun = gun; if (this.realAbort) this.realAbort.abort(); const ac = this.realAbort = new AbortController();
-    let cv = null; try { cv = await B.bulutMozaigi(gun, this.lowMem ? 2 : 3, { signal: ac.signal }); } catch (e) { return false; }
+    const job = this.realBusy = B.bulutMozaigi(gun, this.lowMem ? 2 : 3, { signal: ac.signal });      // sürmekte olan indirme: aynı gün yeniden istenirse beklenecek olan
+    let cv = null; try { cv = await job; } catch (e) { return false; } finally { if (this.realBusy === job) this.realBusy = null; }
     if (ac.signal.aborted || this.realGun !== gun) return false;
     if (!cv) { this.realGun = null; return false; }
     const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.NoColorSpace; t.wrapS = THREE.RepeatWrapping; t.anisotropy = 4; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter;

@@ -168,7 +168,7 @@ function dims(file) {
 
 // ---------------------------------------------------------------- 7) tam çözünürlüğe yükseltme (masaüstü)
 {
-  const sc = sceneSrc(), up = sc.slice(sc.indexOf('  async upgradeTextures('), sc.indexOf("    this.texUp[group] = 'tamam';"));
+  const sc = sceneSrc(), ua = sc.indexOf('  applyUpgrade(T) {'), up = sc.slice(sc.indexOf('  async upgradeTextures('), sc.indexOf('\n  }\n', ua));      // yükseltme + uygulama (applyUpgrade)
   const keys = [...UPGRADE.earth, ...UPGRADE.moon];
   check('yükseltme grupları: Dünya (gündüz, gece, bulut, yıldız) ve Ay (renk, normal, yükseklik); hepsinin küçük dosyası var, küçük dosyası olan her doku bir grupta',
     keys.every((k) => TEX.find((s) => s.key === k && s.flo)) && TEX.filter((s) => s.flo).every((s) => keys.includes(s.key)), keys.join(','));
@@ -179,6 +179,24 @@ function dims(file) {
     /old\.dispose\(\)/.test(up) && /if \(!t\) continue;/.test(up) && /swap\(old, t\);/.test(up));
   check('yükseltme: eski doku sahnedeki her malzemede (özellikler ve uniform\'lar) yenisiyle değişir, sonra atılır (iniş arazisi Ay renk dokusunu map olarak kullanır)',
     /this\.scene\.traverse\(/.test(up) && /if \(m\[k\] === old\) \{ m\[k\] = t; m\.needsUpdate = true; \}/.test(up) && /if \(u && u\.value === old\) u\.value = t;/.test(up) && up.indexOf('swap(old, t)') < up.indexOf('old.dispose()') && /map: A\.mcol/.test(sc));
+  // statik bulut dokusu: gerçek bulutlar gelirse tam çözünürlüklüsü indirilmez (davranış: sahte "this" ile; loadTextures Node'da başarısız olur ve {} döner)
+  {
+    const { register } = await import('node:module'); register('./importmap_loader.mjs', import.meta.url);
+    const { World } = await import('../js/scene.js');
+    const run = async (real, { early = true, never = false } = {}) => {
+      const calls = [], w = { texUp: {}, renderer: null, base: '', earthU: { useReal: { value: 0 } }, applyUpgrade: (T) => calls.push(T) };
+      const job = new Promise((r) => setTimeout(() => { if (real) w.earthU.useReal.value = 1; r(real); }, 30));
+      if (!never && early) w.realP = job;
+      if (!never && !early) setTimeout(() => { w.realP = job; }, 10);
+      w.realCloudsSettled = (ms) => World.prototype.realCloudsSettled.call(w, never ? 50 : ms);
+      await World.prototype.upgradeTextures.call(w, 'earth');
+      return { n: calls.length, skipped: !!w.texUp.cloudsSkipped, done: w.texUp.earth };
+    };
+    const a = await run(true), b = await run(false), c = await run(true, { early: false }), d = await run(false, { never: true });
+    check('statik bulut: gündüz/gece/yıldız önce; bulut en sonda ve gerçek bulutlar gelirse hiç indirilmez (tek uygulama); gelmezse, sonradan istenip gelmezse ya da hiç istenmezse indirilir',
+      a.n === 1 && a.skipped && a.done === 'tamam' && b.n === 2 && !b.skipped && c.n === 1 && c.skipped && d.n === 2 && !d.skipped, JSON.stringify({ a, b, c, d }));
+    check('gerçek bulut: aynı gün ikinci istek hemen döner, sürmekte olan indirme beklenir (realBusy); sonuç realP\'de', /this\.realBusy = B\.bulutMozaigi\(/.test(sc) && /while \(this\.realBusy\) await this\.realBusy/.test(sc) && /setRealClouds\(ms\) \{ const p = this\.loadRealClouds\(ms\); this\.realP = p; return p; \}/.test(sc));
+  }
   const surf = rd('../js/surfaceview.js');
   check('yüzey parçaları Dünya/Ay uniform nesnelerini paylaşır ({ ...eu }, { ...mu }): yükseltilen doku parçalarda da görünür', /uniforms: \{ \.\.\.eu,/.test(surf) && /uniforms: \{ \.\.\.mu,/.test(surf));
 }
