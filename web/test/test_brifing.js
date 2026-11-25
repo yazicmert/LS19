@@ -67,7 +67,7 @@ check('ön yükleme: modeller, gökyüzü gölgelendiricisi, rampa zemini ve bin
 check('kalkış ve ön yükleme aynı tanımla (ascentSpec): roket türü, rampa düzeni ve konumu eşleşir', /setAscent\(ascentSpec\(rk, \{ \.\.\.site, name: L\.site \}\)\)/.test(ap)
   && /preloadAscent\(ascentSpec\(rocketOf\(rocketId\)/.test(ap) && /preloadAscent\(ascentSpec\(rk, \{ lat: L\.lat \?\? LEGACY_SITE\.lat/.test(ap));
 check('ne zaman: brifingde roket adımında seçilen roket ve rampası; her görev hazır olunca (boşta, veri tasarrufunda değil)',
-  /if \(this\.h\.preload\) this\.h\.preload\(this\.sel\.rocket\);/.test(br) && /ascent\.preloadDesign\(D0\)/.test(app) && /saveData/.test(app));
+  /if \(this\.h\.preload\) this\.h\.preload\(this\.sel\.rocket\);/.test(br) && /ascent\.preloadDesign\(D0\)/.test(app) && /saveData/.test(app) && /if \(!\(vehReady \|\| \(S\.VIEW === 'lab' && labui\.page === 'ay'\)\) \|\| \(navigator\.connection && navigator\.connection\.saveData\)\) return;/.test(app) && /if \(labui\.page === 'ay'\) preloadLaunch\(\);/.test(app));
 
 // ---------------------------------------------------------------- 4) Aşama 2: yer seçme, canlı tasarım, gerçek yol, gerekçeler, telefon
 {

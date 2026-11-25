@@ -664,3 +664,27 @@ Sınama: `test_texplan.js`.
 - Paylaşılan uv ve dizin aynı nesne; sonuç ayrı kurulan küreyle bit bit aynı; farklı ızgarada paylaşılmaz.
 - Yüklemede diziler null olur; sayılar ve sınır küresi korunur; paylaşılan öznitelik bir kez kaydedilir.
 - İlk sürümde `BufferAttribute.userData` kullanıldığı için sayfa açılmıyordu. Bu hatayı yakalayan sınama da bu turda eklendi.
+
+**Ek 8: kalkış rampası çevresi her açılışta önceden indirilmiyor.**
+
+Bulgu:
+
+- Varsayılan görev tasarımı açılışta arka planda hazırlanıyor. Hazır olunca kalkış sahnesi de önceden hazırlanıyordu (`ascent.preloadDesign`).
+- Bu hazırlık rampa çevresinin yükseklik (AWS) ve uydu görüntüsü (Esri) paftalarını, OSM binalarını ve KSC modellerini indiriyordu. Laboratuvar ve Canlı Gökyüzü'nün her açılışında oluyordu; kullanıcı kalkışa hiç gelmese de.
+
+Düzeltme (`app.js` `preloadLaunch`): ön hazırlık yalnız şu durumlarda yapılır:
+
+- Kullanıcı görevi kurunca (`vehReady`): tasarım, Başlat, fragman ya da bağlantı.
+- Ay görevi sayfasına girilince: Kalkış düğmesi orada.
+
+Veri tasarrufunda yine yapılmaz. Sürmekte olan tasarım varsa onun sonucu beklenir.
+
+Ölçüm: tarayıcıda, önbellek kapalı, önceki sürümle yan yana. OSM sunucusu bu ortamda engelli; yayında açılışta inen daha da fazlaydı.
+
+| | Önce | Sonra |
+|---|---|---|
+| Açılıştan sonraki 60 sn: rampa paftaları + KSC modelleri | 75 istek, 2,48 MB | **0** |
+| Başlat'a basınca | (zaten inmişti) | 88 istek, 2,97 MB |
+| Ay görevi sayfasına girince | (zaten inmişti) | 87 istek, 2,96 MB |
+
+Kalkış ön hazırlık olmadan da açılır (`ascent.start` modelleri ve zemini kendisi yükler). Sınama: `test_brifing.js`.
