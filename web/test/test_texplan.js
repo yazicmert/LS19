@@ -7,7 +7,7 @@
 //  6) ilk yükleme her cihazda önceden küçültülmüş dosyalar (index.html erken indirmesi aynı liste; KTX2 ya da ?ktx=0 ise WebP); masaüstü tam çözünürlüğe yükseltir
 //  (KTX2 dosyalarının kendisi: test/test_ktx2.js)
 import fs from 'fs';
-import { TEX, lowMemoryFrom, fileFor, UPGRADE, ktxWanted } from '../js/texplan.js';
+import { TEX, lowMemoryFrom, fileFor, UPGRADE, ktxWanted, moonFirst } from '../js/texplan.js';
 import { sceneSrc } from './scenesrc.js';
 
 let fail = 0;
@@ -121,7 +121,7 @@ function dims(file) {
   check('texload: yükleme boyutları userData.size\'da saklanır (kapatılan bitmap\'te image.width 0 olur)', /userData\.size = \[w, h\]/.test(tl) && /userData\.size/.test(sc) && !/A\.mh\.image/.test(sc));
   check('texload: nearest/mip ayarı yükleme öncesi (finish) yapılır; build() sonradan değiştirmez', /nearest\) \{ t\.magFilter = t\.minFilter = THREE\.NearestFilter; t\.generateMipmaps = false/.test(tl) && !/A\.mh\.(magFilter|minFilter|generateMipmaps|flipY)/.test(sc));
   check('texload: R8 yalnız bitmap yolunda (yedek yol RGBA: eski davranış)', /if \(s\.red\) \{ t\.format = THREE\.RedFormat/.test(tl) && !/decodeImage[\s\S]{0,400}RedFormat/.test(tl));
-  check('World.load: dokular (her cihazda önce küçük dosyalar), arazi verisi ve modeller birlikte iner; derleme ardından ready', /Promise\.all\(\[loadTextures\(this\.renderer, base, \{ lowmem: true, conc: lowmem \? 2 : 3, tick \}\)/.test(sc) && /await this\.precompile\(\);[^]*this\.ready = true/.test(sc) && /TEX\.length \* 2 \+ 5/.test(sc));
+  check('World.load: dokular (her cihazda önce küçük dosyalar), arazi verisi ve modeller birlikte iner; derleme ardından ready', /Promise\.all\(\[loadTextures\(this\.renderer, base, \{ specs: first, lowmem: true, conc: lowmem \? 2 : 3, tick \}\)/.test(sc) && /await this\.precompile\(\);[^]*this\.ready = true/.test(sc) && /first\.length \* 2 \+ 5/.test(sc));
   check('precompile: derleme sırasında checkShaderErrors kapalı (paralel derleme), sonra eski değer ve bağlama durumu denetimi; 10 sn zaman aşımı; eklenti yoksa eşzamanlı compile (uyarı yok)', /checkShaderErrors = false/.test(sc) && /finally \{ r\.debug\.checkShaderErrors = was;/.test(sc) && /LINK_STATUS/.test(sc) && /setTimeout\(res, 10000\)/.test(sc) && /extensions\.has\('KHR_parallel_shader_compile'\)/.test(sc) && /else r\.compile\(this\.scene, this\.camera\)/.test(sc));
   check('bağlam kaybı: webglcontextlost preventDefault; geri gelince bir kez yenile (30 sn içinde ikinci kayıpta döngü yok)', /webglcontextlost[^\n]*preventDefault/.test(sc) && /webglcontextrestored/.test(sc) && /ls19\.ctxReload/.test(sc) && /Date\.now\(\) - last > 30000/.test(sc));
   check('precompile: bindirme katmanlarının saydam geçiş malzemesi (warmMaterial) de derlenir, sonra sahneden çıkarılır; malzeme atılmaz (warmMats)', /warmMaterial\(\) \{[^]*m\.transparent = true/.test(tiles) && /\[this\.earthWeld, this\.earthHls, this\.moonTiles2\][^\n]*L\.warmMaterial\(\)/.test(sc) && /this\.warmMats = warm\.map/.test(sc) && /for \(const o of warm\) \{ this\.scene\.remove\(o\); o\.geometry\.dispose\(\); \}/.test(sc));
@@ -146,7 +146,7 @@ function dims(file) {
   const html = rd('../index.html'), m = /<script id="earlyFetch">([\s\S]*?)<\/script>/.exec(html);
   check('index.html: erken indirme betiği var, modül betiklerinden önce', !!m && html.indexOf('id="earlyFetch"') < html.indexOf('type="module"'));
   const vm = await import('node:vm'), cases = [];
-  for (const search of ['', '?lowmem=1', '?lowmem=0', '?ktx=0', '?lowmem=1&ktx=0']) for (const deviceMemory of [0, 2, 4, 8]) for (const ua of ['Mozilla/5.0 (X11; Linux x86_64) Chrome/130', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Mobile Safari']) cases.push({ search, deviceMemory, ua });
+  for (const search of ['', '?lowmem=1', '?lowmem=0', '?ktx=0', '?lowmem=1&ktx=0', '?seek=86400', '?cine=1', '?cam=moon', '?cam=MOON&ktx=0', '?cam=earth', '?mode=sky']) for (const deviceMemory of [0, 2, 4, 8]) for (const ua of ['Mozilla/5.0 (X11; Linux x86_64) Chrome/130', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Mobile Safari']) cases.push({ search, deviceMemory, ua });
   const bad = [];
   for (const c of cases) {
     const links = [], fetched = [], document = { head: { appendChild: (l) => links.push(l) }, createElement: () => ({ setAttribute(k, v) { this[k] = v; } }) };
@@ -154,7 +154,7 @@ function dims(file) {
     vm.runInNewContext(m[1], { document, window, fetch, location: { search: c.search }, navigator: { deviceMemory: c.deviceMemory || undefined, userAgent: c.ua }, URLSearchParams });
     window.fetch = fetch; fetched.length = 0; links.length = 0;
     vm.runInNewContext(m[1], { document, window, fetch, location: { search: c.search }, navigator: { deviceMemory: c.deviceMemory || undefined, userAgent: c.ua }, URLSearchParams });
-    const k = ktxWanted(c.search), tex = fetched.map(([u]) => u.slice(9)), want = TEX.map((s) => fileFor(s, true, false, k).file);          // ilk yükleme her cihazda aynı (KTX2 ya da ?ktx=0 ise WebP)
+    const k = ktxWanted(c.search), tex = fetched.map(([u]) => u.slice(9)), want = TEX.filter((s) => moonFirst(c.search) || !UPGRADE.moon.includes(s.key)).map((s) => fileFor(s, true, false, k).file);          // Ay dokuları yalnız Ay'a yakın açılabilen adreslerde baştan          // ilk yükleme her cihazda aynı (KTX2 ya da ?ktx=0 ise WebP)
     if (JSON.stringify(tex) !== JSON.stringify(want) || !fetched.every(([u, o]) => u.startsWith('textures/') && o.priority === 'low') || JSON.stringify(Object.keys(window.LS19_EARLY.tex)) !== JSON.stringify(want)) bad.push(JSON.stringify(c));
     if (!links.some((l) => l.href === 'data/eph/v1/index.json') || !links.some((l) => l.href === 'data/eph/v1/head.bin') || links.some((l) => /textures\//.test(l.href))) bad.push('eph ' + JSON.stringify(c));
     if (links.some((l) => /basis_transcoder/.test(l.href))) bad.push('çevirici preload ' + JSON.stringify(c));      // büyük preload yanıtı fetch ile eşlenirken ara sıra hata verir (§12.3): texload.js init() ile hemen indirir
@@ -196,6 +196,25 @@ function dims(file) {
     check('statik bulut: gündüz/gece/yıldız önce; bulut en sonda ve gerçek bulutlar gelirse hiç indirilmez (tek uygulama); gelmezse, sonradan istenip gelmezse ya da hiç istenmezse indirilir',
       a.n === 1 && a.skipped && a.done === 'tamam' && b.n === 2 && !b.skipped && c.n === 1 && c.skipped && d.n === 2 && !d.skipped, JSON.stringify({ a, b, c, d }));
     check('gerçek bulut: aynı gün ikinci istek hemen döner, sürmekte olan indirme beklenir (realBusy); sonuç realP\'de', /this\.realBusy = B\.bulutMozaigi\(/.test(sc) && /while \(this\.realBusy\) await this\.realBusy/.test(sc) && /setRealClouds\(ms\) \{ const p = this\.loadRealClouds\(ms\); this\.realP = p; return p; \}/.test(sc));
+  }
+  // Ay dokuları ilk görüntüyü beklemez (açılışta Ay ekranda ~8 piksel); Ay'a yakın açılabilen adreslerde baştan iner
+  {
+    const { World } = await import('../js/scene.js');
+    check('Ay dokuları: yalnız seek, cine ya da cam=moon adreslerinde ilk yüklemede; öbür adreslerde (Laboratuvar, gökyüzü, Dünya kamerası) sonra',
+      moonFirst('?seek=86400') && moonFirst('?cine=1') && moonFirst('?cam=moon') && moonFirst('?cam=MOON') && !moonFirst('') && !moonFirst('?mode=sky') && !moonFirst('?cam=earth') && !moonFirst('?exp=ay'));
+    const ph = { isDataTexture: true, id: 'yer tutucu' }, phH = { isDataTexture: true, id: 'yükseklik yer tutucu' }, terrain = { map: ph, needsUpdate: false };
+    const mu = { colorMap: { value: ph }, normalMap: { value: { isDataTexture: true } }, heightMap: { value: phH }, hSize: { value: { v: null, set(...a) { this.v = a; } } }, useHeight: { value: 0 } };
+    const fake = { moonU: mu, earthU: {}, stars: { material: {} }, scene: { traverse: (fn) => { fn({ material: terrain }); fn({ material: { uniforms: mu } }); } } };
+    const col = { id: 'renk' }, hh = { id: 'yükseklik', userData: { size: [1440, 720] } };
+    World.prototype.applyUpgrade.call(fake, { mcol: col, mh: hh });
+    check('ertelenen Ay dokuları gelince: Ay küresi ve iniş arazisi (map) yer tutucudan gerçek dokuya geçer; kabartma açılır ve boyutu yazılır; yer tutucu atılmaz',
+      mu.colorMap.value === col && terrain.map === col && terrain.needsUpdate && mu.heightMap.value === hh && mu.useHeight.value === 1 && mu.hSize.value.v.join() === '1440,720');
+    const W = (def, pend, d) => { const w = { moonDeferred: def, moonPending: pend, starts: 0, moon: { position: { length: () => d } } }; w.startMoonLo = () => { w.starts++; w.moonDeferred = false; w.moonPending = true; }; return [World.prototype.moonTexWait.call(w), w.starts]; };
+    const near = W(true, false, 3e4), far = W(true, false, 3e5), busy = W(false, true, 3e4), done = W(false, false, 3e4);
+    check('Ay dokuları yükleme örtüsü kalkınca başlar; kamera Ay\'a yakınsa (< 40 Ay yarıçapı) hemen başlar ve örtü onları bekler (en çok 15 sn; yalnız konumlanmış sahnede); uzaktaysa ya da indiyse beklenmez',
+      near[0] && near[1] === 1 && !far[0] && far[1] === 0 && busy[0] && !done[0] && /!\(placed && world\.moonTexWait\(\) && now < revealAt \+ 15000\)/.test(rd('../js/app.js')) && /\$\('#loading'\)\.style\.display = 'none';\n  world\.startMoonLo\(\);/.test(rd('../js/app.js')));
+    check('ertelenen yükleme: tam çözünürlük (upgradeTextures moon) önce başladıysa küçük dosyalar atılır; arazi malzemesi map\'li yer tutucuyla derlenir',
+      /if \(this\.texUp && this\.texUp\.moon\) \{ for \(const t of Object\.values\(T\)\) if \(t\) t\.dispose\(\); \} else this\.applyUpgrade\(T\);/.test(sc) && /\.\.\.\(mcol0 \? \{ mcol: mcol0 \} : \{\}\)/.test(sc) && /this\.moonDeferred = deferMoon;/.test(sc));
   }
   const surf = rd('../js/surfaceview.js');
   check('yüzey parçaları Dünya/Ay uniform nesnelerini paylaşır ({ ...eu }, { ...mu }): yükseltilen doku parçalarda da görünür', /uniforms: \{ \.\.\.eu,/.test(surf) && /uniforms: \{ \.\.\.mu,/.test(surf));
