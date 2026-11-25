@@ -1,11 +1,16 @@
 // Lagrange noktaları ve Çarpma riski brifingleri sınaması (Node): cd web && node test/test_briflagrange.js
 //  1) briflagrangetext.js: adımlar, nokta özetleri (Dünya–Ay, Güneş–Dünya), çıkış süresi kuramı ve tümlemeyle karşılaştırma, öneriler, gerekçeler, olgular
 //  2) brifcarpmatext.js: adımlar, çarpma enerjisi, uydu ve asteroit önerisi, gerekçeler
+//  2b) ImpactUI.topSats/topAsts brifingin her karesinde istenir: sonuç saklanır (aynı nesne), yeni hesapta, yeni Sentry listesinde ve 1 dk sonra yenilenir
 //  3) arayüz sözleşmesi: ortak kabuğun alt sınıfları; deneylerin kendi hesabı (LagrangeUI.applyBrief, ImpactUI olayları); app.js kaydı; 3B sahne
 import fs from 'fs';
 import * as L from '../js/briflagrangetext.js';
 import * as C from '../js/brifcarpmatext.js';
 import * as G from '../js/lagrange.js';
+import { register } from 'node:module';
+register('./importmap_loader.mjs', import.meta.url);
+const { ImpactUI } = await import('../js/impactui.js');
+const I = await import('../js/impact.js');
 
 let fail = 0;
 const check = (name, ok) => { console.log(`${ok ? 'TAMAM' : 'HATA '} ${name}`); if (!ok) fail++; };
@@ -43,6 +48,25 @@ check('Çarpma riski: üç adım (tür → cisim → brifing); uydular ve astero
   const rs = C.reasonsCp('cisim', { type: 'ast', id: '2010 RF12' }, { asts: { list: [d], all: [d] } }).map((q) => q.t).join(' | ');
   check('asteroit gerekçeleri: yıl ve olasılık, çap ve hız, enerji (varsayımıyla), Palermo (sıfırın altı: arka plandan küçük)', /Olası çarpma yılı/.test(rs) && /varış hızı/.test(rs) && /2\.000 kg\/m³ varsayımıyla/.test(rs) && /arka plan riskinden küçük/.test(rs));
   check('tür gerekçesi: kesin çarpacağı bilinen asteroit yok', /Kesin çarpacağı bilinen asteroit yok/.test(C.reasonsCp('tur', { type: 'ast' }, { asts: { list: [d], all: [d] } }).map((q) => q.t).join()));
+}
+
+// ---------------------------------------------------------------- 2b) kare başına istenen listeler saklanır
+{
+  const NOW = Date.parse('2026-11-20T00:00:00Z'), mk = (id, days) => ({ o: { OBJECT_NAME: 'S' + id, OBJECT_ID: '2005-001A' }, id, h: null, r: { durum: 'decaying', reentryMs: NOW + days * 864e5, conf: 'high' } });
+  const res = Array.from({ length: 50 }, (_, k) => mk(k + 1, 10 + k));
+  const fake = { satsReady: () => true, res, groupOf: new Map(), asts: { sentry: new Map([['a', { des: 'a', ip: 0.1, ps: -3, n: 1 }], ['b', { des: 'b', ip: 0.2, ps: -2, n: 1 }]]) } };
+  const realNow = Date.now; let clock = NOW; Date.now = () => clock;
+  try {
+    const a = ImpactUI.prototype.topSats.call(fake, 6), b = ImpactUI.prototype.topSats.call(fake, 6);
+    const ref = I.selectSats(res, { now: NOW, ctl: '10', groupOf: () => undefined });
+    clock += 61e3; const c = ImpactUI.prototype.topSats.call(fake, 6);
+    clock += 1e3; fake.res = res.slice(1); const d = ImpactUI.prototype.topSats.call(fake, 6);
+    check('uydu listesi: ikinci istekte aynı nesne (süzgeç yeniden koşmaz); sonuç süzgecin kendisiyle aynı; 1 dk sonra ve yeni hesapta yenilenir',
+      a === b && a.list.map((x) => x.id).join() === ref.sel.slice(0, 6).map((x) => x.id).join() && a.n1 === ref.n1 && c !== a && d !== c && d.list[0].id === 2);
+    const x = ImpactUI.prototype.topAsts.call(fake, 6), y = ImpactUI.prototype.topAsts.call(fake, 6);
+    fake.asts.sentry = new Map([['c', { des: 'c', ip: 0.3, ps: -1, n: 1 }]]); const z = ImpactUI.prototype.topAsts.call(fake, 6);
+    check('Sentry listesi: aynı Map için aynı nesne; yeni liste gelince yenilenir; olasılığa göre sıralı', x === y && x.list.map((q) => q.des).join() === 'b,a' && z !== x && z.list[0].des === 'c');
+  } finally { Date.now = realNow; }
 }
 
 // ---------------------------------------------------------------- 3) arayüz sözleşmesi

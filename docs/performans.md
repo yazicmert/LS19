@@ -524,6 +524,16 @@ Sınama: `test_decaywork.js`.
 - 400 cisimlik başvuru dosyası (`fixtures/decay_ref400.json`) o günkü geçmiş satırlarını da taşır: durum, güven ve yöntem aynı, ömür 10⁻¹² oranı içinde.
 - Ap aylık değeri eski yıl–ay hesabıyla 3.000 tarihte aynı.
 
+**Ek 3: Çarpma riski brifingi her karede 17.000 cisimlik süzgeci yeniden koşuyordu.** Bulgu, laboratuvar deneylerinin tarayıcıda baştan sona yürütüldüğü CPU profilinden geliyor. Brifingin sahne kodu (`brifcarpma.js` `aim`) seçili uydunun adını göstermek için her karede `ctx()` çağırıyordu. `ctx()` da her seferinde `ImpactUI.topSats` (tam `selectSats` süzgeci) ve `topAsts` (Sentry satırları ve sıralama) hesaplıyordu.
+
+Düzeltme: iki liste saklanır.
+
+- Uydu listesi yeni hesapta (`res` ya da grup haritası yeni nesne) ya da 1 dakika sonra yenilenir. Süzgeç yalnız "şimdi"ye göre geçmişte kalanları ayıklar; bu, dakikalar içinde değişmez.
+- Sentry listesi yeni liste gelince yenilenir (`asteroids.js` yeni Map kurar).
+
+Tarayıcıda, 16.915 uyduyla, `ctx()` medyanı: **7,3 ms → ~0 ms** kare başına. Kare bütçesi 16,7 ms; telefonda ~3–4 kat yavaş olduğundan bu tek başına kare düşürüyordu. Liste aynı.
+
+Sınama: `test_briflagrange.js`. İkinci istek aynı nesneyi döndürür, sonuç süzgecin kendisiyle aynıdır, 1 dakika sonra, yeni hesapta ve yeni Sentry listesinde yenilenir. Eski kodda düşer.
 **Ek 4: görev gününün gerçek bulutları gelince durağan bulut dokusunun tam çözünürlüklüsü indirilmiyor.**
 
 Bulgu:
