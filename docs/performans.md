@@ -731,3 +731,9 @@ Sınama: `test_padground.js`.
 - Sınırlı kuyruk (en çok N iş, giriş sırası).
 - `load()` önce en kaba seviyeyi, sonra kalanları birlikte başlatır; ilk kaynak gelmezse ikinciye geçer.
 - İş parçacığı sözleşmesi.
+
+**Ek 10 (görünüş): ölçüsü bilinmeyen rampalarda kule uydurulmuyor.** Rampa yapıları (`padmodels.js`) yalnız dört rampa için kaynaklı ölçülerle tanımlı: LC-39A, LC-39B, SLC-40, SLC-41. `pads.json`'daki öbür 189 rampada "genel rampa" çiziliyordu ve buna gerçekte orada olmayan iki adet 90 m direk dahildi (Baikonur, Plesetsk, Vandenberg, Kourou, Çin rampaları …).
+
+Artık bu rampalarda yalnız rampa zemini ve alev hendeği çiziliyor. Yapılar o rampanın gerçek verisinden gelir: OSM binaları (yükseklikleriyle; ince kuleler kafes olarak) ve açıksa Google 3B karoları.
+
+Kaynaklı rampalarda da OSM'de rampa çevresinde gerçek yapılar varsa (`nearPad() ≥ 3`) çizilen yapılar gizlenir. Gerçek KSC OSM karosuyla denendi: LC-39B'de 11 temsilî yapının hepsi gizlendi; OSM'deki üç gerçek kule (147 m, rampaya 138–150 m) ve öbür rampa yapıları görünüyor. Sınama: `test_padground.js`.

@@ -1,4 +1,6 @@
 // Kalkış rampalarının yapıları (temsilî, gerçek ölçülerle): servis/erişim kuleleri, alev hendeği, yıldırım kuleleri ve telleri, su (ses bastırma) kulesi, entegrasyon binası.
+// Yalnız ölçüleri kaynaklı rampalar için (LC-39A/B, SLC-40/41); öbür rampalarda yapı uydurulmaz, gerçek yapılar OSM'den (ve Google 3B karolardan) gelir.
+// Kaynaklı yapılar da OSM'de rampa çevresinde gerçek yapılar varken gizlenir (ascentview.js osmPad): OSM o rampanın gerçek kulelerini taşır.
 // Rampa çerçevesi padground.js ile aynı: metre; x doğu, y yukarı, z güney; roket ekseni orijinde. Google 3B karolar açıkken bunlar gizlenir (gerçek yapılar karolarda).
 // Kaynaklı ölçüler [kaynak]; kaynaksız yerleşim ve ölçüler (v): görünüş için seçilmiş tahminlerdir.
 //   [K39]  NASA KSC, "Launch Complex 39" ve LC-39A/B bilgi notları: alev hendeği 450 ft uzunluk, 58 ft genişlik, 42 ft derinlik (137 × 17,7 × 12,8 m);
@@ -44,8 +46,10 @@ export function padLayout(key, { ml = false } = {}) {
     P.push(...t4, ...wires(t4));
     P.push({ type: 'box', x: 0, z: 550, w: 50, d: 35, h: 292 * FT, color: 0xd9d7d0 });         // Dikey Entegrasyon Binası (VIF) [S41]
   } else {
-    P.push({ type: 'octagon', r: 34, h: 0.5 }, { ...trench, len: 60, w: 12 });                // genel rampa (v)
-    P.push(...towers(2, 37, 90, Math.PI / 4));                                                 // iki yıldırım direği (eski temsilî rampa)
+    // ölçüsü kaynaklı yapıları tanımlı olmayan rampa (Baikonur, Plesetsk, Vandenberg, Kourou, Çin rampaları …): yalnız rampa zemini ve alev hendeği.
+    // Kule ya da direk UYDURULMAZ: eskiden her rampaya iki adet 90 m direk konuyordu; gerçekte orada olmayan yapılar roketten büyük görünüyordu.
+    // Yapılar o rampanın gerçek verisinden gelir: OSM binaları (osmbuildings.js; yükseklikleriyle, ince kuleler kafes olarak) ve açıksa Google 3B karoları
+    P.push({ type: 'octagon', r: 34, h: 0.5 }, { ...trench, len: 60, w: 12 });                // genel rampa zemini (v)
   }
   return P;
 }
