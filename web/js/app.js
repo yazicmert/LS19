@@ -840,6 +840,7 @@ function skyFrame(ms, now, dt) {
       const labExp = S.VIEW === 'lab' ? labui.page : null, showSats = !labExp || labExp === 'carpma';
       S.sats.update(t, eye, world.camera, canvas, showSats && !full, showSats && !full);
       S.asts.update(t, eye, world.camera, canvas, full); S.astui.update(eye);
+      if (briefs.lagrange && briefs.lagrange.active) S.asts.hideAll();                // Lagrange brifingi: asteroit bulutu Güneş–Dünya noktalarını örtüyordu
       S.tracker.update(t, eye, world.camera, canvas, !labExp, full);
     }
     loadMoonSats(t);

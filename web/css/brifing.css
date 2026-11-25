@@ -132,6 +132,7 @@ button.brief-pin:not(.on) b { top: -20px; left: 10px; font-size: 11px; color: va
 button.brief-pin.pick:hover i, button.brief-pin.pick:focus-visible i { border-color: var(--accent-2); }
 button.brief-pin.pick:hover b, button.brief-pin.pick:focus-visible b { color: var(--text-primary); border-color: var(--accent-2); }
 button.brief-pin:focus-visible { outline: none; }
+button.brief-pin:disabled { opacity: 1; cursor: default; }                                    /* seçili işaret (artık seçilemez) soluklaşmasın: vurgulu kalsın */
 
 /* seçimin gerekçesi (sayılarla) */
 .brief-why { margin: -4px 0 12px; padding: 8px 12px 8px 14px; border-left: 2px solid var(--line-2); }
@@ -159,6 +160,8 @@ button.brief-pin:focus-visible { outline: none; }
 }
 
 .brief-pin.left b, button.brief-pin.left:not(.on) b { left: auto; right: 12px; }                                          /* komşu işaretle çakışmasın (Apollo 12 ↔ 14) */
+.brief-pin.up b { top: -40px; left: 0; transform: translateX(-50%); }
+.brief-pin.down b, button.brief-pin.down:not(.on) b { top: 10px; }                                     /* telefonda Dünya–Ay: L1 solda, Ay üstte, L2 altta */                                 /* aynı yerdeki işaretler (Güneş–Dünya: Dünya, L1, L2) */
 
 /* brifing çizelgesi: görevin ana anları (T+, ad, UTC) */
 .brief-tl { list-style: none; margin: 14px 0 0; padding: 0 0 0 14px; border-left: 1px solid var(--line-2); }

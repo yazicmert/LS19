@@ -78,6 +78,15 @@ check('Lagrange sahnesi: dönen çerçeveden gerçek konuma (Dünya–Ay: Ay\'ı
   /zz = unit\(E\.cross\(rm, vm\)\)/.test(lg) && /zz = ECL/.test(lg) && /pick = c\.k === 'nokta' && !on \? \(\) => this\.pickPoint\(p\.id\)/.test(lg) && /put\(L\.path, r\.pts\)/.test(lg));
 check('Çarpma riski: hesap deneyin kendi motorunda (ImpactUI: olaylar, en yakın yeniden girişler, Sentry sıralaması); panelde aynı cisim açılır',
   /emit\('sats'\)/.test(iui) && /topSats\(n = 6\)/.test(iui) && /topAsts\(n = 6\)/.test(iui) && /this\.iu\.pickSat\(x\)/.test(cp) && /this\.iu\.pickAst\(d\)/.test(cp) && /openLab\(i, \{ hypo: true \}\)/.test(cp));
+check('Lagrange: noktalar girişte de görünür; Hangi nokta? adımı bütün sistemi kartın üstündeki alana sığdırır (beş nokta dokunularak seçilir); seçili işaret soluklaşmaz',
+  !/if \(c\.k === 'intro'\) continue;/.test(lg) && /nokta: \{ mode: 'SYSTEM'[^}]*sys: true, fit: true \}/.test(lg) && /this\.cam\.fit && !intro && !this\.full/.test(read('js/brifkabuk.js'))
+  && /button\.brief-pin:disabled \{ opacity: 1;/.test(read('css/brifing.css')) && /cen \|\| o\.pick !== undefined \? '' : ' body'/.test(read('js/brifkabuk.js')));
+check('Lagrange brifingi: gökyüzünün Ay yörüngesi (çift çizgi) ve asteroit bulutu gizli', /const HIDE = \['embEarth', 'embMoon'/.test(lg) && /briefs\.lagrange && briefs\.lagrange\.active\) S\.asts\.hideAll\(\)/.test(app));
+{
+  const { lagrangeLeft } = await import('../js/briflagrange.js');
+  const P = G.points(0.01215).map((q) => ({ id: q.id, x: q.x, y: q.y }));
+  check('lagrangeLeft: ekranda solda kalan iç noktanın adı solda (Ay sağdaysa L1, soldaysa L2)', lagrangeLeft(P, (q) => q[0]).has('L1') && !lagrangeLeft(P, (q) => q[0]).has('L2') && lagrangeLeft(P, (q) => -q[0]).has('L2') && !lagrangeLeft(P, (q) => -q[0]).has('L1'));
+}
 check('app.js: iki brifing deney merkezinden seçilince yapılır', /lagrange: \(\) => new LagrangeBrief\(/.test(app) && /carpma: \(\) => impactui && new ImpactBrief\(/.test(app) && /satPos: \(id, t\) => S\.tracker\.icrfOf\(id, t\)/.test(app));
 check('modül ön yüklemesi', ['briflagrange', 'briflagrangetext', 'brifcarpma', 'brifcarpmatext'].every((m) => html.includes(`modulepreload" href="js/${m}.js"`)));
 
