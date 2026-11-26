@@ -10,7 +10,7 @@
     "veri": "node scripts/asteroitler.mjs"
   },
   "engines": {
-    "node": ">=20.9.0"
+    "node": "22.x"
   },
   "dependencies": {
     "next": "16.4.6",

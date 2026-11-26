@@ -1,11 +1,12 @@
-# Vercel'e yalnız site (web/) ve veri vekili (api/) gider
+# Vercel'e yalnız site (web/) ve veri vekili (api/) gider. Bu dosya lookstar19 projesine (kök dizin site/) de uygulanır:
+# klasör kuralları köke bağlı (/scripts/), yoksa site/scripts/ de silinir ve lookstar19 derlenemez
 *.blend
 *.blend1
-kernels/
-pylib/
-scripts/
-renders/
-docs/
+/kernels/
+/pylib/
+/scripts/
+/renders/
+/docs/
 web/test/
 web/data/cache/
 web/baslat.command
