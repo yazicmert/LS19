@@ -4,6 +4,21 @@ export const LL2_UPCOMING = 'https://ll.thespacedevs.com/2.3.0/launches/upcoming
 export const REVALIDATE = 1800;
 const str = (x) => (typeof x === 'string' && x.trim() ? x.trim() : null);
 const known = (x) => { const v = str(x); return v && !/^(unknown|tbd|n\/a)$/i.test(v) ? v : null; };          // kaynak bilinmeyeni yazıyla verir: gösterilmez
+// LL2'nin tarih kesinliği (net_precision.name): saniye/dakika → kesin; saat; gün (sabah/öğleden sonra dahil); hafta; ay; çeyrek; yarıyıl; yıl.
+// Kesin olmayan tarihte NET (en erken) tarihi aralığın sonuna yakın verilir (ay kesinliğinde ayın son günü): saniyeli geri sayım yanıltır.
+export function precisionOf(name) {
+  const n = String(name || '').trim();
+  if (!n || /^(second|minute)$/i.test(n)) return { kind: 'exact' };          // kesinlik yazılmamışsa kaynak saati kesin verir
+  if (/^hour$/i.test(n)) return { kind: 'hour' };
+  if (/^(day|morning|afternoon|morning\/afternoon|am|pm)/i.test(n)) return { kind: 'day' };
+  if (/^week$/i.test(n)) return { kind: 'week' };
+  if (/^month$/i.test(n)) return { kind: 'month' };
+  let m = /^quarter\s*(\d)$/i.exec(n); if (m) return { kind: 'quarter', part: +m[1] };
+  m = /^half\s*(\d)$/i.exec(n); if (m) return { kind: 'half', part: +m[1] };
+  if (/year/i.test(n)) return { kind: 'year' };
+  return { kind: 'day' };                                                    // tanınmayan: güne yuvarla (saat gösterme)
+}
+export const countable = (p) => !p || p.kind === 'exact' || p.kind === 'hour';            // kesinliği bilinmeyen kayıt kesin sayılır
 const https = (u) => { const v = str(u); return v && /^https:\/\//.test(v) ? v : null; };
 
 export function mapLaunch(r) {
@@ -12,7 +27,7 @@ export function mapLaunch(r) {
     .map((v, i) => ({ url: https(v.url), title: str(v.title), official: !!(v.type && v.type.id === 1), pr: Number(v.priority) || 0, i }))
     .sort((a, b) => b.official - a.official || b.pr - a.pr || a.i - b.i).slice(0, 3).map(({ url, title, official }) => ({ url, title, official }));
   return {
-    id: str(r.id), name: str(r.name), net: str(r.net), precision: str(r.net_precision && r.net_precision.name),
+    id: str(r.id), name: str(r.name), net: str(r.net), precision: precisionOf(r.net_precision && r.net_precision.name), updated: str(r.last_updated),
     status: { abbrev: str(st.abbrev), name: str(st.name) }, live: r.webcast_live === true,
     vehicle: str(cfg.full_name) || str(cfg.name), provider: str(lsp.name),
     mission: { name: str(mi.name), type: known(mi.type), orbit: known(mi.orbit && mi.orbit.name), description: str(mi.description) },
@@ -46,5 +61,6 @@ export async function getUpcoming({ fetchImpl = fetch, atBuild = graceful() } = 
   console.warn(`lookstar19: Launch Library 2 alınamadı (${fail}); sayfa "veri yok" notuyla derleniyor`);
   return { ok: false, launches: [], status: fail };
 }
-// sıradaki: zamanı geçmemiş ilk fırlatma (başarıyla kalkmış olanlar listede kalabilir)
-export const nextLaunch = (list, now = Date.now()) => list.find((l) => Date.parse(l.net) > now - 60_000 && !['Success', 'Failure'].includes(l.status.abbrev)) || null;
+// sıradaki: zamanı geçmemiş, sonuçlanmamış ve saati bilinen (saniye/dakika/saat kesinliğinde) ilk fırlatma: geri sayım yalnız ona.
+// Tarihi yalnız ay ya da çeyrek olarak bilinenler listede kalır ama "sıradaki" sayılmaz.
+export const nextLaunch = (list, now = Date.now()) => list.find((l) => Date.parse(l.net) > now - 60_000 && !['Success', 'Failure'].includes(l.status.abbrev) && countable(l.precision)) || null;

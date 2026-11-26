@@ -68,6 +68,49 @@ const C = await import('../../site/lib/config.js'), A = await import('../../site
 check('sabitler: diller en/tr, varsayılan en; kök /en’e yönlenir', C.LANGS.join() === 'en,tr' && C.DEFAULT_LANG === 'en' && /destination: '\/en'/.test(rd('../../site/next.config.mjs')) && !!A);
 check('LS19 bağlantısı: saptırma deneyi hedef parametresiyle (labtext.js LINK_KEYS)', /exp=saptirma&hedef=\$\{encodeURIComponent\(o\.des\)\}/.test(rd('../../site/lib/asteroids.js')) && /'hedef'/.test(rd('../js/labtext.js')));
 
+// 5b) güvenilir veri: JPL SBDB belirsizlikleri ve çözüm künyesi, CAD yakın geçişleri, Sentry çarpma riski; doğrulama ve değişiklik raporu
+const J = await import('../../site/lib/jpl.js');
+check('veri: her cismin 1σ belirsizlikleri ve yörünge çözümü künyesi (çözüm no, tarih, gözlem sayısı, aralık)', O.every((o) => ['a', 'e', 'i', 'om', 'w', 'ma', 'q', 'ad', 'per'].every((k) => o.sigma[k] > 0)
+  && o.solution.id && /^\d{4}-\d\d-\d\d$/.test(o.solution.date) && o.solution.nObs > 0 && /^\d{4}-\d\d-\d\d$/.test(o.solution.first) && /^\d{4}-\d\d-\d\d$/.test(o.solution.last) && o.solution.first <= o.solution.last));
+check('veri: doğrulama her kayıtta temiz (q = a(1−e), Kepler dönemi, 3σ aralığı, sıralı geçişler, Sentry özeti)', O.every((o) => J.checkObject(o).length === 0), O.flatMap(J.checkObject).slice(0, 3).join('; '));
+check('veri: her NEO için Sentry durumu (listede / çıkarılmış / yok); NEO olmayanlarda sorgu yok', O.every((o) => (o.neo ? ['listed', 'removed', 'none'].includes(o.sentry && o.sentry.status) : o.sentry === null))
+  && data.cad.maxAu === 0.2 && data.cad.range.join() === '1900-01-01,2200-01-01' && Object.keys(data.apis).length === 3);
+const bennu = by('bennu'), apo = by('apophis');
+check('veri: Bennu Sentry listesinde (olasılık 0–1, olası çarpma > 0); Apophis listeden çıkarılmış (tarihli); Apophis 2029 geçişi 0,00026 au',
+  bennu.sentry.status === 'listed' && bennu.sentry.ip > 0 && bennu.sentry.ip < 0.01 && bennu.sentry.nImp > 0 && apo.sentry.status === 'removed' && /^\d{4}-\d\d-\d\d$/.test(apo.sentry.removed)
+  && apo.approaches.some((c) => c.date.startsWith('2029-04-13') && Math.abs(c.dist - 0.000254) < 2e-6));
+// örnek yanıtlar (JPL belgelerindeki biçim)
+const sb = { object: { des: '101955', fullname: '101955 Bennu (1999 RQ36)', prefix: null, neo: true, pha: true, orbit_class: { code: 'APO', name: 'Apollo' } },
+  orbit: { epoch: '2455197.5', moid: '.00322', condition_code: '0', data_arc: '7693', orbit_id: '118', soln_date: '2021-01-07 08:23:10', producer: 'Farnocchia', n_obs_used: 554, n_del_obs_used: 58, n_dop_obs_used: 7, first_obs: '1999-09-11', last_obs: '2020-10-03', rms: '.29',
+    elements: [['e', '.2037', '6.97E-11'], ['a', '1.1264', '1.97E-10'], ['q', '.89679', '2.3E-10'], ['i', '6.0349', '6.9E-9'], ['om', '2.0609', '5.6E-7'], ['w', '66.223', '6.4E-7'], ['ma', '101.70', '4.3E-8'], ['tp', '2455439.1', '1E-6'], ['per', '436.65', '1.1E-7'], ['n', '.8244', '2E-10'], ['ad', '1.3560', '2.4E-10']].map(([name, value, sigma]) => ({ name, value, sigma })) },
+  phys_par: [{ name: 'H', value: '20.21' }, { name: 'diameter', value: '.484' }] };
+const ms = J.mapSbdb(sb);
+check('SBDB eşleme: değer ve 1σ ayrı; çözüm künyesi; ad', ms.elements.a === 1.1264 && ms.sigma.a === 1.97e-10 && ms.solution.id === '118' && ms.solution.date === '2021-01-07' && ms.solution.nDel === 58 && ms.name === 'Bennu' && ms.phys.diameter === 0.484);
+const cad = J.mapCad({ fields: ['des', 'orbit_id', 'jd', 'cd', 'dist', 'dist_min', 'dist_max', 'v_rel', 'v_inf', 't_sigma_f', 'h'],
+  data: [['99942', '206', '2462240.407', '2029-Apr-13 21:46', '0.000254', '0.0002540', '0.0002541', '7.42', '5.84', '< 00:01', '19.7'], ['x', '1', '2419302.38', '1911-Sep-22 21:18', '0.0141', '0.01409', '0.0142', '6.3', '6.3', '2_09:08', '20']] });
+check('CAD eşleme: TDB tarihi ISO, 3σ aralığı, zaman sırası', cad.length === 2 && cad[0].date === '1911-09-22T21:18' && cad[1].date === '2029-04-13T21:46' && cad[1].distMin === 0.000254 && cad[0].tSigma === '2_09:08' && J.mapCad({ count: 0 }).length === 0);
+const sl = J.mapSentry({ summary: { ip: '5.7e-4', ps_cum: '-1.40', ps_max: '-1.58', ts_max: null, n_imp: 157, cdate: '2021-07-14 11:24:00', method: 'MC' }, data: [{ date: '2178-09-24.48' }, { date: '2290-09-25' }] });
+check('Sentry eşleme: listede (özet, yıl aralığı), çıkarılmış (tarih), bulunamadı (yok), tanınmayan yanıt (null)', sl.status === 'listed' && sl.ip === 5.7e-4 && sl.tsMax === null && sl.years.join() === '2178,2290' && sl.computed === '2021-07-14'
+  && J.mapSentry({ error: 'specified object removed', removed: '2021-02-21 08:22:28' }).removed === '2021-02-21' && J.mapSentry({ error: 'specified object not found' }).status === 'none' && J.mapSentry({ error: 'server busy' }) === null);
+const bad = { ...bennu, id: 'x', elements: { ...bennu.elements, q: bennu.elements.q * 1.01 }, approaches: [{ ...bennu.approaches[0], distMin: bennu.approaches[0].dist * 2 }], sentry: null };
+check('doğrulama: tutarsız q, 3σ dışı uzaklık ve eksik Sentry durumu yakalanır', ((e) => e.some((x) => /q ≠/.test(x)) && e.some((x) => /3σ/.test(x)) && e.some((x) => /Sentry/.test(x)))(J.checkObject(bad)));
+const nxt = (f) => ({ objects: O.map((o) => (o.id === 'bennu' ? f(structuredClone(o)) : o)) });
+const c1 = J.compare(data, nxt((o) => { o.solution.id = '119'; o.sentry = { status: 'removed', removed: '2027-01-01' }; return o; }));
+const c2 = J.compare(data, nxt((o) => { o.elements.a *= 1.000001; return o; })), c3 = J.compare(data, { objects: O.slice(1) });
+check('değişiklik raporu: yeni çözüm ve Sentry durum değişimi yazılır; aynı çözümde element kayması ve cisim kaybı yazmayı durdurur',
+  c1.stop.length === 0 && c1.notes.some((x) => /119/.test(x)) && c1.notes.some((x) => /Sentry durumu listed → removed/.test(x)) && c2.stop.length === 1 && c3.stop.some((x) => /azaldı/.test(x)) && J.compare(data, data).notes.length === 0);
+const sp = J.splitApproaches(apo.approaches, data.retrieved);
+check('yakın geçişler: verinin alındığı güne göre geçmiş / sıradaki', sp.past.every((c) => c.date < data.retrieved) && sp.next.every((c) => c.date >= data.retrieved) && sp.past.length + sp.next.length === apo.approaches.length);
+check('biçim: bilimsel gösterim ve CAD zaman belirsizliği', I.sci('tr', 1.9673e-10) === '2,0 × 10⁻¹⁰' && I.sci('en', 0.0123) === '0.012' && I.tSigma('en', '< 00:01') === '< 1 min' && I.tSigma('tr', '2_09:08') === '2 g 9 sa 8 dk' && I.tSigma('en', '13:02') === '13 h 2 min');
+// fırlatma tarihinin kesinliği
+const P = (n) => Lc.precisionOf(n);
+check('fırlatma kesinliği: dakika/saniye kesin; saat; ay; çeyrek; yarıyıl; yıl; bilinmeyen güne yuvarlanır', P('Minute').kind === 'exact' && P('Second').kind === 'exact' && P(null).kind === 'exact' && P('Hour').kind === 'hour'
+  && P('Month').kind === 'month' && P('Quarter 4').part === 4 && P('Half 1').kind === 'half' && P('Fiscal Year').kind === 'year' && P('Morning/Afternoon').kind === 'day' && P('Sometime').kind === 'day');
+check('fırlatma tarihi kaynağın kesinliğinde yazılır (ay → "December 2026", çeyrek → "Q4 2026"; saat → "~13:00")', I.netLabel('en', '2026-12-31T00:00:00Z', P('Month')) === 'December 2026' && I.netLabel('tr', '2026-12-31T00:00:00Z', P('Month')) === 'Aralık 2026'
+  && I.netLabel('en', '2026-12-31T00:00:00Z', P('Quarter 4')) === 'Q4 2026' && I.netLabel('en', '2026-11-27T13:00:00Z', P('Hour')) === '27 Nov 2026, ~13:00 UTC' && I.netLabel('en', '2026-11-27T00:05:00Z', P('Minute')) === '27 Nov 2026, 00:05 UTC');
+const LP = [{ net: '2026-11-30T00:00:00Z', status: { abbrev: 'TBD' }, precision: P('Month') }, { net: '2026-12-01T01:45:00Z', status: { abbrev: 'Go' }, precision: P('Hour') }];
+check('sıradaki fırlatma: tarihi yalnız ay düzeyinde bilinen atlanır (geri sayım yalnız saati bilinene)', Lc.nextLaunch(LP, now) === LP[1] && Lc.mapLaunch({ ...raw, net_precision: { name: 'Month' } }).precision.kind === 'month');
+
 // 6) yayın altyapısı: meta veri, güvenlik başlıkları, Vercel ayarı, 404, yazı tipi
 const S = await import('../../site/lib/seo.js');
 const alt = S.alternates('tr', '/asteroids/bennu'), pm = S.pageMeta('en', '/launches', { title: 'Upcoming launches', description: 'd' });

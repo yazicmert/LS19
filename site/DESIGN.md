@@ -198,6 +198,11 @@ Square corners throughout (0px). Borders are 2px ink for controls, fields, the l
 ### Element Block (signature)
 - Caption in label type on a 2px ink rule, then rows of symbol (mono, cobalt), label (ink-2), value (mono, right-aligned) and unit (ink-2), separated by hairlines. A row whose value is prose rather than a measurement (model method, model source) sets the value in body sans and lets it wrap. On the home lookup the rows print in left to right with a short stagger (clip-path, 0.5s, ease-out-expo); reduced motion shows them at once.
 
+### Uncertainty and provenance
+- A measured value's 1σ uncertainty sits on a second line under it (`el__sub`: mono 13px, ink-2, "± 2.0 × 10⁻¹⁰"), never in a tooltip.
+- Close approaches are a table (date TDB, au, km, lunar distances, 3σ ±, v rel, time 3σ) with row groups set in label type; impact risk is an element block under a section rule. Every block names its API and retrieval date in the record's source list.
+- Launch times appear only as precisely as the source states them (month, quarter, hour, minute); the countdown runs only for a launch whose time is known.
+
 ### Launch Block (signature)
 - A cobalt field with a 2px ink border: heading on a white hairline, a large mono countdown (T− in on-cobalt-2), the mission name, a key/value list, the paper button, and a link to all launches.
 

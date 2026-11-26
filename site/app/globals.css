@@ -102,6 +102,7 @@ html { scrollbar-color: var(--ink-2) var(--paper-2); }
 .el__row dd { margin: 0; text-align: right; white-space: nowrap; }
 .el__val { font-size: 16px; }
 .el__unit { color: var(--ink-2); margin-left: 0.6ch; font-size: 14px; }
+.el__sub { display: block; font-family: var(--f-mono), ui-monospace, monospace; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .el__row--text { grid-template-columns: auto minmax(0, 1fr); }
 .el__row--text dd { white-space: normal; overflow-wrap: anywhere; }
 .el__row--text .el__val { font-family: var(--f-sans), system-ui, sans-serif; font-variant-numeric: normal; font-size: 15px; }
@@ -129,6 +130,7 @@ html { scrollbar-color: var(--ink-2) var(--paper-2); }
 /* sıradaki fırlatma: kobalt alan */
 .nl { background: var(--cobalt); color: var(--on-cobalt); padding: clamp(20px, 2.4vw, 30px); border: 2px solid var(--ink); display: flex; flex-direction: column; gap: 14px; }
 .nl__h { margin: 0; font-weight: 700; font-variation-settings: 'wdth' 90; font-size: 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.55); padding-bottom: 10px; }
+.nl__upd { margin: 12px 0 0; font-size: 13px; color: var(--on-cobalt-2); }
 .nl__live { font-family: var(--f-mono), monospace; font-weight: 400; font-size: 13px; background: var(--on-cobalt); color: var(--cobalt); padding: 3px 7px; }
 .nl__msg { margin: 0; color: var(--on-cobalt-2); }
 .nl__msg--quiet { font-size: 15px; }
@@ -198,6 +200,12 @@ html { scrollbar-color: var(--ink-2) var(--paper-2); }
 .rec__model { position: sticky; top: 16px; }
 .rec__act { margin-top: 28px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
 .rec__actnote { margin: 0; color: var(--ink-2); font-size: 14px; }
+.rec__sec { margin-top: clamp(36px, 5vw, 56px); }
+.ca__lead { margin: 12px 0 14px; max-width: 80ch; color: var(--ink-2); font-size: 15px; }
+.ca__group th { padding-top: 16px; font-weight: 700; font-variation-settings: 'wdth' 90; font-size: 14px; font-family: var(--f-sans), system-ui, sans-serif; }
+.ca__tag { margin-left: 10px; font-family: var(--f-sans), system-ui, sans-serif; font-size: 13px; font-weight: 650; color: var(--cobalt); }
+.rec__risk .el { max-width: 640px; }
+.el__note { margin: 6px 0 26px; color: var(--ink-2); font-size: 13px; }
 .rec__src { margin-top: 40px; border-top: 2px solid var(--ink); padding-top: 10px; }
 .rec__srch { margin: 0 0 6px; font-weight: 700; font-variation-settings: 'wdth' 90; font-size: 15px; }
 .rec__src ul { margin: 0; padding: 0; list-style: none; color: var(--ink-2); font-size: 15px; }

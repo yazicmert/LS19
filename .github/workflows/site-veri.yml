@@ -1,0 +1,66 @@
+# lookstar19 asteroit verisinin haftalık yenilenmesi: JPL SBDB (yörünge ve 1σ belirsizlikler), CAD (yakın geçişler), Sentry (çarpma riski).
+# Betik (site/scripts/asteroitler.mjs) her kaydı doğrular ve önceki dosyayla karşılaştırır; tutarsız ya da kuşkulu bir değişiklikte dosyaya
+# dokunmaz ve iş başarısız olur (GitHub depo sahibine e-posta gönderir). Yalnız alınma tarihinden fazlası değiştiyse inceleme için PR açar:
+# doğrudan main'e yazmaz. GITHUB_TOKEN'la açılan PR'da diğer iş akışları (denetim) koşmaz: site testi ve derleme burada koşar.
+# PR'ı açabilmek için: Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests".
+name: lookstar19 verisini yenile
+
+on:
+  schedule:
+    - cron: '37 5 * * 1'          # her pazartesi 05:37 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: site-veri
+  cancel-in-progress: false
+
+jobs:
+  yenile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22.23.4
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - name: JPL'den al, doğrula, karşılaştır
+        run: node site/scripts/asteroitler.mjs --rapor "$RUNNER_TEMP/rapor.md"
+      - name: Alınma tarihinden başka değişiklik var mı
+        id: degisim
+        run: |
+          git show HEAD:site/data/asteroids.json > "$RUNNER_TEMP/eski.json"
+          if node -e "const f=(p)=>{const d=JSON.parse(require('fs').readFileSync(p,'utf8'));delete d.retrieved;return JSON.stringify(d)};process.exit(f(process.argv[1])===f(process.argv[2])?0:1)" "$RUNNER_TEMP/eski.json" site/data/asteroids.json; then
+            echo "yok=true" >> "$GITHUB_OUTPUT"
+            { echo "Veri doğrulandı; alınma tarihi dışında değişiklik yok, PR açılmadı."; echo; cat "$RUNNER_TEMP/rapor.md"; } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "yok=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Site testi
+        if: steps.degisim.outputs.yok == 'false'
+        run: node web/test/test_site.js
+      - name: Site derlemesi
+        if: steps.degisim.outputs.yok == 'false'
+        working-directory: site
+        run: npm ci && npm run build
+      - name: Dal gönder, PR aç
+        if: steps.degisim.outputs.yok == 'false'
+        run: |
+          tarih=$(date -u +%F); dal="otomasyon/site-veri-$tarih-${GITHUB_RUN_ID}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q -b "$dal"
+          git add site/data/asteroids.json
+          git commit -q -m "lookstar19 verisi: JPL yenilemesi ($tarih)"
+          git push -q origin "$dal"
+          { echo "Haftalık JPL yenilemesi (\`.github/workflows/site-veri.yml\`). Veri doğrulandı; site testi ve derlemesi bu işte geçti."; echo; cat "$RUNNER_TEMP/rapor.md"; } > "$RUNNER_TEMP/pr.md"
+          if ! gh pr create --base main --head "$dal" --title "lookstar19 verisi: JPL yenilemesi ($tarih)" --body-file "$RUNNER_TEMP/pr.md" >> "$GITHUB_STEP_SUMMARY" 2>&1; then
+            { echo; echo "PR açılamadı; dal gönderildi: \`$dal\`."; echo "Elle açın: https://github.com/${GITHUB_REPOSITORY}/compare/main...$dal?expand=1"; echo; cat "$RUNNER_TEMP/pr.md"; } >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -1,15 +1,19 @@
 // element bloğu: sirkülerdeki gibi hizalı anahtar / değer / birim satırları (sabit genişlikli rakamlar).
-// Satır: [simge, etiket, değer, birim, tür]. tür 'text': değer ölçü değil metindir (yöntem, kaynak): düz yazıyla, satır kırarak
+// Satır: [simge, etiket, değer, birim, tür, alt]. tür 'text': değer ölçü değil metindir (yöntem, kaynak): düz yazıyla, satır kırarak.
+// alt: değerin altında küçük ikinci satır (ör. ± 1σ belirsizlik)
 export default function ElementBlock({ rows, caption = null, className = '' }) {
   const shown = rows.filter((r) => r);
   return (
     <div className={`el ${className}`}>
       {caption ? <p className="el__cap">{caption}</p> : null}
       <dl>
-        {shown.map(([sym, label, value, unit, kind]) => (
+        {shown.map(([sym, label, value, unit, kind, sub]) => (
           <div className={kind === 'text' ? 'el__row el__row--text' : 'el__row'} key={label}>
             <dt><span className="el__sym">{sym}</span><span className="el__label">{label}</span></dt>
-            <dd><span className="el__val">{value ?? '—'}</span>{unit && value != null ? <span className="el__unit">{unit}</span> : null}</dd>
+            <dd>
+              <span className="el__val">{value ?? '—'}</span>{unit && value != null ? <span className="el__unit">{unit}</span> : null}
+              {sub && value != null ? <span className="el__sub">{sub}</span> : null}
+            </dd>
           </div>
         ))}
       </dl>
