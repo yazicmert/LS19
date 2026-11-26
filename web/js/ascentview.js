@@ -260,7 +260,7 @@ export class AscentView {
           A.nature = new OsmNature(THREE, A.pad, A.spec.site); if (A.osm.nature) A.nature.setData(A.osm.nature); else A.nature.addTiles(A.osm.tiles); A.nature.build(A.ground); A.natureDem = A.ground.hasDem;
         }
         if (A.nature && !A.natureDem && A.ground.hasDem) { A.natureDem = true; A.nature.build(A.ground); A.osm.recolor((la, lo) => A.ground.sample(la, lo), (e, s) => A.ground.groundAt(e, s)); }
-        if (A.nature) { const nowN = performance.now(); A.nature.visible = !on; A.nature.frame({ pad: A.pad, sunDir: o.sunDir, day: A.ground.u.day.value, dt: Math.min(0.1, (nowN - (A.natT || nowN)) / 1000), camH }); A.natT = nowN; }
+        if (A.nature) { const nowN = performance.now(); A.nature.visible = !on; A.nature.frame({ pad: A.pad, sunDir: o.sunDir, day: A.ground.u.day.value, dt: Math.min(0.1, (nowN - (A.natT || nowN)) / 1000), camH, camera: this.camera, Hpx: this.renderer.domElement.height }); A.natT = nowN; }
         for (const p of A.padProps) { const v = !on && !(A.osmPad && p.userData.kind === 'struct') && !(imgFine && p.userData.kind === 'base'); if (p.visible !== v) p.visible = v; }
         if (A.osm) A.osm.visible = !on;
         if (A.ksc) for (const k of A.ksc) {                                              // NASA modelleri: Google 3B açıkken gizli; kabartma gelince zemine oturur
