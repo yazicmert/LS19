@@ -22,7 +22,7 @@ Yeni bir proje (LS19 simülasyonunun projesinden ayrı):
 | Root Directory | `site` |
 | Include files outside the root directory in the Build Step | açık (varsayılan): model betiği depo kökündeki `varliklar.json`'u okur |
 | Framework, kurulum, derleme | `site/vercel.json` belirler (Next.js, `npm ci`, `npm run build`) |
-| Node.js | 20.9 ya da üstü (22 önerilir) |
+| Node.js | 22.x (`package.json` engines; CI ile aynı) |
 | Ortam değişkeni (isteğe bağlı) | `NEXT_PUBLIC_LS19_URL`: LS19'un adresi; yoksa `https://ls19web.vercel.app` |
 | Alan adı | `lookstar19.org` (ve `www` → yönlendirme) |
 
@@ -31,6 +31,7 @@ Yeni bir proje (LS19 simülasyonunun projesinden ayrı):
   yoksa sayfa "veri yok" notuyla çıkar ve ilk başarılı yenilemede dolar.
 - Modeller `.next/cache` içinde saklanır: paket her derlemede yeniden inmez.
 - Önizleme adreslerinde `robots.txt` taramayı kapatır; yalnız üretim adresi dizinlenir.
+- Depo kökündeki `.vercelignore` bu projeye de uygulanır: oradaki klasör kuralları köke bağlı yazılmalı (`/scripts/`), yoksa `site/` içindeki aynı adlı klasör de silinir.
 - Her yanıtta güvenlik başlıkları (CSP, çerçeveleme yok, nosniff, izinler kapalı): `next.config.mjs`.
 
 ## Denetim

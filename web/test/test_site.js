@@ -85,7 +85,10 @@ const V = JSON.parse(rd('../../site/vercel.json'));
 check('Vercel (kök dizin site): Next.js, kilit dosyasıyla kurulum; site ya da varlık listesi son yayından beri değişmediyse derleme atlanır (ilk yayın her zaman derlenir); data dalı yayınlanmaz',
   V.framework === 'nextjs' && V.installCommand === 'npm ci' && /^\[ -n "\$VERCEL_GIT_PREVIOUS_SHA" \] && git diff --quiet "\$VERCEL_GIT_PREVIOUS_SHA" HEAD -- \. \.\.\/varliklar\.json$/.test(V.ignoreCommand) && V.git.deploymentEnabled.data === false);
 const css = rd('../../site/app/globals.css'), pj = JSON.parse(rd('../../site/package.json'));
-check('yazı tipi: --f-sans/--f-mono yalnız next/font tanımlar (globals.css ezmez); Node ≥ 20.9 (Next 16)', !/--f-(sans|mono)\s*:/.test(css) && /20\.9/.test(pj.engines.node) && pj.scripts.prebuild === 'node scripts/modeller.mjs');
+check('yazı tipi: --f-sans/--f-mono yalnız next/font tanımlar (globals.css ezmez); Node 22 (CI ile aynı; Vercel yeni ana sürüme kendiliğinden geçmez)', !/--f-(sans|mono)\s*:/.test(css) && pj.engines.node === '22.x' && pj.scripts.prebuild === 'node scripts/modeller.mjs');
+const vi = rd('../../.vercelignore').split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+check('.vercelignore (iki projeye de uygulanır): klasör kuralları köke bağlı, site/ dosyaları silinmez', ['/scripts/', '/docs/', '/kernels/', '/pylib/', '/renders/'].every((r) => vi.includes(r))
+  && !vi.some((l) => /^(scripts|docs|app|lib|components|data|public)\/?$/.test(l) || /^site(\/|$)/.test(l)));
 check('sitemap ve robots: her sayfa her dilde; önizleme adreslerinde tarama kapalı', /OBJECTS\.map/.test(rd('../../site/app/sitemap.js')) && /LANGS\.map/.test(rd('../../site/app/sitemap.js')) && /VERCEL_ENV/.test(rd('../../site/app/robots.js')));
 
 if (fail) { console.log(`\n${fail} hata`); process.exit(1); }
