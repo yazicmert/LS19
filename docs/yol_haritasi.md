@@ -5,7 +5,7 @@ lookstar19, LS19 simülasyonunun çevresinde kurulacak, teknik içeriği yoğun,
 - açık uzay verileri (NASA, JPL, ESA ve öbür kamu kaynakları) işlenip anlaşılır hale getirilir;
 - topluluk teknik makale yazar ve paylaşır;
 - fırlatmalar takip edilir, canlı yayınlara yönlendirilir;
-- katkılar puan kazandırır, puanlar lookstar19'a özel görev patch'leri açar;
+- katkılar puan kazandırır, puanlar görev patch'leri açar (tarihî görevlerin lisanslı gerçek patch'leri ya da lookstar19 tasarımları);
 - gerçek şekil modelleri ve Blender'la modellenmiş asteroitler 3B arşivde sergilenir.
 
 Bu belge kararları, aşamaları ve her aşamanın "bitti" ölçütünü tutar. Karar değiştikçe güncellenir.
@@ -15,11 +15,14 @@ Bu belge kararları, aşamaları ve her aşamanın "bitti" ölçütünü tutar. 
 | Konu | Karar |
 |---|---|
 | Site adı | **lookstar19** |
-| Alan adı | `lookstar19` (uzantı henüz seçilmedi: aşağıda "Açık kararlar") |
-| Giriş | GitHub, Google ve e-posta |
+| Alan adı | `lookstar19.org` |
+| Giriş | GitHub, Google ve e-posta (parolasız: tek kullanımlık bağlantı e-postayla gelir) |
 | Makaleler | Herkese açık yayınlanır; **her makale** önce onaydan geçer |
-| Patch'ler | Ödül patch'lerinin hepsi lookstar19'a özel, gelecek LS19 görevlerine göre çizdirilir; gerçek görev patch'i ödül olarak kullanılmaz |
+| İlk görev dizisi | Tarihî görevler. Görevin lisansı doğrulanmış gerçek patch'i varsa ödül o; yoksa (lisans doğrulanamadı ya da görevin patch'i hiç yok) lookstar19 o görev için esinlenme bir patch çizdirir |
+| Sonraki diziler | Gelecek LS19 görevleri; patch'lerin hepsi lookstar19'a özel çizdirilir |
+| Gerçek görev patch'leri | Lisansı doğrulananlar kütüphanede, görev sayfalarında bilgi olarak da yer alır |
 | Patch'in iki biçimi | Koleksiyonda büyük haliyle görevin hikâyesiyle sergilenir; profilde, yorumlarda ve makalelerde küçük rozet olarak görünür |
+| Patch teslim biçimi | Her patch için vektör (SVG) ana dosya ve en az 1024×1024 PNG; rozet boyutları (64 ve 128 piksel) bunlardan otomatik üretilir |
 
 ## İlkeler
 
@@ -47,7 +50,7 @@ Süreler kabaca tahmindir (hobi temposu).
 
 ### Faz 0: Temel ve kararlar (1–2 hafta)
 
-- Alan adının uzantısını seçip almak; Vercel'e bağlamak.
+- `lookstar19.org` alan adını almak (önce boşta olduğu doğrulanır); Vercel'e bağlamak; e-posta gönderimi için alan adının SPF/DKIM kayıtları.
 - Depo yapısı: site ve simülasyon aynı depoda, site `site/` klasöründe. Ortak veri işlevleri (`api/`) ve çeviri altyapısı paylaşılır.
 - Bilgi mimarisi: Ana sayfa · Kütüphane · Veri Atölyesi · Fırlatmalar · Makaleler · 3B Arşiv · Patch'ler · Simülasyon.
 - Tasarım dili: renkler, yazı tipleri, bileşenler; LS19 arayüzüyle aynı aile.
@@ -85,7 +88,7 @@ Süreler kabaca tahmindir (hobi temposu).
 ### Faz 4: Hesaplar, makaleler ve onay (6–8 hafta)
 
 - **Giriş:** GitHub, Google ve e-posta.
-  - E-posta için parolasız, tek kullanımlık bağlantı önerilir: parola saklanmaz, sızma riski azalır. Bunun için bir e-posta gönderme servisi gerekir.
+  - E-posta parolasız: kullanıcı adresini yazar, tek kullanımlık ve süreli (ör. 15 dk) bir giriş bağlantısı gelir. Parola saklanmaz. Bunun için `lookstar19.org` adresinden gönderen bir e-posta servisi gerekir; bağlantı isteğine adres ve IP başına sınır konur.
 - **Veritabanı:** Vercel'e bağlı Postgres (öneri); ayrı sunucu işletmek gerekmez.
 - **Makale editörü:** Markdown, LaTeX formülleri, kaynakça, şekil yükleme (Blob); varsayılan lisans CC BY 4.0.
 - **Onay akışı (her makale):**
@@ -100,13 +103,30 @@ Süreler kabaca tahmindir (hobi temposu).
 ### Faz 5: Puanlar, rozetler ve patch koleksiyonu (3–4 hafta)
 
 - **Puan, başkalarının onayladığı katkıdan gelir:** onaylanan makale; "yararlı" bulunan yorum; kabul edilen veri düzeltmesi ya da model katkısı. Tıklama ya da okuma puan getirmez. Günlük üst sınır olur; hileli puan geri alınabilir.
-- **Patch'ler (hepsi lookstar19'a özel):**
-  - her patch bir gelecek LS19 görevine bağlıdır (ör. "Ay iniş", "asteroit saptırma", "L2 halo");
+- **Patch'ler ve görev dizileri:**
   - patch'ler görev dizileri halinde açılır: bir dizinin kilometre taşlarını geçen o görevin patch'ini kazanır;
+  - **ilk dizi: tarihî görevler** (aşağıda "İlk görev dizisi");
+  - sonraki diziler gelecek LS19 görevleri (ör. "Ay iniş", "asteroit saptırma", "L2 halo"); bunların patch'lerinin hepsi lookstar19'a özel çizilir;
   - **koleksiyon:** patch büyük haliyle, görevin hikâyesi ve kazanma tarihiyle sergilenir; kazanılmamışlar silik görünür;
   - **rozet:** aynı patch'in küçük hali; profilde, yorumlarda ve makale imzasında görünür; kullanıcı vitrinde hangilerini göstereceğini seçer.
-- **Patch üretim hattı:** çizim teslim biçimi (aşağıda "Açık kararlar"), dosyalar depoda ya da Blob'da sürümlü. Her patch'in kaydında ad, görev, hikâye, kazanma koşulu ve çizim tarihi tutulur.
+- **Patch kaydı:** her patch'in ad, görev, hikâye, kazanma koşulu, kaynak türü (gerçek ve lisanslı / lookstar19 esinlenme / lookstar19 özgün), lisans ve atıf, çizim tarihi bilgisi tutulur. Dosyalar sürümlü (depo ya da Blob).
+- **Teslim:** SVG ana dosya ve en az 1024×1024 PNG; 64 ve 128 piksellik rozetler otomatik üretilir.
 - **Bitti sayılır:** ilk görev dizisi ve patch'leri yayında; puan kuralları ve kazanma koşulları herkese açık sayfada yazılı.
+
+### İlk görev dizisi: tarihî görevler
+
+- **Gerçek patch:** görevin patch'i varsa ve lisansı ödül/rozet olarak kullanmaya izin veriyorsa, ödül o patch'tir. Kaynağı ve lisansı patch'in kaydında ve sayfasında yazar.
+- **Esinlenme patch:** lisans doğrulanamazsa ya da görevin patch'i hiç yoksa, lookstar19 o görev için kendi patch'ini çizdirir; bir oyunun gerçek araçlardan esinlenip markasız kendi araçlarını yapması gibi. Tarihî görevlerin bir kısmının resmî patch'i hiç yoktu: ilk Mercury uçuşları, Sputnik, Vostok. Çizim kuralları:
+  - görev, olgularıyla tanınır: araç silueti, hedef (Ay, yörünge, gezegen), mürettebat sayısı, yıl, önemli an;
+  - kurum logoları ve mühürleri (NASA, ESA, Roscosmos vb.), şirket markaları ve gerçek patch'in ayırt edici çizimi kullanılmaz; tasarım gerçek patch'le karıştırılmayacak kadar farklı ve özgün olur;
+  - görevin adı olgu olarak yazılabilir (ör. "Apollo 11"); her esinlenme patch'in sayfasında "lookstar19 tasarımı; resmî görev patch'i değildir" yazar.
+- **Dizi önerisi:** LS19'da karşılığı olan görevlerle başlamak. Kilometre taşı hem sitede (okuma ya da yazma katkısı) hem simülasyonda olabilir:
+  - Sputnik 1, Vostok 1, Mercury (Friendship 7): yörünge çağının başlangıcı;
+  - Apollo 8, Apollo 11, Apollo 13: LS19 Ay görevi ("Apollo 11 inişini LS19'da tamamla");
+  - Voyager 1, Viking 1, Hubble;
+  - DART: LS19 asteroit saptırma deneyi;
+  - JWST: LS19 Lagrange deneyi (L2).
+- **Lisans doğrulama süreci:** her gerçek patch için kaynak, lisans metni ve kullanım koşulu bir kayıtta tutulur; belirsizse esinlenme patch'e geçilir.
 
 ### Faz 6: 3B Arşiv (ilk sürüm 3 hafta, sonra sürekli)
 
@@ -127,8 +147,5 @@ Süreler kabaca tahmindir (hobi temposu).
 
 ## Açık kararlar
 
-1. **Alan adının uzantısı:** `.com`, `.org` ya da `.space` (ticari olmayan bir kütüphane için `.org` iyi uyar). Önce hangilerinin boşta olduğuna bakmak gerekiyor.
-2. **E-posta girişi:** parolasız tek kullanımlık bağlantı (önerilen) mı, parola mı?
-3. **Gerçek görev patch'leri:** ödül değiller. Kütüphanede, görev sayfalarında bilgi olarak (lisansı doğrulananlar) yer alsınlar mı, yoksa hiç olmasınlar mı?
-4. **Patch çizim teslim biçimi:** önerim, her patch için vektör (SVG) ana dosya ve en az 1024×1024 PNG. Rozet boyutları (ör. 64 ve 128 piksel) bunlardan otomatik üretilir.
-5. **İlk görev dizisi:** hangi gelecek LS19 görevleriyle başlanacak.
+1. **İlk görev dizisinin kesin listesi ve kilometre taşları:** yukarıdaki öneri üzerinden.
+2. **Esinlenme patch'lerin çizimi:** kim çizecek; çizimler bir tasarım dili (renk paleti, biçim, yazı) altında birlikte mi tasarlanacak?
