@@ -3,6 +3,7 @@ import data from '../data/asteroids.json';
 
 export const RETRIEVED = data.retrieved;
 export const OBJECTS = data.objects;
+export const CAD = data.cad;                                                // yakın geçiş sorgusu: { maxAu, range, body }
 export const byId = (id) => OBJECTS.find((o) => o.id === id) || null;
 const AU_KM = 149597870.7;
 export const auKm = (au) => (au == null ? null : au * AU_KM);

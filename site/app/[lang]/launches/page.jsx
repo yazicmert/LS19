@@ -3,7 +3,7 @@ import Masthead from '@/components/Masthead';
 import { pageMeta } from '@/lib/seo';
 import Footer from '@/components/Footer';
 import NextLaunch from '@/components/NextLaunch';
-import { t, dateTime } from '@/lib/i18n';
+import { t, netLabel } from '@/lib/i18n';
 import { getUpcoming, nextLaunch } from '@/lib/launches';
 import { LS19_URL } from '@/lib/config';
 import { ArrowOut, Play } from '@/components/Icon';
@@ -30,7 +30,7 @@ export default async function Launches({ params }) {
                 const s = l.streams.find((x) => x.official) || l.streams[0];
                 return (
                   <li key={l.id} className="lch__row">
-                    <p className="lch__net mono">{dateTime(lang, l.net)}</p>
+                    <p className="lch__net mono">{netLabel(lang, l.net, l.precision)}</p>
                     <div className="lch__body">
                       <h2 className="lch__name">{l.mission.name || l.name}</h2>
                       <p className="lch__meta">{[l.vehicle, l.provider].filter(Boolean).join(' · ')}</p>

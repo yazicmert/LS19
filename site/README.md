@@ -11,7 +11,21 @@ npm run build      # önce scripts/modeller.mjs: 33 GLB modeli sürüm paketinde
 npx next start
 ```
 
-`npm run dev` geliştirme sunucusu. `npm run veri` asteroit verisini JPL SBDB'den yeniler (`data/asteroids.json`; sonra commit).
+`npm run dev` geliştirme sunucusu. `npm run veri` asteroit verisini yeniler (`data/asteroids.json`; sonra commit).
+
+## Veri
+
+| Kaynak | Ne | Güvenilirlik bilgisi |
+|---|---|---|
+| JPL SBDB API | yörünge elementleri, fiziksel veri | her elementin 1σ belirsizliği; çözüm no ve tarihi, gözlem sayısı (optik, radar), gözlem aralığı, artık RMS, belirsizlik parametresi U |
+| JPL CAD API | Dünya'ya 0,2 au'dan yakın geçişler, 1900–2200 | nominal uzaklık ve 3σ aralığı, zaman belirsizliği (3σ) |
+| JPL Sentry API | çarpma riski (yalnız NEO) | listede (olasılık, Palermo, Torino, olası çarpma sayısı, hesap tarihi), listeden çıkarılmış (tarih) ya da hiç listelenmemiş |
+| Launch Library 2 | yaklaşan fırlatmalar (ISR, 30 dk) | zaman yalnız kaynağın kesinliğinde (ay, çeyrek, saat, dakika); geri sayım yalnız saati bilinen fırlatmaya; kaynak kaydının güncellenme zamanı |
+
+`scripts/asteroitler.mjs` yazmadan önce her kaydı doğrular (`lib/jpl.js`: q = a(1−e), Kepler dönemi, 3σ aralığı, Sentry özeti) ve önceki
+dosyayla karşılaştırır: aynı çözümde element kayması, cisim kaybı ya da %0,1'den büyük yarı büyük eksen değişimi yazmayı durdurur.
+`.github/workflows/site-veri.yml` her pazartesi yeniler; alınma tarihinden fazlası değiştiyse değişiklik raporuyla PR açar
+(yeni yörünge çözümleri, Sentry durum değişimleri kalın). Doğrulama başarısız olursa iş kırmızı olur.
 
 ## Vercel
 
