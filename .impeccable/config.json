@@ -14,5 +14,12 @@
         "reason": "CANLI göstergesi gerçek zamanlı saate bağlı; veri kesilince durur (.live.off) ve azaltılmış harekette kapanır"
       }
     ]
+  },
+  "hook": {
+    "enabled": true,
+    "limits": {
+      "maxFindings": 5,
+      "maxChars": 8000
+    }
   }
 }
