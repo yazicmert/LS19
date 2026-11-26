@@ -119,6 +119,57 @@ export function treeGeo(THREE, kind) {
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   return g;
 }
+// Uzak biçimler (ekranda FAR_PX pikselden kısa bitkiler): tam biçimin tacı yerine tek parça, yandan görünen alanı tam biçiminkine eşit (uzakta ağaç
+// örtüsü seyrelmesin); köşe gölgesi tam biçimdeki gibi (altı koyu, üstü açık).
+// İğne yapraklı: dört yüzlü piramit (4 üçgen; tam 34). Geniş yapraklı ve çalı: tek yirmiyüzlü yumru (20 üçgen; tam 130 ve 40). 8 pikselde gövde
+// (≤ 0,4 piksel) ve yumruların ayrıntısı seçilmez.
+export const FAR_PX = 8;
+export function farTreeGeo(THREE, kind) {
+  const pos = [], nor = [], col = [];
+  const tri = (a, b, c, na, nb, nc, ca, cb, cc) => { pos.push(...a, ...b, ...c); nor.push(...na, ...nb, ...nc); col.push(...ca, ...cb, ...cc); };
+  const unit = (v) => { const l = Math.hypot(...v) || 1; return v.map((x) => x / l); };
+  if (kind === 'conifer') {
+    const y0 = 0.14, top = [0, 1.0, 0], r = 0.5, base = [0, 1, 2, 3].map((i) => [r * Math.cos(i * Math.PI / 2 + Math.PI / 4), y0, r * Math.sin(i * Math.PI / 2 + Math.PI / 4)]);
+    const cb = [0.46, 0.5, 0.45], ct = [1.1, 1.2, 1.08];
+    const sub = (p, q) => [p[0] - q[0], p[1] - q[1], p[2] - q[2]], cross = (p, q) => [p[1] * q[2] - p[2] * q[1], p[2] * q[0] - p[0] * q[2], p[0] * q[1] - p[1] * q[0]];
+    for (let i = 0; i < 4; i++) {
+      let a = base[i], b = base[(i + 1) % 4], n = unit(cross(sub(top, a), sub(b, a)));
+      if (n[0] * (a[0] + b[0]) + n[2] * (a[2] + b[2]) < 0) { [a, b] = [b, a]; n = n.map((x) => -x); }      // dışa bakan yüz (ön yüz sarımı)
+      tri(a, top, b, n, n, n, cb, ct, cb);
+    }
+  } else {
+    // tek yumru: yirmiyüzlü (tam biçimdeki yumruların gövdesi, ayrıntı 0); sekizyüzlü küçük boyda bile köşeli baklava gibi görünüyordu
+    const [cx, cy, cz, rx, ry] = kind === 'bush' ? [0.12, 0.4, 0.07, 0.8, 0.46] : [0, 0.62, 0, 0.5, 0.41];      // yandan görünen alan yumruların toplamına yakın
+    const ico = new THREE.IcosahedronGeometry(1, 0), P = ico.attributes.position;
+    for (let i = 0; i < P.count; i += 3) {
+      const v = [0, 1, 2].map((k) => [P.getX(i + k), P.getY(i + k), P.getZ(i + k)]), at = (u) => [cx + u[0] * rx, cy + u[1] * ry, cz + u[2] * rx];
+      const C = (u) => { const t = (u[1] + 1) / 2, k = 0.55 + 0.6 * t; return [k, k, k * 0.95]; };
+      tri(at(v[0]), at(v[1]), at(v[2]), v[0], v[1], v[2], C(v[0]), C(v[1]), C(v[2]));          // normal merkezden dışa (yumuşak, tam biçimdeki yumru gibi)
+    }
+    ico.dispose();
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return g;
+}
+// Bitkileri kümelere ayır: 0 yakın (tam biçim), 1 uzak (farTreeGeo, ekrandaki boyu farPx'ten kısa), 2 görüş alanı dışında (çizilmez). Örneklenmiş ağ
+// örnek başına görüş alanı denetimi yapmaz: tele kamerada (geri sayım, 4,5°) bitkilerin çoğu kadraj dışındayken yine de işleniyordu.
+// S: { n, pos (taç merkezi x,y,z ×n, m), h (boy, m), st (Uint8: şimdiki küme) }; c: kameranın bitki grubundaki konumu (m); K: piksel/radyan;
+// planes: görüş alanı düzlemleri (bitki grubunun çerçevesinde, normalleri birim: { x, y, z, w }) ya da null; mv (m) ve ang (rad): bir sonraki yeniden
+// dağıtıma dek kameranın yer değiştirmesi ve dönmesi için pay (kadraj kenarında bitki kaybolmasın). Dönüş: kümesi değişen bitki sayısı.
+export function splitByPx(S, c, K, planes = null, mv = 0, ang = 0, farPx = FAR_PX) {
+  let changed = 0;
+  for (let i = 0; i < S.n; i++) {
+    const x = S.pos[3 * i], y = S.pos[3 * i + 1], z = S.pos[3 * i + 2], dx = x - c[0], dy = y - c[1], dz = z - c[2], d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    let f = S.h[i] * K < farPx * d ? 1 : 0;                                              // ekrandaki boy h·K/d < farPx
+    if (planes) {
+      const m = 0.8 * S.h[i] + mv + d * ang;                                             // taç yarıçapı (< 0,8 boy) + pay
+      for (const P of planes) if (P.x * x + P.y * y + P.z * z + P.w < -m) { f = 2; break; }
+    }
+    if (f !== S.st[i]) { S.st[i] = f; changed++; }
+  }
+  return changed;
+}
 // bitkileri iş parçacığından aktarmak için paketle (Float32Array, bitki başına 6 sayı: x, z, s, v, tür, koni). build'in sınırları (MAX_TREES/MAX_BUSHES,
 // sırayla) burada da uygulanır: build aynı bitkileri aynı sırayla görür, aktarılan dizi küçük kalır
 const KINDS = ['wood', 'scrub', 'wetland'];
@@ -155,20 +206,25 @@ export class OsmNature {
       sets[tree ? (q.cone ? 'cone' : 'ball') : 'bush'].push({ ...q, h, w: tree ? h * (q.cone ? 0.75 : 1.0) : h * 1.5 });
     }
     const m4 = new THREE.Matrix4(), c = new THREE.Color(), quat = new THREE.Quaternion(), sc = new THREE.Vector3(), ps = new THREE.Vector3();
-    for (const [k, geo] of [['cone', cone], ['ball', ball], ['bush', bush]]) {
+    // her tür iki örneklenmiş ağ: yakın (tam biçim) ve uzak (farTreeGeo); aynı malzeme (tek gölgelendirici programı). Bitkiler ekrandaki boyuna göre
+    // ikisine dağıtılır (lod; kamera yer değiştirince). Örnek verisi (matris, renk, konum, boy) burada saklanır.
+    this.sets = [];
+    for (const [k, geo, far] of [['cone', cone, 'conifer'], ['ball', ball, 'broadleaf'], ['bush', bush, 'bush']]) {
       const L = sets[k]; if (!L.length) { geo.dispose(); continue; }
-      const im = new THREE.InstancedMesh(geo, mat(), L.length);
+      const n = L.length, m = mat(), near = new THREE.InstancedMesh(geo, m, n), farM = new THREE.InstancedMesh(farTreeGeo(THREE, far), m, n);
+      const S = { n, near, farM, mat: new Float32Array(16 * n), col: new Float32Array(3 * n), pos: new Float32Array(3 * n), h: new Float32Array(n), st: new Uint8Array(n) };
       L.forEach((q, i) => {
         quat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), q.v * 6.283); sc.set(q.w, q.h, q.w); ps.set(q.x, gy(q.x, q.z), q.z);
-        im.setMatrixAt(i, m4.compose(ps, quat, sc));
+        m4.compose(ps, quat, sc).toArray(S.mat, 16 * i); S.pos[3 * i] = ps.x; S.pos[3 * i + 1] = ps.y + 0.5 * q.h; S.pos[3 * i + 2] = ps.z; S.h[i] = q.h;
         const smp = ground && ground.sample ? ground.sample(...ll(q.x, q.z), 1) : null;           // uydu görüntüsünden yeşil (çok açıksa/griyse varsayılan)
         const ok = smp && smp[1] >= smp[0] * 0.92 && smp[1] >= smp[2] && smp[1] < 0.75;
         if (ok) c.setRGB(smp[0] * 0.9, smp[1] * 0.95, smp[2] * 0.85, THREE.SRGBColorSpace); else c.setRGB(0.16 + 0.08 * q.v, 0.27 + 0.1 * q.v, 0.12, THREE.SRGBColorSpace);
-        c.multiplyScalar(0.85 + 0.3 * q.s); im.setColorAt(i, c);
+        c.multiplyScalar(0.85 + 0.3 * q.s); c.toArray(S.col, 3 * i);
       });
-      im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true;
-      im.frustumCulled = false; this.group.add(im);
+      for (const im of [near, farM]) { im.setColorAt(0, c); im.frustumCulled = false; this.group.add(im); }       // setColorAt: instanceColor özniteliği kurulur
+      this.fill(S); this.sets.push(S);
     }
+    this.lodKey = null;
     // su: her çokgen düz yüzey (çokgenin orta noktasındaki zemin yüksekliği + 0,15 m), tek birleştirilmiş geometri
     const pos = [];
     for (const p of this.polys) {
@@ -186,9 +242,11 @@ export class OsmNature {
     }
   }
   // her kare: pad (rampa grubu; eksenler dünyada), Güneş yönü (dünya), gündüz oranı, gerçek zaman adımı (s), kamera irtifası (km)
-  frame({ pad, sunDir, day = 1, dt = 0, camH = 0 }) {
+  // camera, Hpx (çizim tamponu yüksekliği, piksel): ayrıntı düzeyi (lod) için; verilmezse bitkiler tam biçimde kalır
+  frame({ pad, sunDir, day = 1, dt = 0, camH = 0, camera = null, Hpx = 0 }) {
     this.t += dt; this.group.visible = this.visible !== false;
     for (const ch of this.group.children) if (ch.isInstancedMesh) ch.visible = camH < 15;           // 15 km'den yukarıda ağaçlar piksel altı
+    if (camera && Hpx && camH < 15 && this.group.visible) this.lod(camera, Hpx);
     if (!this.water || !pad) return;
     const U = this.water.material.uniforms, e = pad.matrixWorld.elements;
     U.eW.value.set(e[0], e[1], e[2]).normalize(); U.upW.value.set(e[4], e[5], e[6]).normalize(); U.sW.value.set(e[8], e[9], e[10]).normalize();
@@ -196,6 +254,29 @@ export class OsmNature {
     if (sunDir) U.sunDir.value.set(sunDir[0], sunDir[1], sunDir[2]); U.day.value = day; U.time.value = this.t;
     U.fade.value = 1 - Math.min(1, Math.max(0, (camH - 1.2) / 3.8)); this.water.visible = U.fade.value > 0.01;   // 1,2 → 5 km arasında söner: yüksekten yalnız uydu görüntüsü
   }
-  clear() { for (const ch of [...this.group.children]) { this.group.remove(ch); ch.geometry.dispose(); ch.material.dispose(); } this.water = null; }
+  // kümeleri örneklenmiş ağlara yaz (S.st: 0 yakın, 1 uzak, 2 çizilmez)
+  fill(S) {
+    const A = [S.near, S.farM], cnt = [0, 0];
+    for (let i = 0; i < S.n; i++) {
+      const f = S.st[i]; if (f > 1) continue;
+      const im = A[f], j = cnt[f]++;
+      im.instanceMatrix.array.set(S.mat.subarray(16 * i, 16 * i + 16), 16 * j); im.instanceColor.array.set(S.col.subarray(3 * i, 3 * i + 3), 3 * j);
+    }
+    for (let f = 0; f < 2; f++) { const im = A[f]; im.count = cnt[f]; im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true; }
+  }
+  // ayrıntı düzeyi ve görüş alanı: kamera MOVE metreden çok yer değiştirdiyse, payın yarısından çok döndüyse ya da görüş açısı/çözünürlük %2'den çok
+  // değiştiyse yeniden dağıt; küme değişmediyse ekran kartına yükleme yok. Pay: görüş açısının %10'u (en az 0,01 rad) dönme, MOVE metre yer değiştirme.
+  lod(camera, Hpx) {
+    const THREE = this.T, v = this._lv || (this._lv = new THREE.Vector3()), q = this._lq || (this._lq = new THREE.Quaternion());
+    this.group.updateWorldMatrix(true, false); camera.updateMatrixWorld(); camera.getWorldPosition(v); camera.getWorldQuaternion(q); this.group.worldToLocal(v);
+    const MOVE = 5, fovR = camera.fov * Math.PI / 180, ang = Math.max(0.01, 0.1 * fovR), K = Hpx / 2 / Math.tan(fovR / 2), k = this.lodKey;
+    if (k && Math.hypot(v.x - k.x, v.y - k.y, v.z - k.z) < MOVE && Math.abs(K / k.K - 1) < 0.02 && q.angleTo(k.q) < ang / 2) return;
+    this.lodKey = { x: v.x, y: v.y, z: v.z, K, q: q.clone() };
+    const fr = this._fr || (this._fr = new THREE.Frustum()), M = this._fm || (this._fm = new THREE.Matrix4());
+    fr.setFromProjectionMatrix(M.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse).multiply(this.group.matrixWorld));
+    const planes = fr.planes.map((P) => { const L = P.normal.length(); return { x: P.normal.x / L, y: P.normal.y / L, z: P.normal.z / L, w: P.constant / L }; });
+    for (const S of this.sets || []) if (splitByPx(S, [v.x, v.y, v.z], K, planes, MOVE, ang)) this.fill(S);
+  }
+  clear() { const mats = new Set(); for (const ch of [...this.group.children]) { this.group.remove(ch); ch.geometry.dispose(); mats.add(ch.material); } for (const m of mats) m.dispose(); this.water = null; this.sets = []; }
   dispose() { this.clear(); if (this.group.parent) this.group.parent.remove(this.group); }
 }

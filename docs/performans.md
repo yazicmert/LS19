@@ -854,3 +854,40 @@ Sınama: `test_bodyband.js`.
 - Rastgele 3.000 kamera konumunda (kabartma kabuğunun içi dahil) kameradan görülebilen ~20.000 yüzey noktasının hepsi çizilen yamalarda.
 - Ay'a ekvatordan 9.000 km: ağın %59'u (16 çağrı); 185 km park yörüngesinde Dünya: %2,3 (4 çağrı).
 - `test_kurelod.js`: yama paylaşımı ve sahne sözleşmesi.
+
+**Ek 15: kalkış sahnesinin bitkileri: görüş alanı ve uzak biçim.** Rampa çevresindeki 22.163 bitki üç örneklenmiş ağla, hepsi tam biçimde çiziliyordu:
+- yapraklı ağaç 4.464 × 130 üçgen;
+- iğne yapraklı 3.699 × 34 üçgen;
+- çalı 14.000 × 40 üçgen.
+
+Toplam ~1,27 milyon üçgen, sahnenin (1,61 milyon) %79'u. Örneklenmiş ağ örnek başına görüş alanı denetimi yapmaz. Geri sayımdaki helikopter çekimi 2,7 km'den 4,5°'lik bir tele objektif; bitkilerin çoğu kadraj dışındayken yine de işleniyordu. Geniş kamerada ise uzaktaki bitkiler 1–5 piksel boyunda.
+
+Düzeltme: `osmnature.js`, `ascentview.js`.
+
+- **Kümeler (`splitByPx`):** her bitki üç kümeden birine girer. Görüş alanı dışı (çizilmez); ekranda 8 pikselden (`FAR_PX`) kısa (uzak biçim); öbürleri tam biçim.
+  - Görüş alanı denetimi payla yapılır: taç yarıçapı (0,8 boy) + 5 m yer değiştirme + görüş açısının %10'u (en az 0,01 rad) dönme. Kadraj kenarında bitki kaybolmaz.
+  - Yeniden dağıtım yalnız kamera 5 m'den çok yer değiştirince, payın yarısından çok dönünce ya da görüş açısı/çözünürlük %2'den çok değişince yapılır. Kümesi değişen bitki yoksa ekran kartına yükleme yok. 22.000 bitki için ortanca 0,6 ms, en çok 4,1 ms.
+- **Uzak biçimler (`farTreeGeo`):** iğne yapraklıda dört yüzlü piramit (4 üçgen); yapraklı ağaç ve çalıda tek yirmiyüzlü yumru (20 üçgen). Yandan görünen alan ve gölge tonu (altı koyu, üstü açık) tam biçime göre ayarlı.
+  - İlk denemede sekizyüzlü (8 üçgen) kullanıldı. Aynı karede karşılaştırınca uzak çalılar köşeli baklava gibi göründü; yirmiyüzlüye geçildi.
+- Her tür iki örneklenmiş ağ (yakın + uzak), aynı malzeme; ek gölgelendirici programı yok.
+
+Ölçüm: tarayıcıda (yazılımla çizim), main ile yan yana.
+
+| | Önce: üçgen · kare/sn | Sonra: üçgen · kare/sn |
+|---|---|---|
+| Geri sayım (tele helikopter, 4,5°) | 1.607.599 · 0,46 | **472.743 · 0,52** |
+| Kalkış, rampa kamerası (46°) | 1.610.277 · 0,62 | **517.903 · 0,87** |
+
+Geri sayımdaki kazanç az, çünkü bu çekimde maliyetin çoğu zeminin piksel gölgelendiricisinde.
+
+Görüntü, aynı JS adımında iki kez çizilerek karşılaştırıldı (iki çizim arası fark 0):
+- Görüş alanı kırpmanın etkisi 0 piksel.
+- Uzak biçimin etkisi: 1.024.000 pikselin %0,9'u 24 düzeyden fazla farklı. Fark uzak çalılarda; iki yumru yerine tek yumru.
+
+Yer izleme ve sonraki tele çekimler gökyüzüne baktığı için bitki çizilmiyor.
+
+Sınama: `test_bitkilod.js`.
+
+- Uzak biçimler: üçgen sayısı, dışa bakan yüzler, boy, öznitelikler.
+- `splitByPx`: boy eşiği, görüş alanı dışı ve payları, değişmeyince 0.
+- `OsmNature`: kurulum ve lod; geniş ve tele kamerada kümeler; ağlara doğru yazım; kamera kıpırdamazsa yeniden dağıtılmaz.
