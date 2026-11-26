@@ -7,7 +7,7 @@ const rules = {
   'no-unused-vars': ['error', { vars: 'all', args: 'none', caughtErrors: 'none', varsIgnorePattern: '^_', ignoreRestSiblings: true }],
 };
 export default [
-  { ignores: ['web/lib/**', 'node_modules/**', 'pylib/**', 'web/data/**', 'web/models/**'] },
+  { ignores: ['site/**', 'web/lib/**', 'node_modules/**', 'pylib/**', 'web/data/**', 'web/models/**'] },
   { files: ['web/js/**/*.js'], languageOptions: { ecmaVersion: 2023, sourceType: 'module', globals: { ...globals.browser, ...globals.worker } }, rules },
   { files: ['api/**/*.js', 'web/test/**/*.js', 'web/test/**/*.mjs', '*.mjs'], languageOptions: { ecmaVersion: 2023, sourceType: 'module', globals: { ...globals.node } }, rules },
   // araçlar: Node betikleri; Playwright ile çalışanların page.evaluate gövdeleri tarayıcıda koşar

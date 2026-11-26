@@ -1,0 +1,190 @@
+{
+ "schemaVersion": 2,
+ "generatedAt": "2026-11-26T21:17:07Z",
+ "title": "Design System: lookstar19",
+ "extensions": {
+  "colorMeta": {
+   "cobalt": {
+    "role": "primary",
+    "displayName": "Cobalt",
+    "canonical": "#1d3fd6",
+    "tonalRamp": [
+     "#0a1550",
+     "#10237f",
+     "#142d9e",
+     "#1d3fd6",
+     "#4a66e0",
+     "#7b8fe9",
+     "#c7d2ff",
+     "#eef1ff"
+    ]
+   },
+   "paper": {
+    "role": "neutral",
+    "displayName": "Cool Paper",
+    "canonical": "#f2f4f6",
+    "tonalRamp": [
+     "#1e2227",
+     "#3a4148",
+     "#5b646d",
+     "#8a939c",
+     "#c3c9d0",
+     "#e6e9ed",
+     "#f2f4f6",
+     "#fbfcfd"
+    ]
+   },
+   "ink": {
+    "role": "neutral",
+    "displayName": "Ink",
+    "canonical": "#0e1216",
+    "tonalRamp": [
+     "#0e1216",
+     "#1f262d",
+     "#323b44",
+     "#4b545d",
+     "#6b747d",
+     "#8f979f",
+     "#b8bec5",
+     "#e2e5e9"
+    ]
+   }
+  },
+  "typographyMeta": {
+   "wordmark": {
+    "displayName": "Wordmark",
+    "purpose": "Masthead only; Archivo at width 62."
+   },
+   "display": {
+    "displayName": "Display",
+    "purpose": "Object names and page titles; width 64-68."
+   },
+   "headline": {
+    "displayName": "Headline",
+    "purpose": "Section titles on a 3px ink rule; width 70."
+   },
+   "data": {
+    "displayName": "Data",
+    "purpose": "Measured values, units, dates, designations; tabular figures."
+   }
+  },
+  "shadows": [],
+  "motion": [
+   {
+    "name": "ease-out-expo",
+    "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+    "purpose": "Element-block rows printing in (0.5s, 40ms stagger) and button fills (160ms)."
+   }
+  ],
+  "breakpoints": [
+   {
+    "name": "stack",
+    "value": "900px"
+   },
+   {
+    "name": "compact",
+    "value": "600px"
+   }
+  ]
+ },
+ "components": [
+  {
+   "name": "Cobalt Button",
+   "kind": "button",
+   "refersTo": "button-cobalt",
+   "description": "Primary action on paper.",
+   "html": "<a class=\"ds-btn-cobalt\" href=\"#\">Open in LS19<svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><path d=\"M5 3h8v8M13 3 3 13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"square\"/></svg></a>",
+   "css": ".ds-btn-cobalt{display:inline-flex;align-items:center;gap:6px;font:700 16px Archivo,system-ui,sans-serif;font-variation-settings:'wdth' 88;text-decoration:none;padding:12px 18px;border:2px solid #1d3fd6;background:#1d3fd6;color:#fff;border-radius:0;transition:background-color 160ms cubic-bezier(.16,1,.3,1)}.ds-btn-cobalt:hover{background:#142d9e;border-color:#142d9e}.ds-btn-cobalt:focus-visible{outline:2px solid #1d3fd6;outline-offset:3px}"
+  },
+  {
+   "name": "Ink Button",
+   "kind": "button",
+   "refersTo": "button-ink",
+   "description": "Secondary action on paper.",
+   "html": "<a class=\"ds-btn-ink\" href=\"#\">Full record</a>",
+   "css": ".ds-btn-ink{display:inline-flex;align-items:center;font:700 16px Archivo,system-ui,sans-serif;text-decoration:none;padding:12px 18px;border:2px solid #0e1216;color:#0e1216;background:transparent;border-radius:0;transition:background-color 160ms,color 160ms}.ds-btn-ink:hover{background:#0e1216;color:#f2f4f6}.ds-btn-ink:focus-visible{outline:2px solid #1d3fd6;outline-offset:3px}"
+  },
+  {
+   "name": "Lookup Field",
+   "kind": "input",
+   "refersTo": "input-lookup",
+   "description": "Find-an-object field; mono, ink border, cobalt caret.",
+   "html": "<label class=\"ds-look\"><span>Find an object</span><input type=\"search\" placeholder=\"e.g. Apophis, 433, Bennu\"></label>",
+   "css": ".ds-look span{display:block;font:700 15px Archivo,system-ui,sans-serif;margin-bottom:8px;color:#0e1216}.ds-look input{width:100%;font:400 18px 'Fragment Mono',ui-monospace,monospace;color:#0e1216;background:#fff;border:2px solid #0e1216;border-radius:0;padding:13px 14px;caret-color:#1d3fd6}.ds-look input:focus-visible{outline:none;border-color:#1d3fd6;box-shadow:inset 0 0 0 1px #1d3fd6}"
+  },
+  {
+   "name": "Flags",
+   "kind": "chip",
+   "refersTo": "flag",
+   "description": "NEO (outlined) and Potentially hazardous (ink).",
+   "html": "<span class=\"ds-flag\">NEO</span> <span class=\"ds-flag ds-flag--ink\">Potentially hazardous</span>",
+   "css": ".ds-flag{display:inline-block;font:400 12px 'Fragment Mono',ui-monospace,monospace;line-height:1;padding:4px 6px;border:1px solid #0e1216;color:#0e1216}.ds-flag--ink{background:#0e1216;color:#f2f4f6}"
+  },
+  {
+   "name": "Element Block",
+   "kind": "custom",
+   "refersTo": "element-block",
+   "description": "Signature: symbol, label, value, unit rows on hairlines.",
+   "html": "<div class=\"ds-el\"><p>Orbit · Epoch 2026-06-09 TDB</p><dl><div><dt><i>a</i>Semi-major axis</dt><dd>0.922359<small>au</small></dd></div><div><dt><i>e</i>Eccentricity</dt><dd>0.191149</dd></div><div><dt><i>MOID</i>Earth MOID</dt><dd>0.0001079<small>au</small></dd></div></dl></div>",
+   "css": ".ds-el{font:400 15px Archivo,system-ui,sans-serif;color:#4b545d}.ds-el p{margin:0 0 6px;font-weight:700;color:#0e1216;padding-bottom:6px;border-bottom:2px solid #0e1216}.ds-el dl{margin:0}.ds-el dl div{display:grid;grid-template-columns:1fr auto;gap:16px;padding:7px 0;border-bottom:1px solid #c3c9d0}.ds-el dt i{font:normal 400 15px 'Fragment Mono',monospace;color:#1d3fd6;display:inline-block;min-width:4.5ch;margin-right:12px}.ds-el dd{margin:0;font:400 16px 'Fragment Mono',monospace;color:#0e1216;font-variant-numeric:tabular-nums}.ds-el dd small{font-size:14px;color:#4b545d;margin-left:.6ch}"
+  },
+  {
+   "name": "Launch Block",
+   "kind": "custom",
+   "refersTo": "launch-block",
+   "description": "Signature: cobalt field with countdown and official-stream action.",
+   "html": "<div class=\"ds-nl\"><h3>Next launch</h3><p class=\"cd\"><span>T−</span>02:54:49</p><p class=\"nm\">Mission name</p><a href=\"#\">Watch the official stream</a></div>",
+   "css": ".ds-nl{background:#1d3fd6;color:#fff;border:2px solid #0e1216;padding:24px;font-family:Archivo,system-ui,sans-serif}.ds-nl h3{margin:0 0 12px;font-size:16px;font-weight:700;border-bottom:1px solid rgba(255,255,255,.55);padding-bottom:10px}.ds-nl .cd{margin:0;font:400 56px 'Fragment Mono',monospace;line-height:1}.ds-nl .cd span{font-size:.5em;color:#c7d2ff;margin-right:.3em}.ds-nl .nm{font-weight:750;font-size:24px;margin:12px 0}.ds-nl a{display:inline-block;background:#fff;color:#1d3fd6;border:2px solid #fff;padding:12px 18px;font-weight:700;text-decoration:none}.ds-nl a:hover{background:transparent;color:#fff}"
+  }
+ ],
+ "narrative": {
+  "northStar": "The Circular",
+  "overview": "lookstar19 is set like a minor-planet circular: every page is an issue that opens with a masthead (wordmark, issue number, date) and continues as dense, aligned element blocks and fixed-width columns. The page is a working publication, not a poster of one: navigation, the lookup field and the launch block all sit inside the circular's own grammar. One saturated cobalt owns whole regions (the masthead band, the next-launch block, the shape-model stage, the primary action), and everything else is near-black ink on a cool print white. Depth comes from rules, never from shadows: a heavy 3px ink rule closes the masthead and opens each section; 1px hairlines separate rows.",
+  "keyCharacteristics": [
+   "Masthead band in cobalt with a huge, condensed wordmark and the issue line set in monospace.",
+   "Element blocks: symbol, label, value, unit, right-aligned in tabular figures.",
+   "Rules instead of boxes; rectangles instead of cards; no shadow, glow or rounding anywhere.",
+   "Monospace only for data, measurements, dates and identifiers."
+  ],
+  "rules": [
+   {
+    "name": "The One Field Rule",
+    "body": "Cobalt appears as whole fields or as the single primary action in a region; a page never carries scattered cobalt accents on a neutral ground.",
+    "section": "colors"
+   },
+   {
+    "name": "The Paper Is Cool Rule",
+    "body": "The ground stays cool white; warming it toward cream drops the world into the category default.",
+    "section": "colors"
+   },
+   {
+    "name": "The Measured Mono Rule",
+    "body": "Monospace sets only what is measured or identified: numbers, units, dates, designations, the issue line. Prose and class names are never set in mono.",
+    "section": "typography"
+   },
+   {
+    "name": "The Rule Opens The Section Rule",
+    "body": "Every section begins with a 3px ink rule under its heading; nothing else marks a section's start.",
+    "section": "layout"
+   },
+   {
+    "name": "The No-Shadow Rule",
+    "body": "No box-shadow, glow or blur anywhere; an element that needs separation gets a rule or an ink border.",
+    "section": "elevation"
+   }
+  ],
+  "dos": [
+   "Do put every measured value in an element block or a table column, right-aligned, with its unit.",
+   "Do keep cobalt as whole fields or one primary action per region.",
+   "Do close the masthead and open each section with a 3px ink rule.",
+   "Do write a source line under every dataset or model."
+  ],
+  "donts": [
+   "Don't add shadows, glows, gradients or rounded cards.",
+   "Don't set prose, headings or class names in monospace.",
+   "Don't warm the paper toward cream or add a second accent color.",
+   "Don't place a small label above a heading; the heading carries itself.",
+   "Don't use agency logos, seals or insignia as decoration."
+  ]
+ }
+}

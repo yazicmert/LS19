@@ -1,0 +1,1920 @@
+{
+ "retrieved": "2026-11-26",
+ "source": "JPL Small-Body Database API (ssd-api.jpl.nasa.gov/sbdb.api)",
+ "objects": [
+  {
+   "id": "ceres",
+   "sstr": "1",
+   "des": "1",
+   "fullname": "1 Ceres (A801 AA)",
+   "name": "Ceres",
+   "number": 1,
+   "neo": false,
+   "pha": false,
+   "orbitClass": {
+    "code": "MBA",
+    "name": "Main-belt Asteroid"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 2.765552595034094,
+    "e": 0.07969229514816586,
+    "i": 10.58802780183462,
+    "om": 80.24862682043221,
+    "w": 73.29421453021587,
+    "ma": 274.4193463761342,
+    "q": 2.545159361382861,
+    "ad": 2.985945828685327,
+    "per": 1679.853119758983,
+    "n": 0.21430445064843
+   },
+   "moid": 1.58107,
+   "conditionCode": "0",
+   "dataArc": 9520,
+   "phys": {
+    "H": 3.34,
+    "diameter": 939.4,
+    "rotPer": 9.07417,
+    "albedo": 0.09,
+    "specB": "C",
+    "specT": "G",
+    "density": 2.162
+   },
+   "model": {
+    "key": "ceres",
+    "method": "spacecraft",
+    "textured": false,
+    "tris": 8000,
+    "radiusKm": 469.71435,
+    "dims": [
+     968.551,
+     966.2024,
+     899.503
+    ],
+    "source": {
+     "tr": "Dawn SPC modeli",
+     "en": "Dawn SPC shape model"
+    }
+   }
+  },
+  {
+   "id": "vesta",
+   "sstr": "4",
+   "des": "4",
+   "fullname": "4 Vesta (A807 FA)",
+   "name": "Vesta",
+   "number": 4,
+   "neo": false,
+   "pha": false,
+   "orbitClass": {
+    "code": "MBA",
+    "name": "Main-belt Asteroid"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 2.361365965127599,
+    "e": 0.09020374382834395,
+    "i": 7.143925545058711,
+    "om": 103.701293265032,
+    "w": 151.4686478221564,
+    "ma": 81.19015607686903,
+    "q": 2.148361914524259,
+    "ad": 2.574370015730939,
+    "per": 1325.389042911101,
+    "n": 0.2716183613599909
+   },
+   "moid": 1.13603,
+   "conditionCode": "0",
+   "dataArc": 25743,
+   "phys": {
+    "H": 3.25,
+    "diameter": 522.77,
+    "rotPer": 5.3421276322,
+    "albedo": 0.4228,
+    "specB": "V",
+    "specT": "V",
+    "density": 3.46
+   },
+   "model": {
+    "key": "vesta",
+    "method": "spacecraft",
+    "textured": true,
+    "tris": 20000,
+    "radiusKm": 261.50226,
+    "dims": [
+     573.213,
+     556.2153,
+     462.859
+    ],
+    "source": {
+     "tr": "NASA Eyes · Dawn (Preusker vd. 2016)",
+     "en": "NASA Eyes · Dawn (Preusker et al. 2016)"
+    }
+   }
+  },
+  {
+   "id": "psyche",
+   "sstr": "16",
+   "des": "16",
+   "fullname": "16 Psyche (A852 FA)",
+   "name": "Psyche",
+   "number": 16,
+   "neo": false,
+   "pha": false,
+   "orbitClass": {
+    "code": "MBA",
+    "name": "Main-belt Asteroid"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 2.925720466462538,
+    "e": 0.1349324738201893,
+    "i": 3.098749116151128,
+    "om": 149.9753859305033,
+    "w": 230.0326782748359,
+    "ma": 79.76939505329617,
+    "q": 2.53094576621639,
+    "ad": 3.320495166708687,
+    "per": 1827.87996016922,
+    "n": 0.1969494758105845
+   },
+   "moid": 1.53339,
+   "conditionCode": "0",
+   "dataArc": 14782,
+   "phys": {
+    "H": 6.2,
+    "diameter": 222,
+    "rotPer": 4.196,
+    "albedo": 0.1203,
+    "specB": "X",
+    "specT": "M",
+    "density": 4.172
+   },
+   "model": {
+    "key": "psyche",
+    "method": "radar",
+    "textured": true,
+    "tris": 7848,
+    "radiusKm": 111,
+    "dims": [
+     271.395,
+     232.545,
+     189.588
+    ],
+    "source": {
+     "tr": "NASA Eyes · Shepard vd. 2021 radar + uyarlamalı optik şekli; yüzey dokusu temsilî",
+     "en": "NASA Eyes · Shepard et al. 2021 radar + adaptive-optics shape; surface texture illustrative"
+    }
+   }
+  },
+  {
+   "id": "lutetia",
+   "sstr": "21",
+   "des": "21",
+   "fullname": "21 Lutetia (A852 VA)",
+   "name": "Lutetia",
+   "number": 21,
+   "neo": false,
+   "pha": false,
+   "orbitClass": {
+    "code": "MBA",
+    "name": "Main-belt Asteroid"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 2.434430742712361,
+    "e": 0.1647703512177245,
+    "i": 3.064452891064415,
+    "om": 80.83855721319993,
+    "w": 249.8802780888828,
+    "ma": 298.7726414605465,
+    "q": 2.033308734220419,
+    "ad": 2.835552751204303,
+    "per": 1387.377230256674,
+    "n": 0.2594824191639628
+   },
+   "moid": 1.02392,
+   "conditionCode": "0",
+   "dataArc": 58432,
+   "phys": {
+    "H": 7.48,
+    "diameter": 98,
+    "rotPer": 8.1655,
+    "albedo": 0.19,
+    "specB": "Xk",
+    "specT": "M",
+    "density": 3.4
+   },
+   "model": {
+    "key": "lutetia",
+    "method": "spacecraft",
+    "textured": false,
+    "tris": 2962,
+    "radiusKm": 49.07724,
+    "dims": [
+     111.3563,
+     120.3374,
+     84.3147
+    ],
+    "source": {
+     "tr": "Rosetta OSIRIS modeli",
+     "en": "Rosetta OSIRIS shape model"
+    }
+   }
+  },
+  {
+   "id": "kleopatra",
+   "sstr": "216",
+   "des": "216",
+   "fullname": "216 Kleopatra (A880 GB)",
+   "name": "Kleopatra",
+   "number": 216,
+   "neo": false,
+   "pha": false,
+   "orbitClass": {
+    "code": "MBA",
+    "name": "Main-belt Asteroid"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 2.795272753074668,
+    "e": 0.2501676832686795,
+    "i": 13.11552664581115,
+    "om": 215.3098461839713,
+    "w": 179.7697642293943,
+    "ma": 259.8567076625492,
+    "q": 2.095985844333915,
+    "ad": 3.494559661815421,
+    "per": 1707.00468764572,
+    "n": 0.2108957301672719
+   },
+   "moid": 1.10167,
+   "conditionCode": "0",
+   "dataArc": 53319,
+   "phys": {
+    "H": 7.02,
+    "diameter": 122,
+    "rotPer": 5.385,
+    "albedo": 0.1164,
+    "specB": "Xe",
+    "specT": "M",
+    "density": null
+   },
+   "model": {
+    "key": "kleopatra",
+    "method": "radar",
+    "textured": false,
+    "tris": 4092,
+    "radiusKm": 55.3128,
+    "dims": [
+     219.0387,
+     94.4743,
+     82.2501
+    ],
+    "source": {
+     "tr": "Hudson & Ostro radar modeli",
+     "en": "Hudson & Ostro radar shape model"
+    }
+   }
+  },
+  {
+   "id": "eros",
+   "sstr": "433",
+   "des": "433",
+   "fullname": "433 Eros (A898 PA)",
+   "name": "Eros",
+   "number": 433,
+   "neo": true,
+   "pha": false,
+   "orbitClass": {
+    "code": "AMO",
+    "name": "Amor"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 1.458243716760167,
+    "e": 0.2228779627700761,
+    "i": 10.82854410314273,
+    "om": 304.2679713350896,
+    "w": 178.9181319135911,
+    "ma": 62.51145501986792,
+    "q": 1.133233327946397,
+    "ad": 1.783254105573937,
+    "per": 643.1963890927677,
+    "n": 0.5597046347038453
+   },
+   "moid": 0.148798,
+   "conditionCode": "0",
+   "dataArc": 46582,
+   "phys": {
+    "H": 10.4,
+    "diameter": 16.84,
+    "rotPer": 5.27,
+    "albedo": 0.25,
+    "specB": "S",
+    "specT": "S",
+    "density": 2.67
+   },
+   "model": {
+    "key": "eros",
+    "method": "spacecraft",
+    "textured": true,
+    "tris": 1536,
+    "radiusKm": 8.42657,
+    "dims": [
+     32.7288,
+     16.87,
+     11.8983
+    ],
+    "source": {
+     "tr": "NASA Eyes · NEAR Shoemaker (Gaskell 2008)",
+     "en": "NASA Eyes · NEAR Shoemaker (Gaskell 2008)"
+    }
+   }
+  },
+  {
+   "id": "gaspra",
+   "sstr": "951",
+   "des": "951",
+   "fullname": "951 Gaspra (A916 OJ)",
+   "name": "Gaspra",
+   "number": 951,
+   "neo": false,
+   "pha": false,
+   "orbitClass": {
+    "code": "MBA",
+    "name": "Main-belt Asteroid"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 2.209978353670737,
+    "e": 0.1737374595425464,
+    "i": 4.10465496946464,
+    "om": 252.9672913251979,
+    "w": 130.0037637381037,
+    "ma": 112.9508716440696,
+    "q": 1.826022328859964,
+    "ad": 2.593934378481511,
+    "per": 1199.997818895033,
+    "n": 0.3000005452772328
+   },
+   "moid": 0.831647,
+   "conditionCode": "0",
+   "dataArc": 41021,
+   "phys": {
+    "H": 11.49,
+    "diameter": 12.2,
+    "rotPer": 7.042,
+    "albedo": 0.246,
+    "specB": "S",
+    "specT": "S",
+    "density": null
+   },
+   "model": {
+    "key": "gaspra",
+    "method": "spacecraft",
+    "textured": true,
+    "tris": 1908,
+    "radiusKm": 6.1,
+    "dims": [
+     12.9686,
+     18.5928,
+     10.6628
+    ],
+    "source": {
+     "tr": "NASA Eyes · Galileo (Thomas vd. 1994)",
+     "en": "NASA Eyes · Galileo (Thomas et al. 1994)"
+    }
+   }
+  },
+  {
+   "id": "geographos",
+   "sstr": "1620",
+   "des": "1620",
+   "fullname": "1620 Geographos (1951 RA)",
+   "name": "Geographos",
+   "number": 1620,
+   "neo": true,
+   "pha": true,
+   "orbitClass": {
+    "code": "APO",
+    "name": "Apollo"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 1.245803622709167,
+    "e": 0.3355177775785481,
+    "i": 13.33675506034199,
+    "om": 337.134866299143,
+    "w": 277.0290683667865,
+    "ma": 354.6795027240913,
+    "q": 0.8278143599184832,
+    "ad": 1.66379288549985,
+    "per": 507.8936827249668,
+    "n": 0.7088097612644381
+   },
+   "moid": 0.0295314,
+   "conditionCode": "0",
+   "dataArc": 27466,
+   "phys": {
+    "H": 15.27,
+    "diameter": 2.56,
+    "rotPer": 5.22204,
+    "albedo": 0.29,
+    "specB": "S",
+    "specT": "S",
+    "density": null
+   },
+   "model": {
+    "key": "geographos",
+    "method": "radar",
+    "textured": false,
+    "tris": 8000,
+    "radiusKm": 1.29879,
+    "dims": [
+     5.112,
+     2.0001,
+     2.4106
+    ],
+    "source": {
+     "tr": "Hudson & Ostro radar modeli",
+     "en": "Hudson & Ostro radar shape model"
+    }
+   }
+  },
+  {
+   "id": "bacchus",
+   "sstr": "2063",
+   "des": "2063",
+   "fullname": "2063 Bacchus (1977 HB)",
+   "name": "Bacchus",
+   "number": 2063,
+   "neo": true,
+   "pha": false,
+   "orbitClass": {
+    "code": "APO",
+    "name": "Apollo"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 1.07750077173387,
+    "e": 0.3492309859328742,
+    "i": 9.43222263933031,
+    "om": 33.02243517219349,
+    "w": 55.39240380359246,
+    "ma": 50.93080388918278,
+    "q": 0.7012041148778181,
+    "ad": 1.453797428589923,
+    "per": 408.5308067903,
+    "n": 0.881206494140328
+   },
+   "moid": 0.0669776,
+   "conditionCode": "0",
+   "dataArc": 17584,
+   "phys": {
+    "H": 17.21,
+    "diameter": 1.024,
+    "rotPer": 14.904,
+    "albedo": 0.203,
+    "specB": "Sq",
+    "specT": null,
+    "density": null
+   },
+   "model": {
+    "key": "bacchus",
+    "method": "radar",
+    "textured": false,
+    "tris": 4092,
+    "radiusKm": 0.3186,
+    "dims": [
+     1.111,
+     0.5349,
+     0.512
+    ],
+    "source": {
+     "tr": "Benner vd. radar modeli",
+     "en": "Benner et al. radar shape model"
+    }
+   }
+  },
+  {
+   "id": "rashalom",
+   "sstr": "2100",
+   "des": "2100",
+   "fullname": "2100 Ra-Shalom (1978 RA)",
+   "name": "Ra-Shalom",
+   "number": 2100,
+   "neo": true,
+   "pha": false,
+   "orbitClass": {
+    "code": "ATE",
+    "name": "Aten"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 0.8320380956623273,
+    "e": 0.436499569805015,
+    "i": 15.75910219462338,
+    "om": 170.7613746850092,
+    "w": 356.0814951474854,
+    "ma": 148.8399521233831,
+    "q": 0.4688538248443376,
+    "ad": 1.195222366480317,
+    "per": 277.2127772732746,
+    "n": 1.298641439045626
+   },
+   "moid": 0.149703,
+   "conditionCode": "0",
+   "dataArc": 18599,
+   "phys": {
+    "H": 16.24,
+    "diameter": 2.3,
+    "rotPer": 19.797,
+    "albedo": 0.13,
+    "specB": "Xc",
+    "specT": "C",
+    "density": null
+   },
+   "model": {
+    "key": "rashalom",
+    "method": "radar",
+    "textured": false,
+    "tris": 2292,
+    "radiusKm": 1.13987,
+    "dims": [
+     2.958,
+     2.4553,
+     1.9537
+    ],
+    "source": {
+     "tr": "Radar modeli",
+     "en": "Radar shape model"
+    }
+   }
+  },
+  {
+   "id": "steins",
+   "sstr": "2867",
+   "des": "2867",
+   "fullname": "2867 Steins (1969 VC)",
+   "name": "Steins",
+   "number": 2867,
+   "neo": false,
+   "pha": false,
+   "orbitClass": {
+    "code": "MBA",
+    "name": "Main-belt Asteroid"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 2.363141776987294,
+    "e": 0.1467867767199327,
+    "i": 9.9247485385748,
+    "om": 55.2936189517901,
+    "w": 251.4371219667194,
+    "ma": 275.4028858220599,
+    "q": 2.016263812611115,
+    "ad": 2.710019741363473,
+    "per": 1326.884417237545,
+    "n": 0.2713122524639245
+   },
+   "moid": 1.0265,
+   "conditionCode": "0",
+   "dataArc": 27165,
+   "phys": {
+    "H": 13.13,
+    "diameter": 5.16,
+    "rotPer": 6.049,
+    "albedo": 0.3,
+    "specB": null,
+    "specT": null,
+    "density": null
+   },
+   "model": {
+    "key": "steins",
+    "method": "spacecraft",
+    "textured": false,
+    "tris": 8000,
+    "radiusKm": 2.63092,
+    "dims": [
+     6.8062,
+     5.617,
+     4.2016
+    ],
+    "source": {
+     "tr": "Rosetta OSIRIS modeli",
+     "en": "Rosetta OSIRIS shape model"
+    }
+   }
+  },
+  {
+   "id": "toutatis",
+   "sstr": "4179",
+   "des": "4179",
+   "fullname": "4179 Toutatis (1989 AC)",
+   "name": "Toutatis",
+   "number": 4179,
+   "neo": true,
+   "pha": true,
+   "orbitClass": {
+    "code": "APO",
+    "name": "Apollo"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 2.543047155641573,
+    "e": 0.6246302247178447,
+    "i": 0.4480836624628189,
+    "om": 125.3654799655549,
+    "w": 277.8615384113277,
+    "ma": 125.5161576467994,
+    "q": 0.9545830393451017,
+    "ad": 4.131511271938045,
+    "per": 1481.255742120098,
+    "n": 0.2430370325415499
+   },
+   "moid": 0.00650597,
+   "conditionCode": "0",
+   "dataArc": 33698,
+   "phys": {
+    "H": 15.29,
+    "diameter": 5.4,
+    "rotPer": 176,
+    "albedo": 0.405,
+    "specB": "Sk",
+    "specT": null,
+    "density": null
+   },
+   "model": {
+    "key": "toutatis",
+    "method": "radar",
+    "textured": false,
+    "tris": 8000,
+    "radiusKm": 1.22493,
+    "dims": [
+     2.2857,
+     1.9182,
+     4.6033
+    ],
+    "source": {
+     "tr": "Hudson vd. radar modeli",
+     "en": "Hudson et al. radar shape model"
+    }
+   }
+  },
+  {
+   "id": "mithra",
+   "sstr": "4486",
+   "des": "4486",
+   "fullname": "4486 Mithra (1987 SB)",
+   "name": "Mithra",
+   "number": 4486,
+   "neo": true,
+   "pha": true,
+   "orbitClass": {
+    "code": "APO",
+    "name": "Apollo"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 2.205244726314266,
+    "e": 0.6598497285099122,
+    "i": 3.029603343826551,
+    "om": 82.16376633596627,
+    "w": 169.3002240839664,
+    "ma": 336.4031484436814,
+    "q": 0.7501145923578818,
+    "ad": 3.660374860270649,
+    "per": 1196.144410323647,
+    "n": 0.300967004395893
+   },
+   "moid": 0.0458128,
+   "conditionCode": "0",
+   "dataArc": 14543,
+   "phys": {
+    "H": 15.62,
+    "diameter": 1.849,
+    "rotPer": 67.5,
+    "albedo": 0.297,
+    "specB": null,
+    "specT": null,
+    "density": null
+   },
+   "model": {
+    "key": "mithra",
+    "method": "radar",
+    "textured": false,
+    "tris": 5996,
+    "radiusKm": 0.8456,
+    "dims": [
+     2.3533,
+     1.6506,
+     1.4367
+    ],
+    "source": {
+     "tr": "Radar modeli",
+     "en": "Radar shape model"
+    }
+   }
+  },
+  {
+   "id": "nereus",
+   "sstr": "4660",
+   "des": "4660",
+   "fullname": "4660 Nereus (1982 DB)",
+   "name": "Nereus",
+   "number": 4660,
+   "neo": true,
+   "pha": true,
+   "orbitClass": {
+    "code": "APO",
+    "name": "Apollo"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 1.485112611970113,
+    "e": 0.3587435768252949,
+    "i": 1.453541710528756,
+    "om": 313.105557499926,
+    "w": 159.5568090407644,
+    "ma": 158.7251334482576,
+    "q": 0.9523380015635986,
+    "ad": 2.017887222376628,
+    "per": 661.0548657564201,
+    "n": 0.5445841467153647
+   },
+   "moid": 0.00401855,
+   "conditionCode": "0",
+   "dataArc": 16336,
+   "phys": {
+    "H": 18.75,
+    "diameter": 0.33,
+    "rotPer": 15.1749,
+    "albedo": 0.55,
+    "specB": "Xe",
+    "specT": null,
+    "density": null
+   },
+   "model": {
+    "key": "nereus",
+    "method": "radar",
+    "textured": false,
+    "tris": 2292,
+    "radiusKm": 0.16669,
+    "dims": [
+     0.5102,
+     0.3304,
+     0.2412
+    ],
+    "source": {
+     "tr": "Brozović vd. radar modeli",
+     "en": "Brozović et al. radar shape model"
+    }
+   }
+  },
+  {
+   "id": "castalia",
+   "sstr": "4769",
+   "des": "4769",
+   "fullname": "4769 Castalia (1989 PB)",
+   "name": "Castalia",
+   "number": 4769,
+   "neo": true,
+   "pha": true,
+   "orbitClass": {
+    "code": "APO",
+    "name": "Apollo"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 1.06308849137437,
+    "e": 0.4831758015789954,
+    "i": 8.885190449241405,
+    "om": 325.4991410102804,
+    "w": 121.4523453593787,
+    "ma": 143.6125672636032,
+    "q": 0.5494298574051537,
+    "ad": 1.576747125343586,
+    "per": 400.3617250634425,
+    "n": 0.8991868539455247
+   },
+   "moid": 0.0204067,
+   "conditionCode": "0",
+   "dataArc": 13488,
+   "phys": {
+    "H": 17.38,
+    "diameter": 1.4,
+    "rotPer": 4.095,
+    "albedo": 0.092,
+    "specB": null,
+    "specT": null,
+    "density": null
+   },
+   "model": {
+    "key": "castalia",
+    "method": "radar",
+    "textured": false,
+    "tris": 4092,
+    "radiusKm": 0.54224,
+    "dims": [
+     1.6256,
+     0.9983,
+     0.8432
+    ],
+    "source": {
+     "tr": "Hudson & Ostro radar modeli",
+     "en": "Hudson & Ostro radar shape model"
+    }
+   }
+  },
+  {
+   "id": "golevka",
+   "sstr": "6489",
+   "des": "6489",
+   "fullname": "6489 Golevka (1991 JX)",
+   "name": "Golevka",
+   "number": 6489,
+   "neo": true,
+   "pha": true,
+   "orbitClass": {
+    "code": "APO",
+    "name": "Apollo"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 2.474378474226095,
+    "e": 0.6190939112625774,
+    "i": 2.260612192245343,
+    "om": 208.5519487506632,
+    "w": 69.78033485126763,
+    "ma": 302.9054901495539,
+    "q": 0.9425058266735333,
+    "ad": 4.006251121778656,
+    "per": 1421.666140969651,
+    "n": 0.253224009227976
+   },
+   "moid": 0.0225458,
+   "conditionCode": "0",
+   "dataArc": 8968,
+   "phys": {
+    "H": 19.22,
+    "diameter": 0.53,
+    "rotPer": 6.026,
+    "albedo": 0.151,
+    "specB": "Q",
+    "specT": null,
+    "density": 2.7
+   },
+   "model": {
+    "key": "golevka",
+    "method": "radar",
+    "textured": false,
+    "tris": 4092,
+    "radiusKm": 0.26499,
+    "dims": [
+     0.4886,
+     0.6853,
+     0.5721
+    ],
+    "source": {
+     "tr": "Hudson vd. radar modeli",
+     "en": "Hudson et al. radar shape model"
+    }
+   }
+  },
+  {
+   "id": "a8567",
+   "sstr": "8567",
+   "des": "8567",
+   "fullname": "8567 (1996 HW1)",
+   "name": "8567 (1996 HW1)",
+   "number": 8567,
+   "neo": true,
+   "pha": false,
+   "orbitClass": {
+    "code": "AMO",
+    "name": "Amor"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 2.045539428905419,
+    "e": 0.4490435144686997,
+    "i": 8.449304858248757,
+    "om": 177.0887378922208,
+    "w": 177.2827715148724,
+    "ma": 21.69559113928036,
+    "q": 1.127003214765433,
+    "ad": 2.964075643045405,
+    "per": 1068.587795279052,
+    "n": 0.3368932357176971
+   },
+   "moid": 0.121552,
+   "conditionCode": "0",
+   "dataArc": 26065,
+   "phys": {
+    "H": 15.36,
+    "diameter": 2.928,
+    "rotPer": 8.7573,
+    "albedo": 0.156,
+    "specB": null,
+    "specT": null,
+    "density": null
+   },
+   "model": {
+    "key": "a8567",
+    "method": "radar",
+    "textured": false,
+    "tris": 2780,
+    "radiusKm": 1.01159,
+    "dims": [
+     3.7773,
+     1.6388,
+     1.4921
+    ],
+    "source": {
+     "tr": "Radar modeli",
+     "en": "Radar shape model"
+    }
+   }
+  },
+  {
+   "id": "sk1992",
+   "sstr": "10115",
+   "des": "10115",
+   "fullname": "10115 (1992 SK)",
+   "name": "10115 (1992 SK)",
+   "number": 10115,
+   "neo": true,
+   "pha": true,
+   "orbitClass": {
+    "code": "APO",
+    "name": "Apollo"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 1.248516024441716,
+    "e": 0.3248821550527692,
+    "i": 15.31841222116189,
+    "om": 8.86900833373033,
+    "w": 233.7260443316729,
+    "ma": 148.3811465849633,
+    "q": 0.8428954478031756,
+    "ad": 1.654136601080257,
+    "per": 509.5532877211548,
+    "n": 0.7065011818685476
+   },
+   "moid": 0.0454208,
+   "conditionCode": "0",
+   "dataArc": 26706,
+   "phys": {
+    "H": 17.14,
+    "diameter": 0.938,
+    "rotPer": 7.319,
+    "albedo": 0.318,
+    "specB": "S:",
+    "specT": null,
+    "density": null
+   },
+   "model": {
+    "key": "sk1992",
+    "method": "radar",
+    "textured": false,
+    "tris": 1016,
+    "radiusKm": 0.50247,
+    "dims": [
+     1.3923,
+     0.9009,
+     0.91
+    ],
+    "source": {
+     "tr": "Radar modeli",
+     "en": "Radar shape model"
+    }
+   }
+  },
+  {
+   "id": "itokawa",
+   "sstr": "25143",
+   "des": "25143",
+   "fullname": "25143 Itokawa (1998 SF36)",
+   "name": "Itokawa",
+   "number": 25143,
+   "neo": true,
+   "pha": true,
+   "orbitClass": {
+    "code": "APO",
+    "name": "Apollo"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 1.324052284342771,
+    "e": 0.2801776414987972,
+    "i": 1.620940810523569,
+    "om": 69.07449749929083,
+    "w": 162.8409022415483,
+    "ma": 170.653905937934,
+    "q": 0.9530824380945183,
+    "ad": 1.695022130591023,
+    "per": 556.4884171058932,
+    "n": 0.6469137342916093
+   },
+   "moid": 0.0130471,
+   "conditionCode": "0",
+   "dataArc": 9588,
+   "phys": {
+    "H": 19.26,
+    "diameter": 0.33,
+    "rotPer": 12.132,
+    "albedo": null,
+    "specB": "S(IV)",
+    "specT": null,
+    "density": 1.9
+   },
+   "model": {
+    "key": "itokawa",
+    "method": "spacecraft",
+    "textured": true,
+    "tris": 2646,
+    "radiusKm": 0.16193,
+    "dims": [
+     0.5622,
+     0.3051,
+     0.2431
+    ],
+    "source": {
+     "tr": "NASA Eyes · Hayabusa (Gaskell vd. 2008)",
+     "en": "NASA Eyes · Hayabusa (Gaskell et al. 2008)"
+    }
+   }
+  },
+  {
+   "id": "da1950r",
+   "sstr": "29075",
+   "des": "29075",
+   "fullname": "29075 (1950 DA)",
+   "name": "29075 (1950 DA)",
+   "number": 29075,
+   "neo": true,
+   "pha": true,
+   "orbitClass": {
+    "code": "APO",
+    "name": "Apollo"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 1.698452772804431,
+    "e": 0.507568426265487,
+    "i": 12.15583902281257,
+    "om": 356.5443018677842,
+    "w": 224.8228664081709,
+    "ma": 130.3796107253688,
+    "q": 0.836371771825833,
+    "ad": 2.560533773783028,
+    "per": 808.4974229248145,
+    "n": 0.4452704359868787
+   },
+   "moid": 0.0392216,
+   "conditionCode": "0",
+   "dataArc": 28014,
+   "phys": {
+    "H": 17.28,
+    "diameter": 1.3,
+    "rotPer": 2.1216,
+    "albedo": 0.07,
+    "specB": null,
+    "specT": null,
+    "density": null
+   },
+   "model": {
+    "key": "da1950r",
+    "method": "radar",
+    "textured": false,
+    "tris": 1016,
+    "radiusKm": 0.64911,
+    "dims": [
+     1.4495,
+     1.5975,
+     1.1976
+    ],
+    "source": {
+     "tr": "Busch vd. radar modeli (geri yönlü)",
+     "en": "Busch et al. radar shape model (retrograde)"
+    }
+   }
+  },
+  {
+   "id": "wt24",
+   "sstr": "33342",
+   "des": "33342",
+   "fullname": "33342 (1998 WT24)",
+   "name": "33342 (1998 WT24)",
+   "number": 33342,
+   "neo": true,
+   "pha": true,
+   "orbitClass": {
+    "code": "ATE",
+    "name": "Aten"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 0.7186981142814851,
+    "e": 0.4176323341378144,
+    "i": 7.36842109481055,
+    "om": 81.65755295709471,
+    "w": 167.5121134416378,
+    "ma": 278.1060278980735,
+    "q": 0.4185465432736629,
+    "ad": 1.018849685289307,
+    "per": 222.5451760869984,
+    "n": 1.617649082895723
+   },
+   "moid": 0.0103337,
+   "conditionCode": "0",
+   "dataArc": 10227,
+   "phys": {
+    "H": 18.02,
+    "diameter": 0.432,
+    "rotPer": 3.697,
+    "albedo": 0.654,
+    "specB": null,
+    "specT": null,
+    "density": null
+   },
+   "model": {
+    "key": "wt24",
+    "method": "radar",
+    "textured": false,
+    "tris": 7996,
+    "radiusKm": 0.20766,
+    "dims": [
+     0.4708,
+     0.4257,
+     0.4041
+    ],
+    "source": {
+     "tr": "Radar modeli",
+     "en": "Radar shape model"
+    }
+   }
+  },
+  {
+   "id": "a52760",
+   "sstr": "52760",
+   "des": "52760",
+   "fullname": "52760 (1998 ML14)",
+   "name": "52760 (1998 ML14)",
+   "number": 52760,
+   "neo": true,
+   "pha": true,
+   "orbitClass": {
+    "code": "APO",
+    "name": "Apollo"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 2.407796400022283,
+    "e": 0.623885674110855,
+    "i": 2.426985493017353,
+    "om": 338.6527674507715,
+    "w": 20.33258263075463,
+    "ma": 145.341483440669,
+    "q": 0.905606719872691,
+    "ad": 3.909986080171875,
+    "per": 1364.671331199724,
+    "n": 0.2637997822402505
+   },
+   "moid": 0.0169976,
+   "conditionCode": "0",
+   "dataArc": 9768,
+   "phys": {
+    "H": 17.52,
+    "diameter": 1,
+    "rotPer": 14.28,
+    "albedo": null,
+    "specB": null,
+    "specT": null,
+    "density": null
+   },
+   "model": {
+    "key": "a52760",
+    "method": "radar",
+    "textured": false,
+    "tris": 8000,
+    "radiusKm": 0.49606,
+    "dims": [
+     0.9668,
+     1.0283,
+     0.9683
+    ],
+    "source": {
+     "tr": "Radar modeli",
+     "en": "Radar shape model"
+    }
+   }
+  },
+  {
+   "id": "yorp",
+   "sstr": "54509",
+   "des": "54509",
+   "fullname": "54509 YORP (2000 PH5)",
+   "name": "YORP",
+   "number": 54509,
+   "neo": true,
+   "pha": false,
+   "orbitClass": {
+    "code": "APO",
+    "name": "Apollo"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 1.0058920794812,
+    "e": 0.2299839852065449,
+    "i": 1.599355324389884,
+    "om": 278.1836108209721,
+    "w": 278.9866340945716,
+    "ma": 325.5758761529555,
+    "q": 0.7745530103544149,
+    "ad": 1.237231148607985,
+    "per": 368.4898328610733,
+    "n": 0.9769604691799622
+   },
+   "moid": 0.000498232,
+   "conditionCode": "0",
+   "dataArc": 1826,
+   "phys": {
+    "H": 22.66,
+    "diameter": null,
+    "rotPer": 0.2029,
+    "albedo": null,
+    "specB": null,
+    "specT": null,
+    "density": null
+   },
+   "model": {
+    "key": "yorp",
+    "method": "radar",
+    "textured": false,
+    "tris": 572,
+    "radiusKm": 0.05639,
+    "dims": [
+     0.1493,
+     0.1335,
+     0.0956
+    ],
+    "source": {
+     "tr": "Radar modeli",
+     "en": "Radar shape model"
+    }
+   }
+  },
+  {
+   "id": "didymos",
+   "sstr": "65803",
+   "des": "65803",
+   "fullname": "65803 Didymos (1996 GT)",
+   "name": "Didymos",
+   "number": 65803,
+   "neo": true,
+   "pha": true,
+   "orbitClass": {
+    "code": "APO",
+    "name": "Apollo"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 1.642709608529702,
+    "e": 0.3831233242624545,
+    "i": 3.413876519313629,
+    "om": 72.9858236207145,
+    "w": 319.5807001349104,
+    "ma": 260.8612886320632,
+    "q": 1.013349242511927,
+    "ad": 2.272069974547477,
+    "per": 769.0235207660371,
+    "n": 0.4681261239466357
+   },
+   "moid": 0.039575,
+   "conditionCode": "0",
+   "dataArc": 896,
+   "phys": {
+    "H": 18.11,
+    "diameter": 0.78,
+    "rotPer": 2.2593,
+    "albedo": null,
+    "specB": "S",
+    "specT": null,
+    "density": 2.17
+   },
+   "model": {
+    "key": "didymos",
+    "method": "spacecraft",
+    "textured": true,
+    "tris": 7954,
+    "radiusKm": 0.3805,
+    "dims": [
+     0.8048,
+     0.8116,
+     0.7629
+    ],
+    "source": {
+     "tr": "NASA Eyes · DART/DRACO (Daly vd. 2023)",
+     "en": "NASA Eyes · DART/DRACO (Daly et al. 2023)"
+    }
+   }
+  },
+  {
+   "id": "kw4a",
+   "sstr": "66391",
+   "des": "66391",
+   "fullname": "66391 Moshup (1999 KW4)",
+   "name": "Moshup",
+   "number": 66391,
+   "neo": true,
+   "pha": true,
+   "orbitClass": {
+    "code": "ATE",
+    "name": "Aten"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 0.6423893266185235,
+    "e": 0.6883840168509753,
+    "i": 38.87861960632899,
+    "om": 244.8955891771853,
+    "w": 192.6539401611728,
+    "ma": 5.456735051786742,
+    "q": 0.2001787815786712,
+    "ad": 1.084599871658376,
+    "per": 188.0597704133843,
+    "n": 1.914285012731136
+   },
+   "moid": 0.0132404,
+   "conditionCode": "0",
+   "dataArc": 10188,
+   "phys": {
+    "H": 16.64,
+    "diameter": 1.317,
+    "rotPer": 2.7645,
+    "albedo": null,
+    "specB": "S:",
+    "specT": null,
+    "density": 1.974
+   },
+   "model": {
+    "key": "kw4a",
+    "method": "radar",
+    "textured": false,
+    "tris": 8000,
+    "radiusKm": 0.65836,
+    "dims": [
+     1.5313,
+     1.4945,
+     1.3477
+    ],
+    "source": {
+     "tr": "Ostro vd. radar modeli (ana gövde)",
+     "en": "Ostro et al. radar shape model (primary body)"
+    }
+   }
+  },
+  {
+   "id": "apophis",
+   "sstr": "99942",
+   "des": "99942",
+   "fullname": "99942 Apophis (2004 MN4)",
+   "name": "Apophis",
+   "number": 99942,
+   "neo": true,
+   "pha": true,
+   "orbitClass": {
+    "code": "ATE",
+    "name": "Aten"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 0.9223592206975018,
+    "e": 0.1911492279663492,
+    "i": 3.340996879880978,
+    "om": 203.8936514240762,
+    "w": 126.6795706895841,
+    "ma": 175.3304026592739,
+    "q": 0.7460509677535309,
+    "ad": 1.098667473641473,
+    "per": 323.5553366891694,
+    "n": 1.112638115271892
+   },
+   "moid": 0.000107917,
+   "conditionCode": "0",
+   "dataArc": 6599,
+   "phys": {
+    "H": 19.09,
+    "diameter": 0.34,
+    "rotPer": 30.56,
+    "albedo": 0.35,
+    "specB": "Sq",
+    "specT": null,
+    "density": null
+   },
+   "model": {
+    "key": "apophis",
+    "method": "radar",
+    "textured": false,
+    "tris": 3996,
+    "radiusKm": 0.1679,
+    "dims": [
+     0.4097,
+     0.3491,
+     0.318
+    ],
+    "source": {
+     "tr": "Brozović vd. 2018 radar modeli",
+     "en": "Brozović et al. 2018 radar shape model"
+    }
+   }
+  },
+  {
+   "id": "bennu",
+   "sstr": "101955",
+   "des": "101955",
+   "fullname": "101955 Bennu (1999 RQ36)",
+   "name": "Bennu",
+   "number": 101955,
+   "neo": true,
+   "pha": true,
+   "orbitClass": {
+    "code": "APO",
+    "name": "Apollo"
+   },
+   "epoch": {
+    "jd": 2455562.5,
+    "date": "2011-01-01"
+   },
+   "elements": {
+    "a": 1.126391025894812,
+    "e": 0.2037450762416414,
+    "i": 6.03494377024794,
+    "om": 2.06086619569642,
+    "w": 66.22306084084298,
+    "ma": 101.703952002457,
+    "q": 0.8968944004459729,
+    "ad": 1.355887651343651,
+    "per": 436.6487281120201,
+    "n": 0.8244613503320309
+   },
+   "moid": 0.0032228,
+   "conditionCode": "0",
+   "dataArc": 7693,
+   "phys": {
+    "H": 20.21,
+    "diameter": 0.48444,
+    "rotPer": 4.296061,
+    "albedo": 0.044,
+    "specB": "B",
+    "specT": null,
+    "density": 1.194
+   },
+   "model": {
+    "key": "bennu",
+    "method": "spacecraft",
+    "textured": true,
+    "tris": 8458,
+    "radiusKm": 0.24588,
+    "dims": [
+     0.5594,
+     0.5409,
+     0.495
+    ],
+    "source": {
+     "tr": "NASA Eyes · OSIRIS-REx (Barnouin vd. 2019)",
+     "en": "NASA Eyes · OSIRIS-REx (Barnouin et al. 2019)"
+    }
+   }
+  },
+  {
+   "id": "cc1994",
+   "sstr": "136617",
+   "des": "136617",
+   "fullname": "136617 (1994 CC)",
+   "name": "136617 (1994 CC)",
+   "number": 136617,
+   "neo": true,
+   "pha": true,
+   "orbitClass": {
+    "code": "APO",
+    "name": "Apollo"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 1.637683450055756,
+    "e": 0.4174249720547084,
+    "i": 4.681286252762469,
+    "om": 268.5037747885519,
+    "w": 24.94578917185039,
+    "ma": 25.72688101800829,
+    "q": 0.9540734816817739,
+    "ad": 2.321293418429739,
+    "per": 765.4967781523511,
+    "n": 0.4702828415149148
+   },
+   "moid": 0.0162127,
+   "conditionCode": "0",
+   "dataArc": 13885,
+   "phys": {
+    "H": 17.97,
+    "diameter": null,
+    "rotPer": 2.3886,
+    "albedo": null,
+    "specB": null,
+    "specT": null,
+    "density": null
+   },
+   "model": {
+    "key": "cc1994",
+    "method": "radar",
+    "textured": false,
+    "tris": 3996,
+    "radiusKm": 0.31008,
+    "dims": [
+     0.6884,
+     0.6676,
+     0.6388
+    ],
+    "source": {
+     "tr": "Radar modeli",
+     "en": "Radar shape model"
+    }
+   }
+  },
+  {
+   "id": "a153591",
+   "sstr": "153591",
+   "des": "153591",
+   "fullname": "153591 (2001 SN263)",
+   "name": "153591 (2001 SN263)",
+   "number": 153591,
+   "neo": true,
+   "pha": true,
+   "orbitClass": {
+    "code": "AMO",
+    "name": "Amor"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 1.987725893568744,
+    "e": 0.4800069028495948,
+    "i": 6.693019126653923,
+    "om": 325.7074741726878,
+    "w": 173.0686707322305,
+    "ma": 194.3957884049834,
+    "q": 1.033603743682868,
+    "ad": 2.94184804345462,
+    "per": 1023.606817302637,
+    "n": 0.3516975404175755
+   },
+   "moid": 0.047792,
+   "conditionCode": "0",
+   "dataArc": 13194,
+   "phys": {
+    "H": 17.11,
+    "diameter": 2,
+    "rotPer": 3.423,
+    "albedo": null,
+    "specB": null,
+    "specT": null,
+    "density": null
+   },
+   "model": {
+    "key": "a153591",
+    "method": "radar",
+    "textured": false,
+    "tris": 2292,
+    "radiusKm": 1.24829,
+    "dims": [
+     2.7537,
+     2.72,
+     2.8561
+    ],
+    "source": {
+     "tr": "Radar modeli",
+     "en": "Radar shape model"
+    }
+   }
+  },
+  {
+   "id": "ryugu",
+   "sstr": "162173",
+   "des": "162173",
+   "fullname": "162173 Ryugu (1999 JU3)",
+   "name": "Ryugu",
+   "number": 162173,
+   "neo": true,
+   "pha": true,
+   "orbitClass": {
+    "code": "APO",
+    "name": "Apollo"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 1.190918932702464,
+    "e": 0.1910730046480051,
+    "i": 5.866442486408568,
+    "om": 251.2897123995624,
+    "w": 211.608993811871,
+    "ma": 62.34067409463987,
+    "q": 0.9633664739388087,
+    "ad": 1.418471391466119,
+    "per": 474.7027265420688,
+    "n": 0.7583693538530714
+   },
+   "moid": 0.000538502,
+   "conditionCode": "0",
+   "dataArc": 14345,
+   "phys": {
+    "H": 19.55,
+    "diameter": 0.896,
+    "rotPer": 7.63262,
+    "albedo": 0.045,
+    "specB": "Cb",
+    "specT": null,
+    "density": 1.19
+   },
+   "model": {
+    "key": "ryugu",
+    "method": "spacecraft",
+    "textured": true,
+    "tris": 17974,
+    "radiusKm": 0.448,
+    "dims": [
+     1.0156,
+     1.0161,
+     0.9623
+    ],
+    "source": {
+     "tr": "NASA Eyes · Hayabusa2 (Watanabe vd. 2019)",
+     "en": "NASA Eyes · Hayabusa2 (Watanabe et al. 2019)"
+    }
+   }
+  },
+  {
+   "id": "ce26",
+   "sstr": "276049",
+   "des": "276049",
+   "fullname": "276049 (2002 CE26)",
+   "name": "276049 (2002 CE26)",
+   "number": 276049,
+   "neo": true,
+   "pha": false,
+   "orbitClass": {
+    "code": "APO",
+    "name": "Apollo"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 2.232918881886353,
+    "e": 0.5610893785691538,
+    "i": 47.28798761272063,
+    "om": 161.8674237452626,
+    "w": 228.0507181391001,
+    "ma": 175.3005593170833,
+    "q": 0.9800518140534097,
+    "ad": 3.485785949719297,
+    "per": 1218.730966418355,
+    "n": 0.2953892285661529
+   },
+   "moid": 0.0959494,
+   "conditionCode": "0",
+   "dataArc": 8878,
+   "phys": {
+    "H": 16.64,
+    "diameter": 3.5,
+    "rotPer": 3.2931,
+    "albedo": 0.07,
+    "specB": null,
+    "specT": "C",
+    "density": 0.9
+   },
+   "model": {
+    "key": "ce26",
+    "method": "radar",
+    "textured": false,
+    "tris": 2292,
+    "radiusKm": 1.72955,
+    "dims": [
+     3.6511,
+     3.6528,
+     3.2567
+    ],
+    "source": {
+     "tr": "Radar modeli",
+     "en": "Radar shape model"
+    }
+   }
+  },
+  {
+   "id": "ev5",
+   "sstr": "341843",
+   "des": "341843",
+   "fullname": "341843 (2008 EV5)",
+   "name": "341843 (2008 EV5)",
+   "number": 341843,
+   "neo": true,
+   "pha": true,
+   "orbitClass": {
+    "code": "ATE",
+    "name": "Aten"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 0.9597666157323917,
+    "e": 0.08289135234564231,
+    "i": 7.447864888634731,
+    "om": 93.18792074829541,
+    "w": 235.9306323569786,
+    "ma": 332.501162376447,
+    "q": 0.8802102630181334,
+    "ad": 1.03932296844665,
+    "per": 343.4368452071923,
+    "n": 1.048227658225824
+   },
+   "moid": 0.0135184,
+   "conditionCode": "0",
+   "dataArc": 6624,
+   "phys": {
+    "H": 20.05,
+    "diameter": 0.4,
+    "rotPer": 3.725,
+    "albedo": 0.137,
+    "specB": null,
+    "specT": null,
+    "density": null
+   },
+   "model": {
+    "key": "ev5",
+    "method": "radar",
+    "textured": false,
+    "tris": 3996,
+    "radiusKm": 0.20261,
+    "dims": [
+     0.4581,
+     0.4449,
+     0.4042
+    ],
+    "source": {
+     "tr": "Busch vd. radar modeli",
+     "en": "Busch et al. radar shape model"
+    }
+   }
+  },
+  {
+   "id": "1998ky26",
+   "sstr": "1998 KY26",
+   "des": "1998 KY26",
+   "fullname": "(1998 KY26)",
+   "name": "1998 KY26",
+   "number": null,
+   "neo": true,
+   "pha": false,
+   "orbitClass": {
+    "code": "APO",
+    "name": "Apollo"
+   },
+   "epoch": {
+    "jd": 2461200.5,
+    "date": "2026-06-09"
+   },
+   "elements": {
+    "a": 1.228859811859051,
+    "e": 0.2000498225862209,
+    "i": 1.491131387730072,
+    "om": 84.18217649998975,
+    "w": 210.0032740505378,
+    "ma": 145.6930217309096,
+    "q": 0.9830266245133115,
+    "ad": 1.474692999204791,
+    "per": 497.5674239315201,
+    "n": 0.7235200350446306
+   },
+   "moid": 0.0025611,
+   "conditionCode": "2",
+   "dataArc": 9472,
+   "phys": {
+    "H": 25.91,
+    "diameter": 0.011,
+    "rotPer": 0.089193,
+    "albedo": 0.52,
+    "specB": null,
+    "specT": null,
+    "density": null
+   },
+   "model": {
+    "key": "1998ky26",
+    "method": "radar",
+    "textured": false,
+    "tris": 4092,
+    "radiusKm": 0.01321,
+    "dims": [
+     0.0293,
+     0.0278,
+     0.0265
+    ],
+    "source": {
+     "tr": "Ostro vd. radar modeli",
+     "en": "Ostro et al. radar shape model"
+    }
+   }
+  }
+ ]
+}

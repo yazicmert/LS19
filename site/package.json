@@ -1,0 +1,19 @@
+{
+  "name": "lookstar19",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "prebuild": "node scripts/modeller.mjs",
+    "build": "next build",
+    "start": "next start",
+    "veri": "node scripts/asteroitler.mjs"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "next": "16.4.6",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "three": "0.187.0"
+  }
+}
