@@ -31,3 +31,8 @@ tools/basis/
 .model-ara/
 # STEP/IGES dönüştürücüsü (npm ci → tools/occt_kopyala.mjs)
 web/lib/occt/
+
+# lookstar19 sitesi (site/): Next.js derleme çıktısı ve derlemede indirilen şekil modelleri (scripts/modeller.mjs)
+/site/.next/
+/site/public/models/
+/site/next-env.d.ts
