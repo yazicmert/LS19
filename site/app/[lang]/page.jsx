@@ -5,6 +5,8 @@ import Footer from '@/components/Footer';
 import Lookup from '@/components/Lookup';
 import NextLaunch from '@/components/NextLaunch';
 import AsteroidTable from '@/components/AsteroidTable';
+import SatTable from '@/components/SatTable';
+import { SATS, SAT_RETRIEVED, FEATURED_SATS, satById } from '@/lib/satellites';
 import { t, date } from '@/lib/i18n';
 import { OBJECTS, RETRIEVED, lookupRecord } from '@/lib/asteroids';
 import { getUpcoming, nextLaunch } from '@/lib/launches';
@@ -42,6 +44,14 @@ export default async function Home({ params }) {
           </div>
           <AsteroidTable lang={lang} objects={OBJECTS} />
           <p className="note">{L.home.modelsNote(date(lang, RETRIEVED))}</p>
+        </section>
+        <section className="sec wrap" aria-labelledby="sats-h">
+          <div className="sec__head">
+            <h2 id="sats-h" className="sec__title">{L.sat.homeTitle(SATS.length)}</h2>
+            <Link className="lnk" href={`/${lang}/satellites`}>{L.sat.homeAll}<ArrowRight /></Link>
+          </div>
+          <SatTable lang={lang} sats={FEATURED_SATS.map(satById).filter(Boolean)} label={L.sat.homeTitle(SATS.length)} />
+          <p className="note">{L.sat.homeNote(date(lang, SAT_RETRIEVED))}</p>
         </section>
         <section className="sec wrap how" aria-labelledby="how-h">
           <h2 id="how-h" className="sec__title">{L.home.howTitle}</h2>

@@ -3,7 +3,8 @@
 // döner (azaltılmış hareket tercihinde durur), sürükleme ve ok tuşlarıyla döndürülür. three yalnız bu bileşen görününce yüklenir.
 import { useEffect, useRef, useState } from 'react';
 
-export default function ModelViewer({ src, label, loading, error, hint, scaleLabel, scaleValue }) {
+// keepMaterials: uydu modellerinin kendi renkleri (folyo, paneller) korunur; asteroitlerde dokusuz yüzey kaya grisine çevrilir
+export default function ModelViewer({ src, label, loading, error, hint, scaleLabel, scaleValue, keepMaterials = false, yaw = 0 }) {
   const host = useRef(null);
   const [state, setState] = useState('loading');
   useEffect(() => {
@@ -30,6 +31,7 @@ export default function ModelViewer({ src, label, loading, error, hint, scaleLab
         root.traverse((o) => {
           if (!o.isMesh) return;
           const m = o.material;
+          if (keepMaterials) return;
           if (!m || !m.map) o.material = new THREE.MeshStandardMaterial({ color: 0x9a9690, roughness: 0.92, metalness: 0 });
           else { m.roughness = 0.95; m.metalness = 0; }
         });
@@ -37,8 +39,9 @@ export default function ModelViewer({ src, label, loading, error, hint, scaleLab
         root.position.sub(c);
         const spin = new THREE.Group(), tilt = new THREE.Group();          // tilt: kullanıcının sürüklemesi; spin: kendi ekseni (+Y)
         spin.add(root); tilt.add(spin); scene.add(tilt);
-        tilt.rotation.x = 0.35;
+        tilt.rotation.x = 0.35; spin.rotation.y = yaw;                         // yaw: ilk görünüş açısı (uydularda dörtte üç görünüş)
         cam.position.z = r / Math.tan((cam.fov * Math.PI) / 360) * 1.18;
+        cam.near = r / 100; cam.far = cam.position.z + r * 10; cam.updateProjectionMatrix();   // model ölçeğine göre (uydular metre, asteroitler birim yarıçap)
         const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
         const size = () => { const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); };
         ro = new ResizeObserver(size); ro.observe(el); size();
@@ -71,7 +74,7 @@ export default function ModelViewer({ src, label, loading, error, hint, scaleLab
       disposed = true; cancelAnimationFrame(raf); cleanup(); if (ro) ro.disconnect();
       if (renderer) { renderer.dispose(); renderer.domElement.remove(); }
     };
-  }, [src]);
+  }, [src, keepMaterials, yaw]);
   return (
     <figure className="mv">
       <div className="mv__stage" ref={host} tabIndex={0} role="img" aria-label={label} data-state={state}>

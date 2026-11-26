@@ -206,6 +206,8 @@ html { scrollbar-color: var(--ink-2) var(--paper-2); }
 .ca__tag { margin-left: 10px; font-family: var(--f-sans), system-ui, sans-serif; font-size: 13px; font-weight: 650; color: var(--cobalt); }
 .rec__risk .el { max-width: 640px; }
 .el__note { margin: 6px 0 26px; color: var(--ink-2); font-size: 13px; }
+.el__note + .el__note { margin-top: -18px; }
+.rec__warn { color: var(--ink); }
 .rec__src { margin-top: 40px; border-top: 2px solid var(--ink); padding-top: 10px; }
 .rec__srch { margin: 0 0 6px; font-weight: 700; font-variation-settings: 'wdth' 90; font-size: 15px; }
 .rec__src ul { margin: 0; padding: 0; list-style: none; color: var(--ink-2); font-size: 15px; }
