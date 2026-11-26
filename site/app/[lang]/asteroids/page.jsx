@@ -1,4 +1,5 @@
 import Masthead from '@/components/Masthead';
+import { pageMeta } from '@/lib/seo';
 import Footer from '@/components/Footer';
 import AsteroidTable from '@/components/AsteroidTable';
 import { t, date } from '@/lib/i18n';
@@ -6,7 +7,7 @@ import { OBJECTS, RETRIEVED } from '@/lib/asteroids';
 
 export async function generateMetadata({ params }) {
   const { lang } = await params, A = t(lang).ast;
-  return { title: A.title, description: A.description, alternates: { languages: { en: '/en/asteroids', tr: '/tr/asteroids' } } };
+  return pageMeta(lang, '/asteroids', { title: A.title, description: A.description });
 }
 export default async function Asteroids({ params }) {
   const { lang } = await params, L = t(lang), A = L.ast;

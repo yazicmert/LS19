@@ -196,7 +196,7 @@ Square corners throughout (0px). Borders are 2px ink for controls, fields, the l
 - Text links on the cobalt masthead (600, width 88); the current page and hover are underlined at 2px. The language switch is a bordered mono button that inverts on hover.
 
 ### Element Block (signature)
-- Caption in label type on a 2px ink rule, then rows of symbol (mono, cobalt), label (ink-2), value (mono, right-aligned) and unit (ink-2), separated by hairlines. On the home lookup the rows print in left to right with a short stagger (clip-path, 0.5s, ease-out-expo); reduced motion shows them at once.
+- Caption in label type on a 2px ink rule, then rows of symbol (mono, cobalt), label (ink-2), value (mono, right-aligned) and unit (ink-2), separated by hairlines. A row whose value is prose rather than a measurement (model method, model source) sets the value in body sans and lets it wrap. On the home lookup the rows print in left to right with a short stagger (clip-path, 0.5s, ease-out-expo); reduced motion shows them at once.
 
 ### Launch Block (signature)
 - A cobalt field with a 2px ink border: heading on a white hairline, a large mono countdown (T− in on-cobalt-2), the mission name, a key/value list, the paper button, and a link to all launches.

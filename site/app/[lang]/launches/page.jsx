@@ -1,5 +1,6 @@
 // yaklaşan fırlatmalar (LL2): her satır bir efemeris kaydı; en erken zaman (UTC), araç, görev, rampa, durum; resmî yayına yönlendirme
 import Masthead from '@/components/Masthead';
+import { pageMeta } from '@/lib/seo';
 import Footer from '@/components/Footer';
 import NextLaunch from '@/components/NextLaunch';
 import { t, dateTime } from '@/lib/i18n';
@@ -10,7 +11,7 @@ import { ArrowOut, Play } from '@/components/Icon';
 export const revalidate = 1800;
 export async function generateMetadata({ params }) {
   const { lang } = await params, L = t(lang).launch;
-  return { title: L.title, description: L.description, alternates: { languages: { en: '/en/launches', tr: '/tr/launches' } } };
+  return pageMeta(lang, '/launches', { title: L.title, description: L.description });
 }
 export default async function Launches({ params }) {
   const { lang } = await params, L = t(lang).launch;
@@ -46,7 +47,7 @@ export default async function Launches({ params }) {
           ) : null}
         </div>
         <p className="note">
-          {lang === 'tr' ? 'Veri: The Space Devs, Launch Library 2; 30 dakikada bir yenilenir.' : 'Data: The Space Devs, Launch Library 2; refreshed every 30 minutes.'}{' '}
+          {L.dataNote}{' '}
           <a className="lnk" href={`${LS19_URL}/?mode=lab&exp=ay`} rel="noopener">{L.inLS19}<ArrowOut size={11} /></a>
         </p>
       </main>

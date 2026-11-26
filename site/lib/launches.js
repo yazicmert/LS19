@@ -20,15 +20,31 @@ export function mapLaunch(r) {
     streams,
   };
 }
-// { ok, launches, fetched } — hata olursa ok: false (sayfa veri uydurmaz, kaynağın sınırını söyler)
-export async function getUpcoming() {
+// { ok, launches, fetched }. Derlemede kaynak yanıt vermezse ok: false (sayfa veri uydurmaz, kaynağın sınırını söyler; derleme sürer).
+// Yayındayken (ISR yenilemesi) hata fırlatılır: Next yeni sayfayı kaydetmez, son başarılı sayfa sunulmaya devam eder; böylece geçici bir
+// 429 ya da zaman aşımı, 30 dakika boyunca "veri alınamıyor" yazan bir sayfa bırakmaz.
+export const TIMEOUT_MS = 10_000;
+// geliştirme sunucusunda da (next dev) hata sayfası yerine not gösterilir
+const graceful = () => process.env.NEXT_PHASE === 'phase-production-build' || process.env.NODE_ENV !== 'production';
+export async function getUpcoming({ fetchImpl = fetch, atBuild = graceful() } = {}) {
+  let fail;
   try {
-    const r = await fetch(LL2_UPCOMING, { headers: { 'User-Agent': 'lookstar19/0.1 (non-commercial space library)' }, next: { revalidate: REVALIDATE } });
-    if (!r.ok) return { ok: false, launches: [], status: r.status };
-    const j = await r.json();
-    const launches = (Array.isArray(j.results) ? j.results : []).map(mapLaunch).filter((l) => l.net && l.name);
-    return { ok: true, launches, fetched: new Date().toISOString() };
-  } catch (e) { return { ok: false, launches: [], status: String(e && e.message || e).slice(0, 80) }; }
+    const r = await fetchImpl(LL2_UPCOMING, {
+      headers: { 'User-Agent': 'lookstar19/0.1 (non-commercial space library)', Accept: 'application/json' },
+      next: { revalidate: REVALIDATE }, signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (r.ok) {
+      const j = await r.json();
+      if (j && Array.isArray(j.results)) {
+        const launches = j.results.map(mapLaunch).filter((l) => l.net && l.name && Number.isFinite(Date.parse(l.net)));
+        return { ok: true, launches, fetched: new Date().toISOString() };
+      }
+      fail = 'unexpected response shape';
+    } else fail = `HTTP ${r.status}`;
+  } catch (e) { fail = String((e && e.message) || e).slice(0, 80); }
+  if (!atBuild) throw new Error(`Launch Library 2: ${fail}`);
+  console.warn(`lookstar19: Launch Library 2 alınamadı (${fail}); sayfa "veri yok" notuyla derleniyor`);
+  return { ok: false, launches: [], status: fail };
 }
 // sıradaki: zamanı geçmemiş ilk fırlatma (başarıyla kalkmış olanlar listede kalabilir)
 export const nextLaunch = (list, now = Date.now()) => list.find((l) => Date.parse(l.net) > now - 60_000 && !['Success', 'Failure'].includes(l.status.abbrev)) || null;

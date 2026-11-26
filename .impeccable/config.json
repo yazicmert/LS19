@@ -21,5 +21,6 @@
       "maxFindings": 5,
       "maxChars": 8000
     }
-  }
+  },
+  "buildPath": "code"
 }

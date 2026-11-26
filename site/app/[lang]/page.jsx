@@ -10,11 +10,12 @@ import { OBJECTS, RETRIEVED, lookupRecord } from '@/lib/asteroids';
 import { getUpcoming, nextLaunch } from '@/lib/launches';
 import { ArrowRight, ArrowOut } from '@/components/Icon';
 import { LS19_URL, REPO_URL } from '@/lib/config';
+import { pageMeta } from '@/lib/seo';
 
 export const revalidate = 1800;
 export async function generateMetadata({ params }) {
   const { lang } = await params, L = t(lang);
-  return { title: { absolute: L.home.title }, alternates: { languages: { en: '/en', tr: '/tr' } } };
+  return pageMeta(lang, '', { title: L.home.title, description: L.home.description, absolute: true });
 }
 
 export default async function Home({ params }) {

@@ -11,8 +11,6 @@
   --on-cobalt-2: #c7d2ff;
   --rule: var(--ink);
   --hair: #c3c9d0;
-  --f-sans: system-ui, sans-serif;
-  --f-mono: ui-monospace, monospace;
   --gut: clamp(16px, 3.2vw, 40px);
   --maxw: 1280px;
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
@@ -32,7 +30,7 @@ a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.2em
 a:hover { text-decoration-thickness: 2px; }
 .mono, .el__val, .el__unit, .cd, .tbl td, .tbl__num, .look__num { font-family: var(--f-mono), ui-monospace, monospace; font-variant-numeric: tabular-nums; }
 .ic { display: inline-block; vertical-align: -0.1em; margin-left: 0.35em; flex: none; }
-.btn .ic:first-child, .lnk .ic:first-child { margin-left: 0; margin-right: 0.45em; }
+.ic--lead { margin-left: 0; margin-right: 0.45em; }
 html { scrollbar-color: var(--ink-2) var(--paper-2); }
 
 .wrap { width: 100%; max-width: var(--maxw); margin: 0 auto; padding-left: var(--gut); padding-right: var(--gut); }
@@ -104,6 +102,9 @@ html { scrollbar-color: var(--ink-2) var(--paper-2); }
 .el__row dd { margin: 0; text-align: right; white-space: nowrap; }
 .el__val { font-size: 16px; }
 .el__unit { color: var(--ink-2); margin-left: 0.6ch; font-size: 14px; }
+.el__row--text { grid-template-columns: auto minmax(0, 1fr); }
+.el__row--text dd { white-space: normal; overflow-wrap: anywhere; }
+.el__row--text .el__val { font-family: var(--f-sans), system-ui, sans-serif; font-variant-numeric: normal; font-size: 15px; }
 .el--print .el__row { animation: print 0.5s var(--ease) both; }
 @media (min-width: 901px) { .el--print dl { display: grid; grid-template-columns: 1fr 1fr; column-gap: 32px; } }
 .el--print .el__row:nth-child(2) { animation-delay: 40ms; } .el--print .el__row:nth-child(3) { animation-delay: 80ms; }
@@ -183,6 +184,8 @@ html { scrollbar-color: var(--ink-2) var(--paper-2); }
 .page { padding-top: clamp(28px, 4vw, 44px); padding-bottom: clamp(36px, 5vw, 64px); }
 .page__title { margin: 0; font-weight: 800; font-variation-settings: 'wdth' 68; font-size: clamp(40px, 6vw, 84px); line-height: 0.95; letter-spacing: -0.025em; }
 .page__lead { margin: 14px 0 26px; max-width: 70ch; color: var(--ink-2); }
+.nf { min-height: 52vh; }
+.nf__links { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; margin: 0; }
 
 /* cisim kaydı */
 .rec { padding-top: 18px; padding-bottom: clamp(36px, 5vw, 64px); }

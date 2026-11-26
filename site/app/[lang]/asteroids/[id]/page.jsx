@@ -1,5 +1,6 @@
 // cisim kaydı: başlık (ad, gösterim, sınıf, bayraklar); yörünge ve fiziksel element blokları; gerçek şekil modeli (3B); LS19'da aç; kaynak satırları
 import Link from 'next/link';
+import { pageMeta } from '@/lib/seo';
 import { notFound } from 'next/navigation';
 import Masthead from '@/components/Masthead';
 import Footer from '@/components/Footer';
@@ -15,11 +16,10 @@ export function generateStaticParams() { return LANGS.flatMap((lang) => OBJECTS.
 export async function generateMetadata({ params }) {
   const { lang, id } = await params, o = byId(id); if (!o) return {};
   const A = t(lang).ast;
-  return {
+  return pageMeta(lang, `/asteroids/${id}`, {
     title: o.name,
     description: `${o.fullname}: ${clsName(lang, o.orbitClass)}; a = ${num(lang, o.elements.a, 4)} au, e = ${num(lang, o.elements.e, 4)}, i = ${num(lang, o.elements.i, 2)}°. ${A.methodLong[o.model.method]}.`,
-    alternates: { languages: { en: `/en/asteroids/${id}`, tr: `/tr/asteroids/${id}` } },
-  };
+  });
 }
 
 export default async function Asteroid({ params }) {
@@ -46,10 +46,10 @@ export default async function Asteroid({ params }) {
     ['', el.spec, [P.specB && `SMASS ${P.specB}`, P.specT && `Tholen ${P.specT}`].filter(Boolean).join(' · ') || null, null],
   ];
   const model = [
-    ['', el.method, A.methodLong[M.method], null],
+    ['', el.method, A.methodLong[M.method], null, 'text'],
     ['', el.dims, M.dims.map((x) => sig(lang, x, 3)).join(' × '), A.km],
     ['', el.tris, num(lang, M.tris, 0), null],
-    ['', el.src, M.source[lang], null],
+    ['', el.src, M.source[lang], null, 'text'],
   ];
   return (
     <>

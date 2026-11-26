@@ -1,4 +1,5 @@
 import Masthead from '@/components/Masthead';
+import { pageMeta } from '@/lib/seo';
 import Footer from '@/components/Footer';
 import { t } from '@/lib/i18n';
 import { REPO_URL } from '@/lib/config';
@@ -6,7 +7,7 @@ import { ArrowOut } from '@/components/Icon';
 
 export async function generateMetadata({ params }) {
   const { lang } = await params, S = t(lang).src;
-  return { title: S.title, description: S.description, alternates: { languages: { en: '/en/sources', tr: '/tr/sources' } } };
+  return pageMeta(lang, '/sources', { title: S.title, description: S.description });
 }
 export default async function Sources({ params }) {
   const { lang } = await params, S = t(lang).src;

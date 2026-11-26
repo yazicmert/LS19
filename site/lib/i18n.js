@@ -56,6 +56,7 @@ const T = {
       live: 'Live now',
       countdownLabel: 'Time to launch',
       inLS19: 'Watch an ascent in LS19',
+      dataNote: 'Data: The Space Devs, Launch Library 2; refreshed every 30 minutes.',
     },
     ast: {
       title: 'Asteroid library',
@@ -109,6 +110,12 @@ const T = {
       ],
       noLogo: 'Agency logos, seals and insignia are not used on this site. Mission names appear as facts only.',
       code: 'Site and simulator source code',
+    },
+    nf: {
+      title: 'Not in this circular',
+      body: 'There is no page at this address. The library lists 33 asteroids with real shape models; the index below has all of them.',
+      home: 'Home',
+      index: 'Asteroid index',
     },
     footer: {
       line: 'lookstar19 is a non-commercial library built from public sources. Not affiliated with or endorsed by any agency.',
@@ -171,6 +178,7 @@ const T = {
       live: 'Şu an canlı',
       countdownLabel: 'Fırlatmaya kalan',
       inLS19: 'LS19’da bir kalkış izle',
+      dataNote: 'Veri: The Space Devs, Launch Library 2; 30 dakikada bir yenilenir.',
     },
     ast: {
       title: 'Asteroit kütüphanesi',
@@ -224,6 +232,12 @@ const T = {
       ],
       noLogo: 'Bu sitede kurum logoları, mühürleri ve amblemleri kullanılmaz. Görev adları yalnız olgu olarak geçer.',
       code: 'Site ve simülasyonun kaynak kodu',
+    },
+    nf: {
+      title: 'Bu sirkülerde yok',
+      body: 'Bu adreste bir sayfa yok. Kütüphanede gerçek şekil modeli olan 33 asteroit var; hepsi aşağıdaki dizinde.',
+      home: 'Ana sayfa',
+      index: 'Asteroit dizini',
     },
     footer: {
       line: 'lookstar19, açık kaynaklardan kurulmuş ticari olmayan bir kütüphanedir. Hiçbir kurumla bağlantılı değildir ve onaylanmamıştır.',
