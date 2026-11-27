@@ -4,6 +4,7 @@ import { t, otherLang, date } from '@/lib/i18n';
 import { ISSUE, LS19_URL } from '@/lib/config';
 import { RETRIEVED } from '@/lib/asteroids';
 import { ArrowOut } from './Icon';
+import SiteSearch from './SiteSearch';
 
 export default function Masthead({ lang, size = 'compact', current = null, altPath = '' }) {
   const L = t(lang), o = otherLang(lang), issue = String(ISSUE).padStart(4, '0');
@@ -26,7 +27,10 @@ export default function Masthead({ lang, size = 'compact', current = null, altPa
             ))}
             <li><a href={LS19_URL} rel="noopener">{L.nav.ls19}<ArrowOut size={12} /></a></li>
           </ul>
-          <Link className="mast__lang" href={`/${o}${altPath}`} hrefLang={o} lang={o}>{L.other}</Link>
+          <div className="mast__tools">
+            <SiteSearch lang={lang} />
+            <Link className="mast__lang" href={`/${o}${altPath}`} hrefLang={o} lang={o}>{L.other}</Link>
+          </div>
         </nav>
       </div>
     </header>

@@ -2,23 +2,25 @@
 import Link from 'next/link';
 import { t, num, sig, clsName } from '@/lib/i18n';
 import { shortName } from '@/lib/asteroids-match';
+import { SortTh } from './Filters';
 
-export default function AsteroidTable({ lang, objects, full = false }) {
-  const A = t(lang).ast, C = A.cols;
+// sort/onSort verilirse başlıklar sıralama düğmesi olur (AsteroidBrowser)
+export default function AsteroidTable({ lang, objects, full = false, sort = null, onSort = null }) {
+  const A = t(lang).ast, C = A.cols, F = t(lang).flt, H = (k, label, cls = '') => <SortTh k={k} label={label} sort={sort} onSort={onSort} className={cls} sortLabel={F.sortBy(label)} />;
   return (
     <div className="tbl" role="region" aria-label={t(lang).ast.title} tabIndex={0}>
       <table>
         <thead>
           <tr>
-            <th scope="col" className="tbl__num">#</th>
-            <th scope="col">{C.name}</th>
-            <th scope="col">{C.cls}</th>
-            <th scope="col" className="r">{C.a}</th>
-            <th scope="col" className="r">{C.e}</th>
-            <th scope="col" className="r">{C.i}</th>
-            <th scope="col" className="r">{C.d}</th>
-            {full ? <th scope="col" className="r">{C.moid}</th> : null}
-            <th scope="col">{C.model}</th>
+            {H('num', '#', 'tbl__num')}
+            {H('name', C.name)}
+            {H('cls', C.cls)}
+            {H('a', C.a, 'r')}
+            {H('e', C.e, 'r')}
+            {H('i', C.i, 'r')}
+            {H('d', C.d, 'r')}
+            {full ? H('moid', C.moid, 'r') : null}
+            {H('method', C.model)}
           </tr>
         </thead>
         <tbody>

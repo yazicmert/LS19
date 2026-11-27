@@ -3,10 +3,11 @@ import Masthead from '@/components/Masthead';
 import { pageMeta } from '@/lib/seo';
 import Footer from '@/components/Footer';
 import NextLaunch from '@/components/NextLaunch';
-import { t, netLabel } from '@/lib/i18n';
+import LaunchBrowser from '@/components/LaunchBrowser';
+import { t } from '@/lib/i18n';
 import { getUpcoming, nextLaunch } from '@/lib/launches';
 import { LS19_URL } from '@/lib/config';
-import { ArrowOut, Play } from '@/components/Icon';
+import { ArrowOut } from '@/components/Icon';
 
 export const revalidate = 1800;
 export async function generateMetadata({ params }) {
@@ -24,27 +25,7 @@ export default async function Launches({ params }) {
         <p className="page__lead">{L.lead}</p>
         <div className="lch">
           <section className="lch__next" aria-labelledby="lch-next"><NextLaunch lang={lang} launch={nl} ok={up.ok} headingId="lch-next" /></section>
-          {up.ok && rest.length ? (
-            <ol className="lch__list">
-              {rest.map((l) => {
-                const s = l.streams.find((x) => x.official) || l.streams[0];
-                return (
-                  <li key={l.id} className="lch__row">
-                    <p className="lch__net mono">{netLabel(lang, l.net, l.precision)}</p>
-                    <div className="lch__body">
-                      <h2 className="lch__name">{l.mission.name || l.name}</h2>
-                      <p className="lch__meta">{[l.vehicle, l.provider].filter(Boolean).join(' · ')}</p>
-                      <p className="lch__meta">{[l.pad.name, l.pad.location].filter(Boolean).join(', ')}{l.mission.orbit ? ` · ${l.mission.orbit}` : ''}</p>
-                    </div>
-                    <div className="lch__side">
-                      <p className="lch__status">{l.status.name || l.status.abbrev}</p>
-                      {s ? <a className="lnk" href={s.url} rel="noopener" target="_blank"><Play size={11} />{s.official ? L.watch : L.watchOther}</a> : <p className="lch__none">{L.noStream}</p>}
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
-          ) : null}
+          {up.ok && rest.length ? <LaunchBrowser lang={lang} rows={rest.map(({ mission, ...l }) => ({ ...l, mission: { name: mission.name, orbit: mission.orbit } }))} /> : null}
         </div>
         <p className="note">
           {L.dataNote}{' '}

@@ -148,6 +148,20 @@ check('şemalar: SVG aria-hidden, kutunun içinde (overflow hidden), anlamı aç
 check('şemalar: asteroit, uydu ve fırlatma sayfalarına bağlı', /withViz\(orbit, vz\)/.test(rd('../../site/app/[lang]/asteroids/[id]/page.jsx')) && /withViz\(derived, vz\)/.test(rd('../../site/app/[lang]/satellites/[id]/page.jsx'))
   && /<Window kind=/.test(rd('../../site/components/NextLaunch.jsx')) && /prefers-reduced-motion[\s\S]*vt__pop\[data-open\] \{ animation: none; \}/.test(rd('../../site/app/globals.css')));
 
+// 5e) süzgeçler ve site araması
+const Se = await import('../../site/lib/search.js');
+check('arama: Türkçe/İngilizce harf ve aksan duyarsız; boşluk, tire, parantez yok sayılır', Se.norm('İTOKAWA') === 'itokawa' && Se.norm('Güneş eşzamanlı') === 'guneseszamanli' && Se.norm('1998 KY26') === Se.norm('1998ky26') && Se.norm('(2008 EV5)') === '2008ev5' && Se.norm('Sentinel-6') === 'sentinel6');
+const rk = Se.rank([{ n: 'Ryugu' }, { n: 'Bennu' }, { n: 'Didymos' }, { n: 'Ultima' }], 'u', (o) => [o.n]).map((o) => o.n);
+check('arama: başlayan önce, sonra içeren; eşleşmeyen yok; boş sorgu tüm liste', rk.join() === 'Ultima,Ryugu,Bennu' && Se.rank([1, 2], '', () => ['x']).length === 2);
+const srt = Se.sortBy([{ v: 3 }, { v: null }, { v: 1 }, { v: 2 }], (o) => o.v, 'desc').map((o) => o.v);
+check('sıralama: azalan/artan; değeri olmayan her yönde sonda', srt.join() === '3,2,1,' && Se.sortBy([{ v: 'b' }, { v: 'a' }], (o) => o.v).map((o) => o.v).join() === 'a,b');
+const D0 = { q: '', cls: '', neo: false, sort: 'num', dir: 'asc' };
+check('süzgeç durumu adreste: yalnız varsayılandan farklılar yazılır, geri okunur', Se.writeParams({ ...D0, cls: 'APO', neo: true }, D0) === '?cls=APO&neo=1' && Se.writeParams(D0, D0) === ''
+  && JSON.stringify(Se.readParams('?cls=APO&neo=1&x=9', D0)) === JSON.stringify({ ...D0, cls: 'APO', neo: true }));
+check('süzgeç ve arama metinleri iki dilde; sayfalar ve /search.json bağlı', !!en.flt.ph.lch && !!tr.flt.ph.lch && en.search.launches('x') !== tr.search.launches('x')
+  && /AsteroidBrowser/.test(rd('../../site/app/[lang]/asteroids/page.jsx')) && /SatBrowser/.test(rd('../../site/app/[lang]/satellites/page.jsx')) && /LaunchBrowser/.test(rd('../../site/app/[lang]/launches/page.jsx'))
+  && /SiteSearch/.test(rd('../../site/components/Masthead.jsx')) && /force-static/.test(rd('../../site/app/search.json/route.js')));
+
 // 6) yayın altyapısı: meta veri, güvenlik başlıkları, Vercel ayarı, 404, yazı tipi
 const S = await import('../../site/lib/seo.js');
 const alt = S.alternates('tr', '/asteroids/bennu'), pm = S.pageMeta('en', '/launches', { title: 'Upcoming launches', description: 'd' });

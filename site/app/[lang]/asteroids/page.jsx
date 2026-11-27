@@ -1,9 +1,9 @@
 import Masthead from '@/components/Masthead';
 import { pageMeta } from '@/lib/seo';
 import Footer from '@/components/Footer';
-import AsteroidTable from '@/components/AsteroidTable';
+import AsteroidBrowser from '@/components/AsteroidBrowser';
 import { t, date } from '@/lib/i18n';
-import { OBJECTS, RETRIEVED } from '@/lib/asteroids';
+import { OBJECTS, RETRIEVED, tableRecord } from '@/lib/asteroids';
 
 export async function generateMetadata({ params }) {
   const { lang } = await params, A = t(lang).ast;
@@ -17,7 +17,7 @@ export default async function Asteroids({ params }) {
       <main id="main" className="wrap page">
         <h1 className="page__title">{A.title}</h1>
         <p className="page__lead">{A.lead}</p>
-        <AsteroidTable lang={lang} objects={OBJECTS} full />
+        <AsteroidBrowser lang={lang} rows={OBJECTS.map(tableRecord)} />
         <p className="note">{L.home.modelsNote(date(lang, RETRIEVED))}</p>
       </main>
       <Footer lang={lang} />

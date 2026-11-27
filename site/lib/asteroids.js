@@ -15,3 +15,9 @@ export const lookupRecord = (o) => ({
   a: o.elements.a, e: o.elements.e, i: o.elements.i, per: o.elements.per, moid: o.moid, D: o.phys.diameter, rot: o.phys.rotPer, method: o.model.method,
 });
 export { matchObjects } from './asteroids-match.js';
+// dizin tablosu ve süzgeçleri için ince kayıt (istemciye yalnız bu gider; yakın geçişler ve belirsizlikler gitmez)
+export const tableRecord = (o) => ({
+  id: o.id, number: o.number, name: o.name, des: o.des, fullname: o.fullname, neo: o.neo, pha: o.pha, orbitClass: o.orbitClass,
+  elements: { a: o.elements.a, e: o.elements.e, i: o.elements.i }, phys: { diameter: o.phys.diameter }, moid: o.moid,
+  model: { method: o.model.method }, sentry: o.sentry ? o.sentry.status : null,
+});

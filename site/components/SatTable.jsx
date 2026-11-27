@@ -2,23 +2,25 @@
 import Link from 'next/link';
 import { t, num } from '@/lib/i18n';
 import { satName } from '@/lib/satellites';
+import { SortTh } from './Filters';
 
-export default function SatTable({ lang, sats, label }) {
-  const S = t(lang).sat, C = S.cols;
+// sort/onSort verilirse başlıklar sıralama düğmesi olur (SatBrowser)
+export default function SatTable({ lang, sats, label, sort = null, onSort = null }) {
+  const S = t(lang).sat, C = S.cols, F = t(lang).flt, H = (k, l, cls = '') => <SortTh k={k} label={l} sort={sort} onSort={onSort} className={cls} sortLabel={F.sortBy(l)} />;
   return (
     <div className="tbl" role="region" aria-label={label || S.title} tabIndex={0}>
       <table>
         <thead>
           <tr>
-            <th scope="col">{C.name}</th>
-            <th scope="col" className="r">{C.norad}</th>
-            <th scope="col">{C.owner}</th>
-            <th scope="col" className="r">{C.launched}</th>
-            <th scope="col">{C.regime}</th>
-            <th scope="col" className="r">{C.alt}</th>
-            <th scope="col" className="r">{C.i}</th>
-            <th scope="col" className="r">{C.period}</th>
-            <th scope="col" className="r">{C.mass}</th>
+            {H('name', C.name)}
+            {H('norad', C.norad, 'r')}
+            {H('owner', C.owner)}
+            {H('launched', C.launched, 'r')}
+            {H('regime', C.regime)}
+            {H('alt', C.alt, 'r')}
+            {H('i', C.i, 'r')}
+            {H('period', C.period, 'r')}
+            {H('mass', C.mass, 'r')}
           </tr>
         </thead>
         <tbody>
