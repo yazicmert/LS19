@@ -197,6 +197,7 @@ check('katalog sorgusu: grup, sınıf, parlaklık, çap, sıralama ve sayfa JPL 
 const badQ = new URL(SL.listQuery({ group: 'x"]}', cls: 'XYZ', h: '1;drop', d: false, sort: 'evil', dir: 'up', page: -5 })).searchParams;
 check('katalog sorgusu: tanınmayan grup, sınıf, sıralama ve sayı yok sayılır (kullanıcı metni sorguya girmez); sayfa sınırlı',
   !badQ.has("sb-group") && !badQ.has("sb-class") && !badQ.has("sb-cdata") && badQ.get("sort") === "spkid" && badQ.get("limit-from") === "0" && new URL(SL.listQuery({ page: 99999999 })).searchParams.get('limit-from') === String(40000 * 50));
+check('katalog: kısmen bilinen ilk gözlem tarihi yalnız bilinen kısmıyla ("2019-??-??" → 2019)', SL.partialDate('2019-??-??') === '2019' && SL.partialDate('2019-5-??') === '2019-05' && SL.partialDate('1995-01-05') === '1995-01-05' && SL.partialDate('') === null && SL.partialDate(null) === null);
 check('katalog adresi: gösterim ↔ adres (boşluk ↔ alt çizgi); geçersiz gösterim reddedilir', SL.desToSlug('2004 MN4') === '2004_MN4' && SL.slugToDes('3524_P-L') === '3524 P-L' && SL.slugToDes('2024%20YR4') === '2024 YR4'
   && SL.validDes('2024 YR4') && SL.validDes('99942') && !SL.validDes('../etc') && !SL.validDes('a'.repeat(40)) && !SL.validDes('x" OR 1'));
 check('katalog sayfaları: /asteroids/all, /sb/[des] (istekle, bir gün önbellek; 33 cisim zengin sayfaya yönlenir), /api/sb; düzen alt sayfaları kilitlemez',

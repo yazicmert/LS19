@@ -33,6 +33,8 @@ export const SORTS = { H: 'H', D: 'diameter', a: 'a', e: 'e', i: 'i', moid: 'moi
 export const PAGE = 50;
 const FIELDS = 'spkid,full_name,pdes,name,prefix,neo,pha,class,H,diameter,a,e,i,moid,first_obs';
 const num = (v) => (v == null || v === '' ? null : Number.isFinite(+v) ? +v : null);
+// JPL ilk gözlemi bazen kısmen bilinir: "2019-??-??" → "2019", "2019-05-??" → "2019-05" (bilinmeyen kısım gösterilmez)
+export const partialDate = (s) => { const m = /^(\d{4})(?:-(\d{1,2})(?:-(\d{1,2}))?)?/.exec(String(s || '').trim()); return m ? [m[1], m[2] && m[2].padStart(2, '0'), m[2] && m[3] && m[3].padStart(2, '0')].filter(Boolean).join('-') : null; };
 export function listQuery({ group = '', cls = '', h = '', d = false, sort = 'num', dir = 'asc', page = 0 }) {
   const p = new URLSearchParams({ fields: FIELDS, 'sb-kind': 'a', limit: String(PAGE), 'limit-from': String(Math.max(0, Math.min(+page || 0, 40000)) * PAGE) });
   if (group === 'neo' || group === 'pha') p.set('sb-group', group);
@@ -52,7 +54,7 @@ export async function liveList(opts) {
   const ix = Object.fromEntries(j.fields.map((k, i) => [k, i]));
   const rows = (j.data || []).map((r) => ({
     spk: r[ix.spkid], des: String(r[ix.pdes]).trim(), name: r[ix.name] || null, full: String(r[ix.full_name]).trim(), number: r[ix.prefix] ? null : (/^\d+$/.test(String(r[ix.pdes]).trim()) ? +r[ix.pdes] : null),
-    neo: r[ix.neo] === 'Y', pha: r[ix.pha] === 'Y', cls: r[ix.class], H: num(r[ix.H]), D: num(r[ix.diameter]), a: num(r[ix.a]), e: num(r[ix.e]), i: num(r[ix.i]), moid: num(r[ix.moid]), first: r[ix.first_obs] || null,
+    neo: r[ix.neo] === 'Y', pha: r[ix.pha] === 'Y', cls: r[ix.class], H: num(r[ix.H]), D: num(r[ix.diameter]), a: num(r[ix.a]), e: num(r[ix.e]), i: num(r[ix.i]), moid: num(r[ix.moid]), first: partialDate(r[ix.first_obs]),
   }));
   return { count: j.count ?? rows.length, rows };
 }
