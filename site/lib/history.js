@@ -2,12 +2,14 @@
 // görev olaylarından (data/events.json; sayfa içe aktarıp verir: Node testleri JSON içe aktaramaz) tek bir zaman sırası. Her olay: { date (ISO gün), prec, kind, text, src, mission?, future }
 import { t, num, sig } from './i18n.js';
 import { AU_KM, LD_AU } from './jpl.js';
+import { missionEvents } from './missions.js';
 
 const odds = (lang, ip) => num(lang, Math.round(1 / ip), 0);
 function finish(list, today) {
   return list.filter((e) => e.date).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)).map((e) => ({ ...e, future: e.date > today }));
 }
-export function asteroidEvents(o, lang, today, events) {
+// görev olayları data/missions.json'dan (hedef JPL gösterimiyle eşlenir: katalogdaki her cisim için çalışır)
+export function asteroidEvents(o, lang, today, missions) {
   const H = t(lang).hist, ev = [], d = o.discovery, so = o.solution || {};
   if (d && d.date) ev.push({ date: d.date, kind: 'disc', text: H.disc(d.who, d.location), src: H.src.sbdb });
   if (so.first) ev.push({ date: so.first, kind: 'obs', text: H.firstObs(!!(d && d.date && so.first < d.date)), src: H.src.sbdb });
@@ -20,7 +22,7 @@ export function asteroidEvents(o, lang, today, events) {
   const s = o.sentry;
   if (s && s.status === 'removed' && s.removed) ev.push({ date: s.removed, kind: 'risk', text: H.sentryOut, src: H.src.sentry });
   if (s && s.status === 'listed' && s.computed) ev.push({ date: s.computed, kind: 'risk', text: H.sentryIn(odds(lang, s.ip)), src: H.src.sentry });
-  for (const m of (events.asteroids[o.id] || [])) ev.push({ date: m.date, prec: m.prec, kind: m.kind, text: m[lang] || m.en, mission: m.mission, src: H.src.mission });
+  ev.push(...missionEvents(o.des, lang, missions));
   return finish(ev, today);
 }
 export function satEvents(s, lang, today, events) {

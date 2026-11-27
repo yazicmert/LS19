@@ -77,3 +77,27 @@ export const KNOWN_COUNT = 1589842;
 export async function catalogCount() {
   try { const j = await getJson(`${API}/sbdb_query.api?fields=spkid&sb-kind=a&limit=1`, { timeout: 12_000 }); return Number.isFinite(+j.count) ? +j.count : KNOWN_COUNT; } catch { return KNOWN_COUNT; }
 }
+
+// katalog sayfasındaki "Asteroitler hakkında" sayıları: sınıf başına, gruplar, numaralı/adlı/çapı ölçülen ve büyüklüğe göre NEO'lar.
+// Her biri tek satırlık sayım sorgusu (limit=1, yalnız count); günde bir. JPL yanıt vermezse son bilinen değer ve ok=false.
+export const STAT_CLASSES = ['IEO', 'ATE', 'APO', 'AMO', 'MCA', 'IMB', 'MBA', 'OMB', 'TJN', 'CEN', 'TNO', 'HYA', 'AST'];
+export const KNOWN_STATS = {                                                      // 2026-11-27'de JPL'den
+  retrieved: '2026-11-27', total: 1589921, numbered: 895910, named: 26637, neo: 43188, pha: 2554, withD: 139583, neo1km: 875, neo140m: 11798,
+  cls: { IEO: 39, ATE: 3517, APO: 24582, AMO: 15050, MCA: 30679, IMB: 33365, MBA: 1404800, OMB: 51479, TJN: 16692, CEN: 1114, TNO: 8429, HYA: 6, AST: 169 },
+};
+export function statQueries() {
+  const q = (extra) => `${API}/sbdb_query.api?${new URLSearchParams({ fields: 'spkid', 'sb-kind': 'a', limit: '1', ...extra })}`, cd = (...c) => ({ 'sb-cdata': JSON.stringify({ AND: c }) });
+  return {
+    total: q({}), numbered: q({ 'sb-ns': 'n' }), named: q(cd('name|DF')), neo: q({ 'sb-group': 'neo' }), pha: q({ 'sb-group': 'pha' }), withD: q(cd('diameter|DF')),
+    neo1km: q({ 'sb-group': 'neo', ...cd('H|LE|17.75') }), neo140m: q({ 'sb-group': 'neo', ...cd('H|LE|22') }),
+    ...Object.fromEntries(STAT_CLASSES.map((c) => [`cls.${c}`, q({ 'sb-class': c })])),
+  };
+}
+export async function catalogStats() {
+  const Q = Object.entries(statQueries());
+  const res = await Promise.all(Q.map(([, u]) => getJson(u, { timeout: 15_000 }).then((j) => (Number.isFinite(+j.count) ? +j.count : null)).catch(() => null)));
+  if (res.some((v) => v == null)) return { ...KNOWN_STATS, ok: false };          // biri bile eksikse karışık veri göstermeyelim
+  const out = { retrieved: new Date().toISOString().slice(0, 10), cls: {}, ok: true };
+  Q.forEach(([k], i) => { if (k.startsWith('cls.')) out.cls[k.slice(4)] = res[i]; else out[k] = res[i]; });
+  return out;
+}

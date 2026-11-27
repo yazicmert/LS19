@@ -2,7 +2,7 @@
 import { pageMeta } from '@/lib/seo';
 import { notFound } from 'next/navigation';
 import AsteroidRecord from '@/components/AsteroidRecord';
-import EVENTS from '@/data/events.json';
+import MISSIONS from '@/data/missions.json';
 import { LANGS } from '@/lib/config';
 import { t, num, clsName } from '@/lib/i18n';
 import { OBJECTS, RETRIEVED, CAD, byId } from '@/lib/asteroids';
@@ -20,5 +20,5 @@ export async function generateMetadata({ params }) {
 
 export default async function Asteroid({ params }) {
   const { lang, id } = await params, o = byId(id); if (!o) notFound();
-  return <AsteroidRecord lang={lang} o={o} retrieved={RETRIEVED} cad={CAD} events={EVENTS} altPath={`/asteroids/${o.id}`} back={{ href: `/${lang}/asteroids`, label: t(lang).ast.back }} />;
+  return <AsteroidRecord lang={lang} o={o} retrieved={RETRIEVED} cad={CAD} missions={MISSIONS} altPath={`/asteroids/${o.id}`} back={{ href: `/${lang}/asteroids`, label: t(lang).ast.back }} />;
 }

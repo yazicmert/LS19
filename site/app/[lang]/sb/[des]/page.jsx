@@ -2,7 +2,7 @@
 // Şekil modeli olan 33 cisimden biriyse onun zengin sayfasına yönlenir. Bulunamazsa ya da asteroit değilse 404.
 import { notFound, redirect } from 'next/navigation';
 import AsteroidRecord from '@/components/AsteroidRecord';
-import EVENTS from '@/data/events.json';
+import MISSIONS from '@/data/missions.json';
 import { pageMeta } from '@/lib/seo';
 import { t, num, clsName } from '@/lib/i18n';
 import { OBJECTS, CAD } from '@/lib/asteroids';
@@ -29,5 +29,5 @@ export default async function CatalogAsteroid({ params }) {
   if (r.error) throw new Error(r.error);                                      // geçici JPL hatası: önbellekteki son sayfa sunulur
   if (!r.o) notFound();
   const today = new Date().toISOString().slice(0, 10), C = t(lang).cat;
-  return <AsteroidRecord lang={lang} o={r.o} retrieved={today} cad={CAD} events={EVENTS} altPath={`/sb/${desToSlug(r.o.des)}`} back={{ href: `/${lang}/asteroids/all`, label: C.back }} />;
+  return <AsteroidRecord lang={lang} o={r.o} retrieved={today} cad={CAD} missions={MISSIONS} altPath={`/sb/${desToSlug(r.o.des)}`} back={{ href: `/${lang}/asteroids/all`, label: C.back }} />;
 }

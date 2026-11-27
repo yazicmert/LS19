@@ -9,7 +9,7 @@ import { useListState, FilterBar, FText, FSelect, FToggles, SortTh } from './Fil
 const DEF = { q: '', group: '', cls: '', h: '', d: false, sort: 'num', dir: 'asc', page: '0' };
 const CLASSES = ['MBA', 'IMB', 'OMB', 'APO', 'ATE', 'AMO', 'IEO', 'MCA', 'TJN', 'CEN', 'TNO', 'HYA'];
 const slug = (des) => String(des).replace(/ /g, '_');
-export default function CatalogBrowser({ lang, total, shapeIds }) {
+export default function CatalogBrowser({ lang, total, shapeIds, visited = {} }) {
   const L = t(lang), F = L.flt, C = L.cat, K = C.cols, [st, set, reset, dirty] = useListState(DEF);
   const [res, setRes] = useState(null), [state, setState] = useState('loading'), [tick, setTick] = useState(0), ctl = useRef(null);
   const href = (des) => (shapeIds[des] ? `/${lang}/asteroids/${shapeIds[des]}` : `/${lang}/sb/${slug(des)}`);
@@ -43,7 +43,7 @@ export default function CatalogBrowser({ lang, total, shapeIds }) {
         {res && res.q ? (
           res.rows.length ? (
             <ul className="cat__find">
-              {res.rows.map((r) => <li key={r.des}><Link href={href(r.des)}>{r.full}</Link>{shapeIds[r.des] ? <span className="flag">{C.shape}</span> : null}</li>)}
+              {res.rows.map((r) => <li key={r.des}><Link href={href(r.des)}>{r.full}</Link>{shapeIds[r.des] ? <span className="flag">{C.shape}</span> : null}{visited[r.des] ? <span className="flag flag--cobalt">{L.ms.short}</span> : null}</li>)}
             </ul>
           ) : <p className="flt__none">{F.none}</p>
         ) : res && res.rows.length ? (
@@ -55,7 +55,7 @@ export default function CatalogBrowser({ lang, total, shapeIds }) {
                   {res.rows.map((r) => (
                     <tr key={r.spk}>
                       <td className="tbl__num">{r.number ?? ''}</td>
-                      <th scope="row"><Link href={href(r.des)}>{r.name || r.des}</Link>{r.pha ? <span className="flag flag--ink flag--sm">PHA</span> : r.neo ? <span className="flag flag--sm">NEO</span> : null}{shapeIds[r.des] ? <span className="flag flag--sm">3D</span> : null}</th>
+                      <th scope="row"><Link href={href(r.des)}>{r.name || r.des}</Link>{r.pha ? <span className="flag flag--ink flag--sm">PHA</span> : r.neo ? <span className="flag flag--sm">NEO</span> : null}{shapeIds[r.des] ? <span className="flag flag--sm">3D</span> : null}{visited[r.des] ? <span className="flag flag--sm flag--cobalt" title={L.ms.title}>{L.ms.short}</span> : null}</th>
                       <td className="txt">{clsName(lang, { code: r.cls, name: r.cls })}</td>
                       <td className="r">{r.H != null ? num(lang, r.H, 2) : '—'}</td>
                       <td className="r">{r.D != null ? sig(lang, r.D, 3) : '—'}</td>
