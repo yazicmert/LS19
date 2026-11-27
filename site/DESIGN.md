@@ -203,6 +203,14 @@ Square corners throughout (0px). Borders are 2px ink for controls, fields, the l
 - Close approaches are a table (date TDB, au, km, lunar distances, 3σ ±, v rel, time 3σ) with row groups set in label type; impact risk is an element block under a section rule. Every block names its API and retrieval date in the record's source list.
 - Launch times appear only as precisely as the source states them (month, quarter, hour, minute); the countdown runs only for a launch whose time is known.
 
+### History timeline (signature)
+- A vertical ink line; each entry is date (mono, at the source's precision) · a 9px square · the event in body type with its source in 13px ink-2 below. Mission events (spacecraft, launches, servicing) are cobalt squares and semibold; data events (discovery, observations, solutions, close approaches, Sentry) are ink squares; planned events are hollow cobalt squares with a "planned" flag.
+- A ruled "Data as of" row separates the past from what is scheduled or predicted. On phones the date moves above the text and the line runs at the left edge.
+
+### Rocket view
+- Rockets are drawn from GCAT dimensions in the same cobalt stage as shape models, but taller (3:4): stacked stage cylinders, cones where the diameter changes, an ogive fairing, boosters around the core, dark engine bells. Neutral colours; the page says "drawn from dimensions".
+- The launch record is grouped by year in disclosure rows (newest two open); failures carry an ink flag.
+
 ### Filter bar
 - Sits between a list page's lead and its table, opened by a 2px ink rule. Labelled fields in a wrapping row: a mono search field and native selects (2px ink border, white, drawn chevron; options show counts) and toggle buttons (1px ink border; pressed = ink fill, paper text). Below: the mono "n of total shown" and a cobalt "Clear filters" link only when something is set.
 - State lives in the address (`?cls=APO&pha=1`, `?q=falcon`), so a filtered view can be shared; the first render matches the server's unfiltered HTML.

@@ -1,5 +1,5 @@
 {
- "retrieved": "2026-11-26",
+ "retrieved": "2026-11-27",
  "gp": {
   "source": "CelesTrak GP (OMM), group \"active\"",
   "copied": "2026-11-26T21:30:07.893Z"
@@ -57,6 +57,18 @@
     ],
     "bus": "Cubesat 12U",
     "shape": "Box+sail",
+    "sdate": {
+     "iso": "2024-04-24",
+     "time": "00:17",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2024-04-24",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 16.1,
     "dryMass": 16.1,
     "length": 0.3,
@@ -74,7 +86,10 @@
      "site": "Rocket Lab Launch Complex 1, Onenui Station, Mahia Peninsula",
      "siteShort": "Mahia",
      "pad": "LC1B"
-    }
+    },
+    "program": "Ames",
+    "category": "TECH",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -135,6 +150,18 @@
     ],
     "bus": "T-330",
     "shape": "Box + Pan",
+    "sdate": {
+     "iso": "2002-05-04",
+     "time": "10:54",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2002-05-14",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 3078,
     "dryMass": 2976,
     "length": 6.7,
@@ -152,7 +179,10 @@
      "site": "Vandenberg AFB, California",
      "siteShort": "Vandenberg",
      "pad": "SLC2W"
-    }
+    },
+    "program": "EOS",
+    "category": "IMG",
+    "comment": "Climate study, IR/microwave"
    },
    "note": null,
    "model": {
@@ -213,6 +243,18 @@
     ],
     "bus": "T-330",
     "shape": "Box + Pan",
+    "sdate": {
+     "iso": "2004-07-15",
+     "time": "11:06",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2004-07-23",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 3112,
     "dryMass": 2978,
     "length": 6.9,
@@ -230,7 +272,10 @@
      "site": "Vandenberg AFB, California",
      "siteShort": "Vandenberg",
      "pad": "SLC2W"
-    }
+    },
+    "program": "EOS",
+    "category": "EOSCI",
+    "comment": "Atmospheric trace gases"
    },
    "note": null,
    "model": {
@@ -291,6 +336,18 @@
     ],
     "bus": "AXAF",
     "shape": "Cyl + 2 Pan",
+    "sdate": {
+     "iso": "1999-07-23",
+     "time": "13:49",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "1999-08-27",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 5677,
     "dryMass": 4653,
     "length": 14,
@@ -308,7 +365,10 @@
      "site": "NASA John F. Kennedy Space Center, Florida",
      "siteShort": "Kennedy",
      "pad": "LC39B"
-    }
+    },
+    "program": "Great Obs",
+    "category": "AST",
+    "comment": "High res X-ray imaging"
    },
    "note": null,
    "model": {
@@ -371,6 +431,18 @@
     ],
     "bus": "CYGNSS",
     "shape": "Trunc prism+2 pan",
+    "sdate": {
+     "iso": "2016-12-15",
+     "time": "13:50",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2016-12-23",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 29,
     "dryMass": 29,
     "length": 0.27,
@@ -388,7 +460,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "RW13"
-    }
+    },
+    "program": "EarthVenture",
+    "category": "EOSCI",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -451,6 +526,18 @@
     ],
     "bus": "CYGNSS",
     "shape": "Trunc prism+2 pan",
+    "sdate": {
+     "iso": "2016-12-15",
+     "time": "13:51",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2016-12-23",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 29,
     "dryMass": 29,
     "length": 0.27,
@@ -468,7 +555,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "RW13"
-    }
+    },
+    "program": "EarthVenture",
+    "category": "EOSCI",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -531,6 +621,18 @@
     ],
     "bus": "CYGNSS",
     "shape": "Trunc prism+2 pan",
+    "sdate": {
+     "iso": "2016-12-15",
+     "time": "13:50",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2016-12-23",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 29,
     "dryMass": 29,
     "length": 0.27,
@@ -548,7 +650,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "RW13"
-    }
+    },
+    "program": "EarthVenture",
+    "category": "EOSCI",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -611,6 +716,18 @@
     ],
     "bus": "CYGNSS",
     "shape": "Trunc prism+2 pan",
+    "sdate": {
+     "iso": "2016-12-15",
+     "time": "13:51",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2016-12-23",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 29,
     "dryMass": 29,
     "length": 0.27,
@@ -628,7 +745,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "RW13"
-    }
+    },
+    "program": "EarthVenture",
+    "category": "EOSCI",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -691,6 +811,18 @@
     ],
     "bus": "CYGNSS",
     "shape": "Trunc prism+2 pan",
+    "sdate": {
+     "iso": "2016-12-15",
+     "time": "13:50",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2016-12-23",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 29,
     "dryMass": 29,
     "length": 0.27,
@@ -708,7 +840,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "RW13"
-    }
+    },
+    "program": "EarthVenture",
+    "category": "EOSCI",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -771,6 +906,18 @@
     ],
     "bus": "CYGNSS",
     "shape": "Trunc prism+2 pan",
+    "sdate": {
+     "iso": "2016-12-15",
+     "time": "13:50",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2016-12-23",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 29,
     "dryMass": 29,
     "length": 0.27,
@@ -788,7 +935,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "RW13"
-    }
+    },
+    "program": "EarthVenture",
+    "category": "EOSCI",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -851,6 +1001,18 @@
     ],
     "bus": "CYGNSS",
     "shape": "Trunc prism+2 pan",
+    "sdate": {
+     "iso": "2016-12-15",
+     "time": "13:51",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2016-12-23",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 29,
     "dryMass": 29,
     "length": 0.27,
@@ -868,7 +1030,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "RW13"
-    }
+    },
+    "program": "EarthVenture",
+    "category": "EOSCI",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -929,6 +1094,18 @@
     ],
     "bus": "SA-200",
     "shape": "Box + Cyl + 2 Pan",
+    "sdate": {
+     "iso": "2008-06-11",
+     "time": "17:20",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2008-06-19",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 4277,
     "dryMass": 3919,
     "length": 2.8,
@@ -946,7 +1123,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "SLC17B"
-    }
+    },
+    "program": "GLAST",
+    "category": "AST",
+    "comment": "Gamma ray survey"
    },
    "note": null,
    "model": {
@@ -1007,6 +1187,18 @@
     ],
     "bus": "A2100",
     "shape": "Box +  panel + boom",
+    "sdate": {
+     "iso": "2016-11-20",
+     "time": "03:13",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2017-01-19",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 5192,
     "dryMass": 2857,
     "length": 6.1,
@@ -1024,7 +1216,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "SLC41"
-    }
+    },
+    "program": "GOES R",
+    "category": "MET",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -1085,6 +1280,18 @@
     ],
     "bus": "A2100",
     "shape": "Box +  panel + boom",
+    "sdate": {
+     "iso": "2018-03-02",
+     "time": "01:34",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2018-05-01",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 5192,
     "dryMass": 2857,
     "length": 6.1,
@@ -1102,7 +1309,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "SLC41"
-    }
+    },
+    "program": "GOES R",
+    "category": "MET",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -1163,6 +1373,18 @@
     ],
     "bus": "A2100",
     "shape": "Box +  panel + boom",
+    "sdate": {
+     "iso": "2022-03-02",
+     "time": "01:10",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2022-05-01",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 5209,
     "dryMass": 2857,
     "length": 6.1,
@@ -1180,7 +1402,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "SLC41"
-    }
+    },
+    "program": "GOES R",
+    "category": "MET",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -1241,6 +1466,18 @@
     ],
     "bus": "A2100",
     "shape": "Box +  panel + boom",
+    "sdate": {
+     "iso": "2024-06-26",
+     "time": "01:56",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2024-08-25",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 5000,
     "dryMass": 2925,
     "length": 6.1,
@@ -1258,7 +1495,10 @@
      "site": "NASA John F. Kennedy Space Center, Florida",
      "siteShort": "Kennedy",
      "pad": "LC39A"
-    }
+    },
+    "program": "GOES R",
+    "category": "MET",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -1319,6 +1559,18 @@
     ],
     "bus": "GPM",
     "shape": "Box + 2  pan",
+    "sdate": {
+     "iso": "2014-02-27",
+     "time": "18:52",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2014-02-28",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 3850,
     "dryMass": 3200,
     "length": 6.5,
@@ -1336,7 +1588,10 @@
      "site": "Tanegashima Space Center, Tanegashima, Nippon",
      "siteShort": "Tanegashima",
      "pad": "Y"
-    }
+    },
+    "program": "Earth Probe",
+    "category": "EOSCI",
+    "comment": "Climate study, rain/snow"
    },
    "note": null,
    "model": {
@@ -1399,6 +1654,18 @@
     ],
     "bus": "FlexBus",
     "shape": "Half Hex Prism",
+    "sdate": {
+     "iso": "2018-05-22",
+     "time": "19:59",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2018-05-24",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 600,
     "dryMass": 500,
     "length": 3.1,
@@ -1416,7 +1683,10 @@
      "site": "South Vandenberg AFB, California",
      "siteShort": "Vandenberg",
      "pad": "SLC4E"
-    }
+    },
+    "program": "DLR Geo",
+    "category": "SCI",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -1479,6 +1749,18 @@
     ],
     "bus": "FlexBus",
     "shape": "Half Hex Prism",
+    "sdate": {
+     "iso": "2018-05-22",
+     "time": "19:59",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2018-05-24",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 600,
     "dryMass": 500,
     "length": 3.1,
@@ -1496,7 +1778,10 @@
      "site": "South Vandenberg AFB, California",
      "siteShort": "Vandenberg",
      "pad": "SLC4E"
-    }
+    },
+    "program": "DLR Geo",
+    "category": "SCI",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -1557,6 +1842,18 @@
     ],
     "bus": "SOLAR B",
     "shape": "Box + 2 Pan",
+    "sdate": {
+     "iso": "2006-09-22",
+     "time": "21:44",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2006-09-25",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 900,
     "dryMass": 900,
     "length": 3.8,
@@ -1574,7 +1871,10 @@
      "site": "Kagoshima Space Center, Kagoshima, Kyushu, Nippon",
      "siteShort": "Kagoshima",
      "pad": "M-V"
-    }
+    },
+    "program": "SOLAR",
+    "category": "AST",
+    "comment": "Optical/X-ray solar observatory"
    },
    "note": null,
    "model": {
@@ -1635,6 +1935,22 @@
     ],
     "bus": "HST",
     "shape": "Step Cyl + 2 Pan",
+    "sdate": {
+     "iso": "1990-04-25",
+     "time": "12:49",
+     "uncertain": true
+    },
+    "odate": {
+     "iso": "1990-05-24",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": {
+     "iso": "1990-04-25",
+     "time": "12:49",
+     "uncertain": true
+    },
+    "status": "ATT",
     "mass": 7547,
     "dryMass": 7547,
     "length": 13.1,
@@ -1652,7 +1968,10 @@
      "site": "NASA John F. Kennedy Space Center, Florida",
      "siteShort": "Kennedy",
      "pad": "LC39B"
-    }
+    },
+    "program": "Great Obs",
+    "category": "AST",
+    "comment": "Large space telescope"
    },
    "note": null,
    "model": {
@@ -1713,6 +2032,18 @@
     ],
     "bus": "Leostar-3",
     "shape": "Box +  panel",
+    "sdate": {
+     "iso": "2018-09-15",
+     "time": "13:54",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2018-09-15",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 1580,
     "dryMass": 1402,
     "length": 3.8,
@@ -1730,7 +2061,10 @@
      "site": "Vandenberg AFB, California",
      "siteShort": "Vandenberg",
      "pad": "SLC2W"
-    }
+    },
+    "program": "EOS",
+    "category": "SCI",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -1791,6 +2125,18 @@
     ],
     "bus": "LM100",
     "shape": "Oct Cyl + 4 Ant",
+    "sdate": {
+     "iso": "2000-03-25",
+     "time": "21:30",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2000-04-26",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 494,
     "dryMass": 494,
     "length": 1.5,
@@ -1808,7 +2154,10 @@
      "site": "Vandenberg AFB, California",
      "siteShort": "Vandenberg",
      "pad": "SLC2W"
-    }
+    },
+    "program": "MIDEX",
+    "category": "SCI",
+    "comment": "Magnetosphere studies"
    },
    "note": null,
    "model": {
@@ -1869,6 +2218,18 @@
     ],
     "bus": "LS-1300",
     "shape": "Box + 2 panels",
+    "sdate": {
+     "iso": "2023-04-07",
+     "time": "05:02",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2023-06-06",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 6013,
     "dryMass": 3000,
     "length": 8,
@@ -1886,7 +2247,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "LC40"
-    }
+    },
+    "program": "IntIS",
+    "category": "COM",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -1947,6 +2311,22 @@
     ],
     "bus": "77KS",
     "shape": "Cyl + 2 Pan",
+    "sdate": {
+     "iso": "1998-11-20",
+     "time": "06:49",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "1998-12-20",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": {
+     "iso": "1998-12-06",
+     "time": "23:47",
+     "uncertain": false
+    },
+    "status": "GRP",
     "mass": 20281,
     "dryMass": 19000,
     "length": 12.6,
@@ -1964,7 +2344,10 @@
      "site": "GIK-5, Baykonur, Kazakstan",
      "siteShort": "Baykonur",
      "pad": "LC81/23"
-    }
+    },
+    "program": "TsM",
+    "category": "SS",
+    "comment": null
    },
    "note": {
     "en": "GCAT catalogues the station under its first module, Zarya (launched 1998); mass and dimensions below describe that module, not the assembled station.",
@@ -2028,6 +2411,18 @@
     ],
     "bus": "BCP",
     "shape": "Box+boom",
+    "sdate": {
+     "iso": "2021-12-09",
+     "time": "06:39",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2021-12-09",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 330,
     "dryMass": 330,
     "length": 2,
@@ -2045,7 +2440,10 @@
      "site": "NASA John F. Kennedy Space Center, Florida",
      "siteShort": "Kennedy",
      "pad": "LC39A"
-    }
+    },
+    "program": "SMEX",
+    "category": "AST",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -2108,6 +2506,18 @@
     ],
     "bus": "Proteus",
     "shape": "Box + 2 Pan",
+    "sdate": {
+     "iso": "2016-01-17",
+     "time": "19:38",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2016-01-20",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 553,
     "dryMass": 525,
     "length": 3.7,
@@ -2125,7 +2535,10 @@
      "site": "South Vandenberg AFB, California",
      "siteShort": "Vandenberg",
      "pad": "SLC4E"
-    }
+    },
+    "program": "Jason",
+    "category": "SCI/MET",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -2186,6 +2599,18 @@
     ],
     "bus": "Leostar-3",
     "shape": "Cyl hex + pan",
+    "sdate": {
+     "iso": "2013-02-11",
+     "time": "19:19",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2013-02-14",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 2782,
     "dryMass": 2387,
     "length": 5.8,
@@ -2203,7 +2628,10 @@
      "site": "South Vandenberg AFB, California",
      "siteShort": "Vandenberg",
      "pad": "SLC3E"
-    }
+    },
+    "program": "LDCM",
+    "category": "IMG",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -2266,6 +2694,18 @@
     ],
     "bus": "Leostar-3",
     "shape": "Cyl hex + pan",
+    "sdate": {
+     "iso": "2021-09-27",
+     "time": "19:32",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2021-09-28",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 2710,
     "dryMass": 2390,
     "length": 5.8,
@@ -2283,7 +2723,10 @@
      "site": "South Base, Vandenberg Space Force Base, California",
      "siteShort": "Vandenberg",
      "pad": "SLC3E"
-    }
+    },
+    "program": "Landsat",
+    "category": "IMG",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -2344,6 +2787,22 @@
     ],
     "bus": "MMS-SMART",
     "shape": "Cylinder+antennae",
+    "sdate": {
+     "iso": "2015-03-13",
+     "time": "04:31",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2015-03-16",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": {
+     "iso": "2017-03-30",
+     "time": "15:40",
+     "uncertain": false
+    },
+    "status": "DSO",
     "mass": 1360,
     "dryMass": 1000,
     "length": 1.2,
@@ -2361,7 +2820,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "SLC41"
-    }
+    },
+    "program": "SOLTP",
+    "category": "SCI",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -2422,6 +2884,22 @@
     ],
     "bus": "MMS-SMART",
     "shape": "Cylinder+antennae",
+    "sdate": {
+     "iso": "2015-03-13",
+     "time": "04:26",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2015-03-16",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": {
+     "iso": "2017-04-10",
+     "time": "17:57",
+     "uncertain": true
+    },
+    "status": "DSO",
     "mass": 1360,
     "dryMass": 1000,
     "length": 1.2,
@@ -2439,7 +2917,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "SLC41"
-    }
+    },
+    "program": "SOLTP",
+    "category": "SCI",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -2500,6 +2981,22 @@
     ],
     "bus": "MMS-SMART",
     "shape": "Cylinder+antennae",
+    "sdate": {
+     "iso": "2015-03-13",
+     "time": "04:21",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2015-03-16",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": {
+     "iso": "2017-04-07",
+     "time": "23:50",
+     "uncertain": true
+    },
+    "status": "DSO",
     "mass": 1360,
     "dryMass": 1000,
     "length": 1.2,
@@ -2517,7 +3014,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "SLC41"
-    }
+    },
+    "program": "SOLTP",
+    "category": "SCI",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -2578,6 +3078,22 @@
     ],
     "bus": "MMS-SMART",
     "shape": "Cylinder+antennae",
+    "sdate": {
+     "iso": "2015-03-13",
+     "time": "04:16",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2015-03-16",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": {
+     "iso": "2017-04-05",
+     "time": "04:55",
+     "uncertain": true
+    },
+    "status": "DSO",
     "mass": 1360,
     "dryMass": 1000,
     "length": 1.2,
@@ -2595,7 +3111,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "SLC41"
-    }
+    },
+    "program": "SOLTP",
+    "category": "SCI",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -2658,6 +3177,18 @@
     ],
     "bus": "I3K",
     "shape": "Box+2 pan",
+    "sdate": {
+     "iso": "2025-07-30",
+     "time": "12:28",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2025-07-30",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 2393,
     "dryMass": 2300,
     "length": 2.4,
@@ -2675,7 +3206,10 @@
      "site": "Satish Dhawan Space Ctr, Sriharikota, Andhra Pradesh, India",
      "siteShort": "Sriharikota",
      "pad": "SLP"
-    }
+    },
+    "program": "ISRO RS2",
+    "category": "IMG-R",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -2738,6 +3272,18 @@
     ],
     "bus": "BCP-2000",
     "shape": "Box + Pan",
+    "sdate": {
+     "iso": "2017-11-18",
+     "time": "10:45",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2017-11-25",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 2200,
     "dryMass": 1400,
     "length": 3.6,
@@ -2755,7 +3301,10 @@
      "site": "Vandenberg AFB, California",
      "siteShort": "Vandenberg",
      "pad": "SLC2W"
-    }
+    },
+    "program": "JPSS",
+    "category": "MET",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -2818,6 +3367,18 @@
     ],
     "bus": "Leostar-3",
     "shape": "Box + Pan",
+    "sdate": {
+     "iso": "2022-11-10",
+     "time": "10:17",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2022-11-10",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 2930,
     "dryMass": 2525,
     "length": 3.6,
@@ -2835,7 +3396,10 @@
      "site": "South Base, Vandenberg Space Force Base, California",
      "siteShort": "Vandenberg",
      "pad": "SLC3E"
-    }
+    },
+    "program": "JPSS",
+    "category": "MET",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -2898,6 +3462,18 @@
     ],
     "bus": "Leostar-2",
     "shape": "Cyls-boom-cyl+2 pan",
+    "sdate": {
+     "iso": "2012-06-13",
+     "time": "16:13",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2012-06-17",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 360,
     "dryMass": 360,
     "length": 1.5,
@@ -2915,7 +3491,10 @@
      "site": "US Army Kwajalein Atoll (USAKA), Marshall Islands",
      "siteShort": "Kwajalein",
      "pad": "RW06/24"
-    }
+    },
+    "program": "SMEX",
+    "category": "AST",
+    "comment": "Hard X-ray imaging observatory"
    },
    "note": null,
    "model": {
@@ -2976,6 +3555,18 @@
     ],
     "bus": "Leostar-2",
     "shape": "Hex Cyl + 2 Pan",
+    "sdate": {
+     "iso": "2014-07-02",
+     "time": "10:52",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2014-07-04",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 454,
     "dryMass": 409,
     "length": 2.1,
@@ -2993,7 +3584,10 @@
      "site": "Vandenberg AFB, California",
      "siteShort": "Vandenberg",
      "pad": "SLC2W"
-    }
+    },
+    "program": "Earth Sci",
+    "category": "EOSCI",
+    "comment": "Climate science, CO2"
    },
    "note": null,
    "model": {
@@ -3054,6 +3648,18 @@
     ],
     "bus": "PACE",
     "shape": "Box + panel",
+    "sdate": {
+     "iso": "2024-02-08",
+     "time": "06:45",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2024-02-08",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 1433,
     "dryMass": 1198,
     "length": 1.5,
@@ -3071,7 +3677,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "LC40"
-    }
+    },
+    "program": "EOS",
+    "category": "EOSCI",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -3132,6 +3741,18 @@
     ],
     "bus": "Wind",
     "shape": "Cyl + Ant",
+    "sdate": {
+     "iso": "1996-02-24",
+     "time": "12:06",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "1996-03-25",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 1274,
     "dryMass": 1005,
     "length": 2.1,
@@ -3149,7 +3770,10 @@
      "site": "Vandenberg AFB, California",
      "siteShort": "Vandenberg",
      "pad": "SLC2W"
-    }
+    },
+    "program": "GGS",
+    "category": "SCI",
+    "comment": "Ionos. X-rays, UV, fields"
    },
    "note": null,
    "model": {
@@ -3210,6 +3834,18 @@
     ],
     "bus": "Cubesat 6U",
     "shape": "Box+sail",
+    "sdate": {
+     "iso": "2024-06-05",
+     "time": "04:08",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2024-06-05",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 10,
     "dryMass": 10,
     "length": 0.3,
@@ -3227,7 +3863,10 @@
      "site": "Rocket Lab Launch Complex 1, Onenui Station, Mahia Peninsula",
      "siteShort": "Mahia",
      "pad": "LC1B"
-    }
+    },
+    "program": "JPL Cube",
+    "category": "EOSCI",
+    "comment": "NZ"
    },
    "note": null,
    "model": {
@@ -3288,6 +3927,18 @@
     ],
     "bus": "Cubesat 6U",
     "shape": "Box+sail",
+    "sdate": {
+     "iso": "2024-05-25",
+     "time": "08:34",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2024-05-25",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 10,
     "dryMass": 10,
     "length": 0.3,
@@ -3305,7 +3956,10 @@
      "site": "Rocket Lab Launch Complex 1, Onenui Station, Mahia Peninsula",
      "siteShort": "Mahia",
      "pad": "LC1B"
-    }
+    },
+    "program": "JPL Cube",
+    "category": "EOSCI",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -3368,6 +4022,18 @@
     ],
     "bus": "Flexbus",
     "shape": "Hex Cyl",
+    "sdate": {
+     "iso": "2020-11-21",
+     "time": "18:15",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2020-11-21",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 1192,
     "dryMass": 962,
     "length": 5.2,
@@ -3385,7 +4051,10 @@
      "site": "South Vandenberg AFB, California",
      "siteShort": "Vandenberg",
      "pad": "SLC4E"
-    }
+    },
+    "program": "Sentinel",
+    "category": "EOSCI",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -3448,6 +4117,18 @@
     ],
     "bus": "Flexbus",
     "shape": "Hex Cyl",
+    "sdate": {
+     "iso": "2025-11-17",
+     "time": "06:18",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2025-11-17",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 1140,
     "dryMass": 940,
     "length": 5.2,
@@ -3465,7 +4146,10 @@
      "site": "South Base, Vandenberg Space Force Base, California",
      "siteShort": "Vandenberg",
      "pad": "SLC4E"
-    }
+    },
+    "program": "Sentinel",
+    "category": "EOSCI",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -3526,6 +4210,18 @@
     ],
     "bus": "SMAP",
     "shape": "Box+boom+dish",
+    "sdate": {
+     "iso": "2015-01-31",
+     "time": "15:18",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2015-02-01",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 944,
     "dryMass": 863,
     "length": 4.8,
@@ -3543,7 +4239,10 @@
      "site": "Vandenberg AFB, California",
      "siteShort": "Vandenberg",
      "pad": "SLC2W"
-    }
+    },
+    "program": "Earth Sci",
+    "category": "EOSCI",
+    "comment": "Microwave radar,radiom"
    },
    "note": null,
    "model": {
@@ -3604,6 +4303,18 @@
     ],
     "bus": "SDO",
     "shape": "Box + 2 Pan",
+    "sdate": {
+     "iso": "2010-02-11",
+     "time": "17:11",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2010-03-18",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 3100,
     "dryMass": 1650,
     "length": 4.5,
@@ -3621,7 +4332,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "SLC41"
-    }
+    },
+    "program": "SOLTP",
+    "category": "AST",
+    "comment": "Solar UV/X observatory"
    },
    "note": null,
    "model": {
@@ -3682,6 +4396,18 @@
     ],
     "bus": "Leostar-2",
     "shape": "Cyl + 6 Pan",
+    "sdate": {
+     "iso": "2003-01-25",
+     "time": "20:24",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2003-02-01",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 290,
     "dryMass": 290,
     "length": 1.6,
@@ -3699,7 +4425,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "RW30/12"
-    }
+    },
+    "program": "Earth Probe",
+    "category": "AST",
+    "comment": "Solar irradiance"
    },
    "note": null,
    "model": {
@@ -3760,6 +4489,18 @@
     ],
     "bus": "SphereX",
     "shape": "Cyl-Cone+2 pan",
+    "sdate": {
+     "iso": "2025-03-12",
+     "time": "03:52",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2025-03-13",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 502,
     "dryMass": 502,
     "length": 2.6,
@@ -3777,7 +4518,10 @@
      "site": "South Base, Vandenberg Space Force Base, California",
      "siteShort": "Vandenberg",
      "pad": "SLC4E"
-    }
+    },
+    "program": "MIDEX",
+    "category": "AST",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -3838,6 +4582,18 @@
     ],
     "bus": "Cubesat 6U",
     "shape": "Box + 2 pan",
+    "sdate": {
+     "iso": "2023-07-18",
+     "time": "02:18",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2023-07-18",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 12,
     "dryMass": 12,
     "length": 0.3,
@@ -3855,7 +4611,10 @@
      "site": "Rocket Lab Launch Complex 1, Onenui Station, Mahia Peninsula",
      "siteShort": "Mahia",
      "pad": "LC1B"
-    }
+    },
+    "program": "Ames",
+    "category": "TECH",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -3916,6 +4675,18 @@
     ],
     "bus": "Cubesat 6U",
     "shape": "Box + 2 pan",
+    "sdate": {
+     "iso": "2023-07-18",
+     "time": "02:17",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2023-07-18",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 12,
     "dryMass": 12,
     "length": 0.3,
@@ -3933,7 +4704,10 @@
      "site": "Rocket Lab Launch Complex 1, Onenui Station, Mahia Peninsula",
      "siteShort": "Mahia",
      "pad": "LC1B"
-    }
+    },
+    "program": "Ames",
+    "category": "TECH",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -3994,6 +4768,18 @@
     ],
     "bus": "Cubesat 6U",
     "shape": "Box + 2 pan",
+    "sdate": {
+     "iso": "2023-07-18",
+     "time": "02:18",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2023-07-18",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 12,
     "dryMass": 12,
     "length": 0.3,
@@ -4011,7 +4797,10 @@
      "site": "Rocket Lab Launch Complex 1, Onenui Station, Mahia Peninsula",
      "siteShort": "Mahia",
      "pad": "LC1B"
-    }
+    },
+    "program": "Ames",
+    "category": "TECH",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -4072,6 +4861,18 @@
     ],
     "bus": "Cubesat 6U",
     "shape": "Box + 2 pan",
+    "sdate": {
+     "iso": "2023-07-18",
+     "time": "02:17",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2023-07-18",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 12,
     "dryMass": 12,
     "length": 0.3,
@@ -4089,7 +4890,10 @@
      "site": "Rocket Lab Launch Complex 1, Onenui Station, Mahia Peninsula",
      "siteShort": "Mahia",
      "pad": "LC1B"
-    }
+    },
+    "program": "Ames",
+    "category": "TECH",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -4152,6 +4956,18 @@
     ],
     "bus": "BCP-2000",
     "shape": "Box + Pan",
+    "sdate": {
+     "iso": "2011-10-28",
+     "time": "10:46",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2011-11-04",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 2128,
     "dryMass": 1400,
     "length": 3.6,
@@ -4169,7 +4985,10 @@
      "site": "Vandenberg AFB, California",
      "siteShort": "Vandenberg",
      "pad": "SLC2W"
-    }
+    },
+    "program": "JPSS",
+    "category": "MET",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -4230,6 +5049,18 @@
     ],
     "bus": "SMEX",
     "shape": "Cyl+2 Pan",
+    "sdate": {
+     "iso": "1998-12-06",
+     "time": "01:09",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "1999-01-07",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 282,
     "dryMass": 282,
     "length": 1.7,
@@ -4247,7 +5078,10 @@
      "site": "Vandenberg AFB, California",
      "siteShort": "Vandenberg",
      "pad": "RW30/12"
-    }
+    },
+    "program": "SMEX",
+    "category": "AST",
+    "comment": "Star formation studies"
    },
    "note": null,
    "model": {
@@ -4310,6 +5144,18 @@
     ],
     "bus": "SWOT",
     "shape": "Box+2 pan +2 booms",
+    "sdate": {
+     "iso": "2022-12-16",
+     "time": "12:39",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2022-12-16",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 2200,
     "dryMass": 2200,
     "length": 5,
@@ -4327,7 +5173,10 @@
      "site": "South Base, Vandenberg Space Force Base, California",
      "siteShort": "Vandenberg",
      "pad": "SLC4E"
-    }
+    },
+    "program": "Jason",
+    "category": "EOSCI",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -4388,6 +5237,18 @@
     ],
     "bus": "BSS-601HP",
     "shape": "Box +  2 pan",
+    "sdate": {
+     "iso": "2013-01-31",
+     "time": "03:34",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2013-03-15",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 3454,
     "dryMass": 2000,
     "length": 8.1,
@@ -4405,7 +5266,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "SLC41"
-    }
+    },
+    "program": "TDRS",
+    "category": "COM",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -4466,6 +5330,18 @@
     ],
     "bus": "BSS-601HP",
     "shape": "Box +  2 pan",
+    "sdate": {
+     "iso": "2014-01-24",
+     "time": "04:18",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2014-02-03",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 3454,
     "dryMass": 2000,
     "length": 8.1,
@@ -4483,7 +5359,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "SLC41"
-    }
+    },
+    "program": "TDRS",
+    "category": "COM",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -4544,6 +5423,18 @@
     ],
     "bus": "BSS-601HP",
     "shape": "Box +  2 pan",
+    "sdate": {
+     "iso": "2017-08-18",
+     "time": "14:22",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2017-10-18",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 3454,
     "dryMass": 2000,
     "length": 8.1,
@@ -4561,7 +5452,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "SLC41"
-    }
+    },
+    "program": "TDRS",
+    "category": "COM",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -4622,6 +5516,18 @@
     ],
     "bus": "TDRS",
     "shape": "Box + Dish + 2 Pan",
+    "sdate": {
+     "iso": "1988-09-29",
+     "time": "04:44",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "1988-10-30",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 2103,
     "dryMass": 1673,
     "length": 1.3,
@@ -4639,7 +5545,10 @@
      "site": "NASA John F. Kennedy Space Center, Florida",
      "siteShort": "Kennedy",
      "pad": "LC39B"
-    }
+    },
+    "program": "TDRS",
+    "category": "COM",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -4700,6 +5609,18 @@
     ],
     "bus": "TDRS",
     "shape": "Box + Dish + 2 Pan",
+    "sdate": {
+     "iso": "1991-08-03",
+     "time": "04:08",
+     "uncertain": true
+    },
+    "odate": {
+     "iso": "1991-09-06",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 2534,
     "dryMass": 1700,
     "length": 1.3,
@@ -4717,7 +5638,10 @@
      "site": "NASA John F. Kennedy Space Center, Florida",
      "siteShort": "Kennedy",
      "pad": "LC39A"
-    }
+    },
+    "program": "TDRS",
+    "category": "COM",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -4778,6 +5702,18 @@
     ],
     "bus": "TDRS",
     "shape": "Box + Dish + 2 Pan",
+    "sdate": {
+     "iso": "1995-07-13",
+     "time": "02:40",
+     "uncertain": true
+    },
+    "odate": {
+     "iso": "1995-08-12",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 2225,
     "dryMass": 1673,
     "length": 1.3,
@@ -4795,7 +5731,10 @@
      "site": "NASA John F. Kennedy Space Center, Florida",
      "siteShort": "Kennedy",
      "pad": "LC39B"
-    }
+    },
+    "program": "TDRS",
+    "category": "COM",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -4856,6 +5795,18 @@
     ],
     "bus": "HS-601",
     "shape": "Box + 2 Pan + 2 Dish",
+    "sdate": {
+     "iso": "2000-06-30",
+     "time": "13:26",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2000-12-14",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 3180,
     "dryMass": 1600,
     "length": 8.4,
@@ -4873,7 +5824,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "SLC36A"
-    }
+    },
+    "program": "TDRS",
+    "category": "COM",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -4934,6 +5888,18 @@
     ],
     "bus": "TDRS",
     "shape": "Box + Dish + 2 Pan",
+    "sdate": {
+     "iso": "1993-01-13",
+     "time": "03:06",
+     "uncertain": true
+    },
+    "odate": {
+     "iso": "1993-02-15",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 2534,
     "dryMass": 1673,
     "length": 1.3,
@@ -4951,7 +5917,10 @@
      "site": "NASA John F. Kennedy Space Center, Florida",
      "siteShort": "Kennedy",
      "pad": "LC39B"
-    }
+    },
+    "program": "TDRS",
+    "category": "COM",
+    "comment": null
    },
    "note": null,
    "model": {
@@ -5012,6 +5981,18 @@
     ],
     "bus": "EOS",
     "shape": "Box + Pan",
+    "sdate": {
+     "iso": "1999-12-18",
+     "time": "19:11",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2000-01-17",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 5190,
     "dryMass": 4854,
     "length": 6.8,
@@ -5029,7 +6010,10 @@
      "site": "South Vandenberg AFB, California",
      "siteShort": "Vandenberg",
      "pad": "SLC3E"
-    }
+    },
+    "program": "EOS",
+    "category": "IMG",
+    "comment": "Earth Observing System"
    },
    "note": null,
    "model": {
@@ -5090,6 +6074,18 @@
     ],
     "bus": "ATK-A100",
     "shape": "Box + 2 Ant",
+    "sdate": {
+     "iso": "2007-02-18",
+     "time": "00:14",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2009-07-02",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 125,
     "dryMass": 76,
     "length": 0.5,
@@ -5107,7 +6103,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "SLC17B"
-    }
+    },
+    "program": "MIDEX",
+    "category": "SCI",
+    "comment": "Magnetosphere study"
    },
    "note": null,
    "model": {
@@ -5168,6 +6167,18 @@
     ],
     "bus": "ATK-A100",
     "shape": "Box + 2 Ant",
+    "sdate": {
+     "iso": "2007-02-18",
+     "time": "00:14",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2009-07-02",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 125,
     "dryMass": 76,
     "length": 0.5,
@@ -5185,7 +6196,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "SLC17B"
-    }
+    },
+    "program": "MIDEX",
+    "category": "SCI",
+    "comment": "Magnetosphere study"
    },
    "note": null,
    "model": {
@@ -5246,6 +6260,18 @@
     ],
     "bus": "ATK-A100",
     "shape": "Box + 2 Ant",
+    "sdate": {
+     "iso": "2007-02-18",
+     "time": "00:14",
+     "uncertain": false
+    },
+    "odate": {
+     "iso": "2009-07-02",
+     "time": null,
+     "uncertain": false
+    },
+    "ddate": null,
+    "status": "O",
     "mass": 125,
     "dryMass": 76,
     "length": 0.5,
@@ -5263,7 +6289,10 @@
      "site": "Cape Canaveral Air Station, Florida",
      "siteShort": "Canaveral",
      "pad": "SLC17B"
-    }
+    },
+    "program": "MIDEX",
+    "category": "SCI",
+    "comment": "Magnetosphere study"
    },
    "note": null,
    "model": {

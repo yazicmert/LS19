@@ -43,7 +43,7 @@ async function get(url) {
 
 const kat = JSON.parse(fs.readFileSync(KAT, 'utf8')), out = [];
 for (const [sstr, m] of Object.entries(kat)) {
-  const d = await get(`${API}/sbdb.api?sstr=${encodeURIComponent(sstr)}&phys-par=1&full-prec=1`);
+  const d = await get(`${API}/sbdb.api?sstr=${encodeURIComponent(sstr)}&phys-par=1&full-prec=1&discovery=1&alt-des=1`);
   if (!d || !d.object || !d.orbit) throw new Error(`SBDB ${sstr}: beklenmeyen yanıt ${JSON.stringify(d).slice(0, 160)}`);
   const s = mapSbdb(d);
   await wait(200);

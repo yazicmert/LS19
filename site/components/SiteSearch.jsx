@@ -15,14 +15,15 @@ export default function SiteSearch({ lang }) {
   const [q, setQ] = useState(''), [open, setOpen] = useState(false), [active, setActive] = useState(0), [data, setData] = useState(null), [state, setState] = useState('idle');
   const ensure = () => { if (data || state === 'loading') return; setState('loading'); load().then((d) => { setData(d); setState('ready'); }, () => { index = null; setState('error'); }); };
   const pages = useMemo(() => [
-    ['/', L.home.title.split(' — ')[0]], ['/asteroids', L.ast.title], ['/satellites', L.sat.title], ['/launches', L.launch.title], ['/sources', L.src.title],
+    ['/', L.home.title.split(' — ')[0]], ['/asteroids', L.ast.title], ['/satellites', L.sat.title], ['/rockets', L.rk.title], ['/launches', L.launch.title], ['/sources', L.src.title],
   ].map(([p, n]) => ({ id: p, n })), [L]);
   const groups = useMemo(() => {
     if (!q.trim() || !data) return [];
     const ast = rank(data.ast, q, (o) => [o.n, o.d, o.f, o.k != null ? String(o.k) : '']).slice(0, 5).map((o) => ({ href: `/${lang}/asteroids/${o.id}`, name: o.n, meta: clsName(lang, { code: o.c, name: o.cn }), num: o.k }));
     const sat = rank(data.sat, q, (s) => [s[lang], s.en, s.g, String(s.k), s.c, ...s.o]).slice(0, 5).map((s) => ({ href: `/${lang}/satellites/${s.id}`, name: s[lang], meta: s.r, num: s.k }));
+    const rk = rank(data.rk || [], q, (v) => [v.n, v.f, ...v.m]).slice(0, 5).map((v) => ({ href: `/${lang}/rockets/${v.id}`, name: v.n, meta: v.m.join('/'), num: null }));
     const pg = rank(pages, q, (p) => [p.n]).slice(0, 3).map((p) => ({ href: `/${lang}${p.id === '/' ? '' : p.id}`, name: p.n, meta: '' }));
-    return [['ast', ast], ['sat', sat], ['page', pg]].filter(([, r]) => r.length);
+    return [['ast', ast], ['sat', sat], ['rk', rk], ['page', pg]].filter(([, r]) => r.length);
   }, [q, data, lang, pages]);
   const flat = useMemo(() => [...groups.flatMap(([, r]) => r), ...(q.trim() ? [{ href: `/${lang}/launches?q=${encodeURIComponent(q.trim())}`, name: S.launches(q.trim()), meta: '', action: true }] : [])], [groups, q, lang, S]);
   useEffect(() => { setActive(0); }, [q]);

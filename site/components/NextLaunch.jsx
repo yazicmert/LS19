@@ -5,9 +5,11 @@ import Countdown from './Countdown';
 import { ArrowRight, Play } from './Icon';
 import VarTip from './VarTip';
 import { Window } from './viz';
+import { rocketForLL2 } from '@/lib/rockets';
 
 export default function NextLaunch({ lang, launch, ok, headingId }) {
   const L = t(lang).launch;
+  const rk = launch ? rocketForLL2(launch.vehicle) : null;
   const official = launch && launch.streams.find((s) => s.official), stream = official || (launch && launch.streams[0]);
   return (
     <div className="nl">
@@ -17,7 +19,7 @@ export default function NextLaunch({ lang, launch, ok, headingId }) {
           <Countdown net={launch.net} label={L.countdownLabel} dayUnit={lang === 'tr' ? 'g' : 'd'} hourUnit={lang === 'tr' ? 'sa' : 'h'} res={launch.precision.kind === 'hour' ? 'hour' : 'sec'} />
           <p className="nl__name">{launch.mission.name || launch.name}</p>
           <dl className="nl__el">
-            <div><dt>{L.vehicle}</dt><dd>{launch.vehicle}</dd></div>
+            <div><dt>{L.vehicle}</dt><dd>{rk ? <Link className="nl__rk" href={`/${lang}/rockets/${rk.slug}`}>{launch.vehicle}</Link> : launch.vehicle}</dd></div>
             <div><dt>{L.provider}</dt><dd>{launch.provider}</dd></div>
             <div><dt>{L.pad}</dt><dd>{[launch.pad.name, launch.pad.location].filter(Boolean).join(', ')}</dd></div>
             {launch.mission.orbit ? <div><dt>{L.orbit}</dt><dd>{launch.mission.orbit}</dd></div> : null}

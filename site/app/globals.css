@@ -103,6 +103,8 @@ html { scrollbar-color: var(--ink-2) var(--paper-2); }
 .el__val { font-size: 16px; }
 .el__unit { color: var(--ink-2); margin-left: 0.6ch; font-size: 14px; }
 .el__sub { display: block; font-family: var(--f-mono), ui-monospace, monospace; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.el__row:has(.el__sub) dd { white-space: normal; }
+.el__sub { white-space: normal; overflow-wrap: anywhere; }
 .el__row--text { grid-template-columns: auto minmax(0, 1fr); }
 /* kobalt alanda (sıradaki fırlatma) düğme çizgisi kobaltın açık tonunda; açılan şema yine kâğıt üstünde */
 .nl__vt { position: relative; }
@@ -272,6 +274,9 @@ html { scrollbar-color: var(--ink-2) var(--paper-2); }
 .flt__reset { border: 0; background: none; padding: 0; font: inherit; font-weight: 650; color: var(--cobalt); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .flt__none { margin: 18px 0; color: var(--ink-2); }
 .lch__all { min-width: 0; }
+.lch__rk { color: inherit; text-decoration: underline; text-decoration-color: var(--hair); text-underline-offset: 3px; }
+.lch__rk:hover { color: var(--cobalt); text-decoration-color: var(--cobalt); }
+.nl__rk { color: var(--on-cobalt); text-decoration: underline; text-decoration-color: var(--on-cobalt-2); text-underline-offset: 3px; }
 /* sıralanabilir sütun başlığı */
 .th__sort { border: 0; background: none; padding: 0; margin: 0; font: inherit; color: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; text-align: inherit; }
 th.r .th__sort { flex-direction: row-reverse; }
@@ -305,6 +310,38 @@ th[aria-sort] .th__sort { color: var(--cobalt); }
 .el__note { margin: 6px 0 26px; color: var(--ink-2); font-size: 13px; }
 .el__note + .el__note { margin-top: -18px; }
 .rec__warn { color: var(--ink); }
+.yr { border-bottom: 1px solid var(--hair); }
+.yr summary { display: flex; align-items: baseline; gap: 16px; padding: 10px 0; cursor: pointer; list-style: none; }
+.yr summary::-webkit-details-marker { display: none; }
+.yr summary::before { content: ''; width: 8px; height: 8px; border-right: 1.6px solid var(--ink); border-bottom: 1.6px solid var(--ink); transform: rotate(-45deg); transition: transform 0.18s var(--ease); flex: none; align-self: center; }
+.yr[open] summary::before { transform: rotate(45deg); }
+.yr__y { font-weight: 800; font-variation-settings: 'wdth' 72; font-size: 22px; }
+.yr__n { color: var(--ink-2); font-size: 14px; }
+.yr summary:focus-visible { outline: 2px solid var(--cobalt); outline-offset: 2px; }
+.yr .tbl { margin-bottom: 14px; }
+/* tarihçe: dikey çizgi üstünde tarih · işaret · olay */
+.tl { list-style: none; margin: 8px 0 0; padding: 0; position: relative; max-width: 900px; }
+.tl::before { content: ''; position: absolute; top: 6px; bottom: 6px; left: calc(13ch + 9px); width: 1px; background: var(--ink); }
+.tl li { display: grid; grid-template-columns: 13ch 18px minmax(0, 1fr); gap: 0 14px; align-items: baseline; padding: 7px 0; }
+.tl__date { font-size: 14px; color: var(--ink-2); text-align: right; font-variant-numeric: tabular-nums; }
+.tl__mark { width: 9px; height: 9px; justify-self: center; align-self: center; background: var(--ink); position: relative; z-index: 1; }
+.tl__ev--craft .tl__mark { background: var(--cobalt); }
+.tl__ev--future .tl__mark { background: var(--paper); border: 1.5px solid var(--cobalt); }
+.tl__body { display: flex; flex-direction: column; gap: 2px; }
+.tl__text { font-size: 16px; line-height: 1.45; }
+.tl__ev--craft .tl__text { font-weight: 600; }
+.tl__src { font-size: 13px; color: var(--ink-2); }
+.tl__flag { margin-left: 8px; font-size: 11px; vertical-align: 2px; }
+.tl__now { border-top: 2px solid var(--ink); border-bottom: 2px solid var(--ink); margin: 6px 0; }
+.tl__now .tl__date, .tl__now .tl__body { color: var(--cobalt); font-weight: 700; }
+.tl__now .tl__mark { background: var(--cobalt); width: 12px; height: 12px; }
+@media (max-width: 600px) {
+  .tl::before { left: 4px; }
+  .tl li { grid-template-columns: 9px minmax(0, 1fr); gap: 0 12px; }
+  .tl__date { grid-column: 2; text-align: left; order: 1; }
+  .tl__mark { grid-column: 1; grid-row: 1 / span 2; align-self: start; margin-top: 6px; }
+  .tl__body { grid-column: 2; order: 2; }
+}
 .rec__src { margin-top: 40px; border-top: 2px solid var(--ink); padding-top: 10px; }
 .rec__srch { margin: 0 0 6px; font-weight: 700; font-variation-settings: 'wdth' 90; font-size: 15px; }
 .rec__src ul { margin: 0; padding: 0; list-style: none; color: var(--ink-2); font-size: 15px; }
@@ -315,6 +352,7 @@ th[aria-sort] .th__sort { color: var(--cobalt); }
 .mv { margin: 0; }
 .mv__stage { position: relative; aspect-ratio: 1 / 1; background: var(--cobalt); border: 2px solid var(--ink); touch-action: none; cursor: grab; overflow: hidden; }
 .mv__stage:active { cursor: grabbing; }
+.mv--tall .mv__stage { aspect-ratio: 3 / 4; }
 .mv__stage canvas { display: block; width: 100%; height: 100%; }
 .mv__msg { position: absolute; inset: 0; margin: 0; display: grid; place-items: center; color: var(--on-cobalt-2); font-family: var(--f-mono), monospace; font-size: 14px; }
 .mv__cap { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--hair); color: var(--ink-2); font-size: 14px; }

@@ -59,6 +59,7 @@ export function mapGcat(row, { launches, orgs, sites }) {
   return {
     jcat: txt(row.JCAT), name: txt(row.Name), plName: txt(row.PLName), type: txt(row.Type), state: txt(row.State),
     owner: orgNames(row.Owner), ownerShort: orgNames(row.Owner, 'ShortName'), manufacturer: orgNames(row.Manufacturer), bus: txt(row.Bus), shape: txt(row.Shape),
+    sdate: gcatDate(row.SDate), odate: gcatDate(row.ODate), ddate: gcatDate(row.DDate), status: txt(row.Status),
     mass: num(row.Mass), dryMass: num(row.DryMass), length: num(row.Length), diameter: num(row.Diameter), span: num(row.Span),
     launch: {
       date: gcatDate(L ? L.Launch_Date : row.LDate), tag: txt(row.Launch_Tag), vehicle: L ? txt(L.LV_Type) : null, flight: L ? txt(L.Flight) : null,

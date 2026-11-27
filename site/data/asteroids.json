@@ -1,5 +1,5 @@
 {
- "retrieved": "2026-11-26",
+ "retrieved": "2026-11-27",
  "source": "JPL Small-Body Database API (ssd-api.jpl.nasa.gov/sbdb.api)",
  "apis": {
   "NASA/JPL Small-Body Database (SBDB) API": "1.3",
@@ -69,6 +69,19 @@
     "last": "2021-01-28",
     "rms": 0.43153
    },
+   "discovery": {
+    "date": "1801-01-01",
+    "location": "Palermo",
+    "site": null,
+    "who": "Piazzi, G.",
+    "text": "Discovered 1801-01-01 by Piazzi, G. at Palermo",
+    "citation": null
+   },
+   "altDes": [
+    "1943 XB",
+    "A899 OF",
+    "A801 AA"
+   ],
    "phys": {
     "H": 3.34,
     "diameter": 939.4,
@@ -151,6 +164,17 @@
     "last": "2021-03-17",
     "rms": 0.40095
    },
+   "discovery": {
+    "date": "1807-03-29",
+    "location": "Bremen",
+    "site": null,
+    "who": "Olbers, H. W.",
+    "text": "Discovered 1807-03-29 by Olbers, H. W. at Bremen",
+    "citation": null
+   },
+   "altDes": [
+    "A807 FA"
+   ],
    "phys": {
     "H": 3.25,
     "diameter": 522.77,
@@ -233,6 +257,17 @@
     "last": "2024-12-11",
     "rms": 0.17629
    },
+   "discovery": {
+    "date": "1852-03-17",
+    "location": "Naples",
+    "site": null,
+    "who": "De Gasparis, A.",
+    "text": "Discovered 1852-03-17 by De Gasparis, A. at Naples",
+    "citation": null
+   },
+   "altDes": [
+    "A852 FA"
+   ],
    "phys": {
     "H": 6.2,
     "diameter": 222,
@@ -315,6 +350,17 @@
     "last": "2026-03-30",
     "rms": 0.36591
    },
+   "discovery": {
+    "date": "1852-11-15",
+    "location": "Paris",
+    "site": null,
+    "who": "Goldschmidt, H.",
+    "text": "Discovered 1852-11-15 by Goldschmidt, H. at Paris",
+    "citation": null
+   },
+   "altDes": [
+    "A852 VA"
+   ],
    "phys": {
     "H": 7.48,
     "diameter": 98,
@@ -397,6 +443,19 @@
     "last": "2026-04-14",
     "rms": 0.35149
    },
+   "discovery": {
+    "date": "1880-04-10",
+    "location": "Pola",
+    "site": null,
+    "who": "Palisa, J.",
+    "text": "Discovered 1880-04-10 by Palisa, J. at Pola",
+    "citation": null
+   },
+   "altDes": [
+    "A910 RA",
+    "A905 OA",
+    "A880 GB"
+   ],
    "phys": {
     "H": 7.02,
     "diameter": 122,
@@ -479,6 +538,18 @@
     "last": "2021-05-13",
     "rms": 0.29796
    },
+   "discovery": {
+    "date": "1898-08-13",
+    "location": "Berlin",
+    "site": null,
+    "who": "Witt, G.",
+    "text": "Discovered 1898-08-13 by Witt, G. at Berlin",
+    "citation": null
+   },
+   "altDes": [
+    "1956 PC",
+    "A898 PA"
+   ],
    "phys": {
     "H": 10.4,
     "diameter": 16.84,
@@ -644,6 +715,19 @@
     "last": "2026-04-11",
     "rms": 0.35933
    },
+   "discovery": {
+    "date": "1916-07-30",
+    "location": "Simeis",
+    "site": null,
+    "who": "Neujmin, G.",
+    "text": "Discovered 1916-07-30 by Neujmin, G. at Simeis",
+    "citation": null
+   },
+   "altDes": [
+    "1955 MG1",
+    "A916 OJ",
+    "A913 YA"
+   ],
    "phys": {
     "H": 11.49,
     "diameter": 12.2,
@@ -726,6 +810,18 @@
     "last": "2026-11-25",
     "rms": 0.27612
    },
+   "discovery": {
+    "date": "1951-09-14",
+    "location": "Palomar",
+    "site": null,
+    "who": "Wilson, A. G. and Minkowski, R.",
+    "text": "Discovered 1951-09-14 by Wilson, A. G. and Minkowski, R. at Palomar",
+    "citation": null
+   },
+   "altDes": [
+    "1983 CY3",
+    "1951 RA"
+   ],
    "phys": {
     "H": 15.27,
     "diameter": 2.56,
@@ -1091,6 +1187,17 @@
     "last": "2025-06-15",
     "rms": 0.36685
    },
+   "discovery": {
+    "date": "1977-04-24",
+    "location": "Palomar",
+    "site": null,
+    "who": "Kowal, C.",
+    "text": "Discovered 1977-04-24 by Kowal, C. at Palomar",
+    "citation": null
+   },
+   "altDes": [
+    "1977 HB"
+   ],
    "phys": {
     "H": 17.21,
     "diameter": 1.024,
@@ -1506,6 +1613,18 @@
     "last": "2026-09-04",
     "rms": 0.27701
    },
+   "discovery": {
+    "date": "1978-09-10",
+    "location": "Palomar",
+    "site": null,
+    "who": "Helin, E. F.",
+    "text": "Discovered 1978-09-10 by Helin, E. F. at Palomar",
+    "citation": null
+   },
+   "altDes": [
+    "1978 RA",
+    "1975 TB"
+   ],
    "phys": {
     "H": 16.24,
     "diameter": 2.3,
@@ -2201,6 +2320,21 @@
     "last": "2026-04-13",
     "rms": 0.29228
    },
+   "discovery": {
+    "date": "1969-11-04",
+    "location": "Nauchnyj",
+    "site": null,
+    "who": "Chernykh, N.",
+    "text": "Discovered 1969-11-04 by Chernykh, N. at Nauchnyj",
+    "citation": null
+   },
+   "altDes": [
+    "1980 WB",
+    "1980 VV1",
+    "1979 FJ4",
+    "1969 VC",
+    "1954 QL"
+   ],
    "phys": {
     "H": 13.13,
     "diameter": 5.16,
@@ -2283,6 +2417,18 @@
     "last": "2026-05-16",
     "rms": 0.26534
    },
+   "discovery": {
+    "date": "1989-01-04",
+    "location": "Caussols",
+    "site": null,
+    "who": "Pollas, C.",
+    "text": null,
+    "citation": "Named after the Gaulish god, protector of the tribe.  This totemic deity is well known because of the cartoon series <i>Les aventures d'Astérix</i> by Uderzo and Goscinny.  This tells the stories of two almost fearless heroes living in the last village under siege in Roman-occupied Gaul in 50 B.C., and whose only fear is that the sky may fall onto their heads one day.  Since this object is the Apollo object with the smallest inclination known, it is a good candidate to fall on our heads one of these days...  But as the chief of the village always says: “C'est pas demain la veille...”  Citation written by the discoverer and A. Maury and endorsed by J. D. Mulholland, who with Maury obtained the discovery plates."
+   },
+   "altDes": [
+    "1989 AC",
+    "1934 CT"
+   ],
    "phys": {
     "H": 15.29,
     "diameter": 5.4,
@@ -2478,6 +2624,18 @@
     "last": "2026-11-23",
     "rms": 0.35234
    },
+   "discovery": {
+    "date": "1987-09-22",
+    "location": "Rozhen",
+    "site": null,
+    "who": "Elst and Shkodrov",
+    "text": null,
+    "citation": "Named for the Indo-Iranian god of the heavenly light that led to Mithraism, one of the last oriental mystery cults to reach the west, where it became the chief rival to and opponent of Christianity.  In Babylonia, Chaldaean astrology was incorporated, while Greek art, religion and philosophy provided the models for Mithraic iconography and the Mithraic mysteries.  The two religions have much in common: a divine lord by whom man was assured of elevation, a sacramental meal and a ritual of baptism.  Many ruins of Mithraic sanctuaries are still to be found in Europe, near Frankfurt and Heidelberg, for example.  This minor planet is of Apollo type, and in Asia Minor around 330 B.C. the god Mithra was identified with the god Apollo.  Citation prepared by E. W. Elst."
+   },
+   "altDes": [
+    "1987 SB",
+    "1974 DN1"
+   ],
    "phys": {
     "H": 15.62,
     "diameter": 1.849,
@@ -2713,6 +2871,17 @@
     "last": "2026-06-22",
     "rms": 0.21015
    },
+   "discovery": {
+    "date": "1982-02-28",
+    "location": "Palomar",
+    "site": null,
+    "who": "Helin, E. F.",
+    "text": null,
+    "citation": "Named for the ancient Greek god Nereus, a son of Pontus and Gaia.  A benevolent sea-god associated with ancient origins (mythology, if not science), he had the power of prophecy.  Name proposed by Robert M. Cutler, a Planetary Society member interested in near-Earth asteroids.  To English-language speakers the name seems very appropriate for such an object."
+   },
+   "altDes": [
+    "1982 DB"
+   ],
    "phys": {
     "H": 18.75,
     "diameter": 0.33,
@@ -2998,6 +3167,17 @@
     "last": "2026-07-06",
     "rms": 0.37779
    },
+   "discovery": {
+    "date": "1989-08-09",
+    "location": "Palomar",
+    "site": null,
+    "who": "Helin, E. F.",
+    "text": "Discovered 1989-08-09 by Helin, E. F. at Palomar",
+    "citation": null
+   },
+   "altDes": [
+    "1989 PB"
+   ],
    "phys": {
     "H": 17.38,
     "diameter": 1.4,
@@ -3423,6 +3603,17 @@
     "last": "2015-11-03",
     "rms": 0.62902
    },
+   "discovery": {
+    "date": "1991-05-10",
+    "location": "Palomar",
+    "site": null,
+    "who": "Helin, E. F.",
+    "text": "Discovered 1991-05-10 by Helin, E. F. at Palomar",
+    "citation": null
+   },
+   "altDes": [
+    "1991 JX"
+   ],
    "phys": {
     "H": 19.22,
     "diameter": 0.53,
@@ -3728,6 +3919,17 @@
     "last": "2026-10-02",
     "rms": 0.3659
    },
+   "discovery": {
+    "date": "1996-04-23",
+    "location": "Kitt Peak",
+    "site": null,
+    "who": "Spacewatch",
+    "text": "Discovered 1996-04-23 by Spacewatch at Kitt Peak",
+    "citation": null
+   },
+   "altDes": [
+    "1996 HW1"
+   ],
    "phys": {
     "H": 15.36,
     "diameter": 2.928,
@@ -3843,6 +4045,19 @@
     "last": "2026-11-24",
     "rms": 0.4821
    },
+   "discovery": {
+    "date": "1992-09-24",
+    "location": "Palomar",
+    "site": null,
+    "who": "Helin, E. F., Alu, J.",
+    "text": "Discovered 1992-09-24 by Helin, E. F., Alu, J. at Palomar",
+    "citation": null
+   },
+   "altDes": [
+    "1992 SK",
+    "1985 TO2",
+    "1985 SD"
+   ],
    "phys": {
     "H": 17.14,
     "diameter": 0.938,
@@ -4108,6 +4323,17 @@
     "last": "2024-12-19",
     "rms": 0.37455
    },
+   "discovery": {
+    "date": "1998-09-26",
+    "location": "Socorro",
+    "site": null,
+    "who": "LINEAR",
+    "text": "Discovered 1998 Sept. 26 by the Lincoln Laboratory Near-Earth Asteroid Research Team at Socorro.",
+    "citation": "Hideo Itokawa (1912-1999) is regarded as the Father of Japanese rocketry.  An aerospace engineer, Itokawa initiated Japan's first launch tests of the solid rocket series called “Pencil” in 1955.  Under his unique vision and strong leadership, his rockets reached space by 1960 and put Japan's first satellite into orbit in 1970."
+   },
+   "altDes": [
+    "1998 SF36"
+   ],
    "phys": {
     "H": 19.26,
     "diameter": 0.33,
@@ -4413,6 +4639,18 @@
     "last": "2026-11-05",
     "rms": 0.48501
    },
+   "discovery": {
+    "date": "1950-02-22",
+    "location": "Mt. Hamilton",
+    "site": null,
+    "who": "Wirtanen, C. A.",
+    "text": "Discovered 1950-02-22 by Wirtanen, C. A. at Mt. Hamilton",
+    "citation": null
+   },
+   "altDes": [
+    "2000 YK66",
+    "1950 DA"
+   ],
    "phys": {
     "H": 17.28,
     "diameter": 1.3,
@@ -4590,6 +4828,17 @@
     "last": "2026-11-24",
     "rms": 0.4089
    },
+   "discovery": {
+    "date": "1998-11-25",
+    "location": "Socorro",
+    "site": null,
+    "who": "LINEAR",
+    "text": "Discovered 1998-11-25 by LINEAR at Socorro",
+    "citation": null
+   },
+   "altDes": [
+    "1998 WT24"
+   ],
    "phys": {
     "H": 18.02,
     "diameter": 0.432,
@@ -5215,6 +5464,17 @@
     "last": "2025-03-22",
     "rms": 0.41939
    },
+   "discovery": {
+    "date": "1998-06-24",
+    "location": "Socorro",
+    "site": null,
+    "who": "LINEAR",
+    "text": "Discovered 1998-06-24 by LINEAR at Socorro",
+    "citation": null
+   },
+   "altDes": [
+    "1998 ML14"
+   ],
    "phys": {
     "H": 17.52,
     "diameter": 1,
@@ -5370,6 +5630,17 @@
     "last": "2005-08-03",
     "rms": 0.39416
    },
+   "discovery": {
+    "date": "2000-08-03",
+    "location": "Socorro",
+    "site": null,
+    "who": "LINEAR",
+    "text": "Discovered 2000 Aug. 3 by the Lincoln Laboratory Near-Earth Asteroid Research Team at Socorro.",
+    "citation": "This naming collectively honors Ivan O. Yarkovsky, John A. O'Keefe, V. V. Radzievskij and Stephen J. Paddack, who were instrumental to the realization that radiation torques due to sunlight can affect the spin states of minor planets.  Data on this object provided the first direct observational evidence for the YORP effect."
+   },
+   "altDes": [
+    "2000 PH5"
+   ],
    "phys": {
     "H": 22.66,
     "diameter": null,
@@ -5915,6 +6186,17 @@
     "last": "2025-03-11",
     "rms": 0.3292
    },
+   "discovery": {
+    "date": "1996-04-11",
+    "location": "Kitt Peak",
+    "site": null,
+    "who": "Spacewatch",
+    "text": "Discovered 1996 Apr. 11 by Spacewatch at Kitt Peak.",
+    "citation": "Greek for “twin”, this rapid-rotator Amor possesses a satellite with an orbital period of 11.9 hr.  Suspicions arose in the Goldstone delay-Doppler echoes, and these were confirmed with the optical light curve analysis, along with Arecibo radar imaging on 2003 Nov. 23.  The name was suggested by J. Montani."
+   },
+   "altDes": [
+    "1996 GT"
+   ],
    "phys": {
     "H": 18.11,
     "diameter": 0.78,
@@ -6130,6 +6412,17 @@
     "last": "2026-04-20",
     "rms": 0.31002
    },
+   "discovery": {
+    "date": "1999-05-20",
+    "location": "Socorro",
+    "site": null,
+    "who": "LINEAR",
+    "text": "Discovered 1999 May 20 by LINEAR at Socorro.",
+    "citation": "Moshup was a giant who lived in the coastal areas of New England, according to Native American legends, and was responsible for a variety of geologic features. As a way of maintaining balance, he married Granny Squannit, a leader of the Makiawasug, or Little People, who lived nearby. Squannit was a medicine woman of the Makiawasug who married the giant Moshup. Bad weather was attributed to times when the pair would argue.  Moshup is the name of the primary, Squannit that for the satellite."
+   },
+   "altDes": [
+    "1999 KW4"
+   ],
    "phys": {
     "H": 16.64,
     "diameter": 1.317,
@@ -6845,6 +7138,17 @@
     "last": "2022-04-09",
     "rms": 0.25657
    },
+   "discovery": {
+    "date": "2004-06-19",
+    "location": "Kitt Peak",
+    "site": null,
+    "who": "Tholen, D. J.",
+    "text": "Discovered 2004 June 19 by R. A. Tucker, D. J. Tholen and F. Bernardi at Kitt Peak.",
+    "citation": "Also known as Apep, the Destroyer, Apophis is the Egyptian god of evil and destruction who dwelled in eternal darkness.  As a result of its passage within 40&nbsp;000 km of the earth on 2029 Apr. 13, this minor planet will move from the Aten to the Apollo class."
+   },
+   "altDes": [
+    "2004 MN4"
+   ],
    "phys": {
     "H": 19.09,
     "diameter": 0.34,
@@ -7211,6 +7515,17 @@
     "last": "2020-10-03",
     "rms": 0.29146
    },
+   "discovery": {
+    "date": "1999-09-11",
+    "location": "Socorro",
+    "site": null,
+    "who": "LINEAR",
+    "text": "Discovered 1999 Sept. 11 by the Lincoln Laboratory Near-Earth Asteroid Research Team at Socorro.",
+    "citation": "Bennu was an Egyptian mythological figure associated with Osiris, Atum and Ra.  This minor planet is the target of the OSIRIS-REx sample return mission.  OSIRIS-REx's Touch-and-Go Sampler evokes Bennu's image as a heron. Name suggested by Michael Toler Puzio (b. 2004) via a naming contest for students."
+   },
+   "altDes": [
+    "1999 RQ36"
+   ],
    "phys": {
     "H": 20.21,
     "diameter": 0.48444,
@@ -7578,6 +7893,17 @@
     "last": "2026-09-20",
     "rms": 0.48048
    },
+   "discovery": {
+    "date": "1994-02-03",
+    "location": "Kitt Peak",
+    "site": null,
+    "who": "Spacewatch",
+    "text": "Discovered 1994-02-03 by Spacewatch at Kitt Peak",
+    "citation": null
+   },
+   "altDes": [
+    "1994 CC"
+   ],
    "phys": {
     "H": 17.97,
     "diameter": null,
@@ -7803,6 +8129,17 @@
     "last": "2026-11-09",
     "rms": 0.24851
    },
+   "discovery": {
+    "date": "2001-09-20",
+    "location": "Socorro",
+    "site": null,
+    "who": "LINEAR",
+    "text": "Discovered 2001-09-20 by LINEAR at Socorro",
+    "citation": null
+   },
+   "altDes": [
+    "2001 SN263"
+   ],
    "phys": {
     "H": 17.11,
     "diameter": 2,
@@ -7988,6 +8325,17 @@
     "last": "2025-07-23",
     "rms": 0.23497
    },
+   "discovery": {
+    "date": "1999-05-10",
+    "location": "Socorro",
+    "site": null,
+    "who": "LINEAR",
+    "text": "Discovered 1999 May 10 by the Lincoln Laboratory Near-Earth Asteroid Research Team at Socorro.",
+    "citation": "Ryugu is the undersea palace of the Dragon God. In a Japanese legend, a fisherman was rewarded with a visit to Ryugu and brought back a box with a secret.  The spaceprobe Hayabusa 2 will visit this asteroid and bring back a capsule containing surface samples."
+   },
+   "altDes": [
+    "1999 JU3"
+   ],
    "phys": {
     "H": 19.55,
     "diameter": 0.896,
@@ -8243,6 +8591,17 @@
     "last": "2026-04-17",
     "rms": 0.35127
    },
+   "discovery": {
+    "date": "2002-02-10",
+    "location": "Socorro",
+    "site": null,
+    "who": "LINEAR",
+    "text": "Discovered 2002-02-10 by LINEAR at Socorro",
+    "citation": null
+   },
+   "altDes": [
+    "2002 CE26"
+   ],
    "phys": {
     "H": 16.64,
     "diameter": 3.5,
@@ -8398,6 +8757,17 @@
     "last": "2026-04-23",
     "rms": 0.2856
    },
+   "discovery": {
+    "date": "2008-03-04",
+    "location": "Mount Lemmon",
+    "site": null,
+    "who": "Mt. Lemmon Survey",
+    "text": "Discovered 2008-03-04 by Mt. Lemmon Survey at Mount Lemmon",
+    "citation": null
+   },
+   "altDes": [
+    "2008 EV5"
+   ],
    "phys": {
     "H": 20.05,
     "diameter": 0.4,
@@ -8954,6 +9324,8 @@
     "last": "2024-05-06",
     "rms": 0.61146
    },
+   "discovery": null,
+   "altDes": [],
    "phys": {
     "H": 25.91,
     "diameter": 0.011,

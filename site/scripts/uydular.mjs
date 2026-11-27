@@ -14,7 +14,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const UA = { 'User-Agent': 'lookstar19/0.2 (non-commercial space library; +https://github.com/yazicmert/LS19)' };
 const RAPOR = process.argv.includes('--rapor') ? process.argv[process.argv.indexOf('--rapor') + 1] : null;
 const DATA = 'https://raw.githubusercontent.com/yazicmert/LS19/data', GCAT = 'https://planet4589.org/space/gcat/tsv';
-const SKIP = new Set(['ssl1300']);                                          // temsilî model: uydunun kendisinin değil
+const SKIP = new Set(['ssl1300']);
+const pick = (row, k) => { const v = row && String(row[k] || '').trim(); return v && v !== '-' ? v : null; };                                          // temsilî model: uydunun kendisinin değil
 // satcatalog.js başlıkları Türkçe; İngilizceleri (yalnız Türkçe sözcük içerenler)
 // GCAT kaydının uydunun tamamını anlatmadığı durumlar: sayfada açıkça yazılır
 const NOTES = {
@@ -40,13 +41,13 @@ async function get(url, as = 'json') {
   }
 }
 
-const [gp, meta, satcatTxt, launchTxt, orgsTxt, sitesTxt] = await Promise.all([
+const [gp, meta, satcatTxt, launchTxt, orgsTxt, sitesTxt, psatTxt] = await Promise.all([
   get(`${DATA}/gp_active.json`), get(`${DATA}/meta.json`),
-  get(`${GCAT}/cat/satcat.tsv`, 'text'), get(`${GCAT}/launch/launch.tsv`, 'text'), get(`${GCAT}/tables/orgs.tsv`, 'text'), get(`${GCAT}/tables/sites.tsv`, 'text'),
+  get(`${GCAT}/cat/satcat.tsv`, 'text'), get(`${GCAT}/launch/launch.tsv`, 'text'), get(`${GCAT}/tables/orgs.tsv`, 'text'), get(`${GCAT}/tables/sites.tsv`, 'text'), get(`${GCAT}/cat/psatcat.tsv`, 'text'),
 ]);
 if (!Array.isArray(gp) || gp.length < 5000) throw new Error(`GP verisi beklenmeyen: ${Array.isArray(gp) ? gp.length : typeof gp} kayıt`);
 const gcatUpdated = (/# Updated (\d{4} \w{3} +\d{1,2})/.exec(satcatTxt) || [])[1] || null;
-const satcat = indexBy(parseTsv(satcatTxt), 'Satcat');
+const satcat = indexBy(parseTsv(satcatTxt), 'Satcat'), psat = indexBy(parseTsv(psatTxt), 'JCAT');
 const tables = { launches: indexBy(parseTsv(launchTxt), 'Launch_Tag'), orgs: indexBy(parseTsv(orgsTxt), 'Code'), sites: indexBy(parseTsv(sitesTxt), 'Site') };
 if (satcat.size < 50000 || tables.launches.size < 5000) throw new Error('GCAT tabloları eksik');
 
@@ -66,7 +67,7 @@ const objects = picked.map(([g, m]) => {
   return {
     id: String(o.norad), ...o,
     title: own ? { en, tr } : { en: gname || o.name, tr: gname || o.name },
-    gcat: gc, note: NOTES[o.norad] || null,
+    gcat: gc ? { ...gc, program: pick(psat.get(gc.jcat), 'Program'), category: pick(psat.get(gc.jcat), 'Category'), comment: pick(psat.get(gc.jcat), 'Comment') } : null, note: NOTES[o.norad] || null,
     model: { key: m.key, title: { en, tr }, size: MODELS[m.key].size, source: srcOf(MODELS[m.key]), own },
   };
 }).sort((a, b) => a.title.en.localeCompare(b.title.en, 'en') || a.norad - b.norad);

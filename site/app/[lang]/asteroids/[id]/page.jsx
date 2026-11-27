@@ -7,6 +7,9 @@ import Footer from '@/components/Footer';
 import ElementBlock from '@/components/ElementBlock';
 import ModelViewer from '@/components/ModelViewer';
 import Approaches from '@/components/Approaches';
+import Timeline from '@/components/Timeline';
+import { asteroidEvents, hasCurated } from '@/lib/history';
+import EVENTS from '@/data/events.json';
 import { LANGS, LS19_URL } from '@/lib/config';
 import { t, num, sig, sci, date, clsName } from '@/lib/i18n';
 import { OBJECTS, RETRIEVED, CAD, byId, auKm, ls19Link } from '@/lib/asteroids';
@@ -144,6 +147,12 @@ export default async function Asteroid({ params }) {
               : <p className="ca__lead">{sen.status === 'removed' ? R.removed(date(lang, sen.removed)) : R.none}</p>}
           </section>
         ) : null}
+        <section className="rec__sec" aria-labelledby="hist-h">
+          <div className="sec__head"><h2 id="hist-h" className="sec__title">{L.hist.title}</h2></div>
+          <p className="ca__lead">{L.hist.lead}</p>
+          <Timeline lang={lang} events={asteroidEvents(o, lang, RETRIEVED, EVENTS)} today={RETRIEVED} headingId="hist-h" />
+          {hasCurated(EVENTS, 'asteroids', o.id) ? <p className="note">{L.hist.srcNote}</p> : null}
+        </section>
         <section className="rec__src" aria-labelledby="src-h">
           <h2 id="src-h" className="rec__srch">{A.sources}</h2>
           <ul>
