@@ -14,6 +14,12 @@ export const cadDate = (s) => { const m = /^(\d{4})-([A-Z][a-z]{2})-(\d{2}) (\d{
 // SBDB gözlem tarihi "2020-10-03" ya da Sentry'nin "2020-10-3.80160" biçimi → "2020-10-03"
 const obsDate = (s) => { const m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(String(s || '')); return m ? `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}` : null; };
 
+// SBDB keşif kaydı: "1898-Aug-13" → ISO; yer, keşfeden, kaynağın cümlesi (keşif bilinmiyorsa null)
+export function mapDiscovery(x) {
+  if (!x || !x.date) return null;
+  const m = /^(\d{4})-([A-Z][a-z]{2})-(\d{2})/.exec(String(x.date).trim());
+  return { date: m && MON[m[2]] ? `${m[1]}-${MON[m[2]]}-${m[3]}` : null, location: x.location || null, site: x.site || null, who: x.who || null, text: x.discovery || null, citation: x.citation || null };
+}
 // SBDB: kimlik, yörünge elementleri ve 1σ belirsizlikleri, yörünge çözümünün künyesi, fiziksel parametreler
 export function mapSbdb(d) {
   const o = d.object, orb = d.orbit;
@@ -33,6 +39,7 @@ export function mapSbdb(d) {
       id: orb.orbit_id ? String(orb.orbit_id) : null, date: orb.soln_date ? String(orb.soln_date).slice(0, 10) : null, producer: orb.producer || null,
       nObs: num(orb.n_obs_used), nDel: num(orb.n_del_obs_used), nDop: num(orb.n_dop_obs_used), first: obsDate(orb.first_obs), last: obsDate(orb.last_obs), rms: num(orb.rms),
     },
+    discovery: mapDiscovery(d.discovery), altDes: (Array.isArray(o.des_alt) ? o.des_alt : []).map((x) => x.des || x.pri).filter(Boolean),
     phys: { H: num(ph.H), diameter: num(ph.diameter), rotPer: num(ph.rot_per), albedo: num(ph.albedo), specB: ph.spec_B || null, specT: ph.spec_T || null, density: num(ph.density) },
   };
 }

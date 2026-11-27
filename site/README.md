@@ -22,11 +22,13 @@ npx next start
 | JPL Sentry API | çarpma riski (yalnız NEO) | listede (olasılık, Palermo, Torino, olası çarpma sayısı, hesap tarihi), listeden çıkarılmış (tarih) ya da hiç listelenmemiş |
 | CelesTrak GP (LS19 `data` dalındaki kopya) | 67 uydunun ortalama yörünge elementleri (SGP4) | epok tarihi; yarı büyük eksen, yükseklikler, dönem ve J2 düğüm kayması türetilmiş diye yazılır |
 | GCAT (J. McDowell, CC BY 4.0) | uydu kütlesi, boyutları, işletmeci, üretici; fırlatma tarihi, aracı, yeri | katalog tarihi; GCAT kaydı uydunun tamamını anlatmıyorsa (ISS → Zarya) sayfada not |
+| GCAT (J. McDowell, CC BY 4.0) — roketler | 2020'den bu yana yörüngeye ulaşmış 119 aracın boyu, çapı, kademeleri (boy, çap, çokluk) ve 1957'den bu yana her yörünge/derin uzay fırlatması | katalog tarihi; 3B görünüm bu ölçülerden çizilir ve öyle yazılır; füzeler ve sondaj roketleri alınmaz |
+| `data/events.json` (elle) | asteroitlere uzay aracı ziyaretleri, Hubble bakım görevleri, ISS ilk mürettebatı | ajansların görev kayıtlarından derlendi; sayfada "görev kaydı" diye ayrılır; planlananlar işaretli |
 | Launch Library 2 | yaklaşan fırlatmalar (ISR, 30 dk) | zaman yalnız kaynağın kesinliğinde (ay, çeyrek, saat, dakika); geri sayım yalnız saati bilinen fırlatmaya; kaynak kaydının güncellenme zamanı |
 
 `scripts/asteroitler.mjs` yazmadan önce her kaydı doğrular (`lib/jpl.js`: q = a(1−e), Kepler dönemi, 3σ aralığı, Sentry özeti) ve önceki
 dosyayla karşılaştırır: aynı çözümde element kayması, cisim kaybı ya da %0,1'den büyük yarı büyük eksen değişimi yazmayı durdurur.
-`scripts/uydular.mjs` uydular için aynısını yapar (`lib/sat.js`: GP elementleri, yerberi > 80 km, epok < 30 gün, GCAT ve model eşleşmesi; toplu kayıpta durur).
+`scripts/roketler.mjs` roketleri GCAT'ten alır (boy/çap/kademe denetimi, tekil adres). `scripts/uydular.mjs` uydular için aynısını yapar (`lib/sat.js`: GP elementleri, yerberi > 80 km, epok < 30 gün, GCAT ve model eşleşmesi; toplu kayıpta durur).
 `.github/workflows/site-veri.yml` her pazartesi ikisini de yeniler; alınma tarihinden fazlası değiştiyse değişiklik raporuyla PR açar
 (yeni yörünge çözümleri, Sentry durum değişimleri kalın). Doğrulama başarısız olursa iş kırmızı olur.
 

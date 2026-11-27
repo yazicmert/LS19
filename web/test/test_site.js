@@ -162,6 +162,32 @@ check('süzgeç ve arama metinleri iki dilde; sayfalar ve /search.json bağlı',
   && /AsteroidBrowser/.test(rd('../../site/app/[lang]/asteroids/page.jsx')) && /SatBrowser/.test(rd('../../site/app/[lang]/satellites/page.jsx')) && /LaunchBrowser/.test(rd('../../site/app/[lang]/launches/page.jsx'))
   && /SiteSearch/.test(rd('../../site/components/Masthead.jsx')) && /force-static/.test(rd('../../site/app/search.json/route.js')));
 
+// 5f) roketler: GCAT ölçüleri, kademeler, fırlatma kaydı; LL2 adı eşleme; ölçülerden 3B yerleşim
+const RD = JSON.parse(rd('../../site/data/rockets.json')), RV = RD.vehicles, RM = await import('../../site/lib/rockets-match.js'), R3 = await import('../../site/lib/rocket3d.js');
+const f9 = RV.find((v) => v.name === 'Falcon 9'), fh = RV.find((v) => v.name === 'Falcon Heavy'), cz6a = RV.find((v) => v.name === 'Chang Zheng 6A');
+check('roket verisi: ≥ 60 araç, adresler tekil; her birinin boyu, çapı, kademesi ve en az bir yörünge fırlatması var; kaynak CC BY 4.0', RV.length >= 60 && new Set(RV.map((v) => v.slug)).size === RV.length
+  && RV.every((v) => v.spec.length > 0 && v.spec.diameter > 0 && v.spec.stages.some((x) => /^[1-9]$/.test(x.no)) && v.stats.total === v.launches.length && v.stats.total > 0) && /CC BY 4\.0/.test(RD.source));
+check('roket kaydı: başarılı + başarısız ≤ toplam; tarihler sıralı; Falcon 9 ≥ 400 fırlatma, ilk 2010', RV.every((v) => v.stats.success + v.stats.failure <= v.stats.total && v.launches.every((l, k, a) => !k || a[k - 1].date <= l.date))
+  && f9.stats.total >= 400 && f9.stats.first.startsWith('2010') && f9.slug === 'falcon9');
+const names = RV.map((v) => v.name);
+check('LL2 adı → GCAT: Long March → Chang Zheng, Kinetica → Lijian, Ceres → Gushenxing, blok eki atılır; tanınmayan null', RM.matchRocket('Long March 6A', names) === 'Chang Zheng 6A' && RM.matchRocket('Kinetica 1', names) === 'Lijian-1'
+  && RM.matchRocket('Falcon 9 Block 5', names) === 'Falcon 9' && RM.matchRocket('Vega-C', names) === 'Vega C' && RM.matchRocket('Soyuz 2.1b', names) === 'Soyuz-2-1B' && RM.matchRocket('Ceres-1', names) === 'Gushenxing 1' && RM.matchRocket('Mir', names) === null);
+const lf9 = R3.rocketLayout(f9.spec), lfh = R3.rocketLayout(fh.spec), lcz = R3.rocketLayout(cz6a.spec);
+check('3B yerleşim: kademeler istiflenir, toplam boy aracın boyuna yakın; Falcon Heavy 2, Chang Zheng 6A 4 yan itici; kaporta en üstte', Math.abs(lf9.height - f9.spec.length) / f9.spec.length < 0.1
+  && lfh.boosters.length === 2 && lcz.boosters.length === 4 && lf9.segs[lf9.segs.length - 1].kind === 'fairing' && lf9.segs.filter((x) => x.kind === 'stage').length === 2 && lf9.boosters.length === 0);
+// 5g) tarihçe: keşif, gözlem, yakın geçiş, Sentry, görev olayları; tarih sırası; gelecek işaretli
+const Hs = await import('../../site/lib/history.js'), EVJ = JSON.parse(rd('../../site/data/events.json'));
+const hb = Hs.asteroidEvents(bennu, 'en', data.retrieved, EVJ), hs = Hs.satEvents(SO.find((o) => o.id === '20580'), 'tr', SD.retrieved, EVJ);
+check('tarihçe (Bennu): LINEAR keşfi, OSIRIS-REx olayları, Sentry; sıralı; gelecekteki yakın geçişler işaretli', hb.some((e) => e.kind === 'disc' && /LINEAR/.test(e.text)) && hb.filter((e) => e.mission === 'OSIRIS-REx').length === 4
+  && hb.some((e) => e.kind === 'risk') && hb.every((e, k, a) => !k || a[k - 1].date <= e.date) && hb.filter((e) => e.future).every((e) => e.date > data.retrieved) && hb.some((e) => e.future));
+check('tarihçe (Hubble): fırlatma (GCAT), açılış, beş bakım görevi, son element kümesi; iki dilde', hs.some((e) => e.kind === 'launch' && /Space Shuttle/.test(e.text)) && hs.filter((e) => e.kind === 'service').length === 5 && hs.some((e) => e.src === 'CelesTrak GP')
+  && Hs.satEvents(SO.find((o) => o.id === '20580'), 'en', SD.retrieved, EVJ).some((e) => /servicing/.test(e.text)));
+check('görev olayları dosyası: her cisim ve uydu kimliği veride var; tarih ISO; iki dilde metin', Object.keys(EVJ.asteroids).every((k) => O.some((o) => o.id === k)) && Object.keys(EVJ.satellites).every((k) => SO.some((o) => o.id === k))
+  && [...Object.values(EVJ.asteroids), ...Object.values(EVJ.satellites)].flat().every((e) => /^\d{4}-\d\d-\d\d$/.test(e.date) && e.en && e.tr && e.mission));
+check('keşif kaydı (SBDB): 33 cismin en az 30’unda tarih, yer ve keşfeden', O.filter((o) => o.discovery && /^\d{4}-\d\d-\d\d$/.test(o.discovery.date) && o.discovery.location && o.discovery.who).length >= 30);
+check('roket ve tarihçe sayfaları bağlı; haftalık iş akışı roketleri de yeniler', fs.existsSync(new URL('../../site/app/[lang]/rockets/[slug]/page.jsx', import.meta.url)) && /<Timeline/.test(rd('../../site/app/[lang]/asteroids/[id]/page.jsx'))
+  && /<Timeline/.test(rd('../../site/app/[lang]/satellites/[id]/page.jsx')) && /roketler\.mjs/.test(rd('../../.github/workflows/site-veri.yml')) && /rocketForLL2/.test(rd('../../site/components/NextLaunch.jsx')) && !!en.rk && !!tr.hist);
+
 // 6) yayın altyapısı: meta veri, güvenlik başlıkları, Vercel ayarı, 404, yazı tipi
 const S = await import('../../site/lib/seo.js');
 const alt = S.alternates('tr', '/asteroids/bennu'), pm = S.pageMeta('en', '/launches', { title: 'Upcoming launches', description: 'd' });

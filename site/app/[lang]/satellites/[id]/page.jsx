@@ -5,6 +5,9 @@ import Masthead from '@/components/Masthead';
 import Footer from '@/components/Footer';
 import ElementBlock from '@/components/ElementBlock';
 import ModelViewer from '@/components/ModelViewer';
+import Timeline from '@/components/Timeline';
+import { satEvents, hasCurated } from '@/lib/history';
+import EVENTS from '@/data/events.json';
 import { pageMeta } from '@/lib/seo';
 import { LANGS, LS19_URL } from '@/lib/config';
 import { t, num, sig, sci, date, dateTime } from '@/lib/i18n';
@@ -121,6 +124,12 @@ export default async function Satellite({ params }) {
               scaleLabel={A.scale} scaleValue={`${sig(lang, s.model.size, 3)} ${S.meter}`} keepMaterials yaw={0.9} />
           </div>
         </div>
+        <section className="rec__sec" aria-labelledby="hist-h">
+          <div className="sec__head"><h2 id="hist-h" className="sec__title">{L.hist.title}</h2></div>
+          <p className="ca__lead">{L.hist.lead}</p>
+          <Timeline lang={lang} events={satEvents(s, lang, SAT_RETRIEVED, EVENTS)} today={SAT_RETRIEVED} headingId="hist-h" />
+          {hasCurated(EVENTS, 'satellites', s.id) ? <p className="note">{L.hist.srcNote}</p> : null}
+        </section>
         <section className="rec__src" aria-labelledby="src-h">
           <h2 id="src-h" className="rec__srch">{A.sources}</h2>
           <ul>

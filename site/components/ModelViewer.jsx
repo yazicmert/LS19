@@ -4,7 +4,8 @@
 import { useEffect, useRef, useState } from 'react';
 
 // keepMaterials: uydu modellerinin kendi renkleri (folyo, paneller) korunur; asteroitlerde dokusuz yüzey kaya grisine çevrilir
-export default function ModelViewer({ src, label, loading, error, hint, scaleLabel, scaleValue, keepMaterials = false, yaw = 0 }) {
+// rocket: GLB yerine ölçülerden çizilecek roket (lib/rocket3d.js); dik durur, sahne uzun
+export default function ModelViewer({ src, label, loading, error, hint, scaleLabel, scaleValue, keepMaterials = false, yaw = 0, rocket = null }) {
   const host = useRef(null);
   const [state, setState] = useState('loading');
   useEffect(() => {
@@ -25,13 +26,14 @@ export default function ModelViewer({ src, label, loading, error, hint, scaleLab
         cam.position.set(0, 0, 5.6);
         const sun = new THREE.DirectionalLight(0xfff4e6, 3.1); sun.position.set(3.2, 1.6, 2.4); scene.add(sun);
         scene.add(new THREE.HemisphereLight(0xc9d3ff, 0x0b1660, 0.35));
-        const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(src);
+        let root;
+        if (rocket) root = (await import('@/lib/rocket3d')).buildRocket(THREE, rocket);
+        else root = (await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(src)).scene;
         if (disposed) return;
-        const root = gltf.scene;
         root.traverse((o) => {
           if (!o.isMesh) return;
           const m = o.material;
-          if (keepMaterials) return;
+          if (keepMaterials || rocket) return;
           if (!m || !m.map) o.material = new THREE.MeshStandardMaterial({ color: 0x9a9690, roughness: 0.92, metalness: 0 });
           else { m.roughness = 0.95; m.metalness = 0; }
         });
@@ -39,7 +41,7 @@ export default function ModelViewer({ src, label, loading, error, hint, scaleLab
         root.position.sub(c);
         const spin = new THREE.Group(), tilt = new THREE.Group();          // tilt: kullanıcının sürüklemesi; spin: kendi ekseni (+Y)
         spin.add(root); tilt.add(spin); scene.add(tilt);
-        tilt.rotation.x = 0.35; spin.rotation.y = yaw;                         // yaw: ilk görünüş açısı (uydularda dörtte üç görünüş)
+        tilt.rotation.x = rocket ? 0.12 : 0.35; spin.rotation.y = yaw;                         // yaw: ilk görünüş açısı (uydularda dörtte üç görünüş)
         cam.position.z = r / Math.tan((cam.fov * Math.PI) / 360) * 1.18;
         cam.near = r / 100; cam.far = cam.position.z + r * 10; cam.updateProjectionMatrix();   // model ölçeğine göre (uydular metre, asteroitler birim yarıçap)
         const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -74,9 +76,9 @@ export default function ModelViewer({ src, label, loading, error, hint, scaleLab
       disposed = true; cancelAnimationFrame(raf); cleanup(); if (ro) ro.disconnect();
       if (renderer) { renderer.dispose(); renderer.domElement.remove(); }
     };
-  }, [src, keepMaterials, yaw]);
+  }, [src, keepMaterials, yaw, rocket]);
   return (
-    <figure className="mv">
+    <figure className={rocket ? 'mv mv--tall' : 'mv'}>
       <div className="mv__stage" ref={host} tabIndex={0} role="img" aria-label={label} data-state={state}>
         {state !== 'ready' ? <p className="mv__msg" role="status">{state === 'error' ? error : loading}</p> : null}
       </div>

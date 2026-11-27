@@ -6,6 +6,7 @@ import { t, netLabel } from '@/lib/i18n';
 import { rank } from '@/lib/search';
 import { countable } from '@/lib/launches';
 import { useListState, FilterBar, FText, FSelect, FToggles } from './Filters';
+import Link from 'next/link';
 import { Play } from './Icon';
 
 const DEF = { q: '', provider: '', status: '', known: false, stream: false };
@@ -36,7 +37,7 @@ export default function LaunchBrowser({ lang, rows }) {
                 <p className="lch__net mono">{netLabel(lang, l.net, l.precision)}</p>
                 <div className="lch__body">
                   <h2 className="lch__name">{l.mission.name || l.name}</h2>
-                  <p className="lch__meta">{[l.vehicle, l.provider].filter(Boolean).join(' · ')}</p>
+                  <p className="lch__meta">{l.rocket ? <Link className="lch__rk" href={`/${lang}/rockets/${l.rocket}`}>{l.vehicle}</Link> : l.vehicle}{l.vehicle && l.provider ? ' · ' : ''}{l.provider}</p>
                   <p className="lch__meta">{[l.pad.name, l.pad.location].filter(Boolean).join(', ')}{l.mission.orbit ? ` · ${l.mission.orbit}` : ''}</p>
                 </div>
                 <div className="lch__side">
