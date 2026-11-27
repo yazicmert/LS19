@@ -203,6 +203,15 @@ Square corners throughout (0px). Borders are 2px ink for controls, fields, the l
 - Close approaches are a table (date TDB, au, km, lunar distances, 3σ ±, v rel, time 3σ) with row groups set in label type; impact risk is an element block under a section rule. Every block names its API and retrieval date in the record's source list.
 - Launch times appear only as precisely as the source states them (month, quarter, hour, minute); the countdown runs only for a launch whose time is known.
 
+### Filter bar
+- Sits between a list page's lead and its table, opened by a 2px ink rule. Labelled fields in a wrapping row: a mono search field and native selects (2px ink border, white, drawn chevron; options show counts) and toggle buttons (1px ink border; pressed = ink fill, paper text). Below: the mono "n of total shown" and a cobalt "Clear filters" link only when something is set.
+- State lives in the address (`?cls=APO&pha=1`, `?q=falcon`), so a filtered view can be shared; the first render matches the server's unfiltered HTML.
+- Sortable column headers are buttons with a drawn chevron and `aria-sort`; the sorted column turns cobalt.
+
+### Site search
+- In the masthead's navigation row: a white field with a drawn magnifier and mono text; on phones it takes its own full-width row. The index (`/search.json`) loads on first focus.
+- Results open on paper under the field (2px ink border) in groups (asteroids, satellites, pages) with mono numbers and class or orbit codes; the active row fills cobalt. The last row sends the query to the launch list's filter. Arrow keys, Enter and Esc work as in the lookup.
+
 ### Variable diagrams (signature)
 - Every measured row's label is a button (dotted underline in ink-2, solid cobalt when open). Hover (120 ms intent), focus or tap opens a paper panel under the row: 2px ink border, no shadow, no radius, opened with a 0.18s clip-path reveal (none under reduced motion).
 - Inside: a 300 × 150 SVG drawn from the record's own values and to scale (orbits against Earth's orbit or a to-scale Earth, angles against their reference plane, durations against a year or a day, sizes and masses against familiar references), then one plain sentence. The value sits top-left in cobalt mono; symbol keys sit along the bottom; no text is drawn over geometry.
