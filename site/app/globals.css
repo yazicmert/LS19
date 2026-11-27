@@ -434,3 +434,5 @@ th[aria-sort] .th__sort { color: var(--cobalt); }
   .vt__pop[data-open] { animation: none; }
   .btn { transition: none; }
 }
+/* tüm uydular kataloğu: yörünge planı altyazısında ölçek tek satır */
+.op__cap .mv__scale { white-space: nowrap; }

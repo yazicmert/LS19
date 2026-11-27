@@ -205,6 +205,37 @@ check('katalog sayfaları: /asteroids/all, /sb/[des] (istekle, bir gün önbelle
   && !/export const dynamicParams = false/.test(rd('../../site/app/[lang]/layout.jsx')) && /liveFind/.test(rd('../../site/app/api/sb/route.js')) && fs.existsSync(new URL('../../site/app/[lang]/error.jsx', import.meta.url))
   && /AsteroidRecord/.test(rd('../../site/app/[lang]/asteroids/[id]/page.jsx')) && !!en.cat && !!tr.cat && /api\/sb\?find=/.test(rd('../../site/components/SiteSearch.jsx')));
 
+// 5i) tüm uydular kataloğu: GCAT özeti (haftalık), GP canlı; sorgu yalnız beyaz listeden; istekle üretilen sayfa
+const SC = await import('../../site/lib/satcat.js'), CATJ = JSON.parse(rd('../../site/data/satcat.json'));
+check('uydu kataloğu özeti: ≥ 10 000 uydu, doğrulamadan geçer (sütunlar, tekil NORAD, GCAT eşleşmesi ≥ %85, fırlatma tablosu); her modelli uydu özette; kaynak yazılı',
+  CATJ.sats.length >= 10000 && SC.checkCat(CATJ, CATJ).length === 0 && SO.every((o) => CATJ.sats.some((r) => r[0] === o.norad)) && /GCAT/.test(CATJ.gcat.source) && /CC BY 4\.0/.test(CATJ.gcat.source) && /active/.test(CATJ.gp.source),
+  SC.checkCat(CATJ, CATJ).join('; '));
+const shrunk = { ...CATJ, sats: CATJ.sats.slice(0, Math.floor(CATJ.sats.length * 0.6)), gp: { ...CATJ.gp } };
+check('uydu kataloğu özeti: toplu kayıp ve düşük eşleşme yazmayı durdurur; bozuk satır yakalanır', SC.checkCat(shrunk, CATJ).some((x) => /birden çıktı/.test(x)) && SC.checkCat(shrunk, null).some((x) => /eşleşmesi düşük/.test(x))
+  && SC.checkCat({ ...CATJ, sats: [...CATJ.sats.slice(1), [-1, 'x']] }, CATJ).some((x) => /geçersiz satır/.test(x)));
+const gpFake = (k, name, n, e, i, w = 0) => ({ OBJECT_NAME: name, OBJECT_ID: `20${String(k).slice(-2)}-001A`, NORAD_CAT_ID: k, EPOCH: '2026-11-26T00:00:00.000000', MEAN_MOTION: n, ECCENTRICITY: e, INCLINATION: i, RA_OF_ASC_NODE: 10, ARG_OF_PERICENTER: w, MEAN_ANOMALY: 0, BSTAR: 1e-4, MEAN_MOTION_DOT: 0, REV_AT_EPOCH: 1 });
+const ixGp = [{ ...gpFake(25544, 'ISS (ZARYA)', 15.5, 0.0004, 51.63), OBJECT_ID: '1998-067A' }, ...CATJ.sats.slice(0, 40).map((r, j) => gpFake(r[0], `TEST-${j}`, 14 + j / 20, 0.001, 53)), gpFake(41866, 'GOES 16', 1.0027, 0.0002, 0.05), gpFake(999990, 'NO GCAT', 15, 0.001, 97.5), gpFake(999991, 'BAD', 0, 1.5, 10)];
+const IX = SC.buildIndex(ixGp, CATJ, new Set(['25544']));
+const qq = (o) => SC.queryCat(IX, SC.parseCatQuery((k) => o[k]));
+check('uydu kataloğu dizini: GP + GCAT birleşir; geçersiz GP atlanır; GCAT kaydı olmayan uydu da listede; modelli uydu işaretli', IX.rows.length === ixGp.length - 1 && IX.rows.find((r) => r.k === 25544).M && !IX.rows.find((r) => r.k === 41866).M
+  && IX.rows.find((r) => r.k === 999990).s === null && IX.rows.find((r) => r.k === 41866).r === 'GEO' && IX.rows.find((r) => r.k === 25544).s === 'US');
+check('uydu kataloğu sorgusu: tam NORAD önce, ad/COSPAR harf duyarsız, bölge ve ülke süzgeci, sıralamada boş değer sonda, sayfa sınırlı', qq({ q: '25544' }).rows[0].k === 25544 && qq({ q: 'zarya' }).rows[0].k === 25544 && qq({ q: '1998-067a' }).rows[0].k === 25544
+  && qq({ regime: 'GEO' }).rows.every((r) => r.r === 'GEO') && qq({ state: 'US' }).rows.every((r) => r.s === 'US') && qq({ state: 'US' }).count >= 1 && qq({ sort: 'mass', dir: 'desc' }).rows.at(-1).m === null && qq({ sort: 'mass', dir: 'asc' }).rows.at(-1).m === null
+  && qq({ model: '1' }).count === 1 && qq({ page: '999' }).page === 0 && qq({}).total === IX.rows.length && !('key' in qq({}).rows[0]) && !('oc' in qq({}).rows[0]));
+const badS = SC.parseCatQuery((k) => ({ regime: 'LEO"]', sort: 'constructor', dir: 'up', page: '-3', state: '<script>', owner: 'a'.repeat(40), q: 'x'.repeat(90) })[k]);
+check('uydu kataloğu sorgusu: tanınmayan bölge, sıralama, yön, kod ve sayfa yok sayılır; metin 40 karakterle sınırlı', badS.regime === '' && badS.sort === 'norad' && badS.dir === 'asc' && badS.page === 0 && badS.state === '' && badS.owner === '' && badS.q.length === 40);
+const FC = SC.catFacets(IX), rec = SC.satRecordOf(IX, '25544');
+check('uydu kataloğu: süzgeç seçenekleri sayılı; site araması en çok 8; tek uydu kaydı zengin sayfalarla aynı biçimde (GCAT, tarihçe); etkin kümede olmayan null',
+  FC.regimes.some(([k, n]) => k === 'LEO' && n > 30) && FC.states.some(([c, l]) => c === 'US' && l === 'USA') && SC.findCat(IX, 'test').length === 8 && SC.findCat(IX, '').length === 0
+  && rec.gcat.name === 'Zarya' && rec.gcat.launch.vehicle && Sa.checkSat({ ...rec, model: { key: 'x' } }, '2026-11-27').length === 0 && SC.satRecordOf(IX, '1') === null && SC.satRecordOf(IX, 'abc') === null
+  && Hs.satEvents(rec, 'tr', '2026-11-27', EVJ).some((e) => e.kind === 'launch') && SC.progGroup('Starlink 2MO S1') === 'Starlink' && SC.progGroup('Flock-4') === 'Flock' && SC.progGroup(null) === null);
+const satPg = rd('../../site/app/[lang]/sat/[norad]/page.jsx'), scb = rd('../../site/components/SatCatalogBrowser.jsx');
+check('uydu kataloğu sayfaları: /satellites/all, /sat/[norad] (istekle, önbellekli; modelli uydu zengin sayfaya yönlenir; geçersiz numara 404), /api/sat; tarayıcıya özet gitmez',
+  /revalidate = \d+/.test(satPg) && /dynamicParams = true/.test(satPg) && /redirect\(`\/\$\{lang\}\/satellites\//.test(satPg) && /notFound\(\)/.test(satPg) && /SatOrbitPlan/.test(satPg) && /<Timeline/.test(satPg)
+  && fs.existsSync(new URL('../../site/app/[lang]/satellites/all/page.jsx', import.meta.url)) && /parseCatQuery/.test(rd('../../site/lib/satcat-live.js')) && /liveCatalog/.test(rd('../../site/app/api/sat/route.js'))
+  && /^'use client'/.test(scb) && /\/api\/sat\?/.test(scb) && !/satcat(-live|\.json)/.test(scb) && /api\/sat\?find=/.test(rd('../../site/components/SiteSearch.jsx')) && /satellites\/all/.test(rd('../../site/app/sitemap.js'))
+  && /satellites\/all/.test(rd('../../site/app/[lang]/satellites/page.jsx')) && /satcat\.json/.test(rd('../../.github/workflows/site-veri.yml')) && /buildCat/.test(rd('../../site/scripts/uydular.mjs')) && !!en.satcat && !!tr.satcat);
+
 // 6) yayın altyapısı: meta veri, güvenlik başlıkları, Vercel ayarı, 404, yazı tipi
 const S = await import('../../site/lib/seo.js');
 const alt = S.alternates('tr', '/asteroids/bennu'), pm = S.pageMeta('en', '/launches', { title: 'Upcoming launches', description: 'd' });
