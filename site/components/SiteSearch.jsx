@@ -16,17 +16,18 @@ export default function SiteSearch({ lang }) {
   const [q, setQ] = useState(''), [open, setOpen] = useState(false), [active, setActive] = useState(0), [data, setData] = useState(null), [state, setState] = useState('idle');
   const ensure = () => { if (data || state === 'loading') return; setState('loading'); load().then((d) => { setData(d); setState('ready'); }, () => { index = null; setState('error'); }); };
   const pages = useMemo(() => [
-    ['/', L.home.title.split(' — ')[0]], ['/asteroids', L.ast.title], ['/satellites', L.sat.title], ['/rockets', L.rk.title], ['/launches', L.launch.title], ['/sources', L.src.title],
+    ['/', L.home.title.split(' — ')[0]], ['/asteroids', L.ast.title], ['/satellites', L.sat.title], ['/rockets', L.rk.title], ['/launches', L.launch.title], ['/launches/sites', L.ls.title], ['/sources', L.src.title],
   ].map(([p, n]) => ({ id: p, n })), [L]);
   const groups = useMemo(() => {
     if (!q.trim() || !data) return [];
     const ast = rank(data.ast, q, (o) => [o.n, o.d, o.f, o.k != null ? String(o.k) : '']).slice(0, 5).map((o) => ({ href: `/${lang}/asteroids/${o.id}`, name: o.n, meta: clsName(lang, { code: o.c, name: o.cn }), num: o.k }));
     const sat = rank(data.sat, q, (s) => [s[lang], s.en, s.g, String(s.k), s.c, ...s.o]).slice(0, 5).map((s) => ({ href: `/${lang}/satellites/${s.id}`, name: s[lang], meta: s.r, num: s.k }));
     const rk = rank(data.rk || [], q, (v) => [v.n, v.f, ...v.m]).slice(0, 5).map((v) => ({ href: `/${lang}/rockets/${v.id}`, name: v.n, meta: v.m.join('/'), num: null }));
+    const ls = rank(data.ls || [], q, (x) => [x.n, x.f]).slice(0, 4).map((x) => ({ href: `/${lang}/launches/sites/${x.id}`, name: x.n, meta: x.f, num: x.k }));
     const pg = rank(pages, q, (p) => [p.n]).slice(0, 3).map((p) => ({ href: `/${lang}${p.id === '/' ? '' : p.id}`, name: p.n, meta: '' }));
     const known = new Set(data.ast.map((o) => o.d)), shape = Object.fromEntries(data.ast.map((o) => [o.d, o.id]));
     const jpl = live.q === q.trim() ? live.rows.filter((r) => !known.has(r.des)).slice(0, 6).map((r) => ({ href: shape[r.des] ? `/${lang}/asteroids/${shape[r.des]}` : `/${lang}/sb/${String(r.des).replace(/ /g, '_')}`, name: r.full, meta: '', num: null })) : [];
-    return [['ast', ast], ['jpl', jpl], ['sat', sat], ['rk', rk], ['page', pg]].filter(([, r]) => r.length);
+    return [['ast', ast], ['jpl', jpl], ['sat', sat], ['rk', rk], ['ls', ls], ['page', pg]].filter(([, r]) => r.length);
   }, [q, data, lang, pages, live]);
   const flat = useMemo(() => [...groups.flatMap(([, r]) => r), ...(q.trim() ? [{ href: `/${lang}/asteroids/all?q=${encodeURIComponent(q.trim())}`, name: S.catalog(q.trim()), meta: '', action: true }, { href: `/${lang}/launches?q=${encodeURIComponent(q.trim())}`, name: S.launches(q.trim()), meta: '', action: true }] : [])], [groups, q, lang, S]);
   useEffect(() => { setActive(0); }, [q]);

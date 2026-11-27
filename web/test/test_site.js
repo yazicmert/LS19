@@ -245,4 +245,24 @@ check('.vercelignore (iki projeye de uygulanır): klasör kuralları köke bağl
 check('sitemap ve robots: her sayfa her dilde; önizleme adreslerinde tarama kapalı', /OBJECTS\.map/.test(rd('../../site/app/sitemap.js')) && /LANGS\.map/.test(rd('../../site/app/sitemap.js')) && /VERCEL_ENV/.test(rd('../../site/app/robots.js')));
 
 if (fail) { console.log(`\n${fail} hata`); process.exit(1); }
+// 5i) fırlatma üsleri (data/sites.json, GCAT) ve konumun yakıt bedeli (lib/launchsite.js)
+const LSD = JSON.parse(rd('../../site/data/sites.json')), LS = await import('../../site/lib/launchsite.js');
+const lsBy = Object.fromEntries(LSD.sites.map((x) => [x.slug, x]));
+check('üsler: tekil adres, koordinat, ülke kodu; toplam = üslerin toplamı ≥ 7000; Baykonur KZ, Plesetsk ve Canaveral en çok', new Set(LSD.sites.map((x) => x.slug)).size === LSD.sites.length
+  && LSD.sites.every((x) => Math.abs(x.lat) <= 90 && Math.abs(x.lon) <= 180 && /^[A-Z]{2}$/.test(x.cc)) && LSD.total === LSD.sites.reduce((n, x) => n + x.stats.total, 0) && LSD.total >= 7000
+  && lsBy.baykonur.cc === 'KZ' && LSD.sites.slice(0, 3).map((x) => x.slug).sort().join() === 'baykonur,canaveral,plesetsk');
+check('üsler: her üste fırlatmalar tarih sırasında, sonuç S/F/E/U, yıllık sayılar toplamı tutar; ilk fırlatma Sputnik (Baykonur, 1957-10-04)', LSD.sites.every((x) => x.launches.length === x.stats.total
+  && x.launches.every((l, k, a) => /^[SFEU]$/.test(l.o) && (!k || a[k - 1].d <= l.d)) && Object.values(x.byYear).reduce((n, v) => n + v, 0) === x.stats.total)
+  && lsBy.baykonur.launches[0].d === '1957-10-04' && lsBy.baykonur.stats.first === '1957-10-04');
+check('üsler: GCAT kodları birleşti (Baykonur NIIP-5 + GIK-5; Wallops tek üs); Palmachim ters yönlü (eğim > 90°)', ['GIK-5', 'NIIP-5'].every((c) => lsBy.baykonur.gcat.includes(c)) && !lsBy['wallops-i'] && lsBy.wallops
+  && lsBy.palmachim.launches.some((l) => l.o === 'S' && l.inc > 90));
+check('konum fiziği: ekvator dönüşü 465 m/s; Kourou 463, Plesetsk 212; en düşük eğim = enlem; azimut 90° → eğim = enlem', Math.round(LS.V_EQ) === 465 && Math.round(LS.rotSpeed(5.24)) === 463 && Math.round(LS.rotSpeed(62.92)) === 212
+  && LS.minIncl(-39.26) === 39.26 && Math.abs(LS.azimuthFor(28.5, 28.5) - 90) < 1e-6 && LS.azimuthFor(45, 30) === null);
+check('konum fiziği: GTO → GEO ekvatordan ≈ 1477 m/s, 28,5°\'den ≈ 1837 m/s; LEO\'da 10° düzlem değişimi ≈ 1337 m/s; menzil azimutundan eğim (Canaveral 28,5°–59,7°)', Math.abs(LS.gtoToGeo(0) - 1477) < 3
+  && Math.abs(LS.gtoToGeo(28.5) - 1837) < 3 && Math.abs(LS.planeChange(10) - 1337) < 3 && LS.inclFromAz(28.5, [35, 120]).join() === '28.5,59.7');
+const ih = LS.inclHistogram(lsBy.plesetsk.launches);
+check('eğim dağılımı: Plesetsk\'ten başarılı fırlatmaların hiçbiri enleminin (62,9°) 10° altında değil; eğim fırlatmaların %90\'ından fazlasında var (satcat ile)', ih.slice(0, 5).every((v) => v === 0) && ih.reduce((a, b) => a + b, 0) > 1000 && LSD.sites.flatMap((x) => x.launches).filter((l) => l.inc != null).length > 0.9 * LSD.total);
+check('üs sayfaları: dizin, kayıt, küre, hesaplayıcı; site haritası ve arama; iki dilde metin; haftalık iş akışı üsleri de yeniler', fs.existsSync(new URL('../../site/app/[lang]/launches/sites/[slug]/page.jsx', import.meta.url))
+  && /SiteGlobe/.test(rd('../../site/app/[lang]/launches/sites/page.jsx')) && /LaunchCalc/.test(rd('../../site/app/[lang]/launches/sites/page.jsx')) && /launches\/sites/.test(rd('../../site/app/sitemap.js'))
+  && /SITES/.test(rd('../../site/app/search.json/route.js')) && en.ls.why.length === tr.ls.why.length && /usler\.mjs/.test(rd('../../.github/workflows/site-veri.yml')) && fs.existsSync(new URL('../../site/public/geo/coast-110m.json', import.meta.url)));
 console.log('\nTüm lookstar19 denetimleri geçti');
