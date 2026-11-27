@@ -12,6 +12,7 @@ const load = () => (index ? index.promise : (index = { promise: fetch('/search.j
 
 export default function SiteSearch({ lang }) {
   const L = t(lang), S = L.search, id = useId(), router = useRouter(), box = useRef(null);
+  const [live, setLive] = useState({ q: '', rows: [] });
   const [q, setQ] = useState(''), [open, setOpen] = useState(false), [active, setActive] = useState(0), [data, setData] = useState(null), [state, setState] = useState('idle');
   const ensure = () => { if (data || state === 'loading') return; setState('loading'); load().then((d) => { setData(d); setState('ready'); }, () => { index = null; setState('error'); }); };
   const pages = useMemo(() => [
@@ -23,10 +24,20 @@ export default function SiteSearch({ lang }) {
     const sat = rank(data.sat, q, (s) => [s[lang], s.en, s.g, String(s.k), s.c, ...s.o]).slice(0, 5).map((s) => ({ href: `/${lang}/satellites/${s.id}`, name: s[lang], meta: s.r, num: s.k }));
     const rk = rank(data.rk || [], q, (v) => [v.n, v.f, ...v.m]).slice(0, 5).map((v) => ({ href: `/${lang}/rockets/${v.id}`, name: v.n, meta: v.m.join('/'), num: null }));
     const pg = rank(pages, q, (p) => [p.n]).slice(0, 3).map((p) => ({ href: `/${lang}${p.id === '/' ? '' : p.id}`, name: p.n, meta: '' }));
-    return [['ast', ast], ['sat', sat], ['rk', rk], ['page', pg]].filter(([, r]) => r.length);
-  }, [q, data, lang, pages]);
-  const flat = useMemo(() => [...groups.flatMap(([, r]) => r), ...(q.trim() ? [{ href: `/${lang}/launches?q=${encodeURIComponent(q.trim())}`, name: S.launches(q.trim()), meta: '', action: true }] : [])], [groups, q, lang, S]);
+    const known = new Set(data.ast.map((o) => o.d)), shape = Object.fromEntries(data.ast.map((o) => [o.d, o.id]));
+    const jpl = live.q === q.trim() ? live.rows.filter((r) => !known.has(r.des)).slice(0, 6).map((r) => ({ href: shape[r.des] ? `/${lang}/asteroids/${shape[r.des]}` : `/${lang}/sb/${String(r.des).replace(/ /g, '_')}`, name: r.full, meta: '', num: null })) : [];
+    return [['ast', ast], ['jpl', jpl], ['sat', sat], ['rk', rk], ['page', pg]].filter(([, r]) => r.length);
+  }, [q, data, lang, pages, live]);
+  const flat = useMemo(() => [...groups.flatMap(([, r]) => r), ...(q.trim() ? [{ href: `/${lang}/asteroids/all?q=${encodeURIComponent(q.trim())}`, name: S.catalog(q.trim()), meta: '', action: true }, { href: `/${lang}/launches?q=${encodeURIComponent(q.trim())}`, name: S.launches(q.trim()), meta: '', action: true }] : [])], [groups, q, lang, S]);
   useEffect(() => { setActive(0); }, [q]);
+  // JPL kataloğu (1,6 milyon): 2 karakterden sonra, kısa bir beklemeyle ön ekli arama (/api/sb?find=)
+  useEffect(() => {
+    const s = q.trim(); if (s.length < 2) { setLive({ q: '', rows: [] }); return undefined; }
+    const c = new AbortController(), tm = setTimeout(() => {
+      fetch(`/api/sb?find=${encodeURIComponent(s)}`, { signal: c.signal }).then((r) => r.json()).then((j) => setLive({ q: s, rows: Array.isArray(j.rows) ? j.rows : [] })).catch(() => {});
+    }, 280);
+    return () => { clearTimeout(tm); c.abort(); };
+  }, [q]);
   const go = (r) => { if (!r) return; setOpen(false); setQ(''); router.push(r.href); };
   const onKey = (e) => {
     if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActive((a) => Math.min(a + 1, flat.length - 1)); }
@@ -60,12 +71,12 @@ export default function SiteSearch({ lang }) {
               ); })}
             </div>
           ))}
-          {flat.length && flat[flat.length - 1].action ? (() => { const me = flat.length - 1, r = flat[me]; return (
-            <div id={`${id}-o${me}`} role="option" aria-selected={active === me} className={active === me ? 'ss__opt ss__opt--act is-on' : 'ss__opt ss__opt--act'}
+          {flat.map((r, me) => (r.action ? (
+            <div key={r.href} id={`${id}-o${me}`} role="option" aria-selected={active === me} className={`ss__opt ss__opt--act${active === me ? ' is-on' : ''}${flat[me - 1] && flat[me - 1].action ? ' ss__opt--act2' : ''}`}
               onMouseEnter={() => setActive(me)} onMouseDown={(e) => { e.preventDefault(); go(r); }}>
               <span className="ss__num" /><span className="ss__name">{r.name}</span><span className="ss__meta" />
             </div>
-          ); })() : null}
+          ) : null))}
         </div>
       ) : null}
     </div>
