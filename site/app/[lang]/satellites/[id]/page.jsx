@@ -10,6 +10,7 @@ import { LANGS, LS19_URL } from '@/lib/config';
 import { t, num, sig, sci, date, dateTime } from '@/lib/i18n';
 import { SATS, SAT_RETRIEVED, GP_INFO, GCAT_INFO, satById, satName } from '@/lib/satellites';
 import { ArrowOut, ArrowRight } from '@/components/Icon';
+import { SatOrbit, Incl, Node, ArgPeri, MeanAnom, Ticks, Scale, Drift, Mass, Dims, withViz } from '@/components/viz';
 
 export const dynamicParams = false;
 export function generateStaticParams() { return LANGS.flatMap((lang) => SATS.map((s) => ({ lang, id: s.id }))); }
@@ -66,6 +67,27 @@ export default async function Satellite({ params }) {
     ['', S.m.size, num(lang, s.model.size, 1), S.meter],
   ];
   const epoch = dateTime(lang, s.epoch);
+  // değişken şemaları (etikete göre)
+  const V = L.viz, tr = lang === 'tr';
+  const day = <Ticks value={D.period} unit={1440} lang={lang} unitLabel={tr ? '1 gün = 1 440 dk' : '1 day = 1,440 min'} valueLabel={`P = ${num(lang, D.period, 1)} ${S.min}`} />;
+  const vz = {
+    [el.i]: { node: <Incl i={E.i} plane="equator" lang={lang} />, text: V.i('equator') },
+    [el.e]: { node: <SatOrbit a={D.a} e={E.e} mark="e" lang={lang} />, text: V.e('earth') },
+    [el.om]: { node: <Node om={E.om} plane="equator" lang={lang} />, text: V.om('equator') },
+    [el.w]: { node: <ArgPeri w={E.w} e={E.e} earth lang={lang} />, text: V.w('earth') },
+    [el.ma]: { node: <MeanAnom M={E.ma} lang={lang} />, text: V.ma('earth') },
+    [el.n]: { node: day, text: V.n },
+    [el.bstar]: E.bstar > 0 ? { node: <Scale v={E.bstar} min={1e-6} max={1e-2} log lang={lang} label={`B* = ${sci(lang, E.bstar, 2)}`} ticks={[[1e-6, '10⁻⁶'], [1e-5, '10⁻⁵'], [1e-4, '10⁻⁴'], [1e-3, '10⁻³'], [1e-2, '10⁻²']]} left={tr ? 'az sürükleme' : 'little drag'} right={tr ? 'çok' : 'strong'} />, text: V.bstar } : null,
+    [el.a]: { node: <SatOrbit a={D.a} e={E.e} mark="a" lang={lang} />, text: V.sa },
+    [el.perigee]: { node: <SatOrbit a={D.a} e={E.e} mark="q" lang={lang} />, text: V.hp },
+    [el.apogee]: { node: <SatOrbit a={D.a} e={E.e} mark="Q" lang={lang} />, text: V.ha },
+    [el.period]: { node: day, text: V.sper },
+    [el.nodal]: { node: <Drift rate={D.nodal} lang={lang} />, text: V.nodal },
+    ...(G ? {
+      [S.b.mass]: G.mass != null ? { node: <Mass kg={G.mass} lang={lang} />, text: V.mass } : null,
+      [S.b.dims]: dims.some((x) => x != null) ? { node: <Dims L={G.length} D={G.diameter} S={G.span} lang={lang} />, text: V.dims } : null,
+    } : {}),
+  };
   return (
     <>
       <Masthead lang={lang} current="satellites" altPath={`/satellites/${s.id}`} />
@@ -82,11 +104,11 @@ export default async function Satellite({ params }) {
         </header>
         <div className="rec__grid">
           <div className="rec__data">
-            <ElementBlock caption={`${S.orbit} · ${S.epoch} ${epoch}`} rows={orbit} />
-            <ElementBlock caption={S.derived} rows={derived} />
+            <ElementBlock caption={`${S.orbit} · ${S.epoch} ${epoch}`} rows={withViz(orbit, vz)} />
+            <ElementBlock caption={S.derived} rows={withViz(derived, vz)} />
             <p className="el__note">{S.derivedNote}</p>
             {s.note ? <p className="el__note rec__warn">{s.note[lang]}</p> : null}
-            {G ? <ElementBlock caption={S.body} rows={body} /> : null}
+            {G ? <ElementBlock caption={S.body} rows={withViz(body, vz)} /> : null}
             {Ld ? <ElementBlock caption={S.launch} rows={launch} /> : null}
             <ElementBlock caption={S.model} rows={model} />
             <div className="rec__act">

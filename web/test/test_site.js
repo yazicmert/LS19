@@ -139,6 +139,15 @@ check('uydu karşılaştırma: toplu kayıp yazmayı durdurur; büyük yüksekli
 check('uydu sayfaları ve site haritası; haftalık iş akışı uyduları da yeniler', fs.existsSync(new URL('../../site/app/[lang]/satellites/[id]/page.jsx', import.meta.url)) && /SATS\.map/.test(rd('../../site/app/sitemap.js'))
   && /uydular\.mjs/.test(rd('../../.github/workflows/site-veri.yml')) && /satellites\.json/.test(rd('../../.github/workflows/site-veri.yml')) && /'uydu'/.test(rd('../../site/scripts/modeller.mjs')));
 
+// 5d) değişken şemaları: her satır etiketi düğme; şema ve açıklama iki dilde
+const VZsrc = rd('../../site/components/viz.jsx'), VTsrc = rd('../../site/components/VarTip.jsx');
+const kinds = ['a', 'e', 'i', 'om', 'w', 'ma', 'q', 'Q', 'per', 'moid', 'H', 'D', 'rot', 'alb', 'U', 'arc', 'ip', 'ps', 'ts', 'sa', 'hp', 'ha', 'sper', 'n', 'bstar', 'nodal', 'mass', 'dims', 'net'];
+check('şemalar: her değişkenin iki dilde açıklaması var', kinds.every((k) => en.viz[k] && tr.viz[k]) && en.viz.net('month') !== tr.viz.net('month') && /Earth’s centre/.test(en.viz.e('earth')));
+check('şemalar: SVG aria-hidden, kutunun içinde (overflow hidden), anlamı açıklama taşır (aria-describedby); Esc kapatır, odak döner; tek açık',
+  /aria-hidden="true"/.test(VZsrc) && /overflow="hidden"/.test(VZsrc) && /aria-describedby/.test(VTsrc) && /Escape/.test(VTsrc) && /focus\(\)/.test(VTsrc) && /closeOther/.test(VTsrc) && !/\bref=/.test(rd('../../site/app/[lang]/satellites/[id]/page.jsx')));
+check('şemalar: asteroit, uydu ve fırlatma sayfalarına bağlı', /withViz\(orbit, vz\)/.test(rd('../../site/app/[lang]/asteroids/[id]/page.jsx')) && /withViz\(derived, vz\)/.test(rd('../../site/app/[lang]/satellites/[id]/page.jsx'))
+  && /<Window kind=/.test(rd('../../site/components/NextLaunch.jsx')) && /prefers-reduced-motion[\s\S]*vt__pop\[data-open\] \{ animation: none; \}/.test(rd('../../site/app/globals.css')));
+
 // 6) yayın altyapısı: meta veri, güvenlik başlıkları, Vercel ayarı, 404, yazı tipi
 const S = await import('../../site/lib/seo.js');
 const alt = S.alternates('tr', '/asteroids/bennu'), pm = S.pageMeta('en', '/launches', { title: 'Upcoming launches', description: 'd' });

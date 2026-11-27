@@ -104,6 +104,47 @@ html { scrollbar-color: var(--ink-2) var(--paper-2); }
 .el__unit { color: var(--ink-2); margin-left: 0.6ch; font-size: 14px; }
 .el__sub { display: block; font-family: var(--f-mono), ui-monospace, monospace; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .el__row--text { grid-template-columns: auto minmax(0, 1fr); }
+/* kobalt alanda (sıradaki fırlatma) düğme çizgisi kobaltın açık tonunda; açılan şema yine kâğıt üstünde */
+.nl__vt { position: relative; }
+.nl .vt__btn { text-decoration-color: var(--on-cobalt-2); }
+.nl .vt__btn:hover, .nl .vt__btn[aria-expanded="true"] { color: var(--on-cobalt); text-decoration-color: var(--on-cobalt); }
+.nl .vt__pop { color: var(--ink); }
+/* değişken açıklaması: etiket düğmesi ve altında açılan şema (VarTip, viz.jsx) */
+.el__row { position: relative; }
+.vt { display: inline; }
+.vt__btn { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: help; text-align: left;
+  text-decoration: underline dotted var(--ink-2); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.vt__btn:hover, .vt__btn[aria-expanded="true"] { color: var(--ink); text-decoration-color: var(--cobalt); text-decoration-style: solid; }
+.vt__btn:focus-visible { outline: 2px solid var(--cobalt); outline-offset: 2px; }
+.vt__pop { position: absolute; z-index: 30; left: 0; top: calc(100% - 1px); width: min(336px, 100%); padding: 12px 14px 14px; background: var(--paper);
+  border: 2px solid var(--ink); display: none; text-align: left; white-space: normal; }
+.vt__pop[data-open] { display: block; animation: vtIn 0.18s var(--ease) both; }
+@keyframes vtIn { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+.vt__txt { display: block; margin-top: 8px; font-size: 14px; line-height: 1.45; color: var(--ink); font-family: var(--f-sans), system-ui, sans-serif; font-weight: 400; font-variation-settings: 'wdth' 100; }
+.vz { display: block; width: 100%; height: auto; overflow: visible; }
+.vz-t { font-family: var(--f-mono), ui-monospace, monospace; font-size: 10px; fill: var(--ink-2); }
+.vz-t--obj { fill: var(--cobalt); }
+.vz-ref { fill: none; stroke: var(--ink); stroke-width: 1; }
+.vz-dash { stroke-dasharray: 3 3; stroke: var(--ink-2); }
+.vz-obj { fill: none; stroke: var(--cobalt); stroke-width: 2; }
+.vz-mark { fill: none; stroke: var(--cobalt); stroke-width: 1.25; }
+.vz-mark--ink { stroke: var(--ink); }
+.vz-dot { fill: var(--cobalt); }
+.vz-hole { fill: var(--paper); stroke: var(--cobalt); stroke-width: 1.5; }
+.vz-sun { fill: var(--ink); }
+.vz-earth { fill: var(--paper-2); stroke: var(--ink); stroke-width: 1; }
+.vz-moon { fill: var(--paper); stroke: var(--ink); stroke-width: 1; }
+.vz-moonfill { fill: var(--paper-2); stroke: var(--ink); stroke-width: 1; }
+.vz-sector { fill: var(--cobalt); fill-opacity: 0.18; stroke: var(--cobalt); stroke-width: 1.25; }
+.vz-bar { fill: var(--paper); stroke: var(--ink); stroke-width: 1; }
+.vz-fill { fill: var(--cobalt); }
+.vz-objfill { fill: var(--cobalt); }
+.vz-objbox { fill: none; stroke: var(--cobalt); stroke-width: 2; }
+.vz-tick { stroke: var(--paper); stroke-width: 1; }
+.vz-tick--paper { stroke: var(--paper); }
+.vz-grain { fill: var(--hair); }
+.vz-swatch { stroke: var(--ink); stroke-width: 1; }
+.vz-swatch--obj { stroke: var(--cobalt); stroke-width: 2; }
 .el__row--text dd { white-space: normal; overflow-wrap: anywhere; }
 .el__row--text .el__val { font-family: var(--f-sans), system-ui, sans-serif; font-variant-numeric: normal; font-size: 15px; }
 .el--print .el__row { animation: print 0.5s var(--ease) both; }
@@ -273,5 +314,6 @@ html { scrollbar-color: var(--ink-2) var(--paper-2); }
 }
 @media (prefers-reduced-motion: reduce) {
   .el--print .el__row { animation: none; }
+  .vt__pop[data-open] { animation: none; }
   .btn { transition: none; }
 }
