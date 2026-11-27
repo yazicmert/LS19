@@ -7,7 +7,7 @@ Tasarım kuralları: `DESIGN.md`. Ürün kaydı: depo kökündeki `PRODUCT.md`. 
 
 ```bash
 npm ci
-npm run build      # önce scripts/modeller.mjs: 33 GLB modeli sürüm paketinden (sha256 denetimli)
+npm run build      # önce scripts/modeller.mjs: asteroit ve uydu modelleri sürüm paketlerinden (sha256 denetimli)
 npx next start
 ```
 
@@ -20,11 +20,14 @@ npx next start
 | JPL SBDB API | yörünge elementleri, fiziksel veri | her elementin 1σ belirsizliği; çözüm no ve tarihi, gözlem sayısı (optik, radar), gözlem aralığı, artık RMS, belirsizlik parametresi U |
 | JPL CAD API | Dünya'ya 0,2 au'dan yakın geçişler, 1900–2200 | nominal uzaklık ve 3σ aralığı, zaman belirsizliği (3σ) |
 | JPL Sentry API | çarpma riski (yalnız NEO) | listede (olasılık, Palermo, Torino, olası çarpma sayısı, hesap tarihi), listeden çıkarılmış (tarih) ya da hiç listelenmemiş |
+| CelesTrak GP (LS19 `data` dalındaki kopya) | 67 uydunun ortalama yörünge elementleri (SGP4) | epok tarihi; yarı büyük eksen, yükseklikler, dönem ve J2 düğüm kayması türetilmiş diye yazılır |
+| GCAT (J. McDowell, CC BY 4.0) | uydu kütlesi, boyutları, işletmeci, üretici; fırlatma tarihi, aracı, yeri | katalog tarihi; GCAT kaydı uydunun tamamını anlatmıyorsa (ISS → Zarya) sayfada not |
 | Launch Library 2 | yaklaşan fırlatmalar (ISR, 30 dk) | zaman yalnız kaynağın kesinliğinde (ay, çeyrek, saat, dakika); geri sayım yalnız saati bilinen fırlatmaya; kaynak kaydının güncellenme zamanı |
 
 `scripts/asteroitler.mjs` yazmadan önce her kaydı doğrular (`lib/jpl.js`: q = a(1−e), Kepler dönemi, 3σ aralığı, Sentry özeti) ve önceki
 dosyayla karşılaştırır: aynı çözümde element kayması, cisim kaybı ya da %0,1'den büyük yarı büyük eksen değişimi yazmayı durdurur.
-`.github/workflows/site-veri.yml` her pazartesi yeniler; alınma tarihinden fazlası değiştiyse değişiklik raporuyla PR açar
+`scripts/uydular.mjs` uydular için aynısını yapar (`lib/sat.js`: GP elementleri, yerberi > 80 km, epok < 30 gün, GCAT ve model eşleşmesi; toplu kayıpta durur).
+`.github/workflows/site-veri.yml` her pazartesi ikisini de yeniler; alınma tarihinden fazlası değiştiyse değişiklik raporuyla PR açar
 (yeni yörünge çözümleri, Sentry durum değişimleri kalın). Doğrulama başarısız olursa iş kırmızı olur.
 
 ## Vercel

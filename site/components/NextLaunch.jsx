@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { t, dateTime, netLabel } from '@/lib/i18n';
 import Countdown from './Countdown';
 import { ArrowRight, Play } from './Icon';
+import VarTip from './VarTip';
+import { Window } from './viz';
 
 export default function NextLaunch({ lang, launch, ok, headingId }) {
   const L = t(lang).launch;
@@ -19,7 +21,7 @@ export default function NextLaunch({ lang, launch, ok, headingId }) {
             <div><dt>{L.provider}</dt><dd>{launch.provider}</dd></div>
             <div><dt>{L.pad}</dt><dd>{[launch.pad.name, launch.pad.location].filter(Boolean).join(', ')}</dd></div>
             {launch.mission.orbit ? <div><dt>{L.orbit}</dt><dd>{launch.mission.orbit}</dd></div> : null}
-            <div><dt>{L.net}</dt><dd className="mono">{netLabel(lang, launch.net, launch.precision)}</dd></div>
+            <div className="nl__vt"><dt><VarTip label={L.net} text={t(lang).viz.net(launch.precision.kind)}><Window kind={launch.precision.kind} lang={lang} /></VarTip></dt><dd className="mono">{netLabel(lang, launch.net, launch.precision)}</dd></div>
           </dl>
           {stream ? (
             <a className="btn btn--paper" href={stream.url} rel="noopener" target="_blank"><Play />{official ? L.watch : L.watchOther}</a>

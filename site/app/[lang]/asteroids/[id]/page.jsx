@@ -11,6 +11,7 @@ import { LANGS, LS19_URL } from '@/lib/config';
 import { t, num, sig, sci, date, clsName } from '@/lib/i18n';
 import { OBJECTS, RETRIEVED, CAD, byId, auKm, ls19Link } from '@/lib/asteroids';
 import { ArrowOut, ArrowRight } from '@/components/Icon';
+import { OrbitTop, Incl, Node, ArgPeri, MeanAnom, Ticks, Ladder, Scale, Size, Spin, Albedo, Arc, Odds, withViz, LD_KM } from '@/components/viz';
 
 export const dynamicParams = false;
 export function generateStaticParams() { return LANGS.flatMap((lang) => OBJECTS.map((o) => ({ lang, id: o.id }))); }
@@ -66,6 +67,33 @@ export default async function Asteroid({ params }) {
     sen.years ? ['', R.years, sen.years[0] === sen.years[1] ? String(sen.years[0]) : `${sen.years[0]}–${sen.years[1]}`, null] : null,
     ['', R.computed, sen.computed, null],
   ] : null;
+  // değişken şemaları (etikete göre): kaydın gerçek değerleriyle
+  const V = L.viz, tr = lang === 'tr', ld = (au) => (au * 149597870.7) / LD_KM;
+  const pal = (v) => <Scale v={v} min={-10} max={2} zero={0} lang={lang} label={num(lang, v, 2)} ticks={[[-10, '−10'], [-6, '−6'], [-2, '−2'], [0, '0'], [2, '+2']]} left={tr ? 'arka plan riskinin altında' : 'below background'} right={tr ? 'üstünde' : 'above'} />;
+  const vz = {
+    [el.a]: { node: <OrbitTop a={E.a} e={E.e} mark="a" lang={lang} />, text: V.a },
+    [el.e]: { node: <OrbitTop a={E.a} e={E.e} mark="e" lang={lang} />, text: V.e('sun') },
+    [el.i]: { node: <Incl i={E.i} lang={lang} />, text: V.i('ecliptic') },
+    [el.om]: { node: <Node om={E.om} lang={lang} />, text: V.om('ecliptic') },
+    [el.w]: { node: <ArgPeri w={E.w} e={E.e} lang={lang} />, text: V.w('sun') },
+    [el.ma]: { node: <MeanAnom M={E.ma} lang={lang} />, text: V.ma('sun') },
+    [el.q]: { node: <OrbitTop a={E.a} e={E.e} mark="q" lang={lang} />, text: V.q },
+    [el.ad]: { node: <OrbitTop a={E.a} e={E.e} mark="Q" lang={lang} />, text: V.Q },
+    [el.per]: { node: <Ticks value={E.per} unit={365.25} lang={lang} unitLabel={tr ? 'Dünya yılı: 365,25 gün' : 'Earth year: 365.25 days'} valueLabel={`P = ${num(lang, E.per, 1)} ${A.days}`} />, text: V.per },
+    [el.moid]: o.moid != null ? { node: <Ladder ld={ld(o.moid)} lang={lang} label={`MOID = ${sig(lang, ld(o.moid), 3)} LD`} />, text: V.moid } : null,
+    [el.H]: P.H != null ? { node: <Scale v={P.H} min={0} max={30} lang={lang} label={`H = ${num(lang, P.H, 2)}`} ticks={[[0, '0'], [10, '10'], [17.75, '≈ 1 km'], [22, '≈ 140 m'], [30, '30']]} left={tr ? 'parlak' : 'bright'} right={tr ? 'sönük' : 'faint'} />, text: V.H } : null,
+    [el.D]: P.diameter != null ? { node: <Size km={P.diameter} lang={lang} />, text: V.D } : null,
+    [el.rot]: P.rotPer != null ? { node: <Spin h={P.rotPer} lang={lang} />, text: V.rot } : null,
+    [el.alb]: P.albedo != null ? { node: <Albedo p={P.albedo} lang={lang} />, text: V.alb } : null,
+    [S.u]: u != null ? { node: <Scale v={u} min={-0.5} max={9.5} boxes={10} lang={lang} label={`U = ${u}`} ticks={[[0, '0'], [9, '9']]} left={tr ? 'iyi bilinen' : 'well known'} right={tr ? 'zayıf bilinen' : 'poorly known'} />, text: V.U } : null,
+    [S.arc]: So.first && So.last ? { node: <Arc first={So.first} last={So.last} lang={lang} />, text: V.arc } : null,
+    ...(sen && sen.status === 'listed' ? {
+      [R.ip]: { node: <Odds ip={sen.ip} lang={lang} />, text: V.ip },
+      [R.psCum]: { node: pal(sen.psCum), text: V.ps },
+      [R.psMax]: { node: pal(sen.psMax), text: V.ps },
+      [R.tsMax]: { node: <Scale v={sen.tsMax || 0} min={-0.5} max={10.5} boxes={11} lang={lang} label={`${sen.tsMax || 0}`} ticks={[[0, '0'], [10, '10']]} />, text: V.ts },
+    } : {}),
+  };
   const model = [
     ['', el.method, A.methodLong[M.method], null, 'text'],
     ['', el.dims, M.dims.map((x) => sig(lang, x, 3)).join(' × '), A.km],
@@ -88,10 +116,10 @@ export default async function Asteroid({ params }) {
         </header>
         <div className="rec__grid">
           <div className="rec__data">
-            <ElementBlock caption={`${A.orbit} · ${A.epoch} ${o.epoch.date} TDB`} rows={orbit} />
+            <ElementBlock caption={`${A.orbit} · ${A.epoch} ${o.epoch.date} TDB`} rows={withViz(orbit, vz)} />
             <p className="el__note">{A.sigmaNote}</p>
-            <ElementBlock caption={S.title} rows={solution} />
-            <ElementBlock caption={A.phys} rows={phys} />
+            <ElementBlock caption={S.title} rows={withViz(solution, vz)} />
+            <ElementBlock caption={A.phys} rows={withViz(phys, vz)} />
             <ElementBlock caption={A.model} rows={model} />
             <div className="rec__act">
               <a className="btn btn--cobalt" href={ls19Link(LS19_URL, o)} rel="noopener">{A.openLS19}<ArrowOut /></a>
@@ -112,7 +140,7 @@ export default async function Asteroid({ params }) {
         {sen ? (
           <section className="rec__sec rec__risk" aria-labelledby="risk-h">
             <div className="sec__head"><h2 id="risk-h" className="sec__title">{R.title}</h2></div>
-            {risk ? (<><p className="ca__lead">{R.listedLead}</p><ElementBlock rows={risk} /></>)
+            {risk ? (<><p className="ca__lead">{R.listedLead}</p><ElementBlock rows={withViz(risk, vz)} /></>)
               : <p className="ca__lead">{sen.status === 'removed' ? R.removed(date(lang, sen.removed)) : R.none}</p>}
           </section>
         ) : null}

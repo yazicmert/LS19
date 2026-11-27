@@ -111,6 +111,43 @@ check('fırlatma tarihi kaynağın kesinliğinde yazılır (ay → "December 202
 const LP = [{ net: '2026-11-30T00:00:00Z', status: { abbrev: 'TBD' }, precision: P('Month') }, { net: '2026-12-01T01:45:00Z', status: { abbrev: 'Go' }, precision: P('Hour') }];
 check('sıradaki fırlatma: tarihi yalnız ay düzeyinde bilinen atlanır (geri sayım yalnız saati bilinene)', Lc.nextLaunch(LP, now) === LP[1] && Lc.mapLaunch({ ...raw, net_precision: { name: 'Month' } }).precision.kind === 'month');
 
+// 5c) uydular: CelesTrak GP + GCAT; türetilmiş yörünge, doğrulama, model paketi
+const Sa = await import('../../site/lib/sat.js'), SD = JSON.parse(rd('../../site/data/satellites.json')), SO = SD.objects;
+const ufiles = man.paketler.uydu.dosyalar;
+check('uydu verisi: ≥ 30 uydu, NORAD tekil, her kayıt doğrulamadan geçer (GP elementleri, yerberi > 80 km, epok < 30 gün, GCAT, model)',
+  SO.length >= 30 && new Set(SO.map((o) => o.id)).size === SO.length && SO.every((o) => Sa.checkSat(o, SD.retrieved).length === 0), SO.flatMap((o) => Sa.checkSat(o, SD.retrieved)).slice(0, 3).join('; '));
+check('uydu verisi: her model "uydu" sürüm paketinde; temsilî ticari GEO modeli kullanılmaz; kaynak ve sürüm bilgisi yazılı', SO.every((o) => ufiles[`web/models/sats/${o.model.key}.glb.gz`]) && !SO.some((o) => o.model.key === 'ssl1300')
+  && /CelesTrak/.test(SD.gp.source) && /GCAT/.test(SD.gcat.source) && /CC BY 4\.0/.test(SD.gcat.source));
+const iss = SO.find((o) => o.id === '25544');
+check('ISS: alçak yörünge, 51,6°, 380–450 km, ~92–94 dk; GCAT kaydının yalnız Zarya olduğu sayfada yazılı', iss && iss.derived.regime === 'LEO' && Math.abs(iss.elements.i - 51.6) < 0.2 && iss.derived.perigee > 380 && iss.derived.apogee < 450
+  && iss.derived.period > 91 && iss.derived.period < 95 && iss.gcat.name === 'Zarya' && /Zarya/.test(iss.note.en) && /Zarya/.test(iss.note.tr));
+const gpS = Sa.mapGp({ OBJECT_NAME: 'TEST', OBJECT_ID: '2017-073A', NORAD_CAT_ID: 43013, EPOCH: '2026-11-26T04:04:59.467872', MEAN_MOTION: 14.19552, ECCENTRICITY: 0.0001, INCLINATION: 98.72, RA_OF_ASC_NODE: 1, ARG_OF_PERICENTER: 2, MEAN_ANOMALY: 3, BSTAR: 1e-5 });
+const geo = Sa.mapGp({ OBJECT_NAME: 'G', OBJECT_ID: '2016-071A', NORAD_CAT_ID: 41866, EPOCH: '2026-11-26T00:00:00', MEAN_MOTION: 1.00271, ECCENTRICITY: 0.0002, INCLINATION: 0.05 });
+check('GP türetme: yarı büyük eksen Kepler yasasıyla; 98,7° ve ~824 km Güneş eşzamanlı (J2 düğüm kayması ≈ +0,986 °/gün); 1 tur/yıldız günü GEO',
+  Math.abs(gpS.derived.a - 7205) < 2 && gpS.derived.sso && Math.abs(gpS.derived.nodal - 0.9856) < 0.05 && gpS.derived.regime === 'LEO' && geo.derived.regime === 'GEO' && Math.abs(geo.derived.apogee - 35786) < 40
+  && gpS.epoch === '2026-11-26T04:04:59.467Z');
+check('yörünge bölgesi: HEO (e ≥ 0,25), MEO, yüksek', Sa.regimeOf(1000, 70000, 0.8, 2000) === 'HEO' && Sa.regimeOf(20000, 20300, 0.005, 718) === 'MEO' && Sa.regimeOf(40000, 41000, 0.01, 1700) === 'HIGH');
+check('GCAT tarihi ve TSV: saatli, saatsiz, belirsiz (?); başlık ve yorum satırları', Sa.gcatDate('1990 Apr 24 1233:52').iso === '1990-04-24' && Sa.gcatDate('1990 Apr 24 1233:52').time === '12:33' && Sa.gcatDate('2017 Nov 18').time === null
+  && Sa.gcatDate('1998 Nov 20 0649?').uncertain && Sa.gcatDate('-') === null && Sa.parseTsv('#A\tB\n# yorum\n1\t x \n').length === 1 && Sa.parseTsv('#A\tB\n1\t x \n')[0].B === 'x');
+const tbl = { launches: new Map([['2017-073', { Launch_Date: '2017 Nov 18 0947:36', LV_Type: 'Delta 7920-10C', Flight: 'D378', Launch_Site: 'V', Launch_Pad: 'SLC2W' }]]),
+  orgs: new Map([['GSFC', { Name: 'NASA Goddard Space Flight Center', ShortName: 'GSFC' }], ['NOAA', { Name: 'National Oceanic and Atmospheric Administration', ShortName: 'NOAA' }]]), sites: new Map([['V', { Name: 'Vandenberg AFB, California', ShortName: 'Vandenberg' }]]) };
+const gc = Sa.mapGcat({ JCAT: 'S43013', Satcat: '43013', Launch_Tag: '2017-073', Name: 'NOAA-20', Owner: 'GSFC/NOAA', Manufacturer: 'BALL', Mass: '   2200 ', DryMass: '-', Length: '  3.6 ' }, tbl);
+check('GCAT eşleme: kurum adları (kısa ve tam), bilinmeyen kod olduğu gibi, "-" boş; fırlatma tablosundan araç ve yer', gc.owner.join() === 'NASA Goddard Space Flight Center,National Oceanic and Atmospheric Administration' && gc.ownerShort.join('/') === 'GSFC/NOAA'
+  && gc.manufacturer.join() === 'BALL' && gc.mass === 2200 && gc.dryMass === null && gc.length === 3.6 && gc.launch.vehicle === 'Delta 7920-10C' && gc.launch.siteShort === 'Vandenberg' && gc.launch.date.time === '09:47');
+const lost = Sa.compareSats(SD, { objects: SO.slice(0, Math.floor(SO.length * 0.6)) }), moved = Sa.compareSats(SD, { objects: SO.map((o) => (o.id === '25544' ? { ...o, derived: { ...o.derived, perigee: o.derived.perigee + 40 } } : o)) });
+check('uydu karşılaştırma: toplu kayıp yazmayı durdurur; büyük yükseklik değişimi (manevra) rapora yazılır', lost.stop.length === 1 && moved.stop.length === 0 && moved.notes.some((x) => /yükseklik/.test(x)));
+check('uydu sayfaları ve site haritası; haftalık iş akışı uyduları da yeniler', fs.existsSync(new URL('../../site/app/[lang]/satellites/[id]/page.jsx', import.meta.url)) && /SATS\.map/.test(rd('../../site/app/sitemap.js'))
+  && /uydular\.mjs/.test(rd('../../.github/workflows/site-veri.yml')) && /satellites\.json/.test(rd('../../.github/workflows/site-veri.yml')) && /'uydu'/.test(rd('../../site/scripts/modeller.mjs')));
+
+// 5d) değişken şemaları: her satır etiketi düğme; şema ve açıklama iki dilde
+const VZsrc = rd('../../site/components/viz.jsx'), VTsrc = rd('../../site/components/VarTip.jsx');
+const kinds = ['a', 'e', 'i', 'om', 'w', 'ma', 'q', 'Q', 'per', 'moid', 'H', 'D', 'rot', 'alb', 'U', 'arc', 'ip', 'ps', 'ts', 'sa', 'hp', 'ha', 'sper', 'n', 'bstar', 'nodal', 'mass', 'dims', 'net'];
+check('şemalar: her değişkenin iki dilde açıklaması var', kinds.every((k) => en.viz[k] && tr.viz[k]) && en.viz.net('month') !== tr.viz.net('month') && /Earth’s centre/.test(en.viz.e('earth')));
+check('şemalar: SVG aria-hidden, kutunun içinde (overflow hidden), anlamı açıklama taşır (aria-describedby); Esc kapatır, odak döner; tek açık',
+  /aria-hidden="true"/.test(VZsrc) && /overflow="hidden"/.test(VZsrc) && /aria-describedby/.test(VTsrc) && /Escape/.test(VTsrc) && /focus\(\)/.test(VTsrc) && /closeOther/.test(VTsrc) && !/\bref=/.test(rd('../../site/app/[lang]/satellites/[id]/page.jsx')));
+check('şemalar: asteroit, uydu ve fırlatma sayfalarına bağlı', /withViz\(orbit, vz\)/.test(rd('../../site/app/[lang]/asteroids/[id]/page.jsx')) && /withViz\(derived, vz\)/.test(rd('../../site/app/[lang]/satellites/[id]/page.jsx'))
+  && /<Window kind=/.test(rd('../../site/components/NextLaunch.jsx')) && /prefers-reduced-motion[\s\S]*vt__pop\[data-open\] \{ animation: none; \}/.test(rd('../../site/app/globals.css')));
+
 // 6) yayın altyapısı: meta veri, güvenlik başlıkları, Vercel ayarı, 404, yazı tipi
 const S = await import('../../site/lib/seo.js');
 const alt = S.alternates('tr', '/asteroids/bennu'), pm = S.pageMeta('en', '/launches', { title: 'Upcoming launches', description: 'd' });

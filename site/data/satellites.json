@@ -1,0 +1,5281 @@
+{
+ "retrieved": "2026-11-26",
+ "gp": {
+  "source": "CelesTrak GP (OMM), group \"active\"",
+  "copied": "2026-11-26T21:30:07.893Z"
+ },
+ "gcat": {
+  "source": "GCAT, J. McDowell, planet4589.org (CC BY 4.0)",
+  "updated": "2026 Nov 26"
+ },
+ "objects": [
+  {
+   "id": "59588",
+   "name": "ACS3",
+   "cospar": "2024-077B",
+   "norad": 59588,
+   "epoch": "2026-11-26T14:39:30.217Z",
+   "elements": {
+    "n": 14.00749854,
+    "e": 0.01159863,
+    "i": 97.3025,
+    "om": 214.7372,
+    "w": 351.575,
+    "ma": 8.3471,
+    "bstar": 0.012793343,
+    "ndot": 0.00020238,
+    "rev": 13072
+   },
+   "derived": {
+    "a": 7269.337,
+    "perigee": 806.9,
+    "apogee": 975.5,
+    "period": 102.802,
+    "nodal": 0.8015,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "ACS3 solar sail",
+    "tr": "ACS3 güneş yelkeni"
+   },
+   "gcat": {
+    "jcat": "S59588",
+    "name": "ACS3",
+    "plName": "Adv. Composite Solar Sail",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Ames Research Center, Moffett Field"
+    ],
+    "ownerShort": [
+     "ARC"
+    ],
+    "manufacturer": [
+     "NASA Ames Research Center, Moffett Field",
+     "NanoAvionics US"
+    ],
+    "bus": "Cubesat 12U",
+    "shape": "Box+sail",
+    "mass": 16.1,
+    "dryMass": 16.1,
+    "length": 0.3,
+    "diameter": 0.2,
+    "span": 12.7,
+    "launch": {
+     "date": {
+      "iso": "2024-04-23",
+      "time": "22:32",
+      "uncertain": false
+     },
+     "tag": "2024-077",
+     "vehicle": "Electron",
+     "flight": "Beginning of the Swarm",
+     "site": "Rocket Lab Launch Complex 1, Onenui Station, Mahia Peninsula",
+     "siteShort": "Mahia",
+     "pad": "LC1B"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "acs3",
+    "title": {
+     "en": "ACS3 solar sail",
+     "tr": "ACS3 güneş yelkeni"
+    },
+    "size": 12.7,
+    "source": "NASA Eyes on the Earth",
+    "own": true
+   }
+  },
+  {
+   "id": "27424",
+   "name": "AQUA",
+   "cospar": "2002-022A",
+   "norad": 27424,
+   "epoch": "2026-11-26T13:58:12.524Z",
+   "elements": {
+    "n": 14.62295933,
+    "e": 0.00014539,
+    "i": 98.4505,
+    "om": 303.31,
+    "w": 103.277,
+    "ma": 348.8025,
+    "bstar": 0.000086136364,
+    "ndot": 0.00000385,
+    "rev": 30700
+   },
+   "derived": {
+    "a": 7063.907,
+    "perigee": 684.7,
+    "apogee": 686.8,
+    "period": 98.475,
+    "nodal": 1.0242,
+    "regime": "LEO",
+    "sso": true
+   },
+   "title": {
+    "en": "Aqua (EOS PM-1)",
+    "tr": "Aqua (EOS PM-1)"
+   },
+   "gcat": {
+    "jcat": "S27424",
+    "name": "Aqua",
+    "plName": "EOS PM-1",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "TRW Inc."
+    ],
+    "bus": "T-330",
+    "shape": "Box + Pan",
+    "mass": 3078,
+    "dryMass": 2976,
+    "length": 6.7,
+    "diameter": 2.5,
+    "span": 17,
+    "launch": {
+     "date": {
+      "iso": "2002-05-04",
+      "time": "09:54",
+      "uncertain": false
+     },
+     "tag": "2002-022",
+     "vehicle": "Delta 7920-10L",
+     "flight": "Aqua",
+     "site": "Vandenberg AFB, California",
+     "siteShort": "Vandenberg",
+     "pad": "SLC2W"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "aqua",
+    "title": {
+     "en": "Aqua (EOS PM-1)",
+     "tr": "Aqua (EOS PM-1)"
+    },
+    "size": 16.7,
+    "source": "NASA 3D Resources",
+    "own": true
+   }
+  },
+  {
+   "id": "28376",
+   "name": "AURA",
+   "cospar": "2004-026A",
+   "norad": 28376,
+   "epoch": "2026-11-26T14:15:39.878Z",
+   "elements": {
+    "n": 14.61535647,
+    "e": 0.00014127,
+    "i": 98.3652,
+    "om": 288.5959,
+    "w": 94.5127,
+    "ma": 265.6235,
+    "bstar": 0.000087873065,
+    "ndot": 0.00000387,
+    "rev": 18993
+   },
+   "derived": {
+    "a": 7066.357,
+    "perigee": 687.2,
+    "apogee": 689.2,
+    "period": 98.527,
+    "nodal": 1.0127,
+    "regime": "LEO",
+    "sso": true
+   },
+   "title": {
+    "en": "Aura (EOS CH-1)",
+    "tr": "Aura (EOS CH-1)"
+   },
+   "gcat": {
+    "jcat": "S28376",
+    "name": "Aura",
+    "plName": "EOS Chem-1",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "Northrop Grummann Space Technology"
+    ],
+    "bus": "T-330",
+    "shape": "Box + Pan",
+    "mass": 3112,
+    "dryMass": 2978,
+    "length": 6.9,
+    "diameter": 2.5,
+    "span": 17.4,
+    "launch": {
+     "date": {
+      "iso": "2004-07-15",
+      "time": "10:01",
+      "uncertain": false
+     },
+     "tag": "2004-026",
+     "vehicle": "Delta 7920-10L",
+     "flight": "Aura",
+     "site": "Vandenberg AFB, California",
+     "siteShort": "Vandenberg",
+     "pad": "SLC2W"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "aura",
+    "title": {
+     "en": "Aura (EOS CH-1)",
+     "tr": "Aura (EOS CH-1)"
+    },
+    "size": 17,
+    "source": "NASA 3D Resources",
+    "own": true
+   }
+  },
+  {
+   "id": "25867",
+   "name": "CXO",
+   "cospar": "1999-040B",
+   "norad": 25867,
+   "epoch": "2026-11-26T16:31:34.973Z",
+   "elements": {
+    "n": 0.37805634,
+    "e": 0.75905741,
+    "i": 58.4353,
+    "om": 112.4147,
+    "w": 308.6415,
+    "ma": 0.0761,
+    "bstar": 0,
+    "ndot": 0.00000693,
+    "rev": 1793
+   },
+   "derived": {
+    "a": 80791.218,
+    "perigee": 13087.9,
+    "apogee": 135738.3,
+    "period": 3808.956,
+    "nodal": -0.004,
+    "regime": "HEO",
+    "sso": false
+   },
+   "title": {
+    "en": "Chandra X-ray Observatory",
+    "tr": "Chandra X-ışını Gözlemevi"
+   },
+   "gcat": {
+    "jcat": "S25867",
+    "name": "Chandra X-ray Observatory",
+    "plName": "AXAF",
+    "type": "P --GS-",
+    "state": "US",
+    "owner": [
+     "NASA Marshall Space Flight Center"
+    ],
+    "ownerShort": [
+     "NASA MSFC"
+    ],
+    "manufacturer": [
+     "TRW Inc."
+    ],
+    "bus": "AXAF",
+    "shape": "Cyl + 2 Pan",
+    "mass": 5677,
+    "dryMass": 4653,
+    "length": 14,
+    "diameter": 4.3,
+    "span": 19.5,
+    "launch": {
+     "date": {
+      "iso": "1999-07-23",
+      "time": "04:31",
+      "uncertain": false
+     },
+     "tag": "1999-040",
+     "vehicle": "Space Shuttle",
+     "flight": "Chandra",
+     "site": "NASA John F. Kennedy Space Center, Florida",
+     "siteShort": "Kennedy",
+     "pad": "LC39B"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "chandra",
+    "title": {
+     "en": "Chandra X-ray Observatory",
+     "tr": "Chandra X-ışını Gözlemevi"
+    },
+    "size": 19.5,
+    "source": "NASA 3D Resources",
+    "own": true
+   }
+  },
+  {
+   "id": "41887",
+   "name": "CYGFM01",
+   "cospar": "2016-078D",
+   "norad": 41887,
+   "epoch": "2026-11-26T04:56:34.063Z",
+   "elements": {
+    "n": 15.65763517,
+    "e": 0.0007911,
+    "i": 34.9382,
+    "om": 261.2646,
+    "w": 261.5001,
+    "ma": 98.4829,
+    "bstar": 0.00020301,
+    "ndot": 0.00021318,
+    "rev": 55404
+   },
+   "derived": {
+    "a": 6749.181,
+    "perigee": 365.7,
+    "apogee": 376.4,
+    "period": 91.968,
+    "nodal": -6.7016,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "CYGNSS FM01",
+    "tr": "CYGNSS FM01"
+   },
+   "gcat": {
+    "jcat": "S41887",
+    "name": "CYGNSS FM01",
+    "plName": "CYGNSS A",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Langley Research Center",
+     "SouthWest Research Institute (Boulder)"
+    ],
+    "ownerShort": [
+     "NASA LaRC",
+     "SWRI-Boulder"
+    ],
+    "manufacturer": [
+     "Surrey Satellite Technology US LLC"
+    ],
+    "bus": "CYGNSS",
+    "shape": "Trunc prism+2 pan",
+    "mass": 29,
+    "dryMass": 29,
+    "length": 0.27,
+    "diameter": 0.64,
+    "span": 1.7,
+    "launch": {
+     "date": {
+      "iso": "2016-12-15",
+      "time": "13:37",
+      "uncertain": false
+     },
+     "tag": "2016-078",
+     "vehicle": "Pegasus XL",
+     "flight": "CYGNSS",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "RW13"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "cygnss",
+    "title": {
+     "en": "CYGNSS",
+     "tr": "CYGNSS"
+    },
+    "size": 1.7,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "41886",
+   "name": "CYGFM02",
+   "cospar": "2016-078C",
+   "norad": 41886,
+   "epoch": "2026-11-26T01:32:36.846Z",
+   "elements": {
+    "n": 15.8286337,
+    "e": 0.00085003,
+    "i": 34.9351,
+    "om": 206.4516,
+    "w": 313.8272,
+    "ma": 46.1757,
+    "bstar": 0.00029267738,
+    "ndot": 0.00065212,
+    "rev": 55465
+   },
+   "derived": {
+    "a": 6700.485,
+    "perigee": 316.7,
+    "apogee": 328,
+    "period": 90.974,
+    "nodal": -6.8739,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "CYGNSS FM02",
+    "tr": "CYGNSS FM02"
+   },
+   "gcat": {
+    "jcat": "S41886",
+    "name": "CYGNSS FM02",
+    "plName": "CYGNSS B",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Langley Research Center",
+     "SouthWest Research Institute (Boulder)"
+    ],
+    "ownerShort": [
+     "NASA LaRC",
+     "SWRI-Boulder"
+    ],
+    "manufacturer": [
+     "Surrey Satellite Technology US LLC"
+    ],
+    "bus": "CYGNSS",
+    "shape": "Trunc prism+2 pan",
+    "mass": 29,
+    "dryMass": 29,
+    "length": 0.27,
+    "diameter": 0.64,
+    "span": 1.7,
+    "launch": {
+     "date": {
+      "iso": "2016-12-15",
+      "time": "13:37",
+      "uncertain": false
+     },
+     "tag": "2016-078",
+     "vehicle": "Pegasus XL",
+     "flight": "CYGNSS",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "RW13"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "cygnss",
+    "title": {
+     "en": "CYGNSS",
+     "tr": "CYGNSS"
+    },
+    "size": 1.7,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "41891",
+   "name": "CYGFM03",
+   "cospar": "2016-078H",
+   "norad": 41891,
+   "epoch": "2026-11-26T02:44:36.022Z",
+   "elements": {
+    "n": 15.70385331,
+    "e": 0.00072366,
+    "i": 34.9375,
+    "om": 226.0547,
+    "w": 297.3556,
+    "ma": 62.6436,
+    "bstar": 0.00022732004,
+    "ndot": 0.00028897,
+    "rev": 55435
+   },
+   "derived": {
+    "a": 6735.932,
+    "perigee": 352.9,
+    "apogee": 362.7,
+    "period": 91.697,
+    "nodal": -6.7479,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "CYGNSS FM03",
+    "tr": "CYGNSS FM03"
+   },
+   "gcat": {
+    "jcat": "S41891",
+    "name": "CYGNSS FM03",
+    "plName": "CYGNSS C",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Langley Research Center",
+     "SouthWest Research Institute (Boulder)"
+    ],
+    "ownerShort": [
+     "NASA LaRC",
+     "SWRI-Boulder"
+    ],
+    "manufacturer": [
+     "Surrey Satellite Technology US LLC"
+    ],
+    "bus": "CYGNSS",
+    "shape": "Trunc prism+2 pan",
+    "mass": 29,
+    "dryMass": 29,
+    "length": 0.27,
+    "diameter": 0.64,
+    "span": 1.7,
+    "launch": {
+     "date": {
+      "iso": "2016-12-15",
+      "time": "13:37",
+      "uncertain": false
+     },
+     "tag": "2016-078",
+     "vehicle": "Pegasus XL",
+     "flight": "CYGNSS",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "RW13"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "cygnss",
+    "title": {
+     "en": "CYGNSS",
+     "tr": "CYGNSS"
+    },
+    "size": 1.7,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "41885",
+   "name": "CYGFM04",
+   "cospar": "2016-078B",
+   "norad": 41885,
+   "epoch": "2026-11-26T09:24:47.900Z",
+   "elements": {
+    "n": 15.73130599,
+    "e": 0.00072392,
+    "i": 34.9288,
+    "om": 217.7788,
+    "w": 312.2254,
+    "ma": 47.786,
+    "bstar": 0.00022476525,
+    "ndot": 0.00032122,
+    "rev": 55445
+   },
+   "derived": {
+    "a": 6728.093,
+    "perigee": 345.1,
+    "apogee": 354.8,
+    "period": 91.537,
+    "nodal": -6.7762,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "CYGNSS FM04",
+    "tr": "CYGNSS FM04"
+   },
+   "gcat": {
+    "jcat": "S41885",
+    "name": "CYGNSS FM04",
+    "plName": "CYGNSS D",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Langley Research Center",
+     "SouthWest Research Institute (Boulder)"
+    ],
+    "ownerShort": [
+     "NASA LaRC",
+     "SWRI-Boulder"
+    ],
+    "manufacturer": [
+     "Surrey Satellite Technology US LLC"
+    ],
+    "bus": "CYGNSS",
+    "shape": "Trunc prism+2 pan",
+    "mass": 29,
+    "dryMass": 29,
+    "length": 0.27,
+    "diameter": 0.64,
+    "span": 1.7,
+    "launch": {
+     "date": {
+      "iso": "2016-12-15",
+      "time": "13:37",
+      "uncertain": false
+     },
+     "tag": "2016-078",
+     "vehicle": "Pegasus XL",
+     "flight": "CYGNSS",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "RW13"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "cygnss",
+    "title": {
+     "en": "CYGNSS",
+     "tr": "CYGNSS"
+    },
+    "size": 1.7,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "41884",
+   "name": "CYGFM05",
+   "cospar": "2016-078A",
+   "norad": 41884,
+   "epoch": "2026-11-26T11:53:17.163Z",
+   "elements": {
+    "n": 15.64708004,
+    "e": 0.00081675,
+    "i": 34.9551,
+    "om": 259.8428,
+    "w": 265.6336,
+    "ma": 94.3458,
+    "bstar": 0.00021410777,
+    "ndot": 0.00021554,
+    "rev": 55412
+   },
+   "derived": {
+    "a": 6752.216,
+    "perigee": 368.6,
+    "apogee": 379.6,
+    "period": 92.03,
+    "nodal": -6.6897,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "CYGNSS FM05",
+    "tr": "CYGNSS FM05"
+   },
+   "gcat": {
+    "jcat": "S41884",
+    "name": "CYGNSS FM05",
+    "plName": "CYGNSS E",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Langley Research Center",
+     "SouthWest Research Institute (Boulder)"
+    ],
+    "ownerShort": [
+     "NASA LaRC",
+     "SWRI-Boulder"
+    ],
+    "manufacturer": [
+     "Surrey Satellite Technology US LLC"
+    ],
+    "bus": "CYGNSS",
+    "shape": "Trunc prism+2 pan",
+    "mass": 29,
+    "dryMass": 29,
+    "length": 0.27,
+    "diameter": 0.64,
+    "span": 1.7,
+    "launch": {
+     "date": {
+      "iso": "2016-12-15",
+      "time": "13:37",
+      "uncertain": false
+     },
+     "tag": "2016-078",
+     "vehicle": "Pegasus XL",
+     "flight": "CYGNSS",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "RW13"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "cygnss",
+    "title": {
+     "en": "CYGNSS",
+     "tr": "CYGNSS"
+    },
+    "size": 1.7,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "41890",
+   "name": "CYGFM07",
+   "cospar": "2016-078G",
+   "norad": 41890,
+   "epoch": "2026-11-26T09:29:37.818Z",
+   "elements": {
+    "n": 15.7043117,
+    "e": 0.0007478,
+    "i": 34.9414,
+    "om": 222.2434,
+    "w": 308.5586,
+    "ma": 51.4472,
+    "bstar": 0.00022315617,
+    "ndot": 0.00028422,
+    "rev": 55442
+   },
+   "derived": {
+    "a": 6735.801,
+    "perigee": 352.6,
+    "apogee": 362.7,
+    "period": 91.695,
+    "nodal": -6.748,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "CYGNSS FM07",
+    "tr": "CYGNSS FM07"
+   },
+   "gcat": {
+    "jcat": "S41890",
+    "name": "CYGNSS FM07",
+    "plName": "CYGNSS G",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Langley Research Center",
+     "SouthWest Research Institute (Boulder)"
+    ],
+    "ownerShort": [
+     "NASA LaRC",
+     "SWRI-Boulder"
+    ],
+    "manufacturer": [
+     "Surrey Satellite Technology US LLC"
+    ],
+    "bus": "CYGNSS",
+    "shape": "Trunc prism+2 pan",
+    "mass": 29,
+    "dryMass": 29,
+    "length": 0.27,
+    "diameter": 0.64,
+    "span": 1.7,
+    "launch": {
+     "date": {
+      "iso": "2016-12-15",
+      "time": "13:37",
+      "uncertain": false
+     },
+     "tag": "2016-078",
+     "vehicle": "Pegasus XL",
+     "flight": "CYGNSS",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "RW13"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "cygnss",
+    "title": {
+     "en": "CYGNSS",
+     "tr": "CYGNSS"
+    },
+    "size": 1.7,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "41888",
+   "name": "CYGFM08",
+   "cospar": "2016-078E",
+   "norad": 41888,
+   "epoch": "2026-11-26T10:36:41.867Z",
+   "elements": {
+    "n": 15.70756937,
+    "e": 0.00088623,
+    "i": 34.9406,
+    "om": 233.6628,
+    "w": 293.9222,
+    "ma": 66.0578,
+    "bstar": 0.00021724494,
+    "ndot": 0.00028067,
+    "rev": 55440
+   },
+   "derived": {
+    "a": 6734.869,
+    "perigee": 350.8,
+    "apogee": 362.7,
+    "period": 91.676,
+    "nodal": -6.7514,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "CYGNSS FM08",
+    "tr": "CYGNSS FM08"
+   },
+   "gcat": {
+    "jcat": "S41888",
+    "name": "CYGNSS FM08",
+    "plName": "CYGNSS H",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Langley Research Center",
+     "SouthWest Research Institute (Boulder)"
+    ],
+    "ownerShort": [
+     "NASA LaRC",
+     "SWRI-Boulder"
+    ],
+    "manufacturer": [
+     "Surrey Satellite Technology US LLC"
+    ],
+    "bus": "CYGNSS",
+    "shape": "Trunc prism+2 pan",
+    "mass": 29,
+    "dryMass": 29,
+    "length": 0.27,
+    "diameter": 0.64,
+    "span": 1.7,
+    "launch": {
+     "date": {
+      "iso": "2016-12-15",
+      "time": "13:37",
+      "uncertain": false
+     },
+     "tag": "2016-078",
+     "vehicle": "Pegasus XL",
+     "flight": "CYGNSS",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "RW13"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "cygnss",
+    "title": {
+     "en": "CYGNSS",
+     "tr": "CYGNSS"
+    },
+    "size": 1.7,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "33053",
+   "name": "FGRST (GLAST)",
+   "cospar": "2008-029A",
+   "norad": 33053,
+   "epoch": "2026-11-25T22:05:50.198Z",
+   "elements": {
+    "n": 15.24706044,
+    "e": 0.00083484,
+    "i": 25.5807,
+    "om": 160.8463,
+    "w": 76.7779,
+    "ma": 283.369,
+    "bstar": 0.00004769082,
+    "ndot": 0.00001552,
+    "rev": 2039
+   },
+   "derived": {
+    "a": 6869.805,
+    "perigee": 485.9,
+    "apogee": 497.4,
+    "period": 94.444,
+    "nodal": -6.9303,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "Fermi Gamma-ray Space Telescope",
+    "tr": "Fermi Gama Işını Teleskobu"
+   },
+   "gcat": {
+    "jcat": "S33053",
+    "name": "Fermi Gamma-ray Space Tel.",
+    "plName": "GLAST",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "General Dynamics C4 Systems (Adv Info Systems)"
+    ],
+    "bus": "SA-200",
+    "shape": "Box + Cyl + 2 Pan",
+    "mass": 4277,
+    "dryMass": 3919,
+    "length": 2.8,
+    "diameter": 2.5,
+    "span": 10,
+    "launch": {
+     "date": {
+      "iso": "2008-06-11",
+      "time": "16:05",
+      "uncertain": false
+     },
+     "tag": "2008-029",
+     "vehicle": "Delta 7920H",
+     "flight": "GLAST",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "SLC17B"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "fermi",
+    "title": {
+     "en": "Fermi Gamma-ray Space Telescope",
+     "tr": "Fermi Gama Işını Teleskobu"
+    },
+    "size": 14,
+    "source": "NASA 3D Resources",
+    "own": true
+   }
+  },
+  {
+   "id": "41866",
+   "name": "GOES 16",
+   "cospar": "2016-071A",
+   "norad": 41866,
+   "epoch": "2026-11-26T14:37:47.305Z",
+   "elements": {
+    "n": 1.00270498,
+    "e": 0.00030569,
+    "i": 0.7399,
+    "om": 83.471,
+    "w": 178.253,
+    "ma": 278.5582,
+    "bstar": 0,
+    "ndot": -8e-7,
+    "rev": 3673
+   },
+   "derived": {
+    "a": 42165.093,
+    "perigee": 35774.1,
+    "apogee": 35799.8,
+    "period": 1436.115,
+    "nodal": -0.0134,
+    "regime": "GEO",
+    "sso": false
+   },
+   "title": {
+    "en": "GOES 16",
+    "tr": "GOES 16"
+   },
+   "gcat": {
+    "jcat": "S41866",
+    "name": "GOES 16",
+    "plName": "GOES R",
+    "type": "P   G",
+    "state": "US",
+    "owner": [
+     "National Oceanic and Atmospheric Administration"
+    ],
+    "ownerShort": [
+     "NOAA"
+    ],
+    "manufacturer": [
+     "Lockheed Martin Commercial Space Systems/Sunnyvale"
+    ],
+    "bus": "A2100",
+    "shape": "Box +  panel + boom",
+    "mass": 5192,
+    "dryMass": 2857,
+    "length": 6.1,
+    "diameter": 3.9,
+    "span": 12,
+    "launch": {
+     "date": {
+      "iso": "2016-11-19",
+      "time": "23:42",
+      "uncertain": false
+     },
+     "tag": "2016-071",
+     "vehicle": "Atlas V 541",
+     "flight": "GOES R",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "SLC41"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "goes",
+    "title": {
+     "en": "GOES-R series",
+     "tr": "GOES-R serisi"
+    },
+    "size": 11,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "43226",
+   "name": "GOES 17",
+   "cospar": "2018-022A",
+   "norad": 43226,
+   "epoch": "2026-11-26T12:59:26.725Z",
+   "elements": {
+    "n": 1.00270156,
+    "e": 0.00017588,
+    "i": 1.3518,
+    "om": 83.1096,
+    "w": 195.0126,
+    "ma": 252.7331,
+    "bstar": 0,
+    "ndot": -0.00000172,
+    "rev": 3205
+   },
+   "derived": {
+    "a": 42165.189,
+    "perigee": 35779.6,
+    "apogee": 35794.5,
+    "period": 1436.12,
+    "nodal": -0.0134,
+    "regime": "GEO",
+    "sso": false
+   },
+   "title": {
+    "en": "GOES 17",
+    "tr": "GOES 17"
+   },
+   "gcat": {
+    "jcat": "S43226",
+    "name": "GOES 17",
+    "plName": "GOES S",
+    "type": "P   G",
+    "state": "US",
+    "owner": [
+     "National Oceanic and Atmospheric Administration"
+    ],
+    "ownerShort": [
+     "NOAA"
+    ],
+    "manufacturer": [
+     "Lockheed Martin Commercial Space Systems/Sunnyvale"
+    ],
+    "bus": "A2100",
+    "shape": "Box +  panel + boom",
+    "mass": 5192,
+    "dryMass": 2857,
+    "length": 6.1,
+    "diameter": 3.9,
+    "span": 12,
+    "launch": {
+     "date": {
+      "iso": "2018-03-01",
+      "time": "22:02",
+      "uncertain": false
+     },
+     "tag": "2018-022",
+     "vehicle": "Atlas V 541",
+     "flight": "GOES S",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "SLC41"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "goes",
+    "title": {
+     "en": "GOES-R series",
+     "tr": "GOES-R serisi"
+    },
+    "size": 11,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "51850",
+   "name": "GOES 18",
+   "cospar": "2022-021A",
+   "norad": 51850,
+   "epoch": "2026-11-26T14:28:33.189Z",
+   "elements": {
+    "n": 1.00273846,
+    "e": 0.00008877,
+    "i": 0.0494,
+    "om": 114.5524,
+    "w": 175.45,
+    "ma": 215.7016,
+    "bstar": 0,
+    "ndot": 0.00000107,
+    "rev": 822
+   },
+   "derived": {
+    "a": 42164.154,
+    "perigee": 35782.3,
+    "apogee": 35789.8,
+    "period": 1436.067,
+    "nodal": -0.0134,
+    "regime": "GEO",
+    "sso": false
+   },
+   "title": {
+    "en": "GOES 18",
+    "tr": "GOES 18"
+   },
+   "gcat": {
+    "jcat": "S51850",
+    "name": "GOES 18",
+    "plName": "GOES T",
+    "type": "P   G",
+    "state": "US",
+    "owner": [
+     "National Oceanic and Atmospheric Administration"
+    ],
+    "ownerShort": [
+     "NOAA"
+    ],
+    "manufacturer": [
+     "Lockheed Martin Commercial Space Systems/Sunnyvale"
+    ],
+    "bus": "A2100",
+    "shape": "Box +  panel + boom",
+    "mass": 5209,
+    "dryMass": 2857,
+    "length": 6.1,
+    "diameter": 3.9,
+    "span": 12,
+    "launch": {
+     "date": {
+      "iso": "2022-03-01",
+      "time": "21:38",
+      "uncertain": false
+     },
+     "tag": "2022-021",
+     "vehicle": "Atlas V 541",
+     "flight": "GOES T",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "SLC41"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "goes",
+    "title": {
+     "en": "GOES-R series",
+     "tr": "GOES-R serisi"
+    },
+    "size": 11,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "60133",
+   "name": "GOES 19",
+   "cospar": "2024-119A",
+   "norad": 60133,
+   "epoch": "2026-11-26T13:03:33.830Z",
+   "elements": {
+    "n": 1.00270924,
+    "e": 0.00012223,
+    "i": 0.0104,
+    "om": 75.8214,
+    "w": 217.4657,
+    "ma": 252.9226,
+    "bstar": 0,
+    "ndot": -0.00000238,
+    "rev": 859
+   },
+   "derived": {
+    "a": 42164.973,
+    "perigee": 35781.7,
+    "apogee": 35792,
+    "period": 1436.109,
+    "nodal": -0.0134,
+    "regime": "GEO",
+    "sso": false
+   },
+   "title": {
+    "en": "GOES 19",
+    "tr": "GOES 19"
+   },
+   "gcat": {
+    "jcat": "S60133",
+    "name": "GOES 19",
+    "plName": "GOES U",
+    "type": "P   G",
+    "state": "US",
+    "owner": [
+     "National Oceanic and Atmospheric Administration"
+    ],
+    "ownerShort": [
+     "NOAA"
+    ],
+    "manufacturer": [
+     "Lockheed Martin Commercial Space Systems/Sunnyvale"
+    ],
+    "bus": "A2100",
+    "shape": "Box +  panel + boom",
+    "mass": 5000,
+    "dryMass": 2925,
+    "length": 6.1,
+    "diameter": 3.9,
+    "span": 12,
+    "launch": {
+     "date": {
+      "iso": "2024-06-25",
+      "time": "21:26",
+      "uncertain": false
+     },
+     "tag": "2024-119",
+     "vehicle": "Falcon Heavy",
+     "flight": "GOES U",
+     "site": "NASA John F. Kennedy Space Center, Florida",
+     "siteShort": "Kennedy",
+     "pad": "LC39A"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "goes",
+    "title": {
+     "en": "GOES-R series",
+     "tr": "GOES-R serisi"
+    },
+    "size": 11,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "39574",
+   "name": "GPM-CORE",
+   "cospar": "2014-009C",
+   "norad": 39574,
+   "epoch": "2026-11-26T13:32:13.203Z",
+   "elements": {
+    "n": 15.44945023,
+    "e": 0.00110108,
+    "i": 64.9688,
+    "om": 124.0348,
+    "w": 261.4788,
+    "ma": 98.5105,
+    "bstar": 0.000089397861,
+    "ndot": 0.00003979,
+    "rev": 72289
+   },
+   "derived": {
+    "a": 6809.677,
+    "perigee": 424,
+    "apogee": 439,
+    "period": 93.207,
+    "nodal": -3.3526,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "GPM Core Observatory",
+    "tr": "GPM Core Observatory"
+   },
+   "gcat": {
+    "jcat": "S39574",
+    "name": "GPM Core",
+    "plName": "GPM",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "bus": "GPM",
+    "shape": "Box + 2  pan",
+    "mass": 3850,
+    "dryMass": 3200,
+    "length": 6.5,
+    "diameter": 5,
+    "span": 13,
+    "launch": {
+     "date": {
+      "iso": "2014-02-27",
+      "time": "18:37",
+      "uncertain": false
+     },
+     "tag": "2014-009",
+     "vehicle": "H-IIA 202",
+     "flight": "GPM-C",
+     "site": "Tanegashima Space Center, Tanegashima, Nippon",
+     "siteShort": "Tanegashima",
+     "pad": "Y"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "gpm",
+    "title": {
+     "en": "GPM Core Observatory",
+     "tr": "GPM Core Observatory"
+    },
+    "size": 13,
+    "source": "NASA 3D Resources",
+    "own": true
+   }
+  },
+  {
+   "id": "43476",
+   "name": "GRACE-FO 1",
+   "cospar": "2018-047A",
+   "norad": 43476,
+   "epoch": "2026-11-26T14:54:47.844Z",
+   "elements": {
+    "n": 15.40445132,
+    "e": 0.00063848,
+    "i": 88.9948,
+    "om": 175.6676,
+    "w": 164.6219,
+    "ma": 195.5233,
+    "bstar": 0.000054791023,
+    "ndot": 0.00002252,
+    "rev": 47478
+   },
+   "derived": {
+    "a": 6822.932,
+    "perigee": 440.4,
+    "apogee": 449.2,
+    "period": 93.479,
+    "nodal": -0.1381,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "GRACE-FO 1",
+    "tr": "GRACE-FO 1"
+   },
+   "gcat": {
+    "jcat": "S43476",
+    "name": "GRACE-FO 1",
+    "plName": "GRACE-FO 1",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "Jet Propulsion Lab",
+     "Geoforschungszentrum Potzdam"
+    ],
+    "ownerShort": [
+     "JPL",
+     "GFZ"
+    ],
+    "manufacturer": [
+     "Airbus Defense and Space, Bremen"
+    ],
+    "bus": "FlexBus",
+    "shape": "Half Hex Prism",
+    "mass": 600,
+    "dryMass": 500,
+    "length": 3.1,
+    "diameter": 0.7,
+    "span": 3.1,
+    "launch": {
+     "date": {
+      "iso": "2018-05-22",
+      "time": "19:47",
+      "uncertain": false
+     },
+     "tag": "2018-047",
+     "vehicle": "Falcon 9",
+     "flight": "Iridium-6/GRACE-FO",
+     "site": "South Vandenberg AFB, California",
+     "siteShort": "Vandenberg",
+     "pad": "SLC4E"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "gracefo",
+    "title": {
+     "en": "GRACE-FO",
+     "tr": "GRACE-FO"
+    },
+    "size": 3.25,
+    "source": "NASA Eyes on the Earth",
+    "own": false
+   }
+  },
+  {
+   "id": "43477",
+   "name": "GRACE-FO 2",
+   "cospar": "2018-047B",
+   "norad": 43477,
+   "epoch": "2026-11-26T14:55:10.126Z",
+   "elements": {
+    "n": 15.40442016,
+    "e": 0.00064138,
+    "i": 88.9949,
+    "om": 175.667,
+    "w": 164.482,
+    "ma": 195.6634,
+    "bstar": 0.000035216612,
+    "ndot": 0.00001461,
+    "rev": 47478
+   },
+   "derived": {
+    "a": 6822.941,
+    "perigee": 440.4,
+    "apogee": 449.2,
+    "period": 93.48,
+    "nodal": -0.138,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "GRACE-FO 2",
+    "tr": "GRACE-FO 2"
+   },
+   "gcat": {
+    "jcat": "S43477",
+    "name": "GRACE-FO 2",
+    "plName": "GRACE-FO 2",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "Jet Propulsion Lab",
+     "Geoforschungszentrum Potzdam"
+    ],
+    "ownerShort": [
+     "JPL",
+     "GFZ"
+    ],
+    "manufacturer": [
+     "Airbus Defense and Space, Bremen"
+    ],
+    "bus": "FlexBus",
+    "shape": "Half Hex Prism",
+    "mass": 600,
+    "dryMass": 500,
+    "length": 3.1,
+    "diameter": 0.7,
+    "span": 3.1,
+    "launch": {
+     "date": {
+      "iso": "2018-05-22",
+      "time": "19:47",
+      "uncertain": false
+     },
+     "tag": "2018-047",
+     "vehicle": "Falcon 9",
+     "flight": "Iridium-6/GRACE-FO",
+     "site": "South Vandenberg AFB, California",
+     "siteShort": "Vandenberg",
+     "pad": "SLC4E"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "gracefo",
+    "title": {
+     "en": "GRACE-FO",
+     "tr": "GRACE-FO"
+    },
+    "size": 3.25,
+    "source": "NASA Eyes on the Earth",
+    "own": false
+   }
+  },
+  {
+   "id": "29479",
+   "name": "HINODE (SOLAR-B)",
+   "cospar": "2006-041A",
+   "norad": 29479,
+   "epoch": "2026-11-26T07:54:50.257Z",
+   "elements": {
+    "n": 14.68787869,
+    "e": 0.00184576,
+    "i": 98.0494,
+    "om": 344.0726,
+    "w": 130.7809,
+    "ma": 229.5001,
+    "bstar": 0.00005618269,
+    "ndot": 0.0000028,
+    "rev": 7867
+   },
+   "derived": {
+    "a": 7043.077,
+    "perigee": 651.9,
+    "apogee": 677.9,
+    "period": 98.04,
+    "nodal": 0.9861,
+    "regime": "LEO",
+    "sso": true
+   },
+   "title": {
+    "en": "Hinode (Solar-B)",
+    "tr": "Hinode (Solar-B)"
+   },
+   "gcat": {
+    "jcat": "S29479",
+    "name": "Hinode",
+    "plName": "SOLAR-B",
+    "type": "P",
+    "state": "J",
+    "owner": [
+     "ISAS/JAXA"
+    ],
+    "ownerShort": [
+     "ISAS/JAXA"
+    ],
+    "manufacturer": [
+     "Mitsubishi Denki Kabushiki-gaisha, Kamakura Works"
+    ],
+    "bus": "SOLAR B",
+    "shape": "Box + 2 Pan",
+    "mass": 900,
+    "dryMass": 900,
+    "length": 3.8,
+    "diameter": 1.6,
+    "span": 10.3,
+    "launch": {
+     "date": {
+      "iso": "2006-09-22",
+      "time": "21:36",
+      "uncertain": false
+     },
+     "tag": "2006-041",
+     "vehicle": "M-V",
+     "flight": "SOLAR B",
+     "site": "Kagoshima Space Center, Kagoshima, Kyushu, Nippon",
+     "siteShort": "Kagoshima",
+     "pad": "M-V"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "hinode",
+    "title": {
+     "en": "Hinode (Solar-B)",
+     "tr": "Hinode (Solar-B)"
+    },
+    "size": 6,
+    "source": "NASA 3D Resources",
+    "own": true
+   }
+  },
+  {
+   "id": "20580",
+   "name": "HST",
+   "cospar": "1990-037B",
+   "norad": 20580,
+   "epoch": "2026-11-26T14:07:05.953Z",
+   "elements": {
+    "n": 15.32425946,
+    "e": 0.00024074,
+    "i": 28.474,
+    "om": 49.2249,
+    "w": 147.2333,
+    "ma": 212.8413,
+    "bstar": 0.00012703135,
+    "ndot": 0.00004329,
+    "rev": 81349
+   },
+   "derived": {
+    "a": 6846.714,
+    "perigee": 466.9,
+    "apogee": 470.2,
+    "period": 93.969,
+    "nodal": -6.8341,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "Hubble Space Telescope",
+    "tr": "Hubble Uzay Teleskobu"
+   },
+   "gcat": {
+    "jcat": "S20580",
+    "name": "Hubble Space Telescope",
+    "plName": "Hubble Space Telescope",
+    "type": "P ---S-",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "Lockheed Missiles and Space Co."
+    ],
+    "bus": "HST",
+    "shape": "Step Cyl + 2 Pan",
+    "mass": 7547,
+    "dryMass": 7547,
+    "length": 13.1,
+    "diameter": 4.3,
+    "span": 13.1,
+    "launch": {
+     "date": {
+      "iso": "1990-04-24",
+      "time": "12:33",
+      "uncertain": false
+     },
+     "tag": "1990-037",
+     "vehicle": "Space Shuttle",
+     "flight": "HST",
+     "site": "NASA John F. Kennedy Space Center, Florida",
+     "siteShort": "Kennedy",
+     "pad": "LC39B"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "hubble",
+    "title": {
+     "en": "Hubble Space Telescope",
+     "tr": "Hubble Uzay Teleskobu"
+    },
+    "size": 13.2,
+    "source": "NASA 3D Resources",
+    "own": true
+   }
+  },
+  {
+   "id": "43613",
+   "name": "ICESAT-2",
+   "cospar": "2018-070A",
+   "norad": 43613,
+   "epoch": "2026-11-26T13:01:38.707Z",
+   "elements": {
+    "n": 15.28274272,
+    "e": 0.00026078,
+    "i": 91.9928,
+    "om": 334.7258,
+    "w": 151.1092,
+    "ma": 209.0302,
+    "bstar": 0.000055691251,
+    "ndot": 0.00001538,
+    "rev": 45725
+   },
+   "derived": {
+    "a": 6859.108,
+    "perigee": 479.2,
+    "apogee": 482.8,
+    "period": 94.224,
+    "nodal": 0.2686,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "ICESat-2",
+    "tr": "ICESat-2"
+   },
+   "gcat": {
+    "jcat": "S43613",
+    "name": "ICESAT 2",
+    "plName": "ICESAT-2",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "Northrop Grumman Civil Sats. and Nat. Security Systems"
+    ],
+    "bus": "Leostar-3",
+    "shape": "Box +  panel",
+    "mass": 1580,
+    "dryMass": 1402,
+    "length": 3.8,
+    "diameter": 2.5,
+    "span": 10,
+    "launch": {
+     "date": {
+      "iso": "2018-09-15",
+      "time": "13:02",
+      "uncertain": false
+     },
+     "tag": "2018-070",
+     "vehicle": "Delta 7420-10C",
+     "flight": "ICESAT-2",
+     "site": "Vandenberg AFB, California",
+     "siteShort": "Vandenberg",
+     "pad": "SLC2W"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "icesat2",
+    "title": {
+     "en": "ICESat-2",
+     "tr": "ICESat-2"
+    },
+    "size": 7.5,
+    "source": "NASA 3D Resources",
+    "own": true
+   }
+  },
+  {
+   "id": "26113",
+   "name": "IMAGE",
+   "cospar": "2000-017A",
+   "norad": 26113,
+   "epoch": "2026-11-23T04:07:49.273Z",
+   "elements": {
+    "n": 1.6866899,
+    "e": 0.73397993,
+    "i": 94.2876,
+    "om": 317.2946,
+    "w": 270.1958,
+    "ma": 14.1366,
+    "bstar": 0,
+    "ndot": 8.8e-7,
+    "rev": 16418
+   },
+   "derived": {
+    "a": 29811.124,
+    "perigee": 1552.2,
+    "apogee": 45313.8,
+    "period": 853.743,
+    "nodal": 0.0159,
+    "regime": "HEO",
+    "sso": false
+   },
+   "title": {
+    "en": "IMAGE",
+    "tr": "IMAGE"
+   },
+   "gcat": {
+    "jcat": "S26113",
+    "name": "IMAGE",
+    "plName": "IMAGE",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "Lockheed Martin Missiles and Space, Sunnyvale"
+    ],
+    "bus": "LM100",
+    "shape": "Oct Cyl + 4 Ant",
+    "mass": 494,
+    "dryMass": 494,
+    "length": 1.5,
+    "diameter": 2.3,
+    "span": 500,
+    "launch": {
+     "date": {
+      "iso": "2000-03-25",
+      "time": "20:34",
+      "uncertain": false
+     },
+     "tag": "2000-017",
+     "vehicle": "Delta 7326-9.5",
+     "flight": "IMAGE",
+     "site": "Vandenberg AFB, California",
+     "siteShort": "Vandenberg",
+     "pad": "SLC2W"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "image",
+    "title": {
+     "en": "IMAGE",
+     "tr": "IMAGE"
+    },
+    "size": 502,
+    "source": "NASA Eyes on the Earth",
+    "own": true
+   }
+  },
+  {
+   "id": "56174",
+   "name": "INTELSAT 40E (IS-40E)",
+   "cospar": "2023-052A",
+   "norad": 56174,
+   "epoch": "2026-11-26T12:01:11.794Z",
+   "elements": {
+    "n": 1.00269312,
+    "e": 0.0002137,
+    "i": 0.0127,
+    "om": 338.1478,
+    "w": 258.7076,
+    "ma": 277.8802,
+    "bstar": 0,
+    "ndot": 0,
+    "rev": 1345
+   },
+   "derived": {
+    "a": 42165.425,
+    "perigee": 35778.3,
+    "apogee": 35796.3,
+    "period": 1436.132,
+    "nodal": -0.0134,
+    "regime": "GEO",
+    "sso": false
+   },
+   "title": {
+    "en": "Intelsat IS-40e",
+    "tr": "Intelsat IS-40e"
+   },
+   "gcat": {
+    "jcat": "S56174",
+    "name": "Intelsat IS-40e",
+    "plName": "Intelsat IS-40e",
+    "type": "P   G  O",
+    "state": "US",
+    "owner": [
+     "Intelsat S.A., US headquarters"
+    ],
+    "ownerShort": [
+     "Intelsat SA (US)"
+    ],
+    "manufacturer": [
+     "Maxar Space Solutions Group"
+    ],
+    "bus": "LS-1300",
+    "shape": "Box + 2 panels",
+    "mass": 6013,
+    "dryMass": 3000,
+    "length": 8,
+    "diameter": 6,
+    "span": 26,
+    "launch": {
+     "date": {
+      "iso": "2023-04-07",
+      "time": "04:30",
+      "uncertain": false
+     },
+     "tag": "2023-052",
+     "vehicle": "Falcon 9",
+     "flight": "Intelsat IS-40e/TEMPO",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "LC40"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "tempo",
+    "title": {
+     "en": "Intelsat 40e (TEMPO)",
+     "tr": "Intelsat 40e (TEMPO)"
+    },
+    "size": 19.5,
+    "source": "NASA Eyes on the Earth",
+    "own": false
+   }
+  },
+  {
+   "id": "25544",
+   "name": "ISS (ZARYA)",
+   "cospar": "1998-067A",
+   "norad": 25544,
+   "epoch": "2026-11-26T04:04:59.467Z",
+   "elements": {
+    "n": 15.49589862,
+    "e": 0.0007471,
+    "i": 51.6313,
+    "om": 218.475,
+    "w": 66.5508,
+    "ma": 293.6265,
+    "bstar": 0.000089217,
+    "ndot": 0.00004569,
+    "rev": 59686
+   },
+   "derived": {
+    "a": 6796.062,
+    "perigee": 412.8,
+    "apogee": 423,
+    "period": 92.928,
+    "nodal": -4.9529,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "International Space Station",
+    "tr": "Uluslararası Uzay İstasyonu"
+   },
+   "gcat": {
+    "jcat": "S25544",
+    "name": "Zarya",
+    "plName": "77KM  No. 175-01",
+    "type": "PPTH-MU",
+    "state": "US",
+    "owner": [
+     "NASA Johnson Space Flight Center"
+    ],
+    "ownerShort": [
+     "NASA JSC"
+    ],
+    "manufacturer": [
+     "GKNPTs im. M.V. Khrunichev, Roskosmos"
+    ],
+    "bus": "77KS",
+    "shape": "Cyl + 2 Pan",
+    "mass": 20281,
+    "dryMass": 19000,
+    "length": 12.6,
+    "diameter": 4.2,
+    "span": 23.9,
+    "launch": {
+     "date": {
+      "iso": "1998-11-20",
+      "time": "06:40",
+      "uncertain": false
+     },
+     "tag": "1998-067",
+     "vehicle": "Proton-K",
+     "flight": "Zarya",
+     "site": "GIK-5, Baykonur, Kazakstan",
+     "siteShort": "Baykonur",
+     "pad": "LC81/23"
+    }
+   },
+   "note": {
+    "en": "GCAT catalogues the station under its first module, Zarya (launched 1998); mass and dimensions below describe that module, not the assembled station.",
+    "tr": "GCAT istasyonu ilk modülü Zarya (1998) adıyla kataloglar; aşağıdaki kütle ve boyutlar istasyonun tamamını değil o modülü anlatır."
+   },
+   "model": {
+    "key": "iss",
+    "title": {
+     "en": "International Space Station",
+     "tr": "Uluslararası Uzay İstasyonu"
+    },
+    "size": 109,
+    "source": "NASA 3D Resources",
+    "own": true
+   }
+  },
+  {
+   "id": "49954",
+   "name": "IXPE",
+   "cospar": "2021-121A",
+   "norad": 49954,
+   "epoch": "2026-11-26T14:00:01.999Z",
+   "elements": {
+    "n": 15.11589915,
+    "e": 0.00073189,
+    "i": 0.2277,
+    "om": 168.0979,
+    "w": 19.2331,
+    "ma": 108.2294,
+    "bstar": 0.00030135915,
+    "ndot": 0.00006203,
+    "rev": 548
+   },
+   "derived": {
+    "a": 6909.488,
+    "perigee": 526.3,
+    "apogee": 536.4,
+    "period": 95.264,
+    "nodal": -7.5301,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "IXPE",
+    "tr": "IXPE"
+   },
+   "gcat": {
+    "jcat": "S49954",
+    "name": "IXPE",
+    "plName": "IXPE",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Marshall Space Flight Center"
+    ],
+    "ownerShort": [
+     "NASA MSFC"
+    ],
+    "manufacturer": [
+     "Ball Aerospace"
+    ],
+    "bus": "BCP",
+    "shape": "Box+boom",
+    "mass": 330,
+    "dryMass": 330,
+    "length": 2,
+    "diameter": 1.1,
+    "span": 5.2,
+    "launch": {
+     "date": {
+      "iso": "2021-12-09",
+      "time": "06:00",
+      "uncertain": false
+     },
+     "tag": "2021-121",
+     "vehicle": "Falcon 9",
+     "flight": "IXPE",
+     "site": "NASA John F. Kennedy Space Center, Florida",
+     "siteShort": "Kennedy",
+     "pad": "LC39A"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "ixpe",
+    "title": {
+     "en": "IXPE",
+     "tr": "IXPE"
+    },
+    "size": 5.2,
+    "source": "NASA Eyes on the Earth",
+    "own": true
+   }
+  },
+  {
+   "id": "41240",
+   "name": "JASON-3",
+   "cospar": "2016-002A",
+   "norad": 41240,
+   "epoch": "2026-11-26T15:26:38.867Z",
+   "elements": {
+    "n": 12.87628646,
+    "e": 0.00077217,
+    "i": 66.0386,
+    "om": 144.2832,
+    "w": 267.9253,
+    "ma": 92.0882,
+    "bstar": 0.000078345342,
+    "ndot": -4.2e-7,
+    "rev": 50816
+   },
+   "derived": {
+    "a": 7689.087,
+    "perigee": 1305,
+    "apogee": 1316.9,
+    "period": 111.833,
+    "nodal": -2.1036,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "Jason-3",
+    "tr": "Jason-3"
+   },
+   "gcat": {
+    "jcat": "S41240",
+    "name": "Jason-3",
+    "plName": "Jason-3",
+    "type": "P",
+    "state": "F",
+    "owner": [
+     "Centre Nationale d'Etudes Spatiales, Paris",
+     "National Oceanic and Atmospheric Administration"
+    ],
+    "ownerShort": [
+     "CNES",
+     "NOAA"
+    ],
+    "manufacturer": [
+     "Thales Alenia Space/Cannes (TAS-F)"
+    ],
+    "bus": "Proteus",
+    "shape": "Box + 2 Pan",
+    "mass": 553,
+    "dryMass": 525,
+    "length": 3.7,
+    "diameter": 1.9,
+    "span": 9.7,
+    "launch": {
+     "date": {
+      "iso": "2016-01-17",
+      "time": "18:42",
+      "uncertain": false
+     },
+     "tag": "2016-002",
+     "vehicle": "Falcon 9",
+     "flight": "Jason-3",
+     "site": "South Vandenberg AFB, California",
+     "siteShort": "Vandenberg",
+     "pad": "SLC4E"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "jason",
+    "title": {
+     "en": "Jason-2 (OSTM)",
+     "tr": "Jason-2 (OSTM)"
+    },
+    "size": 3.8,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "39084",
+   "name": "LANDSAT 8",
+   "cospar": "2013-008A",
+   "norad": 39084,
+   "epoch": "2026-11-26T15:14:09.219Z",
+   "elements": {
+    "n": 14.57118977,
+    "e": 0.00011789,
+    "i": 98.2135,
+    "om": 38.6817,
+    "w": 92.9378,
+    "ma": 267.1956,
+    "bstar": 0.0000493207,
+    "ndot": 0.00000177,
+    "rev": 72155
+   },
+   "derived": {
+    "a": 7080.629,
+    "perigee": 701.7,
+    "apogee": 703.3,
+    "period": 98.825,
+    "nodal": 0.9875,
+    "regime": "LEO",
+    "sso": true
+   },
+   "title": {
+    "en": "Landsat 8",
+    "tr": "Landsat 8"
+   },
+   "gcat": {
+    "jcat": "S39084",
+    "name": "Landsat 8",
+    "plName": "Landsat Data Cont. Mission",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "US Geological Survey EROS Data Center"
+    ],
+    "ownerShort": [
+     "USGS EROS"
+    ],
+    "manufacturer": [
+     "Orbital Sciences Corp./Gilbert"
+    ],
+    "bus": "Leostar-3",
+    "shape": "Cyl hex + pan",
+    "mass": 2782,
+    "dryMass": 2387,
+    "length": 5.8,
+    "diameter": 2.5,
+    "span": 13,
+    "launch": {
+     "date": {
+      "iso": "2013-02-11",
+      "time": "18:02",
+      "uncertain": false
+     },
+     "tag": "2013-008",
+     "vehicle": "Atlas V 401",
+     "flight": "Landsat 8",
+     "site": "South Vandenberg AFB, California",
+     "siteShort": "Vandenberg",
+     "pad": "SLC3E"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "landsat8",
+    "title": {
+     "en": "Landsat 8",
+     "tr": "Landsat 8"
+    },
+    "size": 10,
+    "source": "NASA 3D Resources",
+    "own": true
+   }
+  },
+  {
+   "id": "49260",
+   "name": "LANDSAT 9",
+   "cospar": "2021-088A",
+   "norad": 49260,
+   "epoch": "2026-11-26T14:24:41.650Z",
+   "elements": {
+    "n": 14.57100893,
+    "e": 0.00010606,
+    "i": 98.2116,
+    "om": 38.6542,
+    "w": 93.6282,
+    "ma": 266.5038,
+    "bstar": 0.000047079725,
+    "ndot": 0.00000167,
+    "rev": 27465
+   },
+   "derived": {
+    "a": 7080.687,
+    "perigee": 701.8,
+    "apogee": 703.3,
+    "period": 98.826,
+    "nodal": 0.9872,
+    "regime": "LEO",
+    "sso": true
+   },
+   "title": {
+    "en": "Landsat 9",
+    "tr": "Landsat 9"
+   },
+   "gcat": {
+    "jcat": "S49260",
+    "name": "Landsat 9",
+    "plName": "Landsat 9",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "US Geological Survey EROS Data Center",
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "USGS EROS",
+     "GSFC"
+    ],
+    "manufacturer": [
+     "Northrop Grumman Civil Sats. and Nat. Security Systems"
+    ],
+    "bus": "Leostar-3",
+    "shape": "Cyl hex + pan",
+    "mass": 2710,
+    "dryMass": 2390,
+    "length": 5.8,
+    "diameter": 2.5,
+    "span": 13,
+    "launch": {
+     "date": {
+      "iso": "2021-09-27",
+      "time": "18:12",
+      "uncertain": false
+     },
+     "tag": "2021-088",
+     "vehicle": "Atlas V 401",
+     "flight": "Landsat 9",
+     "site": "South Base, Vandenberg Space Force Base, California",
+     "siteShort": "Vandenberg",
+     "pad": "SLC3E"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "landsat9",
+    "title": {
+     "en": "Landsat 9",
+     "tr": "Landsat 9"
+    },
+    "size": 17.5,
+    "source": "NASA Eyes on the Earth",
+    "own": true
+   }
+  },
+  {
+   "id": "40482",
+   "name": "MMS 1",
+   "cospar": "2015-011A",
+   "norad": 40482,
+   "epoch": "2026-11-26T16:00:03.000Z",
+   "elements": {
+    "n": 0.28696714,
+    "e": 0.82048128,
+    "i": 73.3635,
+    "om": 346.9477,
+    "w": 170.9679,
+    "ma": 338.0642,
+    "bstar": 0,
+    "ndot": -0.00000221,
+    "rev": 139
+   },
+   "derived": {
+    "a": 97091.318,
+    "perigee": 11051.6,
+    "apogee": 170374.8,
+    "period": 5017.996,
+    "nodal": -0.0019,
+    "regime": "HEO",
+    "sso": false
+   },
+   "title": {
+    "en": "MMS 1",
+    "tr": "MMS 1"
+   },
+   "gcat": {
+    "jcat": "S40482",
+    "name": "MMS 1",
+    "plName": "Magnetospheric Multiscale",
+    "type": "P   G      D",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "bus": "MMS-SMART",
+    "shape": "Cylinder+antennae",
+    "mass": 1360,
+    "dryMass": 1000,
+    "length": 1.2,
+    "diameter": 3.6,
+    "span": 112,
+    "launch": {
+     "date": {
+      "iso": "2015-03-13",
+      "time": "02:44",
+      "uncertain": false
+     },
+     "tag": "2015-011",
+     "vehicle": "Atlas V 421",
+     "flight": "MMS",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "SLC41"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "mms",
+    "title": {
+     "en": "Magnetospheric Multiscale",
+     "tr": "Magnetospheric Multiscale"
+    },
+    "size": 3.5,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "40483",
+   "name": "MMS 2",
+   "cospar": "2015-011B",
+   "norad": 40483,
+   "epoch": "2026-11-26T16:00:03.000Z",
+   "elements": {
+    "n": 0.28696419,
+    "e": 0.82027603,
+    "i": 73.3591,
+    "om": 346.9437,
+    "w": 170.9775,
+    "ma": 338.0836,
+    "bstar": 0,
+    "ndot": -0.00000221,
+    "rev": 139
+   },
+   "derived": {
+    "a": 97091.983,
+    "perigee": 11071.6,
+    "apogee": 170356.1,
+    "period": 5018.048,
+    "nodal": -0.0019,
+    "regime": "HEO",
+    "sso": false
+   },
+   "title": {
+    "en": "MMS 2",
+    "tr": "MMS 2"
+   },
+   "gcat": {
+    "jcat": "S40483",
+    "name": "MMS 2",
+    "plName": "Magnetospheric Multiscale",
+    "type": "P   G      D",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "bus": "MMS-SMART",
+    "shape": "Cylinder+antennae",
+    "mass": 1360,
+    "dryMass": 1000,
+    "length": 1.2,
+    "diameter": 3.6,
+    "span": 112,
+    "launch": {
+     "date": {
+      "iso": "2015-03-13",
+      "time": "02:44",
+      "uncertain": false
+     },
+     "tag": "2015-011",
+     "vehicle": "Atlas V 421",
+     "flight": "MMS",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "SLC41"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "mms",
+    "title": {
+     "en": "Magnetospheric Multiscale",
+     "tr": "Magnetospheric Multiscale"
+    },
+    "size": 3.5,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "40484",
+   "name": "MMS 3",
+   "cospar": "2015-011C",
+   "norad": 40484,
+   "epoch": "2026-11-26T16:00:03.000Z",
+   "elements": {
+    "n": 0.28696498,
+    "e": 0.82030128,
+    "i": 73.3436,
+    "om": 346.9564,
+    "w": 170.9805,
+    "ma": 338.0702,
+    "bstar": 0,
+    "ndot": -0.00000221,
+    "rev": 139
+   },
+   "derived": {
+    "a": 97091.805,
+    "perigee": 11069.1,
+    "apogee": 170358.2,
+    "period": 5018.034,
+    "nodal": -0.0019,
+    "regime": "HEO",
+    "sso": false
+   },
+   "title": {
+    "en": "MMS 3",
+    "tr": "MMS 3"
+   },
+   "gcat": {
+    "jcat": "S40484",
+    "name": "MMS 3",
+    "plName": "Magnetospheric Multiscale",
+    "type": "P   G      D",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "bus": "MMS-SMART",
+    "shape": "Cylinder+antennae",
+    "mass": 1360,
+    "dryMass": 1000,
+    "length": 1.2,
+    "diameter": 3.6,
+    "span": 112,
+    "launch": {
+     "date": {
+      "iso": "2015-03-13",
+      "time": "02:44",
+      "uncertain": false
+     },
+     "tag": "2015-011",
+     "vehicle": "Atlas V 421",
+     "flight": "MMS",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "SLC41"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "mms",
+    "title": {
+     "en": "Magnetospheric Multiscale",
+     "tr": "Magnetospheric Multiscale"
+    },
+    "size": 3.5,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "40485",
+   "name": "MMS 4",
+   "cospar": "2015-011D",
+   "norad": 40485,
+   "epoch": "2026-11-26T16:00:03.000Z",
+   "elements": {
+    "n": 0.28696587,
+    "e": 0.82039478,
+    "i": 73.3342,
+    "om": 346.959,
+    "w": 170.9719,
+    "ma": 338.0687,
+    "bstar": 0,
+    "ndot": -0.00000221,
+    "rev": 130
+   },
+   "derived": {
+    "a": 97091.604,
+    "perigee": 11060,
+    "apogee": 170366.9,
+    "period": 5018.018,
+    "nodal": -0.0019,
+    "regime": "HEO",
+    "sso": false
+   },
+   "title": {
+    "en": "MMS 4",
+    "tr": "MMS 4"
+   },
+   "gcat": {
+    "jcat": "S40485",
+    "name": "MMS 4",
+    "plName": "Magnetospheric Multiscale",
+    "type": "P   G      D",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "bus": "MMS-SMART",
+    "shape": "Cylinder+antennae",
+    "mass": 1360,
+    "dryMass": 1000,
+    "length": 1.2,
+    "diameter": 3.6,
+    "span": 112,
+    "launch": {
+     "date": {
+      "iso": "2015-03-13",
+      "time": "02:44",
+      "uncertain": false
+     },
+     "tag": "2015-011",
+     "vehicle": "Atlas V 421",
+     "flight": "MMS",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "SLC41"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "mms",
+    "title": {
+     "en": "Magnetospheric Multiscale",
+     "tr": "Magnetospheric Multiscale"
+    },
+    "size": 3.5,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "65053",
+   "name": "NISAR",
+   "cospar": "2025-163A",
+   "norad": 65053,
+   "epoch": "2026-11-26T14:46:51.949Z",
+   "elements": {
+    "n": 14.42503949,
+    "e": 0.00012608,
+    "i": 98.4062,
+    "om": 155.9432,
+    "w": 90.0367,
+    "ma": 270.0967,
+    "bstar": 0.00012285482,
+    "ndot": 0.00000364,
+    "rev": 6980
+   },
+   "derived": {
+    "a": 7128.374,
+    "perigee": 749.3,
+    "apogee": 751.1,
+    "period": 99.826,
+    "nodal": 0.987,
+    "regime": "LEO",
+    "sso": true
+   },
+   "title": {
+    "en": "NISAR",
+    "tr": "NISAR"
+   },
+   "gcat": {
+    "jcat": "S65053",
+    "name": "NISAR",
+    "plName": "NISAR",
+    "type": "P",
+    "state": "IN",
+    "owner": [
+     "Indian Space Research Organization",
+     "Jet Propulsion Lab"
+    ],
+    "ownerShort": [
+     "ISRO",
+     "JPL"
+    ],
+    "manufacturer": [
+     "Indian Space Research Organization"
+    ],
+    "bus": "I3K",
+    "shape": "Box+2 pan",
+    "mass": 2393,
+    "dryMass": 2300,
+    "length": 2.4,
+    "diameter": 1.6,
+    "span": 14,
+    "launch": {
+     "date": {
+      "iso": "2025-07-30",
+      "time": "12:10",
+      "uncertain": false
+     },
+     "tag": "2025-163",
+     "vehicle": "GSLV Mk II",
+     "flight": "NISAR",
+     "site": "Satish Dhawan Space Ctr, Sriharikota, Andhra Pradesh, India",
+     "siteShort": "Sriharikota",
+     "pad": "SLP"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "nisar",
+    "title": {
+     "en": "NISAR",
+     "tr": "NISAR"
+    },
+    "size": 14.3,
+    "source": "NASA Eyes on the Earth",
+    "own": true
+   }
+  },
+  {
+   "id": "43013",
+   "name": "NOAA 20 (JPSS-1)",
+   "cospar": "2017-073A",
+   "norad": 43013,
+   "epoch": "2026-11-26T12:59:31.475Z",
+   "elements": {
+    "n": 14.19551399,
+    "e": 0.00015106,
+    "i": 98.7363,
+    "om": 268.6389,
+    "w": 117.5922,
+    "ma": 242.5408,
+    "bstar": 0.0000351061,
+    "ndot": 3e-7,
+    "rev": 46750
+   },
+   "derived": {
+    "a": 7205.007,
+    "perigee": 825.8,
+    "apogee": 828,
+    "period": 101.44,
+    "nodal": 0.9878,
+    "regime": "LEO",
+    "sso": true
+   },
+   "title": {
+    "en": "NOAA-20 (JPSS-1)",
+    "tr": "NOAA-20 (JPSS-1)"
+   },
+   "gcat": {
+    "jcat": "S43013",
+    "name": "NOAA-20",
+    "plName": "JPSS-1",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center",
+     "National Oceanic and Atmospheric Administration"
+    ],
+    "ownerShort": [
+     "GSFC",
+     "NOAA"
+    ],
+    "manufacturer": [
+     "Ball Aerospace"
+    ],
+    "bus": "BCP-2000",
+    "shape": "Box + Pan",
+    "mass": 2200,
+    "dryMass": 1400,
+    "length": 3.6,
+    "diameter": 1.4,
+    "span": 10,
+    "launch": {
+     "date": {
+      "iso": "2017-11-18",
+      "time": "09:47",
+      "uncertain": false
+     },
+     "tag": "2017-073",
+     "vehicle": "Delta 7920-10C",
+     "flight": "NOAA-20",
+     "site": "Vandenberg AFB, California",
+     "siteShort": "Vandenberg",
+     "pad": "SLC2W"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "noaa20",
+    "title": {
+     "en": "NOAA-20 (JPSS-1)",
+     "tr": "NOAA-20 (JPSS-1)"
+    },
+    "size": 11.2,
+    "source": "NASA Eyes on the Earth",
+    "own": true
+   }
+  },
+  {
+   "id": "54234",
+   "name": "NOAA 21 (JPSS-2)",
+   "cospar": "2022-150A",
+   "norad": 54234,
+   "epoch": "2026-11-26T13:43:11.638Z",
+   "elements": {
+    "n": 14.19560886,
+    "e": 0.00028264,
+    "i": 98.7226,
+    "om": 266.7238,
+    "w": 88.3801,
+    "ma": 271.7699,
+    "bstar": 0.000030165319,
+    "ndot": 2e-7,
+    "rev": 20958
+   },
+   "derived": {
+    "a": 7204.975,
+    "perigee": 824.8,
+    "apogee": 828.9,
+    "period": 101.44,
+    "nodal": 0.9863,
+    "regime": "LEO",
+    "sso": true
+   },
+   "title": {
+    "en": "NOAA-21 (JPSS-2)",
+    "tr": "NOAA-21 (JPSS-2)"
+   },
+   "gcat": {
+    "jcat": "S54234",
+    "name": "NOAA-21",
+    "plName": "JPSS-2",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center",
+     "National Oceanic and Atmospheric Administration"
+    ],
+    "ownerShort": [
+     "GSFC",
+     "NOAA"
+    ],
+    "manufacturer": [
+     "Northrop Grumman Civil Sats. and Nat. Security Systems"
+    ],
+    "bus": "Leostar-3",
+    "shape": "Box + Pan",
+    "mass": 2930,
+    "dryMass": 2525,
+    "length": 3.6,
+    "diameter": 1.4,
+    "span": 10.7,
+    "launch": {
+     "date": {
+      "iso": "2022-11-10",
+      "time": "09:49",
+      "uncertain": false
+     },
+     "tag": "2022-150",
+     "vehicle": "Atlas V 401",
+     "flight": "JPSS-2/LOFTID",
+     "site": "South Base, Vandenberg Space Force Base, California",
+     "siteShort": "Vandenberg",
+     "pad": "SLC3E"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "noaa21",
+    "title": {
+     "en": "NOAA-21 (JPSS-2)",
+     "tr": "NOAA-21 (JPSS-2)"
+    },
+    "size": 10.6,
+    "source": "NASA Eyes on the Earth",
+    "own": true
+   }
+  },
+  {
+   "id": "38358",
+   "name": "NUSTAR",
+   "cospar": "2012-031A",
+   "norad": 38358,
+   "epoch": "2026-11-26T16:00:03.000Z",
+   "elements": {
+    "n": 15.10196353,
+    "e": 0.00077352,
+    "i": 6.0265,
+    "om": 254.1038,
+    "w": 358.8838,
+    "ma": 200.4438,
+    "bstar": -0.000085779171,
+    "ndot": -0.00000582,
+    "rev": 468
+   },
+   "derived": {
+    "a": 6913.738,
+    "perigee": 530.3,
+    "apogee": 540.9,
+    "period": 95.352,
+    "nodal": -7.4724,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "NuSTAR",
+    "tr": "NuSTAR"
+   },
+   "gcat": {
+    "jcat": "S38358",
+    "name": "NuSTAR",
+    "plName": "NuSTAR",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center",
+     "Jet Propulsion Lab"
+    ],
+    "ownerShort": [
+     "GSFC",
+     "JPL"
+    ],
+    "manufacturer": [
+     "Orbital Sciences Corp."
+    ],
+    "bus": "Leostar-2",
+    "shape": "Cyls-boom-cyl+2 pan",
+    "mass": 360,
+    "dryMass": 360,
+    "length": 1.5,
+    "diameter": 1.1,
+    "span": 11.1,
+    "launch": {
+     "date": {
+      "iso": "2012-06-13",
+      "time": "16:00",
+      "uncertain": false
+     },
+     "tag": "2012-031",
+     "vehicle": "Pegasus XL",
+     "flight": "NuSTAR",
+     "site": "US Army Kwajalein Atoll (USAKA), Marshall Islands",
+     "siteShort": "Kwajalein",
+     "pad": "RW06/24"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "nustar",
+    "title": {
+     "en": "NuSTAR",
+     "tr": "NuSTAR"
+    },
+    "size": 10.9,
+    "source": "NASA Eyes on the Earth",
+    "own": true
+   }
+  },
+  {
+   "id": "40059",
+   "name": "OCO 2",
+   "cospar": "2014-035A",
+   "norad": 40059,
+   "epoch": "2026-11-26T13:23:53.403Z",
+   "elements": {
+    "n": 14.57141338,
+    "e": 0.00012137,
+    "i": 98.2196,
+    "om": 269.4916,
+    "w": 97.3711,
+    "ma": 262.7625,
+    "bstar": 0.000051634797,
+    "ndot": 0.00000187,
+    "rev": 65969
+   },
+   "derived": {
+    "a": 7080.556,
+    "perigee": 701.6,
+    "apogee": 703.3,
+    "period": 98.824,
+    "nodal": 0.9882,
+    "regime": "LEO",
+    "sso": true
+   },
+   "title": {
+    "en": "OCO-2",
+    "tr": "OCO-2"
+   },
+   "gcat": {
+    "jcat": "S40059",
+    "name": "OCO-2",
+    "plName": "Orbiting Carbon Observatory",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "Orbital Sciences Corp."
+    ],
+    "bus": "Leostar-2",
+    "shape": "Hex Cyl + 2 Pan",
+    "mass": 454,
+    "dryMass": 409,
+    "length": 2.1,
+    "diameter": 0.94,
+    "span": 9,
+    "launch": {
+     "date": {
+      "iso": "2014-07-02",
+      "time": "09:56",
+      "uncertain": false
+     },
+     "tag": "2014-035",
+     "vehicle": "Delta 7320-10C",
+     "flight": "OCO-2",
+     "site": "Vandenberg AFB, California",
+     "siteShort": "Vandenberg",
+     "pad": "SLC2W"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "oco2",
+    "title": {
+     "en": "OCO-2",
+     "tr": "OCO-2"
+    },
+    "size": 7,
+    "source": "NASA 3D Resources",
+    "own": true
+   }
+  },
+  {
+   "id": "58928",
+   "name": "PACE",
+   "cospar": "2024-025A",
+   "norad": 58928,
+   "epoch": "2026-11-26T06:34:35.033Z",
+   "elements": {
+    "n": 14.65658488,
+    "e": 0.0003236,
+    "i": 98.1064,
+    "om": 259.2555,
+    "w": 97.0689,
+    "ma": 263.0882,
+    "bstar": 0.00004548,
+    "ndot": 0.000002,
+    "rev": 14967
+   },
+   "derived": {
+    "a": 7053.099,
+    "perigee": 672.7,
+    "apogee": 677.2,
+    "period": 98.249,
+    "nodal": 0.9881,
+    "regime": "LEO",
+    "sso": true
+   },
+   "title": {
+    "en": "PACE",
+    "tr": "PACE"
+   },
+   "gcat": {
+    "jcat": "S58928",
+    "name": "PACE",
+    "plName": "PACE",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "bus": "PACE",
+    "shape": "Box + panel",
+    "mass": 1433,
+    "dryMass": 1198,
+    "length": 1.5,
+    "diameter": 1.5,
+    "span": 3,
+    "launch": {
+     "date": {
+      "iso": "2024-02-08",
+      "time": "06:33",
+      "uncertain": false
+     },
+     "tag": "2024-025",
+     "vehicle": "Falcon 9",
+     "flight": "PACE",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "LC40"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "pace",
+    "title": {
+     "en": "PACE",
+     "tr": "PACE"
+    },
+    "size": 7,
+    "source": "NASA Eyes on the Earth",
+    "own": true
+   }
+  },
+  {
+   "id": "23802",
+   "name": "POLAR",
+   "cospar": "1996-013A",
+   "norad": 23802,
+   "epoch": "2026-11-25T18:56:41.231Z",
+   "elements": {
+    "n": 1.29845278,
+    "e": 0.6638338,
+    "i": 80.0564,
+    "om": 225.0907,
+    "w": 203.5199,
+    "ma": 101.3114,
+    "bstar": 0,
+    "ndot": 6.7e-7,
+    "rev": 14695
+   },
+   "derived": {
+    "a": 35490.959,
+    "perigee": 5552.7,
+    "apogee": 52672.9,
+    "period": 1109.012,
+    "nodal": -0.0135,
+    "regime": "HEO",
+    "sso": false
+   },
+   "title": {
+    "en": "Polar",
+    "tr": "Polar"
+   },
+   "gcat": {
+    "jcat": "S23802",
+    "name": "Polar",
+    "plName": "Polar",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "Lockheed Martin Telecommunications/East Windsor"
+    ],
+    "bus": "Wind",
+    "shape": "Cyl + Ant",
+    "mass": 1274,
+    "dryMass": 1005,
+    "length": 2.1,
+    "diameter": 2.4,
+    "span": 130,
+    "launch": {
+     "date": {
+      "iso": "1996-02-24",
+      "time": "11:24",
+      "uncertain": false
+     },
+     "tag": "1996-013",
+     "vehicle": "Delta 7925-10",
+     "flight": "Polar",
+     "site": "Vandenberg AFB, California",
+     "siteShort": "Vandenberg",
+     "pad": "SLC2W"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "polar",
+    "title": {
+     "en": "Polar",
+     "tr": "Polar"
+    },
+    "size": 142,
+    "source": "NASA Eyes on the Earth",
+    "own": true
+   }
+  },
+  {
+   "id": "59965",
+   "name": "PREFIRE-1",
+   "cospar": "2024-108A",
+   "norad": 59965,
+   "epoch": "2026-11-26T09:44:38.846Z",
+   "elements": {
+    "n": 15.25020463,
+    "e": 0.00117094,
+    "i": 97.5468,
+    "om": 126.1868,
+    "w": 38.2738,
+    "ma": 321.9328,
+    "bstar": 0.00010498409,
+    "ndot": 0.00002551,
+    "rev": 13730
+   },
+   "derived": {
+    "a": 6868.861,
+    "perigee": 482.7,
+    "apogee": 498.8,
+    "period": 94.425,
+    "nodal": 1.0096,
+    "regime": "LEO",
+    "sso": true
+   },
+   "title": {
+    "en": "PREFIRE 1",
+    "tr": "PREFIRE 1"
+   },
+   "gcat": {
+    "jcat": "S59965",
+    "name": "PREFIRE 1",
+    "plName": "PREFIRE 1",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "Jet Propulsion Lab"
+    ],
+    "ownerShort": [
+     "JPL"
+    ],
+    "manufacturer": [
+     "Jet Propulsion Lab"
+    ],
+    "bus": "Cubesat 6U",
+    "shape": "Box+sail",
+    "mass": 10,
+    "dryMass": 10,
+    "length": 0.3,
+    "diameter": 0.2,
+    "span": 12.7,
+    "launch": {
+     "date": {
+      "iso": "2024-06-05",
+      "time": "03:15",
+      "uncertain": false
+     },
+     "tag": "2024-108",
+     "vehicle": "Electron",
+     "flight": "Prefire and Ice",
+     "site": "Rocket Lab Launch Complex 1, Onenui Station, Mahia Peninsula",
+     "siteShort": "Mahia",
+     "pad": "LC1B"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "prefire",
+    "title": {
+     "en": "PREFIRE (6U)",
+     "tr": "PREFIRE (6U)"
+    },
+    "size": 1.1,
+    "source": "NASA Eyes on the Earth",
+    "own": false
+   }
+  },
+  {
+   "id": "59881",
+   "name": "PREFIRE-2",
+   "cospar": "2024-099A",
+   "norad": 59881,
+   "epoch": "2026-11-26T04:12:05.871Z",
+   "elements": {
+    "n": 15.22004921,
+    "e": 0.0012052,
+    "i": 97.3858,
+    "om": 183.6128,
+    "w": 6.3493,
+    "ma": 353.7893,
+    "bstar": 0.000087615,
+    "ndot": 0.00001934,
+    "rev": 13876
+   },
+   "derived": {
+    "a": 6877.931,
+    "perigee": 491.5,
+    "apogee": 508.1,
+    "period": 94.612,
+    "nodal": 0.9836,
+    "regime": "LEO",
+    "sso": true
+   },
+   "title": {
+    "en": "PREFIRE 2",
+    "tr": "PREFIRE 2"
+   },
+   "gcat": {
+    "jcat": "S59881",
+    "name": "PREFIRE 2",
+    "plName": "PREFIRE 2",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "Jet Propulsion Lab"
+    ],
+    "ownerShort": [
+     "JPL"
+    ],
+    "manufacturer": [
+     "Jet Propulsion Lab"
+    ],
+    "bus": "Cubesat 6U",
+    "shape": "Box+sail",
+    "mass": 10,
+    "dryMass": 10,
+    "length": 0.3,
+    "diameter": 0.2,
+    "span": 12.7,
+    "launch": {
+     "date": {
+      "iso": "2024-05-25",
+      "time": "07:41",
+      "uncertain": false
+     },
+     "tag": "2024-099",
+     "vehicle": "Electron",
+     "flight": "Ready, Aim, Prefire",
+     "site": "Rocket Lab Launch Complex 1, Onenui Station, Mahia Peninsula",
+     "siteShort": "Mahia",
+     "pad": "LC1B"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "prefire",
+    "title": {
+     "en": "PREFIRE (6U)",
+     "tr": "PREFIRE (6U)"
+    },
+    "size": 1.1,
+    "source": "NASA Eyes on the Earth",
+    "own": false
+   }
+  },
+  {
+   "id": "46984",
+   "name": "SENTINEL-6A",
+   "cospar": "2020-086A",
+   "norad": 46984,
+   "epoch": "2026-11-26T05:58:49.738Z",
+   "elements": {
+    "n": 12.80931184,
+    "e": 0.0007662,
+    "i": 66.0383,
+    "om": 158.444,
+    "w": 269.9915,
+    "ma": 90.0222,
+    "bstar": 0.000039047,
+    "ndot": -5.2e-7,
+    "rev": 28108
+   },
+   "derived": {
+    "a": 7715.865,
+    "perigee": 1331.8,
+    "apogee": 1343.6,
+    "period": 112.418,
+    "nodal": -2.0782,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "Sentinel-6 Michael Freilich",
+    "tr": "Sentinel-6 Michael Freilich"
+   },
+   "gcat": {
+    "jcat": "S46984",
+    "name": "Sentinel-6 Michael Freilich",
+    "plName": "Sentinel-6",
+    "type": "P",
+    "state": "I-EU",
+    "owner": [
+     "European Commission DG-GROW Directorate I/2, Copernicus Unit",
+     "European Space Agency"
+    ],
+    "ownerShort": [
+     "Copernicus",
+     "ESA"
+    ],
+    "manufacturer": [
+     "Airbus Defense and Space Satellites (D), Friedrichsafen"
+    ],
+    "bus": "Flexbus",
+    "shape": "Hex Cyl",
+    "mass": 1192,
+    "dryMass": 962,
+    "length": 5.2,
+    "diameter": 2.4,
+    "span": 5.5,
+    "launch": {
+     "date": {
+      "iso": "2020-11-21",
+      "time": "17:17",
+      "uncertain": false
+     },
+     "tag": "2020-086",
+     "vehicle": "Falcon 9",
+     "flight": "Sentinel-6",
+     "site": "South Vandenberg AFB, California",
+     "siteShort": "Vandenberg",
+     "pad": "SLC4E"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "sentinel6",
+    "title": {
+     "en": "Sentinel-6 Michael Freilich",
+     "tr": "Sentinel-6 Michael Freilich"
+    },
+    "size": 5.3,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "66514",
+   "name": "SENTINEL-6B",
+   "cospar": "2025-264A",
+   "norad": 66514,
+   "epoch": "2026-11-26T05:59:20.645Z",
+   "elements": {
+    "n": 12.80931064,
+    "e": 0.0007544,
+    "i": 66.0385,
+    "om": 158.5696,
+    "w": 269.1187,
+    "ma": 90.8964,
+    "bstar": 0.000040443,
+    "ndot": -5.2e-7,
+    "rev": 4792
+   },
+   "derived": {
+    "a": 7715.866,
+    "perigee": 1331.9,
+    "apogee": 1343.5,
+    "period": 112.418,
+    "nodal": -2.0781,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "Sentinel-6B",
+    "tr": "Sentinel-6B"
+   },
+   "gcat": {
+    "jcat": "S66514",
+    "name": "Sentinel-6B",
+    "plName": "Sentinel-6B",
+    "type": "P",
+    "state": "I-EU",
+    "owner": [
+     "European Commission DG-GROW Directorate I/2, Copernicus Unit",
+     "European Space Agency"
+    ],
+    "ownerShort": [
+     "Copernicus",
+     "ESA"
+    ],
+    "manufacturer": [
+     "Airbus Defense and Space Satellites (D), Friedrichsafen"
+    ],
+    "bus": "Flexbus",
+    "shape": "Hex Cyl",
+    "mass": 1140,
+    "dryMass": 940,
+    "length": 5.2,
+    "diameter": 2.4,
+    "span": 5.5,
+    "launch": {
+     "date": {
+      "iso": "2025-11-17",
+      "time": "05:21",
+      "uncertain": false
+     },
+     "tag": "2025-264",
+     "vehicle": "Falcon 9",
+     "flight": "Sentinel-6B",
+     "site": "South Base, Vandenberg Space Force Base, California",
+     "siteShort": "Vandenberg",
+     "pad": "SLC4E"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "sentinel6",
+    "title": {
+     "en": "Sentinel-6 Michael Freilich",
+     "tr": "Sentinel-6 Michael Freilich"
+    },
+    "size": 5.3,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "40376",
+   "name": "SMAP",
+   "cospar": "2015-003A",
+   "norad": 40376,
+   "epoch": "2026-11-26T12:59:07.544Z",
+   "elements": {
+    "n": 14.63361668,
+    "e": 0.000148,
+    "i": 98.1296,
+    "om": 335.363,
+    "w": 86.7565,
+    "ma": 273.3806,
+    "bstar": 0.000044337933,
+    "ndot": 0.00000182,
+    "rev": 63136
+   },
+   "derived": {
+    "a": 7060.477,
+    "perigee": 681.3,
+    "apogee": 683.4,
+    "period": 98.404,
+    "nodal": 0.9873,
+    "regime": "LEO",
+    "sso": true
+   },
+   "title": {
+    "en": "SMAP",
+    "tr": "SMAP"
+   },
+   "gcat": {
+    "jcat": "S40376",
+    "name": "SMAP",
+    "plName": "SMAP",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "Jet Propulsion Lab"
+    ],
+    "ownerShort": [
+     "JPL"
+    ],
+    "manufacturer": [
+     "Jet Propulsion Lab"
+    ],
+    "bus": "SMAP",
+    "shape": "Box+boom+dish",
+    "mass": 944,
+    "dryMass": 863,
+    "length": 4.8,
+    "diameter": 1.7,
+    "span": 9.7,
+    "launch": {
+     "date": {
+      "iso": "2015-01-31",
+      "time": "14:22",
+      "uncertain": false
+     },
+     "tag": "2015-003",
+     "vehicle": "Delta 7320-10C",
+     "flight": "SMAP",
+     "site": "Vandenberg AFB, California",
+     "siteShort": "Vandenberg",
+     "pad": "SLC2W"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "smap",
+    "title": {
+     "en": "SMAP",
+     "tr": "SMAP"
+    },
+    "size": 9.5,
+    "source": "NASA Eyes on the Earth",
+    "own": true
+   }
+  },
+  {
+   "id": "36395",
+   "name": "SDO",
+   "cospar": "2010-005A",
+   "norad": 36395,
+   "epoch": "2026-11-26T07:54:24.185Z",
+   "elements": {
+    "n": 1.0027042,
+    "e": 0.00011501,
+    "i": 34.9929,
+    "om": 83.8872,
+    "w": 97.2655,
+    "ma": 260.9719,
+    "bstar": 0,
+    "ndot": -7.7e-7,
+    "rev": 6168
+   },
+   "derived": {
+    "a": 42165.115,
+    "perigee": 35782.1,
+    "apogee": 35791.8,
+    "period": 1436.116,
+    "nodal": -0.011,
+    "regime": "GEO",
+    "sso": false
+   },
+   "title": {
+    "en": "Solar Dynamics Observatory",
+    "tr": "Solar Dynamics Observatory"
+   },
+   "gcat": {
+    "jcat": "S36395",
+    "name": "Solar Dynamics Observatory",
+    "plName": "SDO",
+    "type": "P   G",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "bus": "SDO",
+    "shape": "Box + 2 Pan",
+    "mass": 3100,
+    "dryMass": 1650,
+    "length": 4.5,
+    "diameter": 2.2,
+    "span": 6.5,
+    "launch": {
+     "date": {
+      "iso": "2010-02-11",
+      "time": "15:23",
+      "uncertain": false
+     },
+     "tag": "2010-005",
+     "vehicle": "Atlas V 401",
+     "flight": "SDO",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "SLC41"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "sdo",
+    "title": {
+     "en": "Solar Dynamics Observatory",
+     "tr": "Solar Dynamics Observatory"
+    },
+    "size": 6.25,
+    "source": "NASA 3D Resources",
+    "own": true
+   }
+  },
+  {
+   "id": "27651",
+   "name": "SORCE",
+   "cospar": "2003-004A",
+   "norad": 27651,
+   "epoch": "2026-11-26T14:44:47.615Z",
+   "elements": {
+    "n": 15.04466601,
+    "e": 0.00162411,
+    "i": 39.9918,
+    "om": 54.4281,
+    "w": 140.9469,
+    "ma": 219.2501,
+    "bstar": 0.00012567695,
+    "ndot": 0.0000164,
+    "rev": 29636
+   },
+   "derived": {
+    "a": 6931.28,
+    "perigee": 541.9,
+    "apogee": 564.4,
+    "period": 95.715,
+    "nodal": -5.7059,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "SORCE",
+    "tr": "SORCE"
+   },
+   "gcat": {
+    "jcat": "S27651",
+    "name": "SORCE",
+    "plName": "SORCE",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "Orbital Sciences Corp."
+    ],
+    "bus": "Leostar-2",
+    "shape": "Cyl + 6 Pan",
+    "mass": 290,
+    "dryMass": 290,
+    "length": 1.6,
+    "diameter": 1.2,
+    "span": 4,
+    "launch": {
+     "date": {
+      "iso": "2003-01-25",
+      "time": "20:13",
+      "uncertain": false
+     },
+     "tag": "2003-004",
+     "vehicle": "Pegasus XL",
+     "flight": "SORCE",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "RW30/12"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "sorce",
+    "title": {
+     "en": "SORCE",
+     "tr": "SORCE"
+    },
+    "size": 4,
+    "source": "NASA 3D Resources",
+    "own": true
+   }
+  },
+  {
+   "id": "63182",
+   "name": "SPHEREX (MIDEX 9)",
+   "cospar": "2025-047E",
+   "norad": 63182,
+   "epoch": "2026-11-26T11:22:59.065Z",
+   "elements": {
+    "n": 14.74330339,
+    "e": 0.00110682,
+    "i": 97.9565,
+    "om": 152.3767,
+    "w": 37.8735,
+    "ma": 322.325,
+    "bstar": 0.000085542123,
+    "ndot": 0.00000517,
+    "rev": 9195
+   },
+   "derived": {
+    "a": 7025.415,
+    "perigee": 639.5,
+    "apogee": 655.1,
+    "period": 97.671,
+    "nodal": 0.9834,
+    "regime": "LEO",
+    "sso": true
+   },
+   "title": {
+    "en": "SPHEREx",
+    "tr": "SPHEREx"
+   },
+   "gcat": {
+    "jcat": "S63182",
+    "name": "SPHEREX",
+    "plName": "SPHEREX",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "Jet Propulsion Lab"
+    ],
+    "ownerShort": [
+     "JPL"
+    ],
+    "manufacturer": [
+     "BAE Systems, Boulder"
+    ],
+    "bus": "SphereX",
+    "shape": "Cyl-Cone+2 pan",
+    "mass": 502,
+    "dryMass": 502,
+    "length": 2.6,
+    "diameter": 3.2,
+    "span": 3.2,
+    "launch": {
+     "date": {
+      "iso": "2025-03-12",
+      "time": "03:10",
+      "uncertain": false
+     },
+     "tag": "2025-047",
+     "vehicle": "Falcon 9",
+     "flight": "SPHEREX/PUNCH",
+     "site": "South Base, Vandenberg Space Force Base, California",
+     "siteShort": "Vandenberg",
+     "pad": "SLC4E"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "spherex",
+    "title": {
+     "en": "SPHEREx",
+     "tr": "SPHEREx"
+    },
+    "size": 3.3,
+    "source": "NASA Eyes on the Earth",
+    "own": true
+   }
+  },
+  {
+   "id": "57388",
+   "name": "STARLING 1",
+   "cospar": "2023-100C",
+   "norad": 57388,
+   "epoch": "2026-11-26T14:08:07.739Z",
+   "elements": {
+    "n": 15.07276366,
+    "e": 0.00060582,
+    "i": 99.4981,
+    "om": 26.8568,
+    "w": 112.53,
+    "ma": 247.6564,
+    "bstar": 0.000074454617,
+    "ndot": 0.00001032,
+    "rev": 18436
+   },
+   "derived": {
+    "a": 6922.664,
+    "perigee": 540.3,
+    "apogee": 548.7,
+    "period": 95.537,
+    "nodal": 1.2343,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "Starling 1",
+    "tr": "Starling 1"
+   },
+   "gcat": {
+    "jcat": "S57388",
+    "name": "Starling 1",
+    "plName": "Starling 1",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Ames Research Center, Moffett Field"
+    ],
+    "ownerShort": [
+     "ARC"
+    ],
+    "manufacturer": [
+     "Blue Canyon Technologies"
+    ],
+    "bus": "Cubesat 6U",
+    "shape": "Box + 2 pan",
+    "mass": 12,
+    "dryMass": 12,
+    "length": 0.3,
+    "diameter": 0.2,
+    "span": 0.5,
+    "launch": {
+     "date": {
+      "iso": "2023-07-18",
+      "time": "01:27",
+      "uncertain": false
+     },
+     "tag": "2023-100",
+     "vehicle": "Electron",
+     "flight": "Baby Come Back",
+     "site": "Rocket Lab Launch Complex 1, Onenui Station, Mahia Peninsula",
+     "siteShort": "Mahia",
+     "pad": "LC1B"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "starling",
+    "title": {
+     "en": "Starling (6U)",
+     "tr": "Starling (6U)"
+    },
+    "size": 1.4,
+    "source": "NASA Eyes on the Earth",
+    "own": false
+   }
+  },
+  {
+   "id": "57387",
+   "name": "STARLING 2",
+   "cospar": "2023-100B",
+   "norad": 57387,
+   "epoch": "2026-11-26T14:08:30.300Z",
+   "elements": {
+    "n": 15.07273706,
+    "e": 0.00047037,
+    "i": 99.4944,
+    "om": 26.1746,
+    "w": 326.0221,
+    "ma": 34.0698,
+    "bstar": 0.00006662122,
+    "ndot": 0.00000914,
+    "rev": 18436
+   },
+   "derived": {
+    "a": 6922.672,
+    "perigee": 541.3,
+    "apogee": 547.8,
+    "period": 95.537,
+    "nodal": 1.2338,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "Starling 2",
+    "tr": "Starling 2"
+   },
+   "gcat": {
+    "jcat": "S57387",
+    "name": "Starling 2",
+    "plName": "Starling 2",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Ames Research Center, Moffett Field"
+    ],
+    "ownerShort": [
+     "ARC"
+    ],
+    "manufacturer": [
+     "Blue Canyon Technologies"
+    ],
+    "bus": "Cubesat 6U",
+    "shape": "Box + 2 pan",
+    "mass": 12,
+    "dryMass": 12,
+    "length": 0.3,
+    "diameter": 0.2,
+    "span": 0.5,
+    "launch": {
+     "date": {
+      "iso": "2023-07-18",
+      "time": "01:27",
+      "uncertain": false
+     },
+     "tag": "2023-100",
+     "vehicle": "Electron",
+     "flight": "Baby Come Back",
+     "site": "Rocket Lab Launch Complex 1, Onenui Station, Mahia Peninsula",
+     "siteShort": "Mahia",
+     "pad": "LC1B"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "starling",
+    "title": {
+     "en": "Starling (6U)",
+     "tr": "Starling (6U)"
+    },
+    "size": 1.4,
+    "source": "NASA Eyes on the Earth",
+    "own": false
+   }
+  },
+  {
+   "id": "57389",
+   "name": "STARLING 3",
+   "cospar": "2023-100D",
+   "norad": 57389,
+   "epoch": "2026-11-26T15:04:02.261Z",
+   "elements": {
+    "n": 15.14051325,
+    "e": 0.00043048,
+    "i": 99.4891,
+    "om": 31.078,
+    "w": 306.7761,
+    "ma": 53.3069,
+    "bstar": 0.00019682868,
+    "ndot": 0.00003483,
+    "rev": 18463
+   },
+   "derived": {
+    "a": 6901.997,
+    "perigee": 520.9,
+    "apogee": 526.8,
+    "period": 95.109,
+    "nodal": 1.2461,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "Starling 3",
+    "tr": "Starling 3"
+   },
+   "gcat": {
+    "jcat": "S57389",
+    "name": "Starling 3",
+    "plName": "Starling 3",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Ames Research Center, Moffett Field"
+    ],
+    "ownerShort": [
+     "ARC"
+    ],
+    "manufacturer": [
+     "Blue Canyon Technologies"
+    ],
+    "bus": "Cubesat 6U",
+    "shape": "Box + 2 pan",
+    "mass": 12,
+    "dryMass": 12,
+    "length": 0.3,
+    "diameter": 0.2,
+    "span": 0.5,
+    "launch": {
+     "date": {
+      "iso": "2023-07-18",
+      "time": "01:27",
+      "uncertain": false
+     },
+     "tag": "2023-100",
+     "vehicle": "Electron",
+     "flight": "Baby Come Back",
+     "site": "Rocket Lab Launch Complex 1, Onenui Station, Mahia Peninsula",
+     "siteShort": "Mahia",
+     "pad": "LC1B"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "starling",
+    "title": {
+     "en": "Starling (6U)",
+     "tr": "Starling (6U)"
+    },
+    "size": 1.4,
+    "source": "NASA Eyes on the Earth",
+    "own": false
+   }
+  },
+  {
+   "id": "57386",
+   "name": "STARLING 4",
+   "cospar": "2023-100A",
+   "norad": 57386,
+   "epoch": "2026-11-26T14:07:58.374Z",
+   "elements": {
+    "n": 15.07274092,
+    "e": 0.00055535,
+    "i": 99.4946,
+    "om": 26.1571,
+    "w": 313.4099,
+    "ma": 46.666,
+    "bstar": 0.00006432283,
+    "ndot": 0.00000879,
+    "rev": 18436
+   },
+   "derived": {
+    "a": 6922.671,
+    "perigee": 540.7,
+    "apogee": 548.4,
+    "period": 95.537,
+    "nodal": 1.2339,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "Starling 4",
+    "tr": "Starling 4"
+   },
+   "gcat": {
+    "jcat": "S57386",
+    "name": "Starling 4",
+    "plName": "Starling 4",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Ames Research Center, Moffett Field"
+    ],
+    "ownerShort": [
+     "ARC"
+    ],
+    "manufacturer": [
+     "Blue Canyon Technologies"
+    ],
+    "bus": "Cubesat 6U",
+    "shape": "Box + 2 pan",
+    "mass": 12,
+    "dryMass": 12,
+    "length": 0.3,
+    "diameter": 0.2,
+    "span": 0.5,
+    "launch": {
+     "date": {
+      "iso": "2023-07-18",
+      "time": "01:27",
+      "uncertain": false
+     },
+     "tag": "2023-100",
+     "vehicle": "Electron",
+     "flight": "Baby Come Back",
+     "site": "Rocket Lab Launch Complex 1, Onenui Station, Mahia Peninsula",
+     "siteShort": "Mahia",
+     "pad": "LC1B"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "starling",
+    "title": {
+     "en": "Starling (6U)",
+     "tr": "Starling (6U)"
+    },
+    "size": 1.4,
+    "source": "NASA Eyes on the Earth",
+    "own": false
+   }
+  },
+  {
+   "id": "37849",
+   "name": "SUOMI NPP",
+   "cospar": "2011-061A",
+   "norad": 37849,
+   "epoch": "2026-11-26T14:20:52.308Z",
+   "elements": {
+    "n": 14.19545733,
+    "e": 0.00012376,
+    "i": 98.8138,
+    "om": 270.4759,
+    "w": 182.5877,
+    "ma": 177.5293,
+    "bstar": 0.000043053956,
+    "ndot": 4.6e-7,
+    "rev": 78148
+   },
+   "derived": {
+    "a": 7205.026,
+    "perigee": 826,
+    "apogee": 827.8,
+    "period": 101.441,
+    "nodal": 0.9965,
+    "regime": "LEO",
+    "sso": true
+   },
+   "title": {
+    "en": "Suomi NPP",
+    "tr": "Suomi NPP"
+   },
+   "gcat": {
+    "jcat": "S37849",
+    "name": "Suomi NPP",
+    "plName": "NPOESS Prep Project",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center",
+     "National Oceanic and Atmospheric Administration"
+    ],
+    "ownerShort": [
+     "GSFC",
+     "NOAA"
+    ],
+    "manufacturer": [
+     "Ball Aerospace"
+    ],
+    "bus": "BCP-2000",
+    "shape": "Box + Pan",
+    "mass": 2128,
+    "dryMass": 1400,
+    "length": 3.6,
+    "diameter": 1.4,
+    "span": 10,
+    "launch": {
+     "date": {
+      "iso": "2011-10-28",
+      "time": "09:48",
+      "uncertain": false
+     },
+     "tag": "2011-061",
+     "vehicle": "Delta 7920-10C",
+     "flight": "NPP",
+     "site": "Vandenberg AFB, California",
+     "siteShort": "Vandenberg",
+     "pad": "SLC2W"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "npp",
+    "title": {
+     "en": "Suomi NPP",
+     "tr": "Suomi NPP"
+    },
+    "size": 9,
+    "source": "NASA 3D Resources",
+    "own": true
+   }
+  },
+  {
+   "id": "25560",
+   "name": "SWAS",
+   "cospar": "1998-071A",
+   "norad": 25560,
+   "epoch": "2026-11-26T13:45:36.748Z",
+   "elements": {
+    "n": 15.10508118,
+    "e": 0.00061367,
+    "i": 69.8928,
+    "om": 168.4728,
+    "w": 334.1506,
+    "ma": 25.9351,
+    "bstar": 0.000092774612,
+    "ndot": 0.00001426,
+    "rev": 52178
+   },
+   "derived": {
+    "a": 6912.786,
+    "perigee": 530.4,
+    "apogee": 538.9,
+    "period": 95.332,
+    "nodal": -2.5844,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "SWAS (Submillimeter Wave Astronomy Satellite)",
+    "tr": "SWAS (Submillimeter Wave Astronomy Satellite)"
+   },
+   "gcat": {
+    "jcat": "S25560",
+    "name": "SWAS",
+    "plName": "SWAS",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "bus": "SMEX",
+    "shape": "Cyl+2 Pan",
+    "mass": 282,
+    "dryMass": 282,
+    "length": 1.7,
+    "diameter": 1,
+    "span": 2,
+    "launch": {
+     "date": {
+      "iso": "1998-12-06",
+      "time": "00:57",
+      "uncertain": false
+     },
+     "tag": "1998-071",
+     "vehicle": "Pegasus XL",
+     "flight": "SWAS",
+     "site": "Vandenberg AFB, California",
+     "siteShort": "Vandenberg",
+     "pad": "RW30/12"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "swas",
+    "title": {
+     "en": "SWAS (Submillimeter Wave Astronomy Satellite)",
+     "tr": "SWAS (Submillimeter Wave Astronomy Satellite)"
+    },
+    "size": 3,
+    "source": "NASA 3D Resources",
+    "own": true
+   }
+  },
+  {
+   "id": "54754",
+   "name": "SWOT",
+   "cospar": "2022-173A",
+   "norad": 54754,
+   "epoch": "2026-11-26T14:50:03.149Z",
+   "elements": {
+    "n": 14.00170678,
+    "e": 0.00004863,
+    "i": 77.6091,
+    "om": 176.0428,
+    "w": 33.7046,
+    "ma": 326.4136,
+    "bstar": 0.000064591759,
+    "ndot": 9.3e-7,
+    "rev": 20188
+   },
+   "derived": {
+    "a": 7271.341,
+    "perigee": 892.9,
+    "apogee": 893.6,
+    "period": 102.845,
+    "nodal": -1.3515,
+    "regime": "LEO",
+    "sso": false
+   },
+   "title": {
+    "en": "SWOT",
+    "tr": "SWOT"
+   },
+   "gcat": {
+    "jcat": "S54754",
+    "name": "SWOT",
+    "plName": "SWOT",
+    "type": "P",
+    "state": "F",
+    "owner": [
+     "Centre Nationale d'Etudes Spatiales, Paris",
+     "Jet Propulsion Lab"
+    ],
+    "ownerShort": [
+     "CNES",
+     "JPL"
+    ],
+    "manufacturer": [
+     "Thales Alenia Space/Cannes (TAS-F)"
+    ],
+    "bus": "SWOT",
+    "shape": "Box+2 pan +2 booms",
+    "mass": 2200,
+    "dryMass": 2200,
+    "length": 5,
+    "diameter": 2.5,
+    "span": 14.9,
+    "launch": {
+     "date": {
+      "iso": "2022-12-16",
+      "time": "11:46",
+      "uncertain": false
+     },
+     "tag": "2022-173",
+     "vehicle": "Falcon 9",
+     "flight": "SWOT",
+     "site": "South Base, Vandenberg Space Force Base, California",
+     "siteShort": "Vandenberg",
+     "pad": "SLC4E"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "swot",
+    "title": {
+     "en": "SWOT",
+     "tr": "SWOT"
+    },
+    "size": 14.3,
+    "source": "NASA Eyes on the Earth",
+    "own": true
+   }
+  },
+  {
+   "id": "39070",
+   "name": "TDRS 11",
+   "cospar": "2013-004A",
+   "norad": 39070,
+   "epoch": "2026-11-26T14:02:14.959Z",
+   "elements": {
+    "n": 1.00278685,
+    "e": 0.00020831,
+    "i": 3.7758,
+    "om": 33.5812,
+    "w": 353.408,
+    "ma": 74.927,
+    "bstar": 0,
+    "ndot": 9e-7,
+    "rev": 4832
+   },
+   "derived": {
+    "a": 42162.798,
+    "perigee": 35775.9,
+    "apogee": 35793.4,
+    "period": 1435.998,
+    "nodal": -0.0134,
+    "regime": "GEO",
+    "sso": false
+   },
+   "title": {
+    "en": "TDRS 11",
+    "tr": "TDRS 11"
+   },
+   "gcat": {
+    "jcat": "S39070",
+    "name": "TDRS 11",
+    "plName": "TDRS K",
+    "type": "P   G",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "Boeing Satellite Development Center, El Segundo"
+    ],
+    "bus": "BSS-601HP",
+    "shape": "Box +  2 pan",
+    "mass": 3454,
+    "dryMass": 2000,
+    "length": 8.1,
+    "diameter": 3,
+    "span": 21.1,
+    "launch": {
+     "date": {
+      "iso": "2013-01-31",
+      "time": "01:48",
+      "uncertain": false
+     },
+     "tag": "2013-004",
+     "vehicle": "Atlas V 401",
+     "flight": "TDRS 11",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "SLC41"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "tdrs3",
+    "title": {
+     "en": "TDRS (third generation, K–M)",
+     "tr": "TDRS (3. kuşak, K–M)"
+    },
+    "size": 21,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "39504",
+   "name": "TDRS 12",
+   "cospar": "2014-004A",
+   "norad": 39504,
+   "epoch": "2026-11-26T11:30:42.724Z",
+   "elements": {
+    "n": 1.00272522,
+    "e": 0.00075534,
+    "i": 4.1557,
+    "om": 21.5427,
+    "w": 241.9212,
+    "ma": 293.7481,
+    "bstar": 0,
+    "ndot": -0.00000261,
+    "rev": 4590
+   },
+   "derived": {
+    "a": 42164.525,
+    "perigee": 35754.5,
+    "apogee": 35818.2,
+    "period": 1436.086,
+    "nodal": -0.0134,
+    "regime": "GEO",
+    "sso": false
+   },
+   "title": {
+    "en": "TDRS 12",
+    "tr": "TDRS 12"
+   },
+   "gcat": {
+    "jcat": "S39504",
+    "name": "TDRS 12",
+    "plName": "TDRS L",
+    "type": "P   G",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "Boeing Satellite Development Center, El Segundo"
+    ],
+    "bus": "BSS-601HP",
+    "shape": "Box +  2 pan",
+    "mass": 3454,
+    "dryMass": 2000,
+    "length": 8.1,
+    "diameter": 3,
+    "span": 21.1,
+    "launch": {
+     "date": {
+      "iso": "2014-01-24",
+      "time": "02:33",
+      "uncertain": false
+     },
+     "tag": "2014-004",
+     "vehicle": "Atlas V 401",
+     "flight": "TDRS 12",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "SLC41"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "tdrs3",
+    "title": {
+     "en": "TDRS (third generation, K–M)",
+     "tr": "TDRS (3. kuşak, K–M)"
+    },
+    "size": 21,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "42915",
+   "name": "TDRS 13",
+   "cospar": "2017-047A",
+   "norad": 42915,
+   "epoch": "2026-11-26T13:21:47.085Z",
+   "elements": {
+    "n": 1.00270844,
+    "e": 0.00095342,
+    "i": 3.5187,
+    "om": 6.6441,
+    "w": 126.8482,
+    "ma": 120.9799,
+    "bstar": 0,
+    "ndot": -9.1e-7,
+    "rev": 3397
+   },
+   "derived": {
+    "a": 42164.996,
+    "perigee": 35746.7,
+    "apogee": 35827.1,
+    "period": 1436.11,
+    "nodal": -0.0134,
+    "regime": "GEO",
+    "sso": false
+   },
+   "title": {
+    "en": "TDRS 13",
+    "tr": "TDRS 13"
+   },
+   "gcat": {
+    "jcat": "S42915",
+    "name": "TDRS 13",
+    "plName": "TDRS M",
+    "type": "P   G",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "Boeing Satellite Development Center, El Segundo"
+    ],
+    "bus": "BSS-601HP",
+    "shape": "Box +  2 pan",
+    "mass": 3454,
+    "dryMass": 2000,
+    "length": 8.1,
+    "diameter": 3,
+    "span": 21.1,
+    "launch": {
+     "date": {
+      "iso": "2017-08-18",
+      "time": "12:29",
+      "uncertain": false
+     },
+     "tag": "2017-047",
+     "vehicle": "Atlas V 401",
+     "flight": "TDRS 13",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "SLC41"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "tdrs3",
+    "title": {
+     "en": "TDRS (third generation, K–M)",
+     "tr": "TDRS (3. kuşak, K–M)"
+    },
+    "size": 21,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "19548",
+   "name": "TDRS 3",
+   "cospar": "1988-091B",
+   "norad": 19548,
+   "epoch": "2026-11-26T09:45:43.477Z",
+   "elements": {
+    "n": 1.00264791,
+    "e": 0.00429029,
+    "i": 12.4815,
+    "om": 339.9291,
+    "w": 351.5916,
+    "ma": 191.295,
+    "bstar": 0,
+    "ndot": -0.00000294,
+    "rev": 12701
+   },
+   "derived": {
+    "a": 42166.693,
+    "perigee": 35607.6,
+    "apogee": 35969.5,
+    "period": 1436.197,
+    "nodal": -0.0131,
+    "regime": "GEO",
+    "sso": false
+   },
+   "title": {
+    "en": "TDRS 3",
+    "tr": "TDRS 3"
+   },
+   "gcat": {
+    "jcat": "S19548",
+    "name": "TDRS 3",
+    "plName": "TDRS C",
+    "type": "P --GS-",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "TRW Inc."
+    ],
+    "bus": "TDRS",
+    "shape": "Box + Dish + 2 Pan",
+    "mass": 2103,
+    "dryMass": 1673,
+    "length": 1.3,
+    "diameter": 2.4,
+    "span": 17.4,
+    "launch": {
+     "date": {
+      "iso": "1988-09-29",
+      "time": "15:37",
+      "uncertain": false
+     },
+     "tag": "1988-091",
+     "vehicle": "Space Shuttle",
+     "flight": "TDRS-C",
+     "site": "NASA John F. Kennedy Space Center, Florida",
+     "siteShort": "Kennedy",
+     "pad": "LC39B"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "tdrs1",
+    "title": {
+     "en": "TDRS (first generation)",
+     "tr": "TDRS (1. kuşak)"
+    },
+    "size": 17.4,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "21639",
+   "name": "TDRS 5",
+   "cospar": "1991-054B",
+   "norad": 21639,
+   "epoch": "2026-11-26T10:10:24.002Z",
+   "elements": {
+    "n": 1.00274679,
+    "e": 0.00113107,
+    "i": 14.0518,
+    "om": 352.5667,
+    "w": 264.3428,
+    "ma": 153.4156,
+    "bstar": 0,
+    "ndot": 8.8e-7,
+    "rev": 12934
+   },
+   "derived": {
+    "a": 42163.921,
+    "perigee": 35738.1,
+    "apogee": 35833.5,
+    "period": 1436.055,
+    "nodal": -0.013,
+    "regime": "GEO",
+    "sso": false
+   },
+   "title": {
+    "en": "TDRS 5",
+    "tr": "TDRS 5"
+   },
+   "gcat": {
+    "jcat": "S21639",
+    "name": "TDRS 5",
+    "plName": "TDRS-E",
+    "type": "P --GS-",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "TRW Inc."
+    ],
+    "bus": "TDRS",
+    "shape": "Box + Dish + 2 Pan",
+    "mass": 2534,
+    "dryMass": 1700,
+    "length": 1.3,
+    "diameter": 2.4,
+    "span": 17.4,
+    "launch": {
+     "date": {
+      "iso": "1991-08-02",
+      "time": "15:02",
+      "uncertain": false
+     },
+     "tag": "1991-054",
+     "vehicle": "Space Shuttle",
+     "flight": "TDRS-E",
+     "site": "NASA John F. Kennedy Space Center, Florida",
+     "siteShort": "Kennedy",
+     "pad": "LC39A"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "tdrs1",
+    "title": {
+     "en": "TDRS (first generation)",
+     "tr": "TDRS (1. kuşak)"
+    },
+    "size": 17.4,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "23613",
+   "name": "TDRS 7",
+   "cospar": "1995-035B",
+   "norad": 23613,
+   "epoch": "2026-11-26T14:43:39.093Z",
+   "elements": {
+    "n": 1.0026899,
+    "e": 0.0007322,
+    "i": 13.2707,
+    "om": 347.0678,
+    "w": 86.2449,
+    "ma": 302.3399,
+    "bstar": 0,
+    "ndot": -0.00000236,
+    "rev": 11488
+   },
+   "derived": {
+    "a": 42165.516,
+    "perigee": 35756.5,
+    "apogee": 35818.3,
+    "period": 1436.137,
+    "nodal": -0.0131,
+    "regime": "GEO",
+    "sso": false
+   },
+   "title": {
+    "en": "TDRS 7",
+    "tr": "TDRS 7"
+   },
+   "gcat": {
+    "jcat": "S23613",
+    "name": "TDRS 7",
+    "plName": "TDRS G",
+    "type": "P --GS-",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "TRW Inc."
+    ],
+    "bus": "TDRS",
+    "shape": "Box + Dish + 2 Pan",
+    "mass": 2225,
+    "dryMass": 1673,
+    "length": 1.3,
+    "diameter": 2.4,
+    "span": 17.4,
+    "launch": {
+     "date": {
+      "iso": "1995-07-13",
+      "time": "13:41",
+      "uncertain": false
+     },
+     "tag": "1995-035",
+     "vehicle": "Space Shuttle",
+     "flight": "TDRS-G",
+     "site": "NASA John F. Kennedy Space Center, Florida",
+     "siteShort": "Kennedy",
+     "pad": "LC39B"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "tdrs1",
+    "title": {
+     "en": "TDRS (first generation)",
+     "tr": "TDRS (1. kuşak)"
+    },
+    "size": 17.4,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "26388",
+   "name": "TDRS 8",
+   "cospar": "2000-034A",
+   "norad": 26388,
+   "epoch": "2026-11-26T15:59:39.049Z",
+   "elements": {
+    "n": 1.00276193,
+    "e": 0.00033548,
+    "i": 12.9372,
+    "om": 29.9223,
+    "w": 249.2186,
+    "ma": 111.1914,
+    "bstar": 0,
+    "ndot": -0.00000193,
+    "rev": 9680
+   },
+   "derived": {
+    "a": 42163.496,
+    "perigee": 35771.2,
+    "apogee": 35799.5,
+    "period": 1436.034,
+    "nodal": -0.0131,
+    "regime": "GEO",
+    "sso": false
+   },
+   "title": {
+    "en": "TDRS 8",
+    "tr": "TDRS 8"
+   },
+   "gcat": {
+    "jcat": "S26388",
+    "name": "TDRS 8",
+    "plName": "TDRS H",
+    "type": "P   G",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "Hughes Space and Comms. Co (Hughes Satellite Systems)"
+    ],
+    "bus": "HS-601",
+    "shape": "Box + 2 Pan + 2 Dish",
+    "mass": 3180,
+    "dryMass": 1600,
+    "length": 8.4,
+    "diameter": 3.4,
+    "span": 21,
+    "launch": {
+     "date": {
+      "iso": "2000-06-30",
+      "time": "12:56",
+      "uncertain": false
+     },
+     "tag": "2000-034",
+     "vehicle": "Atlas IIA",
+     "flight": "TDRS 8",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "SLC36A"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "tdrs1",
+    "title": {
+     "en": "TDRS (first generation)",
+     "tr": "TDRS (1. kuşak)"
+    },
+    "size": 17.4,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "22314",
+   "name": "TDRS 6",
+   "cospar": "1993-003B",
+   "norad": 22314,
+   "epoch": "2026-11-26T12:49:40.768Z",
+   "elements": {
+    "n": 1.00275764,
+    "e": 0.00082199,
+    "i": 14.1866,
+    "om": 355.84,
+    "w": 219.8423,
+    "ma": 356.3964,
+    "bstar": 0,
+    "ndot": -0.00000292,
+    "rev": 12403
+   },
+   "derived": {
+    "a": 42163.617,
+    "perigee": 35750.8,
+    "apogee": 35820.1,
+    "period": 1436.04,
+    "nodal": -0.013,
+    "regime": "GEO",
+    "sso": false
+   },
+   "title": {
+    "en": "TDRS-6",
+    "tr": "TDRS-6"
+   },
+   "gcat": {
+    "jcat": "S22314",
+    "name": "TDRS-6",
+    "plName": "TDRS F",
+    "type": "P --GS-",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "TRW Inc."
+    ],
+    "bus": "TDRS",
+    "shape": "Box + Dish + 2 Pan",
+    "mass": 2534,
+    "dryMass": 1673,
+    "length": 1.3,
+    "diameter": 2.4,
+    "span": 17.4,
+    "launch": {
+     "date": {
+      "iso": "1993-01-13",
+      "time": "13:59",
+      "uncertain": false
+     },
+     "tag": "1993-003",
+     "vehicle": "Space Shuttle",
+     "flight": "TDRS-F",
+     "site": "NASA John F. Kennedy Space Center, Florida",
+     "siteShort": "Kennedy",
+     "pad": "LC39B"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "tdrs1",
+    "title": {
+     "en": "TDRS (first generation)",
+     "tr": "TDRS (1. kuşak)"
+    },
+    "size": 17.4,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "25994",
+   "name": "TERRA",
+   "cospar": "1999-068A",
+   "norad": 25994,
+   "epoch": "2026-11-26T14:34:59.899Z",
+   "elements": {
+    "n": 14.61205265,
+    "e": 0.00036018,
+    "i": 97.9247,
+    "om": 13.537,
+    "w": 84.006,
+    "ma": 75.2817,
+    "bstar": 0.000047283303,
+    "ndot": 0.00000189,
+    "rev": 43332
+   },
+   "derived": {
+    "a": 7067.422,
+    "perigee": 686.7,
+    "apogee": 691.8,
+    "period": 98.549,
+    "nodal": 0.9592,
+    "regime": "LEO",
+    "sso": true
+   },
+   "title": {
+    "en": "Terra (EOS AM-1)",
+    "tr": "Terra (EOS AM-1)"
+   },
+   "gcat": {
+    "jcat": "S25994",
+    "name": "Terra",
+    "plName": "EOS AM-1",
+    "type": "P",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "Lockheed Martin Space Systems/Valley Forge"
+    ],
+    "bus": "EOS",
+    "shape": "Box + Pan",
+    "mass": 5190,
+    "dryMass": 4854,
+    "length": 6.8,
+    "diameter": 3.5,
+    "span": 10,
+    "launch": {
+     "date": {
+      "iso": "1999-12-18",
+      "time": "18:57",
+      "uncertain": false
+     },
+     "tag": "1999-068",
+     "vehicle": "Atlas IIAS",
+     "flight": "Terra",
+     "site": "South Vandenberg AFB, California",
+     "siteShort": "Vandenberg",
+     "pad": "SLC3E"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "terra",
+    "title": {
+     "en": "Terra (EOS AM-1)",
+     "tr": "Terra (EOS AM-1)"
+    },
+    "size": 17,
+    "source": "NASA 3D Resources",
+    "own": true
+   }
+  },
+  {
+   "id": "30580",
+   "name": "THEMIS A",
+   "cospar": "2007-004A",
+   "norad": 30580,
+   "epoch": "2026-11-25T23:10:14.905Z",
+   "elements": {
+    "n": 0.87843691,
+    "e": 0.83183178,
+    "i": 9.7459,
+    "om": 95.9986,
+    "w": 230.0275,
+    "ma": 21.9232,
+    "bstar": 0,
+    "ndot": -9.9e-7,
+    "rev": 4270
+   },
+   "derived": {
+    "a": 46053.374,
+    "perigee": 1366.6,
+    "apogee": 77983.9,
+    "period": 1639.275,
+    "nodal": -0.1023,
+    "regime": "HEO",
+    "sso": false
+   },
+   "title": {
+    "en": "THEMIS A",
+    "tr": "THEMIS A"
+   },
+   "gcat": {
+    "jcat": "S30580",
+    "name": "THEMIS A",
+    "plName": "THEMIS P5",
+    "type": "P   G",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "Swales Aerospace"
+    ],
+    "bus": "ATK-A100",
+    "shape": "Box + 2 Ant",
+    "mass": 125,
+    "dryMass": 76,
+    "length": 0.5,
+    "diameter": 0.8,
+    "span": 49.6,
+    "launch": {
+     "date": {
+      "iso": "2007-02-17",
+      "time": "23:01",
+      "uncertain": false
+     },
+     "tag": "2007-004",
+     "vehicle": "Delta 7925-10C",
+     "flight": "THEMIS",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "SLC17B"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "themis",
+    "title": {
+     "en": "THEMIS / ARTEMIS",
+     "tr": "THEMIS / ARTEMIS"
+    },
+    "size": 7,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "30797",
+   "name": "THEMIS D",
+   "cospar": "2007-004D",
+   "norad": 30797,
+   "epoch": "2026-11-26T11:10:27.172Z",
+   "elements": {
+    "n": 0.87844117,
+    "e": 0.82936924,
+    "i": 8.4388,
+    "om": 70.1501,
+    "w": 258.0776,
+    "ma": 56.9013,
+    "bstar": 0,
+    "ndot": -0.00000109,
+    "rev": 4250
+   },
+   "derived": {
+    "a": 46053.226,
+    "perigee": 1480,
+    "apogee": 77870.2,
+    "period": 1639.267,
+    "nodal": -0.1,
+    "regime": "HEO",
+    "sso": false
+   },
+   "title": {
+    "en": "THEMIS D",
+    "tr": "THEMIS D"
+   },
+   "gcat": {
+    "jcat": "S30797",
+    "name": "THEMIS D",
+    "plName": "THEMIS P3",
+    "type": "P   G",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "Swales Aerospace"
+    ],
+    "bus": "ATK-A100",
+    "shape": "Box + 2 Ant",
+    "mass": 125,
+    "dryMass": 76,
+    "length": 0.5,
+    "diameter": 0.8,
+    "span": 49.6,
+    "launch": {
+     "date": {
+      "iso": "2007-02-17",
+      "time": "23:01",
+      "uncertain": false
+     },
+     "tag": "2007-004",
+     "vehicle": "Delta 7925-10C",
+     "flight": "THEMIS",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "SLC17B"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "themis",
+    "title": {
+     "en": "THEMIS / ARTEMIS",
+     "tr": "THEMIS / ARTEMIS"
+    },
+    "size": 7,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  },
+  {
+   "id": "30798",
+   "name": "THEMIS E",
+   "cospar": "2007-004E",
+   "norad": 30798,
+   "epoch": "2026-11-26T11:12:20.395Z",
+   "elements": {
+    "n": 0.87839269,
+    "e": 0.8404488,
+    "i": 7.3863,
+    "om": 85.2631,
+    "w": 247.5547,
+    "ma": 304.1377,
+    "bstar": 0,
+    "ndot": -9.4e-7,
+    "rev": 6734
+   },
+   "derived": {
+    "a": 46054.92,
+    "perigee": 970,
+    "apogee": 78383.6,
+    "period": 1639.358,
+    "nodal": -0.1133,
+    "regime": "HEO",
+    "sso": false
+   },
+   "title": {
+    "en": "THEMIS E",
+    "tr": "THEMIS E"
+   },
+   "gcat": {
+    "jcat": "S30798",
+    "name": "THEMIS E",
+    "plName": "THEMIS P4",
+    "type": "P   G",
+    "state": "US",
+    "owner": [
+     "NASA Goddard Space Flight Center"
+    ],
+    "ownerShort": [
+     "GSFC"
+    ],
+    "manufacturer": [
+     "Swales Aerospace"
+    ],
+    "bus": "ATK-A100",
+    "shape": "Box + 2 Ant",
+    "mass": 125,
+    "dryMass": 76,
+    "length": 0.5,
+    "diameter": 0.8,
+    "span": 49.6,
+    "launch": {
+     "date": {
+      "iso": "2007-02-17",
+      "time": "23:01",
+      "uncertain": false
+     },
+     "tag": "2007-004",
+     "vehicle": "Delta 7925-10C",
+     "flight": "THEMIS",
+     "site": "Cape Canaveral Air Station, Florida",
+     "siteShort": "Canaveral",
+     "pad": "SLC17B"
+    }
+   },
+   "note": null,
+   "model": {
+    "key": "themis",
+    "title": {
+     "en": "THEMIS / ARTEMIS",
+     "tr": "THEMIS / ARTEMIS"
+    },
+    "size": 7,
+    "source": "NASA 3D Resources",
+    "own": false
+   }
+  }
+ ]
+}

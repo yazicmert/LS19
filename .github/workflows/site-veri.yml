@@ -1,5 +1,6 @@
-# lookstar19 asteroit verisinin haftalık yenilenmesi: JPL SBDB (yörünge ve 1σ belirsizlikler), CAD (yakın geçişler), Sentry (çarpma riski).
-# Betik (site/scripts/asteroitler.mjs) her kaydı doğrular ve önceki dosyayla karşılaştırır; tutarsız ya da kuşkulu bir değişiklikte dosyaya
+# lookstar19 verisinin haftalık yenilenmesi: asteroitler için JPL SBDB (yörünge ve 1σ belirsizlikler), CAD (yakın geçişler), Sentry (çarpma
+# riski); uydular için CelesTrak GP (LS19'un "data" dalındaki kopyası) ve GCAT (J. McDowell, CC BY 4.0).
+# Betikler (site/scripts/asteroitler.mjs, uydular.mjs) her kaydı doğrular ve önceki dosyayla karşılaştırır; tutarsız ya da kuşkulu bir değişiklikte dosyaya
 # dokunmaz ve iş başarısız olur (GitHub depo sahibine e-posta gönderir). Yalnız alınma tarihinden fazlası değiştiyse inceleme için PR açar:
 # doğrudan main'e yazmaz. GITHUB_TOKEN'la açılan PR'da diğer iş akışları (denetim) koşmaz: site testi ve derleme burada koşar.
 # PR'ı açabilmek için: Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests".
@@ -31,13 +32,21 @@ jobs:
           node-version: 22.23.4
           cache: npm
           cache-dependency-path: site/package-lock.json
-      - name: JPL'den al, doğrula, karşılaştır
-        run: node site/scripts/asteroitler.mjs --rapor "$RUNNER_TEMP/rapor.md"
+      - name: Asteroitler (JPL) — al, doğrula, karşılaştır
+        run: node site/scripts/asteroitler.mjs --rapor "$RUNNER_TEMP/rapor_ast.md"
+      - name: Uydular (CelesTrak GP + GCAT) — al, doğrula, karşılaştır
+        run: |
+          node site/scripts/uydular.mjs --rapor "$RUNNER_TEMP/rapor_sat.md"
+          cat "$RUNNER_TEMP/rapor_ast.md" "$RUNNER_TEMP/rapor_sat.md" > "$RUNNER_TEMP/rapor.md"
       - name: Alınma tarihinden başka değişiklik var mı
         id: degisim
         run: |
-          git show HEAD:site/data/asteroids.json > "$RUNNER_TEMP/eski.json"
-          if node -e "const f=(p)=>{const d=JSON.parse(require('fs').readFileSync(p,'utf8'));delete d.retrieved;return JSON.stringify(d)};process.exit(f(process.argv[1])===f(process.argv[2])?0:1)" "$RUNNER_TEMP/eski.json" site/data/asteroids.json; then
+          degisti=0
+          for f in asteroids satellites; do
+            git show "HEAD:site/data/$f.json" > "$RUNNER_TEMP/eski_$f.json" 2>/dev/null || echo '{}' > "$RUNNER_TEMP/eski_$f.json"
+            node -e "const f=(p)=>{const d=JSON.parse(require('fs').readFileSync(p,'utf8'));delete d.retrieved;if(d.gp)delete d.gp.copied;return JSON.stringify(d)};process.exit(f(process.argv[1])===f(process.argv[2])?0:1)" "$RUNNER_TEMP/eski_$f.json" "site/data/$f.json" || degisti=1
+          done
+          if [ "$degisti" = 0 ]; then
             echo "yok=true" >> "$GITHUB_OUTPUT"
             { echo "Veri doğrulandı; alınma tarihi dışında değişiklik yok, PR açılmadı."; echo; cat "$RUNNER_TEMP/rapor.md"; } >> "$GITHUB_STEP_SUMMARY"
           else
@@ -57,10 +66,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -q -b "$dal"
-          git add site/data/asteroids.json
-          git commit -q -m "lookstar19 verisi: JPL yenilemesi ($tarih)"
+          git add site/data/asteroids.json site/data/satellites.json
+          git commit -q -m "lookstar19 verisi: haftalık yenileme ($tarih)"
           git push -q origin "$dal"
-          { echo "Haftalık JPL yenilemesi (\`.github/workflows/site-veri.yml\`). Veri doğrulandı; site testi ve derlemesi bu işte geçti."; echo; cat "$RUNNER_TEMP/rapor.md"; } > "$RUNNER_TEMP/pr.md"
-          if ! gh pr create --base main --head "$dal" --title "lookstar19 verisi: JPL yenilemesi ($tarih)" --body-file "$RUNNER_TEMP/pr.md" >> "$GITHUB_STEP_SUMMARY" 2>&1; then
+          { echo "Haftalık veri yenilemesi (\`.github/workflows/site-veri.yml\`). Veri doğrulandı; site testi ve derlemesi bu işte geçti."; echo; cat "$RUNNER_TEMP/rapor.md"; } > "$RUNNER_TEMP/pr.md"
+          if ! gh pr create --base main --head "$dal" --title "lookstar19 verisi: haftalık yenileme ($tarih)" --body-file "$RUNNER_TEMP/pr.md" >> "$GITHUB_STEP_SUMMARY" 2>&1; then
             { echo; echo "PR açılamadı; dal gönderildi: \`$dal\`."; echo "Elle açın: https://github.com/${GITHUB_REPOSITORY}/compare/main...$dal?expand=1"; echo; cat "$RUNNER_TEMP/pr.md"; } >> "$GITHUB_STEP_SUMMARY"
           fi

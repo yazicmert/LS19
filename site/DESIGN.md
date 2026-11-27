@@ -203,6 +203,11 @@ Square corners throughout (0px). Borders are 2px ink for controls, fields, the l
 - Close approaches are a table (date TDB, au, km, lunar distances, 3σ ±, v rel, time 3σ) with row groups set in label type; impact risk is an element block under a section rule. Every block names its API and retrieval date in the record's source list.
 - Launch times appear only as precisely as the source states them (month, quarter, hour, minute); the countdown runs only for a launch whose time is known.
 
+### Variable diagrams (signature)
+- Every measured row's label is a button (dotted underline in ink-2, solid cobalt when open). Hover (120 ms intent), focus or tap opens a paper panel under the row: 2px ink border, no shadow, no radius, opened with a 0.18s clip-path reveal (none under reduced motion).
+- Inside: a 300 × 150 SVG drawn from the record's own values and to scale (orbits against Earth's orbit or a to-scale Earth, angles against their reference plane, durations against a year or a day, sizes and masses against familiar references), then one plain sentence. The value sits top-left in cobalt mono; symbol keys sit along the bottom; no text is drawn over geometry.
+- Ink for references (Sun, Earth, ecliptic, equator, Moon), cobalt for the object. The SVG is aria-hidden; the sentence is the button's description. Esc closes and returns focus; only one panel is open at a time.
+
 ### Launch Block (signature)
 - A cobalt field with a 2px ink border: heading on a white hairline, a large mono countdown (T− in on-cobalt-2), the mission name, a key/value list, the paper button, and a link to all launches.
 
