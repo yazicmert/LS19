@@ -176,14 +176,26 @@ const lf9 = R3.rocketLayout(f9.spec), lfh = R3.rocketLayout(fh.spec), lcz = R3.r
 check('3B yerleşim: kademeler istiflenir, toplam boy aracın boyuna yakın; Falcon Heavy 2, Chang Zheng 6A 4 yan itici; kaporta en üstte', Math.abs(lf9.height - f9.spec.length) / f9.spec.length < 0.1
   && lfh.boosters.length === 2 && lcz.boosters.length === 4 && lf9.segs[lf9.segs.length - 1].kind === 'fairing' && lf9.segs.filter((x) => x.kind === 'stage').length === 2 && lf9.boosters.length === 0);
 // 5g) tarihçe: keşif, gözlem, yakın geçiş, Sentry, görev olayları; tarih sırası; gelecek işaretli
-const Hs = await import('../../site/lib/history.js'), EVJ = JSON.parse(rd('../../site/data/events.json'));
-const hb = Hs.asteroidEvents(bennu, 'en', data.retrieved, EVJ), hs = Hs.satEvents(SO.find((o) => o.id === '20580'), 'tr', SD.retrieved, EVJ);
-check('tarihçe (Bennu): LINEAR keşfi, OSIRIS-REx olayları, Sentry; sıralı; gelecekteki yakın geçişler işaretli', hb.some((e) => e.kind === 'disc' && /LINEAR/.test(e.text)) && hb.filter((e) => e.mission === 'OSIRIS-REx').length === 4
+const Hs = await import('../../site/lib/history.js'), EVJ = JSON.parse(rd('../../site/data/events.json')), MJ = JSON.parse(rd('../../site/data/missions.json'));
+const hb = Hs.asteroidEvents(bennu, 'en', data.retrieved, MJ), hs = Hs.satEvents(SO.find((o) => o.id === '20580'), 'tr', SD.retrieved, EVJ);
+check('tarihçe (Bennu): LINEAR keşfi, OSIRIS-REx olayları (fırlatma ve dört olay), Sentry; sıralı; gelecekteki yakın geçişler işaretli', hb.some((e) => e.kind === 'disc' && /LINEAR/.test(e.text)) && hb.filter((e) => e.mission === 'OSIRIS-REx').length === 5 && hb.some((e) => e.kind === 'launch' && e.date === '2016-09-08')
   && hb.some((e) => e.kind === 'risk') && hb.every((e, k, a) => !k || a[k - 1].date <= e.date) && hb.filter((e) => e.future).every((e) => e.date > data.retrieved) && hb.some((e) => e.future));
 check('tarihçe (Hubble): fırlatma (GCAT), açılış, beş bakım görevi, son element kümesi; iki dilde', hs.some((e) => e.kind === 'launch' && /Space Shuttle/.test(e.text)) && hs.filter((e) => e.kind === 'service').length === 5 && hs.some((e) => e.src === 'CelesTrak GP')
   && Hs.satEvents(SO.find((o) => o.id === '20580'), 'en', SD.retrieved, EVJ).some((e) => /servicing/.test(e.text)));
-check('görev olayları dosyası: her cisim ve uydu kimliği veride var; tarih ISO; iki dilde metin', Object.keys(EVJ.asteroids).every((k) => O.some((o) => o.id === k)) && Object.keys(EVJ.satellites).every((k) => SO.some((o) => o.id === k))
-  && [...Object.values(EVJ.asteroids), ...Object.values(EVJ.satellites)].flat().every((e) => /^\d{4}-\d\d-\d\d$/.test(e.date) && e.en && e.tr && e.mission));
+check('uydu görev olayları dosyası: her uydu kimliği veride var; tarih ISO; iki dilde metin; asteroit görevleri ayrı dosyada', !EVJ.asteroids && Object.keys(EVJ.satellites).every((k) => SO.some((o) => o.id === k))
+  && Object.values(EVJ.satellites).flat().every((e) => /^\d{4}-\d\d-\d\d$/.test(e.date) && e.en && e.tr && e.mission));
+// 5g2) asteroitlere giden uzay araçları (data/missions.json): hedef JPL gösterimiyle; şekil modelli ve katalog cisimleri aynı veriyi kullanır
+const MS = await import('../../site/lib/missions.js'), TODAY = '2026-11-27';
+check('görev verisi: kimlik tekil, künye tam, tarih ISO ve fırlatmadan sonra, iki dilde metin, rol bilinen, adres https', MS.checkMissions(MJ).length === 0 && MJ.missions.length >= 18);
+check('görev verisi: önceki elle derlenmiş olayların hepsi taşındı (14 şekil modelli cisim)', ['gaspra', 'eros', 'itokawa', 'steins', 'lutetia', 'vesta', 'ceres', 'toutatis', 'ryugu', 'bennu', 'didymos', 'psyche', 'apophis', '1998ky26'].every((id) => MS.missionsFor(O.find((o) => o.id === id).des, MJ, TODAY).length));
+const dy = MS.missionsFor('65803', MJ, TODAY), ap = MS.missionsFor('99942', MJ, TODAY), ida = MS.missionsFor('243', MJ, TODAY);
+check('görev durumu: Didymos — DART tamamlandı, Hera sürüyor; Apophis planlanıyor; Ida (katalog cismi) Galileo, en yakın 2400 km', dy.map((v) => `${v.mission.id}:${v.status}`).join() === 'dart:done,hera:active'
+  && ap.length === 1 && ap[0].status === 'planned' && ida.length === 1 && ida[0].mission.id === 'galileo' && ida[0].closest === 2400 && MS.missionsFor('433', MJ, TODAY)[0].first === '1998-12-23');
+const vix = MS.visitIndex(MJ, TODAY);
+check('ziyaret dizini: her cisim bir kez, adlı; en kapsamlı iş (Bennu örnek, Didymos çarpma); planlananlar sonda', vix.length === new Set(vix.map((v) => v.des)).size && vix.every((v) => v.name && v.role)
+  && vix.find((v) => v.des === "101955").role === "sample" && vix.find((v) => v.des === "65803").role === "impact" && vix.findIndex((v) => v.status === "planned") > vix.map((v) => v.status).lastIndexOf("active"));
+const hIda = Hs.asteroidEvents({ des: '243', approaches: [], solution: {} }, 'tr', TODAY, MJ);
+check('katalog cismi tarihçesi: Ida için Galileo geçişi (Türkçe metin, görev adı)', hIda.length === 1 && hIda[0].mission === 'Galileo' && /Dactyl/.test(hIda[0].text) && hIda[0].kind === 'flyby');
 check('keşif kaydı (SBDB): 33 cismin en az 30’unda tarih, yer ve keşfeden', O.filter((o) => o.discovery && /^\d{4}-\d\d-\d\d$/.test(o.discovery.date) && o.discovery.location && o.discovery.who).length >= 30);
 check('roket ve tarihçe sayfaları bağlı; haftalık iş akışı roketleri de yeniler', fs.existsSync(new URL('../../site/app/[lang]/rockets/[slug]/page.jsx', import.meta.url)) && /<Timeline/.test(rd('../../site/components/AsteroidRecord.jsx'))
   && /<Timeline/.test(rd('../../site/app/[lang]/satellites/[id]/page.jsx')) && /roketler\.mjs/.test(rd('../../.github/workflows/site-veri.yml')) && /rocketForLL2/.test(rd('../../site/components/NextLaunch.jsx')) && !!en.rk && !!tr.hist);
@@ -198,6 +210,10 @@ const badQ = new URL(SL.listQuery({ group: 'x"]}', cls: 'XYZ', h: '1;drop', d: f
 check('katalog sorgusu: tanınmayan grup, sınıf, sıralama ve sayı yok sayılır (kullanıcı metni sorguya girmez); sayfa sınırlı',
   !badQ.has("sb-group") && !badQ.has("sb-class") && !badQ.has("sb-cdata") && badQ.get("sort") === "spkid" && badQ.get("limit-from") === "0" && new URL(SL.listQuery({ page: 99999999 })).searchParams.get('limit-from') === String(40000 * 50));
 check('katalog: kısmen bilinen ilk gözlem tarihi yalnız bilinen kısmıyla ("2019-??-??" → 2019)', SL.partialDate('2019-??-??') === '2019' && SL.partialDate('2019-5-??') === '2019-05' && SL.partialDate('1995-01-05') === '1995-01-05' && SL.partialDate('') === null && SL.partialDate(null) === null);
+const sq = SL.statQueries();
+check('katalog sayıları: sınıf başına ve gruplar için sayım sorguları (limit 1); son bilinen değerlerin sınıf toplamı toplama eşit', Object.values(sq).every((u) => new URL(u).searchParams.get('limit') === '1')
+  && new URL(sq['cls.APO']).searchParams.get('sb-class') === 'APO' && JSON.parse(new URL(sq.neo140m).searchParams.get('sb-cdata')).AND[0] === 'H|LE|22'
+  && Object.values(SL.KNOWN_STATS.cls).reduce((a, b) => a + b, 0) === SL.KNOWN_STATS.total && SL.STAT_CLASSES.every((c) => en.pr.defs[c] && tr.pr.defs[c] && tr.cls[c]));
 check('katalog adresi: gösterim ↔ adres (boşluk ↔ alt çizgi); geçersiz gösterim reddedilir', SL.desToSlug('2004 MN4') === '2004_MN4' && SL.slugToDes('3524_P-L') === '3524 P-L' && SL.slugToDes('2024%20YR4') === '2024 YR4'
   && SL.validDes('2024 YR4') && SL.validDes('99942') && !SL.validDes('../etc') && !SL.validDes('a'.repeat(40)) && !SL.validDes('x" OR 1'));
 check('katalog sayfaları: /asteroids/all, /sb/[des] (istekle, bir gün önbellek; 33 cisim zengin sayfaya yönlenir), /api/sb; düzen alt sayfaları kilitlemez',

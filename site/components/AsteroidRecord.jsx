@@ -1,5 +1,5 @@
 // asteroit kaydı (ortak): başlık, yörünge ve belirsizlikleri, yörünge çözümü, fiziksel veri, şekil modeli (varsa; yoksa ölçekli yörünge
-// çizimi), yakın geçişler, çarpma riski, tarihçe, kaynaklar. Şekil modeli olan 33 cismin statik sayfası ve 1,59 milyonluk kataloğun
+// çizimi), uzay görevleri, yakın geçişler, çarpma riski, tarihçe, kaynaklar. Şekil modeli olan 33 cismin statik sayfası ve 1,59 milyonluk kataloğun
 // istekle üretilen sayfası (app/[lang]/sb/[des]) bunu kullanır.
 import Link from 'next/link';
 import Masthead from '@/components/Masthead';
@@ -8,17 +8,19 @@ import ElementBlock from '@/components/ElementBlock';
 import ModelViewer from '@/components/ModelViewer';
 import Approaches from '@/components/Approaches';
 import Timeline from '@/components/Timeline';
-import { asteroidEvents, hasCurated } from '@/lib/history';
+import { asteroidEvents } from '@/lib/history';
+import { missionsFor } from '@/lib/missions';
 import { LS19_URL } from '@/lib/config';
 import { t, num, sig, sci, date, clsName } from '@/lib/i18n';
 import { auKm, ls19Link } from '@/lib/asteroids';
 import { ArrowOut, ArrowRight } from '@/components/Icon';
 import { OrbitTop, OrbitPlan, Incl, Node, ArgPeri, MeanAnom, Ticks, Ladder, Scale, Size, Spin, Albedo, Arc, Odds, withViz, LD_KM } from '@/components/viz';
 
-export default function AsteroidRecord({ lang, o, retrieved, cad, events, altPath, back }) {
+const fmtE = (e) => (e.prec === 'year' ? e.date.slice(0, 4) : e.prec === 'month' ? e.date.slice(0, 7) : e.date);
+export default function AsteroidRecord({ lang, o, retrieved, cad, missions, altPath, back }) {
   const L = t(lang), A = L.ast, E = o.elements, Sg = o.sigma || {}, P = o.phys, M = o.model, el = A.el, So = o.solution || {}, R = A.risk, sen = o.sentry;
   const pm = (k) => (Sg[k] != null ? `± ${sci(lang, Sg[k])}` : null);
-  const moidKm = auKm(o.moid), longest = M ? Math.max(...M.dims) : null;
+  const moidKm = auKm(o.moid), longest = M ? Math.max(...M.dims) : null, visits = missionsFor(o.des, missions, retrieved), Ms = L.ms;
   const orbit = [
     ['a', el.a, num(lang, E.a, 6), 'au', null, pm('a')],
     ['e', el.e, num(lang, E.e, 6), null, null, pm('e')],
@@ -102,6 +104,7 @@ export default function AsteroidRecord({ lang, o, retrieved, cad, events, altPat
             <span>{clsName(lang, o.orbitClass)}</span>
             {o.neo ? <span className="flag">{A.flags.neo}</span> : null}
             {o.pha ? <span className="flag flag--ink">{A.flags.pha}</span> : null}
+            {visits.length ? <a className="flag flag--cobalt" href="#ms-h">{visits.some((v) => v.status !== 'planned') ? Ms.flagVisited : Ms.flagPlanned}</a> : null}
           </p>
         </header>
         <div className="rec__grid">
@@ -125,6 +128,31 @@ export default function AsteroidRecord({ lang, o, retrieved, cad, events, altPat
             ) : <OrbitPlan a={E.a} e={E.e} w={E.w} om={E.om} lang={lang} name={o.name} />}
           </div>
         </div>
+        {visits.length ? (
+          <section className="rec__sec" aria-labelledby="ms-h">
+            <div className="sec__head"><h2 id="ms-h" className="sec__title">{Ms.title}</h2></div>
+            <p className="ca__lead">{Ms.lead(o.name, visits.length)}</p>
+            <ul className="ms">
+              {visits.map(({ mission: m, target: tg, status, closest }) => {
+                const ev = [...tg.events].sort((a, b) => (a.date < b.date ? -1 : 1)), a = ev[0], z = ev[ev.length - 1];
+                return (
+                  <li key={m.id} className="ms__item">
+                    <h3 className="ms__name">{m.url ? <a href={m.url} rel="noopener">{m.name}<ArrowOut size={13} /></a> : m.name}</h3>
+                    <p className="ms__tags"><span className="flag">{m.agency}</span><span className={status === 'planned' ? 'flag' : 'flag flag--ink'}>{Ms.status[status]}</span></p>
+                    <dl className="ms__facts">
+                      <div><dt>{Ms.role}</dt><dd>{Ms.roles[tg.role]}</dd></div>
+                      <div><dt>{status === 'planned' ? Ms.when : Ms.dates}</dt><dd className="mono">{a === z ? fmtE(a) : `${fmtE(a)} – ${fmtE(z)}`}</dd></div>
+                      {closest != null ? <div><dt>{Ms.closest}</dt><dd className="mono">{`≈ ${num(lang, closest, closest < 10 ? 1 : 0)} ${A.km}`}</dd></div> : null}
+                      <div><dt>{Ms.launch}</dt><dd className="mono">{m.launch}</dd></div>
+                    </dl>
+                    <p className="ms__desc">{m[lang] || m.en}</p>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="note">{Ms.note}</p>
+          </section>
+        ) : null}
         {o.neo || o.approaches.length ? (
           <section className="rec__sec" aria-labelledby="ca-h">
             <div className="sec__head"><h2 id="ca-h" className="sec__title">{A.ca.title}</h2></div>
@@ -141,8 +169,8 @@ export default function AsteroidRecord({ lang, o, retrieved, cad, events, altPat
         <section className="rec__sec" aria-labelledby="hist-h">
           <div className="sec__head"><h2 id="hist-h" className="sec__title">{L.hist.title}</h2></div>
           <p className="ca__lead">{L.hist.lead}</p>
-          <Timeline lang={lang} events={asteroidEvents(o, lang, retrieved, events)} today={retrieved} headingId="hist-h" />
-          {hasCurated(events, 'asteroids', o.id) ? <p className="note">{L.hist.srcNote}</p> : null}
+          <Timeline lang={lang} events={asteroidEvents(o, lang, retrieved, missions)} today={retrieved} headingId="hist-h" />
+          {visits.length ? <p className="note">{L.hist.srcNote}</p> : null}
         </section>
         <section className="rec__src" aria-labelledby="src-h">
           <h2 id="src-h" className="rec__srch">{A.sources}</h2>

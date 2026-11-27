@@ -434,3 +434,44 @@ th[aria-sort] .th__sort { color: var(--cobalt); }
   .vt__pop[data-open] { animation: none; }
   .btn { transition: none; }
 }
+
+/* uzay görevleri (asteroit kaydı) ve "Asteroitler hakkında" (katalog sayfası) */
+.flag--cobalt { border-color: var(--cobalt); color: var(--cobalt); text-decoration: none; }
+a.flag--cobalt:hover { background: var(--cobalt); color: var(--on-cobalt); }
+.rec__des .flag--cobalt { font-family: var(--f-mono), monospace; }
+.ms { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 0 32px; }
+.ms__item { padding: 16px 0 18px; border-bottom: 1px solid var(--hair); min-width: 0; }
+.ms__name { margin: 0 0 8px; font-size: 22px; font-weight: 800; font-variation-settings: 'wdth' 80; line-height: 1.1; }
+.ms__name a { text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.ms__name a:hover { color: var(--cobalt); text-decoration: underline; }
+.ms__tags { margin: 0 0 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+.ms__facts { margin: 0; display: grid; gap: 4px; font-size: 15px; }
+.ms__facts div { display: flex; justify-content: space-between; gap: 16px; border-bottom: 1px dotted var(--hair); padding: 3px 0; }
+.ms__facts dt { color: var(--ink-2); }
+.ms__facts dd { margin: 0; text-align: right; }
+.ms__desc { margin: 10px 0 0; color: var(--ink-2); font-size: 15px; }
+.pr { margin-top: clamp(44px, 6vw, 72px); }
+.pr__lead { margin: 14px 0 0; max-width: 70ch; font-size: 18px; }
+.pr__h { margin: clamp(28px, 4vw, 40px) 0 8px; font-size: 22px; font-weight: 800; font-variation-settings: 'wdth' 80; line-height: 1.1; }
+.pr__p { margin: 0 0 12px; max-width: 72ch; color: var(--ink-2); }
+.pr__stats { margin: 0 0 26px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); border-top: 1px solid var(--hair); }
+.pr__stats div { padding: 12px 16px 12px 0; border-bottom: 1px solid var(--hair); }
+.pr__stats dt { font-size: 14px; color: var(--ink-2); }
+.pr__stats dd { margin: 2px 0 0; font-size: 22px; font-variant-numeric: tabular-nums; }
+.pr__map { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 8px 0 14px; }
+.pr__map svg { display: block; width: 100%; min-width: 620px; height: auto; }
+.pr__band { fill: var(--cobalt); }
+.pr__pl { stroke: var(--ink); stroke-width: 1.5; }
+.pr__pn { font-family: var(--f-sans), system-ui, sans-serif; font-size: 12px; fill: var(--ink); }
+.pr__zl { font-family: var(--f-sans), system-ui, sans-serif; font-size: 12.5px; font-weight: 700; fill: var(--cobalt); }
+.pr__tick { font-family: var(--f-mono), monospace; font-size: 10.5px; fill: var(--ink-2); }
+.pr__cls .pr__def { white-space: normal; min-width: 260px; color: var(--ink-2); }
+.pr__cls th a { color: var(--cobalt); }
+.pr__sh { display: flex; align-items: center; gap: 10px; min-width: 190px; }
+.pr__bar { flex: 1 1 auto; height: 8px; background: var(--paper-2); display: block; }
+.pr__bar span { display: block; height: 100%; background: var(--cobalt); }
+.pr__sh .mono { font-size: 13px; min-width: 7ch; text-align: right; }
+.pr__cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 0 40px; }
+.pr__formula { margin: 4px 0 14px; padding: 10px 12px; background: var(--paper-2); font-size: 15px; overflow-wrap: anywhere; }
+.pr__links { display: flex; flex-wrap: wrap; gap: 18px; margin: 0; }
+.pr__des { margin-left: 10px; font-size: 13px; color: var(--ink-2); font-weight: 400; }

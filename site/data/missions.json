@@ -1,0 +1,222 @@
+{
+ "note": "Asteroitlere giden uzay araçları: ajansların görev kayıtlarından elle derlendi (NASA, JAXA, ESA, CNSA, ASI). Hedefler JPL SBDB birincil gösterimiyle (des). Tarihler UTC; prec: day | month | year. kind planned: henüz gerçekleşmedi. km: en yakın geçiş uzaklığı (yaklaşık). role: aracın bu cisimde yaptığı iş. ongoing: araç hâlâ orada çalışıyor.",
+ "missions": [
+  {
+   "id": "galileo", "name": "Galileo", "agency": "NASA", "launch": "1989-10-18", "url": "https://science.nasa.gov/mission/galileo/",
+   "en": "Jupiter orbiter; the first spacecraft to fly past an asteroid.", "tr": "Jüpiter yörünge aracı; bir asteroidin yakınından geçen ilk uzay aracı.",
+   "targets": [
+    { "des": "951", "name": "Gaspra", "role": "flyby", "events": [
+     { "date": "1991-10-29", "kind": "flyby", "km": 1600, "en": "Galileo flies past on its way to Jupiter: the first close-up images of an asteroid.", "tr": "Galileo, Jüpiter'e giderken yakından geçer: bir asteroidin ilk yakın görüntüleri." }
+    ] },
+    { "des": "243", "name": "Ida", "role": "flyby", "events": [
+     { "date": "1993-08-28", "kind": "flyby", "km": 2400, "en": "Galileo flies past and finds the moon Dactyl: the first known moon of an asteroid.", "tr": "Galileo yakından geçer ve Dactyl uydusunu bulur: bir asteroidin bilinen ilk uydusu." }
+    ] }
+   ]
+  },
+  {
+   "id": "near", "name": "NEAR Shoemaker", "agency": "NASA", "launch": "1996-02-17", "url": "https://science.nasa.gov/mission/near-shoemaker/",
+   "en": "The first spacecraft to orbit an asteroid and to land on one.", "tr": "Bir asteroidin yörüngesine giren ve üstüne konan ilk uzay aracı.",
+   "targets": [
+    { "des": "253", "name": "Mathilde", "role": "flyby", "events": [
+     { "date": "1997-06-27", "kind": "flyby", "km": 1212, "en": "NEAR Shoemaker flies past on its way to Eros.", "tr": "NEAR Shoemaker, Eros'a giderken yakından geçer." }
+    ] },
+    { "des": "433", "name": "Eros", "role": "orbit", "primary": true, "events": [
+     { "date": "1998-12-23", "kind": "flyby", "km": 3827, "en": "NEAR Shoemaker flies past after a failed orbit-insertion burn.", "tr": "NEAR Shoemaker, başarısız yörünge yakalama ateşlemesinin ardından yakından geçer." },
+     { "date": "2000-02-14", "kind": "orbit", "en": "NEAR Shoemaker enters orbit: the first spacecraft to orbit an asteroid.", "tr": "NEAR Shoemaker yörüngeye girer: bir asteroidin yörüngesine giren ilk uzay aracı." },
+     { "date": "2001-02-12", "kind": "landing", "en": "NEAR Shoemaker touches down on the surface.", "tr": "NEAR Shoemaker yüzeye konar." }
+    ] }
+   ]
+  },
+  {
+   "id": "cassini", "name": "Cassini", "agency": "NASA · ESA · ASI", "launch": "1997-10-15", "url": "https://science.nasa.gov/mission/cassini/",
+   "en": "Saturn orbiter; imaged an asteroid from afar on the way.", "tr": "Satürn yörünge aracı; yolda bir asteroidi uzaktan görüntüledi.",
+   "targets": [
+    { "des": "2685", "name": "Masursky", "role": "flyby", "events": [
+     { "date": "2000-01-23", "kind": "flyby", "km": 1600000, "en": "Cassini images it from a distance on its way to Saturn.", "tr": "Cassini, Satürn'e giderken onu uzaktan görüntüler." }
+    ] }
+   ]
+  },
+  {
+   "id": "ds1", "name": "Deep Space 1", "agency": "NASA", "launch": "1998-10-24", "url": "https://science.nasa.gov/mission/deep-space-1/",
+   "en": "Technology test of ion propulsion and autonomous navigation.", "tr": "İyon itkisi ve özerk seyrüsefer için teknoloji denemesi.",
+   "targets": [
+    { "des": "9969", "name": "Braille", "role": "flyby", "events": [
+     { "date": "1999-07-29", "kind": "flyby", "km": 26, "en": "Deep Space 1 flies past, navigating on its own.", "tr": "Deep Space 1, kendi kendine seyrederek yakından geçer." }
+    ] }
+   ]
+  },
+  {
+   "id": "stardust", "name": "Stardust", "agency": "NASA", "launch": "1999-02-07", "url": "https://science.nasa.gov/mission/stardust/",
+   "en": "Brought back dust from comet Wild 2.", "tr": "Wild 2 kuyrukluyıldızından toz getirdi.",
+   "targets": [
+    { "des": "5535", "name": "Annefrank", "role": "flyby", "events": [
+     { "date": "2002-11-02", "kind": "flyby", "km": 3079, "en": "Stardust flies past, rehearsing for its comet encounter.", "tr": "Stardust, kuyrukluyıldız buluşmasının provası olarak yakından geçer." }
+    ] }
+   ]
+  },
+  {
+   "id": "hayabusa", "name": "Hayabusa", "agency": "JAXA", "launch": "2003-05-09", "url": "https://www.isas.jaxa.jp/en/missions/spacecraft/past/hayabusa.html",
+   "en": "The first mission to bring asteroid material back to Earth.", "tr": "Dünya'ya asteroit malzemesi getiren ilk görev.",
+   "targets": [
+    { "des": "25143", "name": "Itokawa", "role": "sample", "primary": true, "events": [
+     { "date": "2005-09-12", "kind": "orbit", "en": "Hayabusa arrives and begins station-keeping.", "tr": "Hayabusa varır ve yakında konum tutmaya başlar." },
+     { "date": "2005-11-20", "kind": "landing", "en": "Hayabusa makes its first touchdown.", "tr": "Hayabusa ilk kez yüzeye değer." },
+     { "date": "2005-11-26", "kind": "sample", "en": "Hayabusa makes its second touchdown to collect surface grains.", "tr": "Hayabusa yüzey taneciği toplamak için ikinci kez yüzeye değer." },
+     { "date": "2010-06-13", "kind": "sample", "en": "The sample capsule lands in Australia: the first asteroid material returned to Earth.", "tr": "Örnek kapsülü Avustralya'ya iner: Dünya'ya getirilen ilk asteroit malzemesi." }
+    ] }
+   ]
+  },
+  {
+   "id": "rosetta", "name": "Rosetta", "agency": "ESA", "launch": "2004-03-02", "url": "https://www.esa.int/Science_Exploration/Space_Science/Rosetta",
+   "en": "Comet 67P orbiter and lander; flew past two asteroids on the way.", "tr": "67P kuyrukluyıldızının yörünge aracı ve iniş aracı; yolda iki asteroidin yakınından geçti.",
+   "targets": [
+    { "des": "2867", "name": "Šteins", "role": "flyby", "events": [
+     { "date": "2008-09-05", "kind": "flyby", "km": 800, "en": "Rosetta flies past on its way to comet 67P.", "tr": "Rosetta, 67P kuyrukluyıldızına giderken yakından geçer." }
+    ] },
+    { "des": "21", "name": "Lutetia", "role": "flyby", "events": [
+     { "date": "2010-07-10", "kind": "flyby", "km": 3162, "en": "Rosetta flies past on its way to comet 67P.", "tr": "Rosetta, 67P kuyrukluyıldızına giderken yakından geçer." }
+    ] }
+   ]
+  },
+  {
+   "id": "newhorizons", "name": "New Horizons", "agency": "NASA", "launch": "2006-01-19", "url": "https://science.nasa.gov/mission/new-horizons/",
+   "en": "Flew past Pluto, then the Kuiper belt object Arrokoth.", "tr": "Plüton'un, ardından Kuiper kuşağı cismi Arrokoth'un yakınından geçti.",
+   "targets": [
+    { "des": "132524", "name": "APL", "role": "flyby", "events": [
+     { "date": "2006-06-13", "kind": "flyby", "km": 102000, "en": "New Horizons images it from a distance on its way to Pluto.", "tr": "New Horizons, Plüton'a giderken onu uzaktan görüntüler." }
+    ] },
+    { "des": "486958", "name": "Arrokoth", "role": "flyby", "events": [
+     { "date": "2019-01-01", "kind": "flyby", "km": 3500, "en": "New Horizons flies past: the most distant object yet explored up close.", "tr": "New Horizons yakından geçer: yakından incelenen en uzak cisim." }
+    ] }
+   ]
+  },
+  {
+   "id": "dawn", "name": "Dawn", "agency": "NASA", "launch": "2007-09-27", "url": "https://science.nasa.gov/mission/dawn/",
+   "en": "The first spacecraft to orbit two different bodies beyond Earth.", "tr": "Dünya dışında iki ayrı cismin yörüngesine giren ilk uzay aracı.",
+   "targets": [
+    { "des": "4", "name": "Vesta", "role": "orbit", "primary": true, "events": [
+     { "date": "2011-07-16", "kind": "orbit", "en": "Dawn enters orbit.", "tr": "Dawn yörüngeye girer." },
+     { "date": "2012-09-05", "kind": "depart", "en": "Dawn leaves Vesta for Ceres.", "tr": "Dawn, Ceres'e gitmek için Vesta'dan ayrılır." }
+    ] },
+    { "des": "1", "name": "Ceres", "role": "orbit", "events": [
+     { "date": "2015-03-06", "kind": "orbit", "en": "Dawn enters orbit: the first spacecraft to orbit a dwarf planet.", "tr": "Dawn yörüngeye girer: bir cüce gezegenin yörüngesine giren ilk uzay aracı." },
+     { "date": "2018-11-01", "kind": "end", "en": "Dawn's mission ends after it runs out of hydrazine; it stays in orbit.", "tr": "Dawn'ın hidrazini biter ve görevi sona erer; yörüngede kalır." }
+    ] }
+   ]
+  },
+  {
+   "id": "change2", "name": "Chang'e 2", "agency": "CNSA", "launch": "2010-10-01", "url": null,
+   "en": "Lunar orbiter that went on to fly past an asteroid.", "tr": "Ay yörünge aracı; ardından bir asteroidin yakınından geçti.",
+   "targets": [
+    { "des": "4179", "name": "Toutatis", "role": "flyby", "events": [
+     { "date": "2012-12-13", "kind": "flyby", "km": 3.2, "en": "Chang'e 2 flies past after leaving lunar orbit.", "tr": "Chang'e 2, Ay yörüngesinden ayrıldıktan sonra yakından geçer." }
+    ] }
+   ]
+  },
+  {
+   "id": "hayabusa2", "name": "Hayabusa2", "agency": "JAXA", "launch": "2014-12-03", "url": "https://www.isas.jaxa.jp/en/missions/spacecraft/current/hayabusa2.html",
+   "en": "Returned samples from Ryugu; now on an extended mission to two more asteroids.", "tr": "Ryugu'dan örnek getirdi; uzatılmış görevinde iki asteroide daha gidiyor.",
+   "targets": [
+    { "des": "162173", "name": "Ryugu", "role": "sample", "primary": true, "events": [
+     { "date": "2018-06-27", "kind": "orbit", "en": "Hayabusa2 arrives.", "tr": "Hayabusa2 varır." },
+     { "date": "2019-02-22", "kind": "sample", "en": "First touchdown and surface sample.", "tr": "İlk yüzeye değme ve yüzey örneği." },
+     { "date": "2019-04-05", "kind": "impact", "en": "A copper impactor makes an artificial crater.", "tr": "Bakır bir çarpıştırıcı yapay bir krater açar." },
+     { "date": "2019-07-11", "kind": "sample", "en": "Second touchdown, near the artificial crater.", "tr": "Yapay kratere yakın ikinci yüzeye değme." },
+     { "date": "2019-11-13", "kind": "depart", "en": "Hayabusa2 departs for Earth.", "tr": "Hayabusa2 Dünya'ya dönmek için ayrılır." },
+     { "date": "2020-12-05", "kind": "sample", "en": "The sample capsule lands in Australia.", "tr": "Örnek kapsülü Avustralya'ya iner." }
+    ] },
+    { "des": "98943", "name": "Torifune", "role": "flyby", "events": [
+     { "date": "2026-07-05", "kind": "flyby", "en": "Hayabusa2 flies past at about 5 km/s on its extended mission.", "tr": "Hayabusa2, uzatılmış görevinde saniyede yaklaşık 5 km hızla yakından geçer." }
+    ] },
+    { "des": "1998 KY26", "name": "1998 KY26", "role": "rendezvous", "events": [
+     { "date": "2031-07-01", "prec": "year", "kind": "planned", "en": "Planned arrival of Hayabusa2 on its extended mission.", "tr": "Hayabusa2'nin uzatılmış görevinde planlanan varışı." }
+    ] }
+   ]
+  },
+  {
+   "id": "osirisrex", "name": "OSIRIS-REx", "agency": "NASA", "launch": "2016-09-08", "url": "https://science.nasa.gov/mission/osiris-rex/",
+   "en": "Returned the largest asteroid sample so far, from Bennu.", "tr": "Bugüne kadarki en büyük asteroit örneğini Bennu'dan getirdi.",
+   "targets": [
+    { "des": "101955", "name": "Bennu", "role": "sample", "primary": true, "events": [
+     { "date": "2018-12-03", "kind": "orbit", "en": "OSIRIS-REx arrives.", "tr": "OSIRIS-REx varır." },
+     { "date": "2020-10-20", "kind": "sample", "en": "OSIRIS-REx collects a surface sample (touch-and-go).", "tr": "OSIRIS-REx yüzeye değip örnek alır." },
+     { "date": "2021-05-10", "kind": "depart", "en": "OSIRIS-REx departs for Earth.", "tr": "OSIRIS-REx Dünya'ya dönmek için ayrılır." },
+     { "date": "2023-09-24", "kind": "sample", "en": "The sample capsule lands in Utah.", "tr": "Örnek kapsülü Utah'a iner." }
+    ] }
+   ]
+  },
+  {
+   "id": "osirisapex", "name": "OSIRIS-APEX", "agency": "NASA", "launch": "2016-09-08", "url": "https://science.nasa.gov/mission/osiris-apex/",
+   "en": "The OSIRIS-REx spacecraft, renamed for its extended mission to Apophis.", "tr": "OSIRIS-REx aracının Apophis'e giden uzatılmış görevindeki adı.",
+   "targets": [
+    { "des": "99942", "name": "Apophis", "role": "rendezvous", "events": [
+     { "date": "2029-04-13", "prec": "year", "kind": "planned", "en": "OSIRIS-APEX (the extended OSIRIS-REx) is planned to rendezvous after the 2029 Earth flyby.", "tr": "OSIRIS-APEX'in (uzatılmış OSIRIS-REx) 2029 Dünya geçişinden sonra buluşması planlanıyor." }
+    ] }
+   ]
+  },
+  {
+   "id": "lucy", "name": "Lucy", "agency": "NASA", "launch": "2021-10-16", "url": "https://science.nasa.gov/mission/lucy/",
+   "en": "A tour of the Jupiter Trojans, with two main-belt asteroids on the way.", "tr": "Jüpiter Truva asteroitleri turu; yolda iki ana kuşak asteroidi.",
+   "targets": [
+    { "des": "152830", "name": "Dinkinesh", "role": "flyby", "events": [
+     { "date": "2023-11-01", "kind": "flyby", "km": 425, "en": "Lucy flies past and finds a moon, Selam, itself two lobes in contact.", "tr": "Lucy yakından geçer ve kendisi iki parçanın birleşiminden oluşan Selam uydusunu bulur." }
+    ] },
+    { "des": "52246", "name": "Donaldjohanson", "role": "flyby", "events": [
+     { "date": "2025-04-20", "kind": "flyby", "km": 960, "en": "Lucy flies past in a rehearsal for the Trojans.", "tr": "Lucy, Truva asteroitlerinin provası olarak yakından geçer." }
+    ] },
+    { "des": "3548", "name": "Eurybates", "role": "flyby", "events": [
+     { "date": "2027-08-12", "prec": "month", "kind": "planned", "en": "Planned Lucy flyby of Eurybates and its moon Queta.", "tr": "Lucy'nin Eurybates ve uydusu Queta'nın yakınından planlanan geçişi." }
+    ] },
+    { "des": "15094", "name": "Polymele", "role": "flyby", "events": [
+     { "date": "2027-09-15", "prec": "month", "kind": "planned", "en": "Planned Lucy flyby.", "tr": "Lucy'nin planlanan yakın geçişi." }
+    ] },
+    { "des": "11351", "name": "Leucus", "role": "flyby", "events": [
+     { "date": "2028-04-18", "prec": "month", "kind": "planned", "en": "Planned Lucy flyby.", "tr": "Lucy'nin planlanan yakın geçişi." }
+    ] },
+    { "des": "21900", "name": "Orus", "role": "flyby", "events": [
+     { "date": "2028-11-11", "prec": "month", "kind": "planned", "en": "Planned Lucy flyby.", "tr": "Lucy'nin planlanan yakın geçişi." }
+    ] },
+    { "des": "617", "name": "Patroclus", "role": "flyby", "events": [
+     { "date": "2033-03-02", "prec": "month", "kind": "planned", "en": "Planned Lucy flyby of the binary Patroclus–Menoetius, its last target.", "tr": "Lucy'nin son hedefi, çift asteroit Patroclus–Menoetius'un yakınından planlanan geçişi." }
+    ] }
+   ]
+  },
+  {
+   "id": "dart", "name": "DART", "agency": "NASA", "launch": "2021-11-24", "url": "https://science.nasa.gov/mission/dart/",
+   "en": "The first test of deflecting an asteroid by hitting it.", "tr": "Bir asteroidi çarparak saptırmanın ilk denemesi.",
+   "targets": [
+    { "des": "65803", "name": "Didymos", "role": "impact", "primary": true, "events": [
+     { "date": "2022-09-26", "kind": "impact", "en": "DART hits the moonlet Dimorphos and shortens its orbit around Didymos.", "tr": "DART, uydusu Dimorphos'a çarpar ve onun Didymos çevresindeki yörüngesini kısaltır." }
+    ] }
+   ]
+  },
+  {
+   "id": "hera", "name": "Hera", "agency": "ESA", "launch": "2024-10-07", "url": "https://www.esa.int/Space_Safety/Hera",
+   "en": "Surveys the Didymos system after DART's impact.", "tr": "DART'ın çarpmasından sonra Didymos sistemini inceler.",
+   "targets": [
+    { "des": "65803", "name": "Didymos", "role": "rendezvous", "primary": true, "ongoing": true, "events": [
+     { "date": "2026-11-01", "prec": "month", "kind": "orbit", "en": "Hera arrives at the Didymos system.", "tr": "Hera, Didymos sistemine varır." }
+    ] }
+   ]
+  },
+  {
+   "id": "psyche", "name": "Psyche", "agency": "NASA", "launch": "2023-10-13", "url": "https://science.nasa.gov/mission/psyche/",
+   "en": "On its way to a metal-rich asteroid.", "tr": "Metal bakımından zengin bir asteroide gidiyor.",
+   "targets": [
+    { "des": "16", "name": "Psyche", "role": "orbit", "primary": true, "events": [
+     { "date": "2029-08-01", "prec": "year", "kind": "planned", "en": "Planned arrival of the Psyche spacecraft.", "tr": "Psyche aracının planlanan varışı." }
+    ] }
+   ]
+  },
+  {
+   "id": "tianwen2", "name": "Tianwen-2", "agency": "CNSA", "launch": "2025-05-28", "url": null,
+   "en": "Sample return from the quasi-satellite Kamoʻoalewa, then on to a comet.", "tr": "Yarı uydu Kamoʻoalewa'dan örnek getirme; ardından bir kuyrukluyıldıza.",
+   "targets": [
+    { "des": "469219", "name": "Kamoʻoalewa", "role": "sample", "primary": true, "events": [
+     { "date": "2026-07-01", "prec": "year", "kind": "orbit", "en": "Tianwen-2 arrives to study it and collect a sample.", "tr": "Tianwen-2, onu incelemek ve örnek almak için varır." },
+     { "date": "2027-11-01", "prec": "year", "kind": "planned", "en": "The sample capsule is planned to land in China.", "tr": "Örnek kapsülünün Çin'e inmesi planlanıyor." }
+    ] }
+   ]
+  }
+ ]
+}
