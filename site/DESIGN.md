@@ -211,6 +211,10 @@ Square corners throughout (0px). Borders are 2px ink for controls, fields, the l
 - Rockets are drawn from GCAT dimensions in the same cobalt stage as shape models, but taller (3:4): stacked stage cylinders, cones where the diameter changes, an ogive fairing, boosters around the core, dark engine bells. Neutral colours; the page says "drawn from dimensions".
 - The launch record is grouped by year in disclosure rows (newest two open); failures carry an ink flag.
 
+### Full catalogue
+- The 33 shape-model objects stay the curated collection; a ruled banner on their index links to the full JPL catalogue (`/asteroids/all`). The catalogue uses the same filter bar and table, plus a pager (ink buttons, mono "Page n of N"); a text query switches to a two-column list of matches.
+- A catalogue object's record is the same record as a shape-model object; where no shape model exists, the right column holds the orbit plan (paper panel, 2px ink border): the orbit projected on the ecliptic with the planets' orbits to scale.
+
 ### Filter bar
 - Sits between a list page's lead and its table, opened by a 2px ink rule. Labelled fields in a wrapping row: a mono search field and native selects (2px ink border, white, drawn chevron; options show counts) and toggle buttons (1px ink border; pressed = ink fill, paper text). Below: the mono "n of total shown" and a cobalt "Clear filters" link only when something is set.
 - State lives in the address (`?cls=APO&pha=1`, `?q=falcon`), so a filtered view can be shared; the first render matches the server's unfiltered HTML.

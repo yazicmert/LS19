@@ -246,6 +246,7 @@ html { scrollbar-color: var(--ink-2) var(--paper-2); }
 .ss__opt.is-on .ss__num, .ss__opt.is-on .ss__meta { color: var(--on-cobalt-2); }
 .ss__opt--act { margin-top: 6px; border-top: 2px solid var(--ink); }
 .ss__opt--act .ss__name { font-weight: 600; color: var(--cobalt); }
+.ss__opt--act2 { margin-top: 0; border-top: 1px solid var(--hair); }
 .ss__opt--act.is-on .ss__name { color: var(--on-cobalt); }
 .ss__msg { margin: 0; padding: 10px 14px; color: var(--ink-2); font-size: 15px; }
 
@@ -274,6 +275,17 @@ html { scrollbar-color: var(--ink-2) var(--paper-2); }
 .flt__reset { border: 0; background: none; padding: 0; font: inherit; font-weight: 650; color: var(--cobalt); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .flt__none { margin: 18px 0; color: var(--ink-2); }
 .lch__all { min-width: 0; }
+/* tüm asteroitler kataloğu */
+.lch__all, .cat { min-width: 0; }
+.cat__total { margin: -10px 0 18px; color: var(--ink-2); font-size: 14px; }
+.cat__banner { margin: -8px 0 22px; padding: 12px 0; border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); color: var(--ink-2); }
+.cat.is-loading .tbl, .cat.is-loading .cat__find { opacity: 0.5; transition: opacity 0.2s var(--ease); }
+.cat__find { list-style: none; margin: 0; padding: 0; columns: 2 280px; column-gap: 32px; }
+.cat__find li { break-inside: avoid; padding: 7px 0; border-bottom: 1px solid var(--hair); display: flex; gap: 10px; align-items: baseline; }
+.cat__find a { font-weight: 650; text-decoration: none; }
+.cat__find a:hover { color: var(--cobalt); text-decoration: underline; }
+.pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 0 0; }
+.pager .btn[disabled] { opacity: 0.35; cursor: default; pointer-events: none; }
 .lch__rk { color: inherit; text-decoration: underline; text-decoration-color: var(--hair); text-underline-offset: 3px; }
 .lch__rk:hover { color: var(--cobalt); text-decoration-color: var(--cobalt); }
 .nl__rk { color: var(--on-cobalt); text-decoration: underline; text-decoration-color: var(--on-cobalt-2); text-underline-offset: 3px; }
@@ -353,6 +365,9 @@ th[aria-sort] .th__sort { color: var(--cobalt); }
 .mv__stage { position: relative; aspect-ratio: 1 / 1; background: var(--cobalt); border: 2px solid var(--ink); touch-action: none; cursor: grab; overflow: hidden; }
 .mv__stage:active { cursor: grabbing; }
 .mv--tall .mv__stage { aspect-ratio: 3 / 4; }
+.op { margin: 0; border: 2px solid var(--ink); background: var(--paper); padding: 12px; }
+.op .vz { max-width: 520px; margin: 0 auto; }
+.op__cap { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0 0; margin-top: 8px; border-top: 1px solid var(--hair); color: var(--ink-2); font-size: 14px; }
 .mv__stage canvas { display: block; width: 100%; height: 100%; }
 .mv__msg { position: absolute; inset: 0; margin: 0; display: grid; place-items: center; color: var(--on-cobalt-2); font-family: var(--f-mono), monospace; font-size: 14px; }
 .mv__cap { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--hair); color: var(--ink-2); font-size: 14px; }

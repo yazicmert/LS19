@@ -312,3 +312,29 @@ export const withViz = (rows, map) => rows.map((r) => {
   if (!r || !map[r[1]]) return r;
   const x = [...r]; while (x.length < 6) x.push(null); x[6] = map[r[1]]; return x;
 });
+// yörünge planı (şekil modeli olmayan cisimler için büyük çizim): Güneş merkezde, gezegen yörüngeleri ölçekli (çember), cismin yörüngesi
+// ekliptiğe izdüşümle (günberi boylamı ϖ = Ω + ω), günberi noktası işaretli. Ölçek cismin günötesine göre; Dünya her zaman çizilir.
+const PLANETS = [[0.387, 'Mercury', 'Merkür'], [0.723, 'Venus', 'Venüs'], [1, 'Earth', 'Dünya'], [1.524, 'Mars', 'Mars'], [5.203, 'Jupiter', 'Jüpiter'], [9.537, 'Saturn', 'Satürn'], [19.19, 'Uranus', 'Uranüs'], [30.07, 'Neptune', 'Neptün']];
+export function OrbitPlan({ a, e, w = 0, om = 0, lang, name }) {
+  const Q = a * (1 + e), R = Math.max(Q * 1.08, 1.15), S = 136 / R, c = 150, varpi = ((om + w) % 360) * D2R, tr = lang === 'tr';
+  const shown = PLANETS.filter(([r]) => r <= R && r * S > 4);
+  return (
+    <figure className="op">
+      <svg className="vz" viewBox="0 0 300 300" width="300" height="300" aria-hidden="true" focusable="false" overflow="hidden">
+        {shown.map(([r, en, trn], k) => { const ang = (100 + k * 47) * D2R; return (   // etiketler farklı açılarda: iç gezegenler üst üste binmesin
+          <g key={en}>
+            <circle cx={c} cy={c} r={f(r * S)} className={r === 1 ? 'vz-ref' : 'vz-ref vz-dash'} />
+            <Lab x={c + r * S * Math.cos(ang)} y={c - r * S * Math.sin(ang) - 4} a="middle" size={9}>{tr ? trn : en}</Lab>
+          </g>
+        ); })}
+        <path d={ellipse(a, e, S, c, c, varpi)} className="vz-obj" />
+        <circle cx={f(c + a * (1 - e) * S * Math.cos(varpi))} cy={f(c - a * (1 - e) * S * Math.sin(varpi))} r="3.5" className="vz-dot" />
+        <circle cx={c} cy={c} r="3.5" className="vz-sun" />
+      </svg>
+      <figcaption className="op__cap">
+        <span>{tr ? `${name}: yörüngenin ekliptiğe izdüşümü, gezegen yörüngeleriyle aynı ölçekte (Güneş ortada; nokta günberi).` : `${name}: the orbit projected on the ecliptic, to scale with the planets’ orbits (Sun at centre; dot at perihelion).`}</span>
+        <span className="mv__scale">{tr ? 'Ölçek' : 'Scale'} <b>{sig(lang, R, 2)} au</b></span>
+      </figcaption>
+    </figure>
+  );
+}

@@ -145,7 +145,7 @@ const kinds = ['a', 'e', 'i', 'om', 'w', 'ma', 'q', 'Q', 'per', 'moid', 'H', 'D'
 check('şemalar: her değişkenin iki dilde açıklaması var', kinds.every((k) => en.viz[k] && tr.viz[k]) && en.viz.net('month') !== tr.viz.net('month') && /Earth’s centre/.test(en.viz.e('earth')));
 check('şemalar: SVG aria-hidden, kutunun içinde (overflow hidden), anlamı açıklama taşır (aria-describedby); Esc kapatır, odak döner; tek açık',
   /aria-hidden="true"/.test(VZsrc) && /overflow="hidden"/.test(VZsrc) && /aria-describedby/.test(VTsrc) && /Escape/.test(VTsrc) && /focus\(\)/.test(VTsrc) && /closeOther/.test(VTsrc) && !/\bref=/.test(rd('../../site/app/[lang]/satellites/[id]/page.jsx')));
-check('şemalar: asteroit, uydu ve fırlatma sayfalarına bağlı', /withViz\(orbit, vz\)/.test(rd('../../site/app/[lang]/asteroids/[id]/page.jsx')) && /withViz\(derived, vz\)/.test(rd('../../site/app/[lang]/satellites/[id]/page.jsx'))
+check('şemalar: asteroit, uydu ve fırlatma sayfalarına bağlı', /withViz\(orbit, vz\)/.test(rd('../../site/components/AsteroidRecord.jsx')) && /withViz\(derived, vz\)/.test(rd('../../site/app/[lang]/satellites/[id]/page.jsx'))
   && /<Window kind=/.test(rd('../../site/components/NextLaunch.jsx')) && /prefers-reduced-motion[\s\S]*vt__pop\[data-open\] \{ animation: none; \}/.test(rd('../../site/app/globals.css')));
 
 // 5e) süzgeçler ve site araması
@@ -185,8 +185,24 @@ check('tarihçe (Hubble): fırlatma (GCAT), açılış, beş bakım görevi, son
 check('görev olayları dosyası: her cisim ve uydu kimliği veride var; tarih ISO; iki dilde metin', Object.keys(EVJ.asteroids).every((k) => O.some((o) => o.id === k)) && Object.keys(EVJ.satellites).every((k) => SO.some((o) => o.id === k))
   && [...Object.values(EVJ.asteroids), ...Object.values(EVJ.satellites)].flat().every((e) => /^\d{4}-\d\d-\d\d$/.test(e.date) && e.en && e.tr && e.mission));
 check('keşif kaydı (SBDB): 33 cismin en az 30’unda tarih, yer ve keşfeden', O.filter((o) => o.discovery && /^\d{4}-\d\d-\d\d$/.test(o.discovery.date) && o.discovery.location && o.discovery.who).length >= 30);
-check('roket ve tarihçe sayfaları bağlı; haftalık iş akışı roketleri de yeniler', fs.existsSync(new URL('../../site/app/[lang]/rockets/[slug]/page.jsx', import.meta.url)) && /<Timeline/.test(rd('../../site/app/[lang]/asteroids/[id]/page.jsx'))
+check('roket ve tarihçe sayfaları bağlı; haftalık iş akışı roketleri de yeniler', fs.existsSync(new URL('../../site/app/[lang]/rockets/[slug]/page.jsx', import.meta.url)) && /<Timeline/.test(rd('../../site/components/AsteroidRecord.jsx'))
   && /<Timeline/.test(rd('../../site/app/[lang]/satellites/[id]/page.jsx')) && /roketler\.mjs/.test(rd('../../.github/workflows/site-veri.yml')) && /rocketForLL2/.test(rd('../../site/components/NextLaunch.jsx')) && !!en.rk && !!tr.hist);
+
+// 5h) tüm asteroitler kataloğu (JPL canlı): sorgu yalnız beyaz listeden; adres dönüşümü; istekle üretilen sayfa
+const SL = await import('../../site/lib/sbdb-live.js');
+const lq = new URL(SL.listQuery({ group: 'pha', cls: 'ATE', h: '20', d: true, sort: 'H', dir: 'desc', page: 2 })), lp = lq.searchParams;
+check('katalog sorgusu: grup, sınıf, parlaklık, çap, sıralama ve sayfa JPL parametrelerine doğru çevrilir; sıralanan alan boş olanlar dışarıda',
+  lq.host === 'ssd-api.jpl.nasa.gov' && lp.get('sb-group') === 'pha' && lp.get('sb-class') === 'ATE' && lp.get('sort') === '-H' && lp.get('limit-from') === '100' && lp.get('limit') === '50'
+  && JSON.parse(lp.get('sb-cdata')).AND.join() === 'H|LE|20,diameter|DF,H|DF');
+const badQ = new URL(SL.listQuery({ group: 'x"]}', cls: 'XYZ', h: '1;drop', d: false, sort: 'evil', dir: 'up', page: -5 })).searchParams;
+check('katalog sorgusu: tanınmayan grup, sınıf, sıralama ve sayı yok sayılır (kullanıcı metni sorguya girmez); sayfa sınırlı',
+  !badQ.has("sb-group") && !badQ.has("sb-class") && !badQ.has("sb-cdata") && badQ.get("sort") === "spkid" && badQ.get("limit-from") === "0" && new URL(SL.listQuery({ page: 99999999 })).searchParams.get('limit-from') === String(40000 * 50));
+check('katalog adresi: gösterim ↔ adres (boşluk ↔ alt çizgi); geçersiz gösterim reddedilir', SL.desToSlug('2004 MN4') === '2004_MN4' && SL.slugToDes('3524_P-L') === '3524 P-L' && SL.slugToDes('2024%20YR4') === '2024 YR4'
+  && SL.validDes('2024 YR4') && SL.validDes('99942') && !SL.validDes('../etc') && !SL.validDes('a'.repeat(40)) && !SL.validDes('x" OR 1'));
+check('katalog sayfaları: /asteroids/all, /sb/[des] (istekle, bir gün önbellek; 33 cisim zengin sayfaya yönlenir), /api/sb; düzen alt sayfaları kilitlemez',
+  /revalidate = 86400/.test(rd('../../site/app/[lang]/sb/[des]/page.jsx')) && /redirect\(/.test(rd('../../site/app/[lang]/sb/[des]/page.jsx')) && /dynamicParams = true/.test(rd('../../site/app/[lang]/sb/[des]/page.jsx'))
+  && !/export const dynamicParams = false/.test(rd('../../site/app/[lang]/layout.jsx')) && /liveFind/.test(rd('../../site/app/api/sb/route.js')) && fs.existsSync(new URL('../../site/app/[lang]/error.jsx', import.meta.url))
+  && /AsteroidRecord/.test(rd('../../site/app/[lang]/asteroids/[id]/page.jsx')) && !!en.cat && !!tr.cat && /api\/sb\?find=/.test(rd('../../site/components/SiteSearch.jsx')));
 
 // 6) yayın altyapısı: meta veri, güvenlik başlıkları, Vercel ayarı, 404, yazı tipi
 const S = await import('../../site/lib/seo.js');

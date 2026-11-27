@@ -4,7 +4,8 @@ import { isLang, t } from '@/lib/i18n';
 import { fontVars } from '@/lib/fonts';
 import '../globals.css';
 
-export const dynamicParams = false;
+// dynamicParams düzende kapatılmaz: alt sayfalara geçer ve istekle üretilen katalog sayfalarını (/sb/[des]) engeller.
+// Geçersiz dil aşağıda notFound() ile 404'e gider.
 export function generateStaticParams() { return LANGS.map((lang) => ({ lang })); }
 export async function generateMetadata({ params }) {
   const { lang } = await params, L = t(lang);
