@@ -20,27 +20,27 @@ export default function SiteGlobe({ sites, focus = null, lang, height = 440 }) {
       try {
         const [THREE, coast] = await Promise.all([import('three'), fetch('/geo/coast-110m.json').then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })]);
         if (disposed) return;
-        const css = getComputedStyle(el), col = (v, d) => new THREE.Color((css.getPropertyValue(v) || d).trim() || d);
+        const tok = (v) => getComputedStyle(el).getPropertyValue(v).trim(), col = (v) => new THREE.Color(tok(v));   // renkler tema değişkenlerinden
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' });
         renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
         el.appendChild(renderer.domElement); renderer.domElement.setAttribute('aria-hidden', 'true');
         const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(30, 1, 0.1, 20); cam.position.set(0, 0, 4.1);
         const globe = new THREE.Group(); scene.add(globe);
-        globe.add(new THREE.Mesh(new THREE.SphereGeometry(0.995, 64, 48), new THREE.MeshBasicMaterial({ color: col('--cobalt-deep', '#142d9e') })));
+        const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.995, 64, 48), new THREE.MeshBasicMaterial({ color: col('--cobalt-deep') })); globe.add(sphere);
         const line = (pts, color, opacity) => { const g = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)); return new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color, transparent: opacity < 1, opacity })); };
         const seg = (arr, path) => { for (let k = 1; k < path.length; k++) arr.push(...path[k - 1], ...path[k]); };
         const grid = [], eq = [];
         for (let lat = -60; lat <= 60; lat += 30) { const p = []; for (let lon = -180; lon <= 180; lon += 3) p.push(xyz(lat, lon, 1.001)); seg(lat ? grid : eq, p); }
         for (let lon = -180; lon < 180; lon += 30) { const p = []; for (let lat = -90; lat <= 90; lat += 3) p.push(xyz(lat, lon, 1.001)); seg(grid, p); }
         const shore = []; for (const a of coast.arcs) seg(shore, a.map(([lo, la]) => xyz(la, lo, 1.002)));
-        const ink = col('--on-cobalt-2', '#c7d2ff');
-        globe.add(line(grid, ink, 0.16), line(eq, ink, 0.55), line(shore, ink, 0.95));
+        const ink = col('--on-cobalt-2');
+        const lines = [line(grid, ink, 0.16), line(eq, ink, 0.55), line(shore, ink, 0.95)]; globe.add(...lines);
         // üs noktaları: yüzeye yatık diskler
-        const white = new THREE.Color('#ffffff'), dots = sites.map((s) => {
-          const r = 0.009 + 0.00105 * Math.sqrt(s.total), m = new THREE.Mesh(new THREE.CircleGeometry(r, 20), new THREE.MeshBasicMaterial({ color: white, transparent: true, opacity: 0.92 }));
+        const white = col('--on-cobalt'), dots = sites.map((s) => {
+          const r = 0.009 + 0.00105 * Math.sqrt(s.total), m = new THREE.Mesh(new THREE.CircleGeometry(r, 20), new THREE.MeshBasicMaterial({ color: white.clone(), transparent: true, opacity: 0.92 }));
           const p = new THREE.Vector3(...xyz(s.lat, s.lon, 1.004)); m.position.copy(p); m.lookAt(p.clone().multiplyScalar(2)); globe.add(m); return { s, m, p, r };
         });
-        const ring = new THREE.Mesh(new THREE.RingGeometry(1, 1.35, 32), new THREE.MeshBasicMaterial({ color: white, side: THREE.DoubleSide })); ring.visible = false; globe.add(ring);
+        const ring = new THREE.Mesh(new THREE.RingGeometry(1, 1.35, 32), new THREE.MeshBasicMaterial({ color: white.clone(), side: THREE.DoubleSide })); ring.visible = false; globe.add(ring);
         // yönelim: yaw (boylam) ve pitch (enlem); hedefe yumuşak geçiş
         const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         let yaw = 0, pitch = 0.35, ty = null, tp = null, auto = !reduce && !focus, drag = null, dirty = true, visible = true;
@@ -82,10 +82,14 @@ export default function SiteGlobe({ sites, focus = null, lang, height = 440 }) {
           if (!dirty) return; dirty = false;
           globe.rotation.set(pitch, yaw, 0, 'XYZ'); globe.updateMatrixWorld(); renderer.render(scene, cam);
         };
+        // tema değişince (data-theme ya da işletim sistemi tercihi) renkleri değişkenlerden yeniden oku
+        const recolor = () => { sphere.material.color.set(tok('--cobalt-deep')); for (const l of lines) l.material.color.set(tok('--on-cobalt-2')); const w = tok('--on-cobalt'); for (const d of dots) d.m.material.color.set(w); ring.material.color.set(w); dirty = true; };
+        const mo = new MutationObserver(recolor); mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+        const mq = window.matchMedia('(prefers-color-scheme: dark)'); mq.addEventListener('change', recolor);
         api.current = { select };
         if (focus) select(focus); else { const s0 = sites[0]; if (s0) { yaw = -s0.lon * D2R; } }
         loop(); setState('ready');
-        cleanup = () => { el.removeEventListener('pointerdown', down); el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('keydown', key); };
+        cleanup = () => { mo.disconnect(); mq.removeEventListener('change', recolor); el.removeEventListener('pointerdown', down); el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('keydown', key); };
       } catch {
         if (!disposed) setState('error');
       }
