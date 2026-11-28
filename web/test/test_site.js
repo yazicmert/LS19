@@ -227,7 +227,7 @@ const D0 = { q: '', cls: '', neo: false, sort: 'num', dir: 'asc' };
 check('süzgeç durumu adreste: yalnız varsayılandan farklılar yazılır, geri okunur', Se.writeParams({ ...D0, cls: 'APO', neo: true }, D0) === '?cls=APO&neo=1' && Se.writeParams(D0, D0) === ''
   && JSON.stringify(Se.readParams('?cls=APO&neo=1&x=9', D0)) === JSON.stringify({ ...D0, cls: 'APO', neo: true }));
 check('süzgeç ve arama metinleri iki dilde; sayfalar ve /search.json bağlı', !!en.flt.ph.lch && !!tr.flt.ph.lch && en.search.launches('x') !== tr.search.launches('x')
-  && /AsteroidBrowser/.test(rd('../../site/app/[lang]/asteroids/page.jsx')) && /SatBrowser/.test(rd('../../site/app/[lang]/satellites/page.jsx')) && /LaunchBrowser/.test(rd('../../site/app/[lang]/launches/page.jsx'))
+  && /CatalogBrowser/.test(rd('../../site/app/[lang]/asteroids/page.jsx')) && /SatCatalogBrowser/.test(rd('../../site/app/[lang]/satellites/page.jsx')) && /LaunchBrowser/.test(rd('../../site/app/[lang]/launches/page.jsx'))
   && /SiteSearch/.test(rd('../../site/components/Masthead.jsx')) && /force-static/.test(rd('../../site/app/search.json/route.js')));
 
 // 5f) roketler: GCAT ölçüleri, kademeler, fırlatma kaydı; LL2 adı eşleme; ölçülerden 3B yerleşim
@@ -334,7 +334,7 @@ check('katalog sayıları: sınıf başına ve gruplar için sayım sorguları (
   && Object.values(SL.KNOWN_STATS.cls).reduce((a, b) => a + b, 0) === SL.KNOWN_STATS.total && SL.STAT_CLASSES.every((c) => en.pr.defs[c] && tr.pr.defs[c] && tr.cls[c]));
 check('katalog adresi: gösterim ↔ adres (boşluk ↔ alt çizgi); geçersiz gösterim reddedilir', SL.desToSlug('2004 MN4') === '2004_MN4' && SL.slugToDes('3524_P-L') === '3524 P-L' && SL.slugToDes('2024%20YR4') === '2024 YR4'
   && SL.validDes('2024 YR4') && SL.validDes('99942') && !SL.validDes('../etc') && !SL.validDes('a'.repeat(40)) && !SL.validDes('x" OR 1'));
-check('katalog sayfaları: /asteroids/all, /sb/[des] (istekle, bir gün önbellek; 33 cisim zengin sayfaya yönlenir), /api/sb; düzen alt sayfaları kilitlemez',
+check('katalog sayfaları: /asteroids (tek liste), /sb/[des] (istekle, bir gün önbellek; 33 cisim zengin sayfaya yönlenir), /api/sb; düzen alt sayfaları kilitlemez',
   /revalidate = 86400/.test(rd('../../site/app/[lang]/sb/[des]/page.jsx')) && /redirect\(/.test(rd('../../site/app/[lang]/sb/[des]/page.jsx')) && /dynamicParams = true/.test(rd('../../site/app/[lang]/sb/[des]/page.jsx'))
   && !/export const dynamicParams = false/.test(rd('../../site/app/[lang]/layout.jsx')) && /liveFind/.test(rd('../../site/app/api/sb/route.js')) && fs.existsSync(new URL('../../site/app/[lang]/error.jsx', import.meta.url))
   && /AsteroidRecord/.test(rd('../../site/app/[lang]/asteroids/[id]/page.jsx')) && !!en.cat && !!tr.cat && /api\/sb\?find=/.test(rd('../../site/components/SiteSearch.jsx')));
@@ -364,11 +364,11 @@ check('uydu kataloğu: süzgeç seçenekleri sayılı; site araması en çok 8; 
   && rec.gcat.name === 'Zarya' && rec.gcat.launch.vehicle && Sa.checkSat({ ...rec, model: { key: 'x' } }, '2026-11-27').length === 0 && SC.satRecordOf(IX, '1') === null && SC.satRecordOf(IX, 'abc') === null
   && Hs.satEvents(rec, 'tr', '2026-11-27', EVJ).some((e) => e.kind === 'launch') && SC.progGroup('Starlink 2MO S1') === 'Starlink' && SC.progGroup('Flock-4') === 'Flock' && SC.progGroup(null) === null);
 const satPg = rd('../../site/app/[lang]/sat/[norad]/page.jsx'), scb = rd('../../site/components/SatCatalogBrowser.jsx');
-check('uydu kataloğu sayfaları: /satellites/all, /sat/[norad] (istekle, önbellekli; modelli uydu zengin sayfaya yönlenir; geçersiz numara 404), /api/sat; tarayıcıya özet gitmez',
+check('uydu kataloğu sayfaları: /satellites (tek liste), /sat/[norad] (istekle, önbellekli; modelli uydu zengin sayfaya yönlenir; geçersiz numara 404), /api/sat; tarayıcıya özet gitmez',
   /revalidate = \d+/.test(satPg) && /dynamicParams = true/.test(satPg) && /redirect\(`\/\$\{lang\}\/satellites\//.test(satPg) && /notFound\(\)/.test(satPg) && /SatOrbitPlan/.test(satPg) && /<Timeline/.test(satPg)
-  && fs.existsSync(new URL('../../site/app/[lang]/satellites/all/page.jsx', import.meta.url)) && /parseCatQuery/.test(rd('../../site/lib/satcat-live.js')) && /liveCatalog/.test(rd('../../site/app/api/sat/route.js'))
-  && /^'use client'/.test(scb) && /\/api\/sat\?/.test(scb) && !/satcat(-live|\.json)/.test(scb) && /api\/sat\?find=/.test(rd('../../site/components/SiteSearch.jsx')) && /satellites\/all/.test(rd('../../site/app/sitemap.js'))
-  && /satellites\/all/.test(rd('../../site/app/[lang]/satellites/page.jsx')) && /satcat\.json/.test(rd('../../.github/workflows/site-veri.yml')) && /buildCat/.test(rd('../../site/scripts/uydular.mjs')) && !!en.satcat && !!tr.satcat);
+  && /SatCatalogBrowser/.test(rd('../../site/app/[lang]/satellites/page.jsx')) && /parseCatQuery/.test(rd('../../site/lib/satcat-live.js')) && /liveCatalog/.test(rd('../../site/app/api/sat/route.js'))
+  && /^'use client'/.test(scb) && /\/api\/sat\?/.test(scb) && !/satcat(-live|\.json)/.test(scb) && /api\/sat\?find=/.test(rd('../../site/components/SiteSearch.jsx')) && /'\/satellites'/.test(rd('../../site/app/sitemap.js'))
+  && /m3dLead/.test(rd('../../site/app/[lang]/satellites/page.jsx')) && /satcat\.json/.test(rd('../../.github/workflows/site-veri.yml')) && /buildCat/.test(rd('../../site/scripts/uydular.mjs')) && !!en.satcat && !!tr.satcat);
 
 // 6) yayın altyapısı: meta veri, güvenlik başlıkları, Vercel ayarı, 404, yazı tipi
 const S = await import('../../site/lib/seo.js');
@@ -458,4 +458,11 @@ check('üs sayfaları: dizin, kayıt, küre, hesaplayıcı; site haritası ve ar
   let dep = 0, neg = false; for (const ch of rd('../../site/app/globals.css').replace(/\/\*[\s\S]*?\*\//g, '')) { if (ch === '{') dep++; else if (ch === '}') { dep--; if (dep < 0) neg = true; } }
   check('globals.css: süslü parantezler dengeli (kapanmamış blok yok)', dep === 0 && !neg);
 }
+// tek liste: asteroit ve uydu kütüphaneleri katalogla birleşti; 3B modelliler süzgeçle; eski /all adresleri yönlenir
+check('tek liste: /asteroids ve /satellites katalog; 3B süzgeci (asteroitte yerel şekil modelleri); eski /all adresleri kalıcı yönlenir; iç bağlantılarda /all yok',
+  /shapeRows=/.test(rd('../../site/app/[lang]/asteroids/page.jsx')) && /m3d/.test(rd('../../site/components/CatalogBrowser.jsx')) && /localList/.test(rd('../../site/components/CatalogBrowser.jsx'))
+  && !fs.existsSync(new URL('../../site/app/[lang]/asteroids/all/page.jsx', import.meta.url)) && !fs.existsSync(new URL('../../site/app/[lang]/satellites/all/page.jsx', import.meta.url))
+  && /asteroids\/all', destination: '\/:lang\/asteroids', permanent: true/.test(rd('../../site/next.config.mjs')) && /satellites\/all', destination: '\/:lang\/satellites', permanent: true/.test(rd('../../site/next.config.mjs'))
+  && ['components/SiteSearch.jsx', 'components/AsteroidPrimer.jsx', 'app/[lang]/sb/[des]/page.jsx', 'app/[lang]/sat/[norad]/page.jsx', 'app/[lang]/error.jsx', 'app/sitemap.js'].every((f) => !/(asteroids|satellites)\/all/.test(rd(`../../site/${f}`)))
+  && !!en.cat.m3d && !!tr.cat.m3d && typeof tr.satcat.m3dLead === 'function');
 console.log('\nTüm lookstar19 denetimleri geçti');

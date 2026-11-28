@@ -35,7 +35,14 @@ const config = {
   reactStrictMode: true,
   poweredByHeader: false,
   experimental: { globalNotFound: true },                                   // app/global-not-found.jsx: eşleşmeyen adreslerde sitenin 404'ü
-  async redirects() { return [{ source: '/', destination: '/en', permanent: false }]; },
+  async redirects() {
+    return [
+      { source: '/', destination: '/en', permanent: false },
+      // katalog ve kütüphane tek listede birleşti: eski adresler (sorgu korunur) ana sayfaya
+      { source: '/:lang(en|tr)/asteroids/all', destination: '/:lang/asteroids', permanent: true },
+      { source: '/:lang(en|tr)/satellites/all', destination: '/:lang/satellites', permanent: true },
+    ];
+  },
   async headers() {
     return [
       { source: '/:path*', headers: SECURITY_HEADERS },

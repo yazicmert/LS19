@@ -48,7 +48,7 @@ export default async function CatalogSatellite({ params }) {
     <>
       <Masthead lang={lang} current="satellites" altPath={`/sat/${s.id}`} />
       <main id="main" className="wrap rec">
-        <nav className="crumb" aria-label="breadcrumb"><Link href={`/${lang}/satellites/all`}>{C.back}</Link></nav>
+        <nav className="crumb" aria-label="breadcrumb"><Link href={`/${lang}/satellites`}>{C.back}</Link></nav>
         <header className="rec__head">
           <h1 className="rec__title">{name}</h1>
           <p className="rec__des">
