@@ -434,3 +434,58 @@ th[aria-sort] .th__sort { color: var(--cobalt); }
   .vt__pop[data-open] { animation: none; }
   .btn { transition: none; }
 }
+
+/* roket kademeleri (components/RocketExplorer.jsx): metindeki kademe listesi düğme; seçilen kademe mürekkeple dolar, altında bilgi paneli
+   (solda 2px mürekkep çizgisi). Parça düğmeleri süzgeç düğmeleri gibi (basılı = mürekkep dolgu). 3B altında araç çubuğu ve durum satırı. */
+.rkx__lead { margin: 6px 0 8px; color: var(--ink-2); font-size: 14px; line-height: 1.45; }
+.rkx__list, .rkx__plist, .rkx__facts ul, .rkx__src ol { margin: 0; padding: 0; list-style: none; }
+.rkx__btn { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: baseline; width: 100%; padding: 8px 6px 8px 0; border: 0; border-bottom: 1px solid var(--hair);
+  background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; transition: background-color 160ms var(--ease), color 160ms var(--ease); }
+.rkx__btn:hover { background: var(--paper-2); }
+.rkx__btn[aria-expanded='true'] { background: var(--ink); color: var(--paper); }
+.rkx__btn[aria-expanded='true'] .el__sym, .rkx__btn[aria-expanded='true'] .rkx__sub, .rkx__btn[aria-expanded='true'] .el__unit { color: var(--paper); }
+.rkx__btn .el__sym { padding-left: 4px; }
+.rkx__btn:focus-visible, .rkx__pbtn:focus-visible, .rkx__tb:focus-visible { outline: 2px solid var(--cobalt); outline-offset: 2px; }
+.rkx__lbl { min-width: 0; font-size: 15px; font-weight: 650; font-variation-settings: 'wdth' 90; }
+.rkx__sub { display: block; font-weight: 400; font-variation-settings: 'wdth' 100; font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
+.rkx__val { font-family: var(--f-mono), monospace; font-variant-numeric: tabular-nums; font-size: 15px; white-space: nowrap; }
+.rkx__panel { margin: 0 0 14px; padding: 12px 0 6px 14px; border-left: 2px solid var(--ink); overflow-wrap: anywhere; }
+.rkx__panel .el__row { grid-template-columns: minmax(9ch, 1fr) minmax(0, 1.15fr); gap: 10px; }
+.rkx__panel .el__row dd { white-space: normal; overflow-wrap: anywhere; }
+.rkx__panel .el__sym { min-width: 2ch; }
+.rkx__panel .el__sub { font-family: var(--f-sans), system-ui, sans-serif; font-size: 12px; }
+.rkx__h { margin: 14px 0 4px; font-weight: 700; font-variation-settings: 'wdth' 90; font-size: 15px; }
+.rkx__tank { margin: 10px 0 0; font-size: 15px; }
+.rkx__tank b { font-weight: 700; font-variation-settings: 'wdth' 90; margin-right: 0.5ch; }
+.rkx__ref { margin-left: 2px; font-family: var(--f-mono), monospace; font-size: 11px; color: var(--cobalt); }
+.rkx__plist { display: flex; flex-wrap: wrap; gap: 6px; }
+.rkx__pbtn { display: inline-flex; align-items: center; gap: 7px; padding: 6px 9px; border: 1px solid var(--ink); background: transparent; color: var(--ink); font: inherit; font-size: 14px; cursor: pointer; }
+.rkx__pbtn:hover { background: var(--paper-2); }
+.rkx__pbtn[aria-pressed='true'] { background: var(--ink); color: var(--paper); }
+.rkx__sw { width: 10px; height: 10px; flex: none; border: 1px solid var(--ink); }
+.rkx__pbtn[aria-pressed='true'] .rkx__sw { border-color: var(--paper); }
+.rkx__pinfo { margin-top: 10px; padding-top: 2px; border-top: 1px solid var(--hair); }
+.rkx__pinfo p { margin: 4px 0; font-size: 15px; }
+.rkx__pinfo .rkx__lead { font-size: 13px; }
+.rkx__vals { font-size: 14px; }
+.rkx__facts li, .rkx__src li { padding: 6px 0; border-bottom: 1px solid var(--hair); font-size: 14px; line-height: 1.45; }
+.rkx__src li { display: grid; grid-template-columns: 3ch minmax(0, 1fr); gap: 8px; color: var(--ink-2); }
+.rkx__src a { color: var(--cobalt); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; }
+.rkx__src a:hover { text-decoration: underline; }
+.rkx__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.rkx__tb { padding: 8px 12px; border: 2px solid var(--ink); background: transparent; color: var(--ink); font: inherit; font-weight: 700; font-variation-settings: 'wdth' 88; font-size: 15px; cursor: pointer;
+  transition: background-color 160ms var(--ease), color 160ms var(--ease); }
+.rkx__tb:hover:not(:disabled), .rkx__tb[aria-pressed='true'] { background: var(--ink); color: var(--paper); }
+.rkx__tb:disabled { opacity: 0.4; cursor: not-allowed; }
+.rkx__pick { color: var(--ink-2); font-size: 14px; }
+.rkx__status { margin: 6px 0 0; color: var(--ink-2); font-size: 13px; min-height: 1.4em; }
+@media (max-width: 900px) {
+  .rkx__data { display: flex; flex-direction: column; }
+  .rkx__data > .rkx__st { order: -1; margin-bottom: 26px; }
+  .rkx__data > .el + .el { margin-top: 0; }
+  .rkx__data > .el:not(.rkx__st) { margin-bottom: 26px; }
+  .rkx .mv--tall .mv__stage { aspect-ratio: 4 / 5; max-height: 72vh; margin-inline: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rkx__btn, .rkx__tb { transition: none; }
+}
