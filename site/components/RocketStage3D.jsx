@@ -60,19 +60,39 @@ export default function RocketStage3D({ spec, stages, sel, view, part, onStage, 
         const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
         const W = Math.max(L.segs[0].d, ...L.boosters.map((b) => 2 * (b.r + b.d / 2)), ...L.segs.map((s) => s.d || 0));
         // durum ve hedefler (çerçeve: merkez yüksekliği, görünen boy ve genişlik)
-        const want = { sel: null, view: 'whole', part: null }, cur = { on: 0, cy: L.height / 2, h: L.height + 2, w: W, spin: 0 };
+        const want = { sel: null, view: 'whole', part: null }, cur = { on: 0, son: 0, cy: L.height / 2, h: L.height + 2, w: W, spin: 0 };
+        const box = new THREE.Box3(), tmp = new THREE.Box3(), inv = new THREE.Matrix4();
         let spinLock = null;
+        // parçanın kökteki (root) kutusu: o anki konumlarla; parça görünümünde kamera bunu çerçeveler
+        const partBox = (u, id) => {
+          if (!u || !u.inner) return null;
+          root.updateMatrixWorld(true); inv.copy(root.matrixWorld).invert(); box.makeEmpty();
+          u.inner.children.forEach((m) => { if (m.userData.part !== id) return; m.geometry.computeBoundingBox(); tmp.copy(m.geometry.boundingBox).applyMatrix4(m.matrixWorld).applyMatrix4(inv); box.union(tmp); });
+          return box.isEmpty() ? null : box;
+        };
         const target = () => {
-          const ex = R.explodeOffsets(L, 1), on = want.view === 'whole' ? 0 : 1;
+          const on = want.view === 'whole' ? 0 : 1, son = want.sel && want.view !== 'whole' ? 1 : 0, ex = R.explodeOffsets(L, 1, want.sel, son);
+          if (want.view === 'inside' && want.sel && want.part) {
+            const u = units.find((x) => x.key === want.sel && (x.booster ? x.idx === 0 : true)), b = partBox(u, want.part);
+            if (b) { const c = b.getCenter(new THREE.Vector3()), sz = b.getSize(new THREE.Vector3()); return { on, son, cy: c.y, h: Math.max(sz.y * 1.5, 0.6), w: Math.max(sz.x, sz.z) * 1.6, spin: null, part: true }; }
+          }
+          if (want.view === 'apart' && want.sel) {            // seçilen kademe: kendisi, motorları ve komşularının ucu görünsün
+            const u = units.find((x) => x.key === want.sel && !x.booster), pc = u && ex.pieces.find((p) => p.key === u.key);
+            if (u && pc) {
+              const y0 = u.base.y + pc.dy, len = u.piece.y1 - u.piece.y0, d = u.seg.d || W, below = Math.min(ex.extra + 0.6 * d, 2.2 * d);
+              const lo = y0 - below, hi = y0 + len + Math.min(ex.extra * 0.6 + 0.4 * d, 1.5 * d), h = Math.max(hi - lo, 0.45 * ex.height);
+              return { on, son, cy: (lo + hi) / 2, h: h + 1, w: Math.max(W, d * 2.2), spin: null };
+            }
+          }
           if (want.view === 'inside' && want.sel) {
             const u = units.find((x) => x.key === want.sel && (x.booster ? x.idx === 0 : true));
             if (u) {
               const bell = Math.max(0.6, u.seg.d * 0.9), y0 = u.booster ? 0 : u.base.y + (ex.pieces.find((p) => p.key === u.key)?.dy || 0) + (u.seg.y - u.piece.y0);
-              return { on, cy: y0 + (u.seg.l - bell) / 2, h: u.seg.l + bell, w: u.seg.d * 1.9, spin: u.booster ? u.booster.a : 0 };
+              return { on, son, cy: y0 + (u.seg.l - bell) / 2, h: u.seg.l + bell, w: u.seg.d * 1.9, spin: u.booster ? u.booster.a : 0 };
             }
           }
           const h = on ? ex.height : L.height;
-          return { on, cy: h / 2 - 1, h: h + 3, w: W + (on ? 2 * ex.booster : 0), spin: null };
+          return { on, son, cy: h / 2 - 1, h: h + 3, w: W + (on ? 2 * ex.booster : 0), spin: null };
         };
         const dim = (u, f) => { for (const m of u.shell.materials) { m.color.setHex(m.userData.base ?? (m.userData.base = m.color.getHex())); if (f < 1) m.color.multiplyScalar(f); } };
         const apply = () => {
@@ -85,15 +105,17 @@ export default function RocketStage3D({ spec, stages, sel, view, part, onStage, 
               u.cutShell.group.traverse((o) => { if (o.isMesh) o.userData.stage = u.key; });
               u.group.add(u.cutShell.group);
             }
-            u.shell.group.visible = !focus; if (u.cutShell) u.cutShell.group.visible = focus;
+            const solo = focus && !!want.part;                 // parça görünümü: yalnız o parça tam, ötekiler soluk, kabuk yok
+            u.shell.group.visible = !focus; if (u.cutShell) u.cutShell.group.visible = focus && !solo;
             if (u.inner) u.inner.children.forEach((m) => {
               m.visible = !m.userData.inner || focus;
               const on = focus && want.part && m.userData.part === want.part;
-              m.material.emissive?.setHex(on ? 0x4a5a90 : 0x000000);
+              m.material.emissive?.setHex(on && !solo ? 0x4a5a90 : 0x000000);
+              const ghost = solo && !on; if (m.material.transparent !== ghost) { m.material.transparent = ghost; m.material.needsUpdate = true; } m.material.opacity = ghost ? 0.12 : 1; m.material.depthWrite = !ghost;
             });
             dim(u, want.sel && !inside && !mine ? 0.5 : 1);
           }
-          if (inside) spinLock = target().spin; else spinLock = null;
+          if (inside && !want.part) spinLock = target().spin; else spinLock = null;
         };
         api.current = { set: (s, v, p) => { Object.assign(want, { sel: s, view: v, part: p }); apply(); idle = 0; } };
 
@@ -131,9 +153,9 @@ export default function RocketStage3D({ spec, stages, sel, view, part, onStage, 
         const frame = (now) => {
           const dt = Math.min(0.05, (now - last) / 1000); last = now; idle += dt;
           const t = target(), k = reduce.matches ? 1 : 1 - Math.exp(-dt * 5);
-          for (const f of ['on', 'cy', 'h', 'w']) cur[f] += (t[f] - cur[f]) * k;
+          for (const f of ['on', 'son', 'cy', 'h', 'w']) cur[f] += (t[f] - cur[f]) * k;
           if (Math.abs(t.on - cur.on) < 1e-3) cur.on = t.on;
-          const ex = R.explodeOffsets(L, cur.on), inside = want.view === 'inside' && want.sel;
+          const ex = R.explodeOffsets(L, cur.on, want.sel, cur.son), inside = want.view === 'inside' && want.sel;
           for (const u of units) {
             if (u.booster) {
               const r = u.booster.r + ex.booster, ins = inside && u.key === want.sel && u.idx === 0;

@@ -20,5 +20,5 @@ export async function generateMetadata({ params }) {
 
 export default async function Asteroid({ params }) {
   const { lang, id } = await params, o = byId(id); if (!o) notFound();
-  return <AsteroidRecord lang={lang} o={o} retrieved={RETRIEVED} cad={CAD} missions={MISSIONS} altPath={`/asteroids/${o.id}`} back={{ href: `/${lang}/asteroids`, label: t(lang).ast.back }} />;
+  return <AsteroidRecord lang={lang} o={o} retrieved={RETRIEVED} cad={CAD} missions={MISSIONS} altPath={`/asteroids/${o.id}`} back={{ href: `/${lang}/asteroids?m3d=1`, label: t(lang).ast.back }} />;
 }

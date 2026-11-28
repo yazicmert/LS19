@@ -29,5 +29,5 @@ export default async function CatalogAsteroid({ params }) {
   if (r.error) throw new Error(r.error);                                      // geçici JPL hatası: önbellekteki son sayfa sunulur
   if (!r.o) notFound();
   const today = new Date().toISOString().slice(0, 10), C = t(lang).cat;
-  return <AsteroidRecord lang={lang} o={r.o} retrieved={today} cad={CAD} missions={MISSIONS} altPath={`/sb/${desToSlug(r.o.des)}`} back={{ href: `/${lang}/asteroids/all`, label: C.back }} />;
+  return <AsteroidRecord lang={lang} o={r.o} retrieved={today} cad={CAD} missions={MISSIONS} altPath={`/sb/${desToSlug(r.o.des)}`} back={{ href: `/${lang}/asteroids`, label: C.back }} />;
 }

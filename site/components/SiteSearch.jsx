@@ -17,7 +17,7 @@ export default function SiteSearch({ lang }) {
   const [q, setQ] = useState(''), [open, setOpen] = useState(false), [active, setActive] = useState(0), [data, setData] = useState(null), [state, setState] = useState('idle');
   const ensure = () => { if (data || state === 'loading') return; setState('loading'); load().then((d) => { setData(d); setState('ready'); }, () => { index = null; setState('error'); }); };
   const pages = useMemo(() => [
-    ['/', L.home.title.split(' — ')[0]], ['/asteroids', L.ast.title], ['/satellites', L.sat.title], ['/rockets', L.rk.title], ['/launches', L.launch.title], ['/launches/sites', L.ls.title], ['/sources', L.src.title],
+    ['/', L.home.title.split(' — ')[0]], ['/asteroids', L.nav.asteroids], ['/satellites', L.nav.satellites], ['/rockets', L.rk.title], ['/launches', L.launch.title], ['/launches/sites', L.ls.title], ['/sources', L.src.title], ['/satellites/stats', L.sst.title],
   ].map(([p, n]) => ({ id: p, n })), [L]);
   const groups = useMemo(() => {
     if (!q.trim() || !data) return [];
@@ -32,7 +32,7 @@ export default function SiteSearch({ lang }) {
     const sc = liveSat.q === q.trim() ? liveSat.rows.filter((r) => !satIds.has(String(r.k))).slice(0, 6).map((r) => ({ href: r.M ? `/${lang}/satellites/${r.k}` : `/${lang}/sat/${r.k}`, name: r.n, meta: r.r, num: r.k })) : [];
     return [['ast', ast], ['jpl', jpl], ['sat', sat], ['satcat', sc], ['rk', rk], ['ls', ls], ['page', pg]].filter(([, r]) => r.length);
   }, [q, data, lang, pages, live, liveSat]);
-  const flat = useMemo(() => [...groups.flatMap(([, r]) => r), ...(q.trim() ? [{ href: `/${lang}/asteroids/all?q=${encodeURIComponent(q.trim())}`, name: S.catalog(q.trim()), meta: '', action: true }, { href: `/${lang}/satellites/all?q=${encodeURIComponent(q.trim())}`, name: L.satcat.searchAll(q.trim()), meta: '', action: true }, { href: `/${lang}/launches?q=${encodeURIComponent(q.trim())}`, name: S.launches(q.trim()), meta: '', action: true }] : [])], [groups, q, lang, S]);
+  const flat = useMemo(() => [...groups.flatMap(([, r]) => r), ...(q.trim() ? [{ href: `/${lang}/asteroids?q=${encodeURIComponent(q.trim())}`, name: S.catalog(q.trim()), meta: '', action: true }, { href: `/${lang}/satellites?q=${encodeURIComponent(q.trim())}`, name: L.satcat.searchAll(q.trim()), meta: '', action: true }, { href: `/${lang}/launches?q=${encodeURIComponent(q.trim())}`, name: S.launches(q.trim()), meta: '', action: true }] : [])], [groups, q, lang, S]);
   useEffect(() => { setActive(0); }, [q]);
   // JPL kataloğu (1,6 milyon): 2 karakterden sonra, kısa bir beklemeyle ön ekli arama (/api/sb?find=)
   useEffect(() => {

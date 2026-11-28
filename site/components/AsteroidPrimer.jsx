@@ -67,7 +67,7 @@ export default function AsteroidPrimer({ lang, stats, missions, shapeIds }) {
               const name = clsName(lang, { code: c, name: c });
               return (
                 <tr key={c}>
-                  <th scope="row"><Link href={`/${lang}/asteroids/all?cls=${c}`} aria-label={P.filterLink(name)}>{name}</Link></th>
+                  <th scope="row"><Link href={`/${lang}/asteroids?cls=${c}`} aria-label={P.filterLink(name)}>{name}</Link></th>
                   <td className="txt pr__def">{P.defs[c]}</td>
                   <td className="r">{num(lang, C[c], 0)}</td>
                   <td className="pr__sh"><span className="pr__bar" aria-hidden="true"><span style={{ width: `${Math.max(0.4, (100 * C[c]) / total)}%` }} /></span><span className="mono">{pct(C[c])}</span></td>
@@ -83,7 +83,7 @@ export default function AsteroidPrimer({ lang, stats, missions, shapeIds }) {
           <h3 className="pr__h">{P.neoT}</h3>
           <p className="pr__p">{P.neoBody(num(lang, stats.neo, 0), num(lang, stats.pha, 0))}</p>
           <p className="pr__p">{P.neoSizes(num(lang, stats.neo1km, 0), num(lang, stats.neo140m, 0))}</p>
-          <p className="pr__links"><Link className="lnk" href={`/${lang}/asteroids/all?group=neo`}>{L.cat.groups.neo}</Link><Link className="lnk" href={`/${lang}/asteroids/all?group=pha`}>{L.cat.groups.pha}</Link></p>
+          <p className="pr__links"><Link className="lnk" href={`/${lang}/asteroids?group=neo`}>{L.cat.groups.neo}</Link><Link className="lnk" href={`/${lang}/asteroids?group=pha`}>{L.cat.groups.pha}</Link></p>
         </div>
         <div>
           <h3 className="pr__h">{P.sizeT}</h3>

@@ -13,7 +13,7 @@ export default function Error({ reset }) {
       <p className="page__lead">{C.errBody}</p>
       <p className="nf__links">
         <button type="button" className="btn btn--ink" onClick={() => reset()}>{C.retry}</button>
-        <Link className="lnk" href={`/${lang}/${sat ? 'satellites' : 'asteroids'}/all`}>{C.back}</Link>
+        <Link className="lnk" href={`/${lang}/${sat ? 'satellites' : 'asteroids'}`}>{C.back}</Link>
       </p>
     </main>
   );

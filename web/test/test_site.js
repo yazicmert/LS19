@@ -227,7 +227,7 @@ const D0 = { q: '', cls: '', neo: false, sort: 'num', dir: 'asc' };
 check('süzgeç durumu adreste: yalnız varsayılandan farklılar yazılır, geri okunur', Se.writeParams({ ...D0, cls: 'APO', neo: true }, D0) === '?cls=APO&neo=1' && Se.writeParams(D0, D0) === ''
   && JSON.stringify(Se.readParams('?cls=APO&neo=1&x=9', D0)) === JSON.stringify({ ...D0, cls: 'APO', neo: true }));
 check('süzgeç ve arama metinleri iki dilde; sayfalar ve /search.json bağlı', !!en.flt.ph.lch && !!tr.flt.ph.lch && en.search.launches('x') !== tr.search.launches('x')
-  && /AsteroidBrowser/.test(rd('../../site/app/[lang]/asteroids/page.jsx')) && /SatBrowser/.test(rd('../../site/app/[lang]/satellites/page.jsx')) && /LaunchBrowser/.test(rd('../../site/app/[lang]/launches/page.jsx'))
+  && /CatalogBrowser/.test(rd('../../site/app/[lang]/asteroids/page.jsx')) && /SatCatalogBrowser/.test(rd('../../site/app/[lang]/satellites/page.jsx')) && /LaunchBrowser/.test(rd('../../site/app/[lang]/launches/page.jsx'))
   && /SiteSearch/.test(rd('../../site/components/Masthead.jsx')) && /force-static/.test(rd('../../site/app/search.json/route.js')));
 
 // 5f) roketler: GCAT ölçüleri, kademeler, fırlatma kaydı; LL2 adı eşleme; ölçülerden 3B yerleşim
@@ -334,7 +334,7 @@ check('katalog sayıları: sınıf başına ve gruplar için sayım sorguları (
   && Object.values(SL.KNOWN_STATS.cls).reduce((a, b) => a + b, 0) === SL.KNOWN_STATS.total && SL.STAT_CLASSES.every((c) => en.pr.defs[c] && tr.pr.defs[c] && tr.cls[c]));
 check('katalog adresi: gösterim ↔ adres (boşluk ↔ alt çizgi); geçersiz gösterim reddedilir', SL.desToSlug('2004 MN4') === '2004_MN4' && SL.slugToDes('3524_P-L') === '3524 P-L' && SL.slugToDes('2024%20YR4') === '2024 YR4'
   && SL.validDes('2024 YR4') && SL.validDes('99942') && !SL.validDes('../etc') && !SL.validDes('a'.repeat(40)) && !SL.validDes('x" OR 1'));
-check('katalog sayfaları: /asteroids/all, /sb/[des] (istekle, bir gün önbellek; 33 cisim zengin sayfaya yönlenir), /api/sb; düzen alt sayfaları kilitlemez',
+check('katalog sayfaları: /asteroids (tek liste), /sb/[des] (istekle, bir gün önbellek; 33 cisim zengin sayfaya yönlenir), /api/sb; düzen alt sayfaları kilitlemez',
   /revalidate = 86400/.test(rd('../../site/app/[lang]/sb/[des]/page.jsx')) && /redirect\(/.test(rd('../../site/app/[lang]/sb/[des]/page.jsx')) && /dynamicParams = true/.test(rd('../../site/app/[lang]/sb/[des]/page.jsx'))
   && !/export const dynamicParams = false/.test(rd('../../site/app/[lang]/layout.jsx')) && /liveFind/.test(rd('../../site/app/api/sb/route.js')) && fs.existsSync(new URL('../../site/app/[lang]/error.jsx', import.meta.url))
   && /AsteroidRecord/.test(rd('../../site/app/[lang]/asteroids/[id]/page.jsx')) && !!en.cat && !!tr.cat && /api\/sb\?find=/.test(rd('../../site/components/SiteSearch.jsx')));
@@ -364,11 +364,11 @@ check('uydu kataloğu: süzgeç seçenekleri sayılı; site araması en çok 8; 
   && rec.gcat.name === 'Zarya' && rec.gcat.launch.vehicle && Sa.checkSat({ ...rec, model: { key: 'x' } }, '2026-11-27').length === 0 && SC.satRecordOf(IX, '1') === null && SC.satRecordOf(IX, 'abc') === null
   && Hs.satEvents(rec, 'tr', '2026-11-27', EVJ).some((e) => e.kind === 'launch') && SC.progGroup('Starlink 2MO S1') === 'Starlink' && SC.progGroup('Flock-4') === 'Flock' && SC.progGroup(null) === null);
 const satPg = rd('../../site/app/[lang]/sat/[norad]/page.jsx'), scb = rd('../../site/components/SatCatalogBrowser.jsx');
-check('uydu kataloğu sayfaları: /satellites/all, /sat/[norad] (istekle, önbellekli; modelli uydu zengin sayfaya yönlenir; geçersiz numara 404), /api/sat; tarayıcıya özet gitmez',
+check('uydu kataloğu sayfaları: /satellites (tek liste), /sat/[norad] (istekle, önbellekli; modelli uydu zengin sayfaya yönlenir; geçersiz numara 404), /api/sat; tarayıcıya özet gitmez',
   /revalidate = \d+/.test(satPg) && /dynamicParams = true/.test(satPg) && /redirect\(`\/\$\{lang\}\/satellites\//.test(satPg) && /notFound\(\)/.test(satPg) && /SatOrbitPlan/.test(satPg) && /<Timeline/.test(satPg)
-  && fs.existsSync(new URL('../../site/app/[lang]/satellites/all/page.jsx', import.meta.url)) && /parseCatQuery/.test(rd('../../site/lib/satcat-live.js')) && /liveCatalog/.test(rd('../../site/app/api/sat/route.js'))
-  && /^'use client'/.test(scb) && /\/api\/sat\?/.test(scb) && !/satcat(-live|\.json)/.test(scb) && /api\/sat\?find=/.test(rd('../../site/components/SiteSearch.jsx')) && /satellites\/all/.test(rd('../../site/app/sitemap.js'))
-  && /satellites\/all/.test(rd('../../site/app/[lang]/satellites/page.jsx')) && /satcat\.json/.test(rd('../../.github/workflows/site-veri.yml')) && /buildCat/.test(rd('../../site/scripts/uydular.mjs')) && !!en.satcat && !!tr.satcat);
+  && /SatCatalogBrowser/.test(rd('../../site/app/[lang]/satellites/page.jsx')) && /parseCatQuery/.test(rd('../../site/lib/satcat-live.js')) && /liveCatalog/.test(rd('../../site/app/api/sat/route.js'))
+  && /^'use client'/.test(scb) && /\/api\/sat\?/.test(scb) && !/satcat(-live|\.json)/.test(scb) && /api\/sat\?find=/.test(rd('../../site/components/SiteSearch.jsx')) && /'\/satellites'/.test(rd('../../site/app/sitemap.js'))
+  && /m3dLead/.test(rd('../../site/app/[lang]/satellites/page.jsx')) && /satcat\.json/.test(rd('../../.github/workflows/site-veri.yml')) && /buildCat/.test(rd('../../site/scripts/uydular.mjs')) && !!en.satcat && !!tr.satcat);
 
 // 6) yayın altyapısı: meta veri, güvenlik başlıkları, Vercel ayarı, 404, yazı tipi
 const S = await import('../../site/lib/seo.js');
@@ -458,4 +458,66 @@ check('üs sayfaları: dizin, kayıt, küre, hesaplayıcı; site haritası ve ar
   let dep = 0, neg = false; for (const ch of rd('../../site/app/globals.css').replace(/\/\*[\s\S]*?\*\//g, '')) { if (ch === '{') dep++; else if (ch === '}') { dep--; if (dep < 0) neg = true; } }
   check('globals.css: süslü parantezler dengeli (kapanmamış blok yok)', dep === 0 && !neg);
 }
+// tek liste: asteroit ve uydu kütüphaneleri katalogla birleşti; 3B modelliler süzgeçle; eski /all adresleri yönlenir
+check('tek liste: /asteroids ve /satellites katalog; 3B süzgeci (asteroitte yerel şekil modelleri); eski /all adresleri kalıcı yönlenir; iç bağlantılarda /all yok',
+  /shapeRows=/.test(rd('../../site/app/[lang]/asteroids/page.jsx')) && /m3d/.test(rd('../../site/components/CatalogBrowser.jsx')) && /localList/.test(rd('../../site/components/CatalogBrowser.jsx'))
+  && !fs.existsSync(new URL('../../site/app/[lang]/asteroids/all/page.jsx', import.meta.url)) && !fs.existsSync(new URL('../../site/app/[lang]/satellites/all/page.jsx', import.meta.url))
+  && /asteroids\/all', destination: '\/:lang\/asteroids', permanent: true/.test(rd('../../site/next.config.mjs')) && /satellites\/all', destination: '\/:lang\/satellites', permanent: true/.test(rd('../../site/next.config.mjs'))
+  && ['components/SiteSearch.jsx', 'components/AsteroidPrimer.jsx', 'app/[lang]/sb/[des]/page.jsx', 'app/[lang]/sat/[norad]/page.jsx', 'app/[lang]/error.jsx', 'app/sitemap.js'].every((f) => !/(asteroids|satellites)\/all/.test(rd(`../../site/${f}`)))
+  && !!en.cat.m3d && !!tr.cat.m3d && typeof tr.satcat.m3dLead === 'function');
+// 5j) uydu istatistiği (data/satstats.json, GCAT yükleri): veri bütünlüğü, kayıtlı örnekte (fixtures/gcat_istatistik.json) üretim ve toplama,
+// ISO haftası, adres durumu gidiş-dönüş, renk yuvalarının varlığı izlemesi; sayfa, bağlantılar, iş akışı
+{
+  const SB = await import('../../site/lib/satstats-build.js'), SS = await import('../../site/lib/satstats.js'), Sat = await import('../../site/lib/sat.js');
+  const raw = rd('../../site/data/satstats.json'), SD = JSON.parse(raw), D = SS.decode(SD);
+  const yr = SS.aggregate(D, { ...SS.DEFAULTS }), byCc = SS.aggregate(D, { ...SS.DEFAULTS, by: 'cc' });
+  check('istatistik verisi: doğrulamadan geçer (toplam = satırların toplamı, sıra numaraları, sıralı günler, etiketler); ≥ 29.000 yük; ilk yük Sputnik (1957-10-04)',
+    SB.checkStats(SD).length === 0 && SD.total >= 29000 && SS.isoOf(D, D.minDay) === '1957-10-04' && /^\d{4}-\d\d-\d\d$/.test(SD.asOf) && /GCAT/.test(SD.source) && SD.undated <= SD.total * 0.001, SB.checkStats(SD).join('; '));
+  check('istatistik verisi: yıllık kovaların, sınıf ve ülke kırılımlarının toplamı tüm yüklere eşit; yıllar 1957\'den veri yılına kesintisiz; dosya < 600 KB',
+    yr.buckets.reduce((s, b) => s + b.total, 0) === SD.total && yr.entities.reduce((s, e) => s + e.n, 0) === SD.total && byCc.entities.reduce((s, e) => s + e.n, 0) === SD.total
+    && yr.buckets[0].key === 1957 && yr.buckets.every((b, k) => b.key === 1957 + k) && yr.buckets.at(-1).key === +SD.asOf.slice(0, 4) && yr.buckets.at(-1).partial && raw.length < 600_000);
+  check('istatistik verisi: sınıf kodları GCAT\'in (A/B/C/D, ikili ortak kullanım, "-"); her görev ve sınıf kodunun iki dilde adı var; ülke adları iki dilde (SU Sovyetler Birliği, J Japonya)',
+    SD.dims.cls.every((c) => /^([ABCD]{1,2}|-)$/.test(c.k)) && ['A', 'B', 'C', 'D'].every((k) => SD.dims.cls.some((c) => c.k === k))
+    && SD.dims.mis.every((m) => en.sst.mis[m.k] && tr.sst.mis[m.k]) && SD.dims.cls.every((c) => c.k.split('').every((x) => en.sst.cls[x] && tr.sst.cls[x]))
+    && SD.dims.cc.find((c) => c.k === 'SU').tr === 'Sovyetler Birliği' && SD.dims.cc.find((c) => c.k === 'J').en === 'Japan');
+  // kayıtlı örnek: 23 gerçek GCAT yükü (Sputnik, Vanguard 1, iki kategorili ve ortak sınıflı yükler, kuşkulu ve iki sahipli kayıtlar, aynı fırlatmada 6 Starlink …)
+  const FX = JSON.parse(rd('fixtures/gcat_istatistik.json'));
+  const { data: FD, info: FI } = SB.buildStats({ sat: Sat.parseTsv(FX.satcat), psat: Sat.indexBy(Sat.parseTsv(FX.psatcat), 'JCAT'), launches: Sat.indexBy(Sat.parseTsv(FX.launch), 'Launch_Tag'), orgs: Sat.indexBy(Sat.parseTsv(FX.orgs), 'Code'), updated: FX.updated, retrieved: '2026-11-28' });
+  const F = SS.decode(FD), agg = (st) => SS.aggregate(F, { ...SS.DEFAULTS, ...st }), ent = (a) => Object.fromEntries(a.entities.map((e) => [e.k, e.n]));
+  check('örnek: 23 yük 17 satırda (aynı gün ve bileşimdeki 6 Starlink tek satır, n = 6); doğrulama yalnız asgari sayıyla geçer; her yükün yük kataloğu ve fırlatma kaydı var',
+    FD.total === 23 && FI.groups === 17 && FD.rows.n.includes(6) && SB.checkStats(FD, null, { min: 20 }).length === 0 && FI.noPayloadRow === 0 && FI.noLaunch === 0 && FD.asOf === '2026-11-27');
+  check('örnek: GCAT kodları okunur — iki kategoride ilki (SIG/AST → SIG), "*" ve "?" atılır (SIG* → SIG, AFSSD? → AFSSD), iki sahipte ilki (NRO/NRL → NRO), ortak sınıf CD olduğu gibi',
+    SB.primaryCat('SIG/AST') === 'SIG' && SB.primaryCat('SIG?*') === 'SIG' && SB.primaryCat('-') === '-' && SB.firstOwner('AFSSD?') === 'AFSSD' && SB.firstOwner('NRO/CIA') === 'NRO' && SB.classOf('CD') === 'CD' && SB.classOf('') === '-'
+    && ent(agg({ by: 'mis' })).SIG === 2 && ent(agg({ by: 'op' })).NRO === 2 && ent(agg({ by: 'op' })).AFSSD === 1 && ent(agg({ by: 'cls' })).CD === 2);
+  const fy = agg({}), fm = agg({ res: 'month', from: '2019', to: '2019', by: 'op' }), fw = agg({ res: 'week', from: '2026', by: 'cc' });
+  check('örnek toplamları elle sayılanla aynı: ülke US 13, CN 3, J 2, TR 2; sınıf B 12, C 5, D 4 ve "Diğer"de CD 2 (sınıf renkleri sabit: B 1, D 2, C 3); 2019 Mayıs\'ında SpaceX 6',
+    JSON.stringify(ent(agg({ by: 'cc' }))) === JSON.stringify({ US: 13, CN: 3, J: 2, TR: 2, IN: 1, P: 1, SU: 1 })
+    && fy.series.map((s) => `${s.k}${s.n}`).join() === `B12,C5,D4,${SS.OTHER}2` && JSON.stringify(SS.assignSlots('cls', fy.series.map((s) => s.k))) === JSON.stringify({ B: 1, C: 3, D: 2 })
+    && fm.buckets.length === 12 && fm.buckets[4].vals[0] === 6 && fm.buckets.reduce((s, b) => s + b.total, 0) === 6 && fy.buckets[0].key === 1957);
+  check('örnek: süzgeçler (TR 2 yük; Falcon 9 ve 2026: 2; sınıf C + ülke US: 2); bilinmeyen kod hiçbir şeyle eşleşmez; ISO haftası (2 Kas 2026 pazartesi, 45. hafta: 3 yük)',
+    agg({ cc: 'TR' }).total === 2 && agg({ lv: 'Falcon 9', from: '2026' }).total === 2 && agg({ cls: 'C', cc: 'US' }).total === 2 && agg({ cc: 'ZZ' }).total === 0
+    && fw.buckets.find((b) => SS.isoOf(F, b.key) === '2026-11-02').total === 3 && SS.isoWeek(F, SS.dayFrom(F, 2026, 11, 2)).w === 45
+    && SS.isoWeek(F, SS.dayFrom(F, 2021, 1, 3)).y === 2020 && SS.isoWeek(F, SS.dayFrom(F, 2021, 1, 3)).w === 53 && SS.isoWeek(F, SS.dayFrom(F, 2026, 1, 1)).w === 1);
+  const fh = SS.headline(F);
+  check('örnek başlık sayıları: veri tarihi 2026-11-27; bu yıl 5, rekor yıl 2019 (6); son tam ay Ekim 2026; son tam ISO haftası 16–22 Kasım; sınıf payları toplamı 23',
+    fh.asOf === '2026-11-27' && fh.ytd === 5 && fh.record.y === 2019 && fh.record.n === 6 && fh.month.y === 2026 && fh.month.m === 10 && fh.week.start === '2026-11-16' && fh.week.end === '2026-11-22'
+    && Object.values(fh.share.all).reduce((a, b) => a + b, 0) === 23);
+  const st1 = { ...SS.DEFAULTS, res: 'week', by: 'op', from: '2024', to: '2026', cc: 'US', op: 'SPXS', top: '5', view: 'table', sort: 'first', dir: 'asc' };
+  check('adres durumu: yazılıp okununca aynı; varsayılan boş adres; geçersiz değerler varsayılana döner, ters yıl aralığı düzelir, veride olmayan kod atılır',
+    JSON.stringify(SS.readState(SS.writeState(st1), D)) === JSON.stringify(st1) && SS.writeState(SS.DEFAULTS) === '' && SS.writeState({ ...SS.DEFAULTS, res: 'month', cc: 'TR' }) === '?res=month&cc=TR'
+    && JSON.stringify(SS.readState('?res=day&by=x&top=9&view=pie&from=2030&to=2001&cc=ZZ&op=SPXS', D)) === JSON.stringify({ ...SS.DEFAULTS, from: '2001', to: '2030', op: 'SPXS' }));
+  check('renkler varlığı izler: süzgeç değişince kalanlar yuvasını korur, yeniler boş yuvayı alır; 7\'den fazla seri yok ("Diğer" gri)',
+    JSON.stringify(SS.assignSlots('op', ['B2', 'C3', SS.OTHER], { A1: 1, B2: 2 })) === JSON.stringify({ B2: 2, C3: 1 }) && Object.keys(SS.assignSlots('lv', Array.from({ length: 9 }, (_, k) => `v${k}`))).length === 7);
+  const C2 = rd('../../site/app/globals.css'), tok = (blk) => [1, 2, 3, 4, 5, 6, 7, 'other'].every((k) => new RegExp(`--series-${k}: #[0-9a-f]{6};`).test(blk));
+  const sstBlocks = C2.slice(C2.indexOf('/* uydu istatistiği'));
+  const dm = /@media \(prefers-color-scheme: dark\) \{\s*:root:not\(\[data-theme="light"\]\) \{([^}]*)\}/.exec(sstBlocks), dk = /:root\[data-theme="dark"\] \{([^}]*)\}/.exec(sstBlocks);
+  check('istatistik renkleri: seri simgeleri açık, sistem koyusu ve seçilmiş koyu için tanımlı, iki koyu blok aynı; 1. yuva açıkta sitenin kobaltı',
+    tok(sstBlocks.split('@media')[0]) && dm && dk && tok(dm[1]) && dm[1].replace(/\s+/g, ' ').trim() === dk[1].replace(/\s+/g, ' ').trim() && /--series-1: #1d3fd6;/.test(sstBlocks) && /--cobalt: #1d3fd6;/.test(C2));
+  const pg = rd('../../site/app/[lang]/satellites/stats/page.jsx'), cmp = rd('../../site/components/SatStats.jsx');
+  check('istatistik sayfası: başlık sayıları, sınıf payları (tablo eşiyle), gezgin (grafik, tablo görünümü, kırılım tablosu, ok tuşları, aria-live), yöntem; ana sayfa, arama, site haritası bağlı; iş akışı yeniler',
+    /headline\(/.test(pg) && /sst-share__bar/.test(pg) && /<SatStats/.test(pg) && /T\.method/.test(pg) && /ArrowLeft/.test(cmp) && /aria-live="polite"/.test(cmp) && /ChartTable/.test(cmp) && /SortTh/.test(cmp)
+    && /satellites\/stats/.test(rd('../../site/app/[lang]/page.jsx')) && /satellites\/stats/.test(rd('../../site/components/SiteSearch.jsx')) && /satellites\/stats/.test(rd('../../site/app/sitemap.js'))
+    && /uydu_istatistik\.mjs/.test(rd('../../.github/workflows/site-veri.yml')) && /satstats\.json/.test(rd('../../.github/workflows/site-veri.yml')) && en.sst.method.length === tr.sst.method.length);
+}
+if (fail) { console.log(`\n${fail} hata`); process.exit(1); }
 console.log('\nTüm lookstar19 denetimleri geçti');

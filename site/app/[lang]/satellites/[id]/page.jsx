@@ -40,7 +40,7 @@ export default async function Satellite({ params }) {
     <>
       <Masthead lang={lang} current="satellites" altPath={`/satellites/${s.id}`} />
       <main id="main" className="wrap rec">
-        <nav className="crumb" aria-label="breadcrumb"><Link href={`/${lang}/satellites`}>{S.back(SATS.length)}</Link></nav>
+        <nav className="crumb" aria-label="breadcrumb"><Link href={`/${lang}/satellites?model=1`}>{S.back(SATS.length)}</Link></nav>
         <header className="rec__head">
           <h1 className="rec__title">{name}</h1>
           <p className="rec__des">
