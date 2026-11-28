@@ -1,0 +1,275 @@
+{
+  "about": "lookstar19 roket kademe ayrıntısı: elle derlenir, haftalık GCAT yenilemesi (scripts/roketler.mjs) bu dosyaya dokunmaz. Her kayıt kaynak kimliği taşır; yalnız kaynakta yazan bilgi girer. Tank düzeni, motor dizilişi ya da parça sayısı kaynakta yoksa alan boş kalır ve sayfa şematik genel düzen çizer.",
+  "retrieved": "2026-11-27",
+  "sources": {
+    "spx-fug": { "by": "SpaceX", "t": "Falcon Payload User's Guide (May 2025)", "u": "https://www.spacex.com/assets/media/falcon-users-guide-2025-05-09.pdf" },
+    "spx-f9": { "by": "SpaceX", "t": "Falcon 9 vehicle page", "u": "https://www.spacex.com/vehicles/falcon-9" },
+    "spx-fh": { "by": "SpaceX", "t": "Falcon Heavy vehicle page", "u": "https://www.spacex.com/vehicles/falcon-heavy" },
+    "spx-ss": { "by": "SpaceX", "t": "Starship vehicle page", "u": "https://www.spacex.com/vehicles/starship" },
+    "spx-upd": { "by": "SpaceX", "t": "SpaceX updates (Starship V3)", "u": "https://www.spacex.com/updates/" },
+    "rl-pug": { "by": "Rocket Lab", "t": "Electron Payload User's Guide 8.0", "u": "https://rocketlabcorp.com/assets/Rocket-Lab-Electron-Payload-User-Guide-8.0.pdf" },
+    "ula-atlas": { "by": "ULA", "t": "Atlas V 400 cutaway", "u": "https://www.ulalaunch.com/docs/default-source/rockets/atlas400_cutaway.pdf" },
+    "ula-vulcan": { "by": "ULA", "t": "Vulcan USSF-87 mission page (vehicle description)", "u": "https://www.ulalaunch.com/missions/next-launch/vulcan-ussf-87" },
+    "ag-a6": { "by": "ArianeGroup", "t": "Ariane 6, a versatile launcher for all missions", "u": "https://www.ariane.group/en/space-transportation/ariane-6/" },
+    "as-a6mls": { "by": "Arianespace", "t": "Ariane 6 User's Manual for Multi-Launch Service, issue 1 (June 2026)", "u": "https://www.arianespace.com/app/uploads/sites/4/2026/07/a6-mls_users_manual_1-0_june2026.pdf" },
+    "esa-a6us": { "by": "ESA", "t": "Trial by fire for Ariane 6's upper stage", "u": "https://www.esa.int/Enabling_Support/Space_Transportation/Ariane/Trial_by_fire_for_Ariane_6_s_upper_stage" },
+    "esa-a6": { "by": "ESA", "t": "Ariane 6", "u": "https://www.esa.int/Enabling_Support/Space_Transportation/Launch_vehicles/Ariane_6" },
+    "esa-vegac": { "by": "ESA", "t": "Vega-C", "u": "https://www.esa.int/Enabling_Support/Space_Transportation/Launch_vehicles/Vega-C" },
+    "esa-soyuz": { "by": "ESA", "t": "Gaia: launch vehicle (Soyuz-Fregat)", "u": "https://sci.esa.int/web/gaia/-/40149-launch-vehicle" },
+    "jaxa-h3b": { "by": "JAXA", "t": "H3 Launch Vehicle brochure", "u": "https://www.jaxa.jp/projects/pr/brochure/pdf/01/rocket09.pdf" },
+    "jaxa-h3pk": { "by": "JAXA", "t": "H3 Flight No. 10 press kit (English)", "u": "https://fanfun.jaxa.jp/countdown/mmx_h3f10/files/h3f10_presskit_en_20261016.pdf" },
+    "isro-pslv": { "by": "ISRO", "t": "PSLV", "u": "https://www.isro.gov.in/PSLV_CON.html" },
+    "isro-c25": { "by": "ISRO", "t": "PSLV-C25 mission page", "u": "https://www.isro.gov.in/mission_PSLV_C25.html" },
+    "isro-lvm3": { "by": "ISRO", "t": "LVM3", "u": "https://www.isro.gov.in/GSLVmk3_CON.html" },
+    "bo-ng": { "by": "Blue Origin", "t": "New Glenn", "u": "https://www.blueorigin.com/new-glenn" },
+    "bo-eng": { "by": "Blue Origin", "t": "Engines", "u": "https://www.blueorigin.com/engines" }
+  },
+  "entries": [
+    {
+      "slugs": ["falcon9"], "stage": "1",
+      "tanks": { "kind": "common", "order": "ox-top", "src": ["spx-fug"] },
+      "feed": { "kind": "center", "src": ["spx-fug"] },
+      "rings": { "v": [1, 8], "src": ["spx-fug"] },
+      "parts": [
+        { "id": "gridfins", "n": 4, "at": "top", "src": ["spx-fug", "spx-f9"] },
+        { "id": "legs", "n": 4, "src": ["spx-fug"] },
+        { "id": "interstage", "src": ["spx-fug"] }
+      ],
+      "facts": [
+        { "part": "bulkhead", "src": ["spx-fug"], "en": "A common dome separates the LOX and RP-1 tanks.", "tr": "LOX ve RP-1 tanklarını tek bir ortak kubbe ayırır." },
+        { "part": "feed", "src": ["spx-fug"], "en": "A double-wall transfer tube carries LOX through the centre of the RP-1 tank to the engine section.", "tr": "Çift cidarlı bir aktarma borusu LOX'u RP-1 tankının ortasından geçirip motor bölümüne taşır." },
+        { "part": "tank-ox", "src": ["spx-fug"], "en": "Tank walls are an aluminium–lithium alloy, joined by friction stir welding.", "tr": "Tank duvarları alüminyum–lityum alaşımı; sürtünme karıştırma kaynağıyla birleştirilir." },
+        { "part": "engines", "src": ["spx-fug"], "en": "The nine Merlin engines sit in a circle of eight around a centre engine. Merlin uses a gas-generator cycle.", "tr": "Dokuz Merlin motoru, ortadaki bir motorun çevresinde sekizli bir halka oluşturur. Merlin gaz üreteçli çevrimle çalışır." },
+        { "part": "gridfins", "src": ["spx-fug", "spx-f9"], "en": "Four grid fins near the top of the stage steer it during recovery; SpaceX's vehicle page places them at the base of the interstage.", "tr": "Kademenin üst ucundaki dört ızgara kanat geri dönüşte yön verir; SpaceX'in araç sayfası bunları ara kademenin tabanına yerleştirir." },
+        { "part": "legs", "src": ["spx-fug"], "en": "Four deployable landing legs at the base are flown for recovery.", "tr": "Geri dönüş için tabanda dört açılır iniş bacağı taşınır." },
+        { "part": "interstage", "src": ["spx-fug"], "en": "The interstage is a composite of aluminium honeycomb between carbon-fibre face sheets. After first-stage cut-off, helium releases the latches and four pneumatic pushers separate the stages.", "tr": "Ara kademe, karbon elyaf yüzey katmanları arasında alüminyum bal peteğinden bir kompozittir. Birinci kademe sustuktan sonra helyum kilitleri açar, dört pnömatik itici kademeleri ayırır." }
+      ]
+    },
+    {
+      "slugs": ["falcon9"], "stage": "2",
+      "facts": [
+        { "part": "tank-ox", "src": ["spx-fug"], "en": "The second-stage tank is a shorter version of the first-stage tank, built with most of the same materials, tooling and techniques.", "tr": "İkinci kademe tankı, birinci kademe tankının kısaltılmış bir sürümüdür; büyük ölçüde aynı malzeme, takım ve yöntemlerle yapılır." },
+        { "part": "engines", "src": ["spx-fug", "spx-f9"], "en": "One Merlin Vacuum engine with a fixed, non-deploying 165:1 expansion nozzle; it can be restarted several times.", "tr": "Tek Merlin Vakum motoru; açılmayan, sabit 165:1 genleşme oranlı lüle. Birçok kez yeniden ateşlenebilir." }
+      ]
+    },
+    {
+      "slugs": ["falconheavy"], "stage": "0",
+      "facts": [ { "part": "engines", "src": ["spx-fh"], "en": "Falcon Heavy is built from three Falcon 9-derived cores, each with nine engines.", "tr": "Falcon Heavy, her biri dokuz motorlu, Falcon 9'dan türetilmiş üç çekirdekten oluşur." } ]
+    },
+    {
+      "slugs": ["falconheavy"], "stage": "1",
+      "facts": [ { "part": "engines", "src": ["spx-fh"], "en": "Falcon Heavy is built from three Falcon 9-derived cores, each with nine engines.", "tr": "Falcon Heavy, her biri dokuz motorlu, Falcon 9'dan türetilmiş üç çekirdekten oluşur." } ]
+    },
+    {
+      "slugs": ["electron", "haste"], "stage": "1",
+      "tanks": { "kind": "common", "src": ["rl-pug"] },
+      "facts": [
+        { "part": "bulkhead", "src": ["rl-pug"], "en": "Linerless common-bulkhead tanks for LOX and RP-1.", "tr": "LOX ve RP-1 için astarsız, ortak perdeli tanklar." },
+        { "part": "tank-ox", "src": ["rl-pug"], "en": "All of Electron's propellant tanks are carbon composite, built in-house.", "tr": "Electron'un bütün yakıt tankları karbon kompozittir ve şirket içinde üretilir." },
+        { "part": "engines", "src": ["rl-pug"], "en": "Nine sea-level Rutherford engines, additively manufactured.", "tr": "Dokuz deniz seviyesi Rutherford motoru; eklemeli imalatla üretilir." }
+      ]
+    },
+    {
+      "slugs": ["electron", "haste"], "stage": "2",
+      "tanks": { "kind": "common", "src": ["rl-pug"] },
+      "facts": [
+        { "part": "bulkhead", "src": ["rl-pug"], "en": "A single vacuum-optimised Rutherford engine and linerless common-bulkhead tanks for LOX and kerosene.", "tr": "Tek vakum Rutherford motoru ile LOX ve gazyağı için astarsız, ortak perdeli tanklar." }
+      ]
+    },
+    {
+      "slugs": ["electron", "haste"], "stage": "3",
+      "parts": [ { "id": "rcs", "n": 2, "src": ["rl-pug"] } ],
+      "facts": [
+        { "part": "engines", "src": ["rl-pug"], "en": "The kick stage's Curie engine is a pressure-fed, re-startable liquid bipropellant engine with carbon-composite tanks.", "tr": "Tekme kademesinin Curie motoru basınç beslemeli, yeniden ateşlenebilir sıvı çift yakıtlı bir motordur; tankları karbon kompozittir." },
+        { "part": "rcs", "src": ["rl-pug"], "en": "Six reaction-control thrusters in two pods.", "tr": "İki kümede altı tepki denetim iticisi." }
+      ]
+    },
+    {
+      "slugs": ["atlasv401", "atlasv411", "atlasv421", "atlasv501", "atlasv511", "atlasv531", "atlasv541", "atlasv551", "atlasvn22"], "stage": "1",
+      "tanks": { "kind": "separate", "src": ["ula-atlas"] },
+      "facts": [
+        { "part": "engines", "src": ["ula-atlas"], "en": "One RD-180 engine with two thrust chambers, burning RP-1 and liquid oxygen.", "tr": "İki itki odalı tek RD-180 motoru; RP-1 ve sıvı oksijen yakar." },
+        { "part": "intertank", "src": ["ula-atlas"], "en": "The booster's tanks are built from isogrid aluminium barrels, spun-formed aluminium domes and intertank skirts.", "tr": "İticinin tankları izogrid alüminyum gövdeler, döndürülerek biçimlendirilmiş alüminyum kubbeler ve tanklar arası eteklerden yapılır." }
+      ],
+      "values": [ { "k": "thrustSL", "per": "engine", "v": 3827, "u": "kN", "src": "ula-atlas" } ]
+    },
+    {
+      "slugs": ["atlasv401", "atlasv411", "atlasv421", "atlasv501", "atlasv511", "atlasv531", "atlasv541", "atlasv551", "atlasvn22"], "stage": "2",
+      "tanks": { "kind": "common", "src": ["ula-atlas"] },
+      "facts": [
+        { "part": "tank-ox", "src": ["ula-atlas"], "en": "Centaur's tanks are pressure-stabilised, corrosion-resistant stainless steel, holding liquid hydrogen and liquid oxygen.", "tr": "Centaur'un tankları basınçla dengelenen, korozyona dayanıklı paslanmaz çeliktir; sıvı hidrojen ve sıvı oksijen taşır." },
+        { "part": "bulkhead", "src": ["ula-atlas"], "en": "ULA's cutaway marks a common bulkhead between Centaur's tanks.", "tr": "ULA'nın kesit çiziminde Centaur'un tankları arasında ortak perde işaretlidir." }
+      ]
+    },
+    {
+      "slugs": ["vulcancentaurvc2s", "vulcancentaurvc4s", "vulcancentaurvc6l"], "stage": "1",
+      "tanks": { "kind": "common", "src": ["ula-vulcan"] },
+      "facts": [
+        { "part": "bulkhead", "src": ["ula-vulcan"], "en": "The booster's tanks are orthogrid aluminium barrels and spun-formed aluminium domes with a common bulkhead.", "tr": "İticinin tankları ortogrid alüminyum gövdeler ve ortak perdeli, döndürülerek biçimlendirilmiş alüminyum kubbelerdir." },
+        { "part": "engines", "src": ["ula-vulcan"], "en": "A pair of BE-4 engines burning liquefied natural gas and liquid oxygen.", "tr": "Sıvılaştırılmış doğal gaz ve sıvı oksijen yakan iki BE-4 motoru." }
+      ],
+      "values": [ { "k": "thrustSL", "per": "engine", "v": 2400, "u": "kN", "src": "ula-vulcan" } ]
+    },
+    {
+      "slugs": ["vulcancentaurvc2s", "vulcancentaurvc4s"], "stage": "2",
+      "facts": [
+        { "part": "tank-ox", "src": ["ula-vulcan"], "en": "Centaur V's tanks are pressure-stabilised, corrosion-resistant stainless steel.", "tr": "Centaur V'in tankları basınçla dengelenen, korozyona dayanıklı paslanmaz çeliktir." }
+      ],
+      "values": [
+        { "k": "thrust", "per": "engine", "v": 106, "u": "kN", "src": "ula-vulcan" },
+        { "k": "length", "per": "stage", "v": 12.6, "u": "m", "src": "ula-vulcan" },
+        { "k": "diameter", "per": "stage", "v": 5.4, "u": "m", "src": "ula-vulcan" }
+      ]
+    },
+    {
+      "slugs": ["ariane62", "ariane64"], "stage": "0",
+      "facts": [ { "part": "grain", "src": ["ag-a6"], "en": "Each Equipped Solid Rocket carries a P120C motor; two (Ariane 62) or four (Ariane 64) are used.", "tr": "Her donanımlı katı yakıtlı itici bir P120C motoru taşır; Ariane 62'de iki, Ariane 64'te dört tane kullanılır." } ],
+      "values": [
+        { "k": "propMass", "per": "booster", "v": 142, "u": "t", "src": "ag-a6" },
+        { "k": "thrustAvg", "per": "booster", "v": 3500, "u": "kN", "src": "ag-a6" },
+        { "k": "length", "per": "booster", "v": 22, "u": "m", "src": "ag-a6" },
+        { "k": "diameter", "per": "booster", "v": 3.4, "u": "m", "src": "ag-a6" }
+      ]
+    },
+    {
+      "slugs": ["ariane62", "ariane64"], "stage": "1",
+      "facts": [ { "part": "engines", "src": ["esa-a6", "as-a6mls"], "en": "The core stage is powered by the Vulcain 2.1, an upgraded Ariane 5 Vulcain 2, burning liquid oxygen and liquid hydrogen.", "tr": "Ana kademeyi Ariane 5'in Vulcain 2'sinin geliştirilmişi olan Vulcain 2.1 iter; sıvı oksijen ve sıvı hidrojen yakar." } ]
+    },
+    {
+      "slugs": ["ariane62", "ariane64"], "stage": "2",
+      "parts": [ { "id": "apu", "src": ["as-a6mls", "esa-a6us"] } ],
+      "facts": [
+        { "part": "engines", "src": ["ag-a6", "as-a6mls"], "en": "The re-ignitable Vinci engine allows up to four ignitions in flight.", "tr": "Yeniden ateşlenebilen Vinci motoru uçuşta en çok dört kez ateşlenebilir." },
+        { "part": "apu", "src": ["as-a6mls", "esa-a6us"], "en": "The Auxiliary Power Unit pressurises the tanks and settles the propellant before each re-ignition, using small amounts of liquid hydrogen and oxygen from the main tanks instead of tanked helium.", "tr": "Yardımcı güç birimi tankları basınçlandırır ve her yeniden ateşlemeden önce yakıtı yerine oturtur; bunun için depolanmış helyum yerine ana tanklardan az miktarda sıvı hidrojen ve oksijen kullanır." }
+      ],
+      "values": [
+        { "k": "thrust", "per": "engine", "v": 180, "u": "kN", "src": "ag-a6" },
+        { "k": "length", "per": "stage", "v": 12, "u": "m", "src": "ag-a6" },
+        { "k": "diameter", "per": "stage", "v": 5.4, "u": "m", "src": "ag-a6" }
+      ]
+    },
+    {
+      "slugs": ["vegac"], "stage": "1",
+      "facts": [ { "part": "case", "src": ["esa-vegac"], "en": "P120C has a monolithic carbon-fibre case of about 8000 kg; the same motor serves as Ariane 6's booster.", "tr": "P120C'nin tek parça karbon elyaf gövdesi yaklaşık 8000 kg'dır; aynı motor Ariane 6'nın yan iticisidir." } ],
+      "values": [
+        { "k": "propMass", "per": "stage", "v": 143.6, "u": "t", "src": "esa-vegac" },
+        { "k": "caseMass", "per": "stage", "v": 8000, "u": "kg", "src": "esa-vegac" },
+        { "k": "thrustAvg", "per": "stage", "v": 4500, "u": "kN", "src": "esa-vegac" }
+      ]
+    },
+    {
+      "slugs": ["vegac"], "stage": "2",
+      "values": [ { "k": "propMass", "per": "stage", "v": 36.2, "u": "t", "src": "esa-vegac" }, { "k": "thrustAvg", "per": "stage", "v": 1304, "u": "kN", "src": "esa-vegac" } ]
+    },
+    {
+      "slugs": ["vegac"], "stage": "3",
+      "values": [ { "k": "propMass", "per": "stage", "v": 10, "u": "t", "src": "esa-vegac" } ]
+    },
+    {
+      "slugs": ["vegac"], "stage": "4",
+      "facts": [ { "part": "engines", "src": ["esa-vegac"], "en": "AVUM+ handles attitude control and precise orbit placement; its main engine can be re-ignited.", "tr": "AVUM+ duruş denetimini ve hassas yörüngeye yerleştirmeyi yapar; ana motoru yeniden ateşlenebilir." } ],
+      "values": [ { "k": "propMass", "per": "stage", "v": 740, "u": "kg", "src": "esa-vegac" }, { "k": "thrustAvg", "per": "engine", "v": 2.42, "u": "kN", "src": "esa-vegac" } ]
+    },
+    {
+      "slugs": ["h322s", "h324l", "h324w"], "stage": "0",
+      "values": [ { "k": "thrust", "per": "booster", "v": 2158, "u": "kN", "src": "jaxa-h3b" } ]
+    },
+    {
+      "slugs": ["h322s", "h324l", "h324w", "h330s"], "stage": "1",
+      "facts": [ { "part": "engines", "src": ["jaxa-h3pk"], "en": "LE-9 uses the expander-bleed cycle: hydrogen that has cooled the combustion chamber then drives the turbopumps. The first stage carries two or three.", "tr": "LE-9 genleşme-boşaltma çevrimini kullanır: yanma odasını soğutan hidrojen ardından turbo pompaları döndürür. Birinci kademede iki ya da üç tane bulunur." } ],
+      "values": [ { "k": "thrust", "per": "engine", "v": 1472, "u": "kN", "src": "jaxa-h3b" } ]
+    },
+    {
+      "slugs": ["h322s", "h324l", "h324w", "h330s"], "stage": "2",
+      "facts": [ { "part": "engines", "src": ["jaxa-h3pk"], "en": "One LE-5B-3, an upgrade of the LE-5B-2 used on H-IIA and H-IIB.", "tr": "Tek LE-5B-3; H-IIA ve H-IIB'deki LE-5B-2'nin geliştirilmişi." } ],
+      "values": [ { "k": "thrust", "per": "engine", "v": 137, "u": "kN", "src": "jaxa-h3pk" }, { "k": "isp", "per": "engine", "v": 448, "u": "s", "src": "jaxa-h3pk" } ]
+    },
+    {
+      "slugs": ["pslv", "pslvxl", "pslvdl"], "stage": "2",
+      "facts": [ { "part": "engines", "src": ["isro-pslv"], "en": "PS2 is powered by the Vikas liquid engine.", "tr": "PS2'yi Vikas sıvı yakıtlı motoru iter." } ]
+    },
+    {
+      "slugs": ["pslv", "pslvxl", "pslvdl"], "stage": "3",
+      "facts": [ { "part": "grain", "src": ["isro-pslv"], "en": "PS3 uses an HTPB-based solid propellant.", "tr": "PS3, HTPB esaslı katı yakıt kullanır." } ],
+      "values": [ { "k": "propMass", "per": "stage", "v": 7.6, "u": "t", "src": "isro-c25" } ]
+    },
+    {
+      "slugs": ["pslv", "pslvxl", "pslvdl"], "stage": "4",
+      "facts": [ { "part": "engines", "src": ["isro-pslv"], "en": "PS4, the final stage, uses two liquid engines.", "tr": "Son kademe PS4 iki sıvı yakıtlı motor kullanır." } ]
+    },
+    {
+      "slugs": ["pslvxl"], "stage": "0",
+      "values": [ { "k": "propMass", "per": "booster", "v": 12, "u": "t", "src": "isro-pslv" } ]
+    },
+    {
+      "slugs": ["lvm3"], "stage": "0",
+      "facts": [ { "part": "case", "src": ["isro-lvm3"], "en": "Each S200 is a 3.2 m motor of three M250 case segments.", "tr": "Her S200, üç M250 gövde parçasından oluşan 3,2 m çaplı bir motordur." } ],
+      "values": [ { "k": "propMass", "per": "booster", "v": 205, "u": "t", "src": "isro-lvm3" } ]
+    },
+    {
+      "slugs": ["lvm3"], "stage": "1",
+      "facts": [ { "part": "engines", "src": ["isro-lvm3"], "en": "The L110 core stage has twin Vikas engines.", "tr": "L110 ana kademesinde ikiz Vikas motoru vardır." } ],
+      "values": [ { "k": "propMass", "per": "stage", "v": 115, "u": "t", "src": "isro-lvm3" } ]
+    },
+    {
+      "slugs": ["lvm3"], "stage": "2",
+      "facts": [ { "part": "engines", "src": ["isro-lvm3"], "en": "The C25 cryogenic stage is powered by the CE-20 engine on liquid oxygen and liquid hydrogen.", "tr": "C25 kriyojenik kademesini sıvı oksijen ve sıvı hidrojenle çalışan CE-20 motoru iter." } ],
+      "values": [ { "k": "propMass", "per": "stage", "v": 28, "u": "t", "src": "isro-lvm3" } ]
+    },
+    {
+      "slugs": ["soyuz21a", "soyuz21b", "soyuzsta", "soyuzstb"], "stage": "0",
+      "parts": [ { "id": "verniers", "n": 2, "src": ["esa-soyuz"] }, { "id": "aerofins", "n": 1, "src": ["esa-soyuz"] } ],
+      "facts": [
+        { "part": "engines", "src": ["esa-soyuz"], "en": "Each booster's RD-107A has four combustion chambers and nozzles.", "tr": "Her yan iticinin RD-107A motorunda dört yanma odası ve lüle vardır." },
+        { "part": "verniers", "src": ["esa-soyuz"], "en": "Three-axis flight control uses one aerofin and two movable vernier thrusters per booster.", "tr": "Üç eksenli uçuş denetimi, her yan iticide bir aerodinamik kanat ve iki hareketli ayar iticisiyle yapılır." }
+      ]
+    },
+    {
+      "slugs": ["soyuz21a", "soyuz21b", "soyuzsta", "soyuzstb"], "stage": "1",
+      "facts": [ { "part": "engines", "src": ["esa-soyuz"], "en": "The central core uses an RD-108A; its vernier thrusters take over three-axis control after the boosters separate.", "tr": "Merkez gövdede RD-108A vardır; yan iticiler ayrıldıktan sonra üç eksenli denetimi onun ayar iticileri üstlenir." } ]
+    },
+    {
+      "slugs": ["newglenn7x2"], "stage": "1",
+      "parts": [ { "id": "fins", "n": 4, "src": ["bo-ng"] }, { "id": "strakes", "src": ["bo-ng"] } ],
+      "facts": [
+        { "part": "engines", "src": ["bo-ng", "bo-eng"], "en": "Seven BE-4 engines burning liquid oxygen and liquefied natural gas.", "tr": "Sıvı oksijen ve sıvılaştırılmış doğal gaz yakan yedi BE-4 motoru." },
+        { "part": "fins", "src": ["bo-ng"], "en": "Four actuated aerodynamic control surfaces steer the booster during descent and landing.", "tr": "Dört hareketli aerodinamik denetim yüzeyi iniş sırasında iticiye yön verir." },
+        { "part": "strakes", "src": ["bo-ng"], "en": "Wing-like strakes give lift and cross-range during the descent.", "tr": "Kanat benzeri şeritler iniş sırasında kaldırma ve yanal menzil sağlar." }
+      ],
+      "values": [ { "k": "thrust", "per": "engine", "v": 2846, "u": "kN", "src": "bo-eng" } ]
+    },
+    {
+      "slugs": ["newglenn7x2"], "stage": "2",
+      "facts": [ { "part": "engines", "src": ["bo-ng", "bo-eng"], "en": "Two BE-3U engines burning liquid oxygen and liquid hydrogen.", "tr": "Sıvı oksijen ve sıvı hidrojen yakan iki BE-3U motoru." } ],
+      "values": [ { "k": "thrustVac", "per": "engine", "v": 890, "u": "kN", "src": "bo-eng" } ]
+    },
+    {
+      "slugs": ["starshipv10", "starshipv2"], "stage": "1",
+      "rings": { "v": [13, 20], "src": ["spx-ss"] },
+      "parts": [ { "id": "gridfins", "n": 4, "at": "top", "src": ["spx-upd"] } ],
+      "facts": [
+        { "part": "engines", "src": ["spx-ss"], "en": "33 Raptor engines: 13 gimballing engines in the centre and 20 around the perimeter, burning sub-cooled methane and liquid oxygen.", "tr": "33 Raptor motoru: ortada yön verebilen 13, çevrede 20 motor; aşırı soğutulmuş metan ve sıvı oksijen yakar." },
+        { "part": "gridfins", "src": ["spx-upd"], "en": "Super Heavy flew four grid fins before V3.", "tr": "Super Heavy, V3'ten önce dört ızgara kanatla uçtu." }
+      ]
+    },
+    {
+      "slugs": ["starshipv3"], "stage": "1",
+      "rings": { "v": [13, 20], "src": ["spx-ss"] },
+      "parts": [ { "id": "gridfins", "n": 3, "at": "top", "src": ["spx-upd"] } ],
+      "facts": [
+        { "part": "engines", "src": ["spx-ss", "spx-upd"], "en": "33 Raptor engines: 13 gimballing engines in the centre and 20 around the perimeter. A sea-level Raptor 3 makes 250 tf.", "tr": "33 Raptor motoru: ortada yön verebilen 13, çevrede 20 motor. Deniz seviyesi Raptor 3, 250 tf itki üretir." },
+        { "part": "gridfins", "src": ["spx-upd"], "en": "V3 has three grid fins instead of four, each about 50% larger, lowered to cut heat from the ship's engines during hot staging; their shafts and actuators moved inside the main fuel tank.", "tr": "V3'te dört yerine üç ızgara kanat var; her biri yaklaşık %50 daha büyük, sıcak ayrılmada geminin motorlarından gelen ısıyı azaltmak için aşağı alındı; milleri ve eyleyicileri ana yakıt tankının içine taşındı." }
+      ],
+      "values": [ { "k": "thrustSL", "per": "engine", "v": 250, "u": "tf", "src": "spx-upd" } ]
+    },
+    {
+      "slugs": ["starshipv10", "starshipv2", "starshipv3"], "stage": "2",
+      "rings": { "v": [3, 3], "vac": [false, true], "src": ["spx-ss"] },
+      "facts": [ { "part": "engines", "src": ["spx-ss"], "en": "Six engines: three sea-level Raptors and three Raptor Vacuum engines. (GCAT lists all six under one vacuum engine type.)", "tr": "Altı motor: üç deniz seviyesi Raptor ve üç Raptor Vakum. (GCAT altısını tek bir vakum motoru türüyle kaydeder.)" } ]
+    },
+    {
+      "slugs": ["starshipv3"], "stage": "2",
+      "values": [ { "k": "thrustVac", "per": "engine", "v": 275, "u": "tf", "src": "spx-upd" } ]
+    }
+  ]
+}

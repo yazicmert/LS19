@@ -243,6 +243,56 @@ check('LL2 adı → GCAT: Long March → Chang Zheng, Kinetica → Lijian, Ceres
 const lf9 = R3.rocketLayout(f9.spec), lfh = R3.rocketLayout(fh.spec), lcz = R3.rocketLayout(cz6a.spec);
 check('3B yerleşim: kademeler istiflenir, toplam boy aracın boyuna yakın; Falcon Heavy 2, Chang Zheng 6A 4 yan itici; kaporta en üstte', Math.abs(lf9.height - f9.spec.length) / f9.spec.length < 0.1
   && lfh.boosters.length === 2 && lcz.boosters.length === 4 && lf9.segs[lf9.segs.length - 1].kind === 'fairing' && lf9.segs.filter((x) => x.kind === 'stage').length === 2 && lf9.boosters.length === 0);
+// 5f2) roket kademe ayrıntısı: GCAT motor/kademe kaydı, elle derlenmiş kaynaklı bilgi (data/rocket-detail.json), ayrık görünüm ve kesit yerleşimi
+const RDet = JSON.parse(rd('../../site/data/rocket-detail.json')), RDl = await import('../../site/lib/rocket-detail.js');
+const dig = (v) => v.spec.stages.filter((x) => /^[0-9]$/.test(x.no)), allSt = RV.flatMap(dig);
+check('GCAT kademe kaydı: kademelerin ≥ %95’inde motor ve itki maddesi; Isp 150–480 s, kuru kütle < dolu kütle, itki > 0', allSt.filter((s) => s.eng && (s.eng.fuel || s.eng.ox)).length >= allSt.length * 0.95
+  && allSt.every((s) => !s.eng || ((s.eng.isp == null || (s.eng.isp >= 150 && s.eng.isp <= 480)) && (s.eng.thrust == null || s.eng.thrust > 0) && s.eng.chambers >= 1))
+  && allSt.every((s) => s.dry == null || s.mass == null || s.dry < s.mass * 1000) && allSt.every((s) => !s.q || s.q.every((k) => typeof k === 'string')));
+const UNITS = { kN: [0.01, 100000], t: [0.01, 5000], kg: [1, 1e6], m: [0.1, 150], s: [1, 1000], tf: [1, 2000] };
+const entries = RDet.entries, srcOk = (ids) => Array.isArray(ids) && ids.length > 0 && ids.every((k) => RDet.sources[k]);
+check('elle derlenen ayrıntı: her kaynak https bağlantılı ve yayımcılı; alınma tarihi ISO; her kayıt var olan bir aracın var olan kademesine', /^\d{4}-\d\d-\d\d$/.test(RDet.retrieved)
+  && Object.values(RDet.sources).every((s) => /^https:\/\//.test(s.u) && s.by && s.t)
+  && entries.every((e) => e.slugs.length && e.slugs.every((sl) => { const v = RV.find((x) => x.slug === sl); return v && dig(v).some((s) => s.no === e.stage); })));
+check('elle derlenen ayrıntı: her bilgi, değer, parça, tank düzeni ve motor dizilişi kaynaklı; metinler iki dilde; birimler ve büyüklükler makul', entries.every((e) =>
+  (e.facts || []).every((f) => srcOk(f.src) && f.en && f.tr && f.part) && (e.values || []).every((v) => RDet.sources[v.src] && UNITS[v.u] && v.v >= UNITS[v.u][0] && v.v <= UNITS[v.u][1] && en.rk.x.rows[v.k === 'thrust' ? 'thrustAny' : v.k] && ['engine', 'stage', 'booster'].includes(v.per))
+  && (e.parts || []).every((p) => srcOk(p.src) && en.rk.x.part[p.id]) && (!e.tanks || (srcOk(e.tanks.src) && ['common', 'separate'].includes(e.tanks.kind))) && (!e.feed || srcOk(e.feed.src)) && (!e.rings || srcOk(e.rings.src))));
+let stOk = true, ringOk = true, inOk = true, cnt = { stages: 0, cur: 0 };
+for (const v of RV) {
+  const S = RDl.stageList(v, RDet), L = R3.rocketLayout(v.spec);
+  if (S.length !== dig(v).length || S.some((s, k) => s.neng !== (dig(v).find((x) => x.no === s.no).neng || 1))) stOk = false;
+  for (const s of S) {
+    cnt.stages++; if (s.curated) cnt.cur++;
+    if (s.ringsDocumented && s.rings.reduce((a, b) => a + b, 0) !== s.bells) ringOk = false;
+    const seg = R3.stageSeg(L, s.key), Rr = seg.d / 2, P = R3.stageInternals(s, seg);
+    const eng = P.find((p) => p.id === 'engines' || p.id === 'nozzle');
+    if (!eng || eng.items.length !== (s.cls === 'solid' ? 1 : s.rings.reduce((a, b) => a + b, 0))) inOk = false;
+    for (const p of P) {
+      if (!['tank', 'grain', 'pipe', 'dome'].includes(p.kind)) continue;
+      const y0 = p.kind === 'dome' ? p.y + Math.min(0, p.h) : p.kind === 'tank' ? p.y0 - Math.max(0, p.dBot) : p.y0;
+      const y1 = p.kind === 'dome' ? p.y + Math.max(0, p.h) : p.kind === 'tank' ? p.y1 + Math.max(0, p.dTop) : p.y1;
+      const r = p.kind === 'pipe' ? Math.hypot(p.x, p.z) + p.r : p.r;
+      if (y0 < -1e-6 || y1 > seg.l + 1e-6 || y1 < y0 || r > Rr * 1.0011) inOk = false;
+    }
+    for (const p of s.parts) if (!en.rk.x.part[p.id] || !tr.rk.x.part[p.id]) inOk = false;
+    for (const p of s.prop) if (!p.key || !en.rk.x.prop[p.key]) inOk = false;
+  }
+}
+check('kademe listesi: her araçta GCAT’taki kademe sayısı ve motor sayısı; kaynaklı motor dizilişi motor × oda sayısına eşit', stOk && ringOk, `${cnt.stages} kademe, ${cnt.cur} tanesinde elle derlenmiş ayrıntı`);
+check('kesit yerleşimi (119 araç): tanklar, yakıt bloğu, ortak perde ve besleme hattı kademe gövdesinin içinde; çan sayısı motor × oda; her parça ve itki maddesi iki dilde adlı', inOk);
+const sf9 = RDl.stageList(f9, RDet), P1 = R3.stageInternals(sf9[0], R3.stageSeg(lf9, '1')), byId = (id) => P1.find((p) => p.id === id);
+check('Falcon 9 1. kademe (SpaceX kullanıcı kılavuzu): ortak kubbe, LOX üstte, LOX hattı ortadan, 8 + 1 motor, 4 ızgara kanat, 4 bacak; 2. kademe tank düzeni kaynaksız (şematik)',
+  sf9[0].tanks.kind === 'common' && sf9[0].tanks.documented && byId('tank-ox').y0 > byId('tank-fuel').y0 && byId('feed').x === 0 && byId('bulkhead') && JSON.stringify(sf9[0].rings) === '[1,8]'
+  && byId('gridfins').n === 4 && byId('legs').n === 4 && sf9[1].tanks.kind === 'generic' && !sf9[1].tanks.documented && sf9[0].sources.some((s) => s.id === 'spx-fug'));
+const eo = R3.explodeOffsets(lcz, 1), e0 = R3.explodeOffsets(lcz, 0);
+check('ayrık görünüm: parçalar alttan üste artan aralıkla açılır, yan iticiler dışa kayar; kapalıyken kayma yok; parça sırası kademe sırası', eo.pieces.every((p, k, a) => !k || p.dy > a[k - 1].dy) && eo.booster > 0 && eo.height > lcz.height
+  && e0.pieces.every((p) => p.dy === 0) && e0.booster === 0 && R3.rocketPieces(lf9).map((p) => p.key).join() === '1,2,F');
+const st0 = RDl.readStageState('?stage=1&view=inside&part=engines', sf9);
+check('adres durumu: ?stage=1&view=inside&part=engines gidip gelir; olmayan kademe ya da parça yok sayılır', st0.sel === '1' && st0.view === 'inside' && st0.part === 'engines' && RDl.writeStageState(st0) === '?stage=1&view=inside&part=engines'
+  && RDl.readStageState('?stage=9', sf9).sel === null && RDl.readStageState('?stage=2&view=inside&part=legs', sf9).part === null && RDl.readStageState('?stage=2', sf9).view === 'apart' && RDl.writeStageState({ sel: null, view: 'whole' }) === '');
+const rkScript = rd('../../site/scripts/roketler.mjs'), rkPage = rd('../../site/app/[lang]/rockets/[slug]/page.jsx');
+check('roket verisi yenilemesi motor tablosunu da alır, elle derlenen dosyaya dokunmaz; sayfa kademe gezginini ve kaynaklarını kullanır', /tables\/engines\.tsv/.test(rkScript) && !/rocket-detail\.json'/.test(rkScript.replace(/^\/\/.*$/gm, ''))
+  && /<RocketExplorer/.test(rkPage) && /rocket-detail\.json/.test(rkPage) && !/rocket-detail/.test(rd('../../.github/workflows/site-veri.yml')));
 // 5g) tarihçe: keşif, gözlem, yakın geçiş, Sentry, görev olayları; tarih sırası; gelecek işaretli
 const Hs = await import('../../site/lib/history.js'), EVJ = JSON.parse(rd('../../site/data/events.json')), MJ = JSON.parse(rd('../../site/data/missions.json'));
 const hb = Hs.asteroidEvents(bennu, 'en', data.retrieved, MJ), hs = Hs.satEvents(SO.find((o) => o.id === '20580'), 'tr', SD.retrieved, EVJ);
