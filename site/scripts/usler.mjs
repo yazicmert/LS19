@@ -3,7 +3,7 @@
 // GCAT aynı üssü dönemine ya da işletmecisine göre ayrı kodlarla tutar (Baykonur: NIIP-5, GIK-5; Plesetsk: NIIP-53, GIK-1, GNIIPV …):
 //   kısa adı (ShortName) aynı olanlar tek üs sayılır; ayrıca BIRLES'teki ad değişiklikleri birleştirilir. Ülke, üssün bugün bulunduğu ülkedir (ISO 3166).
 // Kaynak: GCAT, J. McDowell (planet4589.org), CC BY 4.0. Kullanım (depo kökünden): node site/scripts/usler.mjs [--yerel klasör] [--rapor rapor.md]
-//   --yerel: launch.tsv, sites.tsv, lp.tsv, satcat.tsv önceden indirilmişse o klasörden okunur (vekilli ortamlar)
+//   --yerel: launch.tsv, sites.tsv, lp.tsv, satcat.tsv, orgs.tsv önceden indirilmişse o klasörden okunur (vekilli ortamlar)
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,7 +23,8 @@ async function get(f) {
     catch (e) { if (k >= 3) throw new Error(`${f}: ${e.message}`); await new Promise((res) => setTimeout(res, 3000 * k)); }
   }
 }
-const [launchTxt, sitesTxt, lpTxt, satTxt] = await Promise.all(['launch/launch.tsv', 'tables/sites.tsv', 'tables/lp.tsv', 'cat/satcat.tsv'].map(get));
+const [launchTxt, sitesTxt, lpTxt, satTxt, orgsTxt] = await Promise.all(['launch/launch.tsv', 'tables/sites.tsv', 'tables/lp.tsv', 'cat/satcat.tsv', 'tables/orgs.tsv'].map(get));
+const orgs = new Map(parseTsv(orgsTxt).map((r) => [r.Code, r]));
 const updated = (/# Updated (\d{4} \w{3} +\d{1,2})/.exec(launchTxt) || [])[1] || null;
 const launches = parseTsv(launchTxt), sites = new Map(parseTsv(sitesTxt).map((r) => [r.Site, r]));
 const pads = new Map(parseTsv(lpTxt).map((r) => [`${r.Site}|${r.Code}`, r]));
@@ -81,8 +82,14 @@ for (const g of groups.values()) {
   const P = [...padStat.values()].filter((p) => p.lat != null && p.lon != null), w = P.reduce((n, p) => n + p.n, 0);
   const lat = w ? P.reduce((s, p) => s + p.lat * p.n, 0) / w : num(g.site.Latitude), lon = w ? P.reduce((s, p) => s + p.lon * p.n, 0) / w : num(g.site.Longitude);
   const name = g.key, ok = L.filter((x) => x.o === 'S').length, bad = L.filter((x) => x.o === 'F').length;
+  // işletmeci: en son fırlatma yapılan GCAT kodunun üst kuruluşu (Parent → orgs.tsv; İngilizce adı, sınıfı B ticari / C sivil / D savunma);
+  // üst kuruluş bir devletse (Type CY) işletmeci yazılmaz. Kullanımda: kodların en erken TStart'ı ile ilk fırlatma yılının küçüğü
+  const lastCode = g.rows.reduce((b, r) => ((r.l.Launch_Date || '') > (b.l.Launch_Date || '') ? r : b), g.rows[0]).code, par = txt(sites.get(lastCode).Parent), og = par ? orgs.get(par) : null;
+  const operator = og && !/^CY/.test(String(og.Type || '').trim()) ? { short: txt(og.ShortName) || par, name: txt(og.EName) || txt(og.Name) || null, code: par, cls: /^[BCD]$/.test(String(og.Class || '').trim()) ? og.Class.trim() : null } : null;
+  const ys = [...g.codes].map((c) => +(String(sites.get(c).TStart || '').match(/^\d{4}/) || [0])[0]).filter((y) => y > 1900);
   out.push({
     slug: slugOf(name), name, full: [...g.names].filter(Boolean)[0] || name, gcat: [...g.codes].sort(), cc: ULKE[name] || null, sea: DENIZ.has(name),
+    operator, established: Math.min(...ys, +L[0].d.slice(0, 4)),
     lat: lat == null ? null : +lat.toFixed(4), lon: lon == null ? null : +lon.toFixed(4),
     stats: { total: L.length, success: ok, failure: bad, deep: L.filter((x) => x.deep).length, first: L[0].d, last: L[L.length - 1].d },
     byYear, rockets: [...lvStat.entries()].sort((a, b) => b[1] - a[1]).map(([n, c]) => ({ name: n, n: c, slug: rocketSlug(n) })),

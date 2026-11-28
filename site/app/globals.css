@@ -747,3 +747,21 @@ g[class^="ser--"] path.is-partial { fill-opacity: 0.45; }
   .sst .flt__f select { width: 100%; max-width: none; }
   .sst-ctl { gap: 12px 18px; }
 }
+
+/* fırlatmalar küresi (yaklaşan fırlatmaların rampaları ve hedef yörüngeleri) */
+.lg { margin: 0 0 26px; display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 20px 32px; align-items: center; }
+.lg__stage { position: relative; aspect-ratio: 1; background: var(--sheet); border: 1px solid var(--hair); cursor: grab; touch-action: pan-y; outline-offset: 3px; }
+.lg__stage canvas { display: block; width: 100%; height: 100%; }
+.lg__msg { position: absolute; inset: auto 12px 12px; margin: 0; color: var(--ink-2); font-size: 14px; }
+.lg__lead { margin: 0 0 12px; max-width: 60ch; }
+.lg__keys { display: flex; flex-wrap: wrap; gap: 6px; }
+.lg__key { display: inline-flex; align-items: center; gap: 8px; font: inherit; font-size: 14px; padding: 6px 10px; background: transparent; color: var(--ink); border: 1px solid var(--hair); cursor: pointer; }
+.lg__key:hover:not(:disabled) { border-color: var(--ink); }
+.lg__key[aria-pressed='true'] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.lg__key:disabled { cursor: default; color: var(--ink-2); }
+.lg__sw { width: 14px; height: 4px; background: var(--ser); flex: none; }
+.lg__n { color: var(--ink-2); }
+@media (max-width: 700px) { .lg { grid-template-columns: minmax(0, 1fr); } .lg__stage { max-width: 360px; width: 100%; margin-inline: auto; } }
+.ls__now { margin: 10px 0 26px; font-size: 15px; color: var(--ink-2); }
+.ls__now b { color: var(--ink); margin-right: 6px; }
+.ls__now .mono { font-size: 13px; }

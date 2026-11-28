@@ -10,20 +10,24 @@ import { countable } from '@/lib/launches';
 import { useListState, FilterBar, FText, FSelect, FToggles } from './Filters';
 import Link from 'next/link';
 import { Play, ArrowRight } from './Icon';
+import LaunchGlobe from './LaunchGlobe';
+import { orbitGroup } from '@/lib/orbit-shapes';
 
-const DEF = { q: '', provider: '', status: '', known: false, stream: false };
+const DEF = { q: '', provider: '', status: '', orbit: '', known: false, stream: false };
+const groupOf = (abbrev) => (orbitGroup(abbrev) || { id: 'other' }).id;
 const count = (rows, get) => { const m = new Map(); for (const r of rows) { const k = get(r); if (k) m.set(k, (m.get(k) || 0) + 1); } return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); };
-export default function LaunchBrowser({ lang, rows }) {
+export default function LaunchBrowser({ lang, rows, globeRows = [] }) {
   const L = t(lang), F = L.flt, C = L.launch, [st, set, reset, dirty] = useListState(DEF);
   const providers = useMemo(() => count(rows, (l) => l.provider).map(([k, n]) => [k, k, n]), [rows]);
   const statuses = useMemo(() => count(rows, (l) => l.status.name || l.status.abbrev).map(([k, n]) => [k, k, n]), [rows]);
   const shown = useMemo(() => {
     const r = rows.filter((l) => (!st.provider || l.provider === st.provider) && (!st.status || (l.status.name || l.status.abbrev) === st.status)
-      && (!st.known || countable(l.precision)) && (!st.stream || l.streams.some((s) => s.official)));
+      && (!st.orbit || groupOf(l.mission.orbitAbbrev) === st.orbit) && (!st.known || countable(l.precision)) && (!st.stream || l.streams.some((s) => s.official)));
     return st.q ? rank(r, st.q, (l) => [l.mission.name, l.name, l.vehicle, l.provider, l.pad.name, l.pad.location, l.mission.orbit, l.mission.type, ...l.mission.customers, ...l.programs, l.spacecraft]) : r;
   }, [rows, st]);
   return (
     <div className="lch__all">
+      {globeRows.length ? <LaunchGlobe lang={lang} rows={globeRows} sel={st.orbit} onPick={(v) => set('orbit', v)} /> : null}
       <FilterBar label={F.title} shown={shown.length} total={rows.length} onReset={reset} dirty={dirty} L={F}>
         <FText label={F.text} value={st.q} onChange={(v) => set('q', v)} placeholder={F.ph.lch} />
         <FSelect label={F.provider} value={st.provider} onChange={(v) => set('provider', v)} options={providers} all={F.all} />

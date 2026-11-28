@@ -11,7 +11,7 @@ import { pageMeta } from '@/lib/seo';
 import { LANGS } from '@/lib/config';
 import { t, num, date } from '@/lib/i18n';
 import { SITES, SITES_RETRIEVED, SITES_UPDATED, siteBySlug, countryName, globeSites, fmtLat, fmtLon, rocketHref } from '@/lib/sites';
-import { siteSummary, inclHistogram, inclFromAz } from '@/lib/launchsite';
+import { siteSummary, inclHistogram, inclFromAz, siteFeatures } from '@/lib/launchsite';
 
 export const dynamicParams = false;
 export function generateStaticParams() { return LANGS.flatMap((lang) => SITES.map((s) => ({ lang, slug: s.slug }))); }
@@ -26,7 +26,16 @@ export default async function Site({ params }) {
   const years = Object.entries(s.byYear).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])), peak = years[0];
   const byYear = {}; for (const l of [...s.launches].reverse()) (byYear[l.d.slice(0, 4)] ||= []).push(l);
   const yearList = Object.keys(byYear).sort().reverse();
-  const ir = E.range ? inclFromAz(s.lat, E.range.az) : null;
+  const ir = E.range ? inclFromAz(s.lat, E.range.az) : null, Ft = L.feat, FS = siteFeatures(s, SITES_RETRIEVED), pct = (x) => `${num(lang, 100 * x, 0)} %`;
+  const feat = [
+    ['', Ft.country, countryName(lang, s.cc), null, 'text'],
+    ['', Ft.operator, s.operator ? `${s.operator.short}${s.operator.name && s.operator.name !== s.operator.short ? ` (${s.operator.name})` : ''}` : Ft.opNone, null, 'text', s.operator && s.operator.cls ? Ft.opCls[s.operator.cls] : null],
+    ['', Ft.since, Ft.sinceVal(s.established, St.last.slice(0, 4), FS.active), null, 'text'],
+    ['', Ft.status, FS.active ? Ft.on : Ft.off, null, 'text', Ft.statusNote],
+    ['', Ft.kind, s.sea ? Ft.sea : Ft.land, null, 'text'],
+    s.pads.length ? ['', Ft.pads, Ft.padsVal(num(lang, FS.pads.active, 0), num(lang, FS.pads.total, 0)), null, 'text'] : null,
+    FS.orbits.length ? ['', Ft.orbitsTop, FS.orbits.slice(0, 4).map((o) => `≈ ${o.deg}°${o.k ? ` (${Ft.oc[o.k]})` : ''} ${pct(o.share)}`).join(' · '), null, 'text'] : null,
+  ];
   const eff = [
     ['', L.eff.rot, num(lang, E.rot, 0), 'm/s'],
     ['', L.eff.minInc, num(lang, E.minInc, 1), '°'],
@@ -37,7 +46,7 @@ export default async function Site({ params }) {
   const stats = [['total', num(lang, St.total, 0)], ['success', num(lang, St.success, 0)], ['failure', num(lang, St.failure, 0)], ['deep', num(lang, St.deep, 0)], ['first', St.first], ['last', St.last]];
   return (
     <>
-      <Masthead lang={lang} current="launches" altPath={`/launches/sites/${s.slug}`} />
+      <Masthead lang={lang} current="sites" altPath={`/launches/sites/${s.slug}`} />
       <main id="main" className="wrap rec">
         <nav className="crumb" aria-label="breadcrumb"><Link href={`/${lang}/launches/sites`}>{L.back}</Link></nav>
         <header className="rec__head">
@@ -52,6 +61,8 @@ export default async function Site({ params }) {
         <div className="rec__grid">
           <div className="rec__data">
             <dl className="pr__stats">{stats.map(([k, v]) => <div key={k}><dt>{L.stats[k]}</dt><dd className="mono">{v}</dd></div>)}</dl>
+            <ElementBlock caption={Ft.title} rows={feat} />
+            <p className="ls__now"><b>{Ft.now}</b> {FS.rocketsNow.length ? FS.rocketsNow.map((r, k) => { const h = rocketHref(lang, r.slug); return <span key={r.name}>{k ? ', ' : ''}{h ? <Link href={h}>{r.name}</Link> : r.name} <span className="mono">{num(lang, r.n, 0)}</span></span>; }) : Ft.none}</p>
             <ElementBlock caption={L.effT} rows={eff} />
             <p className="el__note">{L.assume}</p>
           </div>

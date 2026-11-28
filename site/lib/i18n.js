@@ -6,7 +6,7 @@ const T = {
     langName: 'English',
     other: 'Türkçe',
     circular: 'Circular No.',
-    nav: { asteroids: 'Asteroids', satellites: 'Satellites', rockets: 'Rockets', launches: 'Launches', sources: 'Sources', ls19: 'Open LS19' },
+    nav: { asteroids: 'Asteroids', satellites: 'Satellites', rockets: 'Rockets', launches: 'Launches', sites: 'Launch sites', sources: 'Sources', ls19: 'Open LS19' },
     skip: 'Skip to content',
     home: {
       title: 'lookstar19 — an open library of space data',
@@ -36,6 +36,13 @@ const T = {
       roadmap: 'Roadmap',
     },
     launch: {
+      globe: {
+        loading: 'Drawing the globe…', error: 'The globe could not be drawn; the list below has the same launches.', keys: 'Target orbits',
+        aria: (s) => `Globe with the pads of the upcoming launches and their target orbits: ${s}`,
+        lead: (n, p) => `The next ${n} launches from ${p} pads. Each line is the target orbit drawn over its own pad; choose an orbit to filter the list.`,
+        note: (u) => `Schematic: heights are compressed so low orbit and geostationary fit in one picture, and an orbit's tilt is its usual value or, if unknown, the pad's latitude (launch due east). ${u} launches have no stated orbit. Source: Launch Library 2.`,
+        g: { leo: 'Low Earth orbit', po: 'Polar', sso: 'Sun-synchronous', gto: 'Geostationary transfer', geo: 'Geostationary', meo: 'Medium / elliptical', deep: 'Moon and beyond', other: 'Not stated' },
+      },
       next: 'Next launch',
       noFuture: 'No upcoming launch is listed right now.',
       unavailable: 'Launch data is unavailable right now. The source (Launch Library 2) limits requests; this page retries every 30 minutes.',
@@ -414,6 +421,12 @@ const T = {
       sea: 'sea', seaNote: 'Sea launches: position of the launch zone, not a fixed pad.',
       src: (d, u) => `Launches, sites and pads: GCAT, J. McDowell (planet4589.org), CC BY 4.0; updated ${u}, retrieved ${d}. Coastlines: Natural Earth (public domain). Range limits: as given on the LS19 pad list.`,
       // üs sayfası
+      feat: {
+        title: 'Features', country: 'Country', operator: 'Operator (GCAT)', opCls: { B: 'commercial', C: 'civil government', D: 'military' }, opNone: 'state (GCAT lists the state itself)',
+        since: 'In use', sinceVal: (y0, y1, on) => (on ? `since ${y0}` : `${y0}–${y1}`), status: 'Status', on: 'Active', off: 'No longer used', statusNote: 'active = a launch in the last two years',
+        pads: 'Pads', padsVal: (a, t) => `${a} active of ${t}`, now: 'Rockets flown in the last three years', none: '—', kind: 'Setting', land: 'On land', sea: 'At sea (launch zone)',
+        orbitsTop: 'Most common inclinations', oc: { polar: 'polar / sun-synchronous', retro: 'retrograde' },
+      },
       back: 'All launch sites', coords: 'Coordinates', gcat: 'GCAT codes',
       stats: { total: 'Launches', success: 'Successful', failure: 'Failed', deep: 'Beyond Earth orbit', first: 'First', last: 'Latest' },
       yearT: 'Launches per year', yearLead: (y0, y1, peak, py) => `From ${y0} to ${y1}. Busiest year: ${py}, with ${peak} launches.`,
@@ -602,7 +615,7 @@ const T = {
     langName: 'Türkçe',
     other: 'English',
     circular: 'Sirküler No.',
-    nav: { asteroids: 'Asteroitler', satellites: 'Uydular', rockets: 'Roketler', launches: 'Fırlatmalar', sources: 'Kaynaklar', ls19: "LS19'u aç" },
+    nav: { asteroids: 'Asteroitler', satellites: 'Uydular', rockets: 'Roketler', launches: 'Fırlatmalar', sites: 'Üsler', sources: 'Kaynaklar', ls19: "LS19'u aç" },
     skip: 'İçeriğe geç',
     home: {
       title: 'lookstar19 — açık uzay verisi kütüphanesi',
@@ -632,6 +645,13 @@ const T = {
       roadmap: 'Yol haritası',
     },
     launch: {
+      globe: {
+        loading: 'Küre çiziliyor…', error: 'Küre çizilemedi; aşağıdaki listede aynı fırlatmalar var.', keys: 'Hedef yörüngeler',
+        aria: (s) => `Yaklaşan fırlatmaların rampaları ve hedef yörüngeleriyle küre: ${s}`,
+        lead: (n, p) => `${p} rampadan sıradaki ${n} fırlatma. Her çizgi, kendi rampasının üstünden çizilmiş hedef yörüngedir; listeyi süzmek için bir yörünge seçin.`,
+        note: (u) => `Şematik: alçak yörünge ile yer eşzamanlı yörünge aynı resme sığsın diye yükseklikler sıkıştırılmıştır; yörüngenin eğimi tipik değeridir, bilinmiyorsa rampanın enlemi (tam doğuya fırlatma). ${u} fırlatmanın yörüngesi belirtilmemiş. Kaynak: Launch Library 2.`,
+        g: { leo: 'Alçak yörünge', po: 'Kutup', sso: 'Güneş eşzamanlı', gto: 'Yer eşzamanlı aktarım', geo: 'Yer eşzamanlı', meo: 'Orta / eliptik', deep: 'Ay ve ötesi', other: 'Belirtilmemiş' },
+      },
       next: 'Sıradaki fırlatma',
       noFuture: 'Şu anda listelenmiş yaklaşan bir fırlatma yok.',
       unavailable: 'Fırlatma verisi şu anda alınamıyor. Kaynak (Launch Library 2) istek sayısını sınırlıyor; bu sayfa 30 dakikada bir yeniden dener.',
@@ -1009,6 +1029,12 @@ const T = {
       assume: 'Varsayımlar: küresel Dünya, iki cisim yörüngesi, düzlem değişimi yerötesinde çemberleştirmeyle birlikte. Birçok işletmeci bunun yerine süper eşzamanlı aktarım yörüngesi kullanır ya da eğimin bir kısmını roketin üst kademesine sildirir; üslerin sıralaması değişmez.',
       sea: 'deniz', seaNote: 'Deniz fırlatmaları: sabit bir rampanın değil, fırlatma bölgesinin konumu.',
       src: (d, u) => `Fırlatmalar, üsler ve rampalar: GCAT, J. McDowell (planet4589.org), CC BY 4.0; güncelleme ${u}, alınma ${d}. Kıyı çizgileri: Natural Earth (kamu malı). Menzil sınırları: LS19 rampa listesindeki kaynaklar.`,
+      feat: {
+        title: 'Özellikler', country: 'Ülke', operator: 'İşletmeci (GCAT)', opCls: { B: 'ticari', C: 'sivil devlet', D: 'askerî' }, opNone: 'devlet (GCAT devletin kendisini yazar)',
+        since: 'Kullanımda', sinceVal: (y0, y1, on) => (on ? `${y0} yılından beri` : `${y0}–${y1}`), status: 'Durum', on: 'Etkin', off: 'Artık kullanılmıyor', statusNote: 'etkin = son iki yılda fırlatma var',
+        pads: 'Rampalar', padsVal: (a, t) => `${t} rampadan ${a} tanesi etkin`, now: 'Son üç yılda uçan roketler', none: '—', kind: 'Konum', land: 'Karada', sea: 'Denizde (fırlatma bölgesi)',
+        orbitsTop: 'En sık ulaşılan eğimler', oc: { polar: 'kutup / Güneş eşzamanlı', retro: 'ters yönlü' },
+      },
       back: 'Bütün fırlatma üsleri', coords: 'Koordinat', gcat: 'GCAT kodları',
       stats: { total: 'Fırlatma', success: 'Başarılı', failure: 'Başarısız', deep: 'Dünya yörüngesinin ötesine', first: 'İlk', last: 'Son' },
       yearT: 'Yıllara göre fırlatmalar', yearLead: (y0, y1, peak, py) => `${y0}–${y1} arası. En yoğun yıl: ${py}, ${peak} fırlatma.`,

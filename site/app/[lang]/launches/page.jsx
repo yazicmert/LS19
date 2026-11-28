@@ -28,7 +28,7 @@ export default async function Launches({ params }) {
         <p className="page__lead">{L.lead}</p>
         <div className="lch">
           <section className="lch__next" aria-labelledby="lch-next"><NextLaunch lang={lang} launch={nl} ok={up.ok} headingId="lch-next" /></section>
-          {up.ok && rest.length ? <LaunchBrowser lang={lang} rows={rest.map((l) => listRow(l, rocketForLL2(l.vehicle)?.slug || null))} /> : null}
+          {up.ok && rest.length ? <LaunchBrowser lang={lang} rows={rest.map((l) => listRow(l, rocketForLL2(l.vehicle)?.slug || null))} globeRows={up.launches.map((l) => ({ id: l.id, orbit: l.mission.orbitAbbrev, lat: l.pad.lat, lon: l.pad.lon, pad: l.pad.location || l.pad.name }))} /> : null}
         </div>
         <section className="rec__sec lsx" aria-labelledby="lsx-h">
           <div className="sec__head"><h2 id="lsx-h" className="sec__title">{t(lang).ls.teaserT}</h2></div>

@@ -47,3 +47,21 @@ export function siteSummary(s) {
   const lat = s.lat, inc0 = minIncl(lat), geo = gtoToGeo(inc0), geo0 = gtoToGeo(0);
   return { rot: rotSpeed(lat), minInc: inc0, geoDv: geo, geoExtra: geo - geo0, range: RANGES[s.slug] || null };
 }
+
+// üssün özellikleri (sayfadaki "Özellikler" bloğu): veri tarihine göre etkinlik, etkin rampalar, son yıllarda uçan roketler, ulaşılan
+// en sık ulaşılan yörünge eğimleri (başarılı, yörüngesel, eğimi bilinen fırlatmalar; 1°'ye yuvarlanmış). Eşikler: etkin = son 2 yılda
+// fırlatma; rampa ve roket için son 3 yıl.
+export function siteFeatures(s, today) {
+  const y = +today.slice(0, 4), cut2 = `${y - 2}${today.slice(4)}`, cut3 = `${y - 3}${today.slice(4)}`, lat = Math.abs(s.lat);
+  const recent = s.launches.filter((l) => l.d >= cut3), rk = new Map();
+  for (const l of recent) rk.set(l.lv, (rk.get(l.lv) || 0) + 1);
+  // en sık ulaşılan eğimler: 1°'ye yuvarlanmış; kutup / Güneş eşzamanlı (85°–105°) ve ters yönlü (> 105°) işaretli
+  const inc = new Map(); let n = 0;
+  for (const l of s.launches) { if (l.o !== 'S' || l.deep || l.inc == null) continue; n++; const k = Math.round(l.inc); inc.set(k, (inc.get(k) || 0) + 1); }
+  return {
+    active: s.stats.last >= cut2,
+    pads: { active: s.pads.filter((p) => p.last && p.last >= cut3).length, total: s.pads.length },
+    rocketsNow: [...rk.entries()].sort((a, b) => b[1] - a[1]).map(([name, k]) => ({ name, n: k, slug: (s.rockets.find((r) => r.name === name) || {}).slug })),
+    orbits: n ? [...inc.entries()].map(([deg, v]) => ({ deg, share: v / n, k: deg > 105 ? 'retro' : deg >= 85 ? 'polar' : null })).sort((a, b) => b.share - a.share) : [],
+  };
+}
