@@ -519,5 +519,27 @@ check('tek liste: /asteroids ve /satellites katalog; 3B süzgeci (asteroitte yer
     && /satellites\/stats/.test(rd('../../site/app/[lang]/page.jsx')) && /satellites\/stats/.test(rd('../../site/components/SiteSearch.jsx')) && /satellites\/stats/.test(rd('../../site/app/sitemap.js'))
     && /uydu_istatistik\.mjs/.test(rd('../../.github/workflows/site-veri.yml')) && /satstats\.json/.test(rd('../../.github/workflows/site-veri.yml')) && en.sst.method.length === tr.sst.method.length);
 }
+// 5k) fırlatmalar küresi (lib/orbit-shapes.js) ve üs özellikleri (siteFeatures); menüde üsler
+{
+  const OS = await import('../../site/lib/orbit-shapes.js'), LSx = await import('../../site/lib/launchsite.js');
+  const near = (a, b, e = 1e-6) => Math.abs(a - b) < e, dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  check('yörünge grupları: LEO/VLEO aynı, PO ve SSO ayrı, GTO elips, GEO ekvatorda; bilinmeyen (N/A, Sub) null; sıkıştırılmış ölçek artan',
+    OS.orbitGroup('LEO').id === 'leo' && OS.orbitGroup('vleo').id === 'leo' && OS.orbitGroup('PO').id === 'po' && OS.orbitGroup('SSO').id === 'sso' && OS.orbitGroup('GTO').id === 'gto'
+    && OS.orbitGroup('N/A') === null && OS.orbitGroup('Sub') === null && OS.orbitGroup(null) === null && OS.rScale(400) < OS.rScale(20200) && OS.rScale(20200) < OS.rScale(35786));
+  const ksc = [28.6, -80.6], pth = OS.orbitPath(OS.orbitGroup('LEO'), ...ksc), pad = OS.xyz(...ksc), r0 = OS.rScale(500);
+  const nrm = [pth[1][1] * pth[0][2] - pth[1][2] * pth[0][1], pth[1][2] * pth[0][0] - pth[1][0] * pth[0][2], pth[1][0] * pth[0][1] - pth[1][1] * pth[0][0]], nl = Math.hypot(...nrm);
+  check('yörünge halkası rampanın üstünden geçer; eğim = rampa enlemi (doğrudan çıkış); SSO 97,6°; GEO ekvatorda', near(Math.hypot(...pth[0]), r0, 1e-9) && near(dot(pth[0].map((x) => x / r0), pad), 1, 1e-9)
+    && near(Math.acos(Math.abs(nrm[1]) / nl) * 180 / Math.PI, 28.6, 0.05) && near(OS.orbitInc(OS.orbitGroup('SSO'), 28.6), 97.6) && OS.orbitPath(OS.orbitGroup('GEO'), ...ksc).every((q) => near(q[1], 0, 1e-9)));
+  const gs = OS.globeSummary([{ orbit: 'LEO', lat: 28.6, lon: -80.6 }, { orbit: 'LEO', lat: 28.6, lon: -80.6 }, { orbit: 'PO', lat: 34.6, lon: -120.6 }, { orbit: 'N/A', lat: 40.9, lon: 100.3 }]);
+  check('küre özeti: gruplar sayıya göre, "belirtilmemiş" sonda; aynı rampa birleşik', gs.groups.map((g) => `${g.id}:${g.n}`).join() === 'leo:2,po:1,other:1' && gs.pads.length === 3 && gs.pads[0].n === 2);
+  const fb = LSx.siteFeatures(lsBy.baykonur, '2026-11-27'), fh = LSx.siteFeatures(lsBy.hammaguir, '2026-11-27'), fp = LSx.siteFeatures(lsBy.palmachim, '2026-11-27');
+  check('üs özellikleri: Baykonur etkin, Soyuz son üç yılda uçmuş; Hammaguir kullanılmıyor; Palmachim ters yönlü; payların toplamı 1; işletmeci ve kullanım yılı',
+    fb.active && fb.rocketsNow.some((r) => /Soyuz/.test(r.name)) && fb.pads.active > 0 && !fh.active && fh.rocketsNow.length === 0 && fp.orbits[0].k === 'retro' && fb.orbits[0].deg === 52
+    && near(fb.orbits.reduce((a, o) => a + o.share, 0), 1, 1e-9) && lsBy.baykonur.operator && lsBy.baykonur.established <= 1957 && !lsBy.jiuquan.operator && lsBy.mahia.operator.cls === 'B');
+  check('menüde fırlatma üsleri; üs sayfaları künyede "sites"; fırlatma listesi küre ve yörünge süzgeci; rampa koordinatı fırlatma kaydında',
+    /\['sites', `\/\$\{lang\}\/launches\/sites`\]/.test(rd('../../site/components/Masthead.jsx')) && /current="sites"/.test(rd('../../site/app/[lang]/launches/sites/[slug]/page.jsx'))
+    && /LaunchGlobe/.test(rd('../../site/components/LaunchBrowser.jsx')) && /orbit: ''/.test(rd('../../site/components/LaunchBrowser.jsx')) && /globeRows=/.test(rd('../../site/app/[lang]/launches/page.jsx'))
+    && /lat: Number\.isFinite\(\+pad\.latitude\)/.test(rd('../../site/lib/launches.js')) && !!en.nav.sites && !!tr.launch.globe.g.po);
+}
 if (fail) { console.log(`\n${fail} hata`); process.exit(1); }
 console.log('\nTüm lookstar19 denetimleri geçti');

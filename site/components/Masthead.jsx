@@ -10,7 +10,7 @@ import ThemeToggle from './ThemeToggle';
 
 export default function Masthead({ lang, size = 'compact', current = null, altPath = '' }) {
   const L = t(lang), o = otherLang(lang), issue = String(ISSUE).padStart(4, '0');
-  const nav = [['asteroids', `/${lang}/asteroids`], ['satellites', `/${lang}/satellites`], ['rockets', `/${lang}/rockets`], ['launches', `/${lang}/launches`], ['sources', `/${lang}/sources`]];
+  const nav = [['asteroids', `/${lang}/asteroids`], ['satellites', `/${lang}/satellites`], ['rockets', `/${lang}/rockets`], ['launches', `/${lang}/launches`], ['sites', `/${lang}/launches/sites`], ['sources', `/${lang}/sources`]];
   return (
     <header className={`mast mast--${size}`}>
       <a className="skip" href="#main">{L.skip}</a>

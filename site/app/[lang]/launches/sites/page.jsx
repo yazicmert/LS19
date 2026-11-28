@@ -7,7 +7,7 @@ import LaunchCalc from '@/components/LaunchCalc';
 import { pageMeta } from '@/lib/seo';
 import { t, num, date } from '@/lib/i18n';
 import { SITES, SITES_RETRIEVED, SITES_UPDATED, SITES_TOTAL, countryName, globeSites, fmtLat } from '@/lib/sites';
-import { V_EQ, rotSpeed, planeChange, gtoToGeo, propFraction, siteSummary } from '@/lib/launchsite';
+import { V_EQ, rotSpeed, planeChange, gtoToGeo, propFraction, siteSummary, siteFeatures } from '@/lib/launchsite';
 
 export async function generateMetadata({ params }) {
   const { lang } = await params, L = t(lang).ls;
@@ -19,7 +19,7 @@ export default async function LaunchSites({ params }) {
   const calcSites = SITES.filter((s) => s.lat != null && !s.sea).map((s) => ({ slug: s.slug, name: s.name, lat: s.lat }));
   return (
     <>
-      <Masthead lang={lang} current="launches" altPath="/launches/sites" />
+      <Masthead lang={lang} current="sites" altPath="/launches/sites" />
       <main id="main" className="wrap page">
         <nav className="crumb" aria-label="breadcrumb"><Link href={`/${lang}/launches`}>{T.nav.launches}</Link></nav>
         <h1 className="page__title">{L.title}</h1>
@@ -56,7 +56,7 @@ export default async function LaunchSites({ params }) {
                   const E = siteSummary(s), y0 = s.stats.first.slice(0, 4), y1 = s.stats.last.slice(0, 4);
                   return (
                     <tr key={s.slug}>
-                      <th scope="row"><Link href={`/${lang}/launches/sites/${s.slug}`}>{s.name}</Link>{s.sea ? <span className="flag flag--sm">{L.sea}</span> : null}</th>
+                      <th scope="row"><Link href={`/${lang}/launches/sites/${s.slug}`}>{s.name}</Link>{s.sea ? <span className="flag flag--sm">{L.sea}</span> : null}{siteFeatures(s, SITES_RETRIEVED).active ? null : <span className="flag flag--sm">{L.feat.off}</span>}</th>
                       <td className="txt">{countryName(lang, s.cc)}</td>
                       <td className="r">{fmtLat(lang, s.lat)}</td>
                       <td className="r">{num(lang, s.stats.total, 0)}</td>

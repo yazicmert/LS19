@@ -66,7 +66,7 @@ export function mapLaunch(r) {
       landing: land && land.attempt === true ? (known(landType && landType.abbrev) || 'yes') : land && land.attempt === false ? 'none' : null, landingAt: known(landLoc && (landLoc.abbrev || landLoc.name)),
     } : null,
     spacecraft: sc ? str((sc.spacecraft && sc.spacecraft.name) || null) : null, crew: sc && Array.isArray(sc.launch_crew) ? sc.launch_crew.length : 0,
-    pad: { name: str(pad.name), location: str(loc.name) },
+    pad: { name: str(pad.name), location: str(loc.name), lat: Number.isFinite(+pad.latitude) && pad.latitude !== null ? +pad.latitude : null, lon: Number.isFinite(+pad.longitude) && pad.longitude !== null ? +pad.longitude : null },
     streams,
   };
 }
