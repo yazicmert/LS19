@@ -7,7 +7,7 @@ import NextLaunch from '@/components/NextLaunch';
 import LaunchBrowser from '@/components/LaunchBrowser';
 import { rocketForLL2 } from '@/lib/rockets';
 import { t } from '@/lib/i18n';
-import { getUpcoming, nextLaunch } from '@/lib/launches';
+import { getUpcoming, nextLaunch, listRow } from '@/lib/launches';
 import { LS19_URL } from '@/lib/config';
 import { ArrowOut, ArrowRight } from '@/components/Icon';
 import { SITES, SITES_TOTAL } from '@/lib/sites';
@@ -28,7 +28,7 @@ export default async function Launches({ params }) {
         <p className="page__lead">{L.lead}</p>
         <div className="lch">
           <section className="lch__next" aria-labelledby="lch-next"><NextLaunch lang={lang} launch={nl} ok={up.ok} headingId="lch-next" /></section>
-          {up.ok && rest.length ? <LaunchBrowser lang={lang} rows={rest.map(({ mission, ...l }) => ({ ...l, rocket: rocketForLL2(l.vehicle)?.slug || null, mission: { name: mission.name, orbit: mission.orbit } }))} /> : null}
+          {up.ok && rest.length ? <LaunchBrowser lang={lang} rows={rest.map((l) => listRow(l, rocketForLL2(l.vehicle)?.slug || null))} /> : null}
         </div>
         <section className="rec__sec lsx" aria-labelledby="lsx-h">
           <div className="sec__head"><h2 id="lsx-h" className="sec__title">{t(lang).ls.teaserT}</h2></div>
