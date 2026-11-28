@@ -1,6 +1,7 @@
 'use client';
 // site araması (künye bandında): ilk odakta /search.json dizini bir kez yüklenir; yazdıkça asteroitler, uydular ve sayfalar süzülür
 // (Türkçe/İngilizce harf duyarsız, başlayan önce). Sorgu varken son satır yaklaşan fırlatmaları bu sorguyla süzer (/launches?q=).
+// Tüm uydular kataloğu (CelesTrak etkin kümesi) /api/sat?find= ile canlı aranır; modelli uydular dizinde olduğu için tekrar listelenmez.
 // Klavye: ↑/↓ seçer, Enter açar, Esc kapatır. Combobox ARIA.
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -12,7 +13,7 @@ const load = () => (index ? index.promise : (index = { promise: fetch('/search.j
 
 export default function SiteSearch({ lang }) {
   const L = t(lang), S = L.search, id = useId(), router = useRouter(), box = useRef(null);
-  const [live, setLive] = useState({ q: '', rows: [] });
+  const [live, setLive] = useState({ q: '', rows: [] }), [liveSat, setLiveSat] = useState({ q: '', rows: [] });
   const [q, setQ] = useState(''), [open, setOpen] = useState(false), [active, setActive] = useState(0), [data, setData] = useState(null), [state, setState] = useState('idle');
   const ensure = () => { if (data || state === 'loading') return; setState('loading'); load().then((d) => { setData(d); setState('ready'); }, () => { index = null; setState('error'); }); };
   const pages = useMemo(() => [
@@ -27,15 +28,18 @@ export default function SiteSearch({ lang }) {
     const pg = rank(pages, q, (p) => [p.n]).slice(0, 3).map((p) => ({ href: `/${lang}${p.id === '/' ? '' : p.id}`, name: p.n, meta: '' }));
     const known = new Set(data.ast.map((o) => o.d)), shape = Object.fromEntries(data.ast.map((o) => [o.d, o.id]));
     const jpl = live.q === q.trim() ? live.rows.filter((r) => !known.has(r.des)).slice(0, 6).map((r) => ({ href: shape[r.des] ? `/${lang}/asteroids/${shape[r.des]}` : `/${lang}/sb/${String(r.des).replace(/ /g, '_')}`, name: r.full, meta: '', num: null })) : [];
-    return [['ast', ast], ['jpl', jpl], ['sat', sat], ['rk', rk], ['ls', ls], ['page', pg]].filter(([, r]) => r.length);
-  }, [q, data, lang, pages, live]);
-  const flat = useMemo(() => [...groups.flatMap(([, r]) => r), ...(q.trim() ? [{ href: `/${lang}/asteroids/all?q=${encodeURIComponent(q.trim())}`, name: S.catalog(q.trim()), meta: '', action: true }, { href: `/${lang}/launches?q=${encodeURIComponent(q.trim())}`, name: S.launches(q.trim()), meta: '', action: true }] : [])], [groups, q, lang, S]);
+    const satIds = new Set(data.sat.map((s) => s.id));
+    const sc = liveSat.q === q.trim() ? liveSat.rows.filter((r) => !satIds.has(String(r.k))).slice(0, 6).map((r) => ({ href: r.M ? `/${lang}/satellites/${r.k}` : `/${lang}/sat/${r.k}`, name: r.n, meta: r.r, num: r.k })) : [];
+    return [['ast', ast], ['jpl', jpl], ['sat', sat], ['satcat', sc], ['rk', rk], ['ls', ls], ['page', pg]].filter(([, r]) => r.length);
+  }, [q, data, lang, pages, live, liveSat]);
+  const flat = useMemo(() => [...groups.flatMap(([, r]) => r), ...(q.trim() ? [{ href: `/${lang}/asteroids/all?q=${encodeURIComponent(q.trim())}`, name: S.catalog(q.trim()), meta: '', action: true }, { href: `/${lang}/satellites/all?q=${encodeURIComponent(q.trim())}`, name: L.satcat.searchAll(q.trim()), meta: '', action: true }, { href: `/${lang}/launches?q=${encodeURIComponent(q.trim())}`, name: S.launches(q.trim()), meta: '', action: true }] : [])], [groups, q, lang, S]);
   useEffect(() => { setActive(0); }, [q]);
   // JPL kataloğu (1,6 milyon): 2 karakterden sonra, kısa bir beklemeyle ön ekli arama (/api/sb?find=)
   useEffect(() => {
     const s = q.trim(); if (s.length < 2) { setLive({ q: '', rows: [] }); return undefined; }
     const c = new AbortController(), tm = setTimeout(() => {
       fetch(`/api/sb?find=${encodeURIComponent(s)}`, { signal: c.signal }).then((r) => r.json()).then((j) => setLive({ q: s, rows: Array.isArray(j.rows) ? j.rows : [] })).catch(() => {});
+      fetch(`/api/sat?find=${encodeURIComponent(s)}`, { signal: c.signal }).then((r) => r.json()).then((j) => setLiveSat({ q: s, rows: Array.isArray(j.rows) ? j.rows : [] })).catch(() => {});
     }, 280);
     return () => { clearTimeout(tm); c.abort(); };
   }, [q]);
@@ -62,8 +66,8 @@ export default function SiteSearch({ lang }) {
           {state === 'error' ? <p className="ss__msg" role="status">{S.error}</p> : null}
           {data && !groups.length ? <p className="ss__msg" role="status">{S.none(q.trim())}</p> : null}
           {groups.map(([g, rows]) => (
-            <div key={g} role="group" aria-label={S.groups[g]}>
-              <p className="ss__grp" aria-hidden="true">{S.groups[g]}</p>
+            <div key={g} role="group" aria-label={S.groups[g] || L.satcat.searchGroup}>
+              <p className="ss__grp" aria-hidden="true">{S.groups[g] || L.satcat.searchGroup}</p>
               {rows.map((r) => { k += 1; const me = k; return (
                 <div key={r.href} id={`${id}-o${me}`} role="option" aria-selected={active === me} className={active === me ? 'ss__opt is-on' : 'ss__opt'}
                   onMouseEnter={() => setActive(me)} onMouseDown={(e) => { e.preventDefault(); go(r); }}>

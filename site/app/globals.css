@@ -518,3 +518,5 @@ a.flag--cobalt:hover { background: var(--cobalt); color: var(--on-cobalt); }
 .lsx__list li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--hair); }
 .lsx__list a { font-weight: 650; text-decoration: none; }
 .lsx__list a:hover { color: var(--cobalt); text-decoration: underline; }
+/* tüm uydular kataloğu: yörünge planı altyazısında ölçek tek satır */
+.op__cap .mv__scale { white-space: nowrap; }
