@@ -280,6 +280,12 @@ Square corners throughout (0px). Borders are 2px ink for controls, fields, the l
 - Sections under 3px rules: who is behind it (agency rows in the mission-list grid, with role, type and country flags), target orbit, vehicle with boosters and landings, spacecraft and crew, launch site, programmes, the vehicle's earlier flights (GCAT), objects in orbit after launch (CelesTrak), the source's updates on the timeline, the countdown timeline and links.
 - An unannounced payload is said plainly in a 2px ink panel under the title; inferences sit in their own list, each with an ink-bordered "inferred" flag and its source. Nothing guesses the payload. List rows link to the record and carry type, orbit, customer, booster and landing on extra meta lines.
 
+### Statistics (satellite counts)
+- `/satellites/stats` opens with stat tiles (label on a 2px ink rule, large mono value, ink-2 line under it) and two tall segmented bars (28px, 2px paper gaps, square ends) for the class shares, each with its table twin.
+- The explorer sits under one control row (time step, break down by, series count, chart/table as pressed toggles) and the standard filter bar (year range, country, class, mission, rocket, operator). State lives in the address (`?res=month&by=lv&cc=TR`).
+- Stacked bars, at most 24px wide, 2px paper gap between segments, square ends, hairline grid, ink-2 baseline; an incomplete last period is drawn at 45% opacity and flagged. Hover, tap or the arrow keys select a period: a paper band marks it and a sheet tooltip (2px ink border, no shadow) lists every series, value first, with a short line key.
+- Categorical series colours are the only place a second hue appears, and only as data: `--series-1` … `--series-7` and a grey `--series-other` in `globals.css`, light and dark steps validated against the paper (adjacent CVD ΔE ≥ 10, normal-vision ΔE ≥ 20). Slot 1 is cobalt. Colour follows the entity (class is fixed: commercial 1, defence 2, civil 3, amateur 4); a ninth series folds into "Other". Text never takes a series colour; a legend is always present and every number is also in a table.
+
 ## Do's and Don'ts
 
 ### Do:

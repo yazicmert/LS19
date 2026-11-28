@@ -48,7 +48,10 @@ export default async function Home({ params }) {
         <section className="sec wrap" aria-labelledby="sats-h">
           <div className="sec__head">
             <h2 id="sats-h" className="sec__title">{L.sat.homeTitle(SATS.length)}</h2>
-            <Link className="lnk" href={`/${lang}/satellites`}>{L.sat.homeAll}<ArrowRight /></Link>
+            <span className="sec__links">
+              <Link className="lnk" href={`/${lang}/satellites/stats`}>{L.sst.homeLink}<ArrowRight /></Link>
+              <Link className="lnk" href={`/${lang}/satellites`}>{L.sat.homeAll}<ArrowRight /></Link>
+            </span>
           </div>
           <SatTable lang={lang} sats={FEATURED_SATS.map(satById).filter(Boolean)} label={L.sat.homeTitle(SATS.length)} />
           <p className="note">{L.sat.homeNote(date(lang, SAT_RETRIEVED))}</p>
