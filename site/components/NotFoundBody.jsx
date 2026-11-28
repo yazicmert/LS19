@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { isLang, t } from '@/lib/i18n';
 import { ArrowRight } from '@/components/Icon';
+import Mark from '@/components/Mark';
 
 export default function NotFoundBody() {
   const [lang, setLang] = useState('en'), L = t(lang);
@@ -16,7 +17,7 @@ export default function NotFoundBody() {
       <header className="mast mast--compact">
         <a className="skip" href="#main">{L.skip}</a>
         <div className="wrap mast__in">
-          <div className="mast__top"><Link href={`/${lang}`} className="mast__mark" aria-label="lookstar19">lookstar19</Link></div>
+          <div className="mast__top"><Link href={`/${lang}`} className="mast__mark" aria-label="lookstar19"><Mark />lookstar19</Link></div>
         </div>
       </header>
       <main id="main" className="wrap page nf">

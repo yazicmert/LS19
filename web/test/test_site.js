@@ -244,5 +244,45 @@ check('.vercelignore (iki projeye de uygulanır): klasör kuralları köke bağl
   && !vi.some((l) => /^(scripts|docs|app|lib|components|data|public)\/?$/.test(l) || /^site(\/|$)/.test(l)));
 check('sitemap ve robots: her sayfa her dilde; önizleme adreslerinde tarama kapalı', /OBJECTS\.map/.test(rd('../../site/app/sitemap.js')) && /LANGS\.map/.test(rd('../../site/app/sitemap.js')) && /VERCEL_ENV/.test(rd('../../site/app/robots.js')));
 
+// 7) renk teması (sistem / açık / koyu) ve işaret
+{
+  const C = rd('../../site/app/globals.css');
+  const block = (re) => { const m = C.match(re); if (!m) return null; const o = {}; for (const [, k, v] of m[1].matchAll(/--([\w-]+):\s*([^;]+);/g)) o[k] = v.trim(); o['color-scheme'] = (m[1].match(/color-scheme:\s*(\w+)/) || [])[1]; return o; };
+  const light = block(/:root, :root\[data-theme="light"\] \{([^}]*)\}/), darkMq = block(/@media \(prefers-color-scheme: dark\) \{\s*:root:not\(\[data-theme="light"\]\) \{([^}]*)\}/), dark = block(/:root\[data-theme="dark"\] \{([^}]*)\}/);
+  const COLORS = ['paper', 'paper-2', 'sheet', 'ink', 'ink-2', 'ink-3', 'hair', 'cobalt', 'cobalt-field', 'cobalt-deep', 'on-cobalt', 'on-cobalt-2', 'chev'];
+  check('tema: renk simgeleri açık (:root ve [data-theme=light]), sistem koyusu (prefers-color-scheme) ve seçilmiş koyu için tanımlı; iki koyu blok aynı; color-scheme her blokta',
+    !!light && !!darkMq && !!dark && COLORS.every((k) => light[k] && darkMq[k] && dark[k]) && COLORS.every((k) => darkMq[k] === dark[k])
+    && light['color-scheme'] === 'light' && darkMq['color-scheme'] === 'dark' && dark['color-scheme'] === 'dark' && COLORS.some((k) => k !== 'chev' && light[k] !== dark[k]));
+  const lin = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  const lum = (h) => { const n = parseInt(h.slice(1), 16); return 0.2126 * lin(n >> 16) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255); };
+  const cr = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  // metin çiftleri WCAG AA (4,5); odak halkası ve alan kenarı 3
+  const pairs = [['ink', 'paper'], ['ink', 'paper-2'], ['ink', 'sheet'], ['ink-2', 'paper'], ['ink-2', 'paper-2'], ['ink-2', 'sheet'], ['ink-3', 'sheet'], ['cobalt', 'paper'], ['cobalt', 'paper-2'], ['cobalt', 'sheet'],
+    ['on-cobalt', 'cobalt-field'], ['on-cobalt-2', 'cobalt-field'], ['on-cobalt', 'cobalt-deep'], ['paper', 'ink'], ['cobalt-field', 'on-cobalt']];
+  const low = [];
+  for (const [n, T] of [['açık', light], ['koyu', dark]]) for (const [a, b] of pairs) { const r = cr(T[a], T[b]); if (r < 4.5) low.push(`${n} ${a}/${b} ${r.toFixed(2)}`); }
+  check('tema: iki temada metin karşıtlığı WCAG AA (gövde, ikincil, yer tutucu, bağlantı, kobalt alanda yazı, bayrak)', low.length === 0, low.join(', '));
+  const noVars = C.replace(/--[\w-]+:\s*[^;]+;/g, '');
+  check('tema: globals.css kurallarında yazılı renk yok (her renk simgeden)', !/#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/.test(noVars));
+  const comp = fs.readdirSync(new URL('../../site/components/', import.meta.url)).filter((f) => f.endsWith('.jsx'));
+  const hard = comp.filter((f) => { const s = rd(`../../site/components/${f}`).replace(/rgb\(\$\{c\},\$\{c\},\$\{c\}\)/g, ''); return /#[0-9a-fA-F]{3,8}\b|rgba?\(|(fill|stroke|color)=["']#/.test(s); });
+  check('tema: bileşenlerde yazılı renk yok (yalnız yansıtma örneğinin fiziksel gri tonu ve 3B ışık/malzeme sayıları)', hard.length === 0, hard.join(', '));
+  const Th = await import('../../site/lib/theme.js');
+  const lay = rd('../../site/app/[lang]/layout.jsx'), gnf = rd('../../site/app/global-not-found.jsx');
+  check('tema: seçimi ilk boyamadan önce uygulayan satır içi betik iki kök düzende (<head>), hidrasyon uyarısı kapalı; betik yalnız light/dark yazar, depolama hatasını yutar',
+    [lay, gnf].every((s) => /<head><script dangerouslySetInnerHTML=\{\{ __html: THEME_SCRIPT \}\} \/><\/head>/.test(s) && /suppressHydrationWarning/.test(s) && /viewport = themeViewport/.test(s) && /ICONS/.test(s))
+    && /try\{/.test(Th.THEME_SCRIPT) && /catch/.test(Th.THEME_SCRIPT) && Th.THEME_SCRIPT.includes(Th.THEME_KEY) && /t==='light'\|\|t==='dark'/.test(Th.THEME_SCRIPT));
+  check('tema: tarayıcı çubuğu rengi iki tema için (kobalt alanla aynı), color-scheme iki tema',
+    Th.themeViewport.themeColor.length === 2 && Th.themeViewport.themeColor[0].color === light['cobalt-field'] && Th.themeViewport.themeColor[1].color === dark['cobalt-field'] && Th.themeViewport.colorScheme === 'light dark');
+  const tg = rd('../../site/components/ThemeToggle.jsx'), mh = rd('../../site/components/Masthead.jsx');
+  check('tema seçici: künye bandında üç düğme (sistem/açık/koyu), aria-pressed, iki dilde etiket; seçili hücre data-theme\'den çizilir',
+    /<ThemeToggle lang=\{lang\} \/>/.test(mh) && Th.THEMES.join() === 'system,light,dark' && /aria-pressed/.test(tg) && /role="group"/.test(tg) && Th.THEMES.every((v) => en.theme[v] && tr.theme[v]) && !!en.theme.label && !!tr.theme.label
+    && /:root:not\(\[data-theme\]\) \.thm__b\[data-v="system"\]/.test(C));
+  const pub = (f) => fs.existsSync(new URL(`../../site/public/${f}`, import.meta.url));
+  check('işaret: teleskop ve yıldız künyede, altlıkta ve 404\'te; favicon SVG (koyu sekmede derin alan), 32 px PNG ve 180 px apple-touch-icon',
+    ['Masthead', 'Footer', 'NotFoundBody'].every((c) => /<Mark \/>lookstar19/.test(rd(`../../site/components/${c}.jsx`))) && /prefers-color-scheme:dark/.test(rd('../../site/public/icon.svg'))
+    && ['icon.svg', 'icon-32.png', 'apple-touch-icon.png'].every(pub) && Th.ICONS.apple[0].url === '/apple-touch-icon.png');
+}
+
 if (fail) { console.log(`\n${fail} hata`); process.exit(1); }
 console.log('\nTüm lookstar19 denetimleri geçti');

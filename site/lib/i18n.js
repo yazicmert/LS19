@@ -343,6 +343,7 @@ const T = {
     cls: {
       APO: 'Apollo', ATE: 'Aten', AMO: 'Amor', IEO: 'Atira', MCA: 'Mars-crosser', MBA: 'Main belt', IMB: 'Inner main belt', OMB: 'Outer main belt', TJN: 'Jupiter Trojan', CEN: 'Centaur', TNO: 'Trans-Neptunian', HYA: 'Hyperbolic', PAA: 'Parabolic', AST: 'Unclassified',
     },
+    theme: { label: 'Colour theme', system: 'Match system theme', light: 'Light theme', dark: 'Dark theme' },
   },
   tr: {
     langName: 'Türkçe',
@@ -685,6 +686,7 @@ const T = {
     cls: {
       APO: 'Apollo', ATE: 'Aten', AMO: 'Amor', IEO: 'Atira', MCA: 'Mars geçiren', MBA: 'Ana kuşak', IMB: 'İç ana kuşak', OMB: 'Dış ana kuşak', TJN: 'Truva', CEN: 'Kentaur', TNO: 'Neptün ötesi', HYA: 'Hiperbolik', PAA: 'Parabolik', AST: 'Sınıflandırılmamış',
     },
+    theme: { label: 'Renk teması', system: 'Sistem temasına uy', light: 'Açık tema', dark: 'Koyu tema' },
   },
 };
 
