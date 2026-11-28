@@ -17,7 +17,7 @@ export default function SiteSearch({ lang }) {
   const [q, setQ] = useState(''), [open, setOpen] = useState(false), [active, setActive] = useState(0), [data, setData] = useState(null), [state, setState] = useState('idle');
   const ensure = () => { if (data || state === 'loading') return; setState('loading'); load().then((d) => { setData(d); setState('ready'); }, () => { index = null; setState('error'); }); };
   const pages = useMemo(() => [
-    ['/', L.home.title.split(' — ')[0]], ['/asteroids', L.ast.title], ['/satellites', L.sat.title], ['/rockets', L.rk.title], ['/launches', L.launch.title], ['/launches/sites', L.ls.title], ['/sources', L.src.title], ['/satellites/stats', L.sst.title],
+    ['/', L.home.title.split(' — ')[0]], ['/asteroids', L.nav.asteroids], ['/satellites', L.nav.satellites], ['/rockets', L.rk.title], ['/launches', L.launch.title], ['/launches/sites', L.ls.title], ['/sources', L.src.title], ['/satellites/stats', L.sst.title],
   ].map(([p, n]) => ({ id: p, n })), [L]);
   const groups = useMemo(() => {
     if (!q.trim() || !data) return [];

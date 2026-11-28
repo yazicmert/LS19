@@ -37,7 +37,7 @@ export default async function SatStatsPage({ params }) {
     <>
       <Masthead lang={lang} current="satellites" altPath="/satellites/stats" />
       <main id="main" className="wrap page">
-        <nav className="crumb" aria-label="breadcrumb"><Link href={`/${lang}/satellites`}>{L.sat.title}</Link></nav>
+        <nav className="crumb" aria-label="breadcrumb"><Link href={`/${lang}/satellites`}>{L.nav.satellites}</Link></nav>
         <h1 className="page__title">{T.title}</h1>
         <p className="page__lead">{T.lead}</p>
 
