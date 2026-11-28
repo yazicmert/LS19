@@ -63,10 +63,15 @@ export function rocketPieces(L) {
   return out;
 }
 // ayrık görünüm: parça başına dikey kayma (alttan üste artar) ve yan iticilerin dışa kayması; on = 0..1 (canlandırma oranı)
-export function explodeOffsets(L, on = 1) {
+// sel: seçilen kademenin altına ve üstüne ek boşluk (motor çanları komşu kademeye değmeden görünsün); selOn 0…1 canlandırma payı
+export function explodeOffsets(L, on = 1, sel = null, selOn = 1) {
   const P = rocketPieces(L), D = L.segs[0].d, gap = Math.max(0.06 * L.height, 0.9 * D) * on;
-  const bd = L.boosters[0] ? L.boosters[0].d : 0;
-  return { pieces: P.map((p, k) => ({ key: p.key, dy: k * gap })), booster: L.boosters.length ? (bd * 1.6 + D * 0.4) * on : 0, height: L.height + (P.length - 1) * gap };
+  const bd = L.boosters[0] ? L.boosters[0].d : 0, si = sel == null ? -1 : P.findIndex((p) => p.key === sel);
+  const sp = si >= 0 ? P[si] : null, sd = sp ? Math.max(...sp.segs.map((s) => s.d || s.d0 || 0), D * 0.5) : 0;
+  const extra = si >= 0 ? 1.4 * sd * on * selOn : 0;
+  let acc = 0;
+  const pieces = P.map((p, k) => { if (si >= 0 && (k === si && k > 0)) acc += extra; if (si >= 0 && k === si + 1) acc += extra * 0.6; return { key: p.key, dy: k * gap + acc }; });
+  return { pieces, booster: L.boosters.length ? (bd * 1.6 + D * 0.4) * on : 0, height: L.height + (P.length - 1) * gap + acc, extra };
 }
 // kademenin çizimdeki ölçüsü: yan itici için itici, ötekiler için yığındaki kademe parçası
 export function stageSeg(L, key) {
@@ -184,7 +189,14 @@ export function buildInternals(THREE, st, seg, cut = Math.PI * 0.7) {
     } else if (p.kind === 'bells') {
       for (const b of p.items) {
         const prof = [[b.r * 0.4, b.r * 0.55], [b.r * 0.42, 0.02], [b.r * 0.3, -b.len * 0.12], ...Array.from({ length: 6 }, (_, i) => { const s = (i + 1) / 6; return [b.r * (0.3 + 0.7 * Math.sqrt(s)), -b.len * (0.12 + 0.88 * s)]; })];
-        add(latheGeo(THREE, prof, 0, 24), p.id, b.x, 0, b.z);
+        add(latheGeo(THREE, prof, 0, 32), p.id, b.x, 0, b.z);
+        if (p.id === 'engines' || p.id === 'verniers') {   // şematik motor: yanma odası, enjektör kubbesi, turbopompa (yalnız parça görünümünde ayrıntı olarak görünür)
+          const rc = b.r * 0.42, hc = b.r * 0.9, y0 = b.r * 0.55;
+          add(latheGeo(THREE, [[rc * 0.98, y0], [rc, y0 + hc * 0.15], [rc, y0 + hc], ...ellipse(rc, rc * 0.6).map(([r, y]) => [r, y0 + hc + y])], 0, 24), p.id, b.x, 0, b.z);
+          const tp = add(new THREE.CylinderGeometry(rc * 0.42, rc * 0.42, hc * 0.75, 16), p.id, b.x + rc * 1.35, y0 + hc * 0.55, b.z);
+          tp.rotation.z = 0.12;
+          add(new THREE.CylinderGeometry(rc * 0.14, rc * 0.14, rc * 1.2, 8), p.id, b.x + rc * 0.75, y0 + hc * 0.35, b.z).rotation.z = Math.PI / 2;
+        }
       }
     } else if (p.kind === 'panels') {
       for (let k = 0; k < p.n; k++) {

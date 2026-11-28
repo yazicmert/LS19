@@ -34,8 +34,8 @@ export default function RocketExplorer({ lang, name, spec, stages, dims, record,
   const choose = useCallback((key) => { setSt((s) => (s.sel === key && s.view !== 'inside' ? { sel: null, view: 'whole', part: null } : { sel: key, view: 'apart', part: null })); }, []);
   const onStage3D = useCallback((key) => setSt({ sel: key, view: 'apart', part: null }), []);
   const onPart3D = useCallback((id) => setSt((s) => ({ ...s, part: s.part === id ? null : id })), []);
-  const status = st.view === 'inside' && S ? X.status.inside(stageLabel(S)) : S ? X.status.sel(stageLabel(S)) : st.view === 'apart' ? X.status.apart : X.status.whole;
   const partName = (id) => X.part[id] || id;
+  const status = st.view === 'inside' && S && st.part ? X.partInside(partName(st.part)) : st.view === 'inside' && S ? X.status.inside(stageLabel(S)) : S ? X.status.sel(stageLabel(S)) : st.view === 'apart' ? X.status.apart : X.status.whole;
   const what = st.view === 'inside' && S ? X.whatInside(stageLabel(S), S.parts.map((p) => partName(p.id).toLowerCase()).join(', ')) : st.view === 'apart' ? X.whatApart : X.whatWhole;
 
   // kaynak işaretleri: G = GCAT; 1, 2… elle derlenmiş belgeler
@@ -92,21 +92,21 @@ export default function RocketExplorer({ lang, name, spec, stages, dims, record,
                     {anyUnsure ? <p className="el__note">{X.unsure}</p> : null}
                     {s.no === '0' && s.mult > 1 ? <p className="el__note">{X.per.booster}</p> : null}
                     <p className="rkx__tank"><b>{X.rows.tanks}</b> {tankLine}{S.tanks.documented ? <sup className="rkx__ref">{tag(S.tanks.src)}</sup> : null}</p>
-                    {st.view === 'inside' ? (
+                    {S.parts.length ? (
                       <div className="rkx__parts">
                         <p className="rkx__h">{X.parts}</p>
                         <p className="rkx__lead">{X.partsLead}</p>
                         <ul className="rkx__plist">
                           {S.parts.map((p) => (
                             <li key={p.id}>
-                              <button type="button" className="rkx__pbtn" aria-pressed={st.part === p.id} onClick={() => setSt((x) => ({ ...x, part: x.part === p.id ? null : p.id }))}>
+                              <button type="button" className="rkx__pbtn" aria-pressed={st.view === 'inside' && st.part === p.id} onClick={() => { setSt((x) => (x.view === 'inside' && x.part === p.id ? { ...x, part: null } : { ...x, view: 'inside', part: p.id })); reveal(); }}>
                                 <span className="rkx__sw" style={{ background: hex(RK_COLORS[PART_COLOR[p.id] || 'part']) }} aria-hidden="true" />
                                 {partName(p.id)}{p.n > 1 ? <span className="mono"> × {p.n}</span> : null}
                               </button>
                             </li>
                           ))}
                         </ul>
-                        {P ? (
+                        {P && st.view === 'inside' ? (
                           <div className="rkx__pinfo" aria-live="polite">
                             <p className="rkx__h">{partName(P.id)}</p>
                             <p>{X.partText[P.id] ? X.partText[P.id](ctx) : ''}{P.src && P.src.length && !P.gen ? <sup className="rkx__ref">{tag(P.src)}</sup> : null}</p>
