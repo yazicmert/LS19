@@ -338,3 +338,31 @@ export function OrbitPlan({ a, e, w = 0, om = 0, lang, name }) {
     </figure>
   );
 }
+// yer yörüngesi planı (3B modeli olmayan katalog uyduları için büyük çizim): yörünge kendi düzleminde, Dünya odakta ve ölçekli; yatay
+// kesikli çizgi (sağa) çıkış düğümü yönü, yerberi bu yönden ω kadar dönük (nokta). Başvuru çemberleri, ölçeğe sığanlar: alçak yörünge sınırı
+// (2 000 km yükseklik; sitenin yörünge bölgesi tanımı), GPS yörüngesi (20 200 km) ve yer eşzamanlı yörünge (35 786 km).
+const EARTH_RINGS = [[RE_KM + 2000, '2 000 km'], [RE_KM + 20200, 'GPS'], [RE_KM + 35786, 'GEO']];
+export function SatOrbitPlan({ a, e, w = 0, lang, name }) {
+  const Q = a * (1 + e), R = Math.max(Q * 1.1, RE_KM * 1.4), S = 136 / R, c = 150, rot = (w % 360) * D2R, tr = lang === 'tr';
+  const rings = EARTH_RINGS.filter(([r]) => r <= R * 0.98);
+  return (
+    <figure className="op">
+      <svg className="vz" viewBox="0 0 300 300" width="300" height="300" aria-hidden="true" focusable="false" overflow="hidden">
+        {rings.map(([r, lab], k) => { const ang = (128 - k * 22) * D2R; return (   // etiketler farklı açılarda: çemberler yakınsa üst üste binmesin
+          <g key={lab}>
+            <circle cx={c} cy={c} r={f(r * S)} className="vz-ref vz-dash" />
+            <Lab x={c + r * S * Math.cos(ang)} y={c - r * S * Math.sin(ang) - 4} a="middle" size={9}>{lab}</Lab>
+          </g>
+        ); })}
+        <line x1={c} y1={c} x2={296} y2={c} className="vz-ref vz-dash" />
+        <circle cx={c} cy={c} r={f(RE_KM * S)} className="vz-earth" />
+        <path d={ellipse(a, e, S, c, c, rot)} className="vz-obj" />
+        <circle cx={f(c + a * (1 - e) * S * Math.cos(rot))} cy={f(c - a * (1 - e) * S * Math.sin(rot))} r="3.5" className="vz-dot" />
+      </svg>
+      <figcaption className="op__cap">
+        <span>{tr ? `${name}: yörünge kendi düzleminde, Dünya ile aynı ölçekte (Dünya odakta; nokta yerberi; sağa giden kesikli çizgi çıkış düğümü yönü). Ortalama elementlerden çizildi.` : `${name}: the orbit in its own plane, to scale with Earth (Earth at the focus; dot at perigee; the dashed line to the right points to the ascending node). Drawn from the mean elements.`}</span>
+        <span className="mv__scale">{tr ? 'Ölçek' : 'Scale'} <b>{num(lang, R, 0)} km</b></span>
+      </figcaption>
+    </figure>
+  );
+}

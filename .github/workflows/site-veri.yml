@@ -1,6 +1,6 @@
 # lookstar19 verisinin haftalık yenilenmesi: asteroitler için JPL SBDB (yörünge ve 1σ belirsizlikler), CAD (yakın geçişler), Sentry (çarpma
-# riski); uydular için CelesTrak GP (LS19'un "data" dalındaki kopyası) ve GCAT (J. McDowell, CC BY 4.0); roketler (ölçüler, kademeler,
-# fırlatma kaydı) için GCAT.
+# riski); uydular için CelesTrak GP (LS19'un "data" dalındaki kopyası) ve GCAT (J. McDowell, CC BY 4.0); tüm uydular kataloğu için etkin
+# kümenin GCAT özeti (site/data/satcat.json; yörüngeleri site GP kopyasından canlı okur); roketler (ölçüler, kademeler, fırlatma kaydı) için GCAT.
 # Betikler (site/scripts/asteroitler.mjs, uydular.mjs, roketler.mjs) her kaydı doğrular ve önceki dosyayla karşılaştırır; tutarsız ya da kuşkulu bir değişiklikte dosyaya
 # dokunmaz ve iş başarısız olur (GitHub depo sahibine e-posta gönderir). Yalnız alınma tarihinden fazlası değiştiyse inceleme için PR açar:
 # doğrudan main'e yazmaz. GITHUB_TOKEN'la açılan PR'da diğer iş akışları (denetim) koşmaz: site testi ve derleme burada koşar.
@@ -35,7 +35,7 @@ jobs:
           cache-dependency-path: site/package-lock.json
       - name: Asteroitler (JPL) — al, doğrula, karşılaştır
         run: node site/scripts/asteroitler.mjs --rapor "$RUNNER_TEMP/rapor_ast.md"
-      - name: Uydular (CelesTrak GP + GCAT) — al, doğrula, karşılaştır
+      - name: Uydular ve tüm uydular kataloğunun GCAT özeti (CelesTrak GP + GCAT) — al, doğrula, karşılaştır
         run: |
           node site/scripts/uydular.mjs --rapor "$RUNNER_TEMP/rapor_sat.md"
       - name: Roketler (GCAT) — al, doğrula
@@ -49,7 +49,7 @@ jobs:
         id: degisim
         run: |
           degisti=0
-          for f in asteroids satellites rockets sites; do
+          for f in asteroids satellites rockets sites satcat; do
             git show "HEAD:site/data/$f.json" > "$RUNNER_TEMP/eski_$f.json" 2>/dev/null || echo '{}' > "$RUNNER_TEMP/eski_$f.json"
             node -e "const f=(p)=>{const d=JSON.parse(require('fs').readFileSync(p,'utf8'));delete d.retrieved;if(d.gp)delete d.gp.copied;return JSON.stringify(d)};process.exit(f(process.argv[1])===f(process.argv[2])?0:1)" "$RUNNER_TEMP/eski_$f.json" "site/data/$f.json" || degisti=1
           done
@@ -73,7 +73,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -q -b "$dal"
-          git add site/data/asteroids.json site/data/satellites.json site/data/rockets.json site/data/sites.json
+          git add site/data/asteroids.json site/data/satellites.json site/data/rockets.json site/data/sites.json site/data/satcat.json
           git commit -q -m "lookstar19 verisi: haftalık yenileme ($tarih)"
           git push -q origin "$dal"
           { echo "Haftalık veri yenilemesi (\`.github/workflows/site-veri.yml\`). Veri doğrulandı; site testi ve derlemesi bu işte geçti."; echo; cat "$RUNNER_TEMP/rapor.md"; } > "$RUNNER_TEMP/pr.md"

@@ -3,14 +3,18 @@
 //   CelesTrak GP (OMM JSON, "active" grubu) — LS19'un 2 saatte bir güncellenen kopyasından (depo "data" dalı; .github/workflows/celestrak-data.yml)
 //   GCAT, J. McDowell (planet4589.org, CC BY 4.0) — kütle, boyut, sahip, üretici, gövde; fırlatma tarihi, aracı ve yeri
 // Her kayıt doğrulanır (lib/sat.js checkSat) ve önceki dosyayla karşılaştırılır; tutarsızlıkta dosyaya dokunulmaz, betik hata verir.
+// Ayrıca tüm uydular kataloğu için GCAT özeti (site/data/satcat.json): etkin kümedeki her uydunun GCAT satırı ve başvurduğu fırlatma,
+// kurum ve yer satırları (lib/satcat.js buildCat, checkCat). Yörüngeler bu dosyada yok; site onları GP kopyasından canlı okur.
+// İki dosyadan biri doğrulamadan geçmezse ikisi de yazılmaz.
 // Kullanım (depo kökünden): node site/scripts/uydular.mjs [--rapor rapor.md]
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { modelFor, MODELS, srcOf } from '../../web/js/satcatalog.js';
 import { mapGp, mapGcat, parseTsv, indexBy, checkSat, compareSats } from '../lib/sat.js';
+import { indexSatcat, buildCat, catJson, checkCat } from '../lib/satcat.js';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'), OUT = path.join(ROOT, 'site/data/satellites.json');
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'), OUT = path.join(ROOT, 'site/data/satellites.json'), CAT_OUT = path.join(ROOT, 'site/data/satcat.json');
 const UA = { 'User-Agent': 'lookstar19/0.2 (non-commercial space library; +https://github.com/yazicmert/LS19)' };
 const RAPOR = process.argv.includes('--rapor') ? process.argv[process.argv.indexOf('--rapor') + 1] : null;
 const DATA = 'https://raw.githubusercontent.com/yazicmert/LS19/data', GCAT = 'https://planet4589.org/space/gcat/tsv';
@@ -41,13 +45,15 @@ async function get(url, as = 'json') {
   }
 }
 
-const [gp, meta, satcatTxt, launchTxt, orgsTxt, sitesTxt, psatTxt] = await Promise.all([
+const [gp, meta, satcatTxt, launchTxt, orgsTxt, sitesTxt, psatTxt, sat100kTxt, psat100kTxt] = await Promise.all([
   get(`${DATA}/gp_active.json`), get(`${DATA}/meta.json`),
   get(`${GCAT}/cat/satcat.tsv`, 'text'), get(`${GCAT}/launch/launch.tsv`, 'text'), get(`${GCAT}/tables/orgs.tsv`, 'text'), get(`${GCAT}/tables/sites.tsv`, 'text'), get(`${GCAT}/cat/psatcat.tsv`, 'text'),
+  get(`${GCAT}/cat/satcat100k.tsv`, 'text'), get(`${GCAT}/cat/psatcat100k.tsv`, 'text'),          // 100 000 ve üstü NORAD numaraları ayrı dosyada
 ]);
 if (!Array.isArray(gp) || gp.length < 5000) throw new Error(`GP verisi beklenmeyen: ${Array.isArray(gp) ? gp.length : typeof gp} kayıt`);
 const gcatUpdated = (/# Updated (\d{4} \w{3} +\d{1,2})/.exec(satcatTxt) || [])[1] || null;
-const satcat = indexBy(parseTsv(satcatTxt), 'Satcat'), psat = indexBy(parseTsv(psatTxt), 'JCAT');
+const satRows = parseTsv(satcatTxt), psatRows = [...parseTsv(psatTxt), ...parseTsv(psat100kTxt)];
+const satcat = indexBy(satRows, 'Satcat'), psat = indexBy(psatRows, 'JCAT');
 const tables = { launches: indexBy(parseTsv(launchTxt), 'Launch_Tag'), orgs: indexBy(parseTsv(orgsTxt), 'Code'), sites: indexBy(parseTsv(sitesTxt), 'Site') };
 if (satcat.size < 50000 || tables.launches.size < 5000) throw new Error('GCAT tabloları eksik');
 
@@ -80,9 +86,16 @@ const errors = objects.flatMap((s) => checkSat(s, retrieved));
 if (objects.length < 30) errors.push(`yalnız ${objects.length} uydu eşleşti`);
 const prev = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, 'utf8')) : null;
 const { notes, stop } = compareSats(prev, next);
-if (errors.length || stop.length) { console.error(`veri yazılmadı:\n${[...errors, ...stop].map((x) => `  - ${x}`).join('\n')}`); process.exit(1); }
+// tüm uydular kataloğu: GCAT özeti (etkin kümenin tamamı; 100k üstü numaralar dahil)
+const cat = buildCat(gp, { satcat: indexSatcat([...satRows, ...parseTsv(sat100kTxt)]), psat, ...tables }, { retrieved, gcat: next.gcat, gp: { source: next.gp.source } });
+const prevCat = fs.existsSync(CAT_OUT) ? JSON.parse(fs.readFileSync(CAT_OUT, 'utf8')) : null;
+const catErr = checkCat(cat, prevCat).map((x) => `katalog: ${x}`);
+if (!objects.every((o) => cat.sats.some((r) => r[0] === o.norad))) catErr.push('katalog: modelli uydulardan biri özette yok');
+if (errors.length || stop.length || catErr.length) { console.error(`veri yazılmadı:\n${[...errors, ...stop, ...catErr].map((x) => `  - ${x}`).join('\n')}`); process.exit(1); }
 fs.writeFileSync(OUT, JSON.stringify(next, null, 1) + '\n');
+fs.writeFileSync(CAT_OUT, catJson(cat));
 const byReg = objects.reduce((c, o) => ((c[o.derived.regime] = (c[o.derived.regime] || 0) + 1), c), {});
-const summary = `${objects.length} uydu (${Object.entries(byReg).map(([k, v]) => `${k} ${v}`).join(', ')}); GP kopyası ${next.gp.copied}; GCAT ${gcatUpdated}.`;
-console.log(`${summary}\n→ ${path.relative(ROOT, OUT)}`);
+const catDiff = prevCat ? (() => { const P = new Set(prevCat.sats.map((r) => r[0])), N = new Set(cat.sats.map((r) => r[0])); return `; önceki özete göre +${[...N].filter((k) => !P.has(k)).length} / −${[...P].filter((k) => !N.has(k)).length}`; })() : '';
+const summary = `${objects.length} uydu (${Object.entries(byReg).map(([k, v]) => `${k} ${v}`).join(', ')}); GP kopyası ${next.gp.copied}; GCAT ${gcatUpdated}.\nKatalog: GP etkin kümesinde ${cat.gp.count} uydu, ${cat.gp.matched} tanesinin GCAT kaydı var${catDiff}.`;
+console.log(`${summary}\n→ ${path.relative(ROOT, OUT)}, ${path.relative(ROOT, CAT_OUT)}`);
 if (RAPOR) fs.writeFileSync(RAPOR, `${summary}\n\n${notes.length ? `### Uydu değişiklikleri\n\n${notes.map((x) => `- ${x}`).join('\n')}` : 'Uydu listesinde ve yüksekliklerde kayda değer değişiklik yok.'}\n`);

@@ -1,14 +1,17 @@
-// roket kaydı: ölçüler, kademeler, fırlatma kaydı; ölçülerden çizilmiş 3B görünüm; ilk uçuştan bugüne her fırlatma (yıllara göre)
+// roket kaydı: ölçüler, kademeler, fırlatma kaydı; ölçülerden çizilmiş 3B görünüm; ilk uçuştan bugüne her fırlatma (yıllara göre).
+// Kademe listesi etkileşimli (components/RocketExplorer.jsx): seçilen kademe 3B'de ayrılır, kesiti açılır; kademe bilgisi GCAT ve data/rocket-detail.json'dan
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import Masthead from '@/components/Masthead';
 import Footer from '@/components/Footer';
 import ElementBlock from '@/components/ElementBlock';
-import ModelViewer from '@/components/ModelViewer';
+import RocketExplorer from '@/components/RocketExplorer';
 import { pageMeta } from '@/lib/seo';
 import { LANGS } from '@/lib/config';
 import { t, num } from '@/lib/i18n';
 import { ROCKETS, RK_UPDATED, rocketBySlug } from '@/lib/rockets';
+import { stageList } from '@/lib/rocket-detail';
+import detail from '@/data/rocket-detail.json';
 import { ArrowOut } from '@/components/Icon';
 
 export const dynamicParams = false;
@@ -32,11 +35,7 @@ export default async function Rocket({ params }) {
     v.family ? ['', R.family, v.family, null] : null,
     v.variant ? ['', R.variant, v.variant, null] : null,
   ];
-  const stages = S.stages.filter((s) => s.no !== 'F').sort((a, b) => (a.no === '0' ? -1 : b.no === '0' ? 1 : +a.no - +b.no)).map((s) => [
-    s.no === '0' ? '0' : s.no, `${R.stage(s.no)}${s.mult > 1 ? ` × ${s.mult}` : ''}`,
-    s.length != null && s.diameter != null ? `${num(lang, s.length, 1)} × ${num(lang, s.diameter, 2)}` : '—', R.m, null,
-    [s.name, s.neng && s.engine ? R.engines(s.neng, s.engine) : s.engine].filter(Boolean).join(' · ') || null,
-  ]);
+  const stages = stageList(v, detail);
   const record = [
     ['', R.r.total, num(lang, St.total, 0), null],
     ['', R.r.success, num(lang, St.success, 0), null],
@@ -56,17 +55,8 @@ export default async function Rocket({ params }) {
           <h1 className="rec__title">{v.name}</h1>
           <p className="rec__des">{v.manufacturer.length ? <span>{v.manufacturer.join(' / ')}</span> : null}<span className="mono">{St.first?.slice(0, 4)} – {St.last?.slice(0, 4)}</span></p>
         </header>
-        <div className="rec__grid">
-          <div className="rec__data">
-            <ElementBlock caption={R.dims} rows={dims} />
-            <ElementBlock caption={R.stagesT} rows={stages} />
-            <ElementBlock caption={R.record} rows={record} />
-          </div>
-          <div className="rec__model">
-            <ModelViewer rocket={S} label={R.viewer(v.name)} loading={L.ast.viewerLoading} error={L.ast.viewerError} hint={L.ast.viewerHint} scaleLabel={R.d.length} scaleValue={`${num(lang, S.length, 1)} ${R.m}`} />
-            <p className="el__note">{R.modelNote}</p>
-          </div>
-        </div>
+        <RocketExplorer lang={lang} name={v.name} spec={S} stages={stages} updated={RK_UPDATED} retrieved={detail.retrieved}
+          dims={<ElementBlock caption={R.dims} rows={dims} />} record={<ElementBlock caption={R.record} rows={record} />} />
         <section className="rec__sec" aria-labelledby="hist-h">
           <div className="sec__head"><h2 id="hist-h" className="sec__title">{R.hist}</h2></div>
           <p className="ca__lead">{R.histLead(St.total, St.first ? St.first.slice(0, 4) : '')}</p>
@@ -94,7 +84,12 @@ export default async function Rocket({ params }) {
         </section>
         <section className="rec__src" aria-labelledby="src-h">
           <h2 id="src-h" className="rec__srch">{L.ast.sources}</h2>
-          <ul><li>{R.src(RK_UPDATED)} <a href="https://planet4589.org/space/gcat/" rel="noopener">GCAT<ArrowOut size={11} /></a></li></ul>
+          <ul>
+            <li>{R.src(RK_UPDATED)} <a href="https://planet4589.org/space/gcat/" rel="noopener">GCAT<ArrowOut size={11} /></a></li>
+            {[...new Map(stages.flatMap((x) => x.sources).map((x) => [x.id, x])).values()].map((x) => (
+              <li key={x.id}>{x.by}, {x.t}; {R.x.retrieved(detail.retrieved)} <a href={x.u} rel="noopener">{new URL(x.u).hostname.replace(/^www\./, '')}<ArrowOut size={11} /></a></li>
+            ))}
+          </ul>
         </section>
       </main>
       <Footer lang={lang} />

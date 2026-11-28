@@ -1,6 +1,7 @@
 // lookstar19 sitesi (site/) saf modülleri ve verisi — Node 20+: cd web && node test/test_site.js
 //  veri: 33 cisim, alanlar, modeller sürüm paketinde; arama ve kısa ad; iki dil sözlüğü aynı yapıda; biçimlendirme (TR ondalık virgül);
 //  fırlatma eşlemesi (resmî yayın önce, "Unknown" gösterilmez), sıradaki fırlatma, veri alınamazsa derlemede not / yayında eski sayfa;
+//  fırlatma ayrıntısı (kaydedilmiş LL2 örnekleri: açıklanmamış yük, kademe/iniş, mürettebat, yörünge biçimi, bağlantı süzgeci, GCAT, CelesTrak GP);
 //  sayfa dosyaları ve sabitler; yayın altyapısı (meta veri, güvenlik başlıkları, Vercel ayarı, 404, yazı tipi).
 import fs from 'node:fs';
 
@@ -60,6 +61,73 @@ const atBuild = await Promise.all([{ ok: false, status: 429 }, new Error('timeou
 check('fırlatma verisi derlemede alınamazsa: sayfa "veri yok" notuyla derlenir (429, zaman aşımı, beklenmeyen biçim)', atBuild.every((x) => x.ok === false && x.launches.length === 0) && atBuild[0].status === 'HTTP 429');
 const thrown = await Promise.all([{ ok: false, status: 429 }, new Error('timeout')].map((r) => Lc.getUpcoming({ fetchImpl: fakeFetch(r), atBuild: false }).then(() => null, (e) => e.message)));
 check('fırlatma verisi yayında alınamazsa hata fırlatılır (Next son başarılı sayfayı sunmaya devam eder)', thrown.every((m) => m && /Launch Library 2/.test(m)));
+
+// 4b) fırlatma ayrıntısı (/launches/[id]): kaydedilmiş Launch Library 2 örnekleri (fixtures/ll2_ayrinti.json: Long March 6C "Unknown Payload",
+// Cygnus NG-25, USSF-380, Starlink, SatNet "TBD?", Shenzhou 24, Yaogan 49) ve CelesTrak GP örneği (fixtures/gp_firlatma.json)
+const LD = await import('../../site/lib/launch-detail.js');
+const ld_FX = JSON.parse(rd('./fixtures/ll2_ayrinti.json')).results, ld_fx = (re) => ld_FX.find((r) => re.test(r.name));
+check('yük durumu: "Unknown Payload"/TBD açıklanmamış, "…TBD?" kısmen, ad bilinir',
+  ['Unknown Payload', 'TBD', 'unknown', '', null].every((n) => Lc.payloadState(n) === 'unknown') && Lc.payloadState('SatNet LEO Group TBD?') === 'partial' && Lc.payloadState('Starlink Group 15-21') === 'known');
+const ld_cz = LD.mapLaunchDetail(ld_fx(/Long March 6C/)), ld_czc = Lc.mapLaunch(ld_fx(/Long March 6C/));
+check('bilinmeyen yük: ad, tür, yörünge ("N/A"), açıklama ("Details TBD.") gösterilmez; kaynağın bildikleri (fırlatıcı, araç, rampa, pencere, güncellemeler) kalır',
+  ld_cz.payload === 'unknown' && ld_cz.mission.name === null && ld_cz.mission.type === null && ld_cz.mission.orbit === null && ld_cz.mission.description === null
+  && ld_czc.payload === 'unknown' && ld_czc.mission.name === null && ld_cz.provider.abbrev === 'CASC' && ld_cz.provider.countries[0].code === 'CN' && ld_cz.vehicle.name === 'Long March 6C'
+  && ld_cz.pad.tz === 'Asia/Shanghai' && Math.abs(ld_cz.pad.lat - 38.86) < 0.01 && ld_cz.windowStart < ld_cz.windowEnd && ld_cz.updates.length === 2 && ld_cz.updates[0].on > ld_cz.updates[1].on && /NOTAM/.test(ld_cz.updates[1].comment));
+check('bilinmeyen yük: iki dilde "açıklanmadı" metni, başlık araçtan; GCAT bağlamı (aynı aracın önceki uçuşları) yükü değil',
+  /Unknown Payload/.test(en.launch.unknownNote('Long March 6C', 'CASC')) && /tahmin edilmez/.test(tr.launch.unknownNote('Long March 6C', 'CASC')) && en.launch.unknownTitle('Long March 6C') === 'Long March 6C launch'
+  && /not the payload/.test(en.launch.gcatLead('X', 2)) && /yükü değildir/.test(tr.launch.gcatLead('X', 2)));
+const ld_cyg = LD.mapLaunchDetail(ld_fx(/Cygnus/));
+check('kademe: B1096 9. uçuş, yeniden kullanım, önceki uçuş ve arada geçen süre, RTLS iniş LZ-40 (0,3 km); programlar CRS ve ISS',
+  ld_cyg.stages.length === 1 && ld_cyg.stages[0].serial === 'B1096' && ld_cyg.stages[0].flight === 9 && ld_cyg.stages[0].reused === true && ld_cyg.stages[0].turnaround === 47 * 86400 + 5 * 3600 + 13 * 60 + 16
+  && ld_cyg.stages[0].landing.abbrev === 'RTLS' && ld_cyg.stages[0].landing.locAbbrev === 'LZ-40' && ld_cyg.stages[0].landing.downrange === 0.3 && ld_cyg.stages[0].landing.success === null
+  && ld_cyg.programs.map((p) => p.name).join() === 'Commercial Resupply Services,International Space Station' && ld_cyg.vehicle.leo === 22800 && ld_cyg.vehicle.reusable === true);
+check('geri sayım çizelgesi T−0’a göre sıralı (saniye); resmî yayın önce; Flight Club bağlantısı',
+  ld_cyg.timeline.length > 10 && ld_cyg.timeline.every((e, k, a) => !k || a[k - 1].t <= e.t) && ld_cyg.timeline[0].t === -2280 && ld_cyg.links.vid[0].official && /^https:\/\/flightclub\.io\//.test(ld_cyg.links.flightclub));
+const slc = Lc.mapLaunch(ld_fx(/Starlink/)), ld_us = LD.mapLaunchDetail(ld_fx(/USSF-380/));
+check('müşteri ve program: USSF (devlet, US), Starlink programı; atanmamış itici seri no gösterilmez; liste satırı açıklama taşımaz',
+  ld_us.mission.agencies[0].name === 'United States Space Force' && ld_us.mission.agencies[0].type === 'Government' && ld_us.mission.agencies[0].countries[0].code === 'US' && ld_us.stages[0].landing.abbrev === 'ASDS'
+  && slc.programs.includes('Starlink') && slc.booster.serial === null && slc.booster.landing === 'ASDS' && !('description' in Lc.listRow(slc).mission) && Lc.listRow(slc).streams.every((s) => !('title' in s)));
+const ld_sz = LD.mapLaunchDetail(ld_fx(/Shenzhou/));
+check('uzay aracı ve mürettebat (Shenzhou 24): komutan önce, insan taşımaya uygun, Tiangong; uluslararası tanıtıcı 2026-266',
+  ld_sz.spacecraft.length === 1 && ld_sz.spacecraft[0].name === 'Shenzhou 24' && ld_sz.spacecraft[0].humanRated === true && /Tiangong/.test(ld_sz.spacecraft[0].destination)
+  && ld_sz.spacecraft[0].crew.length === 3 && ld_sz.spacecraft[0].crew[0].role === 'Commander' && ld_sz.designator === '2026-266' && Lc.mapLaunch(ld_fx(/Shenzhou/)).crew === 3);
+check('yörünge biçimi: yer tutucular atılır, kısaltma ve Dünya dışı gök cismi; Türkçe adlar; tipik değerler iki dilde aynı sınıflar için',
+  LD.orbitOf({ name: 'Unknown', abbrev: 'N/A' }) === null && LD.orbitOf(null) === null && JSON.stringify(LD.orbitOf({ name: 'Low Earth Orbit', abbrev: 'LEO', celestial_body: { name: 'Earth' } })) === '{"name":"Low Earth Orbit","abbrev":"LEO","body":null}'
+  && LD.orbitOf({ name: 'Lunar Orbit', abbrev: 'LO', celestial_body: { name: 'Moon' } }).body === 'Moon' && I.ll2tr('tr', 'orbit', 'SSO', 'Sun-Synchronous Orbit') === 'Güneş eşzamanlı yörünge'
+  && I.ll2tr('en', 'orbit', 'SSO', 'Sun-Synchronous Orbit') === 'Sun-Synchronous Orbit' && I.ll2tr('tr', 'orbit', 'XYZ', 'Odd Orbit') === 'Odd Orbit'
+  && Object.keys(en.launch.orbitTypical).join() === Object.keys(tr.launch.orbitTypical).join() && LD.minInclination(-28.5) === 28.5 && LD.minInclination(null) === null);
+check('ISO süre: gün/saat/dakika/saniye, eksi işaret, kesirli saniye; tanınmayan null',
+  LD.isoDur('P47DT5H13M16S') === 4079596 && LD.isoDur('-PT38M') === -2280 && LD.isoDur('PT1H2M3.5S') === 3723.5 && LD.isoDur('P') === null && LD.isoDur('38 min') === null && LD.isoDur(null) === null);
+const ld_evil = { ...ld_fx(/Cygnus/), info_urls: [{ url: 'javascript:alert(1)' }, { url: 'data:text/html,x' }, { url: '//evil.example' }, { url: 'ftp://x.example/a' }, { url: 'https://user:pw@x.example/' }, { url: 'http://ok.example/p' }, { url: ' https://ok.example/q ' }],
+  vid_urls: [{ url: 'vbscript:x' }], flightclub_url: 'javascript:x', pad: { ...ld_fx(/Cygnus/).pad, map_url: 'data:x', wiki_url: 'https://en.wikipedia.org/wiki/X' }, mission: { ...ld_fx(/Cygnus/).mission, info_urls: [], vid_urls: [] } };
+const ld_ev = LD.mapLaunchDetail(ld_evil);
+check('bağlantılar: yalnız http(s) ve geçerli ana makine; javascript:, data:, "//", ftp:, kullanıcı adı taşıyan adres atılır',
+  ld_ev.links.info.map((x) => x.url).join() === 'http://ok.example/p,https://ok.example/q' && ld_ev.links.vid.length === 0 && ld_ev.links.flightclub === null && ld_ev.pad.map === null && ld_ev.pad.wiki === 'https://en.wikipedia.org/wiki/X'
+  && Lc.safeUrl('JAVASCRIPT:alert(1)') === null && Lc.safeUrl('https://') === null && Lc.safeUrl(42) === null);
+const ld_GP = JSON.parse(rd('./fixtures/gp_firlatma.json')), ld_yo = LD.launchObjects(ld_GP, '2026-267');
+check('fırlatmadan sonra (CelesTrak GP): Yaogan 49 01 → 3 nesne (A, B, C), yerberi/yeröte ~490–500 km, i ≈ 35°; yanlış tanıtıcıda boş',
+  ld_yo.length === 3 && ld_yo.map((o) => o.cospar).join() === '2026-267A,2026-267B,2026-267C' && ld_yo.every((o) => o.perigee > 480 && o.apogee < 510 && Math.abs(o.i - 35) < 0.1 && o.regime === 'LEO')
+  && LD.launchObjects(ld_GP, '2026-26').length === 0 && LD.launchObjects(ld_GP, 'x').length === 0 && LD.launchObjects(null, '2026-267').length === 0 && LD.launchObjects(ld_GP, '2026-266').length === 1);
+const ld_RKD = JSON.parse(rd('../../site/data/rockets.json')), ld_f9 = ld_RKD.vehicles.find((v) => v.name === 'Falcon 9'), ld_anyTag = ld_f9.launches[ld_f9.launches.length - 1].tag;
+check('GCAT: tanıtıcıyla kayıt bulunur; aracın son uçuşları yeniden eskiye, en çok n', LD.gcatByTag(ld_RKD.vehicles, ld_anyTag).vehicle === 'Falcon 9' && LD.gcatByTag(ld_RKD.vehicles, null) === null && LD.gcatByTag(ld_RKD.vehicles, '1900-001') === null
+  && LD.recentFlights(ld_f9, 6).length === 6 && LD.recentFlights(ld_f9, 6)[0].date >= LD.recentFlights(ld_f9, 6)[5].date && LD.recentFlights(null).length === 0);
+// tek fırlatma: listede varsa ek istek yok; yoksa tek kayıt ucu; geçersiz kimlik kaynağa sorulmaz
+const ld_calls = []; const ld_multi = (map) => async (url) => { ld_calls.push(url); const r = map(url); if (r instanceof Error) throw r; return r; };
+const ld_listRes = okRes({ results: ld_FX.slice(0, 5) });
+const ld_inList = await Lc.getLaunch(ld_FX[0].id, { fetchImpl: ld_multi(() => ld_listRes), atBuild: false });
+const ld_n1 = ld_calls.length; ld_calls.length = 0;
+const ld_single = await Lc.getLaunch(ld_FX[5].id, { fetchImpl: ld_multi((u) => (/upcoming/.test(u) ? ld_listRes : okRes(ld_FX[5]))), atBuild: false });
+const ld_singleUrl = ld_calls[1]; ld_calls.length = 0;
+const ld_gone = await Lc.getLaunch('00000000-0000-4000-8000-000000000000', { fetchImpl: ld_multi((u) => (/upcoming/.test(u) ? ld_listRes : { ok: false, status: 404 })), atBuild: false });
+const ld_limited = await Lc.getLaunch('00000000-0000-4000-8000-000000000000', { fetchImpl: ld_multi((u) => (/upcoming/.test(u) ? ld_listRes : { ok: false, status: 429 })), atBuild: false });
+ld_calls.length = 0; const ld_badId = await Lc.getLaunch('../../agencies', { fetchImpl: ld_multi(() => ld_listRes), atBuild: false });
+check('tek fırlatma: listede → liste isteği (1 istek); listede yok → tek kayıt ucu (mode=detailed); 404 → bulunamadı; 429 → hata (eski sayfa kalır); geçersiz kimlik → istek yok',
+  ld_inList.from === 'list' && ld_n1 === 1 && ld_single.from === 'single' && ld_singleUrl === Lc.LL2_LAUNCH(ld_FX[5].id) && /mode=detailed/.test(ld_singleUrl) && ld_gone.notFound === true && /429/.test(ld_limited.error)
+  && ld_badId.notFound === true && ld_calls.length === 0 && Lc.isLaunchId(ld_FX[0].id) && !Lc.isLaunchId(ld_FX[0].id.toUpperCase() + 'x'));
+check('ayrıntı sayfası: /launches/[id] ISR (30 dk), liste ve ana sayfadan bağlantı; dış bağlantılar noopener, görsel yok; GP kopyası sunucuda',
+  /revalidate = 1800/.test(rd('../../site/app/[lang]/launches/[id]/page.jsx')) && /getLaunch/.test(rd('../../site/app/[lang]/launches/[id]/page.jsx'))
+  && /launches\/\$\{l\.id\}/.test(rd('../../site/components/LaunchBrowser.jsx')) && /launches\/\$\{launch\.id\}/.test(rd('../../site/components/NextLaunch.jsx'))
+  && /rel="noopener noreferrer"/.test(rd('../../site/components/LaunchDetail.jsx')) && !/<img/.test(rd('../../site/components/LaunchDetail.jsx')) && /node:https/.test(rd('../../site/lib/launch-objects.js')));
 
 // 5) sayfa dosyaları ve sabitler
 const pages = ['app/[lang]/page.jsx', 'app/[lang]/asteroids/page.jsx', 'app/[lang]/asteroids/[id]/page.jsx', 'app/[lang]/launches/page.jsx', 'app/[lang]/sources/page.jsx'];
@@ -175,6 +243,56 @@ check('LL2 adı → GCAT: Long March → Chang Zheng, Kinetica → Lijian, Ceres
 const lf9 = R3.rocketLayout(f9.spec), lfh = R3.rocketLayout(fh.spec), lcz = R3.rocketLayout(cz6a.spec);
 check('3B yerleşim: kademeler istiflenir, toplam boy aracın boyuna yakın; Falcon Heavy 2, Chang Zheng 6A 4 yan itici; kaporta en üstte', Math.abs(lf9.height - f9.spec.length) / f9.spec.length < 0.1
   && lfh.boosters.length === 2 && lcz.boosters.length === 4 && lf9.segs[lf9.segs.length - 1].kind === 'fairing' && lf9.segs.filter((x) => x.kind === 'stage').length === 2 && lf9.boosters.length === 0);
+// 5f2) roket kademe ayrıntısı: GCAT motor/kademe kaydı, elle derlenmiş kaynaklı bilgi (data/rocket-detail.json), ayrık görünüm ve kesit yerleşimi
+const RDet = JSON.parse(rd('../../site/data/rocket-detail.json')), RDl = await import('../../site/lib/rocket-detail.js');
+const dig = (v) => v.spec.stages.filter((x) => /^[0-9]$/.test(x.no)), allSt = RV.flatMap(dig);
+check('GCAT kademe kaydı: kademelerin ≥ %95’inde motor ve itki maddesi; Isp 150–480 s, kuru kütle < dolu kütle, itki > 0', allSt.filter((s) => s.eng && (s.eng.fuel || s.eng.ox)).length >= allSt.length * 0.95
+  && allSt.every((s) => !s.eng || ((s.eng.isp == null || (s.eng.isp >= 150 && s.eng.isp <= 480)) && (s.eng.thrust == null || s.eng.thrust > 0) && s.eng.chambers >= 1))
+  && allSt.every((s) => s.dry == null || s.mass == null || s.dry < s.mass * 1000) && allSt.every((s) => !s.q || s.q.every((k) => typeof k === 'string')));
+const UNITS = { kN: [0.01, 100000], t: [0.01, 5000], kg: [1, 1e6], m: [0.1, 150], s: [1, 1000], tf: [1, 2000] };
+const entries = RDet.entries, srcOk = (ids) => Array.isArray(ids) && ids.length > 0 && ids.every((k) => RDet.sources[k]);
+check('elle derlenen ayrıntı: her kaynak https bağlantılı ve yayımcılı; alınma tarihi ISO; her kayıt var olan bir aracın var olan kademesine', /^\d{4}-\d\d-\d\d$/.test(RDet.retrieved)
+  && Object.values(RDet.sources).every((s) => /^https:\/\//.test(s.u) && s.by && s.t)
+  && entries.every((e) => e.slugs.length && e.slugs.every((sl) => { const v = RV.find((x) => x.slug === sl); return v && dig(v).some((s) => s.no === e.stage); })));
+check('elle derlenen ayrıntı: her bilgi, değer, parça, tank düzeni ve motor dizilişi kaynaklı; metinler iki dilde; birimler ve büyüklükler makul', entries.every((e) =>
+  (e.facts || []).every((f) => srcOk(f.src) && f.en && f.tr && f.part) && (e.values || []).every((v) => RDet.sources[v.src] && UNITS[v.u] && v.v >= UNITS[v.u][0] && v.v <= UNITS[v.u][1] && en.rk.x.rows[v.k === 'thrust' ? 'thrustAny' : v.k] && ['engine', 'stage', 'booster'].includes(v.per))
+  && (e.parts || []).every((p) => srcOk(p.src) && en.rk.x.part[p.id]) && (!e.tanks || (srcOk(e.tanks.src) && ['common', 'separate'].includes(e.tanks.kind))) && (!e.feed || srcOk(e.feed.src)) && (!e.rings || srcOk(e.rings.src))));
+let stOk = true, ringOk = true, inOk = true, cnt = { stages: 0, cur: 0 };
+for (const v of RV) {
+  const S = RDl.stageList(v, RDet), L = R3.rocketLayout(v.spec);
+  if (S.length !== dig(v).length || S.some((s, k) => s.neng !== (dig(v).find((x) => x.no === s.no).neng || 1))) stOk = false;
+  for (const s of S) {
+    cnt.stages++; if (s.curated) cnt.cur++;
+    if (s.ringsDocumented && s.rings.reduce((a, b) => a + b, 0) !== s.bells) ringOk = false;
+    const seg = R3.stageSeg(L, s.key), Rr = seg.d / 2, P = R3.stageInternals(s, seg);
+    const eng = P.find((p) => p.id === 'engines' || p.id === 'nozzle');
+    if (!eng || eng.items.length !== (s.cls === 'solid' ? 1 : s.rings.reduce((a, b) => a + b, 0))) inOk = false;
+    for (const p of P) {
+      if (!['tank', 'grain', 'pipe', 'dome'].includes(p.kind)) continue;
+      const y0 = p.kind === 'dome' ? p.y + Math.min(0, p.h) : p.kind === 'tank' ? p.y0 - Math.max(0, p.dBot) : p.y0;
+      const y1 = p.kind === 'dome' ? p.y + Math.max(0, p.h) : p.kind === 'tank' ? p.y1 + Math.max(0, p.dTop) : p.y1;
+      const r = p.kind === 'pipe' ? Math.hypot(p.x, p.z) + p.r : p.r;
+      if (y0 < -1e-6 || y1 > seg.l + 1e-6 || y1 < y0 || r > Rr * 1.0011) inOk = false;
+    }
+    for (const p of s.parts) if (!en.rk.x.part[p.id] || !tr.rk.x.part[p.id]) inOk = false;
+    for (const p of s.prop) if (!p.key || !en.rk.x.prop[p.key]) inOk = false;
+  }
+}
+check('kademe listesi: her araçta GCAT’taki kademe sayısı ve motor sayısı; kaynaklı motor dizilişi motor × oda sayısına eşit', stOk && ringOk, `${cnt.stages} kademe, ${cnt.cur} tanesinde elle derlenmiş ayrıntı`);
+check('kesit yerleşimi (119 araç): tanklar, yakıt bloğu, ortak perde ve besleme hattı kademe gövdesinin içinde; çan sayısı motor × oda; her parça ve itki maddesi iki dilde adlı', inOk);
+const sf9 = RDl.stageList(f9, RDet), P1 = R3.stageInternals(sf9[0], R3.stageSeg(lf9, '1')), byId = (id) => P1.find((p) => p.id === id);
+check('Falcon 9 1. kademe (SpaceX kullanıcı kılavuzu): ortak kubbe, LOX üstte, LOX hattı ortadan, 8 + 1 motor, 4 ızgara kanat, 4 bacak; 2. kademe tank düzeni kaynaksız (şematik)',
+  sf9[0].tanks.kind === 'common' && sf9[0].tanks.documented && byId('tank-ox').y0 > byId('tank-fuel').y0 && byId('feed').x === 0 && byId('bulkhead') && JSON.stringify(sf9[0].rings) === '[1,8]'
+  && byId('gridfins').n === 4 && byId('legs').n === 4 && sf9[1].tanks.kind === 'generic' && !sf9[1].tanks.documented && sf9[0].sources.some((s) => s.id === 'spx-fug'));
+const eo = R3.explodeOffsets(lcz, 1), e0 = R3.explodeOffsets(lcz, 0);
+check('ayrık görünüm: parçalar alttan üste artan aralıkla açılır, yan iticiler dışa kayar; kapalıyken kayma yok; parça sırası kademe sırası', eo.pieces.every((p, k, a) => !k || p.dy > a[k - 1].dy) && eo.booster > 0 && eo.height > lcz.height
+  && e0.pieces.every((p) => p.dy === 0) && e0.booster === 0 && R3.rocketPieces(lf9).map((p) => p.key).join() === '1,2,F');
+const st0 = RDl.readStageState('?stage=1&view=inside&part=engines', sf9);
+check('adres durumu: ?stage=1&view=inside&part=engines gidip gelir; olmayan kademe ya da parça yok sayılır', st0.sel === '1' && st0.view === 'inside' && st0.part === 'engines' && RDl.writeStageState(st0) === '?stage=1&view=inside&part=engines'
+  && RDl.readStageState('?stage=9', sf9).sel === null && RDl.readStageState('?stage=2&view=inside&part=legs', sf9).part === null && RDl.readStageState('?stage=2', sf9).view === 'apart' && RDl.writeStageState({ sel: null, view: 'whole' }) === '');
+const rkScript = rd('../../site/scripts/roketler.mjs'), rkPage = rd('../../site/app/[lang]/rockets/[slug]/page.jsx');
+check('roket verisi yenilemesi motor tablosunu da alır, elle derlenen dosyaya dokunmaz; sayfa kademe gezginini ve kaynaklarını kullanır', /tables\/engines\.tsv/.test(rkScript) && !/rocket-detail\.json'/.test(rkScript.replace(/^\/\/.*$/gm, ''))
+  && /<RocketExplorer/.test(rkPage) && /rocket-detail\.json/.test(rkPage) && !/rocket-detail/.test(rd('../../.github/workflows/site-veri.yml')));
 // 5g) tarihçe: keşif, gözlem, yakın geçiş, Sentry, görev olayları; tarih sırası; gelecek işaretli
 const Hs = await import('../../site/lib/history.js'), EVJ = JSON.parse(rd('../../site/data/events.json')), MJ = JSON.parse(rd('../../site/data/missions.json'));
 const hb = Hs.asteroidEvents(bennu, 'en', data.retrieved, MJ), hs = Hs.satEvents(SO.find((o) => o.id === '20580'), 'tr', SD.retrieved, EVJ);
@@ -221,6 +339,37 @@ check('katalog sayfaları: /asteroids/all, /sb/[des] (istekle, bir gün önbelle
   && !/export const dynamicParams = false/.test(rd('../../site/app/[lang]/layout.jsx')) && /liveFind/.test(rd('../../site/app/api/sb/route.js')) && fs.existsSync(new URL('../../site/app/[lang]/error.jsx', import.meta.url))
   && /AsteroidRecord/.test(rd('../../site/app/[lang]/asteroids/[id]/page.jsx')) && !!en.cat && !!tr.cat && /api\/sb\?find=/.test(rd('../../site/components/SiteSearch.jsx')));
 
+// 5i) tüm uydular kataloğu: GCAT özeti (haftalık), GP canlı; sorgu yalnız beyaz listeden; istekle üretilen sayfa
+const SC = await import('../../site/lib/satcat.js'), CATJ = JSON.parse(rd('../../site/data/satcat.json'));
+check('uydu kataloğu özeti: ≥ 10 000 uydu, doğrulamadan geçer (sütunlar, tekil NORAD, GCAT eşleşmesi ≥ %85, fırlatma tablosu); her modelli uydu özette; kaynak yazılı',
+  CATJ.sats.length >= 10000 && SC.checkCat(CATJ, CATJ).length === 0 && SO.every((o) => CATJ.sats.some((r) => r[0] === o.norad)) && /GCAT/.test(CATJ.gcat.source) && /CC BY 4\.0/.test(CATJ.gcat.source) && /active/.test(CATJ.gp.source),
+  SC.checkCat(CATJ, CATJ).join('; '));
+const shrunk = { ...CATJ, sats: CATJ.sats.slice(0, Math.floor(CATJ.sats.length * 0.6)), gp: { ...CATJ.gp } };
+check('uydu kataloğu özeti: toplu kayıp ve düşük eşleşme yazmayı durdurur; bozuk satır yakalanır', SC.checkCat(shrunk, CATJ).some((x) => /birden çıktı/.test(x)) && SC.checkCat(shrunk, null).some((x) => /eşleşmesi düşük/.test(x))
+  && SC.checkCat({ ...CATJ, sats: [...CATJ.sats.slice(1), [-1, 'x']] }, CATJ).some((x) => /geçersiz satır/.test(x)));
+const gpFake = (k, name, n, e, i, w = 0) => ({ OBJECT_NAME: name, OBJECT_ID: `20${String(k).slice(-2)}-001A`, NORAD_CAT_ID: k, EPOCH: '2026-11-26T00:00:00.000000', MEAN_MOTION: n, ECCENTRICITY: e, INCLINATION: i, RA_OF_ASC_NODE: 10, ARG_OF_PERICENTER: w, MEAN_ANOMALY: 0, BSTAR: 1e-4, MEAN_MOTION_DOT: 0, REV_AT_EPOCH: 1 });
+const ixGp = [{ ...gpFake(25544, 'ISS (ZARYA)', 15.5, 0.0004, 51.63), OBJECT_ID: '1998-067A' }, ...CATJ.sats.slice(0, 40).map((r, j) => gpFake(r[0], `TEST-${j}`, 14 + j / 20, 0.001, 53)), gpFake(41866, 'GOES 16', 1.0027, 0.0002, 0.05), gpFake(999990, 'NO GCAT', 15, 0.001, 97.5), gpFake(999991, 'BAD', 0, 1.5, 10)];
+const IX = SC.buildIndex(ixGp, CATJ, new Set(['25544']));
+const qq = (o) => SC.queryCat(IX, SC.parseCatQuery((k) => o[k]));
+check('uydu kataloğu dizini: GP + GCAT birleşir; geçersiz GP atlanır; GCAT kaydı olmayan uydu da listede; modelli uydu işaretli', IX.rows.length === ixGp.length - 1 && IX.rows.find((r) => r.k === 25544).M && !IX.rows.find((r) => r.k === 41866).M
+  && IX.rows.find((r) => r.k === 999990).s === null && IX.rows.find((r) => r.k === 41866).r === 'GEO' && IX.rows.find((r) => r.k === 25544).s === 'US');
+check('uydu kataloğu sorgusu: tam NORAD önce, ad/COSPAR harf duyarsız, bölge ve ülke süzgeci, sıralamada boş değer sonda, sayfa sınırlı', qq({ q: '25544' }).rows[0].k === 25544 && qq({ q: 'zarya' }).rows[0].k === 25544 && qq({ q: '1998-067a' }).rows[0].k === 25544
+  && qq({ regime: 'GEO' }).rows.every((r) => r.r === 'GEO') && qq({ state: 'US' }).rows.every((r) => r.s === 'US') && qq({ state: 'US' }).count >= 1 && qq({ sort: 'mass', dir: 'desc' }).rows.at(-1).m === null && qq({ sort: 'mass', dir: 'asc' }).rows.at(-1).m === null
+  && qq({ model: '1' }).count === 1 && qq({ page: '999' }).page === 0 && qq({}).total === IX.rows.length && !('key' in qq({}).rows[0]) && !('oc' in qq({}).rows[0]));
+const badS = SC.parseCatQuery((k) => ({ regime: 'LEO"]', sort: 'constructor', dir: 'up', page: '-3', state: '<script>', owner: 'a'.repeat(40), q: 'x'.repeat(90) })[k]);
+check('uydu kataloğu sorgusu: tanınmayan bölge, sıralama, yön, kod ve sayfa yok sayılır; metin 40 karakterle sınırlı', badS.regime === '' && badS.sort === 'norad' && badS.dir === 'asc' && badS.page === 0 && badS.state === '' && badS.owner === '' && badS.q.length === 40);
+const FC = SC.catFacets(IX), rec = SC.satRecordOf(IX, '25544');
+check('uydu kataloğu: süzgeç seçenekleri sayılı; site araması en çok 8; tek uydu kaydı zengin sayfalarla aynı biçimde (GCAT, tarihçe); etkin kümede olmayan null',
+  FC.regimes.some(([k, n]) => k === 'LEO' && n > 30) && FC.states.some(([c, l]) => c === 'US' && l === 'USA') && SC.findCat(IX, 'test').length === 8 && SC.findCat(IX, '').length === 0
+  && rec.gcat.name === 'Zarya' && rec.gcat.launch.vehicle && Sa.checkSat({ ...rec, model: { key: 'x' } }, '2026-11-27').length === 0 && SC.satRecordOf(IX, '1') === null && SC.satRecordOf(IX, 'abc') === null
+  && Hs.satEvents(rec, 'tr', '2026-11-27', EVJ).some((e) => e.kind === 'launch') && SC.progGroup('Starlink 2MO S1') === 'Starlink' && SC.progGroup('Flock-4') === 'Flock' && SC.progGroup(null) === null);
+const satPg = rd('../../site/app/[lang]/sat/[norad]/page.jsx'), scb = rd('../../site/components/SatCatalogBrowser.jsx');
+check('uydu kataloğu sayfaları: /satellites/all, /sat/[norad] (istekle, önbellekli; modelli uydu zengin sayfaya yönlenir; geçersiz numara 404), /api/sat; tarayıcıya özet gitmez',
+  /revalidate = \d+/.test(satPg) && /dynamicParams = true/.test(satPg) && /redirect\(`\/\$\{lang\}\/satellites\//.test(satPg) && /notFound\(\)/.test(satPg) && /SatOrbitPlan/.test(satPg) && /<Timeline/.test(satPg)
+  && fs.existsSync(new URL('../../site/app/[lang]/satellites/all/page.jsx', import.meta.url)) && /parseCatQuery/.test(rd('../../site/lib/satcat-live.js')) && /liveCatalog/.test(rd('../../site/app/api/sat/route.js'))
+  && /^'use client'/.test(scb) && /\/api\/sat\?/.test(scb) && !/satcat(-live|\.json)/.test(scb) && /api\/sat\?find=/.test(rd('../../site/components/SiteSearch.jsx')) && /satellites\/all/.test(rd('../../site/app/sitemap.js'))
+  && /satellites\/all/.test(rd('../../site/app/[lang]/satellites/page.jsx')) && /satcat\.json/.test(rd('../../.github/workflows/site-veri.yml')) && /buildCat/.test(rd('../../site/scripts/uydular.mjs')) && !!en.satcat && !!tr.satcat);
+
 // 6) yayın altyapısı: meta veri, güvenlik başlıkları, Vercel ayarı, 404, yazı tipi
 const S = await import('../../site/lib/seo.js');
 const alt = S.alternates('tr', '/asteroids/bennu'), pm = S.pageMeta('en', '/launches', { title: 'Upcoming launches', description: 'd' });
@@ -244,6 +393,46 @@ check('.vercelignore (iki projeye de uygulanır): klasör kuralları köke bağl
   && !vi.some((l) => /^(scripts|docs|app|lib|components|data|public)\/?$/.test(l) || /^site(\/|$)/.test(l)));
 check('sitemap ve robots: her sayfa her dilde; önizleme adreslerinde tarama kapalı', /OBJECTS\.map/.test(rd('../../site/app/sitemap.js')) && /LANGS\.map/.test(rd('../../site/app/sitemap.js')) && /VERCEL_ENV/.test(rd('../../site/app/robots.js')));
 
+// 7) renk teması (sistem / açık / koyu) ve işaret
+{
+  const C = rd('../../site/app/globals.css');
+  const block = (re) => { const m = C.match(re); if (!m) return null; const o = {}; for (const [, k, v] of m[1].matchAll(/--([\w-]+):\s*([^;]+);/g)) o[k] = v.trim(); o['color-scheme'] = (m[1].match(/color-scheme:\s*(\w+)/) || [])[1]; return o; };
+  const light = block(/:root, :root\[data-theme="light"\] \{([^}]*)\}/), darkMq = block(/@media \(prefers-color-scheme: dark\) \{\s*:root:not\(\[data-theme="light"\]\) \{([^}]*)\}/), dark = block(/:root\[data-theme="dark"\] \{([^}]*)\}/);
+  const COLORS = ['paper', 'paper-2', 'sheet', 'ink', 'ink-2', 'ink-3', 'hair', 'cobalt', 'cobalt-field', 'cobalt-deep', 'on-cobalt', 'on-cobalt-2', 'chev'];
+  check('tema: renk simgeleri açık (:root ve [data-theme=light]), sistem koyusu (prefers-color-scheme) ve seçilmiş koyu için tanımlı; iki koyu blok aynı; color-scheme her blokta',
+    !!light && !!darkMq && !!dark && COLORS.every((k) => light[k] && darkMq[k] && dark[k]) && COLORS.every((k) => darkMq[k] === dark[k])
+    && light['color-scheme'] === 'light' && darkMq['color-scheme'] === 'dark' && dark['color-scheme'] === 'dark' && COLORS.some((k) => k !== 'chev' && light[k] !== dark[k]));
+  const lin = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  const lum = (h) => { const n = parseInt(h.slice(1), 16); return 0.2126 * lin(n >> 16) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255); };
+  const cr = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  // metin çiftleri WCAG AA (4,5); odak halkası ve alan kenarı 3
+  const pairs = [['ink', 'paper'], ['ink', 'paper-2'], ['ink', 'sheet'], ['ink-2', 'paper'], ['ink-2', 'paper-2'], ['ink-2', 'sheet'], ['ink-3', 'sheet'], ['cobalt', 'paper'], ['cobalt', 'paper-2'], ['cobalt', 'sheet'],
+    ['on-cobalt', 'cobalt-field'], ['on-cobalt-2', 'cobalt-field'], ['on-cobalt', 'cobalt-deep'], ['paper', 'ink'], ['cobalt-field', 'on-cobalt']];
+  const low = [];
+  for (const [n, T] of [['açık', light], ['koyu', dark]]) for (const [a, b] of pairs) { const r = cr(T[a], T[b]); if (r < 4.5) low.push(`${n} ${a}/${b} ${r.toFixed(2)}`); }
+  check('tema: iki temada metin karşıtlığı WCAG AA (gövde, ikincil, yer tutucu, bağlantı, kobalt alanda yazı, bayrak)', low.length === 0, low.join(', '));
+  const noVars = C.replace(/--[\w-]+:\s*[^;]+;/g, '');
+  check('tema: globals.css kurallarında yazılı renk yok (her renk simgeden)', !/#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/.test(noVars));
+  const comp = fs.readdirSync(new URL('../../site/components/', import.meta.url)).filter((f) => f.endsWith('.jsx'));
+  const hard = comp.filter((f) => { const s = rd(`../../site/components/${f}`).replace(/rgb\(\$\{c\},\$\{c\},\$\{c\}\)/g, ''); return /#[0-9a-fA-F]{3,8}\b|rgba?\(|(fill|stroke|color)=["']#/.test(s); });
+  check('tema: bileşenlerde yazılı renk yok (yalnız yansıtma örneğinin fiziksel gri tonu ve 3B ışık/malzeme sayıları)', hard.length === 0, hard.join(', '));
+  const Th = await import('../../site/lib/theme.js');
+  const lay = rd('../../site/app/[lang]/layout.jsx'), gnf = rd('../../site/app/global-not-found.jsx');
+  check('tema: seçimi ilk boyamadan önce uygulayan satır içi betik iki kök düzende (<head>), hidrasyon uyarısı kapalı; betik yalnız light/dark yazar, depolama hatasını yutar',
+    [lay, gnf].every((s) => /<head><script dangerouslySetInnerHTML=\{\{ __html: THEME_SCRIPT \}\} \/><\/head>/.test(s) && /suppressHydrationWarning/.test(s) && /viewport = themeViewport/.test(s) && /ICONS/.test(s))
+    && /try\{/.test(Th.THEME_SCRIPT) && /catch/.test(Th.THEME_SCRIPT) && Th.THEME_SCRIPT.includes(Th.THEME_KEY) && /t==='light'\|\|t==='dark'/.test(Th.THEME_SCRIPT));
+  check('tema: tarayıcı çubuğu rengi iki tema için (kobalt alanla aynı), color-scheme iki tema',
+    Th.themeViewport.themeColor.length === 2 && Th.themeViewport.themeColor[0].color === light['cobalt-field'] && Th.themeViewport.themeColor[1].color === dark['cobalt-field'] && Th.themeViewport.colorScheme === 'light dark');
+  const tg = rd('../../site/components/ThemeToggle.jsx'), mh = rd('../../site/components/Masthead.jsx');
+  check('tema seçici: künye bandında üç düğme (sistem/açık/koyu), aria-pressed, iki dilde etiket; seçili hücre data-theme\'den çizilir',
+    /<ThemeToggle lang=\{lang\} \/>/.test(mh) && Th.THEMES.join() === 'system,light,dark' && /aria-pressed/.test(tg) && /role="group"/.test(tg) && Th.THEMES.every((v) => en.theme[v] && tr.theme[v]) && !!en.theme.label && !!tr.theme.label
+    && /:root:not\(\[data-theme\]\) \.thm__b\[data-v="system"\]/.test(C));
+  const pub = (f) => fs.existsSync(new URL(`../../site/public/${f}`, import.meta.url));
+  check('işaret: teleskop ve yıldız künyede, altlıkta ve 404\'te; favicon SVG (koyu sekmede derin alan), 32 px PNG ve 180 px apple-touch-icon',
+    ['Masthead', 'Footer', 'NotFoundBody'].every((c) => /<Mark \/>lookstar19/.test(rd(`../../site/components/${c}.jsx`))) && /prefers-color-scheme:dark/.test(rd('../../site/public/icon.svg'))
+    && ['icon.svg', 'icon-32.png', 'apple-touch-icon.png'].every(pub) && Th.ICONS.apple[0].url === '/apple-touch-icon.png');
+}
+
 if (fail) { console.log(`\n${fail} hata`); process.exit(1); }
 // 5i) fırlatma üsleri (data/sites.json, GCAT) ve konumun yakıt bedeli (lib/launchsite.js)
 const LSD = JSON.parse(rd('../../site/data/sites.json')), LS = await import('../../site/lib/launchsite.js');
@@ -265,4 +454,8 @@ check('eğim dağılımı: Plesetsk\'ten başarılı fırlatmaların hiçbiri en
 check('üs sayfaları: dizin, kayıt, küre, hesaplayıcı; site haritası ve arama; iki dilde metin; haftalık iş akışı üsleri de yeniler', fs.existsSync(new URL('../../site/app/[lang]/launches/sites/[slug]/page.jsx', import.meta.url))
   && /SiteGlobe/.test(rd('../../site/app/[lang]/launches/sites/page.jsx')) && /LaunchCalc/.test(rd('../../site/app/[lang]/launches/sites/page.jsx')) && /launches\/sites/.test(rd('../../site/app/sitemap.js'))
   && /SITES/.test(rd('../../site/app/search.json/route.js')) && en.ls.why.length === tr.ls.why.length && /usler\.mjs/.test(rd('../../.github/workflows/site-veri.yml')) && fs.existsSync(new URL('../../site/public/geo/coast-110m.json', import.meta.url)));
+{ // birleştirmelerde kapanmamış blok, sonraki kuralları sessizce bir medya sorgusunun içine alır
+  let dep = 0, neg = false; for (const ch of rd('../../site/app/globals.css').replace(/\/\*[\s\S]*?\*\//g, '')) { if (ch === '{') dep++; else if (ch === '}') { dep--; if (dep < 0) neg = true; } }
+  check('globals.css: süslü parantezler dengeli (kapanmamış blok yok)', dep === 0 && !neg);
+}
 console.log('\nTüm lookstar19 denetimleri geçti');
