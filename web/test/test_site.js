@@ -454,4 +454,8 @@ check('eğim dağılımı: Plesetsk\'ten başarılı fırlatmaların hiçbiri en
 check('üs sayfaları: dizin, kayıt, küre, hesaplayıcı; site haritası ve arama; iki dilde metin; haftalık iş akışı üsleri de yeniler', fs.existsSync(new URL('../../site/app/[lang]/launches/sites/[slug]/page.jsx', import.meta.url))
   && /SiteGlobe/.test(rd('../../site/app/[lang]/launches/sites/page.jsx')) && /LaunchCalc/.test(rd('../../site/app/[lang]/launches/sites/page.jsx')) && /launches\/sites/.test(rd('../../site/app/sitemap.js'))
   && /SITES/.test(rd('../../site/app/search.json/route.js')) && en.ls.why.length === tr.ls.why.length && /usler\.mjs/.test(rd('../../.github/workflows/site-veri.yml')) && fs.existsSync(new URL('../../site/public/geo/coast-110m.json', import.meta.url)));
+{ // birleştirmelerde kapanmamış blok, sonraki kuralları sessizce bir medya sorgusunun içine alır
+  let dep = 0, neg = false; for (const ch of rd('../../site/app/globals.css').replace(/\/\*[\s\S]*?\*\//g, '')) { if (ch === '{') dep++; else if (ch === '}') { dep--; if (dep < 0) neg = true; } }
+  check('globals.css: süslü parantezler dengeli (kapanmamış blok yok)', dep === 0 && !neg);
+}
 console.log('\nTüm lookstar19 denetimleri geçti');

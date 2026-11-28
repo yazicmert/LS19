@@ -658,6 +658,7 @@ a.flag--cobalt:hover { background: var(--cobalt-field); color: var(--on-cobalt);
 }
 @media (prefers-reduced-motion: reduce) {
   .rkx__btn, .rkx__tb { transition: none; }
+}
 /* işaret (yıldıza bakan teleskop, components/Mark.jsx): adın önünde, tabanı yazı çizgisinde, boyu küçük harflerin üst ucu kadar */
 .mark { display: inline-block; height: 0.74em; width: auto; aspect-ratio: 26.5 / 27.5; vertical-align: baseline; margin-right: 0.16em; flex: none; }
 .foot__mark .mark { margin-right: 0.2em; }
