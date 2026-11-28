@@ -475,3 +475,44 @@ a.flag--cobalt:hover { background: var(--cobalt); color: var(--on-cobalt); }
 .pr__formula { margin: 4px 0 14px; padding: 10px 12px; background: var(--paper-2); font-size: 15px; overflow-wrap: anywhere; }
 .pr__links { display: flex; flex-wrap: wrap; gap: 18px; margin: 0; }
 .pr__des { margin-left: 10px; font-size: 13px; color: var(--ink-2); font-weight: 400; }
+
+/* fırlatma ayrıntısı (/launches/[id]) ve zenginleşen liste satırı */
+.lch__go, .nl__go { color: inherit; text-decoration: none; }
+.lch__go:hover { color: var(--cobalt); text-decoration: underline; text-decoration-thickness: 2px; }
+.nl__go:hover { text-decoration: underline; text-decoration-thickness: 2px; }
+.lch__name .flag--sm, .lch__meta .flag--sm { vertical-align: 2px; }
+.lch__tags { display: flex; flex-wrap: wrap; gap: 4px 0; align-items: baseline; }
+.lch__tags .flag--sm:first-child { margin-left: 0; }
+.lcd__title { font-size: clamp(40px, 7vw, 96px); }
+.lcd__notice { margin: 18px 0 0; padding: 12px 14px; border: 2px solid var(--ink); background: var(--paper); max-width: 80ch; }
+.lcd__notice + .lcd__notice { margin-top: 8px; }
+.lcd__desc { margin: 10px 0 26px; max-width: 70ch; font-size: 16px; }
+.lcd__src { margin: 8px 0 0; }
+.lcd__block .btn { margin-top: 4px; }
+.lcd__cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 0 clamp(24px, 4vw, 56px); padding-top: 18px; align-items: start; }
+.lcd__infer ul { list-style: none; margin: 0; padding: 0; }
+.lcd__infer li { padding: 8px 0; border-bottom: 1px solid var(--hair); font-size: 15px; overflow-wrap: anywhere; }
+.lcd__inferlead { margin: 0 0 4px; color: var(--ink-2); font-size: 14px; }
+.lcd__iflag { margin: 0 8px 0 0; }
+.lcd__isrc { color: var(--ink-2); font-size: 13px; white-space: nowrap; }
+.lcd__sub { margin-top: 26px; }
+.lcd__h3 { margin: 0 0 4px; font-weight: 750; font-variation-settings: 'wdth' 80; font-size: 20px; line-height: 1.15; padding-bottom: 6px; border-bottom: 2px solid var(--ink); }
+.lcd__more { margin: 10px 0 0; font-size: 15px; color: var(--ink-2); }
+.lcd__more summary { cursor: pointer; font-weight: 650; color: var(--ink); }
+.lcd__more summary:focus-visible { outline: 2px solid var(--cobalt); outline-offset: 2px; }
+.lcd__more p { margin: 6px 0 0; max-width: 72ch; }
+.lcd__alinks { margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 15px; }
+.lcd__muted { color: var(--ink-2); }
+.lcd__notes { margin: 8px 0 0; padding-left: 18px; color: var(--ink-2); font-size: 14px; max-width: 80ch; }
+.lcd__craft + .lcd__craft { margin-top: 26px; }
+.lcd__craft .tbl { margin-top: 14px; }
+.lcd__cap { caption-side: top; text-align: left; font-weight: 700; font-variation-settings: 'wdth' 90; font-size: 15px; padding-bottom: 4px; }
+.tbl td.lcd__wrap { white-space: normal; min-width: 240px; color: var(--ink-2); }
+.lcd__tl { margin-top: 4px; }
+.lcd__srcl { font-size: 13px; }
+.lcd__linkcols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 18px clamp(24px, 4vw, 40px); padding-top: 18px; }
+.lcd__links { list-style: none; margin: 0; padding: 0; font-size: 15px; }
+.lcd__links li { padding: 7px 0; border-bottom: 1px solid var(--hair); overflow-wrap: anywhere; }
+.lcd__links .lnk { display: inline; }
+.lcd .ms__name { overflow-wrap: anywhere; }
+.lcd .ms__tags .flag { white-space: normal; }

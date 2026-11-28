@@ -232,6 +232,11 @@ Square corners throughout (0px). Borders are 2px ink for controls, fields, the l
 ### Launch Block (signature)
 - A cobalt field with a 2px ink border: heading on a white hairline, a large mono countdown (T− in on-cobalt-2), the mission name, a key/value list, the paper button, and a link to all launches.
 
+### Launch record
+- Each upcoming launch has its own record (`/launches/[id]`) set like an object record: display title (the mission, or "<vehicle> launch" when the payload is not public), status and orbit flags, then element blocks (mission, window, status) beside a launch block for this launch.
+- Sections under 3px rules: who is behind it (agency rows in the mission-list grid, with role, type and country flags), target orbit, vehicle with boosters and landings, spacecraft and crew, launch site, programmes, the vehicle's earlier flights (GCAT), objects in orbit after launch (CelesTrak), the source's updates on the timeline, the countdown timeline and links.
+- An unannounced payload is said plainly in a 2px ink panel under the title; inferences sit in their own list, each with an ink-bordered "inferred" flag and its source. Nothing guesses the payload. List rows link to the record and carry type, orbit, customer, booster and landing on extra meta lines.
+
 ## Do's and Don'ts
 
 ### Do:

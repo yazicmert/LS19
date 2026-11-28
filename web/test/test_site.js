@@ -1,6 +1,7 @@
 // lookstar19 sitesi (site/) saf modülleri ve verisi — Node 20+: cd web && node test/test_site.js
 //  veri: 33 cisim, alanlar, modeller sürüm paketinde; arama ve kısa ad; iki dil sözlüğü aynı yapıda; biçimlendirme (TR ondalık virgül);
 //  fırlatma eşlemesi (resmî yayın önce, "Unknown" gösterilmez), sıradaki fırlatma, veri alınamazsa derlemede not / yayında eski sayfa;
+//  fırlatma ayrıntısı (kaydedilmiş LL2 örnekleri: açıklanmamış yük, kademe/iniş, mürettebat, yörünge biçimi, bağlantı süzgeci, GCAT, CelesTrak GP);
 //  sayfa dosyaları ve sabitler; yayın altyapısı (meta veri, güvenlik başlıkları, Vercel ayarı, 404, yazı tipi).
 import fs from 'node:fs';
 
@@ -60,6 +61,73 @@ const atBuild = await Promise.all([{ ok: false, status: 429 }, new Error('timeou
 check('fırlatma verisi derlemede alınamazsa: sayfa "veri yok" notuyla derlenir (429, zaman aşımı, beklenmeyen biçim)', atBuild.every((x) => x.ok === false && x.launches.length === 0) && atBuild[0].status === 'HTTP 429');
 const thrown = await Promise.all([{ ok: false, status: 429 }, new Error('timeout')].map((r) => Lc.getUpcoming({ fetchImpl: fakeFetch(r), atBuild: false }).then(() => null, (e) => e.message)));
 check('fırlatma verisi yayında alınamazsa hata fırlatılır (Next son başarılı sayfayı sunmaya devam eder)', thrown.every((m) => m && /Launch Library 2/.test(m)));
+
+// 4b) fırlatma ayrıntısı (/launches/[id]): kaydedilmiş Launch Library 2 örnekleri (fixtures/ll2_ayrinti.json: Long March 6C "Unknown Payload",
+// Cygnus NG-25, USSF-380, Starlink, SatNet "TBD?", Shenzhou 24, Yaogan 49) ve CelesTrak GP örneği (fixtures/gp_firlatma.json)
+const LD = await import('../../site/lib/launch-detail.js');
+const ld_FX = JSON.parse(rd('./fixtures/ll2_ayrinti.json')).results, ld_fx = (re) => ld_FX.find((r) => re.test(r.name));
+check('yük durumu: "Unknown Payload"/TBD açıklanmamış, "…TBD?" kısmen, ad bilinir',
+  ['Unknown Payload', 'TBD', 'unknown', '', null].every((n) => Lc.payloadState(n) === 'unknown') && Lc.payloadState('SatNet LEO Group TBD?') === 'partial' && Lc.payloadState('Starlink Group 15-21') === 'known');
+const ld_cz = LD.mapLaunchDetail(ld_fx(/Long March 6C/)), ld_czc = Lc.mapLaunch(ld_fx(/Long March 6C/));
+check('bilinmeyen yük: ad, tür, yörünge ("N/A"), açıklama ("Details TBD.") gösterilmez; kaynağın bildikleri (fırlatıcı, araç, rampa, pencere, güncellemeler) kalır',
+  ld_cz.payload === 'unknown' && ld_cz.mission.name === null && ld_cz.mission.type === null && ld_cz.mission.orbit === null && ld_cz.mission.description === null
+  && ld_czc.payload === 'unknown' && ld_czc.mission.name === null && ld_cz.provider.abbrev === 'CASC' && ld_cz.provider.countries[0].code === 'CN' && ld_cz.vehicle.name === 'Long March 6C'
+  && ld_cz.pad.tz === 'Asia/Shanghai' && Math.abs(ld_cz.pad.lat - 38.86) < 0.01 && ld_cz.windowStart < ld_cz.windowEnd && ld_cz.updates.length === 2 && ld_cz.updates[0].on > ld_cz.updates[1].on && /NOTAM/.test(ld_cz.updates[1].comment));
+check('bilinmeyen yük: iki dilde "açıklanmadı" metni, başlık araçtan; GCAT bağlamı (aynı aracın önceki uçuşları) yükü değil',
+  /Unknown Payload/.test(en.launch.unknownNote('Long March 6C', 'CASC')) && /tahmin edilmez/.test(tr.launch.unknownNote('Long March 6C', 'CASC')) && en.launch.unknownTitle('Long March 6C') === 'Long March 6C launch'
+  && /not the payload/.test(en.launch.gcatLead('X', 2)) && /yükü değildir/.test(tr.launch.gcatLead('X', 2)));
+const ld_cyg = LD.mapLaunchDetail(ld_fx(/Cygnus/));
+check('kademe: B1096 9. uçuş, yeniden kullanım, önceki uçuş ve arada geçen süre, RTLS iniş LZ-40 (0,3 km); programlar CRS ve ISS',
+  ld_cyg.stages.length === 1 && ld_cyg.stages[0].serial === 'B1096' && ld_cyg.stages[0].flight === 9 && ld_cyg.stages[0].reused === true && ld_cyg.stages[0].turnaround === 47 * 86400 + 5 * 3600 + 13 * 60 + 16
+  && ld_cyg.stages[0].landing.abbrev === 'RTLS' && ld_cyg.stages[0].landing.locAbbrev === 'LZ-40' && ld_cyg.stages[0].landing.downrange === 0.3 && ld_cyg.stages[0].landing.success === null
+  && ld_cyg.programs.map((p) => p.name).join() === 'Commercial Resupply Services,International Space Station' && ld_cyg.vehicle.leo === 22800 && ld_cyg.vehicle.reusable === true);
+check('geri sayım çizelgesi T−0’a göre sıralı (saniye); resmî yayın önce; Flight Club bağlantısı',
+  ld_cyg.timeline.length > 10 && ld_cyg.timeline.every((e, k, a) => !k || a[k - 1].t <= e.t) && ld_cyg.timeline[0].t === -2280 && ld_cyg.links.vid[0].official && /^https:\/\/flightclub\.io\//.test(ld_cyg.links.flightclub));
+const slc = Lc.mapLaunch(ld_fx(/Starlink/)), ld_us = LD.mapLaunchDetail(ld_fx(/USSF-380/));
+check('müşteri ve program: USSF (devlet, US), Starlink programı; atanmamış itici seri no gösterilmez; liste satırı açıklama taşımaz',
+  ld_us.mission.agencies[0].name === 'United States Space Force' && ld_us.mission.agencies[0].type === 'Government' && ld_us.mission.agencies[0].countries[0].code === 'US' && ld_us.stages[0].landing.abbrev === 'ASDS'
+  && slc.programs.includes('Starlink') && slc.booster.serial === null && slc.booster.landing === 'ASDS' && !('description' in Lc.listRow(slc).mission) && Lc.listRow(slc).streams.every((s) => !('title' in s)));
+const ld_sz = LD.mapLaunchDetail(ld_fx(/Shenzhou/));
+check('uzay aracı ve mürettebat (Shenzhou 24): komutan önce, insan taşımaya uygun, Tiangong; uluslararası tanıtıcı 2026-266',
+  ld_sz.spacecraft.length === 1 && ld_sz.spacecraft[0].name === 'Shenzhou 24' && ld_sz.spacecraft[0].humanRated === true && /Tiangong/.test(ld_sz.spacecraft[0].destination)
+  && ld_sz.spacecraft[0].crew.length === 3 && ld_sz.spacecraft[0].crew[0].role === 'Commander' && ld_sz.designator === '2026-266' && Lc.mapLaunch(ld_fx(/Shenzhou/)).crew === 3);
+check('yörünge biçimi: yer tutucular atılır, kısaltma ve Dünya dışı gök cismi; Türkçe adlar; tipik değerler iki dilde aynı sınıflar için',
+  LD.orbitOf({ name: 'Unknown', abbrev: 'N/A' }) === null && LD.orbitOf(null) === null && JSON.stringify(LD.orbitOf({ name: 'Low Earth Orbit', abbrev: 'LEO', celestial_body: { name: 'Earth' } })) === '{"name":"Low Earth Orbit","abbrev":"LEO","body":null}'
+  && LD.orbitOf({ name: 'Lunar Orbit', abbrev: 'LO', celestial_body: { name: 'Moon' } }).body === 'Moon' && I.ll2tr('tr', 'orbit', 'SSO', 'Sun-Synchronous Orbit') === 'Güneş eşzamanlı yörünge'
+  && I.ll2tr('en', 'orbit', 'SSO', 'Sun-Synchronous Orbit') === 'Sun-Synchronous Orbit' && I.ll2tr('tr', 'orbit', 'XYZ', 'Odd Orbit') === 'Odd Orbit'
+  && Object.keys(en.launch.orbitTypical).join() === Object.keys(tr.launch.orbitTypical).join() && LD.minInclination(-28.5) === 28.5 && LD.minInclination(null) === null);
+check('ISO süre: gün/saat/dakika/saniye, eksi işaret, kesirli saniye; tanınmayan null',
+  LD.isoDur('P47DT5H13M16S') === 4079596 && LD.isoDur('-PT38M') === -2280 && LD.isoDur('PT1H2M3.5S') === 3723.5 && LD.isoDur('P') === null && LD.isoDur('38 min') === null && LD.isoDur(null) === null);
+const ld_evil = { ...ld_fx(/Cygnus/), info_urls: [{ url: 'javascript:alert(1)' }, { url: 'data:text/html,x' }, { url: '//evil.example' }, { url: 'ftp://x.example/a' }, { url: 'https://user:pw@x.example/' }, { url: 'http://ok.example/p' }, { url: ' https://ok.example/q ' }],
+  vid_urls: [{ url: 'vbscript:x' }], flightclub_url: 'javascript:x', pad: { ...ld_fx(/Cygnus/).pad, map_url: 'data:x', wiki_url: 'https://en.wikipedia.org/wiki/X' }, mission: { ...ld_fx(/Cygnus/).mission, info_urls: [], vid_urls: [] } };
+const ld_ev = LD.mapLaunchDetail(ld_evil);
+check('bağlantılar: yalnız http(s) ve geçerli ana makine; javascript:, data:, "//", ftp:, kullanıcı adı taşıyan adres atılır',
+  ld_ev.links.info.map((x) => x.url).join() === 'http://ok.example/p,https://ok.example/q' && ld_ev.links.vid.length === 0 && ld_ev.links.flightclub === null && ld_ev.pad.map === null && ld_ev.pad.wiki === 'https://en.wikipedia.org/wiki/X'
+  && Lc.safeUrl('JAVASCRIPT:alert(1)') === null && Lc.safeUrl('https://') === null && Lc.safeUrl(42) === null);
+const ld_GP = JSON.parse(rd('./fixtures/gp_firlatma.json')), ld_yo = LD.launchObjects(ld_GP, '2026-267');
+check('fırlatmadan sonra (CelesTrak GP): Yaogan 49 01 → 3 nesne (A, B, C), yerberi/yeröte ~490–500 km, i ≈ 35°; yanlış tanıtıcıda boş',
+  ld_yo.length === 3 && ld_yo.map((o) => o.cospar).join() === '2026-267A,2026-267B,2026-267C' && ld_yo.every((o) => o.perigee > 480 && o.apogee < 510 && Math.abs(o.i - 35) < 0.1 && o.regime === 'LEO')
+  && LD.launchObjects(ld_GP, '2026-26').length === 0 && LD.launchObjects(ld_GP, 'x').length === 0 && LD.launchObjects(null, '2026-267').length === 0 && LD.launchObjects(ld_GP, '2026-266').length === 1);
+const ld_RKD = JSON.parse(rd('../../site/data/rockets.json')), ld_f9 = ld_RKD.vehicles.find((v) => v.name === 'Falcon 9'), ld_anyTag = ld_f9.launches[ld_f9.launches.length - 1].tag;
+check('GCAT: tanıtıcıyla kayıt bulunur; aracın son uçuşları yeniden eskiye, en çok n', LD.gcatByTag(ld_RKD.vehicles, ld_anyTag).vehicle === 'Falcon 9' && LD.gcatByTag(ld_RKD.vehicles, null) === null && LD.gcatByTag(ld_RKD.vehicles, '1900-001') === null
+  && LD.recentFlights(ld_f9, 6).length === 6 && LD.recentFlights(ld_f9, 6)[0].date >= LD.recentFlights(ld_f9, 6)[5].date && LD.recentFlights(null).length === 0);
+// tek fırlatma: listede varsa ek istek yok; yoksa tek kayıt ucu; geçersiz kimlik kaynağa sorulmaz
+const ld_calls = []; const ld_multi = (map) => async (url) => { ld_calls.push(url); const r = map(url); if (r instanceof Error) throw r; return r; };
+const ld_listRes = okRes({ results: ld_FX.slice(0, 5) });
+const ld_inList = await Lc.getLaunch(ld_FX[0].id, { fetchImpl: ld_multi(() => ld_listRes), atBuild: false });
+const ld_n1 = ld_calls.length; ld_calls.length = 0;
+const ld_single = await Lc.getLaunch(ld_FX[5].id, { fetchImpl: ld_multi((u) => (/upcoming/.test(u) ? ld_listRes : okRes(ld_FX[5]))), atBuild: false });
+const ld_singleUrl = ld_calls[1]; ld_calls.length = 0;
+const ld_gone = await Lc.getLaunch('00000000-0000-4000-8000-000000000000', { fetchImpl: ld_multi((u) => (/upcoming/.test(u) ? ld_listRes : { ok: false, status: 404 })), atBuild: false });
+const ld_limited = await Lc.getLaunch('00000000-0000-4000-8000-000000000000', { fetchImpl: ld_multi((u) => (/upcoming/.test(u) ? ld_listRes : { ok: false, status: 429 })), atBuild: false });
+ld_calls.length = 0; const ld_badId = await Lc.getLaunch('../../agencies', { fetchImpl: ld_multi(() => ld_listRes), atBuild: false });
+check('tek fırlatma: listede → liste isteği (1 istek); listede yok → tek kayıt ucu (mode=detailed); 404 → bulunamadı; 429 → hata (eski sayfa kalır); geçersiz kimlik → istek yok',
+  ld_inList.from === 'list' && ld_n1 === 1 && ld_single.from === 'single' && ld_singleUrl === Lc.LL2_LAUNCH(ld_FX[5].id) && /mode=detailed/.test(ld_singleUrl) && ld_gone.notFound === true && /429/.test(ld_limited.error)
+  && ld_badId.notFound === true && ld_calls.length === 0 && Lc.isLaunchId(ld_FX[0].id) && !Lc.isLaunchId(ld_FX[0].id.toUpperCase() + 'x'));
+check('ayrıntı sayfası: /launches/[id] ISR (30 dk), liste ve ana sayfadan bağlantı; dış bağlantılar noopener, görsel yok; GP kopyası sunucuda',
+  /revalidate = 1800/.test(rd('../../site/app/[lang]/launches/[id]/page.jsx')) && /getLaunch/.test(rd('../../site/app/[lang]/launches/[id]/page.jsx'))
+  && /launches\/\$\{l\.id\}/.test(rd('../../site/components/LaunchBrowser.jsx')) && /launches\/\$\{launch\.id\}/.test(rd('../../site/components/NextLaunch.jsx'))
+  && /rel="noopener noreferrer"/.test(rd('../../site/components/LaunchDetail.jsx')) && !/<img/.test(rd('../../site/components/LaunchDetail.jsx')) && /node:https/.test(rd('../../site/lib/launch-objects.js')));
 
 // 5) sayfa dosyaları ve sabitler
 const pages = ['app/[lang]/page.jsx', 'app/[lang]/asteroids/page.jsx', 'app/[lang]/asteroids/[id]/page.jsx', 'app/[lang]/launches/page.jsx', 'app/[lang]/sources/page.jsx'];
